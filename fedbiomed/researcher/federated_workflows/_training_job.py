@@ -60,8 +60,6 @@ class TrainingJob(Job):
             nodes,
             keep_files_dir
         )
-        self._model_file = None  # path to local file containing model code
-        self._model_params_file = ""  # path to local file containing current version of aggregated params
         self._aggregator_args = None
 
     @property

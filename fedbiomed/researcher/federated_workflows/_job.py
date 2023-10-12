@@ -67,6 +67,8 @@ class Job:
         self._researcher_id = environ['RESEARCHER_ID']
         self._repository_args = {}
         self._nodes = nodes
+        self._model_file = None  # path to local file containing model code
+        self._model_params_file = ""  # path to local file containing current version of aggregated params
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir

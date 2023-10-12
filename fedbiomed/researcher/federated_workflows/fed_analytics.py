@@ -10,13 +10,11 @@ on the datasets belonging to the federation of Fed-BioMed nodes in an experiment
 
 from functools import reduce
 from typing import Any, Dict, List, Tuple, TypeVar, Union
-from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.responses import Responses
-from fedbiomed.researcher._federated_workflow import FederatedWorkflow, Type_TrainingPlan
 from fedbiomed.researcher.secagg import SecureAggregation
+from fedbiomed.researcher.federated_workflows._federated_workflow import FederatedWorkflow, Type_TrainingPlan
+from fedbiomed.researcher.federated_workflows._analytics_job import AnalyticsJob
 
 QueryResult = Any  # generic type indicating the result from an analytics query
 NodeId = str
@@ -173,38 +171,21 @@ class FederatedAnalytics(FederatedWorkflow):
             - the aggregated result
             - a dictionary of {node_id: node-specific results}
         """
-        # serialize query arguments
-        serialized_query_kwargs = Serializer.dumps(query_kwargs).hex()
-        # set participating nodes
-        self.job().nodes = self.job().data.node_ids()
         # setup secagg
         secagg_arguments = self.secagg_setup()
-        # prepare query request
-        msg = {
-            'researcher_id': environ["ID"],
-            'job_id': self.job().id,
-            'command': 'analytics_query',
-            'query_type': query_type,
-            'query_kwargs': serialized_query_kwargs,
-            'training_plan_url': self.job()._repository_args['training_plan_url'],
-            'training_plan_class': self.job()._repository_args['training_plan_class'],
-            'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
-            'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
-            'secagg_random': secagg_arguments.get('secagg_random'),
-            'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
-        }
-        # send query request to nodes
-        for cli in self.job().nodes:
-            msg['dataset_id'] = self.job().data.data()[cli]['dataset_id']
-            self.job().requests.send_message(msg, cli)
-        # collect query results from nodes
-        self._analytics_responses_history.append(Responses(list()))
-        while self.job().waiting_for_nodes(self._analytics_responses_history[-1]):
-            query_results = self.job().requests.get_responses(look_for_commands=['analytics_query', 'error'],
-                                                              only_successful=False)
-            for result in query_results.data():
-                result['results'] = Serializer.loads(bytes.fromhex(result['results']))
-                self._analytics_responses_history[-1].append(result)
+        # create AnalyticsJob
+        job = AnalyticsJob(
+            reqs=self._reqs,
+            nodes=self._nodes,
+            keep_files_dir=self.experimentation_path()
+        )
+        replies = job.submit_analytics_query(
+            query_type=query_type,
+            query_kwargs=query_kwargs,
+            data=self._fds,
+            secagg_arguments=secagg_arguments
+        )
+        self._analytics_responses_history.append(replies)
         # parse results
         results = [x['results'] for x in self._analytics_responses_history[-1]]
         # prepare data manager (only static methods from the dataset can be used)
