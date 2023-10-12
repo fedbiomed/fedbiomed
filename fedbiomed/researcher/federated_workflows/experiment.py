@@ -180,7 +180,6 @@ class Experiment(FederatedWorkflow):
     def reset_model_parameters(self):
         self._raise_for_missing_job_prerequities()
         job = TrainingJob(reqs=self._reqs,
-                          nodes={},  # TODO remove nodes
                           keep_files_dir=self.experimentation_path())
         self._training_plan = job.get_initialized_workflow_instance(self._training_plan_path,
                                                                     self._training_plan_class,

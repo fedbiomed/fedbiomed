@@ -35,7 +35,7 @@ class TrainingJob(Job):
 
     def __init__(self,
                  reqs: Requests = None,
-                 nodes: dict = None,
+                 nodes: Optional[dict] = None,
                  keep_files_dir: str = None):
 
         """ Constructor of the class

@@ -12,7 +12,7 @@ import sys
 import shutil
 import tempfile
 import uuid
-from typing import Any, Callable, Dict, List, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import validators
 
@@ -43,7 +43,7 @@ class Job:
 
     def __init__(self,
                  reqs: Requests = None,
-                 nodes: dict = None,
+                 nodes: Optional[dict] = None,
                  keep_files_dir: str = None):
 
         """ Constructor of the class
