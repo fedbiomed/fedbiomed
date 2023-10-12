@@ -17,7 +17,7 @@ from typing import Any, Callable, Dict, List, Type, Union
 import validators
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedDataQualityCheckError
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
@@ -129,15 +129,20 @@ class Job:
 
         return training_plan
 
+    def _save_workflow_code_to_file(self,
+                                    training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow'
+                                    ) -> None:
+        try:
+            training_plan.save_code(self._training_plan_file)
+        except Exception as e:
+            msg = f"Cannot save the training plan to a local tmp dir : {str(e)}"
+            raise FedbiomedTrainingPlanError(msg)
+
     def upload_workflow_code(self,
                              training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow'
                              ) -> str:
 
-        try:
-            training_plan.save_code(self._training_plan_file)
-        except Exception as e:
-            logger.error("Cannot save the training plan to a local tmp dir : " + str(e))
-            return
+        self._save_workflow_code_to_file(training_plan)
 
         # upload my_model_xxx.py on repository server (contains model definition)
         repo_response = self.repo.upload_file(self._training_plan_file)
