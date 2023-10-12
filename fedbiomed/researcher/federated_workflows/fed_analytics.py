@@ -173,12 +173,17 @@ class FederatedAnalytics(FederatedWorkflow):
         """
         # setup secagg
         secagg_arguments = self.secagg_setup()
+        # sample all nodes
+        self.set_nodes(self._fds.node_ids())
         # create AnalyticsJob
         job = AnalyticsJob(
             reqs=self._reqs,
             nodes=self._nodes,
             keep_files_dir=self.experimentation_path()
         )
+        skeleton_training_plan = job.create_skeleton_workflow_instance_from_path(self._training_plan_path,
+                                                                                 self._training_plan_class)
+        job.upload_workflow_code(skeleton_training_plan)
         replies = job.submit_analytics_query(
             query_type=query_type,
             query_kwargs=query_kwargs,
