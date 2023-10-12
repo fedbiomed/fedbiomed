@@ -408,11 +408,33 @@ class TrainingJob(Job):
                 aux_var.setdefault(module, {})[node_id] = params
         return aux_var
 
-    def update_parameters(
-        self,
-        training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
-        params: Optional[Dict[str, Any]] = None,
-        filename: Optional[str] = None,
+    def set_params_from_file(self,
+                             training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
+                             filename: str,
+                             ):
+        params = Serializer.load(filename)["model_weights"]
+        training_plan.set_model_params(params)
+
+    def save_params_to_file(self,
+                            training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
+                            params: Optional[Dict[str, Any]] = None,
+                            ) -> str:
+        if params is None:
+            params = training_plan.get_model_params()
+        # Case when uploading a new set of parameters: assign them.
+        else:
+            training_plan.set_model_params(params)
+        # At any rate, create a local dump file.
+        filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")
+        params_dump = {
+            "researcher_id": self._researcher_id,
+            "model_weights": params,
+        }
+        Serializer.dump(params_dump, filename)
+        return filename
+
+    def upload_parameters(self,
+                          filename: str,
     ) -> Tuple[str, str]:
         """Save and upload global model parameters, optionally after updating them.
 
@@ -453,27 +475,7 @@ class TrainingJob(Job):
         !!! warning "Warning":
             * The `params` and `filename` parameters are mutually-exclusive.
         """
-        if params and filename:
-            raise ValueError("'update_parameters' received both filename and params: only one may be used.")
-        # Case when uploading a pre-existing file: load the parameters.
-        if filename:
-            params = Serializer.load(filename)["model_weights"]
-            training_plan.set_model_params(params)
         # Case when exporting current parameters: create a local dump file.
-        else:
-            # Case when uploading the current parameters: gather them.
-            if params is None:
-                params = training_plan.get_model_params()
-            # Case when uploading a new set of parameters: assign them.
-            else:
-                training_plan.set_model_params(params)
-            # At any rate, create a local dump file.
-            filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")
-            params_dump = {
-                "researcher_id": self._researcher_id,
-                "model_weights": params,
-            }
-            Serializer.dump(params_dump, filename)
         # Upload the file and record its local and remote locations.
         self._model_params_file = filename
         repo_response = self.repo.upload_file(filename)
@@ -520,7 +522,6 @@ class TrainingJob(Job):
             saved_state: breakpoint content
         """
         super().load_state(saved_state)
-        self.update_parameters(filename=saved_state.get("model_params_path"))
 
     @staticmethod
     def _save_training_replies(training_replies: Dict[int, Responses]) -> List[List[Dict[str, Any]]]:

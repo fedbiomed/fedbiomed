@@ -847,7 +847,8 @@ class Experiment(FederatedWorkflow):
                           nodes=training_nodes,
                           keep_files_dir=self.experimentation_path())
         job.upload_workflow_code(self._training_plan)
-        job.update_parameters(self._training_plan)
+        filename = job.save_params_to_file(self._training_plan)
+        job.upload_parameters(filename)
         self._global_model = self._training_plan.get_model_params()
 
         self._aggregator.set_training_plan_type(self._training_plan.type())
@@ -914,14 +915,10 @@ class Experiment(FederatedWorkflow):
         aggregated_params = self._run_agg_optimizer(self._training_plan,
                                                     aggregated_params)
 
-        # Export aggregated parameters to a local file and upload it.
-        # Also assign the new values to the job's training plan's model.
-        self._global_model = aggregated_params  # update global model
-        aggregated_params_path, _ = job.update_parameters(self._training_plan, aggregated_params)
         self._training_plan.set_model_params(aggregated_params)
+        aggregated_params_path = job.save_params_to_file(self._training_plan)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
-
         self._aggregated_params[self._round_current] = {'params': aggregated_params,
                                                         'params_path': aggregated_params_path}
 
