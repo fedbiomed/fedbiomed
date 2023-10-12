@@ -1381,7 +1381,7 @@ class TestExperiment(ResearcherTestCase):
             self.test_exp.set_agg_optimizer(optimizer)
             agg_updates = self.test_exp._run_agg_optimizer(aggregates)
             for k, v in agg_updates.items():
-                self.assertTrue(np.isclose(agg_updates[k], aggregates[k]).all(), atol=1e-4)
+                self.assertTrue(np.isclose(agg_updates[k], aggregates[k], atol=1e-4).all(),)
 
     def test_experiment_30_agg_optimizer_updates_with_frozen_layers(self):
         """Test that the researcher-side optimize properly handles frozen weights."""
