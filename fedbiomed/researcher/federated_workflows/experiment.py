@@ -846,19 +846,9 @@ class Experiment(FederatedWorkflow):
         job = TrainingJob(reqs=self._reqs,
                           nodes=training_nodes,
                           keep_files_dir=self.experimentation_path())
-        self._training_plan = job.get_initialized_workflow_instance(self._training_plan_path,
-                                                                    self._training_plan_class,
-                                                                    self._training_args,
-                                                                    self._model_args)
         job.upload_workflow_code(self._training_plan)
-
-        try:
-            job.update_parameters(self._training_plan, self._global_model)
-        except RuntimeError as e:
-            msg = f"{ErrorNumbers.FB410.value}.\n " \
-                  f"Experiment global model is inconsistent with current model specifications: {repr(e)}. \n\n" \
-                  f"Try calling exp.reset_model_parameters() first."
-            raise FedbiomedExperimentError(msg)
+        job.update_parameters(self._training_plan)
+        self._global_model = self._training_plan.get_model_params()
 
         self._aggregator.set_training_plan_type(self._training_plan.type())
 
@@ -928,6 +918,7 @@ class Experiment(FederatedWorkflow):
         # Also assign the new values to the job's training plan's model.
         self._global_model = aggregated_params  # update global model
         aggregated_params_path, _ = job.update_parameters(self._training_plan, aggregated_params)
+        self._training_plan.set_model_params(aggregated_params)
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
 
