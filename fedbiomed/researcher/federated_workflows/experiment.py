@@ -175,16 +175,19 @@ class Experiment(FederatedWorkflow):
         self._monitor = Monitor()
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
+        self.reset_model_parameters()
 
+    def reset_model_parameters(self):
         self._raise_for_missing_job_prerequities()
         job = TrainingJob(reqs=self._reqs,
-                          nodes=nodes,
+                          nodes={},  # TODO remove nodes
                           keep_files_dir=self.experimentation_path())
         self._training_plan = job.get_initialized_workflow_instance(self._training_plan_path,
                                                                     self._training_plan_class,
                                                                     self._training_args,
                                                                     self._model_args)
         self._global_model = self._training_plan.after_training_params()
+
 
     # destructor
     @exp_exceptions
@@ -850,7 +853,14 @@ class Experiment(FederatedWorkflow):
                                                                     self._training_args,
                                                                     self._model_args)
         job.upload_workflow_code(self._training_plan)
-        job.update_parameters(self._training_plan, self._global_model)  # TODO catch errors if new training plan is no longer consistent with global_model, and provide public function to reinitialize
+
+        try:
+            job.update_parameters(self._training_plan, self._global_model)
+        except RuntimeError as e:  # TODO: this exception is not caught correctly
+            msg = f"{ErrorNumbers.FB410.value}. Experiment global model is inconsistent with current model " \
+                  f"specifications: {repr(e)}. \n" \
+                  f"Try calling exp.reset_model_parameters() first."
+            raise FedbiomedExperimentError(msg)
 
         self._aggregator.set_training_plan_type(self._training_plan.type())
 
