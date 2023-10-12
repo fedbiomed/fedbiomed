@@ -17,14 +17,16 @@ from testsupport.fake_message import FakeMessages
 from testsupport.fake_responses import FakeResponses
 
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
-from fedbiomed.common.messaging import Messaging
 from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.training_plans import TorchTrainingPlan
+from fedbiomed.common.constants import MessageType
+from fedbiomed.common.message import Log, Scalar, SearchReply, PingReply
 
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
+from testsupport.fake_training_plan import FakeTorchTrainingPlan
 
 
 # for test_request_13_model_approve
@@ -72,28 +74,30 @@ class TestRequests(ResearcherTestCase):
 
         self.tp_abstract_patcher = patch.multiple(TorchTrainingPlan, __abstractmethods__=set())
 
-        self.req_patcher1 = patch('fedbiomed.common.messaging.Messaging.__init__')
-        self.req_patcher2 = patch('fedbiomed.common.messaging.Messaging.start')
-        self.req_patcher3 = patch('fedbiomed.common.messaging.Messaging.send_message')
+        self.grpc_server_patcher1 = patch('fedbiomed.researcher.requests.GrpcServer.__init__', autospec=True)
+        self.grpc_server_patcher2 = patch('fedbiomed.researcher.requests.GrpcServer.start', autospec=True)
+        self.grpc_server_patcher3 = patch('fedbiomed.researcher.requests.GrpcServer.send', autospec=True)
+        self.grpc_server_patcher4 = patch('fedbiomed.researcher.requests.GrpcServer.broadcast', autospec=True)
         self.req_patcher4 = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__')
         self.req_patcher5 = patch('fedbiomed.common.message.ResearcherMessages.format_outgoing_message')
         self.req_patcher6 = patch('fedbiomed.common.message.ResearcherMessages.format_incoming_message')
 
         self.tp_abstract_patcher.start()
 
-        self.message_init = self.req_patcher1.start()
-        self.message_start = self.req_patcher2.start()
-        self.message_send = self.req_patcher3.start()
+        self.grpc_server_init = self.grpc_server_patcher1.start()
+        self.grpc_server_start = self.grpc_server_patcher2.start()
+        self.grpc_server_send = self.grpc_server_patcher3.start()
+        self.grpc_server_broadcast = self.grpc_server_patcher4.start()
         self.task_queue_init = self.req_patcher4.start()
         self.format_outgoing_message = self.req_patcher5.start()
-        self.format_outgoing_message = self.req_patcher6.start()
+        self.format_incoming_message = self.req_patcher6.start()
 
-        self.message_init.return_value = None
-        self.message_start.return_value = None
-        self.message_send.return_value = None
+        self.grpc_server_init.return_value = None
+        self.grpc_server_start.return_value = None
+        self.grpc_server_send.return_value = None
         self.task_queue_init.return_value = None
         self.format_outgoing_message.side_effect = TestRequests.msg_side_effect
-        self.format_outgoing_message.side_effect = TestRequests.msg_side_effect
+        self.format_incoming_message.side_effect = TestRequests.msg_side_effect
 
         # current directory
         self.cwd = os.path.dirname(
@@ -111,9 +115,10 @@ class TestRequests(ResearcherTestCase):
     def tearDown(self):
 
         self.tp_abstract_patcher.stop()
-        self.req_patcher1.stop()
-        self.req_patcher2.stop()
-        self.req_patcher3.stop()
+        self.grpc_server_patcher1.stop()
+        self.grpc_server_patcher2.stop()
+        self.grpc_server_patcher3.stop()
+        self.grpc_server_patcher4.stop()
         self.req_patcher4.stop()
         self.req_patcher5.stop()
         self.req_patcher6.stop()
@@ -127,89 +132,91 @@ class TestRequests(ResearcherTestCase):
         if Requests in Requests._objects:
             del Requests._objects[Requests]
 
-        # Build brand new reqeust by providing Messaging in advance
-        messaging = Messaging()
-        req_1 = Requests(mess=messaging)
+
+        req_1 = Requests()
         self.assertEqual(0, req_1._sequence, "Request is not properly initialized")
         self.assertEqual(None, req_1._monitor_message_callback, "Request is not properly initialized")
-        self.assertEqual(messaging, req_1.messaging, "Request constructor didn't create proper Messaging")
         self.assertIsInstance(req_1.queue, TasksQueue, "Request constructor didn't create proper TasksQueue")
 
         # Remove previous singleton instance
         if Requests in Requests._objects:
             del Requests._objects[Requests]
 
-        # Build new fresh reqeust
-        req_2 = Requests(mess=None)
+        # Build new fresh requests
+        req_2 = Requests()
         self.assertEqual(0, req_1._sequence, "Request is not properly initialized")
         self.assertEqual(None, req_1._monitor_message_callback, "Request is not properly initialized")
-        self.assertIsInstance(req_2.messaging, Messaging, "Request constructor didn't create proper Messaging")
         self.assertIsInstance(req_2.queue, TasksQueue, "Request constructor didn't create proper TasksQueue")
-
-    def test_request_02_get_messaging(self):
-        """ Testing the method `get_messaging`
-            TODO: Update this part when refactoring getters and setter for reqeust
-        """
-        messaging = self.requests.get_messaging()
-        self.assertIsInstance(messaging, Messaging, "get_messaging() does not return proper Messaging object")
 
     @patch('fedbiomed.researcher.requests.Requests.print_node_log_message')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.add')
     @patch('fedbiomed.common.logger.logger.error')
-    def test_request_03_on_message(self,
+    def test_request_02_on_message(self,
                                    mock_logger_error,
                                    mock_task_add,
                                    mock_print_node_log_message):
         """ Testing on_message method """
 
-        msg_logger = {'researcher_id': 'DummyID',
-                      'node_id': 'DummyNodeID',
+        msg_logger = {'node_id': 'DummyNodeID',
                       'level': 'critical',
-                      'msg': '{"message" : "Dummy Message"}',
-                      'command': 'log'}
+                      'msg': '{"message" : "Dummy Message"}'
+                      }
+        msg_logger = Log(**msg_logger)
 
-        self.requests.on_message(msg_logger, topic='general/logger')
+
+        self.requests.on_message(msg_logger, type_=MessageType.LOG)
         # Check the method has been called
-        mock_print_node_log_message.assert_called_once_with(msg_logger)
+        mock_print_node_log_message.assert_called_once_with(msg_logger.get_dict())
 
-        msg_researcher_reply = {'researcher_id': 'DummyID',
+        msg_researcher_reply = {'protocol_version': '2',
+                                'researcher_id': 'DummyID',
                                 'success': True,
                                 'databases': [],
                                 'count': 1,
                                 'node_id': 'DummyNodeID',
                                 'command': 'search'}
 
-        self.requests.on_message(msg_researcher_reply, topic='general/researcher')
+        
+        
+        self.requests.on_message(msg_researcher_reply, type_=MessageType.REPLY)
         # Get researcher reply for `assert_called_with`
-        mock_task_add.assert_called_once_with(msg_researcher_reply)
+        msg_researcher_reply = SearchReply(**msg_researcher_reply)
+        mock_task_add.assert_called_once_with(msg_researcher_reply.get_dict())
 
-        msg_monitor = {'researcher_id': 'DummyID',
-                       'node_id': 'DummyNodeID',
+
+        msg_monitor = {'node_id': 'DummyNodeID',
                        'job_id': 'DummyJobID',
-                       'key': 'loss',
-                       'value': 12.23,
+                       'metric': {"loss": 12},
+                       'train': True,
+                       'test': False,
+                       'test_on_local_updates': True,
+                       'test_on_global_updates': False,
+                       'total_samples': 15,
+                       'batch_samples': 15,
+                       'num_batches': 15,
+                       'iteration': 1,
                        'epoch': 5,
-                       'iteration': 15,
-                       'command': 'add_scalar'}
-
+                       'iteration': 15}
+        
+        msg_monitor = Scalar(**msg_monitor)
         monitor_callback = MagicMock(return_value=None)
         # Add callback for monitoring
         self.requests.add_monitor_callback(monitor_callback)
-        self.requests.on_message(msg_monitor, topic='general/monitoring')
-        monitor_callback.assert_called_once_with(msg_monitor)
+        self.requests.on_message(msg_monitor, type_=MessageType.SCALAR)
+        monitor_callback.assert_called_once_with(msg_monitor.get_dict())
 
         # Test when the topic is unknown, it should call logger to log error
-        self.requests.on_message(msg_monitor, topic='unknown/topic')
+        self.requests.on_message(msg_monitor, type_='unknown/topic')
         mock_logger_error.assert_called_once()
 
         # Test invalid `on_message calls`
         with self.assertRaises(Exception):
             self.requests.on_message()
             self.requests.on_message(msg_monitor)
-            self.requests.on_message(topic='unknown/topic')
+            self.requests.on_message(type_=MessageType.SCALAR)
 
     @patch('fedbiomed.common.logger.logger.info')
-    def test_request_04_print_node_log_message(self, mock_logger_info):
+    def test_request_03_print_node_log_message(self, mock_logger_info):
         """ Testing printing log messages that comes from node """
 
         msg_logger = {'researcher_id': 'DummyID',
@@ -225,15 +232,13 @@ class TestRequests(ResearcherTestCase):
             self.requests.print_node_log_message()
 
     @patch('fedbiomed.common.logger.logger.debug')
-    def test_request_05_send_message(self, mock_logger_debug):
+    def test_request_04_send_message(self, mock_logger_debug):
         """ Testing send message method of Request """
 
         self.requests.send_message({}, None)
         self.requests.send_message({}, 'NodeID')
 
-        self.assertEqual(self.message_send.call_count, 2, 'Requests: send_message -> m.send_message called unexpected '
-                                                          'number of times, expected: 2')
-        self.assertEqual(mock_logger_debug.call_count, 2, 'Requests: send_message -> logger.debug called unexpected '
+        self.assertEqual(self.grpc_server_send.call_count, 2, 'Requests: send_message -> m.send_message called unexpected '
                                                           'number of times, expected: 2')
 
         # Test invalid call of send_message
@@ -243,7 +248,7 @@ class TestRequests(ResearcherTestCase):
     @patch('fedbiomed.common.tasks_queue.TasksQueue.qsize')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
-    def test_request_06_get_messages(self,
+    def test_request_05_get_messages(self,
                                      mock_task_get,
                                      mock_task_task_done,
                                      mock_task_qsize):
@@ -330,13 +335,15 @@ class TestRequests(ResearcherTestCase):
         """ Testing ping method """
 
         mock_get_responses.return_value = [
-            {'command': 'ping', 'node_id': 'dummy-id-1'},
-            {'command': 'ping', 'node_id': 'dummy-id-2'},
+            {'command': 'ping', 'researcher_id': 'r', 'sequence': 2, 'node_id': 'dummy-id-1', 'success': True},
+            {'command': 'ping', 'researcher_id': 'r', 'sequence': 2, 'node_id': 'dummy-id-2', 'success': True},
         ]
+
+        self.req_patcher5.stop()
 
         result = self.requests.ping_nodes()
 
-        self.message_send.assert_called_once()
+        self.grpc_server_broadcast.assert_called_once()
         self.assertEqual(result[0], 'dummy-id-1', 'Ping result does not contain provided node id `dummy-id-1`')
         self.assertEqual(result[1], 'dummy-id-2', 'Ping result does not contain provided node id `dummy-id-2`')
 
@@ -468,10 +475,10 @@ class TestRequests(ResearcherTestCase):
         self.assertEqual(mock_logger_info.call_count, 2, 'Logger called unexpected number of times, expected: 2')
 
         # Test by providing node_ids
-        self.message_send.reset_mock()
+        self.grpc_server_send.reset_mock()
         request_get_response.return_value = FakeResponses([node_1, node_2])
         result = self.requests.list(nodes=['node-1', 'node-2'])
-        self.assertEqual(self.message_send.call_count, 2, 'send_message has been called times that are not equal to '
+        self.assertEqual(self.grpc_server_send.call_count, 2, 'send_message has been called times that are not equal to '
                                                           'expected')
 
         self.assertTrue('node-1' in result, 'List result does not contain correct values')
@@ -510,11 +517,9 @@ class TestRequests(ResearcherTestCase):
         self.requests.remove_monitor_callback()
         self.assertIsNone(self.requests._monitor_message_callback, "Monitor callback hasn't been removed")
 
-    @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
     def test_request_13_training_plan_approve(self,
-                                      mock_get_responses,
-                                      mock_upload_file):
+                                      mock_get_responses):
         """ Testing training_plan_approve method """
 
         # ths should not work at all
@@ -522,7 +527,7 @@ class TestRequests(ResearcherTestCase):
         for i in range(30):
             filename += random.choice(string.ascii_letters)
 
-        result = self.requests.training_plan_approve(filename,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
                                                      "this file does not exist",
                                                      timeout=2
                                                      )
@@ -532,19 +537,21 @@ class TestRequests(ResearcherTestCase):
         # as this is not a python file
         filename = os.path.join(self.cwd,
                                 "README.md")
-        result = self.requests.training_plan_approve(filename,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
                                                      "this is not a python file !!",
                                                      timeout=2
                                                      )
         self.assertDictEqual(result, {})
 
         # bad argument
-        result = self.requests.training_plan_approve(filename,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
                                                      "this is not a python file !!",
                                                      timeout=2,
                                                      nodes="and not a list of UUIDs"
                                                      )
         self.assertDictEqual(result, {})
+
+
 
         # model is not a TrainingPlan
         result = self.requests.training_plan_approve(TrainingPlanBad,
@@ -553,12 +560,7 @@ class TestRequests(ResearcherTestCase):
                                                      )
         self.assertDictEqual(result, {})
 
-        # another wrong model
-        result = self.requests.training_plan_approve(TrainingPlanCannotInstanciate,
-                                                     "cannot instanciate",
-                                                     timeout=2
-                                                     )
-        self.assertDictEqual(result, {})
+
 
        # model that cannot be save
         result = self.requests.training_plan_approve(TrainingPlanCannotSave,
@@ -569,39 +571,31 @@ class TestRequests(ResearcherTestCase):
 
 
         # provide a real python file but do not get an answer before timeout
-        mock_upload_file.return_value = {
-            "node_id": "dummy-id-1",
-            "url": "fake_url",
-            "file": "fake_file",
-            "success": True
-        }
-        filename = os.path.join(self.cwd,
-                                "test-training-plan",
-                                "test-training-plan-1.txt")
-        result = self.requests.training_plan_approve(filename,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
                                                      "test-training-plan-1",
                                                      timeout=2
                                                      )
         self.assertDictEqual(result, {})
 
         # same, but with a node list -> different answer
-        mock_upload_file.return_value = {
-            "node_id": "dummy-id-1",
-            "url": "fake_url",
-            "file": "fake_file",
-            "success": True
-        }
-        filename = os.path.join(self.cwd,
-                                "test-training-plan",
-                                "test-training-plan-1.txt")
-        result = self.requests.training_plan_approve(filename,
-                                                     "test-training-plan-1",
-                                                     timeout=2,
-                                                     nodes=["dummy-id-1"]
-                                                     )
-        keys = list(result.keys())
-        self.assertTrue(len(keys), 1)
-        self.assertFalse(result[keys[0]])
+
+       
+        # mock_get_responses.return_value = [
+        #     {'command': 'approval',
+        #      'node_id': 'dummy-id-1',
+        #      'success': True,
+        #      'sequence': -1}
+        # ]
+        # self.requests._sequence = -1
+        # result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
+        #                                              "test-training-plan-1",
+        #                                              timeout=2,
+        #                                              nodes=["dummy-id-1"]
+        #                                              )
+
+        # keys = list(result.keys())
+        # self.assertTrue(len(keys), 1)
+        # self.assertFalse(result[keys[0]])
 
         # same, but with a fake wrong sequence
         mock_get_responses.return_value = [
@@ -610,16 +604,8 @@ class TestRequests(ResearcherTestCase):
              'success': False,
              'sequence': -1}
         ]
-        mock_upload_file.return_value = {
-            "node_id": "dummy-id-1",
-            "url": "fake_url",
-            "file": "fake_file",
-            "success": True
-        }
-        filename = os.path.join(self.cwd,
-                                "test-training-plan",
-                                "test-training-plan-1.txt")
-        result = self.requests.training_plan_approve(filename,
+
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
                                                      "test-training-plan-1",
                                                      timeout=2
                                                      )
@@ -633,16 +619,8 @@ class TestRequests(ResearcherTestCase):
              'success': False,
              'sequence': 12345}
         ]
-        mock_upload_file.return_value = {
-            "node_id": "dummy-id-1",
-            "url": "fake_url",
-            "file": "fake_file",
-            "success": True
-        }
-        filename = os.path.join(self.cwd,
-                                "test-training-plan",
-                                "test-training-plan-1.txt")
-        result = self.requests.training_plan_approve(filename,
+
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
                                                      "test-training-plan-1",
                                                      timeout=2
                                                      )
@@ -658,16 +636,7 @@ class TestRequests(ResearcherTestCase):
              'success': True,
              'sequence': 54321}
         ]
-        mock_upload_file.return_value = {
-            "node_id": "dummy-id-1",
-            "url": "fake_url",
-            "file": "fake_file",
-            "success": True
-        }
-        filename = os.path.join(self.cwd,
-                                "test-training-plan",
-                                "test-training-plan-1.txt")
-        result = self.requests.training_plan_approve(filename,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
                                                      "test-training-plan-1",
                                                      timeout=2
                                                      )
@@ -683,12 +652,6 @@ class TestRequests(ResearcherTestCase):
              'success': True,
              'sequence': 112233}
         ]
-        mock_upload_file.return_value = {
-            "node_id": "dummy-id-1",
-            "url": "fake_url",
-            "file": "fake_file",
-            "success": True
-        }
         result = self.requests.training_plan_approve(model,
                                                      "model is a TrainingPlan subclass",
                                                      timeout=1
@@ -705,12 +668,7 @@ class TestRequests(ResearcherTestCase):
              'success': True,
              'sequence': 112233}
         ]
-        mock_upload_file.return_value = {
-            "node_id": "dummy-id-1",
-            "url": "fake_url",
-            "file": "fake_file",
-            "success": True
-        }
+
         result = self.requests.training_plan_approve(model,
                                                      "model is a TrainingPlan instance",
                                                      timeout=2

@@ -36,7 +36,7 @@ class Requests(metaclass=SingletonMeta):
     incoming message. Starts a message queue and reconfigures  message to be sent into a `Messaging` object.
     """
 
-    def __init__(self, mess: Any = None):
+    def __init__(self):
         """
         Constructor of the class
 
@@ -260,8 +260,7 @@ class Requests(metaclass=SingletonMeta):
         """
 
         # Broadcasts ping request
-        self.broadcast(
-            {
+        self.broadcast({
                 'researcher_id': environ["ID"],
                 'sequence': self._sequence,
                 'command': "ping"
@@ -450,6 +449,7 @@ class Requests(metaclass=SingletonMeta):
         result = {}
         for resp in self.get_responses(look_for_commands=['approval'],
                                        timeout=timeout):
+            
             if sequence != resp['sequence']:
                 logger.error("received an approval_reply with wrong sequence, ignoring it")
                 continue
