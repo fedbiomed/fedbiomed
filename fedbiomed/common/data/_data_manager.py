@@ -74,7 +74,7 @@ class DataManager(object):
         """
 
         # Training plan is type of TorcTrainingPlan
-        if tp_type == TrainingPlans.TorchTrainingPlan:
+        if tp_type == TrainingPlans.TorchTrainingPlan or tp_type == TrainingPlans.FederatedDataPlan:
             if self._target is None and isinstance(self._dataset, Dataset):
                 # Create Dataset for pytorch
                 self._data_manager_instance = TorchDataManager(dataset=self._dataset, **self._loader_arguments)
