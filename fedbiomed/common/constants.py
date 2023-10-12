@@ -127,6 +127,7 @@ class TrainingPlans(_BaseEnum):
 
     TorchTrainingPlan = 'TorchTrainingPlan'
     SkLearnTrainingPlan = 'SkLearnTrainingPlan'
+    FederatedDataPlan = 'FederatedDataPlan'
 
 
 class ProcessTypes(_BaseEnum):

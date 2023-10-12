@@ -3,7 +3,7 @@
 from abc import ABC
 from typing import List
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_method_spec, get_class_source
@@ -12,7 +12,10 @@ from fedbiomed.common.utils import get_method_spec, get_class_source
 class FederatedPlan(ABC):
     def __init__(self) -> None:
         """Construct the base training plan."""
-        self._dependencies: List[str] = list()
+        self._dependencies: List[str] = [
+            "from fedbiomed.common.training_plans import FederatedDataPlan",
+            "from fedbiomed.common.data import DataManager"
+        ]
 
     def init_dependencies(self) -> List[str]:
         """Default method where dependencies are returned
@@ -20,8 +23,6 @@ class FederatedPlan(ABC):
         Returns:
             Empty list as default
         """
-        return ["from fedbiomed.common.training_plans import FederatedDataPlan",
-                "from fedbiomed.common.data import DataManager"]
 
     def add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
@@ -91,3 +92,7 @@ class FederatedPlan(ABC):
             _msg = ErrorNumbers.FB605.value + f" : Can't open file {filepath} to write model content"
             logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg) from exc
+
+    def type(self) -> TrainingPlans:
+        """Getter for training plan type """
+        return self._type

@@ -6,7 +6,7 @@ from collections import OrderedDict
 from typing import Optional, TypeVar, TypedDict, Callable, Any, Union, Dict
 
 from fedbiomed.common import utils
-from fedbiomed.common.constants import ProcessTypes, ErrorNumbers
+from fedbiomed.common.constants import ProcessTypes, ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_plans._federated_plan import FederatedPlan
@@ -25,11 +25,13 @@ class PreProcessDict(TypedDict):
 class FederatedDataPlan(FederatedPlan, ABC):
     def __init__(self) -> None:
         super().__init__()
+        self._type = TrainingPlans.FederatedDataPlan
         self.dataset_path: Union[str, None] = None
         self.pre_processes: Dict[str, PreProcessDict] = OrderedDict()
         self.training_data_loader: Optional[TDataLoader] = None
         self.testing_data_loader: Optional[TDataLoader] = None
         self._loader_args: Dict[str, Any] = None
+        self.add_dependency(["from fedbiomed.common.training_plans import FederatedDataPlan"])
 
     def post_init(
             self,
