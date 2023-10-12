@@ -32,7 +32,7 @@ class NodeStateAgent:
         If used before the end of the first Round, each state_id is set to None
 
         Returns:
-            Mapping of <node_id, state_id>
+            Mapping of `<node_id, state_id>`
         """
         return self._collection_state_ids
 

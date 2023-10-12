@@ -675,7 +675,7 @@ class Round:
                 NodeStateFileName.OPTIMIZER  
             )
             Serializer.dump(optimizer_state, path=optim_path)
-            logger.debug(f"Saving optim state")
+            logger.debug("Saving optim state")
 
             optimizer_state_entry: Dict = {
                 'optimizer_type': str(optimizer.__class__),

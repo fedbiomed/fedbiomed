@@ -31,7 +31,10 @@ class NodeStateFileName(_BaseEnum):
 
 class NodeStateManager:
     """Node state saving facility: Handles saving and loading Node states from previous `Rounds`,
-    given a `state_id`.
+    given a `state_id`. `NodeStateManager` ensures that states are not reset from one `Round` to another.
+    Currently a state is composed of the Optimizer state - only for [`DeclearnOptimizer`][fedbiomed.common.optimizers.DeclearnOptimizer],
+    but it will be extended in the future with other components - such as model layers, validation dataset, ...
+
     Interfaces with database use to save and load Node State entries.
 
     Database Table that handles Node states is built with the following entries:
@@ -84,7 +87,7 @@ class NodeStateManager:
         return self._previous_state_id
 
     def get(self, job_id: str, state_id: str) -> Dict:
-        """Returns a state of a job.
+        """Returns a state of a `Node`.
 
         Args:
             job_id: the job for which a state is requested
