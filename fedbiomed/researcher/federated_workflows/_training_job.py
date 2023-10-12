@@ -74,27 +74,15 @@ class TrainingJob(Job):
                                           training_args: TrainingArgs,
                                           model_args: Optional[dict],
                                           ):
-        training_plan = self.create_skeleton_workflow_instance_from_path(training_plan_path,
-                                                                         training_plan_class)
-        self._save_workflow_code_to_file(training_plan)
-        return self.create_fully_parametrized_workflow_instance(training_plan,
-                                                                training_args,
-                                                                model_args)
-
-    def create_fully_parametrized_workflow_instance(self,
-                                                    training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
-                                                    training_args: TrainingArgs,
-                                                    model_args: Optional[dict]) \
-            -> 'fedbiomed.researcher.federated_workflows.FederatedWorkflow':
-        training_plan_name = training_plan.__class__.__name__
-        training_plan = training_plan.load_training_plan_from_file(
+        skeleton_training_plan = self.create_skeleton_workflow_instance_from_path(training_plan_path,
+                                                                                  training_plan_class)
+        self._save_workflow_code_to_file(skeleton_training_plan)
+        training_plan = skeleton_training_plan.load_training_plan_from_file(
             self._keep_files_dir,
             self._training_plan_module,
-            training_plan_name)
-
+            skeleton_training_plan.__class__.__name__)
         training_plan.post_init(model_args={} if model_args is None else model_args,
                                 training_args=training_args)
-
         return training_plan
 
     def upload_aggregator_args(self,
