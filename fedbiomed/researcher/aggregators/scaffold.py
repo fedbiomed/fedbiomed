@@ -427,6 +427,8 @@ class Scaffold(Aggregator):
         filename = os.path.join(breakpoint_path, f"global_state_{uuid.uuid4()}.mpk")
         Serializer.dump(self.global_state, filename)
         self._aggregator_args['global_state_filename'] = filename
+
+        self._aggregator_args["nodes"] = self._fds.node_ids()
         # adding aggregator parameters that will be sent to nodes afterwards
         return super().save_state(
             breakpoint_path, global_model=global_model, node_ids=self._fds.node_ids()
@@ -441,6 +443,5 @@ class Scaffold(Aggregator):
         global_state_filename = self._aggregator_args['global_state_filename']
         self.global_state = Serializer.load(global_state_filename)
 
-        for node_id in self._aggregator_args['aggregator_correction']:
-            arg_filename = self._aggregator_args['aggregator_correction'][node_id]
-            self.nodes_deltas[node_id] = Serializer.load(arg_filename)
+        for node_id in self._aggregator_args['nodes']:
+            self.nodes_deltas[node_id] = self._aggregator_args[node_id]['aggregator_correction']

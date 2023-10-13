@@ -73,8 +73,8 @@ class TestJob(ResearcherTestCase):
 
 
     def setUp(self):
-
-        self.patcher1 = patch('fedbiomed.researcher.requests.Requests.__init__',
+        
+        self.patcher1 = patch('fedbiomed.researcher.job.Requests',
                               return_value=None)
         self.patcher2 = patch('fedbiomed.common.repository.Repository.upload_file',
                               return_value={"file": environ['UPLOADS_URL']})
@@ -125,6 +125,7 @@ class TestJob(ResearcherTestCase):
         tmp_dir = os.path.join(environ['TMP_DIR'], 'tmp_models')
         if os.path.isdir(tmp_dir):
             shutil.rmtree(tmp_dir)
+
 
     @patch('fedbiomed.common.logger.logger.critical')
     def test_job_01_init_t1(self,
@@ -268,8 +269,8 @@ class TestJob(ResearcherTestCase):
         targs = self.job.training_args
         self.assertEqual(33, targs['loader_args']['batch_size'], 'Can not get or set training_args correctly')
 
-    @patch('fedbiomed.researcher.requests.Requests.send_message')
-    @patch('fedbiomed.researcher.requests.Requests.get_responses')
+    @patch('fedbiomed.researcher.job.Requests.send_message')
+    @patch('fedbiomed.researcher.job.Requests.get_responses')
     def test_job_09_check_training_plan_is_approved_by_nodes(self,
                                                              mock_requests_get_responses,
                                                              mock_requests_send_message):
@@ -363,8 +364,8 @@ class TestJob(ResearcherTestCase):
         self.assertTrue(result, 'waiting_for_nodes returned False while expected is False')
 
     @patch('fedbiomed.common.serializer.Serializer.load')
-    @patch('fedbiomed.researcher.requests.Requests.send_message')
-    @patch('fedbiomed.researcher.requests.Requests.get_responses')
+    @patch('fedbiomed.researcher.job.Requests.send_message')
+    @patch('fedbiomed.researcher.job.Requests.get_responses')
     @patch('fedbiomed.researcher.responses.Responses')
     def test_job_11_start_training_round(self,
                                          mock_responses,
@@ -466,7 +467,7 @@ class TestJob(ResearcherTestCase):
         # General setup: skip requests sending and replies processing.
         self.job.nodes = []
         with (
-            patch('fedbiomed.researcher.requests.Requests.send_message'),
+            patch('fedbiomed.researcher.job.Requests.send_message'),
             patch.object(self.job, "waiting_for_nodes", autospec=True)
                 as patch_waiting_for_nodes,
         ):

@@ -8,6 +8,7 @@ top class for all aggregators
 
 import os
 import functools
+import uuid
 import math
 from typing import Any, Dict, Optional, Tuple, List
 
@@ -127,6 +128,7 @@ class Aggregator:
 
     def save_state(
         self,
+        breakpoint_path: Optional[str],
         **aggregator_args_create: Any,
     ) -> Dict[str, Any]:
         """
@@ -139,10 +141,12 @@ class Aggregator:
                 self._aggregator_args = {}
             self._aggregator_args.update(aggregator_args)
 
+        filename = self._save_arg_to_file(breakpoint_path, 'aggregator_args', uuid.uuid4(), self._aggregator_args)
+
         state = {
             "class": type(self).__name__,
             "module": self.__module__,
-            "parameters": self._aggregator_args
+            "parameters": filename
         }
 
         return state
@@ -157,4 +161,4 @@ class Aggregator:
         """
         use for breakpoints. load the aggregator state
         """
-        self._aggregator_args = state['parameters']
+        self._aggregator_args = Serializer.load(state['parameters'])

@@ -2,12 +2,12 @@ import unittest
 from unittest.mock import patch
 
 
-class MockRequestMessaging(unittest.TestCase):
+class MockRequestGrpc(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.messaging_patch = patch("fedbiomed.researcher.requests.Messaging")
+        cls.messaging_patch = patch("fedbiomed.researcher.requests.GrpcServer")
         cls.messaging_patch.start()
 
     @classmethod

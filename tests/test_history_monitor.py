@@ -25,7 +25,7 @@ class TestHistoryMonitor(NodeTestCase):
 
         try:
             self.history_monitor = HistoryMonitor(job_id='1234',
-                                                  researcher_id='reasearcher-id',
+                                                  researcher_id='researcher-id',
                                                   send=self.send
                                                   )
             self._history_monitor_ok = True
@@ -33,7 +33,7 @@ class TestHistoryMonitor(NodeTestCase):
             self._history_monitor_ok = False
 
 
-        self.assertTrue(self._history_monitor_ok, 'History monitor intialize correctly')
+        self.assertTrue(self._history_monitor_ok, 'History monitor has initialized correctly')
 
 
 

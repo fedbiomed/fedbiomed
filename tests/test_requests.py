@@ -74,10 +74,10 @@ class TestRequests(ResearcherTestCase):
 
         self.tp_abstract_patcher = patch.multiple(TorchTrainingPlan, __abstractmethods__=set())
 
-        self.grpc_server_patcher1 = patch('fedbiomed.researcher.requests.GrpcServer.__init__', autospec=True)
-        self.grpc_server_patcher2 = patch('fedbiomed.researcher.requests.GrpcServer.start', autospec=True)
-        self.grpc_server_patcher3 = patch('fedbiomed.researcher.requests.GrpcServer.send', autospec=True)
-        self.grpc_server_patcher4 = patch('fedbiomed.researcher.requests.GrpcServer.broadcast', autospec=True)
+        self.grpc_server_patcher1 = patch('fedbiomed.transport.server.GrpcServer.__init__', autospec=True)
+        self.grpc_server_patcher2 = patch('fedbiomed.transport.server.GrpcServer.start', autospec=True)
+        self.grpc_server_patcher3 = patch('fedbiomed.transport.server.GrpcServer.send', autospec=True)
+        self.grpc_server_patcher4 = patch('fedbiomed.transport.server.GrpcServer.broadcast', autospec=True)
         self.req_patcher4 = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__')
         self.req_patcher5 = patch('fedbiomed.common.message.ResearcherMessages.format_outgoing_message')
         self.req_patcher6 = patch('fedbiomed.common.message.ResearcherMessages.format_incoming_message')
@@ -110,6 +110,7 @@ class TestRequests(ResearcherTestCase):
         # tests on parallel with nosetests (did not worked in `tearDown`)
         if Requests in Requests._objects:
             del Requests._objects[Requests]
+
         self.requests = Requests()
 
     def tearDown(self):

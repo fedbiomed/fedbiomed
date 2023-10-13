@@ -16,9 +16,9 @@ from typing import Any, Dict, Callable, Union, List, Optional, Tuple
 from python_minifier import minify
 
 from fedbiomed.common.constants import MessageType
-from fedbiomed.common.exceptions import FedbiomedTaskQueueError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedTaskQueueError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ResearcherMessages, PingRequest, Message
+from fedbiomed.common.message import ResearcherMessages, Message
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.training_plans import BaseTrainingPlan

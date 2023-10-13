@@ -56,8 +56,8 @@ class TestResearcherEnviron(unittest.TestCase):
         config = self.environ.default_config_file()
         self.assertEqual(config, os.path.join("dummy/config/dir", "config_researcher.ini"))
 
-    @patch("fedbiomed.researcher.environ.os.makedirs")
-    @patch("fedbiomed.researcher.environ.os.path.isdir")
+    @patch("os.makedirs")
+    @patch("os.path.isdir")
     def test_03_researcher_environ_set_component_specific_variables(self,
                                                                     mock_is_dir,
                                                                     mock_mkdir):
