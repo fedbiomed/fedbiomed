@@ -440,13 +440,14 @@ class Requests(metaclass=SingletonMeta):
         if nodes:
             # send message to each node
             for n in nodes:
-                sequence, _ = self.send_message(message, client=n, add_sequence=True)
+                sequence = self.send_message(message, client=n, add_sequence=True)
         else:
             # broadcast message
             sequence = self.broadcast(message, add_sequence=True)
 
         # wait for answers for a certain timeout
         result = {}
+
         for resp in self.get_responses(look_for_commands=['approval'],
                                        timeout=timeout):
             

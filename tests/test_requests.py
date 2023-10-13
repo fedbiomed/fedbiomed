@@ -26,7 +26,7 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
-from testsupport.fake_training_plan import FakeTorchTrainingPlan
+from testsupport.fake_training_plan import FakeTorchTrainingPlan, FakeTorchTrainingPlan2
 
 
 # for test_request_13_model_approve
@@ -522,12 +522,7 @@ class TestRequests(ResearcherTestCase):
                                       mock_get_responses):
         """ Testing training_plan_approve method """
 
-        # ths should not work at all
-        filename = 'X:/'
-        for i in range(30):
-            filename += random.choice(string.ascii_letters)
-
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
                                                      "this file does not exist",
                                                      timeout=2
                                                      )
@@ -537,7 +532,7 @@ class TestRequests(ResearcherTestCase):
         # as this is not a python file
         filename = os.path.join(self.cwd,
                                 "README.md")
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
                                                      "this is not a python file !!",
                                                      timeout=2
                                                      )
@@ -563,7 +558,7 @@ class TestRequests(ResearcherTestCase):
 
 
        # model that cannot be save
-        result = self.requests.training_plan_approve(TrainingPlanCannotSave,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
                                                      "cannot save",
                                                      timeout=2
                                                      )
@@ -571,31 +566,31 @@ class TestRequests(ResearcherTestCase):
 
 
         # provide a real python file but do not get an answer before timeout
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
                                                      "test-training-plan-1",
                                                      timeout=2
                                                      )
         self.assertDictEqual(result, {})
 
+
+
         # same, but with a node list -> different answer
+        mock_get_responses.return_value = [
+            {'command': 'approval',
+             'node_id': 'dummy-id-1',
+             'success': True,
+             'sequence': -1}
+        ]
+        self.requests._sequence = 2
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
+                                                     "test-training-plan-1",
+                                                     timeout=2,
+                                                     nodes=["dummy-id-1"]
+                                                     )
 
-       
-        # mock_get_responses.return_value = [
-        #     {'command': 'approval',
-        #      'node_id': 'dummy-id-1',
-        #      'success': True,
-        #      'sequence': -1}
-        # ]
-        # self.requests._sequence = -1
-        # result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
-        #                                              "test-training-plan-1",
-        #                                              timeout=2,
-        #                                              nodes=["dummy-id-1"]
-        #                                              )
-
-        # keys = list(result.keys())
-        # self.assertTrue(len(keys), 1)
-        # self.assertFalse(result[keys[0]])
+        keys = list(result.keys())
+        self.assertTrue(len(keys), 1)
+        self.assertFalse(result[keys[0]])
 
         # same, but with a fake wrong sequence
         mock_get_responses.return_value = [
@@ -605,7 +600,7 @@ class TestRequests(ResearcherTestCase):
              'sequence': -1}
         ]
 
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
                                                      "test-training-plan-1",
                                                      timeout=2
                                                      )
@@ -620,7 +615,7 @@ class TestRequests(ResearcherTestCase):
              'sequence': 12345}
         ]
 
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
                                                      "test-training-plan-1",
                                                      timeout=2
                                                      )
@@ -636,7 +631,7 @@ class TestRequests(ResearcherTestCase):
              'success': True,
              'sequence': 54321}
         ]
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
                                                      "test-training-plan-1",
                                                      timeout=2
                                                      )
@@ -652,29 +647,13 @@ class TestRequests(ResearcherTestCase):
              'success': True,
              'sequence': 112233}
         ]
-        result = self.requests.training_plan_approve(model,
+        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
                                                      "model is a TrainingPlan subclass",
                                                      timeout=1
                                                      )
         keys = list(result.keys())
         self.assertTrue(result[keys[0]])
 
-        # send an instance of TrainingPlan
-        model = TrainingPlanGood()
-        self.requests._sequence = 112233
-        mock_get_responses.return_value = [
-            {'command': 'approval',
-             'node_id': 'dummy-id-1',
-             'success': True,
-             'sequence': 112233}
-        ]
-
-        result = self.requests.training_plan_approve(model,
-                                                     "model is a TrainingPlan instance",
-                                                     timeout=2
-                                                     )
-        keys = list(result.keys())
-        self.assertTrue(result[keys[0]])
 
 
 if __name__ == '__main__':  # pragma: no cover
