@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
@@ -9,7 +9,6 @@ from testsupport.base_case import NodeTestCase
 
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.common.messaging import Messaging
 
 
 class TestHistoryMonitor(NodeTestCase):
@@ -19,25 +18,15 @@ class TestHistoryMonitor(NodeTestCase):
         unittest ([type]): [description]
     """
 
-    # Setup HistoryMonitor with Mocking messaging
-    @patch('fedbiomed.common.messaging.Messaging.__init__')
-    @patch('fedbiomed.common.messaging.Messaging.start')
-    @patch('fedbiomed.common.messaging.Messaging.send_message')
-    def setUp(self, mocking_messaging_send_message,
-              mocking_messaging_start,
-              mocking_messaging_init):
-
-        mocking_messaging_init.return_value = None
-        mocking_messaging_start.return_value = None
-        mocking_messaging_send_message.return_value = None
+    def setUp(self):
 
         # Messaging to pass HistoryMonitor
-        self._messaging = Messaging()
+        self.send = MagicMock()
 
         try:
             self.history_monitor = HistoryMonitor(job_id='1234',
                                                   researcher_id='reasearcher-id',
-                                                  client=self._messaging
+                                                  send=self.send
                                                   )
             self._history_monitor_ok = True
         except:
@@ -54,8 +43,8 @@ class TestHistoryMonitor(NodeTestCase):
         '''
         pass
 
-    @patch('fedbiomed.common.messaging.Messaging.send_message')
-    def test_send_message(self, mocking_messaging_send_message):
+
+    def test_send_message(self):
         """Test history monitor can add a scalar value using
         add_scalar method
         """
@@ -75,8 +64,7 @@ class TestHistoryMonitor(NodeTestCase):
 
         pass
 
-    @patch('fedbiomed.common.messaging.Messaging.send_message')
-    def test_send_message_error(self, mocking_messaging_send_message):
+    def test_send_message_error(self):
 
         """Test send message in case of sending wrong types"""
 
