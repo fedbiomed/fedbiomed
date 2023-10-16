@@ -62,8 +62,8 @@ class NodeStateAgent:
                     self._collection_state_ids[node_id] = state_id
 
     def _update_collection_state_ids(self, node_ids: List[str]):
-        """Adds node_ids contained in self._data argument that was not part of the previous Round, and discards node_ids that 
-        do not belong to the current Round anymore.
+        """Adds node_ids contained in self._data argument that was not part of the previous Round,
+        and discards node_ids that do not belong to the current Round anymore.
 
         Args:
             node_ids: all possible nodes that can participate to the training.
