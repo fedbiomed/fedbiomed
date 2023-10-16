@@ -146,6 +146,22 @@ to be completed
       raise OneOfFedbiomedError(_msg)
   ```
 
+### arguments checking
+
+Arguments checking means verifying functions' argument types and values.
+
+- in general, do argument checking when either:
+  - methods are exposed to an external input (eg: user input, receive data from network, import a file)
+  - arguments are security significant (need to check to ensure some security condition)
+
+- in general, don't do argument checking:
+  - most of the time for application internal interfaces
+  - in particular: no argument check for private methods
+
+- we might want to add argument checking at a few carefully chosen functional boundaries, for modularity/robustness sake
+
+- argument checking should be done as near as possible to the acquisition of the data
+
 ## Docstrings writing rules
 
 - use [google style docstrings](https://github.com/google/styleguide/blob/gh-pages/pyguide.md#38-comments-and-docstrings)
