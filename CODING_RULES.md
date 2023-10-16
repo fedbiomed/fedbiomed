@@ -11,90 +11,140 @@ to be completed
 
 - use getters/setters instead of `@property`
 
-### regarding the exceptions
+### exceptions handling
 
+- on the node: in general, node should not stop because of exceptions that occur during its operation
 
-- use exceptions defined in **fedbiomed.common.exceptions**
+- on the researcher: general behaviour is to propagate the exceptions to the top level layer, where they are transformed to a friendlier output. Researcher displays this output and stops.
 
-- callee side: then detecting a python exception in a fedbiomed layer :
+- when a class raises an exception, it raises a FedbiomedSomethingError: use exceptions defined in **fedbiomed.common.exceptions** :
 
-  - print a logger.*() message
+  Do:
+  ```
+  raise FedbiomedSometypeError()
+  ```
 
-    - could be logger.critical -> stop the software, cannot continue
-      (ex: FedbiomedEnvironError)
-    - or logger.error -> software may continue (ex: MessageError)
+  Don't:
+  ```
+  raise NameError()
+  ```
 
-  - raise the exception as a fedbiomed exception
+- optionally, if more specificity is wanted, a class can catch a python (non-Fed-Biomed) exception and re-raise it as a FedbiomedError
 
+  Optionally do:
+  ```
+  try:
+      something()
+  except SysError as e:
+      raise OneOfFedbiomedError()
+  ```
 
-- caller/intermediate side: trap the exceptions:
+- a class generally shouldn't catch a FedbiomedError and re-raise (a FedbiomedError):
 
-  - separate the FedbiomedError and other exceptions
+  Don't:
+  ```
+  try:
+    somecode()
+  except FedbiomedSometypeError;
+    raise FedbiomedOnetypeError()
+  ```
 
-```
-try:
+- when catching exceptions
 
-    something()
+  - try to be specific about the exception if easy/meaningful:
 
-except SysError as e:
-    logger.XXX()
-    raise OneOfFedbiomedError()
-```
+    Ideally:
+    ```
+    try:
+      mycode()
+    except ValueError as e:
+      ...
+    ```
 
-  - example of top level function (eg: Experiment())
+    If needed:
+    ```
+    try:
+      mycode()
+    except Exception as e:
+      ...
+    ```
 
-```
-try:
+  - don't use the `except:` clause
 
-    something()
+    Don't
+    ```
+    try:
+      mycode()
+    except:
+      ...
+    ```
 
-except FedbiomedError as e:
-    etc...
+  - should separate FedbiomedError and other exceptions
 
-except Exception as e:   <=== objective: minimize the number of type we arrive here !
-    # place to do a backtrace
-    # extra message to the end user to post this backtrace to the support team
-    etc...
-```
+    Do:
+    ```
+    try:
+      mycode()
+    except FedbiomedSomeError as e:
+      ...
+    except FedbiomedError as e:
+      ...
+    except Exception as e:
+      ...
+    ```
 
-  - except of the top level program, it is **forbidden** to trap all exceptions (with ```except:``` or ```except Exception```)
+    Don't (in case where the Exception can be a FedbiomedError)
+    ```
+    try:
+      some_code()
+    except Exception as e:
+      ...
+    ```
 
+- in general, a class shouldn't log in logger when raising or re-raising an exception. The class should log when catching and not re-raising a FedbiomedError exception. The class can log when catching a and not re-raising a python exception.
 
-- the **try:** block is as small as possible
+  Do:
+  ```
+  try:
+    some_function()
+  except FedbiomedSomeError:
+    logger.xxx(message)
+  ```
 
-- force to read the documentation
+  Can do:
+  ```
+  try:
+    some_function()
+  except OSError:
+    logger.xxx(message)
+  ```
 
+  Don't:
+  ```
+  try:
+    some_function()
+  except AnException:
+    logger.xxx(message)
+    raise FedbiomedSomeException()
+  ```
+
+- keep the **try:** block is as small as possible
 
 - string associated to the exception:
 
   - comes from the fedbiomed.common.constants.ErrorNumbers
 
-  - complemented by a usefull (more precise) information:
+  - can be complemented by a useful (more precise) information:
 
   => consider ErrorNumbers as categories
 
-```
-try:
-    something()
-
-except SomeError as e:
-
-    _msg = ErrorNumbers.FBxxx.value + ": the file " + filename + " does not exist"
-
-    logger.error(_msg)
-    raise OneOfFedbiomedError(_msg)
-```
-
-
-- open questions:
-
-  - as a researcher, does I need sometimes the full python backtrace
-
-    - ex: loading a model on the node side
-
-    - ex: debugging fedbiomed itself
-
-    - it should be already a backtrace on the reasearcher/node console
+  ```
+  try:
+      something()
+  except SomeError as e:
+      _msg = ErrorNumbers.FBxxx.value + ": the file " + filename + " does not exist"
+      raise OneOfFedbiomedError(_msg)
+  ```
 
 ## Docstrings writing rules
 
