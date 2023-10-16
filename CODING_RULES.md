@@ -17,7 +17,7 @@ to be completed
 
 - on the researcher: general behaviour is to propagate the exceptions to the top level layer, where they are transformed to a friendlier output. Researcher displays this output and stops.
 
-- when a class raises an exception, it raises a FedbiomedSomethingError: use exceptions defined in **fedbiomed.common.exceptions** :
+- when a class raises an exception, it raises a FedbiomedSomethingError, not a python native error: use exceptions defined in **fedbiomed.common.exceptions** or define new ones (eg: one per module) :
 
   Do:
   ```
@@ -133,7 +133,7 @@ to be completed
     raise FedbiomedSomeException()
   ```
 
-- keep the **try:** block is as small as possible
+- keep the **try:** block as small as possible
 
 - string associated to the exception:
 
