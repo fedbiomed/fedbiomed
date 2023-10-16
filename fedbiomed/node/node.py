@@ -249,6 +249,7 @@ class Node:
         training_plan_class = msg.get_param('training_plan_class')
         params_url = msg.get_param('params_url')
         job_id = msg.get_param('job_id')
+        state_id = msg.get_param('state_id')
         researcher_id = msg.get_param('researcher_id')
         aggregator_args = msg.get_param('aggregator_args') or None
         round_number = msg.get_param('round') or 0
@@ -282,6 +283,7 @@ class Node:
                  'extra_msg': "Did not found proper data in local datasets"}
             ).get_dict())
         else:
+
             dlp_and_loading_block_metadata = None
             if 'dlp_id' in data:
                 dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
@@ -302,6 +304,8 @@ class Node:
                 dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
                 aux_var_urls=aux_var_urls,
             )
+            # the round raises an error if it cannot initialize
+            round.initialize_node_state_manager(state_id)  # initialize node state manager
 
         return round
 
@@ -362,7 +366,7 @@ class Node:
                                 }
                             ).get_dict()
                         )
-                        logger.debug(f"{ErrorNumbers.FB300}: {e}")
+                        logger.debug(f"{ErrorNumbers.FB300.value}: {e}")
                 elif command == 'secagg':
                     self._task_secagg(item)
                 else:

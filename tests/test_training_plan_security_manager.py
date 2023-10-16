@@ -540,7 +540,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
                 "class TestClass:\n" + \
                 "   def __init__(self, **kwargs):\n" + \
                 "       self._kwargs = kwargs\n" + \
-                "   def load_state(self, state :str):\n" + \
+                "   def load_state_breakpoint(self, state :str):\n" + \
                 "       self._state = state\n"
             with open(file, 'w') as f:
                 f.write(code_source)

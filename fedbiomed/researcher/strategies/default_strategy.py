@@ -7,7 +7,6 @@ Implementation of thedefault strategy
 This strategy is used then user does not provide its own
 """
 
-import uuid
 from typing import List, Tuple, Dict, Union
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -40,7 +39,7 @@ class DefaultStrategy(Strategy):
 
         super().__init__(data)
 
-    def sample_nodes(self, round_i: int) -> List[uuid.UUID]:
+    def sample_nodes(self, round_i: int) -> List[str]:
         """ Samples and selects nodes on which to train local model. In this strategy we will consider all existing
         nodes
 
