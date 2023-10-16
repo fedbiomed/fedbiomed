@@ -189,7 +189,7 @@ class DeclearnOptimizer(BaseOptimizer):
         >>> optim.load_state(state)  # provided state contains the state one wants to load the optimizer with
         ```
         If `load_from_state` argument is True, it completes the current optimizer state with `optim_state` argument
-        
+
         ```python
         >>> import torch.nn as nn
         >>> from fedbiomed.common.optimizers import Optimizer
@@ -248,8 +248,8 @@ class DeclearnOptimizer(BaseOptimizer):
             # check if opimizer state has changed from last optimizer to the current one
             # if it has changed, find common modules and update common states
             for component in ( 'modules', 'regularizers',):
-                components_to_keep: List[Tuple[str, int]] = []  # we store here common Module between current Optimizer and the ones in the `optim_state`
-                # tuple (common Module name, index in List)
+                components_to_keep: List[Tuple[str, int]] = []  # we store here common Module between current Optimizer
+                # and the ones in the `optim_state` tuple (common Module name, index in List)
 
                 if not init_optim_state['states'].get(component) or not optim_state_copy['states'].get(component):
                     continue
@@ -267,7 +267,8 @@ class DeclearnOptimizer(BaseOptimizer):
                             # we load the previous optimizer module state into the current one
                             optim_state['states'][component][mod[1]] = mod_state
 
-        logger.info(f"Loading optimizer with the following state {optim_state}")
+            logger.info("Loading optimizer state from saved state")
+
         reloaded_optim = FedOptimizer.load_state(optim_state)
         self.optimizer = reloaded_optim
         return self
@@ -277,8 +278,8 @@ class DeclearnOptimizer(BaseOptimizer):
                                     optim_state: Dict,
                                     component_name: str,
                                     components_to_keep: List[Tuple[str, int]]):
-        """Methods that checks which modules and regularizers are common from `init_state`, the current state Optimizer state,
-        and `optim_state`, the previous optimizer state. Populates in that regard the `components_to_keep` list, 
+        """Methods that checks which modules and regularizers are common from `init_state`, the current state Optimizer
+        state, and `optim_state`, the previous optimizer state. Populates in that regard the `components_to_keep` list, 
         a list containing common Modules and Regularizers, and that can be access through its reference.
 
         Args:
