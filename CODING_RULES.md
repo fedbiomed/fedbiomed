@@ -13,7 +13,7 @@ to be completed
 
 ### exceptions handling
 
-- on the node: in general, node should not stop because of exceptions that occur while executing requests received from researcher
+- on the node: in general, node should not stop because of exceptions that occur while executing requests received from researcher. Top level layer code should catch and handle the exceptions, and can send an error message to the researcher (but without full exception message to avoid leaking information).
 
 - on the researcher: general behaviour is to propagate the exceptions to the top level layer, where they are transformed to a friendlier output. Researcher displays this output and stops.
 
@@ -61,15 +61,19 @@ to be completed
       ...
     ```
 
+  - can use the `except Exception:` when re-raising (usually in lower layers, for error message specificity)
+
     If needed:
     ```
     try:
       mycode()
     except Exception as e:
-      ...
+      raise FedbiomedSomeerrorMessage
     ```
 
-  - don't use the `except:` clause
+  - should use the `except Exception:` in top layer code for handling unexpected errors. On the node, exception is not re-raised and an error message is sent to the researcher.
+
+  - don't use the very general `except:` clause
 
     Don't
     ```
@@ -79,9 +83,9 @@ to be completed
       ...
     ```
 
-  - should separate FedbiomedError and other exceptions
+  - can separate FedbiomedError and other exceptions when possible/meaningful
 
-    Do:
+    Can do:
     ```
     try:
       mycode()
@@ -89,14 +93,6 @@ to be completed
       ...
     except FedbiomedError as e:
       ...
-    except Exception as e:
-      ...
-    ```
-
-    Don't (in case where the Exception can be a FedbiomedError)
-    ```
-    try:
-      some_code()
     except Exception as e:
       ...
     ```
