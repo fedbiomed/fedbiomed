@@ -13,7 +13,7 @@ to be completed
 
 ### exceptions handling
 
-- on the node: in general, node should not stop because of exceptions that occur during its operation
+- on the node: in general, node should not stop because of exceptions that occur while executing requests received from researcher
 
 - on the researcher: general behaviour is to propagate the exceptions to the top level layer, where they are transformed to a friendlier output. Researcher displays this output and stops.
 
