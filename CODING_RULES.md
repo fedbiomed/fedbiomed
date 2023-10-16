@@ -87,7 +87,7 @@ to be completed
       ...
     ```
 
-  - can separate FedbiomedError and other exceptions when possible/meaningful
+  - can separate FedbiomedError and other exceptions when possible/meaningful to take distinct actions
 
     Can do:
     ```
