@@ -21,6 +21,7 @@ to be completed
 
   Do:
   ```
+  from fedbiomed.common.exceptions import FedbiomedSometypeError
   raise FedbiomedSometypeError()
   ```
 
@@ -33,6 +34,7 @@ to be completed
 
   Optionally do:
   ```
+  from fedbiomed.common.exceptions import OneOfFedbiomedError
   try:
       something()
   except SysError as e:
@@ -43,6 +45,7 @@ to be completed
 
   Don't:
   ```
+  from fedbiomed.common.exceptions import FedbiomedSometypeError, FedbiomedOnetypeError
   try:
     somecode()
   except FedbiomedSometypeError;
@@ -65,10 +68,11 @@ to be completed
 
     If needed:
     ```
+    from fedbiomed.common.exceptions import FedbiomedSomeError
     try:
       mycode()
     except Exception as e:
-      raise FedbiomedSomeerrorMessage
+      raise FedbiomedSomeerror
     ```
 
   - should use the `except Exception:` in top layer code for handling unexpected errors. On the node, exception is not re-raised and an error message is sent to the researcher.
@@ -87,6 +91,7 @@ to be completed
 
     Can do:
     ```
+    from fedbiomed.common.exceptions import FedbiomedSomeError, FedbiomedError
     try:
       mycode()
     except FedbiomedSomeError as e:
@@ -101,6 +106,7 @@ to be completed
 
   Do:
   ```
+  from fedbiomed.common.logger import logger
   try:
     some_function()
   except FedbiomedSomeError:
@@ -109,6 +115,7 @@ to be completed
 
   Can do:
   ```
+  from fedbiomed.common.logger import logger
   try:
     some_function()
   except OSError:
@@ -117,6 +124,8 @@ to be completed
 
   Don't:
   ```
+  from fedbiomed.common.exceptions import FedbiomedSomeException
+  from fedbiomed.common.logger import logger
   try:
     some_function()
   except AnException:
@@ -135,6 +144,8 @@ to be completed
   => consider ErrorNumbers as categories
 
   ```
+  from fedbiomed.common.exceptions import OneOfFedbiomedError
+  from fedbiomed.common.constants import ErrorNumbers
   try:
       something()
   except SomeError as e:
