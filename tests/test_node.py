@@ -389,14 +389,14 @@ class TestNode(NodeTestCase):
     def test_node_12_parser_task_train_create_round(self,
                                                     node_msg_request_patch,
                                                     history_monitor_patch,
-                                                    round_patch
+                                                    round_patch,
+
                                                     ):
         """Tests if rounds are created accordingly - running normal case scenario
         (in `parser_task_train` method)"""
 
         # defining patchers
         node_msg_request_patch.side_effect = TestNode.node_msg_side_effect
-        round_patch.return_value = None
 
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
@@ -415,7 +415,6 @@ class TestNode(NodeTestCase):
         }
         msg_1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
 
-        # action
         round = self.n1.parser_task_train(msg_1_dataset)
 
         # checks
@@ -467,7 +466,7 @@ class TestNode(NodeTestCase):
         # checks
         self.grpc_send_mock.assert_called_once()
 
-    @patch('fedbiomed.node.round.Round.__init__')
+    @patch('fedbiomed.node.node.Round', autospec=True)
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     def test_node_14_parser_task_train_create_round_deserializer_str_msg(self,
                                                                          history_monitor_patch,
@@ -484,6 +483,7 @@ class TestNode(NodeTestCase):
             'training_plan_class': 'my_test_training_plan',
             'params': {"x": 0},
             'job_id': 'job_id_1234',
+            'state_id': None,
             "secagg_biprime_id": None,
             "secagg_servkey_id": None,
             "secagg_random": None,
@@ -500,7 +500,7 @@ class TestNode(NodeTestCase):
         msg1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
 
         # defining patchers
-        round_patch.return_value = None
+
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
 
@@ -526,7 +526,7 @@ class TestNode(NodeTestCase):
             aux_vars= dict_msg_1_dataset['aux_vars']
         )
 
-    @patch('fedbiomed.node.round.Round.__init__')
+    @patch('fedbiomed.node.node.Round', autospec=True)
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     def test_node_15_parser_task_train_create_round_deserializer_bytes_msg(self,
                                                                            history_monitor_patch,
@@ -544,6 +544,7 @@ class TestNode(NodeTestCase):
             "training_plan_class": "my_test_training_plan",
             "params": {"x": 0},
             "job_id": "job_id_1234",
+            "state_id": None,
             "researcher_id": "researcher_id_1234",
             "secagg_biprime_id": None,
             "secagg_servkey_id": None,
@@ -560,7 +561,7 @@ class TestNode(NodeTestCase):
         msg_1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
 
         # defining patchers
-        round_patch.return_value = None
+        #round_patch.return_value = None
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
 

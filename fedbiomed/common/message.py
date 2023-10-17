@@ -689,7 +689,6 @@ class TrainRequest(Message, RequiresProtocolVersion):
     Attributes:
         researcher_id: ID of the researcher that requests training
         job_id: Id of the Job that is sent by researcher
-        params_url: URL where model parameters are uploaded
         training_args: Arguments for training routine
         dataset_id: id of the dataset that is used for training
         training: Declares whether training will be performed
@@ -706,6 +705,7 @@ class TrainRequest(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     job_id: str
+    state_id: (str, type(None))
     training_args: dict
     dataset_id: str
     training: bool
@@ -744,6 +744,7 @@ class TrainReply(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     job_id: str
+    state_id: (str, type(None))
     success: bool
     node_id: str
     dataset_id: str

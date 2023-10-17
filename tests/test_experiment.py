@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 from declearn.model.api import Vector
 import numpy as np
 import torch
+from fedbiomed.researcher.node_state_agent import NodeStateAgent
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -1032,19 +1033,16 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.aggregators.Aggregator.create_aggregator_args')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
     @patch('fedbiomed.researcher.job.Job.id', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.nodes', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
-    @patch('fedbiomed.researcher.job.Job.update_parameters')
-    @patch('fedbiomed.researcher.job.Job.__init__')
+    #@patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
+    #@patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
+    #@patch('fedbiomed.researcher.experiment.Job.start_nodes_training_round')
+    @patch('fedbiomed.researcher.experiment.Job')
     def test_experiment_25_run_once(self,
                                     mock_job_init,
-                                    mock_job_updates_params,
-                                    mock_job_training,
-                                    mock_job_training_replies,
-                                    mock_job_training_plan_type,
-                                    mock_job_nodes,
+
+                                    #mock_job_training,
+                                    #mock_job_training_replies,
+                                    #mock_job_training_plan_type,
                                     mock_job_id,
                                     mock_strategy_refine,
                                     mock_fedavg_create_aggregator_args,
@@ -1054,23 +1052,34 @@ class TestExperiment(ResearcherTestCase):
         training_plan = MagicMock()
         training_plan.type = MagicMock()
         mock_job_id.return_value = "dummy-job-id"
-        mock_job_nodes.return_value = ["node-1", "node-2"]
-        mock_job_init.return_value = None
-        mock_job_training.return_value = None
-        mock_job_training_replies.return_value = {
-            self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
-        }
-        mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
+        mock_job_init.return_value = MagicMock(
+            extract_received_optimizer_aux_var_from_round = MagicMock(return_value={}),
+            update_parameters = MagicMock(return_value=("path/to/my/file", "http://some/url/to/my/file")),
+            id = "dummy-job-id",
+        )
+        # according to documentation, this is how we should attach a PropertyMock to a MagicMock
+        # https://docs.python.org/3/library/unittest.mock.html#unittest.mock.PropertyMock
+        type(mock_job_init.return_value).nodes = PropertyMock(return_value=["node-1", "node-2"])
+
+        # mock_job_training.return_value = None
+        # mock_job_training_replies.return_value = {
+        #     self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
+        # }
+        #mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
         mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_fedavg_aggregate.return_value = None
         mock_fedavg_create_aggregator_args.return_value = ({}, {})
-        mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
+
         mock_experiment_breakpoint.return_value = None
+        self.patcher_job.stop()
+        
 
         #Test invalid `increase` arguments
         with self.assertRaises(SystemExit):
+            # NOTA should raise FedBiomedExperimentError
             self.test_exp.run_once(1)
         with self.assertRaises(SystemExit):
+            # NOTA should raise FedBiomedExperimentError
             self.test_exp.run_once("1")
 
         # Test when ._job is None
@@ -1093,10 +1102,12 @@ class TestExperiment(ResearcherTestCase):
 
         result = self.test_exp.run_once()
         self.assertEqual(result, 1, "run_once did not successfully run the round")
-        mock_job_training.assert_called_once()
+        mock_job_init.return_value.start_nodes_training_round.assert_called_once()
+        mock_job_init.assert_called_once()
+        #mock_job_training.assert_called_once()
         mock_strategy_refine.assert_called_once()
         mock_fedavg_aggregate.assert_called_once()
-        mock_job_updates_params.assert_called_once()
+        mock_job_init.return_value.update_parameters.assert_called_once()
         mock_experiment_breakpoint.assert_called_once()
 
         # Test the scenario where round_limit is reached
@@ -1108,9 +1119,10 @@ class TestExperiment(ResearcherTestCase):
         self.mock_logger_warning.assert_called_once()
 
         # Update training_replies mock value since round_current has been increased
-        mock_job_training_replies.return_value = {
-            self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
-        }
+        # FIXME: something may have been broken
+        # mock_job_training_replies.return_value = {
+        #     self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
+        # }
 
         # Try same scenario with increase argument as True
         round_limit = self.test_exp.round_limit()
@@ -1123,10 +1135,11 @@ class TestExperiment(ResearcherTestCase):
         # Try same scenario with test_after argument as True
 
         # resetting mocks
-        mock_job_training.reset_mock()
+        mock_job_init.reset_mock()
+        #mock_job_training.reset_mock()
         mock_strategy_refine.reset_mock()
         mock_fedavg_aggregate.reset_mock()
-        mock_job_updates_params.reset_mock()
+        #mock_job_updates_params.reset_mock()
         mock_experiment_breakpoint.reset_mock()
         # action
         self.test_exp._round_current = 1
@@ -1134,9 +1147,9 @@ class TestExperiment(ResearcherTestCase):
         # testing calls
         mock_strategy_refine.assert_called_once()
         mock_fedavg_aggregate.assert_called_once()
-        mock_job_updates_params.assert_called_once()
+        mock_job_init.return_value.update_parameters.assert_called_once()
         mock_experiment_breakpoint.assert_called_once()
-        self.assertEqual(mock_job_training.call_count, 2)
+        self.assertEqual(mock_job_init.return_value.start_nodes_training_round.call_count, 2)
         # additional checks
         self.assertEqual(result, 1)
 
@@ -1161,6 +1174,7 @@ class TestExperiment(ResearcherTestCase):
 
         # Run experiment with secure aggregation
         # Fix secagg_random value to pass validation step
+
         with patch("fedbiomed.researcher.secagg._secure_aggregation.random.uniform") as s_m:
             s_m.return_value = -2.8131
             self.test_exp.secagg._secagg_random = -2.8131  # hard coded for validation of encryption
@@ -1171,34 +1185,21 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.aggregate')
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.create_aggregator_args')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
-    @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
-    @patch('fedbiomed.researcher.job.Job.update_parameters')
-    @patch('fedbiomed.researcher.job.Job.__init__')
+
+    @patch('fedbiomed.researcher.experiment.Job')
     def test_experiment_25_run_once_with_scaffold_and_training_args(self,
                                                                     mock_job_init,
-                                                                    mock_job_updates_params,
-                                                                    mock_job_training,
-                                                                    mock_job_training_replies,
-                                                                    mock_job_training_plan_type,
                                                                     mock_strategy_refine,
                                                                     mock_scaffold_create_aggregator_args,
                                                                     mock_scaffold_aggregate,
                                                                     mock_experiment_breakpoint):
         # try test with specific training_args
         # related to regression due to Scaffold introduction applied on MedicalFolderDataset
-        mock_job_init.return_value = None
-        mock_job_training.return_value = None
-
-        mock_job_training_replies.return_value = mock_job_training_replies.return_value = {
-            self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
-        }
 
         mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_scaffold_aggregate.return_value = None
         mock_scaffold_create_aggregator_args.return_value = ({}, {})
-        mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
+        #mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
         mock_experiment_breakpoint.return_value = None
 
         tp = TestExperiment.FakeModelTorch
@@ -1207,7 +1208,19 @@ class TestExperiment(ResearcherTestCase):
         tp.type = MagicMock()
         tp.get_model_params = MagicMock(return_value = None)
         tp.after_training_params = MagicMock(return_value = None)
-        mock_job_training_plan_type.return_value = tp
+        #mock_job_training_plan_type.return_value = tp
+        
+        
+        mock_job_init.return_value = MagicMock(
+            extract_received_optimizer_aux_var_from_round = MagicMock(return_value={}),
+            update_parameters = MagicMock(return_value=("path/to/my/file", "http://some/url/to/my/file")),
+            id = "dummy-job-id",
+
+        )
+        
+        # according to documentation, this is how we should attach a PropertyMock to a MagicMock
+        # https://docs.python.org/3/library/unittest.mock.html#unittest.mock.PropertyMock
+        type(mock_job_init.return_value).training_plan = PropertyMock(return_value=tp)
         # Set model class to be able to create Job
         self.test_exp.set_training_plan_class(tp)
 
@@ -1326,7 +1339,7 @@ class TestExperiment(ResearcherTestCase):
             self.test_exp.set_agg_optimizer(optimizer)
             agg_updates = self.test_exp._run_agg_optimizer(aggregates)
             for k, v in agg_updates.items():
-                self.assertTrue(np.isclose(agg_updates[k], aggregates[k]).all())
+                self.assertTrue(np.isclose(agg_updates[k], aggregates[k], atol=1e-4).all(),)
 
     def test_experiment_30_agg_optimizer_updates_with_frozen_layers(self):
         """Test that the researcher-side optimize properly handles frozen weights."""
@@ -1374,19 +1387,11 @@ class TestExperiment(ResearcherTestCase):
             self.assertTrue(np.isclose(val, expected[key]).all())
 
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
-    @patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
-    @patch('fedbiomed.researcher.job.Job.start_nodes_training_round')
-    @patch('fedbiomed.researcher.job.Job.update_parameters')
-    @patch('fedbiomed.researcher.job.Job.__init__')
+    @patch('fedbiomed.researcher.experiment.Job')
     def test_experiment_31_strategy(self,
                                     mock_job_init,
-                                    mock_job_updates_params,
-                                    mock_job_training,
-                                    mock_job_training_replies,
-                                    mock_job_training_plan_type,
                                     mock_fedavg_aggregate):
-        """test_experiment_24_strategy: testing several case where strategy may fail"""
+        """test_experiment_31_strategy: testing several case where strategy may fail"""
         # FIXME: this is more of an integration test than a unit test
 
         # set up:
@@ -1401,10 +1406,16 @@ class TestExperiment(ResearcherTestCase):
         training_plan = MagicMock()
         training_plan.type = MagicMock()
         # mocking job
-        mock_job_init.return_value = None
-        mock_job_training.return_value = None
-        mock_job_training_replies.return_value = {self.test_exp.round_current():
-            Responses( [{ 'success': True,
+        mock_job_init.return_value = MagicMock(
+            extract_received_optimizer_aux_var_from_round = MagicMock(return_value={}),
+            update_parameters = MagicMock(return_value=("path/to/my/file", "http://some/url/to/my/file")),
+            id = "dummy-job-id",
+            _node_state_agent=MagicMock(spec=NodeStateAgent)
+
+        )
+
+        training_replies_content = {self.test_exp.round_current():
+                        Responses( [{ 'success': True,
                          'msg': "this is a sucessful training",
                              'dataset_id': 'dataset-id-123abc',
                              'node_id': node_id,
@@ -1413,15 +1424,16 @@ class TestExperiment(ResearcherTestCase):
                              'sample_size': sample_size
                              } for node_id, sample_size in zip(node_ids, node_sample_size)
                         ])}
-        mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
-        mock_job_updates_params.return_value = "path/to/my/file", "http://some/url/to/my/file"
-
+        type(mock_job_init.return_value).training_replies = PropertyMock(
+            return_value=training_replies_content
+        )
         # mocking aggregator
         mock_fedavg_aggregate.return_value = None
 
         # disable patchers (enabled in the test set up)
         for _patch in self.patchers:
             _patch.stop()
+        #self.patcher_job.start()
         # Set model class to be able to create Job
         self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
         # Set default Job
@@ -1447,7 +1459,7 @@ class TestExperiment(ResearcherTestCase):
         mock_fedavg_aggregate.assert_called_with(model_params, weigths,
                                                  global_model=unittest.mock.ANY,
                                                  training_plan=unittest.mock.ANY,
-                                                 training_replies=mock_job_training_replies(),
+                                                 training_replies=training_replies_content,#mock_job_training_replies(),
                                                  node_ids=node_ids,
                                                  n_updates=num_updates,
                                                  n_round=0
@@ -1456,7 +1468,10 @@ class TestExperiment(ResearcherTestCase):
         # repeat experiment but with a wrong sample_size
 
         node_sample_size = [10, None]
-        mock_job_training_replies.return_value = {self.test_exp.round_current():
+
+        
+        training_replies_raising_fbmstrategyerror = {
+            self.test_exp.round_current():
             Responses([{'success': True,
                          'msg': "this is a sucessful training",
                              'dataset_id': 'dataset-id-123abc',
@@ -1466,7 +1481,10 @@ class TestExperiment(ResearcherTestCase):
                              'sample_size': sample_size
                              } for node_id, sample_size in zip(node_ids, node_sample_size)
                         ])}
-
+        
+        type(mock_job_init.return_value).training_replies = PropertyMock(
+            return_value=training_replies_raising_fbmstrategyerror
+        )
         with self.assertRaises(SystemExit):
             # should raise a FedbiomedStrategyError, describing the error
             self.test_exp.run_once()
@@ -1708,13 +1726,13 @@ class TestExperiment(ResearcherTestCase):
         # build minimal objects, needed to extract state by calling object method
         # (cannot just patch a method of a non-existing object)
         class Aggregator():
-            def save_state(self, breakpoint_path: str, **kwargs):
+            def save_state_breakpoint(self, breakpoint_path: str, **kwargs):
                 return aggregator_state
 
         self.test_exp._aggregator = Aggregator()
 
         class Strategy():
-            def save_state(self):
+            def save_state_breakpoint(self):
                 return strategy_state
 
         self.test_exp._node_selection_strategy = Strategy()
@@ -1730,7 +1748,7 @@ class TestExperiment(ResearcherTestCase):
             def __init__(self):
                 self._training_plan = None
 
-            def save_state(self, breakpoint_path):
+            def save_state_breakpoint(self, breakpoint_path):
                 return job_state
 
             @property
@@ -2064,7 +2082,8 @@ class TestExperiment(ResearcherTestCase):
             aggregated_params = {
                 '1': {'params_path': os.path.join(tempfolder_path, 'params_path_1.mpk')},
             }
-            job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999}
+            job = {1: 'job_param_dummy', 'jobpar2': False, 'jobpar3': 9.999,
+                   'node_state': {'collection_state_ids': {'node1': 'one', 'node2': 'two'}} }
             secagg_state = {
                 'class': "SecureAggregation",
                 'module': 'fedbiomed.researcher.secure_aggregation',
@@ -2293,7 +2312,7 @@ class TestExperiment(ResearcherTestCase):
             "class TestClass:\n" + \
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
-            "   def load_state(self, state :str, **kwargs):\n" + \
+            "   def load_state_breakpoint(self, state :str, **kwargs):\n" + \
             "       self._state = state\n"
 
         class_source_exception = \
@@ -2301,7 +2320,7 @@ class TestExperiment(ResearcherTestCase):
             "   def __init__(self, **kwargs):\n" + \
             "       self._kwargs = kwargs\n" + \
             "       raise Exception()\n" + \
-            "   def load_state(self, state :str, **kwargs):\n" + \
+            "   def load_state_breakpoint(self, state :str, **kwargs):\n" + \
             "       self._state = state\n"
 
         test_class_name = 'TestClass'

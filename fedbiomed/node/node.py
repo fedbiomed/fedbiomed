@@ -244,6 +244,7 @@ class Node:
 
         dataset_id = msg.get_param('dataset_id')
         data = self.dataset_manager.get_by_id(dataset_id)
+
         if data is None:
             logger.error('Did not found proper data in local datasets '
                          f'on node={environ["NODE_ID"]}')
@@ -259,7 +260,9 @@ class Node:
             if 'dlp_id' in data:
                 dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
 
-            round_ = Round(model_kwargs=msg.get_param('model_args') or {},
+            round_ = Round(training_plan=msg.get_param('training_plan'),
+                           training_plan_class=msg.get_param('training_plan_class'),
+                           model_kwargs=msg.get_param('model_args') or {},
                            training_kwargs=msg.get_param('training_args') or {},
                            training=msg.get_param('training') or False,
                            dataset=data,
@@ -269,12 +272,13 @@ class Node:
                            history_monitor=hist_monitor,
                            aggregator_args=msg.get_param('aggregator_args') or None,
                            node_args=self.node_args,
-                           training_plan=msg.get_param('training_plan'),
-                           training_plan_class=msg.get_param('training_plan_class'),
                            round_number=msg.get_param('round'),
                            dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
                            aux_vars=msg.get_param('aux_vars')
                            )
+
+            # the round raises an error if it cannot initialize
+            round_.initialize_node_state_manager(msg.get_param('state_id'))
 
         return round_
 
@@ -289,7 +293,7 @@ class Node:
 
             logger.info(f"[TASKS QUEUE] Task received by task manager: Command: "
                         f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}")
-            
+
             try:
 
                 item = NodeMessages.format_incoming_message(item)
@@ -338,7 +342,7 @@ class Node:
                                 }
                             )
                         )
-                        logger.debug(f"{ErrorNumbers.FB300}: {e}")
+                        logger.debug(f"{ErrorNumbers.FB300.value}: {e}")
                 elif command == 'secagg':
                     self._task_secagg(item)
                 else:

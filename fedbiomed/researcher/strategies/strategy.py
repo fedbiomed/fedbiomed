@@ -68,7 +68,7 @@ class Strategy:
         logger.critical(msg)
         raise FedbiomedStrategyError(msg)
 
-    def save_state(self) -> Dict[str, Any]:
+    def save_state_breakpoint(self) -> Dict[str, Any]:
         """
         Method for saving strategy state for saving breakpoints
 
@@ -84,7 +84,7 @@ class Strategy:
         }
         return state
 
-    def load_state(self, state: Dict[str, Any] = None, **kwargs):
+    def load_state_breakpoint(self, state: Dict[str, Any] = None, **kwargs):
         """
         Method for loading strategy state from breakpoint state
 

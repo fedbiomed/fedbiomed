@@ -126,7 +126,7 @@ class Aggregator:
         """
         return self._aggregator_args or {}
 
-    def save_state(
+    def save_state_breakpoint(
         self,
         breakpoint_path: Optional[str] = None,
         **aggregator_args_create: Any,
@@ -158,7 +158,7 @@ class Aggregator:
         Serializer.dump(arg, filename)
         return filename
 
-    def load_state(self, state: Dict[str, Any], **kwargs) -> None:
+    def load_state_breakpoint(self, state: Dict[str, Any], **kwargs) -> None:
         """
         use for breakpoints. load the aggregator state
         """

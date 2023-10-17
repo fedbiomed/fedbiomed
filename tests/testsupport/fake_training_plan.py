@@ -34,6 +34,7 @@ class FakeModel(BaseTrainingPlan):
         self._model = mock.create_autospec(Model, instance=True)
         self._model.get_weights.return_value = {"coefs": [1, 2, 3, 4]}
         self._optimizer = mock.create_autospec(BaseOptimizer, instance=True)
+        self._optimizer.save_state = mock.MagicMock(return_value = None)
         self._optimizer.optimizer = mock.MagicMock()
 
     def post_init(

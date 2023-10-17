@@ -260,7 +260,7 @@ class TestScaffold(ResearcherTestCase):
 
 
     @patch('uuid.uuid4')
-    def test_7_save_state(self, uuid_patch):
+    def test_7_save_state_breakpoint(self, uuid_patch):
         uuid_patch.return_value = FakeUuid()
         server_lr = .5
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
@@ -270,7 +270,7 @@ class TestScaffold(ResearcherTestCase):
 
 
         with patch("fedbiomed.common.serializer.Serializer.dump") as save_patch:
-            state = scaffold.save_state(breakpoint_path=bkpt_path, global_model=self.model.state_dict())
+            state = scaffold.save_state_breakpoint(breakpoint_path=bkpt_path, global_model=self.model.state_dict())
         
         self.assertEqual(save_patch.call_count, 2,
                         f"'Serializer.dump' should be called 2 times")
@@ -281,8 +281,8 @@ class TestScaffold(ResearcherTestCase):
         self.assertEqual(state['class'], Scaffold.__name__)
         self.assertEqual(state['module'], Scaffold.__module__)
 
-    def test_8_load_state(self):
-        """Test that 'load_state' triggers the proper amount of calls."""
+    def test_8_load_state_breakpoint(self):
+        """Test that 'load_state_breakpoint' triggers the proper amount of calls."""
         server_lr = .5
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
         bkpt_path = '/path/to/my/breakpoint'
@@ -290,13 +290,13 @@ class TestScaffold(ResearcherTestCase):
 
         # create a state (not actually saving the associated contents)
         with patch("fedbiomed.common.serializer.Serializer.dump"):
-            state = scaffold.save_state(
+            state = scaffold.save_state_breakpoint(
                 breakpoint_path=bkpt_path, global_model=self.model.state_dict()
             )
 
         # action
         with patch("fedbiomed.common.serializer.Serializer.load") as load_patch:
-            scaffold.load_state(state)
+            scaffold.load_state_breakpoint(state)
 
         self.assertEqual(load_patch.call_count, 2,
                          f"'Serializer.load' should be called 2, for global model and parameters")

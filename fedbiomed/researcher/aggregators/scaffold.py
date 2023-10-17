@@ -415,7 +415,7 @@ class Scaffold(Aggregator):
         # TODO: trigger a warning if user is trying to use scaffold with something else than SGD
         return training_plan_type
 
-    def save_state(
+    def save_state_breakpoint(
         self,
         breakpoint_path: str,
         global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]
@@ -430,12 +430,12 @@ class Scaffold(Aggregator):
 
         self._aggregator_args["nodes"] = self._fds.node_ids()
         # adding aggregator parameters that will be sent to nodes afterwards
-        return super().save_state(
+        return super().save_state_breakpoint(
             breakpoint_path, global_model=global_model, node_ids=self._fds.node_ids()
         )
 
-    def load_state(self, state: Dict[str, Any] = None):
-        super().load_state(state)
+    def load_state_breakpoint(self, state: Dict[str, Any] = None):
+        super().load_state_breakpoint(state)
 
         self.server_lr = self._aggregator_args['server_lr']
 

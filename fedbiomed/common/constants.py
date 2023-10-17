@@ -33,11 +33,18 @@ DB_PREFIX = 'db_'
 NODE_PREFIX = 'node_'
 """Prefix for node ID"""
 
+NODE_STATE_PREFIX = 'node_state_'
+"""Prefix for Node state ID"""
+
+JOB_PREFIX = 'job_'
+"""Prefix for job ID"""
+
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
 __version__ = FBM_Component_Version('4.4.4')  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version('2')  # researcher config file version
 __node_config_version__ = FBM_Component_Version('2')  # node config file version
+__node_state_version__ = FBM_Component_Version('1')  # node state version
 __breakpoints_version__ = FBM_Component_Version('2')  # breakpoints format version
 __messaging_protocol_version__ = FBM_Component_Version('2')  # format of gRPC messages.
 # Nota: for messaging protocol version, all changes should be a major version upgrade
@@ -271,7 +278,9 @@ class ErrorNumbers(_BaseEnum):
     FB319 = "FB319: Command not found error"
     FB320 = "FB320: bad model type"
     FB321 = "FB321: Secure aggregation delete error"
-    FB322 = "FB322: Dataset manager error"
+    FB322 = "FB322: Dataset registration error"
+    FB323 = "FB323: Node State error"
+
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
@@ -293,6 +302,8 @@ class ErrorNumbers(_BaseEnum):
     FB416 = "FB416: federated dataset error"
     FB417 = "FB417: secure aggregation error"
     FB418 = "FB418: error in experiment's `Job`"
+    FB419 = "FB419: node state agent error"
+
     # node problem detected by researcher
 
     FB500 = "FB500: undetermined node error, detected by server"

@@ -24,12 +24,14 @@ from fedbiomed.common.exceptions import (
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common import utils
 from fedbiomed.common.secagg import SecaggCrypter
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
+from fedbiomed.node.node_state_manager import NodeStateManager, NodeStateFileName
 from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
@@ -112,6 +114,7 @@ class Round:
         self._biprime = None
         self._servkey = None
         self._optim_aux_var = {}  # type: Dict[str, Dict[str, Any]]
+        self._node_state_manager = NodeStateManager(environ['DB_PATH'])
 
         self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
         atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
@@ -123,6 +126,16 @@ class Round:
         self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
         self.testing_arguments = self.training_arguments.testing_arguments()
         self.loader_arguments = self.training_arguments.loader_arguments()
+
+
+    def initialize_node_state_manager(self, previous_state_id: Optional[str] = None):
+        """Initializes [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager]. 
+
+        Args:
+            previous_state_id (optional): previous state_id from which to load `Node` state.
+            Defaults to None (which is the value for `Round` 0).
+        """
+        self._node_state_manager.initialize(previous_state_id=previous_state_id)
 
 
     def _configure_secagg(
@@ -182,6 +195,7 @@ class Round:
 
         return secagg_all_defined
 
+
     def run_model_training(
             self,
             secagg_arguments: Union[Dict, None] = None,
@@ -217,7 +231,6 @@ class Round:
         except FedbiomedUserInputError as e:
             return self._send_round_reply(success=False, message=repr(e))
 
-
         # Validate and load training plan
         if environ["TRAINING_PLAN_APPROVAL"]:
             approved, training_plan_ = self.tp_security_manager.\
@@ -233,12 +246,14 @@ class Round:
                 logger.info(f'Training plan has been approved by the node {training_plan_["name"]}', 
                             researcher_id=self.researcher_id)
 
-
         # Import training plan, save to file, reload, instantiate a training plan
-        CurrentTPModule, CurrentTrainingPlan = utils.import_class_from_spec(
-            code=self.training_plan_source, class_name=self.training_plan_class)
-        self.training_plan = CurrentTrainingPlan()
-
+        try:
+            CurrentTPModule, CurrentTrainingPlan = utils.import_class_from_spec(
+                code=self.training_plan_source, class_name=self.training_plan_class)
+            self.training_plan = CurrentTrainingPlan()
+        except Exception as e:
+            error_message = "Cannot instantiate training plan object."
+            return self._send_round_reply(success=False, message=error_message)
 
         # save and load training plan to a file to be sure
         # 1. a file is associated to training plan so we can read its source, etc.
@@ -255,22 +270,35 @@ class Round:
         del CurrentTrainingPlan
         del CurrentTPModule
 
-        CurrentTPModule, self.training_plan = utils.import_class_object_from_file(
-            training_plan_file, self.training_plan_class)
+        try:
+            CurrentTPModule, self.training_plan = utils.import_class_object_from_file(
+                training_plan_file, self.training_plan_class)
+        except Exception as e:
+            error_message = "Cannot load training plan object from file."
+            return self._send_round_reply(success=False, message=error_message)
 
         try:
             self.training_plan.post_init(model_args=self.model_arguments,
                                          training_args=self.training_arguments,
                                          aggregator_args=self.aggregator_args)
         except Exception as e:
-            error_message = f"Can't initialize training plan with the arguments: {repr(e)}"
+            error_message = "Can't initialize training plan with the arguments."
             return self._send_round_reply(success=False, message=error_message)
 
-        # Load model parameters received from researcher ---------------------
+        # load node state
+        previous_state_id = self._node_state_manager.previous_state_id
+        if previous_state_id is not None:
+            try:
+                self._load_round_state(previous_state_id)
+            except Exception:
+                # don't send error details
+                return self._send_round_reply(success=False, message="Can't read previous node state.")
+
+        # Load model parameters received from researcher
         try:
             self.training_plan.set_model_params(self.params)
         except Exception as e:
-            error_message = f"Cannot initialize model parameters: {repr(e)}"
+            error_message = "Cannot initialize model parameters."
             return self._send_round_reply(success=False, message=error_message)
         # ---------------------------------------------------------------------
 
@@ -387,14 +415,20 @@ class Round:
 
             results['params'] = model_weights
             results['optimizer_args'] = self.training_plan.optimizer_args()
+            results['state_id'] = self._node_state_manager.state_id
 
+            try:
+                self._save_round_state()
+            except Exception:
+                # don't send details to researcher
+                return self._send_round_reply(success=False, message="Can't save new node state.")
 
             # end : clean the namespace
             try:
                 del self.training_plan
                 del CurrentTPModule
-            except Exception as e:
-                logger.debug(f'Exception raise while deleting training plan instance: {repr(e)}')
+            except Exception:
+                logger.debug(f'Exception raised while deleting training plan instance')
 
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,
@@ -403,6 +437,7 @@ class Round:
         else:
             # Only for validation
             return self._send_round_reply(success=True)
+
 
     def _send_round_reply(
             self,
@@ -429,6 +464,7 @@ class Round:
         return NodeMessages.format_outgoing_message(
             {'node_id': environ['NODE_ID'],
              'job_id': self.job_id,
+             'state_id': self._node_state_manager.state_id,
              'researcher_id': self.researcher_id,
              'command': 'train',
              'success': success,
@@ -469,6 +505,103 @@ class Round:
                 f"auxiliary variables: {repr(exc)}"
             )
         return ""
+
+    def _load_round_state(self, state_id: str) -> None:
+        """Loads optimizer state of previous `Round`, given a `state_id`.
+
+        Loads optimizer with default values if optimizer entry hasnot been found
+        or if Optimizer type has changed between current and previous `Round`. Should
+        be called at the begining of a `Round`, before training a model.
+        If loading fails, skip the loading part and loads `Optimizer` with default values.
+
+        Args:
+            state_id: state_id from which to recover `Node`'s state
+
+        Raises:
+            FedbiomedRoundError: raised if `Round` doesnot have any `job_id` attribute.
+
+        Returns:
+            True
+        """
+
+        # define here all the object that should be reloaded from the node state database
+        state = self._node_state_manager.get(self.job_id, state_id)
+
+        optimizer_wrapper = self._get_base_optimizer()  # optimizer from TrainingPlan
+        if state['optimizer_state'] is not None and \
+           str(optimizer_wrapper.__class__) == state['optimizer_state']['optimizer_type']:
+
+            optim_state_path = state['optimizer_state'].get('state_path')
+            try:
+                optim_state = Serializer.load(optim_state_path)
+
+                optimizer_wrapper.load_state(optim_state, load_from_state=True)
+                logger.debug(f"Optimizer loaded state {optim_state}")
+                logger.info(f"State {state_id} loaded")
+
+            except Exception as err:
+                logger.warning(f"Loading Optimizer from state {state_id} failed ... Resuming Experiment with default"
+                               "Optimizer state.")
+                logger.debug(f" Error detail {err}")
+
+        # add below other components that need to be reloaded from node state database
+
+
+    def _save_round_state(self) -> Dict:
+        """Saves `Round` state (mainly Optimizer state) in database through
+        [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
+
+        Some piece of information such as Optimizer state are also aved in files (located under
+        $FEDBIOMED_DIR/var/node_state<node_id>/job_id_<job_id>/).
+        Should be called at the end of a `Round`, once the model has been trained.
+
+        Entries saved in State:
+        - optimizer_state:
+            - optimizer_type (str)
+            - state_path (str)
+
+        Returns:
+            `Round` state that will be saved in the database.
+        """
+
+        state: Dict[str, Any] = {}
+        _success: bool = True
+
+        # saving optimizer state
+        optimizer = self._get_base_optimizer()
+
+        optimizer_state = optimizer.save_state()
+        if optimizer_state is not None:
+            # this condition was made so we dont save stateless optimizers
+            optim_path = self._node_state_manager.generate_folder_and_create_file_name(
+                self.job_id,
+                self._round, 
+                NodeStateFileName.OPTIMIZER  
+            )
+            Serializer.dump(optimizer_state, path=optim_path)
+            logger.debug("Saving optim state")
+
+            optimizer_state_entry: Dict = {
+                'optimizer_type': str(optimizer.__class__),
+                'state_path': optim_path
+            }
+            # FIXME: we do not save auxiliary variables for scaffold, but not sure about what to do
+
+        else:
+            logger.warning(f"Unable to save optimizer state of type {type(optimizer)}. Skipping...")
+            _success = False
+            optimizer_state_entry = None
+        state['optimizer_state'] = optimizer_state_entry
+        # add here other object states (ie model state, ...)
+
+        # save completed node state
+
+        self._node_state_manager.add(self.job_id, state)
+        if _success:
+            logger.debug("Node state saved into DataBase")
+        else:
+            logger.debug("Node state has been partially saved into the Database")
+        return state
 
     def collect_optim_aux_var(self) -> Dict[str, Any]:
         """Collect auxiliary variables from the wrapped Optimizer, if any.

@@ -31,6 +31,13 @@ class FedbiomedCertificateError(FedbiomedError):
     pass
 
 
+class FedbiomedCommunicationError(FedbiomedError):
+    """
+    Fedbiomed errors related to gRPC communication
+    """
+    pass
+
+
 class FedbiomedDataLoadingPlanError(FedbiomedError):
     """
     Exceptions specific for the class fedbiomed.common.data.DataLoadingPlan.
@@ -105,6 +112,7 @@ class FedbiomedJobError(FedbiomedError):
     """
     Error in the Job/localJob classes.
     """
+    pass
 
 
 class FedbiomedLoadingBlockError(FedbiomedError):
@@ -158,10 +166,25 @@ class FedbiomedMPCControllerError(FedbiomedError):
     pass
 
 
+class FedbiomedNodeStateAgentError(FedbiomedError):
+    """
+    Error in Node State Agent
+    """
+    pass
+
+
+class FedbiomedNodeStateManagerError(FedbiomedError):
+    """
+    Error in Node State Manager
+    """
+    pass
+
+
 class FedbiomedOptimizerError(FedbiomedError):
     """
     Exception raised when an error is encountered within `Optimizer` code.
     """
+    pass
 
 
 class FedbiomedResponsesError(FedbiomedError):
@@ -202,6 +225,7 @@ class FedbiomedSecureAggregationError(FedbiomedError):
     """
     Secure aggregation error
     """
+    pass
 
 
 class FedbiomedSilentTerminationError(FedbiomedError):
@@ -287,10 +311,4 @@ class FedbiomedValueError(FedbiomedError, ValueError):
 class FedbiomedVersionError(FedbiomedError):
     """
     Error in the versions of one of Fed-BioMed's components
-    """
-
-
-class FedbiomedCommunicationError(FedbiomedError):
-    """
-    Fedbiomed errors related to gRPC communication
     """
