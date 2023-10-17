@@ -744,13 +744,13 @@ class TrainReply(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     job_id: str
-    state_id: (str, type(None))
     success: bool
     node_id: str
     dataset_id: str
     timing: dict
     msg: str
     command: str
+    state_id: Optional[str] = None
     sample_size: Optional[int] = None
     encrypted: bool = False
     params: Optional[Union[Dict, List]] = None  # None for testing only

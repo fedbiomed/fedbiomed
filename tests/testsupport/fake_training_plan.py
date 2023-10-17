@@ -110,7 +110,7 @@ class FakeModel(BaseTrainingPlan):
         Args:
             path (str): saving path
         """
-        super().save_code(path)
+        super().save_code(path, from_code=from_code)
 
     def set_dataset_path(self, path: str):
         """Fakes `set_dataset` method of TrainingPlan classes. Originally

@@ -383,12 +383,14 @@ class TestNode(NodeTestCase):
                                                      extra_msg='Message was not serializable',
                                                      researcher_id=resid)
 
-    @patch('fedbiomed.node.round.Round.__init__', autospec=True)
+    @patch('fedbiomed.node.round.Round.__init__', return_value=None, autospec=True)
+    @patch('fedbiomed.node.round.Round.initialize_node_state_manager', autospec=True)
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     def test_node_12_parser_task_train_create_round(self,
                                                     node_msg_request_patch,
                                                     history_monitor_patch,
+                                                    initialize_node_state_manager,
                                                     round_patch,
 
                                                     ):

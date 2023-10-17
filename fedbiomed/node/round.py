@@ -95,7 +95,7 @@ class Round:
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
         self.aggregator_args = aggregator_args
-        self.aux_vars = aux_vars or []
+        self.aux_vars = aux_vars or {}
         self.node_args = node_args
         self.training = training
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
@@ -113,8 +113,7 @@ class Round:
         self._round = round_number
         self._biprime = None
         self._servkey = None
-        self._optim_aux_var = {}  # type: Dict[str, Dict[str, Any]]
-        self._node_state_manager = NodeStateManager(environ['DB_PATH'])
+        self._node_state_manager: NodeStateManager = NodeStateManager(environ['DB_PATH'])
 
         self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
         atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
@@ -231,6 +230,7 @@ class Round:
         except FedbiomedUserInputError as e:
             return self._send_round_reply(success=False, message=repr(e))
 
+        print(environ["TRAINING_PLAN_APPROVAL"])
         # Validate and load training plan
         if environ["TRAINING_PLAN_APPROVAL"]:
             approved, training_plan_ = self.tp_security_manager.\
@@ -474,14 +474,14 @@ class Round:
              **extend_with})
 
 
-    def process_optim_aux_var(self) -> str:
+    def process_optim_aux_var(self) -> Optional[str]:
         """Process researcher-emitted Optimizer auxiliary variables, if any.
 
         Returns:
             Error message, empty if the operation was successful.
         """
         # Early-exit if there are no auxiliary variables to process.
-        if not self._optim_aux_var:
+        if not self.aux_vars:
             return
 
         # Fetch the training plan's BaseOptimizer.
@@ -498,13 +498,14 @@ class Round:
             )
         # Pass auxiliary variables to the Optimizer.
         try:
-            optimizer.optimizer.set_aux(self._optim_aux_var)
+            optimizer.optimizer.set_aux(self.aux_vars)
         except FedbiomedOptimizerError as exc:
             return (
                 "TrainingPlan Optimizer failed to ingest the provided "
                 f"auxiliary variables: {repr(exc)}"
             )
-        return ""
+        
+        return 
 
     def _load_round_state(self, state_id: str) -> None:
         """Loads optimizer state of previous `Round`, given a `state_id`.
@@ -601,6 +602,7 @@ class Round:
             logger.debug("Node state saved into DataBase")
         else:
             logger.debug("Node state has been partially saved into the Database")
+
         return state
 
     def collect_optim_aux_var(self) -> Dict[str, Any]:

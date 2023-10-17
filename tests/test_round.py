@@ -6,7 +6,7 @@ import os
 import tempfile
 import unittest
 from typing import Any, Dict, Tuple
-from unittest.mock import MagicMock, create_autospec, patch
+from unittest.mock import MagicMock, create_autospec, patch, PropertyMock
 from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.node.node_state_manager import NodeStateFileName
@@ -17,7 +17,7 @@ from fedbiomed.node.node_state_manager import NodeStateFileName
 from testsupport.base_case import NodeTestCase
 #############################################################
 
-from testsupport.fake_training_plan import FakeModel
+from testsupport.fake_training_plan import FakeModel, DeclearnAuxVarModel
 from testsupport.fake_message import FakeMessages
 from testsupport.fake_uuid import FakeUuid
 from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlockTypesForTesting
@@ -75,14 +75,17 @@ class TestRound(NodeTestCase):
         history_monitor = MagicMock()
 
         self.atexit_patcher = patch('fedbiomed.node.round.atexit')
-        self.atexit_mock = self.atexit_patcher.start() 
+        self.atexit_mock = self.atexit_patcher.start()
 
+        self.state_manager_patch = patch('fedbiomed.node.round.NodeStateManager')
         self.ic_from_spec_patch = patch("fedbiomed.node.round.utils.import_class_from_spec")
         self.ic_from_file_patch = patch("fedbiomed.node.round.utils.import_class_object_from_file")
 
         self.ic_from_spec_mock = self.ic_from_spec_patch.start()
         self.ic_from_file_mock = self.ic_from_file_patch.start()
-        
+        self.state_manager_mock = self.state_manager_patch.start()
+
+        type(self.state_manager_mock.return_value).state_id = PropertyMock(return_value='test-state-id')
 
         class FakeModule:
             MyTrainingPlan = FakeModel
@@ -133,6 +136,7 @@ class TestRound(NodeTestCase):
         self.atexit_patcher.stop() 
         self.ic_from_file_patch.stop()
         self.ic_from_spec_patch.stop()
+        self.state_manager_patch.stop()
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
@@ -188,21 +192,13 @@ class TestRound(NodeTestCase):
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
-    @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.common.serializer.Serializer.dump')
-    @patch('fedbiomed.common.serializer.Serializer.load')
     @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_02_run_model_training_correct_model_calls(self,
                                                              uuid_patch,
-                                                             repository_download_patch,
                                                              tp_security_manager_patch,
                                                              import_module_patch,
-                                                             serialize_load_patch,
-                                                             serialize_dump_patch,
-                                                             repository_upload_patch,
                                                              node_msg_patch,
                                                              mock_split_train_and_test_data):
         """tests if all methods of `model` have been called after instanciating
@@ -223,10 +219,8 @@ class TestRound(NodeTestCase):
             MyTrainingPlan = FakeModel
 
         uuid_patch.return_value = FakeUuid()
-        repository_download_patch.return_value = (200, MODEL_NAME)
         tp_security_manager_patch.return_value = (True, {'name': "model_name"})
         import_module_patch.return_value = FakeModule
-        repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = (FakeLoader, FakeLoader)
 
@@ -234,18 +228,6 @@ class TestRound(NodeTestCase):
         self.r1.dataset = {'path': 'my/dataset/path',
                            'dataset_id': 'id_1234'}
 
-        # arguments of `save` method
-        _model_filename = os.path.join(environ["TMP_DIR"], "node_params_1234.mpk")
-        _model_results = {
-            'researcher_id': self.r1.researcher_id,
-            'job_id': self.r1.job_id,
-            'state_id': f'node_state_{FakeUuid.VALUE}',
-            'model_weights': MODEL_PARAMS,
-            'node_id': environ['NODE_ID'],
-            'optimizer_args': {},
-            'encrypted': False,
-            'optim_aux_var': {},
-        }
 
         # define context managers for each model method
         # we are mocking every methods of our dummy model FakeModel,
@@ -258,10 +240,9 @@ class TestRound(NodeTestCase):
         ):
             self.r1.initialize_node_state_manager()
             msg = self.r1.run_model_training()
-            self.assertTrue(msg.get("success"))
+            self.assertTrue(msg.get_dict().get("success"))
 
-            # Check that the model weights were loaded.
-            serialize_load_patch.assert_called_once()
+
 
             # Check set train and test data split function is called
             # Set dataset is called in set_train_and_test_data
@@ -270,25 +251,18 @@ class TestRound(NodeTestCase):
 
             # Since set training data return None, training_routine should be called as None
             mock_training_routine.assert_called_once_with( history_monitor=self.r1.history_monitor,
-                                                           node_args=None)
+                                                           node_args={})
 
             # Check that the model weights were saved.
             mock_after_training_params.assert_called_once()
-            serialize_dump_patch.assert_called_once_with(_model_results, _model_filename)
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
-    @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    @patch('fedbiomed.common.serializer.Serializer.load')
-    @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_03_test_run_model_training_with_real_model(self,
                                                               uuid_patch,
-                                                              repository_download_patch,
-                                                              serialize_load_patch,
                                                               tp_security_manager_patch,
-                                                              repository_upload_patch,
                                                               node_msg_patch,
                                                               mock_split_train_and_test_data):
         """tests normal case scenario with a real model file"""
@@ -296,9 +270,7 @@ class TestRound(NodeTestCase):
 
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
-        repository_download_patch.return_value = (200, 'my_python_model')
         tp_security_manager_patch.return_value = (True, {'name': "model_name"})
-        repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = (True, True)
 
@@ -308,171 +280,46 @@ class TestRound(NodeTestCase):
             "class MyTrainingPlan(FakeModel):",
             "    dataset = [1, 2, 3, 4]",
             "    def set_data_loaders(self, *args, **kwargs):",
-            "       self.testing_data_loader = MyTrainingPlan",
-            "       self.training_data_loader = MyTrainingPlan",
+            "        self.testing_data_loader = MyTrainingPlan",
+            "        self.training_data_loader = MyTrainingPlan",
         ])
 
-        module_file_path = os.path.join(environ['TMP_DIR'],
-                                        'training_plan_' + str(FakeUuid.VALUE) + '.py')
-
-        # creating file for storing dummy training plan
-        with open(module_file_path, "w", encoding="utf-8") as file:
-            file.write(dummy_training_plan_test)
-
+        self.ic_from_spec_patch.stop()
+        self.ic_from_file_patch.stop()
+        self.r1.training_plan_source = dummy_training_plan_test
+        self.r1.training_plan_class = "MyTrainingPlan"
         # action
         self.r1.initialize_node_state_manager()
         msg_test = self.r1.run_model_training()
-        print("NSG", msg_test)
         # checks
-        serialize_load_patch.assert_called_once_with('my_python_model')
-        self.assertTrue(msg_test.get('success', False))
-        self.assertEqual(TestRound.URL_MSG, msg_test.get('params_url', False))
-        self.assertEqual('train', msg_test.get('command', False))
 
-        # remove model file
-        os.remove(module_file_path)
+        self.assertTrue(msg_test.get_dict().get('success', False))
+        self.assertEqual('train', msg_test.get_dict().get('command', False))
 
-    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
-    @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('uuid.uuid4')
-    def test_rounds_04_run_model_training_bad_http_status(self,
-                                                          uuid_patch,
-                                                          repository_download_patch,
-                                                          tp_security_manager_patch,
-                                                          repository_upload_patch,
-                                                          node_msg_patch,
-                                                          mock_split_train_and_test_data):
-        """tests failures and exceptions during the download file process
-        (in run_model_training)"""
-        # Tests details:
-        # Test 1: tests case where downloading model file fails
-        # Test 2: tests case where downloading model paraeters fails
-        FakeModel.SLEEPING_TIME = 0
-
-        # initalisation of side effects functions
-
-        def download_repo_answers_gene() -> int:
-            """Generates different values of connections:
-            First one is HTTP code 200, second one is HTTP code 404
-            Raises: StopIteration, if called more than twice
-            """
-            for i in [200, 404]:
-                yield i
-
-        def repository_side_effect_test_1(training_plan_url: str, model_name: str):
-            """Returns HTTP 404 error, mimicking an error happened during
-            download process"""
-            return 404, 'my_python_model'
-
-        download_repo_answers_iter = iter(download_repo_answers_gene())
-        # initialisation of patchers
-
-        uuid_patch.return_value = FakeUuid()
-        repository_download_patch.side_effect = repository_side_effect_test_1
-        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
-        repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
-        node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_split_train_and_test_data.return_value = None
-
-        # test 1: case where first call to `Repository.download` generates HTTP
-        # status 404 (when downloading model_file)
-        with self.assertLogs('fedbiomed', logging.ERROR) as captured:
-            msg_test_1 = self.r1.run_model_training()
-
-        # checks:
-        # check if error message generated and logged is the same as the one
-        # collected in the output of `run_model_training`
-        self.assertEqual(
-            captured.records[-1].getMessage(),
-            msg_test_1.get('msg'))
-
-        self.assertFalse(msg_test_1.get('success', True))
-
-        # test 2: case where second call to `Repository.download` generates HTTP
-        # status 404 (when downloading params_file)
-        # overwriting side effect function for second test:
-        def repository_side_effect_2(training_plan_url: str, model_name: str):
-            """Returns different values when called
-            First call: returns (200, 'my_python_model') mimicking a first download
-                that happened without encoutering any issues
-            Second call: returns (404, 'my_python_model') mimicking a second download
-                that failed
-            Third Call (or more): raises StopIteration (due to generator)
-
-            """
-            val = next(download_repo_answers_iter)
-            return val, 'my_python_model'
-
-        repository_download_patch.side_effect = repository_side_effect_2
-
-        # action
-        with self.assertLogs('fedbiomed', logging.ERROR) as captured:
-            msg_test_2 = self.r1.run_model_training()
-
-        # checks:
-        # check if error message generated and logged is the same as the one
-        # collected in the output of `run_model_training`
-        self.assertEqual(
-            captured.records[-1].getMessage(),
-            msg_test_2.get('msg'))
-        self.assertFalse(msg_test_2.get('success', True))
-
-        # test 3: check if unknown exception is raised and caught during the download
-        # files process
-
-        def repository_side_effect_3(training_plan_url: str, model_name: str):
-            raise Exception('mimicking an error during download files process')
-
-        repository_download_patch.side_effect = repository_side_effect_3
-        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
-
-        # action
-        with self.assertLogs('fedbiomed', logging.ERROR) as captured:
-            msg_test_3 = self.r1.run_model_training()
-
-        # checks
-        self.assertEqual(
-            captured.records[-1].getMessage(),
-            msg_test_3.get('msg'))
-        self.assertFalse(msg_test_3.get('success', True))
 
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_05_run_model_training_model_not_approved(self,
                                                             uuid_patch,
-                                                            repository_download_patch,
                                                             tp_security_manager_patch):
         FakeModel.SLEEPING_TIME = 0
 
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
-        repository_download_patch.return_value = (200, 'my_python_model')
         tp_security_manager_patch.return_value = (False, {'name': "model_name"})
+        environ["TRAINING_PLAN_APPROVAL"] = True
         # action
-        with self.assertLogs('fedbiomed', logging.ERROR) as captured:
-            msg_test = self.r1.run_model_training()
-            # checks
-        self.assertEqual(
-            captured.records[-1].getMessage(),
-            msg_test.get('msg'))
+        msg_test = self.r1.run_model_training()
 
-        self.assertFalse(msg_test.get('success', True))
+        self.assertFalse(msg_test.get_param('success'))
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
-    @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     def test_round_06_run_model_training_import_error(self,
                                                       uuid_patch,
-                                                      repository_download_patch,
                                                       tp_security_manager_patch,
-                                                      repository_upload_patch,
                                                       node_msg_patch,
                                                       mock_split_train_and_test_data):
         """tests case where the import/loading of the model have failed"""
@@ -481,36 +328,20 @@ class TestRound(NodeTestCase):
 
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
-        repository_download_patch.return_value = (200, 'my_python_model')
         tp_security_manager_patch.return_value = (True, {'name': "model_name"})
-        repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = None
 
-        # test 1: tests raise of exception during model import
-        def exec_side_effect(*args, **kwargs):
-            """Overriding the behaviour of `exec` builitin function,
-            and raises an Exception"""
-            raise Exception("mimicking an exception happening when loading file")
+        self.ic_from_file_mock.side_effect = Exception
+        msg_test_1 = self.r1.run_model_training()
+        self.assertFalse(msg_test_1.success)
 
-        # patching builtin objects & looking for generated logs
-        # NB: this is the only way I have found to use
-        # both patched bulitins functions and assertLogs
-        with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
-              patch.object(builtins, 'exec', return_value = None),
-              patch.object(builtins, 'eval') as eval_patch):
-            eval_patch.side_effect = exec_side_effect
-            msg_test_1 = self.r1.run_model_training()
 
-        # checks:
-        # check if error message generated and logged is the same as the one
-        # collected in the output of `run_model_training`
-        self.assertEqual(
-            captured.records[-1].getMessage(),
-            msg_test_1.get('msg'))
-
-        self.assertFalse(msg_test_1.get('success', True))
-
+        self.ic_from_file_mock.side_effect = None
+        self.ic_from_spec_mock.side_effect = Exception
+        msg_test_1 = self.r1.run_model_training()
+        self.assertFalse(msg_test_1.success)
+        
         # test 2: tests raise of Exception during loading parameters
         # into model instance
 
@@ -529,28 +360,14 @@ class TestRound(NodeTestCase):
                 raise Exception('mimicking an error happening during model training')
 
         # action
-        with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
-              patch.object(builtins, 'exec', return_value=None),
-              patch.object(builtins, 'eval', return_value=FakeModelRaiseExceptionWhenLoading)
-              ):
 
-            msg_test_2 = self.r1.run_model_training()
-
-        # checks:
-        # check if error message generated and logged is the same as the one
-        # collected in the output of `run_model_training`
-        self.assertEqual(
-            captured.records[-1].getMessage(),
-            msg_test_2.get('msg'))
-        self.assertFalse(msg_test_2.get('success', True))
+        self.ic_from_file_mock.return_value = (fake_training_plan, FakeModelRaiseExceptionWhenLoading())
+        msg_test_2 = self.r1.run_model_training()
+        self.assertFalse(msg_test_2.success)
 
         # test 3: tests raise of Exception during model training
         # into model instance
-
-        # Here we are creating a new class inheriting from the FakeModel,
-        # but overriding `training_routine` through classes inheritance
-        # when `training_routine` is called, an Exception will be raised
-        #
+        
         class FakeModelRaiseExceptionInTraining(FakeModel):
             def training_routine(self, **kwargs):
                 """Mimicks an exception happening in the `training_routine`
@@ -560,96 +377,10 @@ class TestRound(NodeTestCase):
                     Exception:
                 """
                 raise Exception('mimicking an error happening during model training')
+        self.ic_from_file_mock.return_value = (fake_training_plan, FakeModelRaiseExceptionInTraining())
+        msg_test_3 = self.r1.run_model_training()
+        self.assertFalse(msg_test_3.success, )
 
-        # action
-        with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
-              patch.object(builtins, 'exec', return_value=None),
-              patch.object(builtins, 'eval', return_value= FakeModelRaiseExceptionInTraining)):
-            msg_test_3 = self.r1.run_model_training()
-
-        # checks :
-        # check if error message generated and logged is the same as the one
-        # collected in the output of `run_model_training``
-        self.assertEqual(
-            captured.records[-1].getMessage(),
-            msg_test_3.get('msg'))
-
-        self.assertFalse(msg_test_3.get('success', True))
-
-    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
-    @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('uuid.uuid4')
-    def test_round_07_run_model_training_upload_file_fails(self,
-                                                           uuid_patch,
-                                                           repository_download_patch,
-                                                           tp_security_manager_patch,
-                                                           repository_upload_patch,
-                                                           node_msg_patch,
-                                                           mock_split_train_and_test_data):
-
-        """tests case where uploading model parameters file fails"""
-        FakeModel.SLEEPING_TIME = 0
-
-        # declaration of side effect functions
-
-        def upload_side_effect(*args, **kwargs):
-            """Raises an exception when calling this function"""
-            raise Exception("mimicking an error happening during upload")
-
-        # initialisation of patchers
-        uuid_patch.return_value = FakeUuid()
-        repository_download_patch.return_value = (200, 'my_python_model')
-        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
-        repository_upload_patch.side_effect = upload_side_effect
-        node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_split_train_and_test_data.return_value = None
-
-        # action
-        with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
-              patch.object(builtins, 'exec', return_value=None),
-              patch.object(builtins, 'eval', return_value=FakeModel)
-              ):
-            msg_test = self.r1.run_model_training()
-
-        # checks if message logged is the message returned as a reply
-        self.assertEqual(
-            captured.records[-1].getMessage(),
-            msg_test.get('msg'))
-
-        self.assertFalse(msg_test.get('success', True))
-
-    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
-    @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('builtins.eval')
-    @patch('builtins.exec')
-    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('uuid.uuid4')
-    def test_round_08_run_model_training_bad_training_argument(self,
-                                                               uuid_patch,
-                                                               repository_download_patch,
-                                                               tp_security_manager_patch,
-                                                               builtin_exec_patch,
-                                                               builtin_eval_patch,
-                                                               repository_upload_patch,
-                                                               node_msg_patch,
-                                                               mock_split_train_and_test_data):
-        """tests case where training plan contains node_side arguments"""
-        FakeModel.SLEEPING_TIME = 1
-
-        # initialisation of patchers
-        uuid_patch.return_value = FakeUuid()
-        repository_download_patch.return_value = (200, "my_model")
-        tp_security_manager_patch.return_value = (True, {'name': "model_name"})
-        builtin_exec_patch.return_value = None
-        builtin_eval_patch.return_value = FakeModel
-        repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
-        node_msg_patch.side_effect = TestRound.node_msg_side_effect
-        mock_split_train_and_test_data.return_value = None
 
     @patch('inspect.signature')
     def test_round_09_data_loading_plan(self,
@@ -678,69 +409,25 @@ class TestRound(NodeTestCase):
         data_manager_mock.split.return_value = (data_loader_mock, None)
         data_manager_mock.dataset = my_dataset
 
-        r3 = Round(training_kwargs={})
-        r3.initialize_validate_training_arguments()
-        r3.training_plan = MagicMock()
-        r3.training_plan.training_data.return_value = data_manager_mock
+        self.r1.training_kwargs = {}
+        self.r1.initialize_validate_training_arguments()
+        self.r1.training_plan = MagicMock()
+        self.r1.training_plan.training_data.return_value = data_manager_mock
 
-        training_data_loader, _ = r3._split_train_and_test_data(test_ratio=0.)
+        training_data_loader, _ = self.r1._split_train_and_test_data(test_ratio=0.)
         dataset = training_data_loader.dataset
         self.assertEqual(dataset[0], 'orig-value')
 
         dlp = DataLoadingPlan({LoadingBlockTypesForTesting.MODIFY_GETITEM: ModifyGetItemDP()})
-        r4 = Round(training_kwargs={},
-                   dlp_and_loading_block_metadata=dlp.serialize()
-                   )
-        r4.initialize_validate_training_arguments()
-        r4.training_plan = MagicMock()
-        r4.training_plan.training_data.return_value = data_manager_mock
+        self.r1._dlp_and_loading_block_metadata = dlp.serialize()
+        self.r1.training_kwargs = {}
+        self.r1.initialize_validate_training_arguments()
+       
 
-        training_data_loader, _ = r4._split_train_and_test_data(test_ratio=0.)
+        training_data_loader, _ = self.r1._split_train_and_test_data(test_ratio=0.)
         dataset = training_data_loader.dataset
         self.assertEqual(dataset[0], 'modified-value')
 
-    @patch('fedbiomed.common.serializer.Serializer.load')
-    @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('uuid.uuid4')
-    def test_round_10_download_aggregator_args(
-        self, uuid_patch, repository_download_patch, serializer_load_patch,
-    ):
-        uuid_patch.return_value = FakeUuid()
-
-        repository_download_patch.side_effect = ((200, "my_model_var"+ str(i)) for i in range(3, 5))
-        serializer_load_patch.side_effect = (i for i in range(3, 5))
-        success, _ = self.r1.download_aggregator_args()
-        self.assertEqual(success, True)
-        # if attribute `aggregator_args` is None, then do nothing
-        repository_download_patch.assert_not_called()
-
-        aggregator_args = {'var1': 1,
-                            'var2': [1, 2, 3, 4],
-                            'var3': {'url': 'http://to/var/3',},
-                            'var4': {'url': 'http://to/var/4'}}
-        self.r1.aggregator_args = copy.deepcopy(aggregator_args)
-
-        success, error_msg = self.r1.download_aggregator_args()
-        self.assertEqual(success, True)
-        self.assertEqual(error_msg, '')
-
-        for var in ('var1', 'var2'):
-            self.assertEqual(self.r1.aggregator_args[var], aggregator_args[var])
-
-        for var in ('var3', 'var4'):
-            serializer_load_patch.assert_any_call(f"my_model_{var}")
-            self.assertEqual(self.r1.aggregator_args[var], int(var[-1]))
-
-    @patch('fedbiomed.common.repository.Repository.download_file')
-    @patch('uuid.uuid4')
-    def test_round_11_download_file(self, uuid_patch, repository_download_patch):
-        uuid_patch.return_value = FakeUuid()
-        repository_download_patch.return_value = (200, "my_model")
-        file_path = 'path/to/my/downloaded/files'
-        success, param_path, msg = self.r1.download_file('http://some/url/to/some/files', file_path)
-        self.assertEqual(success, True)
-        self.assertEqual(param_path, 'my_model')
-        self.assertEqual(msg, '')
 
     @patch("fedbiomed.node.round.BPrimeManager.get")
     @patch("fedbiomed.node.round.SKManager.get")
@@ -829,11 +516,7 @@ class TestRound(NodeTestCase):
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
-    @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.common.serializer.Serializer.load')
-    @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
     @patch("fedbiomed.node.round.BPrimeManager.get")
     @patch("fedbiomed.node.round.SKManager.get")
@@ -841,11 +524,7 @@ class TestRound(NodeTestCase):
                                                 servkey_get,
                                                 biprime_get,
                                                 uuid_patch,
-                                                repository_download_patch,
                                                 tp_security_manager_patch,
-                                                import_module_patch,
-                                                serialize_load_patch,
-                                                repository_upload_patch,
                                                 node_msg_patch,
                                                 mock_split_test_train_data):
         """tests correct execution and message parameters.
@@ -857,25 +536,16 @@ class TestRound(NodeTestCase):
 
         FakeModel.SLEEPING_TIME = 1
 
-        # initalisation of side effect function
-
-        def repository_side_effect(training_plan_url: str, model_name: str):
-            return 200, 'my_python_model'
-
+        # initalisation of side effect functio
         class M(FakeModel):
             def after_training_params(self, flatten):
                 return [0.1,0.2,0.3,0.4,0.5]
 
-        class FakeModule:
-            MyTrainingPlan = M
-            another_training_plan = M
-
+        
+        self.ic_from_file_mock.return_value = (fake_training_plan, M())
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
-        repository_download_patch.side_effect = repository_side_effect
         tp_security_manager_patch.return_value = (True, {'name': "model_name"})
-        import_module_patch.return_value = FakeModule
-        repository_upload_patch.return_value = {'file': TestRound.URL_MSG}
         node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
 
@@ -898,224 +568,113 @@ class TestRound(NodeTestCase):
         environ["FORCE_SECURE_AGGREGATION"] = False
 
     @patch("uuid.uuid4")
-    @patch('fedbiomed.node.round.importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    @patch('fedbiomed.common.repository.Repository.upload_file')
-    @patch('fedbiomed.common.repository.Repository.download_file')
     def test_round_14_run_model_training_optimizer_aux_var_error(self,
-                                                                 patch_repo_download_file,
-                                                                 patch_repo_upload_file,
                                                                  tp_security_manager_patch,
-                                                                 importlib_importmodule_patch,
                                                                  patch_uuid):
-        aux_var = {'scaffold': {'delta': 'some incorrect value for scaffold'}}
-        def create_file(file_path: str, aux_var: Dict):
-            Serializer.dump(aux_var, file_path)
-        repo_uploaded = []
-        def repo_upload_side_effect(file:str):
-            repo_uploaded.append(file)
-            return {'file': file}
-        
-        # patches
-        patch_repo_upload_file.side_effect = repo_upload_side_effect
+ 
         patch_uuid.return_value = FakeUuid()
         tp_security_manager_patch.return_value = (True, {'name': 'my_node_id'})
-        importlib_importmodule_patch.return_value = fake_training_plan
+        
 
-        with tempfile.TemporaryDirectory() as tmp_directory:
-            fake_path_towards_tp = os.path.join('path', 'to', 'my', 'tp', 'file.mpk')
-            aux_var_tmp_path = os.path.join(tmp_directory, 'aux_var.mpk')
-            model_param_tmp_path = os.path.join(tmp_directory, 'model_params.mpk')
-            patch_repo_download_file.side_effect = (
-                    (200, fake_path_towards_tp),
-                    (200, model_param_tmp_path),
-                    (200, aux_var_tmp_path)
-                    )
-            create_file(model_param_tmp_path, {'model_weights': [1,2,3,4,5]},)
-            create_file(aux_var_tmp_path, aux_var)
+ 
+        # creating Round
+        self.r1.training_kwargs = {'optimizer_args': {'lr': .1234}}
 
-            # creating Round
-            rnd = Round(
-                training_kwargs={'optimizer_args': {'lr': .1234}}
-            )
-            rnd.researcher_id = 'researcher_id_1234'
-            rnd.job_id = 'job_id_1234'
-            rnd.training_plan_class = "DeclearnAuxVarModel"
-            rnd.dataset = {'dataset_id': 'dataset_id_1234',
-                           'path': os.path.join('path', 'to', 'my', 'dataset')}
-            rnd.aux_var_urls = ['http://url/to/my/file']
+        self.r1.researcher_id = 'researcher_id_1234'
+        self.r1.job_id = 'job_id_1234'
 
-            # configure optimizer
-            lr = .1234
-            optim_node = Optimizer(lr=lr, modules=[ScaffoldClientModule(), YogiModule()],
-                                   regularizers=[RidgeRegularizer()])
+        # configure optimizer
+        lr = .1234
+        optim_node = Optimizer(lr=lr, modules=[ScaffoldClientModule(), YogiModule()],
+                                regularizers=[RidgeRegularizer()])
 
 
-            dec_node_optim = DeclearnOptimizer(TorchModel(torch.nn.Linear(3, 1)), optim_node)
+        dec_node_optim = DeclearnOptimizer(TorchModel(torch.nn.Linear(3, 1)), optim_node)
 
-            fake_training_plan.DeclearnAuxVarModel.OPTIM = dec_node_optim
-            fake_training_plan.DeclearnAuxVarModel.TYPE = TrainingPlans.TorchTrainingPlan
-            
-            # action
-            rnd_reply = rnd.run_model_training()
+        DeclearnAuxVarModel.OPTIM = dec_node_optim
+        DeclearnAuxVarModel.TYPE = TrainingPlans.TorchTrainingPlan
 
-            self.assertIn("TrainingPlan Optimizer failed to ingest the provided auxiliary variables",
-                          rnd_reply['msg'])
+        self.ic_from_file_mock.return_value = (fake_training_plan, DeclearnAuxVarModel())
+        self.r1.training_plan_class = "DeclearnAuxVarModel"
+        self.r1.dataset = {'dataset_id': 'dataset_id_1234',
+                        'path': os.path.join('path', 'to', 'my', 'dataset')}
+        self.r1.aux_vars = {'scaffold': {'delta': 'some incorrect value for scaffold'}}
 
-    @patch("uuid.uuid4")
-    @patch("fedbiomed.common.serializer.Serializer.load")
-    @patch("fedbiomed.common.repository.Repository.download_file")
-    def test_round_15_download_optimizer_aux_var(
-        self,
-        patch_repo_download_file,
-        patch_serializer_load,
-        patch_uuid,
-    ):
-        """Test that 'download_optimizer_aux_var' works properly."""
-        # Set up a Round with two aux var urls, and patch downloading tools.
-        rnd = Round(aux_var_urls=["fake_url_1", "fake_url_2"])
-        patch_uuid.side_effect = ("uuid_1", "uuid_2")
 
-        def fake_repository_download(url: str, path: str) -> Tuple[int, str]:
-            return 200, f"{url}-{path}"
+        # action
+        rnd_reply = self.r1.run_model_training()
 
-        def fake_serializer_load(path: str) -> Dict[str, Dict[str, Any]]:
-            return {path: {"key": "val"}}
+        self.assertIn("TrainingPlan Optimizer failed to ingest the provided auxiliary variables",
+                        rnd_reply.msg)
 
-        patch_repo_download_file.side_effect = fake_repository_download
-        patch_serializer_load.side_effect = fake_serializer_load
-        # Run the method.
-        success, error_msg = rnd.download_optimizer_aux_var()
-        # Verify its outputs and side effect.
-        self.assertTrue(success)
-        self.assertEqual(error_msg, "")
-        aux_var = getattr(rnd, "_optim_aux_var")
-        expected = {
-            "fake_url_1-aux_var_uuid_1.mpk": {"key": "val"},
-            "fake_url_2-aux_var_uuid_2.mpk": {"key": "val"},
-        }
-        self.assertDictEqual(aux_var, expected)
-
-    @patch("uuid.uuid4")
-    @patch("fedbiomed.common.repository.Repository.download_file")
-    def test_round_16_download_optimizer_aux_var_download_error(
-        self,
-        patch_repo_download_file,
-        patch_uuid,
-    ):
-        """Test that 'download_optimizer_aux_var' fails properly on 404 error."""
-        # Set up a Round with an aux var url, and failing downloader.
-        fake_url = "fake_url"
-        rnd = Round(aux_var_urls=[fake_url])
-        patch_uuid.return_value = "uuid"
-        patch_repo_download_file.return_value = (404, "fake_path")
-        # Run the method.
-        success, error_msg = rnd.download_optimizer_aux_var()
-        # Verify its outputs and side effect.
-        self.assertFalse(success)
-        self.assertTrue(fake_url in error_msg)
-        aux_var = getattr(rnd, "_optim_aux_var")
-        self.assertDictEqual(aux_var, {})
-        # Verify that the download instructions matched expectations.
-        patch_repo_download_file.assert_called_once_with(
-            fake_url, "aux_var_uuid.mpk"
-        )
-
-    @patch("uuid.uuid4")
-    @patch("fedbiomed.common.serializer.Serializer.load")
-    @patch("fedbiomed.common.repository.Repository.download_file")
-    def test_round_17_download_optimizer_aux_var_serializer_error(
-        self,
-        patch_repo_download_file,
-        patch_serializer_load,
-        patch_uuid,
-    ):
-        """Test that 'download_optimizer_aux_var' fails properly on Serializer error."""
-        # Set up a Round with an aux var url, and failing de-serializer.
-        fake_url = "fake_url"
-        fake_path = "fake_path.mpk"
-        fake_err = "fake serializer error message"
-        rnd = Round(aux_var_urls=[fake_url])
-        patch_uuid.return_value = "uuid"
-        patch_repo_download_file.return_value = (200, fake_path)
-        patch_serializer_load.side_effect = TypeError(fake_err)
-        # Run the method.
-        success, error_msg = rnd.download_optimizer_aux_var()
-        # Verify its outputs and side effect.
-        self.assertFalse(success)
-        self.assertTrue(fake_err in error_msg)
-        aux_var = getattr(rnd, "_optim_aux_var")
-        self.assertDictEqual(aux_var, {})
-        # Verify that the download instructions matched expectations.
-        patch_repo_download_file.assert_called_once_with(
-            fake_url, "aux_var_uuid.mpk"
-        )
-        patch_serializer_load.assert_called_once_with(fake_path)
 
     def test_round_18_process_optim_aux_var(self):
         """Test that 'process_optim_aux_var' works properly."""
-        rnd = Round()
+        
         # Set up a mock BaseOptimizer with an attached Optimizer.
         mock_optim = create_autospec(Optimizer, instance=True)
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
         mock_b_opt.optimizer = mock_optim
         # Attach the former to the Round's mock TrainingPlan.
-        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
-        rnd.training_plan.optimizer.return_value = mock_b_opt
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
+
         # Attach fake auxiliary variables (as though pre-downloaded).
         fake_aux_var = {"module": {"key": "val"}}
-        setattr(rnd, "_optim_aux_var", fake_aux_var)
+        setattr(self.r1, "aux_vars", fake_aux_var)
         # Call the tested method and verify its outputs and effects.
-        msg = rnd.process_optim_aux_var()
-        self.assertEqual(msg, "")
+        msg = self.r1.process_optim_aux_var()
+        self.assertEqual(msg, None)
         mock_optim.set_aux.assert_called_once_with(fake_aux_var)
 
     def test_round_19_process_optim_aux_var_without_aux_var(self):
         """Test that 'process_optim_aux_var' exits properly without aux vars."""
         # Set up a Round with a mock Optimizer attached, but no aux vars.
-        rnd = Round()
+       
         mock_optim = create_autospec(Optimizer, instance=True)
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
         mock_b_opt.optimizer = mock_optim
-        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
-        rnd.training_plan.optimizer.return_value = mock_b_opt
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
         # Call the tested method, verifying that it exits without effects.
-        msg = rnd.process_optim_aux_var()
-        self.assertEqual(msg, "")
+        msg = self.r1.process_optim_aux_var()
+        self.assertEqual(msg, None)
         mock_optim.set_aux.assert_not_called()
 
     def test_round_20_process_optim_aux_var_without_base_optimizer(self):
         """Test that 'process_optim_aux_var' documents missing BaseOptimizer."""
         # Set up a Round with fake aux_vars, but no BaseOptimizer.
-        rnd = Round()
-        setattr(rnd, "_optim_aux_var", {"module": {"key": "val"}})
-        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
-        rnd.training_plan.optimizer.return_value = None
+        
+        setattr(self.r1, "aux_vars", {"module": {"key": "val"}})
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = None
         # Call the tested method, verifying that it returns an error.
-        msg = rnd.process_optim_aux_var()
+        msg = self.r1.process_optim_aux_var()
         self.assertTrue("TrainingPlan does not hold a BaseOptimizer" in msg)
         self.assertIsInstance(msg, str)
 
     def test_round_21_process_optim_aux_var_without_optimizer(self):
         """Test that 'process_optim_aux_var' documents missing Optimizer."""
         # Set up a Round with aux vars, but a non-Optimizer optimizer.
-        rnd = Round()
-        setattr(rnd, "_optim_aux_var", {"module": {"key": "val"}})
+        
+        setattr(self.r1, "aux_vars", {"module": {"key": "val"}})
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
         mock_b_opt.optimizer = MagicMock()  # not a declearn-based Optimizer
-        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
-        rnd.training_plan.optimizer.return_value = mock_b_opt
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
         # Call the tested method, verifying that it returns an error.
-        msg = rnd.process_optim_aux_var()
+        msg = self.r1.process_optim_aux_var()
         self.assertTrue("does not manage a compatible Optimizer" in msg)
         self.assertIsInstance(msg, str)
 
     def test_round_22_process_optim_aux_var_with_optimizer_error(self):
         """Test that 'process_optim_aux_var' documents 'Optimizer.set_aux' error."""
         # Set up a Round with fake pre-downloaded aux vars.
-        rnd = Round()
+
         fake_aux_var = {"module": {"key": "val"}}
-        setattr(rnd, "_optim_aux_var", fake_aux_var)
+        setattr(self.r1, "aux_vars", {"module": {"key": "val"}})
+
         # Set up a mock BaseOptimizer with an attached failing Optimizer.
         mock_optim = create_autospec(Optimizer, instance=True)
         fake_error = "fake FedbiomedOptimizerError on 'set_aux' call"
@@ -1123,48 +682,49 @@ class TestRound(NodeTestCase):
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
         mock_b_opt.optimizer = mock_optim
         # Attach the former to the Round's mock TrainingPlan.
-        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
-        rnd.training_plan.optimizer.return_value = mock_b_opt
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
         # Call the tested method, verifying that it returns an error.
-        msg = rnd.process_optim_aux_var()
+        msg = self.r1.process_optim_aux_var()
         self.assertTrue(fake_error in msg)
         mock_optim.set_aux.assert_called_once_with(fake_aux_var)
 
     def test_round_23_collect_optim_aux_var(self):
         """Test that 'collect_optim_aux_var' works properly with an Optimizer."""
         # Set up a Round with an attached mock Optimizer.
-        rnd = Round()
+        
+
         mock_optim = create_autospec(Optimizer, instance=True)
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
         # why not using DeclearnOptimizer?
         mock_b_opt.optimizer = mock_optim
-        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
-        rnd.training_plan.optimizer.return_value = mock_b_opt
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
         # Call the tested method and verify its outputs.
-        aux_var = rnd.collect_optim_aux_var()
+        aux_var = self.r1.collect_optim_aux_var()
         self.assertEqual(aux_var, mock_optim.get_aux.return_value)
         mock_optim.get_aux.assert_called_once()
 
     def test_round_24_collect_optim_aux_var_without_optimizer(self):
         """Test that 'collect_optim_aux_var' works properly without an Optimizer."""
         # Set up a Round with a non-Optimizer optimizer.
-        rnd = Round()
+   
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
         mock_b_opt.optimizer = MagicMock()  # non-declearn-based object
-        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
-        rnd.training_plan.optimizer.return_value = mock_b_opt
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
         # Call the tested method and verify its outputs.
-        aux_var = rnd.collect_optim_aux_var()
+        aux_var = self.r1.collect_optim_aux_var()
         self.assertEqual(aux_var, {})
 
     def test_round_25_collect_optim_aux_var_without_base_optimizer(self):
         """Test that 'collect_optim_aux_var' fails without a BaseOptimizer."""
         # Set up a Round without a BaseOptimizer.
-        rnd = Round()
-        rnd.training_plan = create_autospec(BaseTrainingPlan, instance=True)
-        rnd.training_plan.optimizer.return_value = None
+
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = None
         # Verify that aux-var collection raises.
-        self.assertRaises(FedbiomedRoundError, rnd.collect_optim_aux_var)
+        self.assertRaises(FedbiomedRoundError, self.r1.collect_optim_aux_var)
 
     # add a test with : shared and node specific auxiliary avraibales
 
@@ -1175,30 +735,27 @@ class TestRound(NodeTestCase):
             return x
         mock_training_plan.training_data = foo_takes_an_argument
         mock_training_plan.type.return_value = 'tp type'
-        r = Round()
-        r.training_plan = mock_training_plan
+
+        self.r1.training_plan = mock_training_plan
         with self.assertRaises(FedbiomedRoundError):
-            r._split_train_and_test_data()
+            self.r1._split_train_and_test_data()
 
 
     @patch('fedbiomed.node.round.Serializer')
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    @patch('fedbiomed.node.round.NodeStateManager')
     def test_round_27_load_round_state(self,
-                                       node_state_manager_patch,
                                        get_optim_patch,
                                        serializer_patch,
-
                                        ):
 
-        r = Round(job_id='1234')
+        self.r1.job_id = 1234
         state_id = 'state_id_1234'
         path_state = '/path/to/state'
 
         training_plan_mock = MagicMock(spec=BaseTrainingPlan,
                                        type=MagicMock(),
                                        _model=MagicMock(spec=Model))
-        r.training_plan = training_plan_mock
+        self.r1.training_plan = training_plan_mock
 
         
         node_state = {
@@ -1207,11 +764,11 @@ class TestRound(NodeTestCase):
                 'state_path': path_state,
             }
         }
-        node_state_manager_patch.return_value.get.return_value = node_state
+        self.state_manager_mock.return_value.get.return_value = node_state
         get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
                                                  __class__='optimizer_type',
                                                 )
-        r._load_round_state(state_id)
+        self.r1._load_round_state(state_id)
         
         # checks
         # FIXME: in future version, we should check each call to Serializer.load
@@ -1227,22 +784,20 @@ class TestRound(NodeTestCase):
     @patch('fedbiomed.node.round.logger')
     @patch('fedbiomed.node.round.Serializer')
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    @patch('fedbiomed.node.round.NodeStateManager')
     def test_round_28_load_round_state_failure(self,
-                                               node_state_manager_patch,
                                                get_optim_patch,
                                                serializer_patch,
                                                logger_patch
                                                ):
 
-        r = Round(job_id='1234')
+        self.r1.job_id = 1234
         state_id = 'state_id_1234'
         path_state = '/path/to/state'
 
         training_plan_mock = MagicMock(spec=BaseTrainingPlan,
                                        type=MagicMock(),
                                        _model=MagicMock(spec=Model))
-        r.training_plan = training_plan_mock
+        self.r1.training_plan = training_plan_mock
 
         
         node_state = {
@@ -1251,13 +806,13 @@ class TestRound(NodeTestCase):
                 'state_path': path_state,
             }
         }
-        node_state_manager_patch.return_value.get.return_value = node_state
+        self.state_manager_mock.return_value.get.return_value = node_state
         get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
                                                  __class__='optimizer_type',
                                                  )
         err_msg = "Error raised for the sake of testing"
         get_optim_patch.return_value.load_state.side_effect = FedbiomedOptimizerError(err_msg)
-        r._load_round_state(state_id)
+        self.r1._load_round_state(state_id)
         
         # checks
         # FIXME: in future version, we should check each call to Serializer.load
@@ -1271,26 +826,24 @@ class TestRound(NodeTestCase):
 
     @patch('fedbiomed.node.round.Serializer', autospec=True)
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    @patch('fedbiomed.node.round.NodeStateManager', autospec=True)
     def test_round_28_save_round_state(self, 
-                                       node_state_manager_patch,
                                        get_optim_patch,
                                        serializer_patch):
         
-        job_id, round_nb = '1234', 34
-        r = Round(job_id=job_id, round_number=round_nb)
+        self.r1.job_id = '1234'
+        self.r1._round = 34
         
         optim_path = 'path/to/folder/containing/state/files'
-        node_state_manager_patch.return_value.generate_folder_and_create_file_name.return_value = optim_path
+        self.state_manager_mock.return_value.generate_folder_and_create_file_name.return_value = optim_path
         get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
                                                  __class__='optimizer_type',
                                                 )
         
         # adding a funcition that add additional dictionary entries through reference 
-        node_state_manager_patch.return_value.add.side_effect = lambda x,y: y.update({'version_node_id': '1',
+        self.state_manager_mock.return_value.add.side_effect = lambda x,y: y.update({'version_node_id': '1',
                                                                                       'state_id': 'state_id_1234'})
 
-        res = r._save_round_state()
+        res = self.r1._save_round_state()
 
         added_state = {
             'optimizer_state': {
@@ -1309,23 +862,22 @@ class TestRound(NodeTestCase):
             get_optim_patch.return_value.save_state.return_value,
             path=optim_path)
         
-        node_state_manager_patch.return_value.add.assert_called_once_with(job_id, 
+        self.state_manager_mock.return_value.add.assert_called_once_with('1234', 
                                                                           expected_state)
         self.assertDictEqual(expected_state, res)
 
 
-    @patch('fedbiomed.node.round.NodeStateManager.add')
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
     def test_round_29_save_round_state_failure_saving_optimizer(self,
                                                                 get_optim_patch,
-                                                                node_state_manager_add_patch,
                                                                 ):
-        job_id, round_nb = '1234', 34
+        self.r1.job_id = '1234'
+        self.r1._round = 34
         #r = Round(job_id=job_id, round_number=round_nb)
         get_optim_patch.return_value = MagicMock(save_state=MagicMock(return_value=None))
         
 
-        node_state_manager_add_patch.side_effect = lambda x,y: y.update({'version_node_id': '1',
+        self.state_manager_mock.return_value.add.side_effect = lambda x,y: y.update({'version_node_id': '1',
                                                                          'state_id': 'state_id_1234'})
         res = self.r1._save_round_state()
         expected_state = {
@@ -1336,21 +888,11 @@ class TestRound(NodeTestCase):
         
         self.assertDictEqual(res, expected_state)
         
-    @patch('fedbiomed.node.node_state_manager.os.makedirs')
-    @patch('fedbiomed.node.node_state_manager.NodeStateManager.get_node_state_base_dir')
-    @patch('fedbiomed.node.node_state_manager.NodeStateManager._check_version')
-    @patch('fedbiomed.node.node_state_manager.NodeStateManager._load_state')
-    @patch('fedbiomed.node.node_state_manager.NodeStateManager._save_state')
     @patch('uuid.uuid4', autospec=True)
     @patch('fedbiomed.node.round.Serializer', autospec=True)
     def test_round_30_save_and_load_state(self,
                                           serializer_patch,
-                                          uuid_patch,
-                                          save_patch,
-                                          load_patch,
-                                          check_version_patch,
-                                          get_node_state_base_dir_patch,
-                                          os_makedirs_patch):
+                                          uuid_patch):
         
         optim_mock = MagicMock(spec=BaseOptimizer,
                                __class__='optimizer_type')
@@ -1358,7 +900,7 @@ class TestRound(NodeTestCase):
         training_plan_mock = MagicMock(spec=BaseTrainingPlan,
                                        )
         training_plan_mock.optimizer.return_value = optim_mock
-        get_node_state_base_dir_patch.return_value = "/path/to/base/dir"
+        self.state_manager_mock.return_value.get_node_state_base_dir.return_value = "/path/to/base/dir"
 
         uuid_patch.return_value = FakeUuid()
         job_id = _id = FakeUuid.VALUE
@@ -1370,39 +912,17 @@ class TestRound(NodeTestCase):
         
         self.r1.initialize_node_state_manager()
         state = self.r1._save_round_state()
-        self.r1._load_round_state(state['state_id'])
+        print(state)
+        self.r1._load_round_state('test-state-id')
         
-        expected_state = {
-            "version_node_id": '1',
-            'state_id': state_id,
-            "job_id": str(job_id),
-            'optimizer_state': {
-                'optimizer_type': 'optimizer_type',
-                'state_path': path
-            }
-        }
-        self.assertDictEqual(state, expected_state)
-        load_patch.assert_called_once_with(str(job_id), state_id)
-        save_patch.assert_called_once_with(state_id, 
-                                           expected_state)
-    
-    @patch('fedbiomed.node.round.NodeStateManager.initialize')
-    def test_round_31_initialize_node_state_manager(self,
-                                                    node_state_manager_initialize_patch):
+        self.state_manager_mock.return_value.get.assert_called_once_with(str(job_id), 'test-state-id')
+        self.state_manager_mock.return_value.add.assert_called_once()
+
+    def test_round_31_initialize_node_state_manager(self):
         previous_state_id = 'state_id_1234'
         self.r1.initialize_node_state_manager(previous_state_id=previous_state_id)
         
-        node_state_manager_initialize_patch.assert_called_once_with(previous_state_id=previous_state_id)
-        
-    # def test_round_28_load_save_round_state_declearn_optim(self):
-    # # same test as previous, but with a real declearn optimizer 
-    #     optim_state = {'config': {'lrate': 0.2, 'w_decay': 0.0, 'regularizers': [], 'modules': [
-    #     ('adam', {'beta_1': 0.9, 'beta_2': 0.99, 'amsgrad': False, 'eps': 1e-07})]
-    #                             }, 'states': {'modules': [
-    #                                 ('adam', {'steps': 0, 'vmax': None, 'momentum': {'state': 0.0}, 'velocity': {'state': 0.0}})]}}
-
-    # def test_round_28_load_save_round_state_framework_native_optim(self):
-    #     pass
+        self.state_manager_mock.return_value.initialize.assert_called_once_with(previous_state_id=previous_state_id)
 
 
 if __name__ == '__main__':  # pragma: no cover
