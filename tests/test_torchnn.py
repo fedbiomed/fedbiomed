@@ -191,8 +191,9 @@ class TestTorchnn(unittest.TestCase):
             def init_dependencies(self, invalid):
                 pass
 
-        tp = FakeWrongTP()
+        
         with self.assertRaises(FedbiomedTrainingPlanError):
+            tp = FakeWrongTP()
             tp._configure_dependencies()
 
         # Wrong 2 -----------------------------------------------------------------
@@ -200,8 +201,9 @@ class TestTorchnn(unittest.TestCase):
             def init_dependencies(self):
                 return None
 
-        tp = FakeWrongTP()
+        
         with self.assertRaises(FedbiomedTrainingPlanError):
+            tp = FakeWrongTP()
             tp._configure_dependencies()
 
     def test_torch_training_plan_04_configure_model_and_optimizer_1(self):
