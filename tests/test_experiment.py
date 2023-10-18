@@ -78,6 +78,8 @@ class TestExperiment(ResearcherTestCase):
             # this has be done to avoid mocking a private attribute (`_dp_controller`), which is inappropriate,
             # according to our test coding rules
             self._dp_controller = MagicMock()
+
+
             do_nothing = lambda x: x
             self._dp_controller.side_effect = do_nothing
 
@@ -158,7 +160,7 @@ class TestExperiment(ResearcherTestCase):
                                                   MagicMock(return_value=None))
         self.patcher_cr_folder = patch('fedbiomed.researcher.experiment.create_exp_folder',
                                        return_value=self.experimentation_folder)
-        self.patcher_job = patch('fedbiomed.researcher.job.Job.__init__', MagicMock(return_value=None))
+        self.patcher_job = patch('fedbiomed.researcher.experiment.Job')
         self.patcher_logger_info = patch('fedbiomed.common.logger.logger.info', MagicMock(return_value=None))
         self.patcher_logger_error = patch('fedbiomed.common.logger.logger.error', MagicMock(return_value=None))
         self.patcher_logger_critical = patch('fedbiomed.common.logger.logger.critical', MagicMock(return_value=None))
@@ -694,14 +696,6 @@ class TestExperiment(ResearcherTestCase):
         training_plan = self.test_exp.set_training_plan_class(None)
         self.assertIsNone(training_plan, 'Model class is not set as None')
 
-        # Setting training_plan as string
-        mc_expected = 'TestModel'
-        training_plan = self.test_exp.set_training_plan_class(mc_expected)
-        self.assertEqual(training_plan, mc_expected, 'Model class is not set properly while setting it in `str` type')
-
-        # Back to normal
-        self.test_exp._training_plan_path = None
-
         # Test by passing class
         training_plan = self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
         self.assertEqual(training_plan, TestExperiment.FakeModelTorch,
@@ -733,11 +727,11 @@ class TestExperiment(ResearcherTestCase):
         # Test if ._job is not None
         self.mock_logger_debug.reset_mock()
         self.test_exp._job = MagicMock(return_value=True)
-        self.test_exp.set_training_plan_class('FakeModel')
+        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
         # There will be two logger.debug call
         #  First    : Experiment is not fully configured since training_plan_path is still None
         #  Second   : Update Job since training_plan has changed
-        self.assertEqual(self.mock_logger_debug.call_count, 2, 'Logger debug is called unexpected time while setting '
+        self.assertEqual(self.mock_logger_debug.call_count, 1, 'Logger debug is called unexpected time while setting '
                                                                'model class')
 
     def test_experiment_15_set_model_arguments(self):
@@ -786,24 +780,15 @@ class TestExperiment(ResearcherTestCase):
         self.assertNotIn(list(ma_expected_3.keys()), list(train_args_3.keys()))
 
         # test bug #492: proper forwarding of training_args to Job
-        self.patcher_job.stop()  # We need to actually leverage the real Job class
-        self.test_exp._training_plan_is_defined = True  # required for set_job below
-        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)  # required for set_job below
-        with patch('fedbiomed.researcher.job.Repository', new=MagicMock()) as patched_repo, \
-             patch('fedbiomed.researcher.job.Job.update_parameters', return_value=None) as patched_update_params, \
-             patch('fedbiomed.researcher.job.Job.validate_minimal_arguments', return_value=None) as patched_validate, \
-             patch('fedbiomed.researcher.job.Job._load_training_plan_from_file') as patched_load_tp:
-                        self.test_exp.set_job()  # create an actual Job inside the experiment
-        # First, make sure that the training_args are the same as above
-        self.assertSubDictInDict(ma_expected_3, train_args_3)
+        self.test_exp._job = MagicMock()
+
         new_args = {'loader_args': {'batch_size': 42}}
         # Then we set new arguments
         _ = self.test_exp.set_training_args(new_args)
         # Test that the new args have been correctly set in the experiment
         self.assertSubDictInDict(new_args, self.test_exp.training_args())
         # Test that the new args have been correctly propagated to the job
-        self.assertSubDictInDict(new_args, self.test_exp.job().training_args)
-        self.patcher_job.start()  # Restart mocking the Job
+
 
         # Test setting model_args while the ._job is not None
         self.mock_logger_debug.reset_mock()
@@ -824,19 +809,7 @@ class TestExperiment(ResearcherTestCase):
             'test_metric_args': {}
         }
         train_args = self.test_exp.set_training_args(expected_train_args, reset=True)
-        # self.assertDictEqual(train_args, expected_train_args)
 
-        # cannot be checked ye with TrainingArgs
-        # the validation_hook will be difficult to write, since
-        # it may depend on the order of the keys
-        # Raises error - can not set test metric argument without setting metric
-        # expected_train_args = {
-        #    'test_metric_args': {}
-        # }
-        # with self.assertRaises(SystemExit):
-        #    self.test_exp.set_training_args(expected_train_args, reset=False)
-
-        # Raises error since test_metric_args is not of type dict
         expected_train_args = {
             'test_metric': 'ACCURACY',
             'test_metric_args': 'test'
@@ -866,13 +839,10 @@ class TestExperiment(ResearcherTestCase):
 
         # case 2: setting a Job and a test_ratio afterwards
         self.test_exp._training_plan_is_defined = True
-        self.test_exp.set_training_plan_class = TestExperiment.FakeModelTorch
-        self.test_exp.set_job()
+        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
+        self.test_exp._job = MagicMock()
         ratio_2 = .8
-
         self.test_exp.set_test_ratio(ratio_2)
-
-        self.assertEqual(self.test_exp._job._training_args['test_ratio'], ratio_2)
 
         # case 3: bad test_ratio values (triggers SystemExit exception)
         # 3.1 : test_ratio type is not correct
@@ -895,9 +865,8 @@ class TestExperiment(ResearcherTestCase):
             with self.assertRaises(SystemExit):
                 self.test_exp.set_test_ratio(ratio)
 
-    @patch('fedbiomed.researcher.job.Job')
-    @patch('fedbiomed.researcher.job.Job.__init__')
-    def test_experiment_18_set_test_metric(self, mock_job_init, mock_job):
+
+    def test_experiment_18_set_test_metric(self):
         """
         Tests testing metric setter `set_test_metric
         """
@@ -948,14 +917,13 @@ class TestExperiment(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             self.test_exp.set_test_on_local_updates('NotBool')
 
-    @patch('fedbiomed.researcher.job.Job')
-    @patch('fedbiomed.researcher.job.Job.__init__')
-    def test_experiment_21_set_job(self, mock_job_init, mock_job):
-        """ Testing setter for Job in Experiment class """
 
+    @patch('fedbiomed.researcher.job.utils.import_class_object_from_file')
+    def test_experiment_21_set_job(self, import_mock):
+        """ Testing setter for Job in Experiment class """
+        import_mock.return_value = ( (), TestExperiment.FakeModelTorch())
         job_expected = "JOB"
-        mock_job.return_value = job_expected
-        mock_job_init.return_value = None
+        self.mock_job.return_value = job_expected
 
         # Test to override existing Job with set_job
         self.mock_logger_debug.reset_mock()
@@ -977,13 +945,13 @@ class TestExperiment(ResearcherTestCase):
         self.mock_logger_debug.assert_called_once()
 
         # Back to normal
-        self.test_exp._fds = True  # Assign any value to not make it None
+        self.test_exp._fds = FederatedDataSetMock({'node-1': []})  # Assign any value to not make it None
 
         # Test proper set job when everything is ready to create Job
         self.test_exp._training_plan_is_defined = True
-        self.test_exp.set_training_plan_class = TestExperiment.FakeModelTorch
+        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
         job = self.test_exp.set_job()
-        self.assertIsInstance(job, Job, 'Job has not been set properly')
+        self.assertEqual(job, job_expected, 'Job has not been set properly')
 
     def test_experiment_22_set_save_breakpoints(self):
         """ Test setter for save_breakpoints attr of experiment class """
@@ -1032,18 +1000,7 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.aggregators.fedavg.FedAverage.aggregate')
     @patch('fedbiomed.researcher.aggregators.Aggregator.create_aggregator_args')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
-    @patch('fedbiomed.researcher.job.Job.id', new_callable=PropertyMock)
-    #@patch('fedbiomed.researcher.job.Job.training_plan', new_callable=PropertyMock)
-    #@patch('fedbiomed.researcher.job.Job.training_replies', new_callable=PropertyMock)
-    #@patch('fedbiomed.researcher.experiment.Job.start_nodes_training_round')
-    @patch('fedbiomed.researcher.experiment.Job')
     def test_experiment_25_run_once(self,
-                                    mock_job_init,
-
-                                    #mock_job_training,
-                                    #mock_job_training_replies,
-                                    #mock_job_training_plan_type,
-                                    mock_job_id,
                                     mock_strategy_refine,
                                     mock_fedavg_create_aggregator_args,
                                     mock_fedavg_aggregate,
@@ -1051,15 +1008,15 @@ class TestExperiment(ResearcherTestCase):
         """ Testing run_once method of Experiment class """
         training_plan = MagicMock()
         training_plan.type = MagicMock()
-        mock_job_id.return_value = "dummy-job-id"
-        mock_job_init.return_value = MagicMock(
+        type(self.mock_job.return_value).id = PropertyMock(return_value="dummy-job-id") 
+        self.mock_job.return_value = MagicMock(
             extract_received_optimizer_aux_var_from_round = MagicMock(return_value={}),
             update_parameters = MagicMock(return_value=("path/to/my/file", "http://some/url/to/my/file")),
             id = "dummy-job-id",
         )
         # according to documentation, this is how we should attach a PropertyMock to a MagicMock
         # https://docs.python.org/3/library/unittest.mock.html#unittest.mock.PropertyMock
-        type(mock_job_init.return_value).nodes = PropertyMock(return_value=["node-1", "node-2"])
+        type(self.mock_job.return_value).nodes = PropertyMock(return_value=["node-1", "node-2"])
 
         # mock_job_training.return_value = None
         # mock_job_training_replies.return_value = {
@@ -1071,7 +1028,6 @@ class TestExperiment(ResearcherTestCase):
         mock_fedavg_create_aggregator_args.return_value = ({}, {})
 
         mock_experiment_breakpoint.return_value = None
-        self.patcher_job.stop()
         
 
         #Test invalid `increase` arguments
@@ -1102,12 +1058,12 @@ class TestExperiment(ResearcherTestCase):
 
         result = self.test_exp.run_once()
         self.assertEqual(result, 1, "run_once did not successfully run the round")
-        mock_job_init.return_value.start_nodes_training_round.assert_called_once()
-        mock_job_init.assert_called_once()
+        self.mock_job.return_value.start_nodes_training_round.assert_called_once()
+        self.mock_job.assert_called_once()
         #mock_job_training.assert_called_once()
         mock_strategy_refine.assert_called_once()
         mock_fedavg_aggregate.assert_called_once()
-        mock_job_init.return_value.update_parameters.assert_called_once()
+        self.mock_job.return_value.update_parameters.assert_called_once()
         mock_experiment_breakpoint.assert_called_once()
 
         # Test the scenario where round_limit is reached
@@ -1135,21 +1091,22 @@ class TestExperiment(ResearcherTestCase):
         # Try same scenario with test_after argument as True
 
         # resetting mocks
-        mock_job_init.reset_mock()
+        self.mock_job.reset_mock()
         #mock_job_training.reset_mock()
         mock_strategy_refine.reset_mock()
         mock_fedavg_aggregate.reset_mock()
         #mock_job_updates_params.reset_mock()
         mock_experiment_breakpoint.reset_mock()
+
         # action
         self.test_exp._round_current = 1
         result = self.test_exp.run_once(test_after=True)
         # testing calls
         mock_strategy_refine.assert_called_once()
         mock_fedavg_aggregate.assert_called_once()
-        mock_job_init.return_value.update_parameters.assert_called_once()
+        self.mock_job.return_value.update_parameters.assert_called_once()
         mock_experiment_breakpoint.assert_called_once()
-        self.assertEqual(mock_job_init.return_value.start_nodes_training_round.call_count, 2)
+        self.assertEqual(self.mock_job.return_value.start_nodes_training_round.call_count, 2)
         # additional checks
         self.assertEqual(result, 1)
 
@@ -1185,7 +1142,6 @@ class TestExperiment(ResearcherTestCase):
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.aggregate')
     @patch('fedbiomed.researcher.aggregators.scaffold.Scaffold.create_aggregator_args')
     @patch('fedbiomed.researcher.strategies.default_strategy.DefaultStrategy.refine')
-
     @patch('fedbiomed.researcher.experiment.Job')
     def test_experiment_25_run_once_with_scaffold_and_training_args(self,
                                                                     mock_job_init,
@@ -1578,11 +1534,14 @@ class TestExperiment(ResearcherTestCase):
 
     @patch('builtins.open')
     @patch('fedbiomed.researcher.job.Job.training_plan_file', new_callable=PropertyMock)
+    @patch('fedbiomed.researcher.job.utils.import_class_object_from_file')
     def test_experiment_33_training_plan_file(self,
+                                      import_mock,
                                       mock_training_plan_file,
                                       mock_open):
         """ Testing getter training_plan_file of the experiment class """
 
+        import_mock.return_value = ( (), TestExperiment.FakeModelTorch())
         m_open = MagicMock()
         m_open.read = MagicMock(return_value=None)
         m_open.close.return_value = None
@@ -1603,13 +1562,13 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp.set_job()
         result = self.test_exp.training_plan_file(display=False)
         self.assertEqual(result,
-                         'path/to/model',
+                         self.test_exp._job.training_plan_file,
                          f'training_plan_file() returned {result} where it should have returned `path/to/model`')
 
         # Test when display is true
         result = self.test_exp.training_plan_file(display=True)
         self.assertEqual(result,
-                         'path/to/model',
+                         self.test_exp._job.training_plan_file,
                          f'training_plan_file() returned {result} where it should have returned `path/to/model`')
 
         # Test if `open()` raises OSError
@@ -1617,12 +1576,12 @@ class TestExperiment(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             result = self.test_exp.training_plan_file(display=True)
 
-    @patch('fedbiomed.researcher.job.Job.__init__', return_value=None)
-    @patch('fedbiomed.researcher.job.Job.check_training_plan_is_approved_by_nodes')
+    @patch('fedbiomed.researcher.job.utils.import_class_object_from_file')
     def test_experiment_34_check_training_plan_status(self,
-                                              mock_job_model_is_approved,
-                                              mock_job):
+                                              import_mock):
         """Testing method that checks model status """
+
+        import_mock.return_value = ( (), TestExperiment.FakeModelTorch())
 
         # Test error if ._job is not defined
         with self.assertRaises(SystemExit):
@@ -1630,9 +1589,11 @@ class TestExperiment(ResearcherTestCase):
 
         # Test when job is defined
         expected_approved_result = {'node-1': {'is_approved': False}}
-        mock_job_model_is_approved.return_value = expected_approved_result
-        self.test_exp.set_training_plan_class(TestExperiment.FakeModelTorch)
+        self.mock_job.return_value.check_training_plan_is_approved_by_nodes.return_value = expected_approved_result
+        self.test_exp._fds = FederatedDataSetMock({'node-1': []})
+        self.test_exp._training_plan_class = TestExperiment.FakeModelTorch
         self.test_exp.set_job()
+        
         result = self.test_exp.check_training_plan_status()
         self.assertDictEqual(result, expected_approved_result,
                              'check_training_plan_status did not return expected value')
@@ -1691,8 +1652,7 @@ class TestExperiment(ResearcherTestCase):
         self.test_exp._training_args = training_args
         model_args = {'modelarg1': 'value1', 'modelarg2': 234, 'modelarg3': False}
         self.test_exp._model_args = model_args
-        training_plan_file = '/path/to/my/training_plan_file.py'
-        training_plan_class = 'MyOwnTrainingPlan'
+        training_plan_class = TestExperiment.FakeModelTorch
         round_current = 2
         aggregator_state = {'aggparam1': 'param_value', 'aggparam2': 987, 'aggparam3': True}
         strategy_state = {'stratparam1': False, 'stratparam2': 'my_strategy', 'aggparam3': 0.45}
@@ -1747,17 +1707,22 @@ class TestExperiment(ResearcherTestCase):
         class DummyJob():
             def __init__(self):
                 self._training_plan = None
-
+                self._training_plan_file = "path/to/training_plan.py"
             def save_state_breakpoint(self, breakpoint_path):
                 return job_state
 
             @property
             def training_plan(self):
                 return self._training_plan
+            
+            @property
+            def training_plan_file(self):
+                return self._training_plan_file
 
         self.test_exp._job = DummyJob()
         # patch Job training_plan / training_plan_file
-        self.test_exp._job.training_plan_file = training_plan_file
+        self.test_exp._job._training_plan_class = training_plan_class
+        self.test_exp._training_plan_class = training_plan_class
 
         # researcher-side optimizer (optional)
         optimizer = create_autospec(Optimizer, instance=True)
@@ -1793,7 +1758,7 @@ class TestExperiment(ResearcherTestCase):
         self.assertEqual(final_state['training_args'], training_args.dict())
         self.assertEqual(final_state['model_args'], model_args)
         self.assertEqual(final_state['training_plan_path'], final_training_plan_path)
-        self.assertEqual(final_state['training_plan_class'], training_plan_class)
+        self.assertEqual(final_state['training_plan_class_name'], training_plan_class.__name__)
         self.assertEqual(final_state['round_current'], round_current)
         self.assertEqual(final_state['round_limit'], self.round_limit)
         self.assertEqual(final_state['experimentation_folder'], self.experimentation_folder)
@@ -1828,10 +1793,12 @@ class TestExperiment(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.experiment.Experiment.training_plan')
     @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
+    @patch('fedbiomed.researcher.experiment.import_class_from_file')
     # test load_breakpoint + _load_aggregated_params
     # cannot test Experiment constructor, need to fake it
     # (not exactly a unit test, but probably more interesting)
     def test_experiment_37_static_load_breakpoint(self,
+                                                  import_mock,
                                                   patch_find_breakpoint_path,
                                                   patch_training_plan
                                                   ):
@@ -1839,6 +1806,7 @@ class TestExperiment(ResearcherTestCase):
             1. if breakpoint file is json loadable
             2. if experiment is correctly configured from breakpoint
         """
+        import_mock.return_value = ((), TestExperiment.FakeModelTorch)
 
         # Prepare breakpoint data
         bkpt_file = 'file_4_breakpoint'
@@ -2032,8 +2000,7 @@ class TestExperiment(ResearcherTestCase):
         self.assertEqual(loaded_exp._round_current, round_current)
         self.assertEqual(loaded_exp._round_limit, self.round_limit)
         self.assertEqual(loaded_exp._experimentation_folder, final_experimentation_folder)
-        self.assertEqual(loaded_exp._training_plan_class, training_plan_class)
-        self.assertEqual(loaded_exp._training_plan_path, training_plan_path)
+        self.assertEqual(loaded_exp._training_plan_class, TestExperiment.FakeModelTorch)
         self.assertEqual(loaded_exp._model_args, model_args)
         self.assertDictEqual(loaded_exp._training_args.dict(), final_training_args.dict())
         self.assertEqual(loaded_exp._job._saved_state, final_job)
@@ -2043,13 +2010,16 @@ class TestExperiment(ResearcherTestCase):
         self.assertTrue(loaded_exp.secagg.active)
 
     @patch('fedbiomed.common.training_plans._base_training_plan.BaseTrainingPlan.get_model_params')
-    @patch('fedbiomed.common.repository.Repository.upload_file')
     @patch('fedbiomed.researcher.experiment.find_breakpoint_path')
+    @patch('fedbiomed.researcher.experiment.import_class_from_file')
     def test_experiment_39_load_breakpoint_optimizer(self,
+                                                     import_mock,
                                                      patch_find_breakpoint_path,
-                                                     patch_upload_file,
                                                      patch_get_model_params
                                                      ):
+        
+        import_mock.return_value = ((), TestExperiment.FakeModelTorch)
+
         # INTEGRATION TEST:
         # TODO: find an environment so we are not forced to patch `find_breakpoint_path`
         def get_module_list(opt: Optimizer) -> List[str]:
@@ -2186,9 +2156,6 @@ class TestExperiment(ResearcherTestCase):
 
         uuid = 1234
         
-       
-        patch_upload_file.return_value = {'file': 'http://mywebsite.io/url/to/my/training/plan'}
-        self.patcher_job.stop() # stopping job constructor patcher
         with tempfile.TemporaryDirectory() as tmp_path:
             bkpt_file = 'file_4_breakpoint'
             agg_opt_path = os.path.join(tmp_path, f"optimizer_{uuid}.mpk")

@@ -102,7 +102,7 @@ class FakeModel(BaseTrainingPlan):
             results of the training. Unused in this method.
         """
 
-    def save_code(self, path: str, from_code: str = False):
+    def save_code(self, path: str, from_code: Optional[str] = None):
         """
         Fakes `save_code` method of TrainingPlan classes, originally used for
         saving codes of model calss. Passed argument are unused.

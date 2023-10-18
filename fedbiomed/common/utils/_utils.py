@@ -107,7 +107,7 @@ def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[An
             raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Expected argument type is string but got '{type(arg)}'")
 
     module, train_class = import_class_from_file(module_path, class_name)
-
+    
     try:
         train_class_instance = train_class()
     except Exception as e:

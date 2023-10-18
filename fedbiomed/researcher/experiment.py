@@ -1311,6 +1311,8 @@ class Experiment:
             logger.debug('Experimentation `job` changed after running '
                          '{self._round_current} rounds, may give inconsistent results')
 
+        
+
         if self._training_plan_class is None:
             # training plan not defined yet
             self._job = None
@@ -1327,6 +1329,8 @@ class Experiment:
                             training_args=self._training_args,
                             data=self._fds,
                             keep_files_dir=self.experimentation_path())
+            
+            
 
         return self._job
 
@@ -1923,6 +1927,7 @@ class Experiment:
         except (OSError, ValueError, TypeError, RecursionError) as e:
             # - OSError: heuristic for catching open() and write() errors
             # - see json.dump() documentation for documented errors for this call
+            print(e)
             msg = ErrorNumbers.FB413.value + f' - save failed with message {str(e)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)

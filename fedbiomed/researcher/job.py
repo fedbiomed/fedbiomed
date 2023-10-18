@@ -74,7 +74,7 @@ class Job:
         
         if not issubclass(training_plan_class, training_plans_types):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
-                  " supported training plans {training_plan_class}"
+                  f" supported training plans {training_plans_types}"
             raise FedbiomedJobError(msg)
 
         # List of node ID of the nodes used in the current round
