@@ -1,11 +1,19 @@
 import unittest
+import asyncio
+import threading
+import grpc 
 
-from unittest.mock import patch, MagicMock
+
+from unittest.mock import patch, MagicMock, AsyncMock
 from fedbiomed.transport.client import GrpcClient, \
     ClientStatus, \
-    ResearcherCredentials 
+    ResearcherCredentials, \
+    TaskListener, \
+    Sender
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
-
+from fedbiomed.common.message import SearchReply, FeedbackMessage, Log
+from fedbiomed.transport.protocols.researcher_pb2 import TaskResponse
+from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
 from testsupport.mock import AsyncMock
 
 
@@ -86,6 +94,253 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
             await self.client._update_id(id_='test-malicious')
 
         pass 
+
+
+class TestTaskListener(unittest.IsolatedAsyncioTestCase):
+
+
+    def setUp(self):
+        
+        self.serializer_patch = patch('fedbiomed.transport.client.Serializer')
+        self.serializer_mock = self.serializer_patch.start()
+        self.stub = MagicMock()
+        self.node_id = "test-node-id"
+        self.on_status_change = MagicMock()
+        self.update_id = MagicMock()
+        self.callback = MagicMock()
+        self.task_listener = TaskListener(
+            stub=self.stub,
+            node_id=self.node_id,
+            on_status_change=self.on_status_change,
+            update_id=self.update_id
+        )
+
+    def tearDown(self) -> None:
+        self.serializer_patch.stop()
+        pass 
+    
+
+    async def test_task_listener_01_listen(self):
+        
+
+        self.on_status_change.side_effect = [None, asyncio.CancelledError]
+        self.serializer_mock.load.return_value = {'researcher_id': 'test-researcher-id'}
+
+        async def async_iterator(items):
+            for item in items:
+                yield item
+            
+
+        # Run with cancel to be able to stop the loop ---------------------
+        self.on_status_change.side_effect = [None, asyncio.CancelledError]
+        task = self.task_listener.listen(self.callback)
+        self.stub.GetTaskUnary.return_value = async_iterator([
+            TaskResponse(bytes_= b'test-1', iteration=0, size=1),
+            TaskResponse(bytes_= b'test-2', iteration=1, size=1)
+        ])
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+
+        # self.callback.assert_called_once()
+        self.serializer_mock.loads.assert_called_once()
+        self.stub.GetTaskUnary.assert_called_once()
+        self.update_id.assert_called_once()
+        
+        # Cancel the task for next test
+        task.cancel()
+
+
+    @patch('fedbiomed.transport.client.asyncio.sleep')
+    async def test_task_listener_02_listen_exceptions(self, sleep):  
+        
+        # deadline exceeded
+        self.stub.GetTaskUnary.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.DEADLINE_EXCEEDED,
+                                                                   trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                                                   initial_metadata=grpc.aio.Metadata(('test', 'test'))), 
+                                              asyncio.CancelledError]
+
+        task = self.task_listener.listen(self.callback)
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        # Cancel the task for next test
+        task.cancel()
+
+        # unavailable
+        self.stub.GetTaskUnary.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.UNAVAILABLE,
+                                                                   trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                                                   initial_metadata=grpc.aio.Metadata(('test', 'test'))), 
+                                              asyncio.CancelledError]
+
+        task = self.task_listener.listen(self.callback)
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        # Cancel the task for next test
+        task.cancel()
+        sleep.assert_called()
+
+        # unknown
+        self.stub.GetTaskUnary.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.UNKNOWN,
+                                                                   trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                                                   initial_metadata=grpc.aio.Metadata(('test', 'test'))), 
+                                              asyncio.CancelledError]
+
+        task = self.task_listener.listen(self.callback)
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        sleep.assert_called()
+        # Cancel the task for next test
+        task.cancel()
+
+        # For all others
+        self.stub.GetTaskUnary.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.ABORTED,
+                                                                   trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                                                   initial_metadata=grpc.aio.Metadata(('test', 'test'))), 
+                                              asyncio.CancelledError]
+
+        task = self.task_listener.listen(self.callback)
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        sleep.assert_called()
+        # Cancel the task for next test
+        task.cancel()
+
+
+class TestSender(unittest.IsolatedAsyncioTestCase):
+
+
+    message_search = SearchReply(
+            researcher_id='test',
+            success=True,
+            databases=[],
+            node_id='node-id',
+            count=1,
+            command='search',
+        )
+
+    message_log = FeedbackMessage(
+            researcher_id='test',
+            log=Log(
+                node_id='test',
+                level='DEBUG',
+                msg="Error message"
+            )
+    )
+
+    def setUp(self):
+        
+
+
+        self.serializer_patch = patch('fedbiomed.transport.client.Serializer')
+        self.serializer_mock = self.serializer_patch.start()
+        self.feedback_stub = MagicMock()
+        self.feedback_stub.Feedback = MagicMock(spec=grpc.aio.UnaryUnaryMultiCallable)
+        self.task_stub = MagicMock()
+        self.task_stub.ReplyTask = MagicMock(spec=grpc.aio.StreamUnaryMultiCallable)
+        self.on_status_change = MagicMock()
+        self.sender = Sender(
+            feedback_stub=self.feedback_stub,
+            task_stub=self.task_stub,
+            on_status_change=self.on_status_change
+        )
+
+    def tearDown(self) -> None:
+        self.serializer_patch.stop()
+        pass 
+    
+
+    async def test_sender_01_send(self):
+        
+        await self.sender.send(message=self.message_search)
+        item = await self.sender._queue.get()
+        self.assertEqual(item, {'stub': self.task_stub.ReplyTask, 'message': self.message_search})
+
+
+        await self.sender.send(message=self.message_log)
+        item = await self.sender._queue.get()
+        self.assertEqual(item, {'stub': self.feedback_stub.Feedback, 'message': self.message_log.to_proto()})
+
+
+    async def test_sender_02_listen(self):
+        self.serializer_patch.stop()
+
+        future = asyncio.Future()
+        future.set_result('x')
+
+        self.feedback_stub.Feedback.side_effect = [future, asyncio.CancelledError]
+        await self.sender.send(message=self.message_log)
+        await self.sender.send(message=self.message_log)
+
+        task = self.sender.listen()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        task.cancel()
+
+        stream_call = AsyncMock()
+        self.task_stub.ReplyTask.side_effect = [stream_call, asyncio.CancelledError]
+        await self.sender.send(message=self.message_search)
+        await self.sender.send(message=self.message_search)
+
+        task = self.sender.listen()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        task.cancel()
+        stream_call.write.assert_called()
+        stream_call.done_writing.assert_called()
+
+    @patch('fedbiomed.transport.client.asyncio.sleep')
+    async def test_sender_02_listen_exceptions(self, sleep):
+
+        # Unknown error
+        self.feedback_stub.Feedback.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.UNKNOWN,
+                                                                        trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                                                        initial_metadata=grpc.aio.Metadata(('test', 'test'))), 
+                                              asyncio.CancelledError]
+        
+        await self.sender.send(message=self.message_log)
+        await self.sender.send(message=self.message_log)
+
+        task = self.sender.listen()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        task.cancel()
+
+
+        # Unavailable
+        retry = self.sender._retry_count 
+        self.feedback_stub.Feedback.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.UNAVAILABLE,
+                                                                        trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                                                        initial_metadata=grpc.aio.Metadata(('test', 'test'))), 
+                                              asyncio.CancelledError]
+        
+        await self.sender.send(message=self.message_log)
+        await self.sender.send(message=self.message_log)
+
+        task = self.sender.listen()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        task.cancel()
+        sleep.assert_called()
+        self.assertEqual(self.sender._retry_count, retry+1)
+
+
+        # Deadline
+        retry = self.sender._retry_count 
+        self.feedback_stub.Feedback.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.DEADLINE_EXCEEDED,
+                                                                        trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                                                        initial_metadata=grpc.aio.Metadata(('test', 'test'))), 
+                                                    asyncio.CancelledError]
+        
+        await self.sender.send(message=self.message_log)
+        await self.sender.send(message=self.message_log)
+
+        task = self.sender.listen()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        task.cancel()
+
+
+        
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
