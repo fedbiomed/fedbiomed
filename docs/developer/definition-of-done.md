@@ -1,6 +1,6 @@
 # Definition of Done for Fed-BioMed
 
-v1.1 - 2023-05-31
+v1.2 - 2023-10-16
 
 
 The Definition of Done is a set of items that must be completed and quality measures that must be met, before a task or a user story can be considered complete. The DoD gives the team a shared understanding of the work that was completed. 
@@ -35,7 +35,8 @@ The reviewer can question any aspect of the increment in coherence with [Usage a
 
 ## Write unit-test for the code
 
-- Be clever : put reasonable effort on writing tests. Current target of unit tests is to reach 100% coverage of code, with reasonably clever functional coverage.
+- Focus on pure unit tests, no integration tests for now.
+- Be clever : put reasonable effort on writing tests. Current target of unit tests is to reach 100% coverage of code, with reasonably clever functional coverage. When tests are too complicated to write, don't write them (until we consider code is mature enough to have hgher tests requirements).
 - Add unit test when correcting a bug.
 
 Please refer to [the guide of unit testing practices](./testing-in-fedbiomed.md) before starting to write or to modify the unit tests in Fed-BioMed. 
