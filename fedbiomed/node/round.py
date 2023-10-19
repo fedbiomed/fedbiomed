@@ -95,7 +95,7 @@ class Round:
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
         self.aggregator_args = aggregator_args
-        self.aux_vars = aux_vars or {}
+        self.aux_vars = aux_vars or []
         self.node_args = node_args
         self.training = training
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
@@ -230,7 +230,6 @@ class Round:
         except FedbiomedUserInputError as e:
             return self._send_round_reply(success=False, message=repr(e))
 
-        print(environ["TRAINING_PLAN_APPROVAL"])
         # Validate and load training plan
         if environ["TRAINING_PLAN_APPROVAL"]:
             approved, training_plan_ = self.tp_security_manager.\
@@ -481,7 +480,7 @@ class Round:
             Error message, empty if the operation was successful.
         """
         # Early-exit if there are no auxiliary variables to process.
-        if not self.aux_vars:
+        if not any(self.aux_vars):
             return
 
         # Fetch the training plan's BaseOptimizer.
@@ -504,8 +503,8 @@ class Round:
                 "TrainingPlan Optimizer failed to ingest the provided "
                 f"auxiliary variables: {repr(exc)}"
             )
-        
-        return 
+
+        return
 
     def _load_round_state(self, state_id: str) -> None:
         """Loads optimizer state of previous `Round`, given a `state_id`.
