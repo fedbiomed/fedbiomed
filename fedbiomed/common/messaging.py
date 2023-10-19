@@ -15,7 +15,7 @@ from fedbiomed.common.constants import ComponentType, ErrorNumbers, __messaging_
 from fedbiomed.common.exceptions import FedbiomedMessagingError
 import fedbiomed.common.message as message
 from fedbiomed.common.logger import logger
-from fedbiomed.common.utils import raise_for_version_compatibility,__default_version__
+from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
 
 
 class Messaging:

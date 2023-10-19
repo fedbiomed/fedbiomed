@@ -412,6 +412,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job',
+            state_id='state_id_1234',
             success=True,
             node_id='titi',
             dataset_id='my_data',
@@ -1385,6 +1386,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job_number',
+            state_id='state_id_1234',
             params_url='this_is_an_url',
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
@@ -1758,6 +1760,7 @@ class TestMessage(unittest.TestCase):
             "protocol_version": '99.99',
             "researcher_id": 'toto',
             "job_id": 'job',
+            "state_id": None,
             "success": True,
             "node_id": 'titi',
             "dataset_id": 'my_data',
@@ -1778,6 +1781,7 @@ class TestMessage(unittest.TestCase):
             "protocol_version": '99.99',
             "researcher_id": 'toto',
             "job_id": 'job',
+            "state_id": 'state_id_1234',
             "params_url": "https://dev.null",
             "training_args": {},
             "dataset_id": 'my_dataset',

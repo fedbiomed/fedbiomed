@@ -9,7 +9,7 @@ _R = TypeVar('Responses')
 
 
 class Responses:
-    """Class parsing Nodes' responses Reconfigures input data into either a dictionary in a list (List[dict]), or
+    """Class parsing Nodes' responses. Reconfigures input data into either a dictionary in a list (List[dict]), or
     a list with unique values.
     """
 

@@ -1,3 +1,4 @@
+from collections import defaultdict
 import copy
 import os
 import shutil
@@ -9,6 +10,9 @@ from unittest.mock import MagicMock, call, create_autospec, patch
 import numpy as np
 import torch
 import fedbiomed
+from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
+from fedbiomed.common.serializer import Serializer
+from fedbiomed.researcher.datasets import FederatedDataSet
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -96,9 +100,9 @@ class TestJob(ResearcherTestCase):
 
         # Globally create mock for Model and FederatedDataset
         self.model = create_autospec(BaseTrainingPlan, instance=False)
-        self.fds = MagicMock()
-
+        self.fds = MagicMock(spec=FederatedDataSet)
         self.fds.data = MagicMock(return_value={})
+
         self.mock_request_create.side_effect = TestJob.msg_side_effect
         self.mock_tp_load_from_file.return_value = self.model
 
@@ -391,7 +395,9 @@ class TestJob(ResearcherTestCase):
         })
 
         response_1 = {'node_id': 'node-1', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
+                      'job_id': self.job._id,
+                      'state_id': 'node_state_id_1234',
+                      'params_url': 'http://test.test',
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
@@ -401,7 +407,9 @@ class TestJob(ResearcherTestCase):
                       }
 
         response_2 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
+                      'job_id': self.job._id,
+                      'state_id': 'node_state_id_4321',
+                      'params_url': 'http://test.test',
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
@@ -655,11 +663,13 @@ class TestJob(ResearcherTestCase):
                 [
                     {
                         "node_id": '1234',
+                        'state_id': '1234',
                         'params': torch.Tensor([1, 3, 5]),
                         'dataset_id': 'id_node_1'
                     },
                     {
                         "node_id": '5678',
+                        'state_id': '5678',
                         'params': np.array([1, 3, 5]),
                         'dataset_id': 'id_node_2'
                     },
@@ -695,8 +705,8 @@ class TestJob(ResearcherTestCase):
             "model_weights": np.array([[1, 2, 3, 4, 5], [2, 8, 7, 5, 5]])
         }
         # mock FederatedDataSet
-        fds = MagicMock()
-        fds.data = MagicMock(return_value={})
+        fds = MagicMock(spec=FederatedDataSet)
+        fds.data = MagicMock(spec=dict, return_value={})
 
         # mock Responses
         #
@@ -726,6 +736,7 @@ class TestJob(ResearcherTestCase):
                  "msg": "",
                  "dataset_id": "dataset_1234",
                  "node_id": "node_1234",
+                 "state_id": "state_1234",
                  "params_path": "/path/to/file/param.mpk",
                  "timing": {"time": 0}
                  },
@@ -733,6 +744,7 @@ class TestJob(ResearcherTestCase):
                  "msg": "",
                  "dataset_id": "dataset_4567",
                  "node_id": "node_4567",
+                 "state_id": "state_4567",
                  "params_path": "/path/to/file/param2.mpk",
                  "timing": {"time": 0}
                  }
@@ -780,6 +792,7 @@ class TestJob(ResearcherTestCase):
                  "msg": "",
                  "dataset_id": "dataset_8888",
                  "node_id": "node_8888",
+                 "state_id": "state_8888",
                  "params_path": "/path/to/file/param2_sklearn.mpk",
                  "timing": {"time": 6}
                  }
@@ -822,20 +835,27 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    def test_job_22_load_state(
+    def test_job_22_load_state_breakpoint(
             self,
             patch_job_update_parameters,
             patch_job_load_training_replies
     ):
         """
-        test if the job state values correctly initialize job
+        test if the job state values correctly initialize job (from breakpoints)
         """
-
+        node_states = {
+            'collection_state_ids': {'node_id_xxx': 'state_id_xxx', 'node_id_xyx': 'state_id_xyx'},
+        }
+        
+        # modifying FederatedDataset mock 
+        self.fds.data.return_value = node_states
+        self.job.nodes = node_states
         job_state = {
             'researcher_id': 'my_researcher_id_123456789',
             'job_id': 'my_job_id_abcdefghij',
             'model_params_path': '/path/to/my/model_file.py',
-            'training_replies': {0: 'un', 1: 'deux'}
+            'training_replies': {0: 'un', 1: 'deux'},
+            'node_state': node_states
         }
         new_training_replies = {2: 'trois', 3: 'quatre'}
 
@@ -846,16 +866,17 @@ class TestJob(ResearcherTestCase):
         patch_job_load_training_replies.return_value = new_training_replies
 
         # action
-        self.job.load_state(job_state)
+        self.job.load_state_breakpoint(job_state)
 
         self.assertEqual(self.job._researcher_id, job_state['researcher_id'])
         self.assertEqual(self.job._id, job_state['job_id'])
         self.assertEqual(self.job._training_replies, new_training_replies)
+        self.assertDictEqual(self.job._node_state_agent.get_last_node_states(), node_states['collection_state_ids'])
 
     @patch('fedbiomed.researcher.job.create_unique_link')
     @patch('fedbiomed.researcher.job.create_unique_file_link')
     @patch('fedbiomed.researcher.job.Job._save_training_replies')
-    def test_job_23_save_state(
+    def test_job_23_save_state_breakpoint(
             self,
             patch_job_save_training_replies,
             patch_create_unique_file_link,
@@ -864,6 +885,16 @@ class TestJob(ResearcherTestCase):
         """
         test that job breakpoint state structure + file links are created
         """
+        fds_content = {'node_id_xxx': MagicMock(), 'node_id_xyx': MagicMock()}
+        
+        # modifying FederatedDataset mock 
+        self.fds.data.return_value = fds_content
+        
+        test_job = Job(
+            training_plan_class=self.model,
+            training_args=training_args_for_testing,
+            data=self.fds
+        )
 
         new_training_replies = [
             [
@@ -899,17 +930,20 @@ class TestJob(ResearcherTestCase):
         breakpoint_path = 'xxx'
 
         # action
-        save_state = self.job.save_state(breakpoint_path)
-
-        self.assertEqual(environ['RESEARCHER_ID'], save_state['researcher_id'])
-        self.assertEqual(self.job._id, save_state['job_id'])
-        self.assertEqual(link_path, save_state['model_params_path'])
+        save_state_bkpt = test_job.save_state_breakpoint(breakpoint_path)
+        node_states = {k: None for k in fds_content}
+        self.assertEqual(environ['RESEARCHER_ID'], save_state_bkpt['researcher_id'])
+        self.assertEqual(test_job._id, save_state_bkpt['job_id'])
+        self.assertEqual(link_path, save_state_bkpt['model_params_path'])
+        self.assertDictEqual(node_states, save_state_bkpt['node_state']['collection_state_ids'])
         # check transformation of training replies
         for round_i, round in enumerate(new_training_replies):
             for response_i, _ in enumerate(round):
                 self.assertEqual(
-                    save_state['training_replies'][round_i][response_i]['params_path'],
+                    save_state_bkpt['training_replies'][round_i][response_i]['params_path'],
                     new_training_replies_state[round_i][response_i]['params_path'])
+                
+        # TODO: extend test with case when Job got replies form Nodes
 
     def test_job_24_upload_aggregator_args(self):
         training_args_thr_msg = {'node-1': {'var1': 1, 'var2': [1, 2]},
@@ -987,7 +1021,6 @@ class TestJob(ResearcherTestCase):
 
         self.patch_tp_load_from_file.stop()
         j = Job(reqs=MagicMock(),
-                nodes=None,
                 training_plan_class=ShouldNotRaiseNameErrorTrainingPlan,
                 training_plan_path=None,
                 training_args={},
@@ -995,6 +1028,104 @@ class TestJob(ResearcherTestCase):
                 data=None,
                 keep_files_dir='some/path')
         self.patch_tp_load_from_file.start()
+
+    @patch('fedbiomed.researcher.job.create_unique_link')
+    @patch('fedbiomed.researcher.job.create_unique_file_link')
+    def test_job_28_update_node_state_agent(self,
+                                            patch_create_unique_file_link,
+                                            patch_create_unique_link):
+        # FIXME: this is more like an integration test rather than a unit test
+        # it should be defined in a specific class that contains all integration tests
+        # modifying fds of Job
+        
+        def set_training_replies_through_bkpt(job: Job, states: Dict):
+            """Sets Job's `training_replies` private attributethrough breakpoint API
+
+            Args:
+                job (Job): job object to be updated
+                states (Dict): job_state
+            """
+            with (patch('fedbiomed.researcher.job.Job.update_parameters') as update_param_patch,
+                  patch.object( Serializer, 'load') as serializer_patch):
+                serializer_patch = MagicMock(return_value={'model_weights': 1234})
+                job.load_state_breakpoint(states)
+
+        data = {
+            'node-1': [{'dataset_id': 'dataset-id-1',
+                        'shape': [100, 100]}],
+            'node-2': [{'dataset_id': 'dataset-id-2',
+                        'shape': [120, 120], 
+                        'test_ratio': .0}],
+            'node-3': [{'dataset_id': 'dataset-id-3',
+                        'shape': [120, 120], 
+                        'test_ratio': .0}],
+            'node-4': [{'dataset_id': 'dataset-id-4',
+                        'shape': [120, 120], 
+                        'test_ratio': .0}],
+        }
+        fds = FederatedDataSet(data)
+        
+        loaded_training_replies_torch = [
+            [
+                {"success": True,
+                 "msg": "",
+                 "dataset_id": "dataset_1234",
+                 "node_id": "node-3",
+                 "state_id": "state_1234",
+                 "params_path": "/path/to/file/param.mpk",
+                 "timing": {"time": 0}
+                 },
+                {"success": True,
+                 "msg": "",
+                 "dataset_id": "dataset_4567",
+                 "node_id": "node-4",
+                 "state_id": "state_4567",
+                 "params_path": "/path/to/file/param2.mpk",
+                 "timing": {"time": 0}
+                 }
+            ]
+        ]
+
+        test_job = Job(
+            training_plan_class=self.model,
+            training_args=training_args_for_testing,
+            data=fds
+        )
+        # do test while `before_training` = True
+        test_job._update_nodes_states_agent(before_training=True)
+        # action! collect Job state in order to retrieve state_ids
+
+        job_state = test_job.save_state_breakpoint("path/to/bkpt")
+        self.assertDictEqual({k: None for k in data.keys()}, job_state['node_state']['collection_state_ids'])
+
+        # case where `before_training` = False
+        #self.job.training_replies(loaded_training_replies_torch)
+
+        # we cannot access to `_training_replies` private attribute hence the saving/loading part
+        job_state.update({'training_replies': loaded_training_replies_torch})  
+
+        set_training_replies_through_bkpt(test_job, job_state)
+
+        # action! 
+        test_job._update_nodes_states_agent(before_training=False)
+
+        # retrieving NodeAgentState through Job state
+        job_state = test_job.save_state_breakpoint("path/to/bkpt/2")
+
+        extract_node_id_from_saving = lambda state: [k['node_id'] for k in state[-1]]
+        # check that NodeStateAgent have been updated accordingly
+        for node_id in extract_node_id_from_saving(loaded_training_replies_torch):
+            self.assertIn(node_id, list(job_state['node_state']['collection_state_ids']))
+
+        # finally we are testing that exception is raised if index cannot be extracted
+
+        loaded_training_replies = []
+        job_state.update({'training_replies': loaded_training_replies})  
+
+        set_training_replies_through_bkpt(test_job, job_state)
+
+        with self.assertRaises(FedbiomedNodeStateAgentError):
+            test_job._update_nodes_states_agent(before_training=False)
 
 
 if __name__ == '__main__':  # pragma: no cover
