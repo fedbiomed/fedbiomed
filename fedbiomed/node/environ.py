@@ -145,12 +145,11 @@ class NodeEnviron(Environ):
             'force_secure_aggregation': os.getenv('FORCE_SECURE_AGGREGATION', False)
         }
 
-        # Default researcher network endpoint
+        # gRPC server host and port
         self._cfg["researcher"] = {
-            "ip": "localhost",
-            "port": '50051'
+            'host': os.getenv('RESEARCHER_SERVER_HOST', 'localhost'),
+            'port': os.getenv('RESEARCHER_SERVER_PORT', '50051')
         }
-
 
     def info(self):
         """Print useful information at environment creation"""
