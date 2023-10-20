@@ -35,22 +35,6 @@ class GrpcAsyncTaskController:
         Raises:
             FedbiomedCommunicationError: bad argument type
         """
-        if not isinstance(node_id, str):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for node_id, expected str, got `{type(node_id)}`")
-        if not isinstance(on_message, Callable):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for on_message, expected Callable, got `{type(on_message)}`")
-        if not isinstance(debug, bool):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for debug, expected bool, got `{type(debug)}`")
-        if not isinstance(researchers, list) or not all(isinstance(r, ResearcherCredentials) for r in researchers):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for researchers, expected list of researchers, got `{type(researchers)}`")
 
         # inform all threads whether communication client is started
         self._is_started = threading.Event()
@@ -131,7 +115,7 @@ class GrpcAsyncTaskController:
             id_: ID of the researcher to be updated
         """
         async with self._ip_id_map_lock:
-            self._ip_id_map = {id_: ip}
+            self._ip_id_map.update({id_: ip})
 
 
     async def is_connected(self) -> bool:
@@ -204,9 +188,6 @@ class GrpcController(GrpcAsyncTaskController):
         if not isinstance(message, Message):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
-        if not isinstance(broadcast, bool):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: bad argument type for broadcast, expected bool, got `{type(broadcast)}`")
 
         if not self._is_started.is_set():
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
