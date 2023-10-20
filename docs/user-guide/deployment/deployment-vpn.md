@@ -395,7 +395,7 @@ Optionally use the researcher container's command line instead of the Jupyter no
 
     ```bash
     [user@server $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-    [user@server $] docker compose exec -u $(id -u) researcher bash -ci 'export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14000 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-researcher && bash'
+    [user@server $] docker compose exec -u $(id -u) researcher bash -ci 'export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-researcher && bash'
     ```
 
 * launch a command, for example a training:
@@ -412,7 +412,7 @@ Some possible management commands after initial deployment include:
 * check all containers running on the server side
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn status vpnserver mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn status vpnserver researcher
     ```
 
 * check the VPN peers known from the VPN server
@@ -421,8 +421,6 @@ Some possible management commands after initial deployment include:
     [user@server $] ( cd ${FEDBIOMED_DIR}/envs/vpn/docker ; docker compose exec vpnserver bash -ci "python ./vpn/bin/configure_peer.py list" )
     type        id           prefix         peers
     ----------  -----------  -------------  ------------------------------------------------
-    management  mqtt         10.220.0.2/32  ['1exampleofdummykey12345abcdef6789ghijklmnop=']
-    management  restful      10.220.0.3/32  ['1exampleofdummykeyA79s0VsN5SFahT2fqxyooQAjQ=']
     researcher  researcher1  10.222.0.2/32  ['1exampleofdummykeyVo+lj/ZfT/wYv+I9ddWYzohC0=']
     node        NODETAG      10.221.0.2/32  ['1exampleofdummykey/Z1SKEzjsMkSe1qztF0uXglnA=']
     ```
@@ -430,8 +428,8 @@ Some possible management commands after initial deployment include:
 * restart all containers running on the server side
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver mqtt restful researcher
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start vpnserver mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start vpnserver researcher
     ```
 
     VPN configurations and container files are kept unchanged when restarting containers.
@@ -439,7 +437,7 @@ Some possible management commands after initial deployment include:
 * clean running containers, container files and temporary files on the server side. Requires to stop containers before.
 
     ``` bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver researcher
     [user@server $] source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
     [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean
     ```
