@@ -290,7 +290,7 @@ containers_clean() {
         docker image rm -f fedbiomed/vpn-$i 2>/dev/null
     done
 
-    docker image prune -af
+    docker image prune -f
 
 }
 
