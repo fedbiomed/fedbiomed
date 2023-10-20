@@ -25,9 +25,9 @@ _REGULARIZERS = (
 
 
 def list_optim_regularizers() -> Dict[str, Regularizer]:
-    """Returns list of available `Regularizer` that are compatible with FedBio-Med framework.
+    """Returns list of available `declearn` `Regularizer` that are compatible with Fed-BioMed framework.
 
     Returns:
-        Dict[str, Regularizer]: Mapping of <regularizer name, Regularizer name>
+        Dict[str, Regularizer]: Mapping of <regularizer name, Regularizer class>
     """
     return {r.name : r for r in _REGULARIZERS}

@@ -11,7 +11,7 @@ Advanced Optimization can be done in `Fed-BioMed` through the use of `declearn`,
 
 The following chapter explores in depth how to use `declearn` optimization feature in `Fed-BioMed`. For an example, please refer to the [Advanced Optimizer tutorial](../../tutorials/optimizers/01-fedopt-and-scaffold).
 
-## 1. Introduction to `Declearn` based Optimizer: a cross framework `Optimizer`
+## 1. Introduction to `Declearn` based Optimizer: a cross framework `Optimizer` library
 
 ### 1.1. What is `declearn` package?
 
@@ -51,7 +51,7 @@ with the following arguments:
 
 ### 1.3. `declearn`'s `OptiModules`
 
-`declearn` `OptiModules` are modules that convey `Optimizers`, which purpose is to optimize a loss function (that can be written using a PyTorch loss function or defined in a scikit learn model) in order to optimize a model. They should be imported from `declearn`'s `declearn.optimizer.modules` 
+`declearn` `OptiModules` are modules that convey `Optimizers`, which purpose is to optimize a loss function (that can be written using a PyTorch loss function or defined in a scikit learn model) in order to optimize a model. Compatible `declearn` `OptiModules` with Fed-BioMed framework are defined in `fedbiomed.common.optimizers.declearn` module. They should be imported from `fedbiomed.common.optimizers.declearn`, as shown in the examples below. You can also import them direclty from `declearn`'s `declearn.optimizer.modules`, but they will be no guarentees it is compatible with Fed-BioMed. In fact, recommended method is importing modules through `fedbiomed.common.optimizers.declearn`.
 
 **Usage**:
 
@@ -64,11 +64,11 @@ with the following arguments:
     Optimizer(lr=lr)
     ```
 
-- For a specfic Optimizer like Adam, we need to import `AdamModule` from `declearn` package. Hence,  it yields:
+- For a specfic Optimizer like Adam, we need to import `AdamModule` from `declearn`. Hence, it yields:
 
     ```python
     from fedbiomed.common.optimizers.optimizer import Optimizer
-    from declearn.optimizer.modules import AdamModule
+    from fedbiomed.common.optimizers.declearn import AdamModule
 
     lr = .01
     Optimizer(lr=lr, modules=[AdamModule()])
@@ -80,11 +80,19 @@ with the following arguments:
     ```python
 
     from fedbiomed.common.optimizers.optimizer import Optimizer
-    from declearn.optimizer.modules import AdamModule, MomentumModule
+    from fedbiomed.common.optimizers.declearn import AdamModule, MomentumModule
 
     lr = .01
     Optimizer(lr=lr, modules=[AdamModule(), MomentumModule()])
 
+    ```
+
+- To get all comptible `OptiModule` in Fed-BioMed, one can run the [`list_optim_modules`][fedbiomed.common.optimizers.declearn.declearn_optimizer.list_optim_modules].
+
+    ```python
+    from fedbiomed.common.optimizers.declearn import list_optim_modules
+
+    list_optim_modules()
     ```
 
 For further information on `declearn OptiModule`, please visit [`declearn OptiModule`](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/api-reference/optimizer/Optimizer/) and [`declearn`'s Optimizers documentation](https://gitlab.inria.fr/magnet/declearn/declearn2/-/blob/optimizer-guide/docs/user-guide/optimizer.md).
@@ -125,7 +133,7 @@ $f_{x,y}: \textrm{Loss function used for optimizing the model}$
 `Regularizers` should be used and combined with an Optimizer. For instance, SGD with Ridge regression, or Adam with Lasso regression. [`FedProx`](https://arxiv.org/abs/1812.06127) is also considered as a regularization.
 
 !!! note "Optimizer without OptiModules"
-    When no `OptiModules` are specified in the `modules` argument of `Optimizer`, plain SGD algorithm is used for the optimization by default.
+    When no `OptiModules` are specified in the `modules` argument of `Optimizer`, plain SGD algorithm is set by default for the optimization.
 
 **Usage**:
 
@@ -134,7 +142,7 @@ $f_{x,y}: \textrm{Loss function used for optimizing the model}$
     ```python
 
     from fedbiomed.common.optimizers.optimizer import Optimizer
-    from declearn.optimizer.regularizers import RidgeRegularizer
+    from fedbiomed.common.optimizers.declearn import RidgeRegularizer
 
     lr = .01
     Optimizer(lr=lr, regularizers=[RidgeRegularizer()])
@@ -144,8 +152,8 @@ $f_{x,y}: \textrm{Loss function used for optimizing the model}$
 
     ```python
     from fedbiomed.common.optimizers.optimizer import Optimizer
-    from declearn.optimizer.modules import AdamModule
-    from declearn.optimizer.regularizers import LassoRegularizer
+    from fedbiomed.common.optimizers.declearn import AdamModule
+    from fedbiomed.common.optimizers.declearn import LassoRegularizer
 
     lr = .01
     Optimizer(lr=lr, modules=[AdamModule()], regularizers=[LassoRegularizer()])
@@ -156,7 +164,7 @@ $f_{x,y}: \textrm{Loss function used for optimizing the model}$
 
     ```python
     from fedbiomed.common.optimizers.optimizer import Optimizer
-    from declearn.optimizer.regularizers import LassoRegularizer, RidgeRegularizer
+    from fedbiomed.common.optimizers.declearn import LassoRegularizer, RidgeRegularizer
 
     lr = .01
     Optimizer(lr=lr, modules=[AdamModule(), MomentumModule()], regularizers=[LassoRegularizer(), RidgeRegularizer()])
@@ -206,8 +214,7 @@ $Reg_{1\le i \le m}: \textrm{ Regularizers, with }  m   \textrm{ the total numbe
 
 ```python
 from fedbiomed.common.optimizers.optimizer import Optimizer
-from declearn.optimizer.modules import RMSPropModule, MomentumModule
-from declearn.optimizer.regularizers import LassoRegularizer, RidgeRegularizer
+from fedbiomed.common.optimizers.declearn  import RMSPropModule, MomentumModule, LassoRegularizer, RidgeRegularizer
 
 lr = .01
 Optimizer(lr=lr,
@@ -216,7 +223,7 @@ Optimizer(lr=lr,
 ```
 
 !!! note "Using list of strings instead of list of modules"
-    In `declearn`, it is possible to use name of modules instead of loading the actual modules. In the script below, we are rewritting the same `Optimizer` as the one above but by specifying the module names.
+    In `declearn`, it is possible to use name of modules instead of loading the actual modules. In the script below, we are rewritting the same `Optimizer` as the one above but by specifying the module names. A convinient way to get the naming is to use `list_optim_modules` and  `list_optim_regularizers` functions, that map module names with their classes respectively.
 
 ```python
 from fedbiomed.common.optimizers.optimizer import Optimizer
@@ -229,7 +236,7 @@ Optimizer(lr=lr,
 
 ```
 
-To know the name of each `declearn`'s module, please visit [`declearn` webpage](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/).
+To get to know specifcities about all `declearn`'s modules, please visit [`declearn` webpage](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/).
 
 #### How to use well-known Federated-Learning algorithms with `declearn` in `Fed-BioMed`?
 
@@ -242,8 +249,7 @@ In order to use `declearn` to optimize `Node`s local model, you will have to edi
 ```python
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.optimizers.optimizer import Optimizer
-from declearn.optimizer.modules import AdamModule
-from declearn.optimizer.regularizers import RidgeRegularizer
+from fedbiomed.common.optimizers.declearn  import AdamModule, RidgeRegularizer
 ...
 
 class MyTrainingPlan(TorchTrainingPlan):
@@ -252,8 +258,7 @@ class MyTrainingPlan(TorchTrainingPlan):
     def init_dependencies(self):
         deps = [
                 "from fedbiomed.common.optimizers.optimizer import Optimizer",
-                "from declearn.optimizer.modules import AdamModule",
-                "from declearn.optimizer.regularizers import RidgeRegularizer"
+                "from fedbiomed.common.optimizers.declearn  import AdamModule, RidgeRegularizer"
                 ]
 
         return deps
@@ -272,8 +277,7 @@ Syntax will be the same for scikit-learn as shown below, using the same `Optimiz
 ```python
 from fedbiomed.common.training_plans import FedSGDClassifier
 from fedbiomed.common.optimizers.optimizer import Optimizer
-from declearn.optimizer.modules import AdamModule
-from declearn.optimizer.regularizers import RidgeRegularizer
+from fedbiomed.common.optimizers.declearn import AdamModule, RidgeRegularizer
 ...
 
 class MyTrainingPlan(FedSGDClassifier):
@@ -282,8 +286,7 @@ class MyTrainingPlan(FedSGDClassifier):
     def init_dependencies(self):
         deps = [
                 "from fedbiomed.common.optimizers.optimizer import Optimizer",
-                "from declearn.optimizer.modules import AdamModule",
-                "from declearn.optimizer.regularizers import RidgeRegularizer"
+                "from fedbiomed.common.optimizers.declearn  import AdamModule, RidgeRegularizer"
                 ]
 
         return deps
@@ -304,7 +307,7 @@ Below an example using the `set_agg_optimizer` with `FedYogi`:
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators import FedAverage
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from declearn.optimizer.modules import YogiModule as FedYogi
+from fedbiomed.common.optimizers.declearn  import YogiModule as FedYogi
 
 tags = ['#my-data']
 
@@ -333,7 +336,7 @@ One can also pass directly the `agg_optimizer` in the `Experiment` object constr
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators import FedAverage
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from declearn.optimizer.modules import YogiModule as FedYogi
+from fedbiomed.common.optimizers.declearn import YogiModule as FedYogi
 
 
 tags = ['#my-data']
@@ -377,7 +380,7 @@ In the current subsection, we showcase how to edit your `Training Plan` for PyTo
 ```python
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.optimizers.optimizer import Optimizer
-from declearn.optimizer.modules import ScaffoldClientModule
+from fedbiomed.common.optimizers.declearn import ScaffoldClientModule
 ...
 
 class MyTrainingPlan(TorchTrainingPlan):
@@ -386,7 +389,7 @@ class MyTrainingPlan(TorchTrainingPlan):
     def init_dependencies(self):
         deps = [
                 "from fedbiomed.common.optimizers.optimizer import Optimizer",
-                "from declearn.optimizer.modules import ScaffoldClientModule",
+                "from fedbiomed.common.optimizers.declearn import ScaffoldClientModule",
                 ]
 
         return deps
@@ -426,8 +429,8 @@ exp.run(increase=True)
     **You may have noticed that we are using `FedAverage` in the `Experiment` configuration, while using `ScaffoldServerModule` \ `ScaffoldClientModule` as an `Optimizer`. In fact, `FedAverage` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated before optimization, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor`.**
 
 
-!!! warning "Incompatibility with SecAgg"
-    Currently, `declearn` optimizers based on auxiliary variables (like `Scaffold`), do not have their auxiliary variables protected by [`SecAgg`](../../user-guide/advanced-optimization) secure aggregation mechanism yet. This is something that will be changed in future `Fed-BioMed` releases. 
+!!! warning "Security issues using auxiliary variables when using SecAgg"
+    Currently, `declearn` optimizers based on auxiliary variables (like `Scaffold`), do not have their auxiliary variables protected by [`SecAgg`](../../user-guide/secagg/introduction) secure aggregation mechanism yet. This is something that will be changed in future `Fed-BioMed` releases. 
 
 You can find more examples in [Advanced Optimizers tutorial](../../tutorials/optimizers/01-fedopt-and-scaffold.ipynb)
 
