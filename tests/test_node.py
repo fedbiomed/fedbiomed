@@ -22,8 +22,7 @@ from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecagg
 from testsupport import fake_training_plan
 
 import torch
-from declearn.optimizer.modules import YogiModule, ScaffoldClientModule
-from declearn.optimizer.regularizers import RidgeRegularizer
+from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModule, RidgeRegularizer
 
 from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, _BaseEnum, TrainingPlans, __messaging_protocol_version__

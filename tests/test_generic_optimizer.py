@@ -12,17 +12,19 @@ from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 import declearn
 from declearn.optimizer import Optimizer as DecOptimizer
-from declearn.optimizer.modules import (
-        ScaffoldServerModule, ScaffoldClientModule, GaussianNoiseModule,
-        YogiMomentumModule, L2Clipping, AdaGradModule, YogiModule, AdamModule, MomentumModule)
-from declearn.optimizer.regularizers import FedProxRegularizer, LassoRegularizer, RidgeRegularizer
+from fedbiomed.common.optimizers.declearn import (
+        ScaffoldServerModule, ScaffoldClientModule, 
+        YogiMomentumModule, AdaGradModule, YogiModule,
+        AdamModule, MomentumModule, FedProxRegularizer,
+        LassoRegularizer, RidgeRegularizer)
 from declearn.model.torch import TorchVector
 from declearn.model.sklearn import NumpyVector
 
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
 from fedbiomed.common.optimizers.declearn import list_optim_modules, list_optim_regularizers
-from fedbiomed.common.optimizers.generic_optimizers import NativeSkLearnOptimizer, NativeTorchOptimizer, DeclearnOptimizer, OptimizerBuilder
+from fedbiomed.common.optimizers.generic_optimizers import (NativeSkLearnOptimizer, NativeTorchOptimizer,
+                                                            DeclearnOptimizer, OptimizerBuilder)
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.models import SkLearnModel, Model, TorchModel, BaseSkLearnModel
 
@@ -43,15 +45,14 @@ class TestDeclearnOptimizer(unittest.TestCase):
         # It could be nice to have several models in the tuple `torch_model_wrappers`
         self._torch_model_wrappers = (TorchModel(self._torch_model),)
         self._torch_zero_model_wrappers = (TorchModel(self._zero_model),)
-        
+
         self.modules = [
             ScaffoldServerModule(),
-            GaussianNoiseModule(),
             YogiMomentumModule(),
-            L2Clipping(),
             AdaGradModule(),
             AdamModule(),
-            YogiModule()]
+            YogiModule()
+            ]
         self.regularizers = [FedProxRegularizer(), LassoRegularizer(), RidgeRegularizer()]
 
     def tearDown(self) -> None:
@@ -1328,9 +1329,7 @@ class TestOptimizerBuilder(unittest.TestCase):
         
         self.modules = [
             ScaffoldServerModule(),
-            GaussianNoiseModule(),
             YogiMomentumModule(),
-            L2Clipping(),
             AdaGradModule(),
             YogiModule()]
         self.regularizers = [FedProxRegularizer(), LassoRegularizer(), RidgeRegularizer()]
