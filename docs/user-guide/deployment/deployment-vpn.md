@@ -98,38 +98,34 @@ It covers the initial server deployment, including build, configuration and laun
 * build server-side containers
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn build vpnserver mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn build vpnserver researcher
     ```
 
 * configure the VPN keys for containers running on the server side, after starting the `vpnserver` container
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn configure mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn configure researcher
     ```
 
 * start other server side containers
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start researcher
     ```
 
 * check all containers are running as expected on the server side
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn status vpnserver mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn status vpnserver researcher
     ```
 
     Server side containers should be up and able to ping the VPN server
 
     ```bash
-    ** Checking docker VPN images & VPN access: vpnserver mqtt restful researcher
+    ** Checking docker VPN images & VPN access: vpnserver researcher
     - container vpnserver is running
-    - container mqtt is running
-    - container restful is running
     - container researcher is running
     - pinging VPN server from container vpnserver -> OK
-    - pinging VPN server from container mqtt -> OK
-    - pinging VPN server from container restful -> OK
     - pinging VPN server from container researcher -> OK
     ```
 
