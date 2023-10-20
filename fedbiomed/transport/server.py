@@ -149,19 +149,7 @@ class _GrpcAsyncServer:
         Raises:
             FedbiomedCommunicationError: bad argument type
         """
-        if not isinstance(host, str) or not isinstance(port, str):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: bad argument type for `host:port` `{host}:{port}`, expected strings, "
-                f"got `{type(host)}`:`{type(port)}`")
-        if not isinstance(on_message, Callable):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for on_message, expected Callable, got `{type(on_message)}`")
-        if not isinstance(debug, bool):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: "
-                f"bad argument type for debug, expected bool, got `{type(debug)}`")
-
+ 
         # inform all threads whether server is started
         self._is_started = threading.Event()
 
@@ -298,12 +286,9 @@ class GrpcServer(_GrpcAsyncServer):
         if not isinstance(message, Message):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
-        if not isinstance(node_id, str):
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: bad argument type for node_id, expected str, got `{type(node_id)}`")
 
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628.value}: Communication client is not initialized.")
 
         self._run_threadsafe(super().send(message, node_id))
 
@@ -373,5 +358,6 @@ class GrpcServer(_GrpcAsyncServer):
         future = asyncio.run_coroutine_threadsafe(
             coroutine, self._loop
         )
+
 
         return future.result()
