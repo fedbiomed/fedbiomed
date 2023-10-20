@@ -14,7 +14,7 @@
 
 # main variables
 # --------------
-ALL_VPN_CONTAINERS=( vpnserver mqtt restful researcher node node2 gui gui2 )
+ALL_VPN_CONTAINERS=( vpnserver researcher node node2 gui gui2 )
 
 # all functions
 # -------------
@@ -38,19 +38,18 @@ Usage: ${0##*/} clean                          [container|configuration|image]
        ${0##*/} stop                           [CONTAINER...]
        ${0##*/} status                         [CONTAINER...]
        ${0##*/} {node,node2} *
-       ${0##*/} {researcher,researcher2} *
+       ${0##*/} researcher *
 
 manage (local) docker container(s) with Wireguard VPN support
 (cannot use build/clean/configure/start/status/stop on the same commannd line)
 
 Optional CONTAINER name(s) may be added to the build/configure/start/stop/status
 commands to manage a subset of docker container(s).
-The CONTAINER list may contain: vpnserver mqtt restful researcher node node2 gui gui2
+The CONTAINER list may contain: vpnserver researcher node node2 gui gui2
 
-Be aware that stopping/building/starting the network container(s)
-(vpnserver, mqtt, restful) when node/researcher container(s) are running may
-have unpredicatble consequences. It is strongly adviced do restart from
-scratch in this case (clean, build, configure, start)
+Be aware that (re-)building the vpnserver container when node/researcher
+container(s) are running may have unpredicatble consequences. It is strongly adviced 
+to restart from scratch in this case (clean, build, configure, start)
 
 clean          clean current configurations
 
@@ -76,7 +75,7 @@ stop           stop and remove all containers
 
 {node,node2} * start a 'fedbiomed_run node(2) *'       command
                inside node(2) container (eg: ${0##*/} run node list)
-{researcher,researcher2} *
+researcher *
                start a 'fedbiomed_run researcher(2) *' command
                inside researcher(2) container
 
@@ -192,7 +191,7 @@ add_container() {
     container=$1
 
     case $container in
-        vpnserver|mqtt|restful|researcher|node|node2|gui|gui2)
+        vpnserver|researcher|node|node2|gui|gui2)
             # verify if container already in the list
             found=0
             for c in ${ONLY_CONTAINERS[@]}
@@ -256,12 +255,6 @@ containers_clean() {
     # specific to vpnserver
     /bin/rm -fr ./vpnserver/run_mounts/config/config_peers 2> /dev/null
     /bin/rm -fr ./vpnserver/run_mounts/config/ip_assign    2> /dev/null
-
-    # specific to restful
-    /bin/rm -rf ./restful/run_mounts/app/data/media/persistent 2> /dev/null
-    /bin/rm -rf ./restful/run_mounts/app/data/media/uploads    2> /dev/null
-    /bin/rm -rf ./restful/run_mounts/app/data/static           2> /dev/null
-    /bin/rm -f  ./restful/run_mounts/app/db.sqlite3            2> /dev/null
 
     # specific to node
     /bin/rm -rf ./node/run_mounts/data/*            2> /dev/null
@@ -426,8 +419,6 @@ containers_configure() {
     for i in ${ONLY_CONTAINERS[@]}
     do
         case $i in
-            mqtt)       single_container_configure mqtt management ;;
-            restful)    single_container_configure restful management ;;
             researcher) single_container_configure researcher1 researcher ;;
             node)       single_container_configure NODETAG node ;;
             node2)      single_container_configure NODE2TAG node ;;
@@ -487,12 +478,6 @@ containers_start() {
             $DOCKER_COMPOSE up -d $CONTAINER
 
         case $i in
-            mqtt|restful)
-                pubkey=$($DOCKER_COMPOSE exec "$i" wg show wg0 public-key | tr -d '\r')
-                # Remove key to avoid protocol error if keys are same
-                $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py remove management "$i"
-                $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py add management "$i" "$pubkey"
-                ;;
             researcher)
                 pubkey=$($DOCKER_COMPOSE exec researcher wg show wg0 public-key | tr -d '\r')
                 # Remove key to avoid protocol error if keys are same
@@ -527,41 +512,9 @@ run() {
     [[ -z "$RUN_ARGS" ]] && { usage "fedbiomed run $container needs extra arguments";  }
     cd "$basedir/envs/vpn/docker"
 
-    # find @IP of mqtt and restful inside the VPN
-    status=$($DOCKER_COMPOSE ps restful | wc -l)
-    [[ $? ]] || {
-        echo "** ERROR: restful container not running"
-        exit 1
-    }
-    restful_IP=$($DOCKER_COMPOSE exec restful ip route | tr -d '\r' | grep ^10.220 | awk '{print $NF}')
-    echo "- restful IP is: $restful_IP"
-    [[ -z "$restful_IP" ]] && {
-        echo "** ERROR: cannot find IP address of restful server" ;
-        echo "- verify that docker container(s) are configured"
-        exit 1
-    }
-
-    #
-    status=$($DOCKER_COMPOSE ps mqtt | wc -l)
-    [[ $? ]] || {
-        echo "** ERROR: mqtt container not running"
-        exit 1
-    }
-    mqtt_IP=$($DOCKER_COMPOSE exec mqtt ip route | tr -d '\r' | grep ^10.220 | awk '{print $NF}')
-    echo "- mqtt    IP is: $mqtt_IP"
-    [[ -z "$mqtt_IP" ]] && {
-        echo "** ERROR: cannot find IP address of mqtt server" ;
-        echo "- verify that docker container(s) are configured"
-        exit 1
-    }
-
-    CMD="export MQTT_BROKER=$mqtt_IP && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL=http://${restful_IP}:8000/upload/ &&
-    export UPLOADS_IP=${restful_IP} && export FEDBIOMED_NO_RESET=1 && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
+    CMD="export FEDBIOMED_NO_RESET=1 && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
 
     $DOCKER_COMPOSE exec -u ${CONTAINER_UID:-$(id -u)} $container bash -c "$CMD"
-
-
-
 
 }
 
@@ -607,7 +560,7 @@ while (($# > 0)); do
             while (($# > 0)); do
                 case $1 in
                     -h|--help|help) usage   ;;
-                    vpnserver|mqtt|restful|researcher|node|node2|gui|gui2) add_container $1;;
+                    vpnserver|researcher|node|node2|gui|gui2) add_container $1;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
                 shift
@@ -634,7 +587,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    mqtt|restful|researcher|node|node2) add_container $1;;
+                    researcher|node|node2) add_container $1;;
                     vpnserver|gui|gui2)
                         echo "it is not necessary to configure $i - ignoring" ;;
                     -h|--help|help) usage ;;
@@ -650,7 +603,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    vpnserver|mqtt|restful|researcher|node|node2|gui|gui2) add_container $1;;
+                    vpnserver|researcher|node|node2|gui|gui2) add_container $1;;
                     -h|--help|help) usage ;;
                     -g|--gpu)       GPU=1 ;;
                     -s|--status)    STATUS=1 ;;
@@ -665,7 +618,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    vpnserver|mqtt|restful|researcher|node|node2|gui|gui2) add_container $1;;
+                    vpnserver|researcher|node|node2|gui|gui2) add_container $1;;
                     -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
@@ -678,7 +631,7 @@ while (($# > 0)); do
             shift
             while (($# > 0)); do
                 case $1 in
-                    vpnserver|mqtt|restful|researcher|node|node2|gui|gui2) add_container $1;;
+                    vpnserver|researcher|node|node2|gui|gui2) add_container $1;;
                     -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
@@ -722,18 +675,6 @@ while (($# > 0)); do
             done
             ;;
 
-        researcher2)
-            shift
-            RUN_RESEARCHER2=1
-            while (($# > 0)); do
-                case $1 in
-                    -h|--help|help) usage ;;
-                    *)              RUN_ARGS="${RUN_ARGS} $1" ;;
-                esac
-                shift
-            done
-            ;;
-
         -h|--help|help) usage ;;
 
         *) usage "unknown or incompatible option: $1";;
@@ -756,7 +697,6 @@ fi
 [[ $RUN_NODE -eq 1 ]]       && { run node; }
 [[ $RUN_NODE2 -eq 1 ]]       && { run node2; }
 [[ $RUN_RESEARCHER -eq 1 ]] && { run researcher; }
-[[ $RUN_RESEARCHER2 -eq 1 ]] && { run researcher2; }
 
 # at the end because of the --status option
 [[ $STATUS -eq 1 ]]         && { containers_status; }
