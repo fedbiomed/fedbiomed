@@ -100,19 +100,159 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
 class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
     
     def setUp(self) -> None:
+
+        self.server_patch = patch('fedbiomed.transport.server.grpc.aio.server')
+        self.node_agent_patch = patch('fedbiomed.transport.server.NodeAgent', autospec=True)
+        self.agent_store_patch = patch('fedbiomed.transport.server.AgentStore', autospec=True)
+
+        self.server_mock = self.server_patch.start()
+        self.node_agent_mock = self.node_agent_patch.start()
+        self.agent_store_mock = self.agent_store_patch.start()
+
+        self.server_mock.return_value.start = AsyncMock()
+        self.server_mock.return_value.wait_for_termination = AsyncMock()
+
+        self.on_message = MagicMock()
+        self.grpc_server = GrpcServer(
+            host='localhost',
+            port="50051",
+            on_message=self.on_message,
+            debug=False
+        )
+
         return super().setUp()
 
     def tearDown(self) -> None:
+
+        self.server_patch.stop()
+        self.node_agent_patch.stop()
+        self.agent_store_patch.stop()
+    
         return super().tearDown()
 
 
-class TestGrpcServer(unittest.TestCase):
+class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
     
     def setUp(self) -> None:
+
+        self.server_patch = patch('fedbiomed.transport.server.grpc.aio.server')
+        self.node_agent_patch = patch('fedbiomed.transport.server.NodeAgent', autospec=True)
+        self.agent_store_patch = patch('fedbiomed.transport.server.AgentStore', autospec=True)
+        self.asyncio_patch = patch('fedbiomed.transport.server.asyncio')
+
+
+        self.server_mock = self.server_patch.start()
+        self.node_agent_mock = self.node_agent_patch.start()
+        self.agent_store_mock = self.agent_store_patch.start()
+        self.asyncio_mock = self.asyncio_patch.start()
+
+
+        self.server_mock.return_value.start = AsyncMock()
+        self.server_mock.return_value.wait_for_termination = AsyncMock()
+
+        self.on_message = MagicMock()
+        self.grpc_server = GrpcServer(
+            host='localhost',
+            port="50051",
+            on_message=self.on_message,
+            debug=False
+        )
         return super().setUp()
 
     def tearDown(self) -> None:
+        self.server_patch.stop()
+        self.node_agent_patch.stop()
+        self.agent_store_patch.stop()
+        self.asyncio_patch.stop()
+
         return super().tearDown()
+
+
+    def test_grpc_server_01_start(self):
+        
+        self.asyncio_patch.stop()
+
+
+        self.grpc_server.start()
+        self.server_mock.return_value.start.assert_called_once()
+        self.server_mock.return_value.wait_for_termination.assert_called_once()
+        self.grpc_server._thread.join()
+
+        self.server_mock.return_value.start.reset_mock()
+        self.server_mock.return_value.wait_for_termination.reset_mock()
+        self.grpc_server._debug = True
+        self.grpc_server.start()
+        self.server_mock.return_value.start.assert_called_once()
+        self.server_mock.return_value.wait_for_termination.assert_called_once()
+
+        self.grpc_server._thread.join()
+
+    def test_grpc_server_02_send(self):
+
+        # Invalid message
+        with self.assertRaises(FedbiomedCommunicationError):
+            self.grpc_server.send(
+                    message='opps',
+                    node_id='node-1'
+        )
+
+
+        # Started is unset
+        with self.assertRaises(FedbiomedCommunicationError):
+            self.grpc_server.send(
+                    message=example_task,
+                    node_id='node-1'
+        )
+    
+        self.grpc_server._is_started.set()
+        self.grpc_server.send(
+                message=example_task,
+                node_id='node-1'
+        )
+        self.asyncio_mock.run_coroutine_threadsafe.assert_called_once()
+        
+    def test_grpc_server_03_broadcast(self):
+
+        # Invalid message
+        with self.assertRaises(FedbiomedCommunicationError):
+            self.grpc_server.broadcast(
+                    message='opps'
+        )
+
+        # Started is unset
+        with self.assertRaises(FedbiomedCommunicationError):
+            self.grpc_server.broadcast(
+                    message=example_task
+        )
+
+        self.grpc_server._is_started.set()
+        self.grpc_server.send(
+                message=example_task,
+                node_id='node-1'
+        )
+        self.asyncio_mock.run_coroutine_threadsafe.assert_called_once()
+    
+    def test_grpc_server_04_get_all_nodes(self):
+        
+        # Started is unset
+        with self.assertRaises(FedbiomedCommunicationError):
+            self.grpc_server.get_all_nodes()
+
+        self.grpc_server._is_started.set()
+        self.asyncio_mock.run_coroutine_threadsafe.return_value.result.return_value = 'test'
+        result = self.grpc_server.get_all_nodes()
+        self.assertEqual(result, 'test')
+
+    def test_grpc_server_05_is_alive(self):
+
+        # Started is unset
+        with self.assertRaises(FedbiomedCommunicationError):
+            self.grpc_server.is_alive()
+
+        self.grpc_server._is_started.set()
+        result =self.grpc_server.is_alive()
+        self.assertFalse(result)
+        
 
 
 
