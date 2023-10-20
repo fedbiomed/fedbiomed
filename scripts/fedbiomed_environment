@@ -49,7 +49,6 @@ development_env() {
     if [[ -n "$1" ]] ; then
         export IP_ADDRESS=$1
         [[ -z "$RESEARCHER_SERVER_HOST" ]] && { export RESEARCHER_SERVER_HOST="${IP_ADDRESS}" ; }
-        [[ -z "$RESEARCHER_SERVER_PORT" ]] && { export RESEARCHER_SERVER_PORT=50051 ;}
     else
         export IP_ADDRESS=localhost
     fi
