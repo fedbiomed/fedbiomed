@@ -25,7 +25,6 @@ dependencies:
   - colorama >=0.4.6,<0.5
   # code
   - requests ~=2.29.0
-  - paho-mqtt ~=1.6.1
   - validators >=0.20.0,<0.21.0
   - git ~=2.40.1
   - packaging ~=23.1

@@ -4,10 +4,8 @@ Most real-life deployments require protecting node data. Deployment using VPN/co
 
 This tutorial details a deployment scenario where:
 
-* Fed-BioMed network and researcher components run on the same machine ("the **server**") in the following `docker` containers
+* Fed-BioMed vpnserver and researcher components run on the same machine ("the **server**") in the following `docker` containers
     - `vpnserver` / `fedbiomed/vpn-vpnserver`: WireGuard server
-    - `mqtt` / `fedbiomed/vpn-mqtt`: MQTT message broker server
-    - `restful` / `fedbiomed/vpn-restful`: HTTP REST communication server
     - `researcher` / `fedbiomed/vpn-researcher`: a researcher jupyter notebooks
 * several Fed-BioMed **node** components run, one node per machine with the following containers
     - `node` / `fedbiomed/vpn-node`: a node component
@@ -18,7 +16,10 @@ This tutorial details a deployment scenario where:
 ## Requirements
 
 !!! info "Supported operating systems and software requirements"
-    Supported operating systems for containers/VPN deployment include **Fedora 38**, **Ubuntu 22.04 LTS**. Should also work for most recent Linux, **MacOS X 12.6.6 and 13**, **Windows 11** with WSL2 using Ubuntu-22.04 distribution. Also requires **docker compose >= 2.0**.
+    Supported operating systems for containers/VPN deployment include **Fedora 38**, **Ubuntu 22.04 LTS**. Should also work for most recent Linux, **MacOS X 12.6.6 and 13**, **Windows 11** with WSL2 using Ubuntu-22.04 distribution. Also requires
+    **docker** and **docker compose >= 2.0**.
+
+    Check here for [guidelines](./vpn-dependencies-install.md) on `docker` and `docker-compose` installation
 
     Check here for [detailed requirements](https://github.com/fedbiomed/fedbiomed/blob/master/envs/vpn/README.md#requirements).
 
@@ -50,7 +51,7 @@ More options for containers/VPN deployment are not covered in this tutorial but 
 * using GPU in `node` container
 * building containers (eg: `node` and `gui`) on one machine, using this pre-built containers on the nodes
 * using different identity (account) for building and launching a container
-* deploying network and researcher on distinct machines
+* deploying vpnserver and researcher on distinct machines
 
 
 ## Notations

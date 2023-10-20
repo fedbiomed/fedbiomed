@@ -17,6 +17,7 @@ detected.
 |-----|--------------------------------------------------------------------------|
 | 0   | Default version assigned prior to the introduction of versioning         |
 | 1   | Introduce default/version field tracking the version of this config file |
+| 2   | Introduce gRPC communications                                            |
 
 ### Node
 
@@ -24,13 +25,23 @@ detected.
 |-----|--------------------------------------------------------------------------|
 | 0   | Default version assigned prior to the introduction of versioning         |
 | 1   | Introduce default/version field tracking the version of this config file |
+| 2   | Introduce gRPC communications                                            |
+
+### Node state
+
+| Version | Changelog                                                            |
+|-----|--------------------------------------------------------------------------|
+| 0   | Default version assigned prior to the introduction of node state         |
+| 1   | Introduce node state                                                     |
+
 
 ## Breakpoints
 
 | Version | Changelog                                                                                                 |
 |-----|-----------------------------------------------------------------------------------------------------------|
 | 0   | Default version assigned prior to the introduction of versioning                                          |
-| 1   | Introduce `version` field in breakpoint.json file. In case of incompatible version, see the section below |
+| 1   | Introduce `version` field in breakpoint.json file.                                                        |
+| 2   | Introduce gRPC communications                                                                             |
 
 ## Messaging protocol
 
@@ -45,4 +56,4 @@ is equivalent to a major change.
 |-----|-----------------------------------------------------------------------------------------------------------|
 | 0   | Default version assigned prior to the introduction of versioning                                          |
 | 1   | Introduce `protocol_version` field in messages. In case of incompatibility see the warning message above. |
-
+| 2   | Introduce gRPC communications                                                                             |
