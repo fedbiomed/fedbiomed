@@ -21,6 +21,7 @@ from declearn.model.sklearn import NumpyVector
 
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
+from fedbiomed.common.optimizers.declearn import list_optim_modules, list_optim_regularizers
 from fedbiomed.common.optimizers.generic_optimizers import NativeSkLearnOptimizer, NativeTorchOptimizer, DeclearnOptimizer, OptimizerBuilder
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.models import SkLearnModel, Model, TorchModel, BaseSkLearnModel
@@ -1441,6 +1442,15 @@ class TestOptimizerBuilder(unittest.TestCase):
         for item in ("unknown", object, None,):
             with self.assertRaises(FedbiomedOptimizerError):
                 optim_builer.build(TrainingPlans.SkLearnTrainingPlan, model, item)
+
+
+class TestDeclearnOptimizerImport(unittest.TestCase):
+    def test_1_list_optim(self):
+        modules = list_optim_modules()
+        self.assertIsInstance(modules, dict)
+
+        reg = list_optim_regularizers()
+        self.assertIsInstance(reg, dict)
 
 
 if __name__ == "__main__":
