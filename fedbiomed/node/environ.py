@@ -147,7 +147,7 @@ class NodeEnviron(Environ):
 
         # gRPC server host and port
         self._cfg["researcher"] = {
-            'host': os.getenv('RESEARCHER_SERVER_HOST', 'localhost'),
+            'ip': os.getenv('RESEARCHER_SERVER_HOST', 'localhost'),
             'port': os.getenv('RESEARCHER_SERVER_PORT', '50051')
         }
 
