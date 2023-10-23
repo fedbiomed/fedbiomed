@@ -89,8 +89,8 @@ class TestNodeEnviron(unittest.TestCase):
         self.assertTrue(self.environ._values['ALLOW_DEFAULT_TRAINING_PLANS'], "os.getenv did not overwrite the value")
         self.assertTrue(self.environ._values['TRAINING_PLAN_APPROVAL'], "os.getenv did not overwrite the value")
 
-        del os.environ["RESEARCHER_SERVER_HOST"]
-        del os.environ["RESEARCHER_SERVER_PORT"]
+        os.environ.pop('RESEARCHER_SERVER_HOST', None)
+        os.environ.pop('RESEARCHER_SERVER_PORT', None)
         self.mock_environ.from_config.side_effect = None
         self.mock_environ.from_config.side_effect = [None, False, False, "SHA256", 't', 't', "50051", "localhost"]
         self.environ._set_component_specific_variables()
