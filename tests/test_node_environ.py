@@ -60,6 +60,8 @@ class TestNodeEnviron(unittest.TestCase):
     @patch("os.mkdir")
     def test_03_node_environ_set_component_specific_variables(self,
                                                               mock_mkdir):
+        
+        self.mock_environ.sections.return_value = ['researcher-1']
         os.environ["NODE_ID"] = "node-1"
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
@@ -87,10 +89,11 @@ class TestNodeEnviron(unittest.TestCase):
         self.assertTrue(self.environ._values['ALLOW_DEFAULT_TRAINING_PLANS'], "os.getenv did not overwrite the value")
         self.assertTrue(self.environ._values['TRAINING_PLAN_APPROVAL'], "os.getenv did not overwrite the value")
 
+        del os.environ["RESEARCHER_SERVER_HOST"]
+        del os.environ["RESEARCHER_SERVER_PORT"]
         self.mock_environ.from_config.side_effect = None
-        self.mock_environ.from_config.side_effect = [None, False, False, "SHA256", 't', 't', "localhost", "50051"]
+        self.mock_environ.from_config.side_effect = [None, False, False, "SHA256", 't', 't', "50051", "localhost"]
         self.environ._set_component_specific_variables()
-        print(self.environ._values["RESEARCHERS"])
         self.assertEqual(self.environ._values["RESEARCHERS"][0]["ip"], "localhost")
         self.assertEqual(self.environ._values["RESEARCHERS"][0]["port"], "50051")
 
@@ -138,7 +141,7 @@ class TestNodeEnviron(unittest.TestCase):
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
 
-        self.environ.from_config.side_effect = [None, None, None, "SHA256", "False", '']
+        self.environ.from_config.side_effect = [None, None, None, "SHA256", "False", '', '', "50051", "localhost"]
         self.environ._set_component_specific_variables()
 
         self.environ.info()

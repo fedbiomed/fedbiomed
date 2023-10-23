@@ -47,7 +47,7 @@ import configparser
 import os
 
 from abc import abstractmethod
-from typing import Any, Tuple, Union
+from typing import Any, Tuple, Union, List
 
 from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, MPSPDZ_certificate_prefix, \
     CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME
@@ -164,6 +164,11 @@ class Environ(metaclass=SingletonABCMeta):
             raise FedbiomedEnvironError(_msg)
 
         return _cfg_value
+
+    def sections(self) -> List[str]:
+        """Gets sections of config file"""
+
+        return self._cfg.sections()
 
     def setup_environment(self):
         """Final environment setup function """

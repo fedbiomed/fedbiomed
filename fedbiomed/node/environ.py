@@ -104,7 +104,7 @@ class NodeEnviron(Environ):
 
 
         # Parse each researcher ip and port
-        researcher_sections = [section for section in self._cfg.sections() if section.startswith("researcher")]
+        researcher_sections = [section for section in self.sections() if section.startswith("researcher")]
         self._values['RESEARCHERS'] = os.getenv('NODE_RESEARCHERS')
         if os.getenv('RESEARCHER_SERVER_HOST'):
             # Environ variables currently permit to specify only 1 researcher
