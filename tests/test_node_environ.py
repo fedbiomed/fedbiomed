@@ -1,5 +1,3 @@
-import sys
-
 import os
 import importlib
 import inspect
@@ -66,7 +64,7 @@ class TestNodeEnviron(unittest.TestCase):
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
 
-        self.environ.from_config.side_effect = [None, None, None, "SHA256", '', '']
+        self.mock_environ.from_config.side_effect = [None, None, None, "SHA256", '', '']
         self.environ._set_component_specific_variables()
 
         self.assertEqual(self.environ._values["MESSAGES_QUEUE_DIR"],
@@ -75,13 +73,13 @@ class TestNodeEnviron(unittest.TestCase):
         self.assertEqual(self.environ._values["TRAINING_PLANS_DIR"], os.path.join("dummy/var/dir",
                                                                                   "training_plans_node-1"))
 
-        self.environ.from_config.side_effect = None
-        self.environ.from_config.side_effect = [None, None, None, "SHA256BLABLA", '', '']
+        self.mock_environ.from_config.side_effect = None
+        self.mock_environ.from_config.side_effect = [None, None, None, "SHA256BLABLA", '', '']
         with self.assertRaises(FedbiomedEnvironError):
             self.environ._set_component_specific_variables()
 
-        self.environ.from_config.side_effect = None
-        self.environ.from_config.side_effect = [None, False, False, "SHA256", '', '']
+        self.mock_environ.from_config.side_effect = None
+        self.mock_environ.from_config.side_effect = [None, False, False, "SHA256", '', '']
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
         self.environ._set_component_specific_variables()
@@ -89,14 +87,14 @@ class TestNodeEnviron(unittest.TestCase):
         self.assertTrue(self.environ._values['ALLOW_DEFAULT_TRAINING_PLANS'], "os.getenv did not overwrite the value")
         self.assertTrue(self.environ._values['TRAINING_PLAN_APPROVAL'], "os.getenv did not overwrite the value")
 
-        self.environ.from_config.side_effect = None
-        self.environ.from_config.side_effect = [None, False, False, "SHA256", '', '', "localhost", "50051"]
+        self.mock_environ.from_config.side_effect = None
+        self.mock_environ.from_config.side_effect = [None, False, False, "SHA256", 't', 't', "localhost", "50051"]
         self.environ._set_component_specific_variables()
-        self.assertEqual(self.environ._values["RESEARCHERS"][0]["ip"], "localhost", "os.getenv did not overwrite the value")
-        self.assertEqual(self.environ._values["RESEARCHERS"][0]["port"], "50051", "os.getenv did not overwrite the value")
+        self.assertEqual(self.environ._values["RESEARCHERS"][0]["ip"], "localhost")
+        self.assertEqual(self.environ._values["RESEARCHERS"][0]["port"], "50051")
 
-        self.environ.from_config.side_effect = None
-        self.environ.from_config.side_effect = [None, False, False, "SHA256", '', '', None, None]
+        self.mock_environ.from_config.side_effect = None
+        self.mock_environ.from_config.side_effect = [None, False, False, "SHA256", '', '', None, None]
         os.environ["RESEARCHER_SERVER_HOST"] = "localhost"
         os.environ["RESEARCHER_SERVER_PORT"] = "50051"
         self.environ._set_component_specific_variables()

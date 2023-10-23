@@ -62,10 +62,10 @@ class TestResearcherEnviron(unittest.TestCase):
                                                                     mock_is_dir,
                                                                     mock_mkdir):
         """Tests setting variables for researcher environ"""
-        self.environ.from_config.side_effect = None
+
         os.environ["RESEARCHER_ID"] = "researcher-1"
 
-        self.environ.from_config.side_effect = [None, None, None, "SHA256", 'localhost', '50051']
+        self.environ.from_config.side_effect = [None, 'localhost', '50051']
         mock_is_dir.return_value = False
 
         self.environ._set_component_specific_variables()
@@ -83,6 +83,7 @@ class TestResearcherEnviron(unittest.TestCase):
         self.assertEqual(self.environ._values["SERVER_HOST"], "localhost")
         self.assertEqual(self.environ._values["SERVER_PORT"], "50051")
 
+        self.environ.from_config.side_effect = [None, 'localhost', '50051']
         mock_mkdir.side_effect = [FileExistsError, OSError]
         with self.assertRaises(FedbiomedEnvironError):
             self.environ._set_component_specific_variables()
