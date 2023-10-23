@@ -3,8 +3,13 @@ omit =
        # not used
        */__init__.py
 
+       # not tested directly
+       */fedbiomed/transport/protocols/researcher_pb2.py
+       */fedbiomed/transport/protocols/researcher_pb2_grpc.py 
+
        # all fake/mocks
        */testsupport/*.py
+       
 
 [report]
 omit =
@@ -12,8 +17,8 @@ omit =
        */__init__.py
 
        # not tested directly
-       */fedbiomed/node/environ.py
-       */fedbiomed/researcher/environ.py
-
+       */fedbiomed/transport/protocols/researcher_pb2.py
+       */fedbiomed/transport/protocols/researcher_pb2_grpc.py 
+       
        # all fake/mocks
        */testsupport/*.py
