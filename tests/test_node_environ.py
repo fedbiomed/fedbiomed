@@ -90,6 +90,7 @@ class TestNodeEnviron(unittest.TestCase):
         self.mock_environ.from_config.side_effect = None
         self.mock_environ.from_config.side_effect = [None, False, False, "SHA256", 't', 't', "localhost", "50051"]
         self.environ._set_component_specific_variables()
+        print(self.environ._values["RESEARCHERS"])
         self.assertEqual(self.environ._values["RESEARCHERS"][0]["ip"], "localhost")
         self.assertEqual(self.environ._values["RESEARCHERS"][0]["port"], "50051")
 
