@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 from fedbiomed.transport.node_agent import AgentStore
 from fedbiomed.transport.server import GrpcServer, _GrpcAsyncServer, ResearcherServicer, NodeAgent
+from fedbiomed.transport.node_agent import NodeActiveStatus
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import SearchRequest, SearchReply
 from fedbiomed.transport.protocols.researcher_pb2 import TaskRequest, TaskResult, Empty, FeedbackMessage
@@ -113,7 +114,7 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
         self.server_mock.return_value.wait_for_termination = AsyncMock()
 
         self.on_message = MagicMock()
-        self.grpc_server = GrpcServer(
+        self.grpc_server = _GrpcAsyncServer(
             host='localhost',
             port="50051",
             on_message=self.on_message,
@@ -130,6 +131,55 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
     
         return super().tearDown()
 
+
+    async def test_grpc_async_server_01_start(self):
+
+        await self.grpc_server.start()
+        self.server_mock.return_value.start.assert_called_once()
+        self.server_mock.return_value.wait_for_termination.assert_called_once()
+
+
+
+    async def test_grpc_async_server_02_send(self):
+
+        agent = MagicMock(spec=NodeAgent)
+        self.agent_store_mock.return_value.get.return_value = agent 
+        await self.grpc_server.start()
+        await self.grpc_server.send(example_task, 'node-id')
+        agent.send.assert_called_once()
+
+        agent.send.reset_mock()
+        self.agent_store_mock.return_value.get.return_value = None
+        await self.grpc_server.start()
+        await self.grpc_server.send(example_task, 'node-id')
+        agent.send.assert_not_called()
+
+
+    async def test_grpc_async_server_03_broadcast(self):
+        
+        agents = {'node-1':  MagicMock(spec=NodeAgent), 'node-2': MagicMock(spec=NodeAgent)}
+        self.agent_store_mock.return_value.get_all.return_value = agents
+        await self.grpc_server.start()
+        await self.grpc_server.broadcast(example_task)
+        agents['node-2'].send.assert_called_once()
+        agents['node-2'].send.assert_called_once()
+
+
+    async def test_grpc_async_server_04_get_all_nodes(self):
+
+        loop = asyncio.get_event_loop()
+
+        agents = {'node-1':  NodeAgent('node-1', loop), 'node-2': NodeAgent('node-2', loop)}
+        self.agent_store_mock.return_value.get_all.return_value = agents
+        agents['node-1']._status = NodeActiveStatus.DISCONNECTED
+        agents['node-2']._status = NodeActiveStatus.ACTIVE
+
+
+        await self.grpc_server.start()
+        nodes = await self.grpc_server.get_all_nodes()
+
+        self.assertEqual(nodes['node-1'], NodeActiveStatus.DISCONNECTED.name)
+        self.assertEqual(nodes['node-2'], NodeActiveStatus.ACTIVE.name)
 
 class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
     

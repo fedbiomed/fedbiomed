@@ -207,9 +207,7 @@ class _GrpcAsyncServer:
 
         agent = await self._agent_store.get(node_id)
 
-        # For now, AgentStore does not discard node, but upper layer
-        # may use non-existing node ID
-        if not isinstance(agent, NodeAgent):
+        if not agent:
             logger.info(f"Node {node_id} is not registered on server. Discard message.")
             return
 
