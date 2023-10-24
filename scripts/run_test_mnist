@@ -70,9 +70,9 @@ conda deactivate
 ##clean running processes and datasets
 echo "INFO: killing kpids=$kpids"
 
-if [ ! $(kill -9 $kpids) ]; then 
+if ! kill -9 "$kpids"; then 
     echo "Couldn't kill the processes $kpids . Will try to kill by name."
-    if [ ! $(kill -9 $(ps aux | grep '[f]edbiomed.node.cli' | awk '{print $2}')) ]; then 
+    if ! kill -9 "$(ps aux | grep '[f]edbiomed.node.cli' | awk '{print $2}')"; then 
         echo "Can not kill the processes"
     else
         echo "Processes are killed for the nodes"
