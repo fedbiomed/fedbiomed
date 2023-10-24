@@ -73,7 +73,7 @@ echo "INFO: killing kpids=$kpids"
 if [ ! $(kill -9 $kpids) ]; then 
     echo "Couldn't kill the processes $kpids . Will try to kill by name." 
 else 
-    if [ ! $(ps | fgrep "fedbiomed.node.cli --start") ]; then 
+    if [ ! $(kill -9 $(ps aux | grep '[f]edbiomed.node.cli' | awk '{print $2}')) ]; then 
         echo "Processes are killed for the nodes"
     else
         echo "Can not kill the processes"
