@@ -58,13 +58,8 @@ kpids="${kpids:+$kpids }$apids"
 # launch test and wait for completion
 echo "INFO: launching fedbiomed researcher"
 source $basedir/scripts/fedbiomed_environment researcher
-EXEC_TEST=$basedir/notebooks/101_getting-started.py
-if [ -x "$EXEC_TEST" ]
-then
-    timeout --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT $EXEC_TEST
-else
-    echo "INFO: no script $EXEC_TEST in this version, skipping"
-fi
+timeout --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT python $basedir/notebooks/101_getting-started.py
+
 status=$?
 conda deactivate
 
