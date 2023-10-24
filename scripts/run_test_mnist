@@ -69,7 +69,19 @@ conda deactivate
 
 ##clean running processes and datasets
 echo "INFO: killing kpids=$kpids"
-kill -9 $kpids
+
+if [ ! $(kill -9 $kpids) ]; then 
+    echo "Couldn't kill the processes $kpids . Will try to kill by name." 
+else 
+    if [ ! $(ps | fgrep "fedbiomed.node.cli --start") ]; then 
+        echo "Processes are killed for the nodes"
+    else
+        echo "Can not kill the processes"
+    fi 
+fi
+
+
+
 $basedir/scripts/fedbiomed_run node --delete-mnist
 $basedir/scripts/fedbiomed_run node config config-n1.ini --delete-mnist
 
