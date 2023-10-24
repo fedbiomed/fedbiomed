@@ -124,7 +124,7 @@ class TrainingArgs:
             Testing arguments as dictionary
         """
         keys = ['test_ratio', 'test_on_local_updates', 'test_on_global_updates',
-                'test_metric', 'test_metric_args']
+                'test_metric', 'test_metric_args', 'test_batch_size']
         return self._extract_args(keys)
 
     def loader_arguments(self) -> Dict:
@@ -290,6 +290,7 @@ class TrainingArgs:
         | dry_run | perform a single model update for testing on each node and correctly handle GPU execution |
         | batch_maxnum | prematurely break after batch_maxnum model updates for each epoch (useful for testing) |
         | test_ratio | the proportion of validation samples to total number of samples in the dataset |
+        | test_batch_size | batch size used for testing trained model wrt a set of metric |
         | test_on_local_updates | toggles validation after local training |
         | test_on_global_updates | toggles validation before local training |
         | test_metric | metric to be used for validation |
@@ -324,6 +325,11 @@ class TrainingArgs:
             },
             "test_ratio": {
                 "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0
+            },
+            "test_batch_size": {
+                "rules": [cls._nonnegative_integer_value_validator_hook("test_batch_size")],
+                "required": False,
+                "default": 1
             },
             "test_on_local_updates": {
                 "rules": [bool], "required": False, "default": False
