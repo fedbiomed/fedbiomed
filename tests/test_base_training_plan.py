@@ -7,6 +7,7 @@ import numpy as np
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.constants import ProcessTypes
+from fedbiomed.common.data import NPDataLoader
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
 # Import again the full module: we need it to test saving code without dependencies. Do not delete the line below.
 import fedbiomed.common.training_plans._base_training_plan  # noqa
@@ -274,6 +275,49 @@ class TestBaseTrainingPlan(unittest.TestCase):
         self.assertEqual(tp._infer_batch_size(data), batch_size,
                          f'Inferring batch size failed on arbitrary nested collection of {nesting_types[::-1]} '
                          f'and leaf type {data_leaf_type.__name__}')
+
+    # test for bug #893
+    def test_base_training_plan_10_node_out_of_memory_bug(self):
+        # bug description: validation testing uses batch size equal to all the validation dataset, which leads to some
+        # OutOfMemory errors.
+        # 
+        nb_samples_test_dataset = 123
+        test_batch_sizes = (1, 2, 10, nb_samples_test_dataset, nb_samples_test_dataset + 10, nb_samples_test_dataset-1,)
+        
+        for test_batch_size in test_batch_sizes:
+
+            test_data_loader = np.random.randn(nb_samples_test_dataset, 100)
+            test_data_loader_target = np.random.randint(0,2, size = nb_samples_test_dataset)
+            train_data_loader = np.random.randn(64, 100)
+            train_data_loader_target = np.random.randint(0, 2, size = 64)
+            nb_test_batch = nb_samples_test_dataset // test_batch_size + int(nb_samples_test_dataset % test_batch_size >0)
+            # data = MagicMock(spec=np.ndarray, dataset = MagicMock(retrun_value = train_data_loader))
+            # data.__len__.return_value = 2
+            # test_data = MagicMock(spec=np.ndarray, dataset = MagicMock(return_value=test_data_loader))
+            # test_data.__len__.return_value = test_batch_size
+            data = NPDataLoader(dataset=train_data_loader,
+                                target=train_data_loader_target)
+            
+            test_data = NPDataLoader(dataset=test_data_loader,
+                                    target=test_data_loader_target,
+                                    batch_size=test_batch_size)
+            
+            
+            def predict(x: np.ndarray):
+                return x.T[0]
+            model = MagicMock(predict = MagicMock(side_effect=predict))
+            
+            self.tp._model = model
+            self.tp.set_data_loaders(data, test_data)
+            self.tp.testing_routine(metric=None,
+                                    metric_args={},
+                                    history_monitor=None,
+                                    before_train=True,)
+            print("HAS BEEN CALLED", model.predict.call_count)
+            # here we are checking how many time we are calling model.`predict` method, which is equal to 
+            # how many batch sizes are processed
+            self.assertEqual(model.predict.call_count, nb_test_batch)
+        
 
 
 if __name__ == '__main__':  # pragma: no cover

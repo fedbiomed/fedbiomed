@@ -42,6 +42,8 @@ class TorchDataManager(object):
         self._loader_arguments = kwargs
         self._subset_test: Union[Subset, None] = None
         self._subset_train: Union[Subset, None] = None
+        #self._test_batch_size = self._loader_arguments.get('test_batch_size')
+        #self._loader_arguments.pop('test_batch_size')
 
     @property
     def dataset(self) -> Dataset:
@@ -78,7 +80,7 @@ class TorchDataManager(object):
         """
         return self._create_torch_data_loader(self._dataset, **self._loader_arguments)
 
-    def split(self, test_ratio: float) -> Tuple[Union[DataLoader, None], Union[DataLoader, None]]:
+    def split(self, test_ratio: float, test_batch_size: int) -> Tuple[Union[DataLoader, None], Union[DataLoader, None]]:
         """ Splitting PyTorch Dataset into train and validation.
 
         Args:
@@ -123,9 +125,10 @@ class TorchDataManager(object):
         train_samples = samples - test_samples
 
         self._subset_train, self._subset_test = random_split(self._dataset, [train_samples, test_samples])
+        #test_batch_size = self._loader_arguments.get('test_batch_size', 1)
 
         loaders = (self._subset_loader(self._subset_train, **self._loader_arguments),
-                   self._subset_loader(self._subset_test, batch_size=len(self._subset_test)))
+                   self._subset_loader(self._subset_test, batch_size = test_batch_size))
 
         return loaders
 
