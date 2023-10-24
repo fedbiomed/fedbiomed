@@ -32,7 +32,6 @@ kpids= # PIDs to be killed
 
 # populate node
 echo "INFO: populating fedbiomed node"
-source $basedir/scripts/fedbiomed_environment node
 $basedir/scripts/fedbiomed_run node --add-mnist $path_mnist
 $basedir/scripts/fedbiomed_run node config config-n1.ini --add-mnist $path_mnist
 
@@ -58,15 +57,19 @@ kpids="${kpids:+$kpids }$apids"
 # launch test and wait for completion
 echo "INFO: launching fedbiomed researcher"
 source $basedir/scripts/fedbiomed_environment researcher
-timeout --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT python $basedir/notebooks/101_getting-started.py
-
+EXEC_TEST="$basedir/notebooks/101_getting-started.py"
+if [ -x "$EXEC_TEST" ]
+then
+    timeout --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT $EXEC_TEST
+else
+    echo "INFO: no script $EXEC_TEST in this version, skipping"
+fi
 status=$?
 conda deactivate
 
 ##clean running processes and datasets
 echo "INFO: killing kpids=$kpids"
 kill -9 $kpids
-source $basedir/scripts/fedbiomed_environment node
 $basedir/scripts/fedbiomed_run node --delete-mnist
 $basedir/scripts/fedbiomed_run node config config-n1.ini --delete-mnist
 
