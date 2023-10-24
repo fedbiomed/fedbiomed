@@ -507,7 +507,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric: Optional[MetricTypes],
             metric_args: Dict[str, Any],
             history_monitor: Optional['HistoryMonitor'],
-            before_train: bool
+            before_train: bool,
         ) -> None:
         """Evaluation routine, to be called once per round.
 
@@ -519,6 +519,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Args:
             metric: The metric used for validation.
                 If None, use MetricTypes.ACCURACY.
+            metric_args: dicitonary containing additinal arguments for setting up metric,
+                that maps <argument_name; argument_value> ad that will be passed to the 
+                metric function as positinal arguments.
             history_monitor: HistoryMonitor instance,
                 used to record computed metrics and communicate them to
                 the researcher (server).
@@ -532,8 +535,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
-        n_batches = len(self.testing_data_loader)
         n_samples = len(self.testing_data_loader.dataset)
+        n_batches = max(len(self.testing_data_loader) // n_samples, 1)
+
         # Set up a batch-wise metrics-computation function.
         # Either use an optionally-implemented custom training routine.
         if hasattr(self, "testing_step"):

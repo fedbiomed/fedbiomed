@@ -118,6 +118,7 @@ class NPDataLoader:
         self._batch_size = batch_size
         self._shuffle = shuffle
         self._drop_last = drop_last
+        #self._test_batch_size: int = None
         self._rng = np.random.default_rng(random_seed)
 
     def __len__(self) -> int:
@@ -276,6 +277,8 @@ class SkLearnDataManager(object):
 
         # Additional loader arguments
         self._loader_arguments = kwargs
+        #self._test_batch_size = self._loader_arguments.get('test_batch_size')
+        #self._loader_arguments.pop('test_batch_size')
 
         # Subset None means that train/validation split has not been performed
         self._subset_test: Union[Tuple[np.ndarray, np.ndarray], None] = None
@@ -312,7 +315,7 @@ class SkLearnDataManager(object):
 
         return self._subset_train
 
-    def split(self, test_ratio: float) -> Tuple[NPDataLoader, NPDataLoader]:
+    def split(self, test_ratio: float, test_batch_size: int) -> Tuple[NPDataLoader, NPDataLoader]:
         """Splits `np.ndarray` dataset into train and validation.
 
         Args:
@@ -349,7 +352,7 @@ class SkLearnDataManager(object):
             self._subset_test = (x_test, y_test)
             self._subset_train = (x_train, y_train)
 
-        test_batch_size = max(1, len(self._subset_test[0]))
+        #test_batch_size = max(1,self._test_batch_size, 1)
         return self._subset_loader(self._subset_train, **self._loader_arguments), \
             self._subset_loader(self._subset_test, batch_size=test_batch_size)
 
