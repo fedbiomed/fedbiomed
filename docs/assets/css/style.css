@@ -290,6 +290,8 @@ a.fed-button.right {
     margin-top: 85px;
 }
 
+
+
 /* ----------------------------------------------- Navigation Bar ----------------------------*/
 
 div.top-bar , .top-bar-mobile {
@@ -776,8 +778,8 @@ footer .footer-first-inner{
 
 .sidebar-doc {
     height: 100%;
-    /* position: fixed;
-    width: inherit; */
+    position: fixed;
+    width: inherit;
 }
 
 .sidebar-doc ul {
@@ -878,19 +880,11 @@ footer .footer-first-inner{
 
 .doc-row {
     display: flex;
-    width: 1280px;
-    justify-content: center;
     flex-wrap: wrap;
-    margin: 0 auto;
 }
 
 .left-col {
     width: 20%;
-    width: 20%;
-    position: sticky;
-    height: 100vh;
-    display: flex;
-    top: 70px;
 }
 
 .main-col {
@@ -899,28 +893,24 @@ footer .footer-first-inner{
 
 .right-col {
     width: 20%;
-    position: sticky;
-    height: 100vh;
-    display: flex;
-    top: 70px;
 }
 
 
 
 .sidebar-right {
-    /* position: fixed; */
+    position: fixed;
     height: 100vh;
     border-left: 1px solid #eee;
     margin-left: 20px;
     overflow-y: scroll;
     padding-bottom: 150px;
     padding-right: 20px;
-    /* width: inherit; */
+    width: inherit;
 }
 
 .sidebar-right nav.toc ul {
     list-style-type: none;
-    padding-left: 5px;
+    padding-left: 20px;
     color: #666;
 }
 
