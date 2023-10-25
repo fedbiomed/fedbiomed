@@ -57,7 +57,7 @@ Configuration file is the `ini` file that is located in`{FEDBIOMED_DIR}/etc` dir
   - `force_secure_aggregation`: Boolean parameter (True/False) to force secure aggregation for every action that uses local dataset.
 
 - **MPSDPZ (Secure Aggregation)**
-  - MP-SDPZ is the library used for secure aggregation to be able to generate private/public keys securely.
+  - MP-SDPZ is the library used for secure aggregation to be able to generate private/public keys securely. Please see the details [here](../secagg/configuration.md).
   - `private_key`: Path to private key to use in secure HTTP connection.
   - `public_key`: Path to public key to share with other parties (nodes and researcher) use in secure HTTP connection.
   - `mpspdz_ip`: The IP address that will be used for launching MP-SPDZ instance. 
