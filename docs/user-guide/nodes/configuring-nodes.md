@@ -6,17 +6,16 @@ keywords: fedbiomed configuration,node configuration
 
 # Node Configuration
 
-Fed-BioMed framework has 3 main components: `node`, `network`, and `researcher`. A `node` stores private datasets and 
-perform training in response to researcher's train requests. It communicates with the `researcher` component over MQTT
-(messaging server) that is running in the `network` component. It also uses file repository of the `network` component 
-to exchange model parameters and files with the researcher. 
+Fed-BioMed framework has 2 main components: `node` and `researcher`. A `node` stores private datasets and 
+perform training in response to researcher's train requests. It communicates directly with the `researcher` component using RPC protocol.
+
 
 A basic node configuration contains following settings;
 
 - providing a python environment
 - assigning a unique node id 
 - setting security parameters such as training plan approval mode, hashing algorithms 
-- providing the connection credentials for the network component
+- providing the connection credentials for the researcher component
 
 !!! note "Note"
     These basic configurations are done automatically using default values by the scripts provided in Fed-FedBioMed. 
@@ -36,44 +35,61 @@ The command above creates three different environments including `fedbiomed-node
 **Note:** `FEDBIOMED_DIR` represents the path of the base Fed-BioMed project directory.
 
 
-## Config Files
+## Configuration Files
 
-Config files are the `ini` files including the following information.
+Configuration file is the `ini` file that is located in`{FEDBIOMED_DIR}/etc` director. It contains the variables that are required for configuring a single node. Please see the sections and the corresponding variables in a basic configuration file of a node. 
 
 - **Default Parameters:**   
-    - `node_id`: This is the unique id which identifies the node. 
-    - `uploads_url`: The URL string that indicates upload request URL for the model parameters. 
+    - `id`: This is the unique ID that identifies the node. 
+    - `component`: Specifies the component type. It is always `NODE` for node component
+    - `version`: Version of the configuration format to avoid using older configuration files with recent Fed-BioMed versions. 
 
-- **MQTT Parameters:**  
-    - `broker_ip`: The IP address for connecting MQTT to consume and publish messages with the researcher
-    - `port`: Connection port for MQTT messaging server
-    - `keep_alive`: Delay in seconds before sending an applicative MQTT ping if there is no MQTT exchange during this period.   
+- **Researcher:**  
+    - `ip`: The IP address of the researcher component that the node will connect to.
+    - `port`: The port of the researcher component.   
 
 - **Security Parameters:**
-  - `hashing_algorithm`: The algorithm will be used for hashing training plan scripts to verify if the requestes 
-  training plan matches the one approved on the node side.
+  - `hashing_algorithm`: The algorithm will be used for hashing training plan scripts to verify if the requested training plan matches the one approved on the node side.
   - `training_plan_approval`: Boolean value to switch [training plan approval](./training-plan-security-manager.md) 
   to verify training plan scripts before the training.
   - `allow_default_training_plans`: Boolean value to enable automatic approval of example training plans provided by Fed-BioMed. 
-  
+  - `secure_aggregation`: Boolean parameter (True/False) to activate secure aggregation. 
+  - `force_secure_aggregation`: Boolean parameter (True/False) to force secure aggregation for every action that uses local dataset.
+
+- **MPSDPZ (Secure Aggregation)**
+  - MP-SDPZ is the library used for secure aggregation to be able to generate private/public keys securely.
+  - `private_key`: Path to private key to use in secure HTTP connection.
+  - `public_key`: Path to public key to share with other parties (nodes and researcher) use in secure HTTP connection.
+  - `mpspdz_ip`: The IP address that will be used for launching MP-SPDZ instance. 
+  - `mpsdpz_port`: The port that will be used for launching MP-SPDZ instance. 
+  - `allow_default_biprimes`: Boolean (True/False) to allow default biprimes for key generation. 
+
 
 An example for a config file is shown below;
 
-```
+```ini
 [default]
-node_id = node_7fd39224-4040-448f-8360-577e2066e2ce
-uploads_url = http://localhost:8844/upload/
-
-[mqtt]
-broker_ip = localhost
-port = 1883
-keep_alive = 60
+id = node_73768d5f-6a66-47de-8533-1291c4ef59d1
+component = NODE
+version = 2
 
 [security]
 hashing_algorithm = SHA256
 allow_default_training_plans = True
 training_plan_approval = False
+secure_aggregation = True
+force_secure_aggregation = False
 
+[researcher]
+ip = localhost
+port = 50051
+
+[mpspdz]
+private_key = certs/cert_node_73768d5f-6a66-47de-8533-1291c4ef59d1/MPSPDZ_certificate.key
+public_key = certs/cert_node_73768d5f-6a66-47de-8533-1291c4ef59d1/MPSPDZ_certificate.pem
+mpspdz_ip = localhost
+mpspdz_port = 14004
+allow_default_biprimes = True
 
 ```
 
