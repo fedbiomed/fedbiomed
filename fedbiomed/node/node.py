@@ -305,7 +305,8 @@ class Node:
                 aux_var_urls=aux_var_urls,
             )
             # the round raises an error if it cannot initialize
-            round.initialize_node_state_manager(state_id)  # initialize node state manager
+            #round.initialize_node_state_manager(state_id)  # initialize node state manager
+            round.initialize_arguments(state_id)
 
         return round
 

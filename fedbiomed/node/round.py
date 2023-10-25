@@ -115,21 +115,43 @@ class Round:
         self._optim_aux_var = {}  # type: Dict[str, Dict[str, Any]]
         self._node_state_manager = NodeStateManager(environ['DB_PATH'])
 
-    def initialize_validate_training_arguments(self) -> None:
+    def _initialize_validate_training_arguments(self) -> None:
         """Validates and separates training argument for experiment round"""
 
         self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
         self.testing_arguments = self.training_arguments.testing_arguments()
         self.loader_arguments = self.training_arguments.loader_arguments()
 
-    def initialize_node_state_manager(self, previous_state_id: Optional[str] = None):
+    def initialize_node_state_manager(self, previous_state_id: Optional[str] = None,
+                                      test: Optional[bool] = False):
         """Initializes [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager]. 
 
         Args:
             previous_state_id (optional): previous state_id from which to load `Node` state.
-            Defaults to None (which is the value for `Round` 0).
+                Defaults to None (which is the value for `Round` 0).
         """
-        self._node_state_manager.initialize(previous_state_id=previous_state_id)
+
+        self._node_state_manager.initialize(previous_state_id=previous_state_id,
+                                            testing=not self.training)
+    
+    def initialize_validate_training_arguments(self):
+        # Initialize and validate requested experiment/training arguments.
+        try:
+            self._initialize_validate_training_arguments()
+
+        except FedbiomedUserInputError as e:
+            return self._send_round_reply(success=False, message=repr(e))
+        except Exception as e:
+            msg = 'Unexpected error while validating training argument'
+            logger.debug(f"{msg}: {repr(e)}")
+            return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
+
+    def initialize_arguments(self,
+                             previous_state_id: Optional[str] = None, 
+                             test: Optional[bool] = False):
+        self.initialize_validate_training_arguments()
+
+        self.initialize_node_state_manager(previous_state_id)
 
     def download_aggregator_args(self) -> Tuple[bool, str]:
         """Retrieves aggregator arguments, that are sent through file exchange service
@@ -306,15 +328,6 @@ class Round:
         except FedbiomedRoundError as e:
             return self._send_round_reply(success=False, message=str(e))
 
-        # Initialize and validate requested experiment/training arguments.
-        try:
-            self.initialize_validate_training_arguments()
-        except FedbiomedUserInputError as e:
-            return self._send_round_reply(success=False, message=repr(e))
-        except Exception as e:
-            msg = 'Unexpected error while validating training argument'
-            logger.debug(f"{msg}: {repr(e)}")
-            return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
 
         # Download and validate the training plan.
         # Download the model weights and any auxiliary information.
@@ -443,7 +456,12 @@ class Round:
                 except Exception as exc:
                     error_message = f"Cannot train model in round: {repr(exc)}"
                     return self._send_round_reply(success=False, message=error_message)
+                try:
 
+                    self._save_round_state()
+                except Exception:
+                    # don't send details to researcher
+                    return self._send_round_reply(success=False, message="Can't save new node state.")
             # Collect Optimizer auxiliary variables, if any.
             try:
                 results['optim_aux_var'] = self.collect_optim_aux_var()
@@ -513,11 +531,7 @@ class Round:
             except Exception as exc:
                 return self._send_round_reply(success=False, message=f"Cannot upload results: {exc}")
 
-            try:
-                self._save_round_state()
-            except Exception:
-                # don't send details to researcher
-                return self._send_round_reply(success=False, message="Can't save new node state.")
+           
             # end : clean the namespace
             try:
                 del self.training_plan

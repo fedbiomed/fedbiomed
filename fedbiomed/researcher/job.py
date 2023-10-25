@@ -415,8 +415,9 @@ class Job:
         msg = {**headers, **self._repository_args}
         time_start = {}
 
-        # update node states when used node list has changed from one round to another
-        self._update_nodes_states_agent()
+        if do_training:
+            # update node states when used node list has changed from one round to another
+            self._update_nodes_states_agent()
 
         # pass heavy aggregator params through file exchange system
         self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
@@ -540,9 +541,9 @@ class Job:
                     'timing': timing,
                 })
                 self._training_replies[round_].append(response)
-
-        # update node states with node answers + when used node list has changed during the round
-        self._update_nodes_states_agent(before_training=False)
+        if do_training:
+            # update node states with node answers + when used node list has changed during the round
+            self._update_nodes_states_agent(before_training=False)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
