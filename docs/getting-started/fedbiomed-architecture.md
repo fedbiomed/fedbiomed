@@ -48,13 +48,13 @@ without passing by the `Researcher`, permitting much more flexibility than other
 
 Relationship between each main component aforementioned is detailed in the figure below:
 
-![alt text](../assets/img/diagrams/fedbiomed_architecture.jpg#img-centered)
+![alt text](../assets/img/diagrams/fedbiomed-base-arch-data-train.jpg#img-centered)
 *Fed-BioMed Architecture, with three main components: Nodes; containing datasets to be   used for training models, 
 Researcher; running the training of the model and Network; connecting Nodes to Researcher.*
 
 As shown in the diagram, `Network` is a central component in Fed-BioMed, that links `Nodes` to `Researcher`, and ensures 
 message and files delivery. `Nodes` are in charge of running the model sent by the `Researcher`, and send the resulting 
-trained model to the `Researcher`. Large files such as TrainingPlan and model parameters are exchanged over a Restful 
+trained model to the `Researcher`. Large files such as `TrainingPlan` and model parameters are exchanged over a Restful 
 HTTP server whereas messages, Requests and Replies are sent through a MQTT server.
 
 ## `Network` configuration
