@@ -147,7 +147,7 @@ class TestRound(NodeTestCase):
 
         # test 1: case where argument `model_kwargs` = None
         # action!
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         msg_test1 = self.r1.run_model_training()
 
         # check results
@@ -174,7 +174,7 @@ class TestRound(NodeTestCase):
                                 'param2': [1, 2, 3, 4],
                                 'param3': None}
         serialize_load_patch.reset_mock()
-        self.r2.initialize_node_state_manager()
+        self.r2.initialize_arguments()
         msg_test2 = self.r2.run_model_training()
 
         # check values in message (output of `run_model_training`)
@@ -253,7 +253,7 @@ class TestRound(NodeTestCase):
                 patch.object(FakeModel, 'training_routine') as mock_training_routine,
                 patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,  # noqa
         ):
-            self.r1.initialize_node_state_manager()
+            self.r1.initialize_arguments()
             msg = self.r1.run_model_training()
             self.assertTrue(msg.get("success"))
 
@@ -317,7 +317,7 @@ class TestRound(NodeTestCase):
             file.write(dummy_training_plan_test)
 
         # action
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         msg_test = self.r1.run_model_training()
         print("NSG", msg_test)
         # checks
@@ -1389,7 +1389,8 @@ class TestRound(NodeTestCase):
         previous_state_id = 'state_id_1234'
         self.r1.initialize_node_state_manager(previous_state_id=previous_state_id)
         
-        node_state_manager_initialize_patch.assert_called_once_with(previous_state_id=previous_state_id)
+        node_state_manager_initialize_patch.assert_called_once_with(previous_state_id=previous_state_id, 
+                                                                    testing=False)
         
     # def test_round_28_load_save_round_state_declearn_optim(self):
     # # same test as previous, but with a real declearn optimizer 

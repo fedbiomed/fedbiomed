@@ -122,8 +122,7 @@ class Round:
         self.testing_arguments = self.training_arguments.testing_arguments()
         self.loader_arguments = self.training_arguments.loader_arguments()
 
-    def initialize_node_state_manager(self, previous_state_id: Optional[str] = None,
-                                      test: Optional[bool] = False):
+    def initialize_node_state_manager(self, previous_state_id: Optional[str] = None):
         """Initializes [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager]. 
 
         Args:
@@ -147,8 +146,7 @@ class Round:
             return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
 
     def initialize_arguments(self,
-                             previous_state_id: Optional[str] = None, 
-                             test: Optional[bool] = False):
+                             previous_state_id: Optional[str] = None):
         self.initialize_validate_training_arguments()
 
         self.initialize_node_state_manager(previous_state_id)
@@ -411,6 +409,7 @@ class Round:
 
         # Split training and validation data
         try:
+            
             self._set_training_testing_data_loaders()
         except FedbiomedError as fe:
             error_message = f"Can not create validation/train data: {repr(fe)}"
@@ -768,7 +767,7 @@ class Round:
             logger.warning("Validation will not be perform for the round, since there is no validation activated. "
                            "Please set `test_on_global_updates`, `test_on_local_updates`, or both in the "
                            "experiment.")
-
+        
         if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
             logger.warning(
                 'There is no validation activated for the round. Please set flag for `test_on_global_updates`'
@@ -776,7 +775,6 @@ class Round:
 
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
-
         # Set models validating and training parts for training plan
         self.training_plan.set_data_loaders(train_data_loader=training_data_loader,
                                             test_data_loader=testing_data_loader)
@@ -826,7 +824,6 @@ class Round:
             data_manager.load(tp_type=training_plan_type)
         except FedbiomedError as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}")
-
         # Get dataset property
         if hasattr(data_manager.dataset, "set_dataset_parameters"):
             dataset_parameters = self.dataset.get("dataset_parameters", {})
