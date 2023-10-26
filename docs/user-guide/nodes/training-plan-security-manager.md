@@ -60,8 +60,8 @@ When the new node is created without any specified configuration file or any opt
 [default]
 # other parameters
 
-[mqtt]
-# parameters for mqtt 
+[researcher]
+# parameters connecting researcher server
 
 [security]
 hashing_algorithm = SHA256

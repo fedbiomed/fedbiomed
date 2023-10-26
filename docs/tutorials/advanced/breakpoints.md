@@ -6,7 +6,7 @@ keywords: Fed-BioMed experiment, breakpoints, saving breakpoints, loading breakp
 
 # Breakpoints (experiment saving facility)
 
-An experiment can crash or stop during training due to unexpected events : software component crash (researcher/node/network), host server failure, network outage, etc. 
+An experiment can crash or stop during training due to unexpected events : software component crash (researcher/node), host server failure, network outage, etc. 
 
 If an experiment crashes during training, one can launch an experiment with the same parameters and re-do a similar training. But if the experiment already ran for a long time, we don't want to lose the previous training effort. This is where breakpoints help.
 
