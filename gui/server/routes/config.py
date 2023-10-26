@@ -44,7 +44,6 @@ def fedbiomed_environ():
     res = {}
     confs = ['ID', 'DB_PATH', 'ROOT_DIR',
              'CONFIG_DIR', 'DEFAULT_TRAINING_PLANS_DIR', 'MESSAGES_QUEUE_DIR',
-             'MQTT_BROKER', 'MQTT_BROKER_PORT', 'UPLOADS_URL',
              'TRAINING_PLAN_APPROVAL', 'ALLOW_DEFAULT_TRAINING_PLANS', 'HASHING_ALGORITHM']
 
     for key in confs:
