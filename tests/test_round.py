@@ -319,7 +319,7 @@ class TestRound(NodeTestCase):
         # action
         self.r1.initialize_arguments()
         msg_test = self.r1.run_model_training()
-        print("NSG", msg_test)
+
         # checks
         serialize_load_patch.assert_called_once_with('my_python_model')
         self.assertTrue(msg_test.get('success', False))
@@ -1384,13 +1384,14 @@ class TestRound(NodeTestCase):
                                            expected_state)
     
     @patch('fedbiomed.node.round.NodeStateManager.initialize')
-    def test_round_31_initialize_node_state_manager(self,
-                                                    node_state_manager_initialize_patch):
+    def test_round_31_initialize_arguments(self,
+                                           node_state_manager_initialize_patch):
         previous_state_id = 'state_id_1234'
-        self.r1.initialize_node_state_manager(previous_state_id=previous_state_id)
+        self.r1.initialize_arguments(previous_state_id=previous_state_id)
         
         node_state_manager_initialize_patch.assert_called_once_with(previous_state_id=previous_state_id, 
                                                                     testing=False)
+        node_state_manager_initialize_patch.assert_called_once()
         
     # def test_round_28_load_save_round_state_declearn_optim(self):
     # # same test as previous, but with a real declearn optimizer 
@@ -1402,6 +1403,6 @@ class TestRound(NodeTestCase):
     # def test_round_28_load_save_round_state_framework_native_optim(self):
     #     pass
 
-
+    
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
