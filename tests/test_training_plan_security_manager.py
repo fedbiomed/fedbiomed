@@ -654,7 +654,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         """
 
         # prepare
-        key_sensible = 'training_plan'
+        key_sensible = 'hash'
         key_notsensible = 'training_plan_id'
 
         doc = { 
