@@ -43,10 +43,10 @@ def list_training_plans():
     search = req.get('search', None)
 
     if select_status is not None:
-        select_status = TrainingPlanApprovalStatus.str2enum(select_status)
+        select_status = [TrainingPlanApprovalStatus.str2enum(select_status)]
 
     res = TP_SECURITY_MANAGER.list_training_plans(sort_by=sort_by,
-                                                  select_status=[select_status],
+                                                  select_status=select_status,
                                                   verbose=False,
                                                   search=search)
     return response(res), 200
