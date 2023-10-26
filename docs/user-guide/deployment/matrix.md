@@ -15,10 +15,10 @@ Network communications for the setup of host machines and the installation of [s
 
 Fed-BioMed network communications basic principle is that all communications between components are outbound from one `node` to the `researcher`. There is no inbound communications to a `node`.
 
-Nevertheless, future releases introduced some optional direct communications between the components for using the secure aggregation feature (eg. `node`/`researcher` to `node`/`researcher` communication for cryptographic material negotiation). The communications for crypto material are closed after the negotiation is completed.
+The exception to this principle are optional direct communications between the components for using the secure aggregation feature (eg. `node`/`researcher` to `node`/`researcher` communication for cryptographic material negotiation). The communications for crypto material are closed after the negotiation is completed and handle only secagg key negotiation requests.
 
 Fed-BioMed provides some optional GUI for the `node` (node configuration GUI) and the `researcher` (Jupyter notebook and Tensorboard).
-Currently, Fed-BioMed does not include secure communications to these GUI components. So they are configured by default to accept only communications from the same machine (*localhost*).
+By default, these GUI components are not secured (no HTTPS and/or no trusted certificate). So they are configured by default to accept only communications from the same machine (*localhost*).
 
 
 ## Software installation
@@ -75,7 +75,7 @@ On the researcher component (`researcher`):
 
 | dir | source machine | destination machine | destination port | service   | type     | status    | comment     |
 | --  | ------------   | -----------------   | --------------   | -----     | ------   | --------  | -----       |
-| out | *nodes*        | researhcer          | TCP/50051        | HTTP      | backend  | mandatory |             |
+| out | *nodes*        | researcher          | TCP/50051        | HTTP      | backend  | mandatory |             |
 | out | researcher     | *nodes*             | TCP/14000+       | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *nodes*        | researcher          | TCP/14000+       | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *localhost*    | researcher          | TCP/8888         | HTTP      | user     | optional  | Jupyter     |
