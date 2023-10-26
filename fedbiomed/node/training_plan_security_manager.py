@@ -53,8 +53,7 @@ class TrainingPlanSecurityManager:
         self._db = self._tinydb.table(name="TrainingPlans", cache_size=0)
         self._database = Query()
 
-        self._tags_to_remove = ['training_plan',
-                                'hash',
+        self._tags_to_remove = ['hash',
                                 'date_modified',
                                 'date_created']
 
