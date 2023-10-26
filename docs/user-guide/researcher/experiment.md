@@ -457,10 +457,7 @@ os.listdir(exp_path)
 
 ### `train_request` and `train_reply` messages
 
-Running an experiment means starting the training process by sending train request to nodes. It publishes training
-commands as JSON string on the MQTT topics (separate topics for each node) that are subscribed by each live node. After
-sending training commands it waits for the responses that will be sent by the nodes. The following code snippet represents
-an example of train request.
+Running an experiment means starting the training process by sending train request to nodes. It creates training request that are subscribed by each live node that has the dataset. After sending training commands it waits for the responses that will be sent by the nodes. The following code snippet represents an example of train request.
 
 ```json
 {

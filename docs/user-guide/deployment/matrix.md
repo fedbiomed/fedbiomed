@@ -111,4 +111,4 @@ On the researcher component (`researcher`):
 | in  | *localhost*    | researcher          | TCP/8888         | HTTP      | user     | optional  | Jupyter     |
 | in  | *localhost*    | researcher          | TCP/6006         | HTTP      | user     | optional  | Tensorboard |
 
-In this scenario, MQTT, restful and MP-SPDZ communications are tunneled within the WireGuard VPN.
+In this scenario, MP-SPDZ communication tunneled within the WireGuard VPN.

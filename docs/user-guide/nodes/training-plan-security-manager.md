@@ -60,6 +60,9 @@ When the new node is created without any specified configuration file or any opt
 [default]
 # other parameters
 
+[researcher]
+# parameters connecting researcher server
+
 [security]
 hashing_algorithm = SHA256
 allow_default_training_plans = True

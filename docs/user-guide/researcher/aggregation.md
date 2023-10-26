@@ -146,8 +146,7 @@ def create_aggregator_args(self, *args, **kwargs) -> Tuple[dict, dict]:
     """Returns aggregator arguments that are expecting by the nodes
     
     Returns:
-    dict: contains `Aggregator` parameters that will be sent through MQTT message
-            service
+    dict: contains `Aggregator` parameters that will be sent to nodes 
     dict: contains parameters that will be sent through file exchange message.
             Both dictionaries are mapping node_id to `Aggregator` parameters specific 
             to each Node.
@@ -155,8 +154,6 @@ def create_aggregator_args(self, *args, **kwargs) -> Tuple[dict, dict]:
     """
     return self._aggregator_args or {}, {}
 ```
-
-`create_aggregator_args` returns two dictionaries, the first one containing `Aggregator` parameters that will be sent through MQTT message service, and the second one `Aggregator` parameters exchanged through file exchange service. The latter is designed for the transmission of large amount of data, e.g., in `SCAFFOLD` the correction terms parameters. Each of the dictionary is mapping `Node` ids to a dictionary of parameter that will be sent to the corresponding `Node`.
 
 
 ## Conclusions
