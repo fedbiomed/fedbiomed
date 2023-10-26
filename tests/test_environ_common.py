@@ -174,13 +174,11 @@ class TestEnviron(TestCase):
         broker_port = 3434
         mpspdz_ip = "1.1.1.1"
         mpspdz_port = "1234"
-        uploads_url = "http"
         public_key = "text_public_key"
         private_key = "test_private_key"
         allow_default_biprimes = True
 
 
-        self.environ._cfg["mqtt"] = {'broker_ip': broker_ip, 'port': broker_port}
         self.environ._cfg["mpspdz"] = {
             'mpspdz_ip': mpspdz_ip,
             'mpspdz_port': mpspdz_port,
@@ -188,9 +186,6 @@ class TestEnviron(TestCase):
             'private_key': private_key,
             'allow_default_biprimes': allow_default_biprimes,
         }
-
-        self.environ._cfg["default"] = {'uploads_url': uploads_url}
-
 
         if "ALLOW_DEFAULT_BIPRIMES" in os.environ:
             del os.environ["ALLOW_DEFAULT_BIPRIMES"]

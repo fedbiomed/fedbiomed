@@ -38,7 +38,6 @@ class ResearcherEnviron:
         self._values['TMP_DIR'] = f"/tmp/{res}/var/tmp"
         self._values['SERVER_HOST'] = "localhost"
         self._values['SERVER_PORT'] = '50051'
-        self._values['UPLOADS_URL'] = "http://localhost:8888/upload/"
         self._values['TIMEOUT'] = 10
         self._values['DEFAULT_TRAINING_PLANS_DIR'] = f'/tmp/{res}/default_training_plans'
 
