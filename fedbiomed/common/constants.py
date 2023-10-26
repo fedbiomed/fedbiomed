@@ -47,11 +47,10 @@ MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 #
 # Instructions for updating the version
 #
-# 1. bump the version below: if your change breaks backward compatibility you must increase the
+# 1. check [versions page](https://fedbiomed.org/latest/user-guide/deployment/versions)
+# for background information
+# 2. bump the version below: if your change breaks backward compatibility you must increase the
 # major version, else the minor version. Micro versions are supported but their use is currently discouraged.
-# 2. Update the `./docs/user-guide/deployment/versions.md` which is published as
-# [Changelog page](https://fedbiomed.org/latest/user-guide/deployment/versions) with a short
-# description of your change, ideally including instructions on how to manually migrate from the previous version.
 
 __version__ = FBM_Component_Version('4.4.4')  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version('2')  # researcher config file version
