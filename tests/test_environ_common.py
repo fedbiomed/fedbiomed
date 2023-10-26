@@ -179,7 +179,6 @@ class TestEnviron(TestCase):
         allow_default_biprimes = True
 
 
-        self.environ._cfg["mqtt"] = {'broker_ip': broker_ip, 'port': broker_port}
         self.environ._cfg["mpspdz"] = {
             'mpspdz_ip': mpspdz_ip,
             'mpspdz_port': mpspdz_port,

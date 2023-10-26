@@ -238,8 +238,7 @@ class TestLogger(unittest.TestCase):
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_7")
 
-    # minimal on_* handlers for mqtt
-    # the self._mqtt_is_connected will conditionnate the tests later
+    # minimal on_* handlers
     def on_message(self, client, userdata, msg):
         '''
         empty on_message handler
@@ -250,18 +249,18 @@ class TestLogger(unittest.TestCase):
         '''
         empty on_connect handler
         '''
-        self._mqtt_is_connected = True
+        pass
 
     def on_disconnect(self, client, userdata, flags, rc):
         '''
         empty on_disconnect handler
         '''
-        self._mqtt_is_connected = False
+        pass
 
 
     def test_logger_06_grpc_handler(self):
         '''
-        test mqtt handler
+        test grpc handler
         '''
 
         grpc = MagicMock()

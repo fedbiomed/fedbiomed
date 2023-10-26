@@ -60,14 +60,15 @@ When the new node is created without any specified configuration file or any opt
 [default]
 # other parameters
 
-[mqtt]
-# parameters for mqtt 
-
 [security]
 hashing_algorithm = SHA256
 allow_default_training_plans = True
 training_plan_approval = False
 
+[researcher]
+# parameters for grpc
+
+# etc.
 ```
 As you can see, by default, training plan control (`training_plan_approval`) is disabled. For enabling or disabling this feature, you can change its value to `True` or `False`. Any values different from `True` or `False` will be counted as `False`. The node should be restarted to apply changes after updating the config file.
 
