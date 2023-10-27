@@ -48,9 +48,12 @@ apids_root="$apids_root $!"
 conda deactivate
 sleep 10
 
+PSTREE_OPT=
+[ $(uname -s) != 'Darwin' ] && PSTREE_OPT=-p
+
 apids=
 for pid in $apids_root ; do
-    apids="${apids:+$apids}$(pstree -p $pid | egrep -Eo '\([0-9]+\)|[=-] ([0-9]+)' | grep -o '[0-9]\+' | tr '\n' ' ')"
+    apids="${apids:+$apids}$(pstree $PSTREE_OPT $pid | egrep -Eo '\([0-9]+\)|[=-] ([0-9]+)' | grep -o '[0-9]\+' | tr '\n' ' ')"
 done
 echo "INFO : apids=$apids"
 kpids="${kpids:+$kpids }$apids"
