@@ -199,8 +199,7 @@ class Round:
             self,
             secagg_arguments: Union[Dict, None] = None,
     ) -> Dict[str, Any]:
-        """This method downloads training plan file; then runs the training of a model
-        and finally uploads model params to the file repository
+        """Runs one round of model training
 
         Args:
             secagg_arguments:

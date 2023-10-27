@@ -6,9 +6,6 @@
 # This example demonstrates using a convolutional model in PyTorch
 # for recognition of smiling faces, with a CelebA dataset split over 2 nodes.
 
-# ## Start the network
-# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
-#
 # ## Setting the node up
 #
 # Install the CelebA dataset with the help of the `README.md` file inside `notebooks/data/Celeba`

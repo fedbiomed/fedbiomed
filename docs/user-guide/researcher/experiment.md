@@ -119,9 +119,9 @@ exp.set_nodes(nodes=None)
 
 ### Load your Training Plan: Training Plan Class
 
-The `training_plan_class` is  the class where the model, training data and training step are defined.
+The `training_plan_class` is the class where the model, training data and training step are defined.
 Although not required, optimizers and dependencies can also be defined in this class. The experiment will extract
-source of your training plan, save as a python module (script), and upload to the file repository during every round of
+source of your training plan, save as a python module (script), and send the source code to the nodes every round of
 training. Thanks to that, each node can construct the model and perform the training.
 
 

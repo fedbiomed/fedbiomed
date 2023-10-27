@@ -5,9 +5,7 @@
 
 # Use for developing (autoreloads changes made across packages)
 
-# ## Start the network
-# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
-#
+
 # ## Setting the node up
 # It is necessary to previously configure a node:
 # 1. `./scripts/fedbiomed_run node add`
