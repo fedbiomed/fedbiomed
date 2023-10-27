@@ -155,7 +155,7 @@ if __name__ == '__main__':  # pragma: no cover
 
 Remark: a test file may implement more than one class (we may for example create a **TestMessagingResearcher** and a **TestMessagingNode** in the same **test\_messaging.py** file.
 
-We may also provide two test file for the same purpose. The choice depend on the content of the tests and on the code which can be shared between these files (for example, we may implement a connexion to a MQTT server in a setupMethod() if we include the two classes in a single test file.
+We may also provide two test file for the same purpose. The choice depend on the content of the tests and on the code which can be shared between these files (for example, we may implement a connexion to a gRPC server in a setupMethod() if we include the two classes in a single test file.
 
 ### How to mock environ in a test
 

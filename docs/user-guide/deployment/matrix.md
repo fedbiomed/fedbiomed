@@ -18,7 +18,7 @@ Fed-BioMed network communications basic principle is that all communications bet
 The exception to this principle are optional direct communications between the components for using the secure aggregation feature (eg. `node`/`researcher` to `node`/`researcher` communication for cryptographic material negotiation). The communications for crypto material are closed after the negotiation is completed and handle only secagg key negotiation requests.
 
 Fed-BioMed provides some optional GUI for the `node` (node configuration GUI) and the `researcher` (Jupyter notebook and Tensorboard).
-By default, these GUI components are not secured (no HTTPS and/or no trusted certificate). So they are configured by default to accept only communications from the same machine (*localhost*).
+By default, these GUI components are not secured (no HTTPS and/or no certificate signed by well known authority). So they are configured by default to accept only communications from the same machine (*localhost*).
 
 
 ## Software installation

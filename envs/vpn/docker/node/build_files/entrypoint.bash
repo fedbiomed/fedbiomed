@@ -26,9 +26,7 @@ fi
 
 trap finish TERM INT QUIT
 
-# Could launch node at this step because VPN is not yet fully established when using
-# MQTT messaging
-
+# Could not launch node at this step with MQTT communications because VPN is not yet fully established 
 # TODO: refactor to launch gRPC communications node here ?
 
 sleep infinity &
