@@ -1594,7 +1594,7 @@ td img[title=":heavy_check_mark:"], td img[title=":x:"] {
     width: 16px;
 }
 
-.main-docs img { width: 100%; max-width: 720px; display:flex; margin: 15px 0px}
+.main-docs img { width: 100%; max-width: 720px; display:flex; margin: 15px 0px; height: auto;}
 .main img[src$="#img-centered"], .main-docs img[src$="#img-centered"] { display:flex; margin: 15px auto}
 .main img[src$="#img-centered-sm"], .main-docs img[src$="#img-centered-sm"] {display:flex; margin: 15px auto; max-width:240px}
 .main img[src$="#img-centered-md"], .main-docs img[src$="#img-centered-md"] {display:flex; margin: 15px auto; max-width:480px}

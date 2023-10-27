@@ -89,7 +89,3 @@ message TaskResult {
     int32 iteration = 2;
     bytes bytes_ = 3;
 }
-
-message TaskResponseUnary {
-    bytes bytes_ = 1; 
-}

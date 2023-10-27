@@ -268,7 +268,10 @@ class GrpcServer(_GrpcAsyncServer):
 
         # FIXME: This implementation assumes that nodes will be able connect and server complete setup with this delay
         logger.info("Starting researcher service...")
+
+        logger.info(f'Waiting {GPRC_SERVER_SETUP_TIMEOUT}s for nodes to connect...')
         time.sleep(GPRC_SERVER_SETUP_TIMEOUT)
+            
 
     def send(self, message: Message, node_id: str) -> None:
         """Send message to a specific node.
