@@ -30,6 +30,9 @@ eval "$(conda shell.bash hook)"
 
 kpids= # PIDs to be killed
 
+export GRPC_TRACE=all
+export GRPC_VERBOSITY=DEBUG
+
 # populate node
 echo "INFO: populating fedbiomed node"
 source $basedir/scripts/fedbiomed_environment node

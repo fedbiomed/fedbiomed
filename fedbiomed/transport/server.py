@@ -173,7 +173,6 @@ class _GrpcAsyncServer:
                 ("grpc.max_receive_message_length", 100 * 1024 * 1024),
             ])
 
-        logger.warning("STEP1")
         self._loop = asyncio.get_running_loop()
         self._agent_store = AgentStore(loop=self._loop)
 
@@ -185,12 +184,11 @@ class _GrpcAsyncServer:
         )
 
         self._server.add_insecure_port(self._host + ':' + str(self._port))
-        logger.warning("STEP2")
+
         # Starts async gRPC server
         await self._server.start()
 
         self._is_started.set()
-        logger.warning("STEP3")
         try:
             if self._debug:
                 logger.debug("Waiting for termination")
