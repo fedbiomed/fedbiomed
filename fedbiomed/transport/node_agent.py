@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Dict
+from typing import Optional, Dict, Callable
 from datetime import datetime
 import copy
 from threading import Event
@@ -7,7 +7,7 @@ from threading import Event
 import asyncio
 import grpc
 
-from fedbiomed.common.message import Message
+from fedbiomed.common.message import Message, ResearcherMessages
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.constants import ErrorNumbers
@@ -30,17 +30,23 @@ class NodeActiveStatus(Enum):
     DISCONNECTED = 3
 
 
-class NodeAgent:
+class Replies(dict):
+    pass 
+    
+
+class NodeAgentAsync:
 
     def __init__(
             self,
             id: str,
+            peer: str,
             loop: asyncio.AbstractEventLoop,
     ) -> None:
         """Represent the client that connects to gRPC server"""
         self._id: str = id
         self._last_request: Optional[datetime] = None
-
+        self._peer: str = peer
+        self._replies = Replies()
         # Node should be active when it is first instantiated
         self._status: NodeActiveStatus = NodeActiveStatus.ACTIVE
 
@@ -50,6 +56,8 @@ class NodeAgent:
 
         # protect read/write operations on self._status + self._status_task + self._last_request)
         self._status_lock = asyncio.Lock()
+        self._replies_lock = asyncio.Lock()
+
         # handle race condition when a task in finished/canceled between (1) receiving new task
         # (2) executing coroutine for handling task end
         self._is_waiting = Event()
@@ -74,6 +82,71 @@ class NodeAgent:
         """
         return self._id
 
+    async def flush(self, request_id: str):
+        """Flushes processed reply"""
+
+        async with self._replies_lock:
+            self._replies.pop(request_id, None)
+
+    def get_task(self) -> asyncio.coroutine:
+        """Get tasks assigned by the main thread
+
+        !!! note "Returns coroutine"
+            This function return an asyncio coroutine. Please use `await` while calling.
+
+        Returns:
+            Coroutine to await for retrieving a task
+        """
+        return self._queue.get()
+
+    async def on_reply(self, message: Dict):
+        """Callback to execute each time new reply received from the node"""
+
+        message = ResearcherMessages.format_incoming_message(message)
+
+        async with self._replies_lock:
+            if message.request_id in self._replies:
+                self._replies[message.request_id]['reply'] = message
+                self._replies[message.request_id]['callback'](message, self.id)
+            else:
+                logger.warning(f"A reply received from an unexpected request: {message.request_id}")
+
+
+    async def send(self, message: Message, on_reply: Optional[Callable] = None) -> None:
+        """Async function send message to researcher.
+
+        Args:
+            message: Message to send to the researcher
+        """
+
+        async with self._status_lock:
+            if self._status == NodeActiveStatus.DISCONNECTED:
+                logger.info(f"Node {self._id} is disconnected. Discard message.")
+                return
+
+            if self._status == NodeActiveStatus.WAITING:
+                logger.info(f"Node {self._id} is in WAITING status. Server is "
+                            "waiting for receiving a request from "
+                            "this node to convert it as ACTIVE. Node will be updated "
+                            "as DISCONNECTED soon if no request received.")
+
+        await self._queue.put(message)
+
+        # Updates replies 
+        async with self._replies_lock:
+            self._replies.update({
+                message.request_id: {'callback': on_reply, 'reply': None} 
+            })
+
+
+    def set_context(self, context) -> None:
+        """Sets context for the current RPC call
+
+        Args:
+            context: RPC call context
+        """
+        context.add_done_callback(self._on_get_task_request_done)
+
     async def set_active(self) -> None:
         """Updates node status as active"""
 
@@ -93,50 +166,6 @@ class NodeAgent:
 
             # we are not waiting for a task request from node
             self._is_waiting.clear()
-
-    async def send(self, message: Message) -> None:
-        """Async function send message to researcher.
-
-        Args:
-            message: Message to send to the researcher
-        """
-
-        async with self._status_lock:
-            if self._status == NodeActiveStatus.DISCONNECTED:
-                logger.info(f"Node {self._id} is disconnected. Discard message.")
-                return
-
-            if self._status == NodeActiveStatus.WAITING:
-                logger.info(f"Node {self._id} is in WAITING status. Server is "
-                            "waiting for receiving a request from "
-                            "this node to convert it as ACTIVE. Node will be updated "
-                            "as DISCONNECTED soon if no request received.")
-
-        try:
-            await self._queue.put(message)
-        except Exception as exp:
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Can't send message to the client. Exception: {exp}")
-
-    def set_context(self, context) -> None:
-        """Sets context for the current RPC call
-
-        Args:
-            context: RPC call context
-        """
-        context.add_done_callback(self._on_get_task_request_done)
-
-
-    def get_task(self) -> asyncio.coroutine:
-        """Get tasks assigned by the main thread
-
-        !!! note "Returns coroutine"
-            This function return an asyncio coroutine. Please use `await` while calling.
-
-        Returns:
-            Coroutine to await for retrieving a task
-        """
-        return self._queue.get()
 
     def task_done(self) -> None:
         """Acknowledge completion of a de-queued task
@@ -188,6 +217,34 @@ class NodeAgent:
                 # TODO: empty the queue when becoming disconnected ?
 
 
+
+class NodeAgent(NodeAgentAsync):
+
+    @property
+    def status(self):
+        """Gets the status of the node"""
+        future = asyncio.run_coroutine_threadsafe(
+            super().status,
+            self._loop
+        )
+        return future.result()
+
+    def flush(self, request_id: str):
+        """Flushes given request id from replies"""
+        future = asyncio.run_coroutine_threadsafe(
+            super().flush(request_id),
+            self._loop
+        )
+
+    def send(self, message: Message, on_reply: Callable):
+        """Send message"""
+        asyncio.run_coroutine_threadsafe(
+            super().send(message=message, on_reply=on_reply),
+            self._loop
+        )
+
+
+
 class AgentStore:
     """Stores node agents"""
 
@@ -207,7 +264,8 @@ class AgentStore:
 
     async def retrieve(
             self,
-            node_id: str
+            node_id: str,
+            context: grpc.aio.ServicerContext
     ) -> NodeAgent:
         """Retrieves a node agent for a given node ID.
 
@@ -224,8 +282,10 @@ class AgentStore:
         async with self._store_lock:
             node = self._node_agents.get(node_id)
             if not node:
-                node = NodeAgent(id=node_id, loop=self._loop)
+                node = NodeAgent(id=node_id, loop=self._loop, peer=context.peer())
                 self._node_agents.update({node_id: node})
+
+        node.set_context(context)
 
         return node
 

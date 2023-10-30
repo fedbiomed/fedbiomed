@@ -376,12 +376,8 @@ class Scaffold(Aggregator):
         for node_id in self._fds.node_ids():
             lrs: Dict[str, float] = {}
 
-            # retrieve node learning rate from training replies
-            node_idx: int = training_replies[n_round].get_index_from_node_id(node_id)
-            if node_idx is not None:
-                # case where node provided lr information
-                lrs = training_replies[n_round][node_idx]['optimizer_args'].get('lr')
-            if node_idx is None or lrs is None:
+            lrs = training_replies[n_round][node_id]["optimizer_args"].get('lr')
+            if lrs is None:
                 # fall back to default value if no lr information was provided
                 lrs = training_plan.optimizer().get_learning_rate()
 

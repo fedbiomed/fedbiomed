@@ -103,6 +103,7 @@ class Node:
                     NodeMessages.format_outgoing_message(
                         {
                             'researcher_id': msg['researcher_id'],
+                            'request_id': msg['request_id'],
                             'node_id': environ['NODE_ID'],
                             'success': True,
                             'sequence': msg['sequence'],
@@ -114,22 +115,25 @@ class Node:
                 if len(databases) != 0:
                     databases = self.dataset_manager.obfuscate_private_information(databases)
                     # FIXME: what happens if len(database) == 0
-                    self._grpc_client.send(NodeMessages.format_outgoing_message(
-                        {'success': True,
-                         'command': 'search',
-                         'node_id': environ['NODE_ID'],
-                         'researcher_id': msg['researcher_id'],
-                         'databases': databases,
-                         'count': len(databases)}))
+                self._grpc_client.send(NodeMessages.format_outgoing_message(
+                    {'request_id': msg['request_id'],
+                     'success': True,
+                     'command': 'search',
+                     'node_id': environ['NODE_ID'],
+                     'researcher_id': msg['researcher_id'],
+                     'databases': databases,
+                     'count': len(databases)}))
+                
             elif command == 'list':
                 # Get list of all datasets
                 databases = self.dataset_manager.list_my_data(verbose=False)
                 databases = self.dataset_manager.obfuscate_private_information(databases)
                 self._grpc_client.send(NodeMessages.format_outgoing_message(
                     {'success': True,
+                     'request_id': msg['request_id'],
                      'command': 'list',
                      'node_id': environ['NODE_ID'],
-                     'researcher_id': msg['researcher_id'],
+                     'researcher_id': msg['researcher_id'], 
                      'databases': databases,
                      'count': len(databases),
                      }))
@@ -179,6 +183,7 @@ class Node:
         reply = {
             'researcher_id': msg.get_param('researcher_id'),
             'secagg_id': secagg_id,
+            'request_id': msg.request_id,
             'sequence': msg.get_param('sequence'),
             'command': 'secagg-delete'}
 
@@ -219,13 +224,16 @@ class Node:
             logger.error(error_message)
             return self.reply({"researcher_id": msg.get_param('researcher_id'),
                                "secagg_id": msg.get_param('secagg_id'),
+                               'request_id':msg.request_id,
                                "msg": str(error_message),
                                "sequence": msg.get_param('sequence'),
                                "success": False,
                                "command": "secagg"})
 
-        msg = secagg.setup()
-        return self.reply(msg)
+        reply = secagg.setup()
+        reply["request_id"] = msg.request_id
+
+        return self.reply(reply)
 
     def parser_task_train(self, msg: TrainRequest) -> Union[Round, None]:
         """Parses a given training task message to create a round instance
@@ -250,6 +258,7 @@ class Node:
                          f'on node={environ["NODE_ID"]}')
             self._grpc_client.send(NodeMessages.format_outgoing_message(
                 {'command': "error",
+                 'reqeust_id': msg.request_id,
                  'node_id': environ['NODE_ID'],
                  'researcher_id': msg.get_param('researcher_id'),
                  'errnum': ErrorNumbers.FB313.name,
@@ -274,8 +283,7 @@ class Node:
                            node_args=self.node_args,
                            round_number=msg.get_param('round'),
                            dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-                           aux_vars=msg.get_param('aux_vars')
-                           )
+                           aux_vars=msg.get_param('aux_vars'))
 
             # the round raises an error if it cannot initialize
             round_.initialize_node_state_manager(msg.get_param('state_id'))
@@ -327,6 +335,7 @@ class Node:
                                     'secagg_clipping_range': item.get_param('secagg_clipping_range')
                                 }
                             )
+                            msg.request_id = item.request_id
                             self._grpc_client.send(msg)
                     except Exception as e:
                         # send an error message back to network if something
@@ -335,6 +344,7 @@ class Node:
                             NodeMessages.format_outgoing_message(
                                 {
                                     'command': 'error',
+                                    'request_id': item.request_id,
                                     'extra_msg': 'Round error: ' + str(e),
                                     'node_id': environ['NODE_ID'],
                                     'researcher_id': item.get_param('researcher_id'),

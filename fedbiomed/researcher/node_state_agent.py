@@ -36,7 +36,7 @@ class NodeStateAgent:
         """
         return self._collection_state_ids
 
-    def update_node_states(self, node_ids: List[str], resp: Optional[Responses] = None):
+    def update_node_states(self, node_ids: List[str], resp: Optional[Dict] = None):
         """Updates the state_id collection with respect to current nodes and latest Nodes Responses.
 
         Adds node IDs contained in node_ids argument that was not part of the previous Round, and discards node_ids that 
@@ -52,7 +52,7 @@ class NodeStateAgent:
         # first, we update _collection_state_id wrt new FedratedDataset (if it has been modified)
         self._update_collection_state_ids(node_ids)
         if resp is not None:
-            for node_reply in resp:
+            for node_reply in resp.values():
                 # adds Node responses
                 try:
                     node_id, state_id = node_reply['node_id'], node_reply['state_id']

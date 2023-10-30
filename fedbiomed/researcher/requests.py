@@ -18,17 +18,200 @@ from python_minifier import minify
 from fedbiomed.common.constants import MessageType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ResearcherMessages, Message
+from fedbiomed.common.message import ResearcherMessages, SearchRequest, SearchReply, ErrorMessage, Message
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.utils import import_class_object_from_file
 
 from fedbiomed.transport.server import GrpcServer
+from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 
+
+
+class RequestStrategy:
+
+    def __init__(self):
+        self.nodes = {}
+        self.replies = {}
+        self.errors = {}
+
+        self.nodes_status = {}
+
+        self._updated = False 
+
+    def update(self, nodes: List[NodeAgent], replies, errors):
+        
+        self.nodes = nodes 
+        self.replies = replies 
+        self.errors = errors
+        self._updated = True 
+        
+        for node in nodes:
+            self.nodes_status.update({
+                node.id: {
+                    'id': node.id,
+                    'status': node.status,
+                    'error': True if errors.get(node.id) else False,
+                    'reply': True if replies.get(node.id) else False
+                }
+                 
+            })
+
+    def continue_(self) -> bool:
+        """Default strategy stops collecting result once all nodes has answered
+        
+        Returns:
+            False stops the iteration
+        """
+        if not self._updated:
+            return True
+
+        return not all(self.has_answered(node.id) for node in self.nodes)
+        
+    
+    def has_answered(self, node_id):
+        """Check if node has any answer"""
+        return self.has_error(node_id) or self.has_reply(node_id)
+
+
+    def has_error(self, node_id):
+        """Check if node has replied with error"""
+        return self.nodes_status[node_id]['error']
+
+
+    def has_reply(self, node_id):
+        """Check if node has replied with non error"""
+        return self.nodes_status[node_id]['reply']
+
+    def has_not_answered_yet(self):
+
+        return [node for node in self.nodes if not self.has_answered(node.id)]
+
+class StrategyController:
+
+    def __init__(self, strategies: List[RequestStrategy]):
+        self.strategies = strategies
+
+    def continue_(self):
+        """Checks if reply collection should continue according to each strategy"""
+        status = [strategy.continue_() for strategy in self.strategies]
+        
+        return all(status)
+
+    def update(self, nodes, replies, errors):
+        """Updates node, replies and error states of each strategy"""
+        for strategy in self.strategies:
+            strategy.update(nodes, replies, errors)
+        
+
+class ContinueOnDisconnect(RequestStrategy):
+    """Continues collecting results with remaining nodes"""
+
+    def continue_(self):
+        
+        nodes = self.has_not_answered_yet()
+        for node in nodes:
+            if node.status == NodeActiveStatus.DISCONNECTED:
+                self.nodes.pop(node.id) 
+                logger.info("Node hab been disconnected during the request. Request will "
+                            "continue with remaining nodes")
+
+        return super().continue_()
+        
+class ContinueOnError(RequestStrategy):
+    """Continue collecting results if any node raises an error"""
+    pass 
+
+
+class StopOnAnyDisconnect(RequestStrategy):
+    """Stops collecting results if a node disconnects"""
+    pass 
+
+
+class StopOnAnyError(RequestStrategy):
+    """Stops collecting results if a node returns an error"""
+    pass 
+
+
+class StopAfterTimeOut(RequestStrategy):
+    """Stops or discard collecting results after a timeout reached for any node"""
+    def __init__(self, timeout: int):
+        self.timeout = timeout 
+
+
+
+class FederatedRequest: 
+    """Dispatches federated requests 
+    
+    This class has been design to be send a request and wait until a
+    response is received 
+    """
+    def __init__(
+        self, 
+        nodes: List[NodeAgent], 
+        message: Union[Message, Dict[str, Message]], 
+        strategy: Optional[RequestStrategy] = [ContinueOnDisconnect(), ContinueOnError()]
+    ):
+
+        self.request_id = str(uuid.uuid4())
+        self.replies = {}
+        self.errors = {}
+        self.nodes = nodes
+        self.message = message
+        self.strategy = StrategyController(strategy)
+        self.strategy.update(self.nodes, self.replies, self.errors) 
+
+    def __enter__(self):
+
+        # Sends the message 
+        self.send()
+
+        # Blocking function that waits for the relies
+        self.wait()
+
+        return self.replies, self.errors
+    
+    def __exit__(self, type, value, traceback):
+        """Clear replies"""
+        for node in self.nodes:
+            node.flush(self.request_id)
+
+    def send(self):
+        """Sends the message"""
+        if isinstance(self.message, Message):
+            self.message.request_id = self.request_id
+            for node in self.nodes: 
+                node.send(self.message, self.on_reply)
+        else:
+
+            for node in self.nodes: 
+                m = self.message.get(node.id)
+                m.request_id = self.request_id
+                node.send(m, self.on_reply)
+
+
+    def wait(self):
+        """Waits for the replies of the messages that are sent"""
+
+        while self.strategy.continue_():
+            
+            self.strategy.update(self.nodes, self.replies, self.errors)  
+            sleep(0.2)
+        
+
+    def on_reply(self, message: Message, node_id: str):
+        """Callback to execute once a reply is received"""
+
+        if isinstance(message, ErrorMessage):
+            self.errors.update({node_id: message})
+        else:
+            self.replies.update({node_id: message})
+
+    
 
 class Requests(metaclass=SingletonMeta):
     """
@@ -118,160 +301,31 @@ class Requests(metaclass=SingletonMeta):
                                 original_msg["message"],
                                 5 * "-------------"))
 
-    def _add_sequence(self) -> int:
-        """Increases sequence number and saves it each time it is called
-
-        Returns:
-            Current sequence number
-        """
-        seq = self._sequence
-        self._sequence = + 1
-
-        return seq
-
-    def send_message(self, msg: dict, client: str, add_sequence: bool = False) -> Optional[int]:
-        """Request the communication layer to send a message to a node.
-
-        Args:
-            msg: the message to send to node
-            client: unique node ID of the destination node for the message
-            add_sequence: if `True`, add unique sequence number to the message
-
-        Returns:
-            sequence: If `add_sequence` is True return the sequence number added to the message.
-                If `add_sequence` is False, return None
-        """
-
-        if add_sequence:
-            msg['sequence'] = self._add_sequence()
-
-        # Send message to client
-        self._grpc_server.send(ResearcherMessages.format_outgoing_message(msg), client)
-
-        return msg.get('sequence', None)
-
-    def broadcast(self, message, add_sequence: bool = False) -> Optional[int]:
-        """Request the communication layer to roadcast a message to all nodes.
-
-        Args:
-            msg: the message to send to nodes
-            add_sequence: if `True`, add unique sequence number to the message
-
-        Returns:
-            If `add_sequence` is True return the sequence number added to the message.
-                If `add_sequence` is False, return None
-        """
-
-        if add_sequence:
-            message['sequence'] = self._add_sequence()
-
-        # TODO: Return also  the list of node that the messages are sent
-        self._grpc_server.broadcast(
-            ResearcherMessages.format_outgoing_message(message)
-        )
-
-        return message.get('sequence', None)
-
-    def get_messages(self, commands: list = [], time: float = .0) -> Responses:
-        """Goes through the queue and gets messages with the specific command
-
-        Args:
-            commands: Checks if message is containing the expecting command (the message  is discarded if it doesn't).
-                Defaults to None (no command message checking, meaning all incoming messages are considered).
-            time: Time to sleep in seconds before considering incoming messages. Defaults to .0.
-
-        Returns:
-            Contains the corresponding answers
-        """
-        sleep(time)
-
-        answers = []
-        for _ in range(self.queue.qsize()):
-            try:
-                item = self.queue.get(block=False)
-                self.queue.task_done()
-
-                if not commands or \
-                        ('command' in item.keys() and item['command'] in commands):
-                    answers.append(item)
-                else:
-                    # currently trash all other messages
-                    pass
-
-            except FedbiomedTaskQueueError:
-                # may happend on self.queue.get()
-                # if queue is empty -> we ignore it
-                pass
-
-        return Responses(answers)
-
-    def get_responses(
-            self,
-            look_for_commands: list,
-            timeout: float = None,
-            only_successful: bool = True,
-            while_responses: bool = True,
-    ) -> Responses:
-        """Waits for all nodes' answers, regarding a specific command returns the list of all nodes answers
-
-        Args:
-            look_for_commands: instruction that has been sent to node (see `Message` commands)
-            timeout: wait for a specific duration before collecting nodes messages. Defaults to None. If set to None;
-                uses value in global variable TIMEOUT instead.
-            only_successful: deal only with messages that have been tagged as successful (ie with field `success=True`).
-                Defaults to True.
-            while_responses: if `True`, continue while we get at least one response every
-                `timeout` seconds. If False, always terminate after `timeout` even if we get some
-                response.
-        """
-        timeout = timeout or environ['TIMEOUT']
-        responses = []
-
-        while True:
-            sleep(timeout)
-            new_responses = []
-            for resp in self.get_messages(commands=look_for_commands, time=0):
-
-                try:
-                    if not only_successful:
-                        new_responses.append(resp)
-                    elif resp['success']:
-                        # TODO: test if 'success'key exists
-                        # what do we do if not ?
-                        new_responses.append(resp)
-                except Exception as e:
-                    logger.error(f"Incorrect message received: {resp} - error: {e}")
-                    pass
-
-            if len(new_responses) == 0:
-                "Timeout finished"
-                break
-            responses += new_responses
-            if not while_responses:
-                break
-
-        return Responses(responses)
-
     def ping_nodes(self) -> list:
         """ Pings online nodes
 
         Returns:
             List ids of up and running nodes
         """
-
-        # Broadcasts ping request
-        self.broadcast({
-                'researcher_id': environ["ID"],
-                'sequence': self._sequence,
-                'command': "ping"
-            },
-            add_sequence=True
+        ping = ResearcherMessages.format_outgoing_message({
+            'researcher_id': environ["ID"],
+            'sequence': self._sequence,
+            'command': "ping"}
         )
-
-        # TODO: check sequence number in pong
-        # TODO: (below, above) handle exceptions
-        nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['pong'])]
+        with self.send(ping) as (replies, _):
+            nodes_online = [node_id for node_id, reply in replies.items()]
+        
         return nodes_online
+
+    def send(self, message: Message, nodes: Optional[List[str]] = None ) -> FederatedRequest:
+        """Sends federated request to given nodes with given message"""
+
+        if nodes is not None:
+            nodes = [self._grpc_server.get_node(node) for node in nodes]
+        else:
+            nodes = self._grpc_server.get_all_nodes()
+
+        return FederatedRequest(nodes, message)
 
     def search(self, tags: tuple, nodes: Optional[list] = None) -> dict:
         """Searches available data by tags
@@ -284,38 +338,27 @@ class Requests(metaclass=SingletonMeta):
             A dict with node_id as keys, and list of dicts describing available data as values
         """
 
-        # Search datasets based on node specifications
-        if nodes is not None:
-            logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {nodes}')
-            for node in nodes:
-                self.send_message(
-                    {'tags': tags,
-                     'researcher_id': environ['RESEARCHER_ID'],
-                     "command": "search"},
-                    client=node)
-        else:
-            logger.info(f'Searching dataset with data tags: {tags} for all nodes')
-            # TODO: Unlike MQTT implementation, in gRPC, all the nodes that are broadcasted
-            # are known by the researcher gRPC server. Therefore, using timeout is not necessary.
-            self.broadcast({'tags': tags,
-                            'researcher_id': environ['RESEARCHER_ID'],
-                            "command": "search"})
+        message = SearchRequest(
+            tags=tags,
+            researcher_id=environ['RESEARCHER_ID'],
+            command='search'
+        )
 
-        # TODO: currently a node with no dataset does not answer
-        # We may robustify by having any node answer and check this matches the list of ACTIVE nodes
         data_found = {}
-        for resp in self.get_responses(look_for_commands=['search']):
-            if not nodes:
-                data_found[resp.get('node_id')] = resp.get('databases')
-            elif resp.get('node_id') in nodes:
-                data_found[resp.get('node_id')] = resp.get('databases')
+        with self.send(message, nodes) as (replies, errors):    
+            for node_id, reply in replies.items():
+                if reply.databases:
+                    data_found[node_id] = reply.databases
+                    logger.info('Node selected for training -> {}'.format(reply.node_id))
 
-            logger.info('Node selected for training -> {}'.format(resp.get('node_id')))
+            for node_id, error in errors.items():
+                logger.warning(f"Node {node_id} has returned error from search request {error.msg}")
 
-        if not data_found:
-            logger.info("No available dataset has found in nodes with tags: {}".format(tags))
 
-        return data_found
+            if not data_found:
+                logger.info("No available dataset has found in nodes with tags: {}".format(tags))
+
+            return data_found
 
     def list(self, nodes: Optional[list] = None, verbose: bool = False) -> dict:
         """Lists available data in each node
@@ -328,28 +371,16 @@ class Requests(metaclass=SingletonMeta):
             A dict with node_id as keys, and list of dicts describing available data as values
         """
 
-        # If nodes list is provided
-        if nodes is not None:
-            for node in nodes:
-                self.send_message(
-                    {"researcher_id": environ['RESEARCHER_ID'],
-                     "command": "list"},
-                    client=node)
-            logger.info(f'Listing datasets of given list of nodes : {nodes}')
-        else:
-            self.broadcast({'researcher_id': environ['RESEARCHER_ID'],
-                            "command": "list"})
-            logger.info(f'Listing available datasets in all nodes... {nodes} ')
+        message = ResearcherMessages.format_outgoing_message(
+            {"researcher_id": environ['RESEARCHER_ID'],
+             "command": "list"}
+        )
 
-        # Get datasets from node responses
         data_found = {}
-        for resp in self.get_responses(look_for_commands=['list']):
-            if not nodes:
-                data_found[resp.get('node_id')] = resp.get('databases')
-            elif resp.get('node_id') in nodes:
-                data_found[resp.get('node_id')] = resp.get('databases')
+        with self.send(message, nodes) as (replies, errors):
+            for node_id, reply in replies.items():
+                data_found[node_id] = reply.databases
 
-        # Print dataset tables usong data_found object
         if verbose:
             for node in data_found:
                 if len(data_found[node]) > 0:
@@ -363,11 +394,12 @@ class Requests(metaclass=SingletonMeta):
 
         return data_found
 
-    def training_plan_approve(self,
-                              training_plan: BaseTrainingPlan,
-                              description: str = "no description provided",
-                              nodes: list = [],
-                              timeout: int = 5) -> dict:
+    def training_plan_approve(
+            self,
+            training_plan: BaseTrainingPlan,
+            description: str = "no description provided",
+            nodes: list = []
+        ) -> dict:
         """Send a training plan and a ApprovalRequest message to node(s).
 
         If a list of node id(s) is provided, the message will be individually sent
@@ -387,18 +419,6 @@ class Requests(metaclass=SingletonMeta):
             to the "approval queue" on the node side.
         """
 
-        # first verify all arguments
-        if not isinstance(nodes, list):
-            logger.error("bad nodes argument, training plan not sent")
-            return {}
-
-        if not issubclass(training_plan, BaseTrainingPlan):
-            logger.error("bad training plan argument, no request sent")
-            return {}
-
-        # save and load training plan to a file to be sure
-        # 1. a file is associated to training plan so we can read its source, etc.
-        # 2. all dependencies are applied
         training_plan_instance = training_plan()
         training_plan_module = 'my_model_' + str(uuid.uuid4())
         with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmp_dir:
@@ -431,52 +451,21 @@ class Requests(metaclass=SingletonMeta):
             return {}
 
         # send message to node(s)
-        message = {
+        message = ResearcherMessages.format_outgoing_message({
             'researcher_id': environ['RESEARCHER_ID'],
             'description': str(description),
             'training_plan': tp_source,
-            'command': 'approval'}
+            'command': 'approval'})
 
-        if nodes:
-            # send message to each node
-            for n in nodes:
-                sequence = self.send_message(message, client=n, add_sequence=True)
-        else:
-            # broadcast message
-            sequence = self.broadcast(message, add_sequence=True)
+        with self.send(message, nodes) as (replies, errors):
+            for node_id in nodes:
+                if node_id in errors:
+                    logger.info(f"Node ({node_id}) has returned error {errors[node_id].errnum}, {errors[node_id].extra_msg}")
 
-        # wait for answers for a certain timeout
-        result = {}
-
-        for resp in self.get_responses(look_for_commands=['approval'],
-                                       timeout=timeout):
+                if node_id not in replies:
+                    logger.info(f"Node ({node_id}) has not replied")
             
-            if sequence != resp['sequence']:
-                logger.error("received an approval_reply with wrong sequence, ignoring it")
-                continue
-
-            n = resp['node_id']
-            s = resp['success']
-            result[n] = s
-
-            if s:
-                logger.info(f"node ({n}) has correctly downloaded the training plan")
-            else:
-                logger.info(f"node ({n}) has not correctly downloaded the training plan")
-
-        # print info to the user regarding the result
-        if not result or not any(result.values()):
-            logger.info("no nodes have acknowledged correct training plan reception before the timeout")
-
-        # eventually complete the result with expected results
-        # (if the message was sent to specific nodes)
-        for n in nodes:
-            if n not in result:
-                result[n] = False
-                logger.info(f"node ({n}) has not acknowledge training plan reception before the timeout")
-
-        # return the result
-        return result
+            return replies 
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
         """ Adds callback function for monitor messages

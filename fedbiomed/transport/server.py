@@ -21,7 +21,7 @@ from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 
 # timeout in seconds for server to establish connections with nodes and initialize
-GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + 3
+GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + 1
 
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
@@ -58,14 +58,18 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         task_request = TaskRequest.from_proto(request).get_dict()
         logger.debug(f"Node: {task_request.get('node')} polling for the tasks")
 
-        node_agent = await self._agent_store.retrieve(node_id=task_request["node"])
+        node_agent = await self._agent_store.retrieve(
+            node_id=task_request["node"],
+            context=context
+        )
+        
         # Update node active status as active
         await node_agent.set_active()
-        node_agent.set_context(context)
 
         task = await node_agent.get_task()
         # Choice: be simple, mark task as de-queued as soon as retrieved
         node_agent.task_done()
+
         task = Serializer.dumps(task.get_dict())
 
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
@@ -82,7 +86,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     async def ReplyTask(
             self,
             request_iterator: Iterable[ProtoBufMessage],
-            unused_context: grpc.aio.ServicerContext
+            context: grpc.aio.ServicerContext
     ) -> None:
         """Gets stream replies from the nodes
 
@@ -90,7 +94,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             request_iterator: Iterator for streaming
             unused_context: Request service context
         """
-
+        
         reply = bytes()
         async for answer in request_iterator:
             reply += answer.bytes_
@@ -99,7 +103,12 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             else:
                 # Deserialize message
                 message = Serializer.loads(reply)
-                self._on_message(message, MessageType.REPLY)
+                
+                # New implementation
+                node = await self._agent_store.get(message["node_id"])
+                await node.on_reply(message)
+
+                # self._on_message(message, MessageType.REPLY)
                 reply = bytes()
 
         return Empty()
@@ -225,6 +234,10 @@ class _GrpcAsyncServer:
         for _, agent in agents.items():
             await agent.send(message)
 
+    async def get_node(self, node_id: str):
+        """Returns given node"""
+
+        return await self._agent_store.get(node_id)
 
     async def get_all_nodes(self) -> Dict[str, str]:
         """Returns all known nodes and their status
@@ -235,7 +248,7 @@ class _GrpcAsyncServer:
 
         agents = await self._agent_store.get_all()
 
-        return {node.id: (await node.status).name for node in agents.values()}
+        return [node for node in agents.values()]
 
 
 
@@ -328,6 +341,10 @@ class GrpcServer(_GrpcAsyncServer):
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         return self._run_threadsafe(super().get_all_nodes())
+
+    def get_node(self, node_id):
+
+        return self._run_threadsafe(super().get_node(node_id))
 
     # TODO: Currently unused
 

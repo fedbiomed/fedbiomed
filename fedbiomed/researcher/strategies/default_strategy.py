@@ -97,13 +97,13 @@ class DefaultStrategy(Strategy):
                 impossible to compute aggregation weights.
         """
         # check that all nodes answered
-        cl_answered = [val['node_id'] for val in training_replies.data()]
         answers_count = 0
 
         if self._sampling_node_history.get(round_i) is None:
             raise FedbiomedStrategyError(ErrorNumbers.FB408.value + f": Missing Nodes Responses for round: {round_i}")
+        
         for cl in self._sampling_node_history[round_i]:
-            if cl in cl_answered:
+            if cl in training_replies:
                 answers_count += 1
             else:
                 # this node did not answer
@@ -131,7 +131,7 @@ class DefaultStrategy(Strategy):
         sample_sizes = {}
         encryption_factors = {}
         total_rows = 0
-        for tr in training_replies:
+        for tr in training_replies.values():
             if tr['success'] is True:
 
                 # TODO: Attach sample_size, weights and params in a single dict object
