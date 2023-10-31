@@ -22,7 +22,7 @@ from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 # timeout in seconds for server to establish connections with nodes and initialize
 GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + 1
-MAX_GPRC_SERVER_SETUP_TIMEOUT = 20
+MAX_GRPC_SERVER_SETUP_TIMEOUT = 20
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     """RPC Servicer """
@@ -278,13 +278,13 @@ class GrpcServer(_GrpcAsyncServer):
         while len(self.get_all_nodes()) == 0:
             
             if sleep_ == 0:
-                logger.info(f"No nodes found, server will wait {MAX_GPRC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} " 
+                logger.info(f"No nodes found, server will wait {MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} " 
                             "more seconds until a node creates connection.")
             
-            if sleep_ > MAX_GPRC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:
-                if len(self._agent_store.get_all()) == 0:
+            if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:
+                if len(self.get_all_nodes()) == 0:
                     logger.warning("Server has not received connection from any remote nodes in " 
-                                   f"MAX_GRPC_SERVER_SETUP_TIMEOUT: {MAX_GPRC_SERVER_SETUP_TIMEOUT} "
+                                   f"MAX_GRPC_SERVER_SETUP_TIMEOUT: {MAX_GRPC_SERVER_SETUP_TIMEOUT} "
                                    "This may effect the request created right after the server initialization. " 
                                    "However, server will keep running in the background so you can retry the "
                                    "operations for sending requests to remote nodes until one receives.")
