@@ -64,6 +64,8 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         node_agent.set_context(context)
 
         task = await node_agent.get_task()
+
+        logger.debug(f"Got the task {task} in servicer")
         # Choice: be simple, mark task as de-queued as soon as retrieved
         node_agent.task_done()
         task = Serializer.dumps(task.get_dict())
@@ -204,13 +206,16 @@ class _GrpcAsyncServer:
         Args:
             message: Message to broadcast
         """
-
+        logger.debug(f"Message has arrived in async send: {message}")
+         
         agent = await self._agent_store.get(node_id)
+        logger.debug(f"Agent has retrieved from agent store")
 
         if not agent:
             logger.info(f"Node {node_id} is not registered on server. Discard message.")
             return
 
+        logger.debug(f"Calling send method of node agent")
         await agent.send(message)
 
 
@@ -284,6 +289,7 @@ class GrpcServer(_GrpcAsyncServer):
             FedbiomedCommunicationError: bad argument type
             FedbiomedCommunicationError: server is not started
         """
+        logger.info(f"Send has executed from main thread {message}")
         if not isinstance(message, Message):
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
