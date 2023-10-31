@@ -73,8 +73,9 @@ Additional parameters are needed when working with `SCAFFOLD`:
 Please note that:
 
  - `SCAFFOLD` should be used only with `SGD` optimizer. Using other `Optimizers` in Fed-BioMed is possible, but without any convergence guarantees.
- - `SCAFFOLD` can only be used with the `PyTorch` framework at the moment.
+ - `SCAFFOLD` can only be used with the `PyTorch` framework at the moment, and correction terms are not encrypted when exchanged (even when using SecAgg).
  - `SCAFFOLD` **requires** using the `num_updates` training argument to control the number of [training iterations](./experiment.md#controlling-the-number-of-training-loop-iterations). Using only `epochs` will raise an error.
+ - `SCAFFOLD` also exists as an `declearn` cross framework optimizer. Using `SCAFFOLD` implementation in `declearn` enables the use of other machine learning frameworks such as `scikit-learn`.
 
 
 ## How to Create Your Custom Aggregator

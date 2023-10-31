@@ -193,6 +193,7 @@ class DeclearnOptimizer(BaseOptimizer):
         ```python
         >>> import torch.nn as nn
         >>> from fedbiomed.common.optimizers import Optimizer
+        >>> from fedbiomed.common.optimizers.declearn import MomentumModule, AdamModule
         >>> from fedbiomed.common.models import TorchModel
         >>> model = TorchModel(nn.Linear(4, 2))
         >>> optimizer = Optimizer(lr=.1, modules=[MomentumModule(), AdamModule()])
