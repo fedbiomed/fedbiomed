@@ -87,7 +87,7 @@ with the following arguments:
 
     ```
 
-- To get all comptible `OptiModule` in Fed-BioMed, one can run the [`list_optim_modules`][fedbiomed.common.optimizers.declearn.declearn_optimizer.list_optim_modules].
+- To get all comptible `OptiModule` in Fed-BioMed, one can run the [`list_optim_modules`][fedbiomed.common.optimizers.declearn.list_optim_modules].
 
     ```python
     from fedbiomed.common.optimizers.declearn import list_optim_modules
