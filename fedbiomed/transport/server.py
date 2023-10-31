@@ -275,7 +275,7 @@ class GrpcServer(_GrpcAsyncServer):
         time.sleep(GPRC_SERVER_SETUP_TIMEOUT)
 
         sleep_ = 0
-        while len(self._agent_store.get_all()) == 0:
+        while len(self.get_all_nodes()) == 0:
             
             if sleep_ == 0:
                 logger.info(f"No nodes found, server will wait {MAX_GPRC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} " 
