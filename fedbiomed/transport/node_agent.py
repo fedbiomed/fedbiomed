@@ -101,7 +101,6 @@ class NodeAgent:
             message: Message to send to the researcher
         """
 
-        logger.info("It is in node agent send method")
         async with self._status_lock:
             if self._status == NodeActiveStatus.DISCONNECTED:
                 logger.info(f"Node {self._id} is disconnected. Discard message.")
@@ -114,9 +113,7 @@ class NodeAgent:
                             "as DISCONNECTED soon if no request received.")
 
         try:
-            logger.debug("Putting the message in the queue")
             await self._queue.put(message)
-            logger.debug("Queue put is done!")
         except Exception as exp:
             raise FedbiomedCommunicationError(
                 f"{ErrorNumbers.FB628}: Can't send message to the client. Exception: {exp}")
