@@ -30,119 +30,13 @@ from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 
-
-
-class RequestStrategy:
-
-    def __init__(self):
-        self.nodes = {}
-        self.replies = {}
-        self.errors = {}
-
-        self.nodes_status = {}
-
-        self._updated = False 
-
-    def update(self, nodes: List[NodeAgent], replies, errors):
-        
-        self.nodes = nodes 
-        self.replies = replies 
-        self.errors = errors
-        self._updated = True 
-        
-        for node in nodes:
-            self.nodes_status.update({
-                node.id: {
-                    'id': node.id,
-                    'status': node.status,
-                    'error': True if errors.get(node.id) else False,
-                    'reply': True if replies.get(node.id) else False
-                }
-                 
-            })
-
-    def continue_(self) -> bool:
-        """Default strategy stops collecting result once all nodes has answered
-        
-        Returns:
-            False stops the iteration
-        """
-        if not self._updated:
-            return True
-
-        return not all(self.has_answered(node.id) for node in self.nodes)
-        
+from ._strategies import ContinueOnDisconnect, \
+    ContinueOnError, \
+    StopOnAnyDisconnect, \
+    StopOnAnyError, \
+    RequestStrategy, \
+    StrategyController
     
-    def has_answered(self, node_id):
-        """Check if node has any answer"""
-        return self.has_error(node_id) or self.has_reply(node_id)
-
-
-    def has_error(self, node_id):
-        """Check if node has replied with error"""
-        return self.nodes_status[node_id]['error']
-
-
-    def has_reply(self, node_id):
-        """Check if node has replied with non error"""
-        return self.nodes_status[node_id]['reply']
-
-    def has_not_answered_yet(self):
-
-        return [node for node in self.nodes if not self.has_answered(node.id)]
-
-class StrategyController:
-
-    def __init__(self, strategies: List[RequestStrategy]):
-        self.strategies = strategies
-
-    def continue_(self):
-        """Checks if reply collection should continue according to each strategy"""
-        status = [strategy.continue_() for strategy in self.strategies]
-        
-        return all(status)
-
-    def update(self, nodes, replies, errors):
-        """Updates node, replies and error states of each strategy"""
-        for strategy in self.strategies:
-            strategy.update(nodes, replies, errors)
-        
-
-class ContinueOnDisconnect(RequestStrategy):
-    """Continues collecting results with remaining nodes"""
-
-    def continue_(self):
-        
-        nodes = self.has_not_answered_yet()
-        for node in nodes:
-            if node.status == NodeActiveStatus.DISCONNECTED:
-                self.nodes.pop(node.id) 
-                logger.info("Node hab been disconnected during the request. Request will "
-                            "continue with remaining nodes")
-
-        return super().continue_()
-        
-class ContinueOnError(RequestStrategy):
-    """Continue collecting results if any node raises an error"""
-    pass 
-
-
-class StopOnAnyDisconnect(RequestStrategy):
-    """Stops collecting results if a node disconnects"""
-    pass 
-
-
-class StopOnAnyError(RequestStrategy):
-    """Stops collecting results if a node returns an error"""
-    pass 
-
-
-class StopAfterTimeOut(RequestStrategy):
-    """Stops or discard collecting results after a timeout reached for any node"""
-    def __init__(self, timeout: int):
-        self.timeout = timeout 
-
-
 
 class FederatedRequest: 
     """Dispatches federated requests 
@@ -176,7 +70,7 @@ class FederatedRequest:
         return self.replies, self.errors
     
     def __exit__(self, type, value, traceback):
-        """Clear replies"""
+        """Clear the replies that are processed"""
         for node in self.nodes:
             node.flush(self.request_id)
 
@@ -186,23 +80,24 @@ class FederatedRequest:
             self.message.request_id = self.request_id
             for node in self.nodes: 
                 node.send(self.message, self.on_reply)
-        else:
-
+        elif isinstance(self.message, dict):
             for node in self.nodes: 
                 m = self.message.get(node.id)
                 m.request_id = self.request_id
                 node.send(m, self.on_reply)
-
+        else:
+            raise TypeError(
+                "The message should be an instance of Message or dictionary of message where " 
+                "each key represents nodes."
+            )
 
     def wait(self):
         """Waits for the replies of the messages that are sent"""
 
         while self.strategy.continue_():
-            
-            self.strategy.update(self.nodes, self.replies, self.errors)  
             sleep(0.2)
-        
-
+            self.strategy.update(self.nodes, self.replies, self.errors)  
+             
     def on_reply(self, message: Message, node_id: str):
         """Callback to execute once a reply is received"""
 
@@ -267,9 +162,6 @@ class Requests(metaclass=SingletonMeta):
         if type_ == MessageType.LOG:
             # forward the treatment to node_log_handling() (same thread)
             self.print_node_log_message(msg.get_dict())
-        elif type_ == MessageType.REPLY:
-            # Adds reply message to the queue
-            self.queue.add(ResearcherMessages.format_incoming_message(msg).get_dict())
 
         elif type_ == MessageType.SCALAR:
             if self._monitor_message_callback is not None:
@@ -317,7 +209,11 @@ class Requests(metaclass=SingletonMeta):
         
         return nodes_online
 
-    def send(self, message: Message, nodes: Optional[List[str]] = None ) -> FederatedRequest:
+    def send(
+            self, 
+            message: Union[Message, Dict[str, Message]], 
+            nodes: Optional[List[str]] = None 
+        ) -> FederatedRequest:
         """Sends federated request to given nodes with given message"""
 
         if nodes is not None:
