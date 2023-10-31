@@ -28,7 +28,7 @@ from testsupport.fake_experiment import ExperimentMock
 from testsupport.fake_training_plan import FakeModel
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 
-from declearn.optimizer.modules import YogiModule, ScaffoldServerModule
+from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldServerModule
 
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.training_args import TrainingArgs
@@ -39,7 +39,6 @@ from fedbiomed.common.constants import __breakpoints_version__
 
 import fedbiomed.researcher.experiment
 from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer, NativeTorchOptimizer
-from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
