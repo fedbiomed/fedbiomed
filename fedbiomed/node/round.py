@@ -295,9 +295,6 @@ class Round:
         """
         # Validate secagg status. Raises error if the training request is compatible with
         # secure aggregation settings
-        import cProfile
-        profile = cProfile.Profile()
-        profile.enable()
         try:
             secagg_arguments = {} if secagg_arguments is None else secagg_arguments
             self._use_secagg = self._configure_secagg(
@@ -526,9 +523,8 @@ class Round:
                 del import_module
             except Exception as e:
                 logger.debug(f'Exception raise while deleting training plan instance: {repr(e)}')
-            profile.disable()
+                
             # save collected statistics
-            profile.dump_stats('cprofile.out')
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,
                                                   'ptime_training': ptime_after - ptime_before},
