@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, create_autospec, mock_open, patch
 import numpy as np
 import torch
 from declearn.optimizer import Optimizer
-from declearn.optimizer.modules import MomentumModule
+from fedbiomed.common.optimizers.declearn import MomentumModule
 from declearn.model.sklearn import NumpyVector
 from declearn.model.torch import TorchVector
 from sklearn.base import BaseEstimator

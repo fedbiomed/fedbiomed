@@ -26,8 +26,7 @@ from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlock
 from testsupport import fake_training_plan
 
 import torch
-from declearn.optimizer.modules import YogiModule, ScaffoldClientModule
-from declearn.optimizer.regularizers import RidgeRegularizer
+from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModule, RidgeRegularizer
 
 from fedbiomed.common.constants import DatasetTypes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
