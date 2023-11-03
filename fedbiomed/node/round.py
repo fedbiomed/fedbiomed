@@ -136,7 +136,6 @@ class Round:
         # Initialize and validate requested experiment/training arguments.
         try:
             self._initialize_validate_training_arguments()
-
         except FedbiomedUserInputError as e:
             return self._send_round_reply(success=False, message=repr(e))
         except Exception as e:
@@ -145,9 +144,20 @@ class Round:
             return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
 
     def initialize_arguments(self,
-                             previous_state_id: Optional[str] = None):
-        self.initialize_validate_training_arguments()
+                             previous_state_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Initializes arguments for training and testing and the NodeStateManager, the latter handling
+        Node state loading and saving.
+        
+        Args:
+            previous_state_id: previous Node state id. Defaults to None (which is the state_id for the first Round).
 
+        Returns:
+            A dictionary containing the error message if an error is triggered while parsing training and testing arguments, 
+            None otherwise.
+        """
+        err = self.initialize_validate_training_arguments()
+        if err is not None:
+            return err
         self.initialize_node_state_manager(previous_state_id)
 
     def download_aggregator_args(self) -> Tuple[bool, str]:
@@ -324,7 +334,6 @@ class Round:
             )
         except FedbiomedRoundError as e:
             return self._send_round_reply(success=False, message=str(e))
-
 
         # Download and validate the training plan.
         # Download the model weights and any auxiliary information.

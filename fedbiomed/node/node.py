@@ -306,8 +306,17 @@ class Node:
             )
             # the round raises an error if it cannot initialize
             #round.initialize_node_state_manager(state_id)  # initialize node state manager
-            round.initialize_arguments(state_id)
 
+            err_msg = round.initialize_arguments(state_id)
+            if err_msg is not None:
+                self.messaging.send_message(
+                    NodeMessages.format_outgoing_message(
+                        {   'command': 'error',
+                            'node_id': environ['ID'],
+                            'errnum': ErrorNumbers.FB300,
+                            'researcher_id': researcher_id,
+                            'extra_msg': err_msg.get('msg')}
+                    ).get_dict())
         return round
 
     def task_manager(self):

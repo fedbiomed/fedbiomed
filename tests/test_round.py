@@ -30,7 +30,7 @@ from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModul
 
 from fedbiomed.common.constants import DatasetTypes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
-from fedbiomed.common.exceptions import  FedbiomedOptimizerError, FedbiomedRoundError
+from fedbiomed.common.exceptions import  FedbiomedOptimizerError, FedbiomedRoundError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.models import TorchModel, Model
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
@@ -1393,6 +1393,25 @@ class TestRound(NodeTestCase):
         node_state_manager_initialize_patch.assert_called_once_with(previous_state_id=previous_state_id, 
                                                                     testing=False)
         node_state_manager_initialize_patch.assert_called_once()
+
+    @patch('fedbiomed.node.round.TrainingArgs')
+    def test_round_32_initialize_argument_failing(self, private_initialize_validate_trainig_args_patch):
+        # test case where a `FedbiomedUserInputErrror` is raised
+        err_msg = "raised for the sake of testing"
+        err = FedbiomedUserInputError(err_msg) 
+
+        private_initialize_validate_trainig_args_patch.side_effect = err
+        msg_r1 = self.r1.initialize_arguments()
+        self.assertFalse(msg_r1.get('success', True))
+        self.assertIn(repr(err), msg_r1.get('msg'))
+
+        # test case were an unknown error is raised (here ValueError)
+        err = ValueError(err_msg)
+        private_initialize_validate_trainig_args_patch.side_effect = err
+        with self.assertLogs('fedbiomed', logging.ERROR) as captured:
+            msg_r1 = self.r1.initialize_arguments()
+        self.assertFalse(msg_r1.get('success', True))
+        self.assertIn(captured.records[-1].getMessage(), msg_r1.get('msg'))
         
     # def test_round_28_load_save_round_state_declearn_optim(self):
     # # same test as previous, but with a real declearn optimizer 
@@ -1414,17 +1433,17 @@ class TestRound(NodeTestCase):
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('fedbiomed.common.repository.Repository.download_file')
     @patch('uuid.uuid4')
-    def test_round_bug_not_loading_node_state_after_validation(self,
-                                                               uuid_patch, 
-                                                               download_file_patch, 
-                                                               check_tp_security_manager_patch,
-                                                               importlib_patch, 
-                                                               load_serializer_patch,
-                                                               dump_serializer_patch,
-                                                               upload_file_patch, 
-                                                               node_msg_format_patch,
-                                                               node_state_mgr_get_patch,
-                                                               node_state_mgr_save_state_patch):
+    def test_round_33_bug_not_loading_node_state_after_validation(self,
+                                                                  uuid_patch, 
+                                                                  download_file_patch, 
+                                                                  check_tp_security_manager_patch,
+                                                                  importlib_patch, 
+                                                                  load_serializer_patch,
+                                                                  dump_serializer_patch,
+                                                                  upload_file_patch, 
+                                                                  node_msg_format_patch,
+                                                                  node_state_mgr_get_patch,
+                                                                  node_state_mgr_save_state_patch):
         # this test was written after a bug has been spotted:
         # loading Node state was failing when doing a validation beforehand, because a new state_id
         # was generated each time when loading state_id
@@ -1452,6 +1471,7 @@ class TestRound(NodeTestCase):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 self._optimizer = MagicMock(spec=DeclearnOptimizer)
+
             def type(self):
                 return TrainingPlans.SkLearnTrainingPlan
 
@@ -1492,12 +1512,14 @@ class TestRound(NodeTestCase):
                               training_kwargs={},
                               training=False)
         testing_round.initialize_arguments()
+
+        testing_round.testing_arguments.update({'test_ratio':.2})
         params = {'path': 'my/dataset/path',
                   'dataset_id': 'id_1234'}
         testing_round.dataset = params
         testing_round.job_id = job_id
         testing_round.researcher_id = '1234'
-        testing_round.testing_arguments.update({'test_ratio':.2})
+        
 
         msg_test_2 = testing_round.run_model_training()
 

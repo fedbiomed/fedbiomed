@@ -446,6 +446,7 @@ class TestNode(NodeTestCase):
 
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
+        round_patch.return_value.initialize_arguments.return_value = None
 
         # test 1: case where 1 dataset has been found
         dict_msg_1_dataset = {
@@ -574,6 +575,7 @@ class TestNode(NodeTestCase):
         }
         # we convert this dataset into a string
         msg1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
+        round_patch.return_value.initialize_arguments.return_value = None
 
         # defining patchers
 
@@ -636,9 +638,10 @@ class TestNode(NodeTestCase):
         msg_1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
 
         # defining patchers
-        #round_patch.return_value = None
+
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
+        round_patch.return_value.initialize_arguments.return_value = None
 
         # action
         self.n1.parser_task_train(msg_1_dataset)
