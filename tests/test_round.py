@@ -1,5 +1,6 @@
 import builtins
 import copy
+import importlib
 import inspect
 import logging
 import os
@@ -37,7 +38,7 @@ from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
-
+from fedbiomed.common.data import NPDataLoader
 
 # Needed to access length of dataset from Round class
 class FakeLoader:
@@ -494,6 +495,7 @@ class TestRound(NodeTestCase):
         # patching builtin objects & looking for generated logs
         # NB: this is the only way I have found to use
         # both patched bulitins functions and assertLogs
+        # YB: not sure why we are patching exec and eval here?
         with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
               patch.object(builtins, 'exec', return_value = None),
               patch.object(builtins, 'eval') as eval_patch):
@@ -516,20 +518,23 @@ class TestRound(NodeTestCase):
         # but overriding `load` through classes inheritance
         # when `load` is called, an Exception will be raised
         #
-        class FakeModelRaiseExceptionWhenLoading(FakeModel):
-            def load(self, **kwargs):
-                """Mimicks an exception happening in the `load`
-                method
+        class fakemodule:
+            class FakeModelRaiseExceptionWhenLoading(FakeModel):
+                def set_model_params(self, *args, **kwargs):
+                    """Mimicks an exception happening in the `load`
+                    method
 
-                Raises:
-                    Exception:
-                """
-                raise Exception('mimicking an error happening during model training')
+                    Raises:
+                        Exception:
+                    """
+                    raise Exception('mimicking an error happening during model training')
 
+        self.r1.training_plan_class = 'FakeModelRaiseExceptionWhenLoading'
         # action
         with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
               patch.object(builtins, 'exec', return_value=None),
-              patch.object(builtins, 'eval', return_value=FakeModelRaiseExceptionWhenLoading)
+              patch.object(importlib, 'import_module', return_value=fakemodule) as importlib_patch,
+              patch.object(Serializer, 'load')
               ):
 
             msg_test_2 = self.r1.run_model_training()
@@ -549,20 +554,31 @@ class TestRound(NodeTestCase):
         # but overriding `training_routine` through classes inheritance
         # when `training_routine` is called, an Exception will be raised
         #
-        class FakeModelRaiseExceptionInTraining(FakeModel):
-            def training_routine(self, **kwargs):
-                """Mimicks an exception happening in the `training_routine`
-                method
+        class fakemodule_2:
+            class FakeModelRaiseExceptionInTraining(FakeModel):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    self.training_data_loader = MagicMock(spec=NPDataLoader, return_value=[1,2,3])
+                def training_routine(self, *args, **kwargs):
+                    """Mimicks an exception happening in the `training_routine`
+                    method
 
-                Raises:
-                    Exception:
-                """
-                raise Exception('mimicking an error happening during model training')
+                    Raises:
+                        Exception:
+                    """
+                    raise Exception('mimicking an error happening during model training')
+
+        self.r1.training_plan_class = 'FakeModelRaiseExceptionInTraining'
+        self.r1.testing_arguments = {}
+        self.r1.training = True
 
         # action
         with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
               patch.object(builtins, 'exec', return_value=None),
-              patch.object(builtins, 'eval', return_value= FakeModelRaiseExceptionInTraining)):
+              patch.object(importlib, 'import_module', return_value=fakemodule_2),
+              patch.object(Serializer, 'load'),
+              patch.object(Round, '_set_training_testing_data_loaders',)):
+
             msg_test_3 = self.r1.run_model_training()
 
         # checks :

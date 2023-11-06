@@ -417,7 +417,7 @@ class Round:
 
         # Split training and validation data
         try:
-            
+
             self._set_training_testing_data_loaders()
         except FedbiomedError as fe:
             error_message = f"Can not create validation/train data: {repr(fe)}"
@@ -538,14 +538,14 @@ class Round:
             except Exception as exc:
                 return self._send_round_reply(success=False, message=f"Cannot upload results: {exc}")
 
-           
+
             # end : clean the namespace
             try:
                 del self.training_plan
                 del import_module
             except Exception as e:
                 logger.debug(f'Exception raise while deleting training plan instance: {repr(e)}')
-                
+
             # save collected statistics
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,
