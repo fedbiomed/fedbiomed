@@ -18,6 +18,10 @@ on:
       - master
       - develop
 
+env:
+  RESEARCHER_SERVER_HOST: localhost
+  RESEARCHER_SERVER_PORT: 50052
+
 
 jobs:
 
@@ -141,8 +145,6 @@ jobs:
         if: steps.filter.outputs.module == 'true'
         run: |
           source ~/.bashrc
-          export RESEARCHER_SERVER_HOST=localhost
-          export RESEARCHER_SERVER_PORT=50052
           ./scripts/configure_conda node
           ./scripts/run_test_mnist ../../../..
         shell: bash -l {0}
