@@ -33,6 +33,8 @@ kpids= # PIDs to be killed
 # populate node
 echo "INFO: populating fedbiomed node"
 source $basedir/scripts/fedbiomed_environment node
+export RESEARCHER_SERVER_HOST=localhost
+export RESEARCHER_SERVER_PORT-50052
 $basedir/scripts/fedbiomed_run node --add-mnist $path_mnist
 $basedir/scripts/fedbiomed_run node config config-n1.ini --add-mnist $path_mnist
 
@@ -61,6 +63,8 @@ kpids="${kpids:+$kpids }$apids"
 # launch test and wait for completion
 echo "INFO: launching fedbiomed researcher"
 source $basedir/scripts/fedbiomed_environment researcher
+export RESEARCHER_SERVER_HOST=localhost
+export RESEARCHER_SERVER_PORT-50052
 EXEC_TEST=$basedir/notebooks/101_getting-started.py
 if [ -x "$EXEC_TEST" ]
 then

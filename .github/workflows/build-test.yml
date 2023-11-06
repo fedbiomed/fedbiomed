@@ -18,11 +18,6 @@ on:
       - master
       - develop
 
-env:
-  RESEARCHER_SERVER_HOST: localhost
-  RESEARCHER_SERVER_PORT: 50052
-
-
 jobs:
 
   build-doc:
