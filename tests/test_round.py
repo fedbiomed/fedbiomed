@@ -693,7 +693,7 @@ class TestRound(NodeTestCase):
         data_manager_mock.dataset = my_dataset
 
         r3 = Round(training_kwargs={})
-        r3.initialize_validate_training_arguments()
+        r3.initialize_arguments()
         r3.training_plan = MagicMock()
         r3.training_plan.training_data.return_value = data_manager_mock
 
@@ -705,7 +705,7 @@ class TestRound(NodeTestCase):
         r4 = Round(training_kwargs={},
                    dlp_and_loading_block_metadata=dlp.serialize()
                    )
-        r4.initialize_validate_training_arguments()
+        r4.initialize_arguments()
         r4.training_plan = MagicMock()
         r4.training_plan.training_data.return_value = data_manager_mock
 
@@ -900,12 +900,13 @@ class TestRound(NodeTestCase):
         environ["SECURE_AGGREGATION"] = True
         environ["FORCE_SECURE_AGGREGATION"] = True
 
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         msg_test1 = self.r1.run_model_training(secagg_arguments={
             'secagg_random': 1.12,
             'secagg_servkey_id': '1234',
             'secagg_biprime_id': '1234',
         })
+        # TODO: assert something here??
 
         # Back to normal
         environ["SECURE_AGGREGATION"] = False
@@ -1382,7 +1383,7 @@ class TestRound(NodeTestCase):
         # first create state
         self.r1.training_plan = training_plan_mock
         
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         state = self.r1._save_round_state()
         self.r1._load_round_state(state['state_id'])
         
@@ -1405,10 +1406,10 @@ class TestRound(NodeTestCase):
                                            node_state_manager_initialize_patch):
         previous_state_id = 'state_id_1234'
         self.r1.initialize_arguments(previous_state_id=previous_state_id)
-        
+
         node_state_manager_initialize_patch.assert_called_once_with(previous_state_id=previous_state_id, 
                                                                     testing=False)
-        node_state_manager_initialize_patch.assert_called_once()
+
 
     @patch('fedbiomed.node.round.TrainingArgs')
     def test_round_32_initialize_argument_failing(self, private_initialize_validate_trainig_args_patch):

@@ -114,32 +114,16 @@ class Round:
         self._optim_aux_var = {}  # type: Dict[str, Dict[str, Any]]
         self._node_state_manager = NodeStateManager(environ['DB_PATH'])
 
-    def _initialize_validate_training_arguments(self) -> None:
-        """Validates and separates training argument for experiment round"""
-
-        self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
-        self.testing_arguments = self.training_arguments.testing_arguments()
-        self.loader_arguments = self.training_arguments.loader_arguments()
-
-    def initialize_node_state_manager(self, previous_state_id: Optional[str] = None):
-        """Initializes [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
-
-        Args:
-            previous_state_id (optional): previous state_id from which to load `Node` state.
-                Defaults to None (which is the value for `Round` 0).
-        """
-
-        self._node_state_manager.initialize(previous_state_id=previous_state_id,
-                                            testing=not self.training)
-
-    def initialize_validate_training_arguments(self) -> Dict[str, Any]:
+    def _initialize_validate_training_arguments(self) -> Dict[str, Any]:
         """Initialize and validate requested experiment/training arguments.
 
         Returns:
             Returns the corresponding node message, training reply instance
         """
         try:
-            self._initialize_validate_training_arguments()
+            self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
+            self.testing_arguments = self.training_arguments.testing_arguments()
+            self.loader_arguments = self.training_arguments.loader_arguments()
         except FedbiomedUserInputError as e:
             return self._send_round_reply(success=False, message=repr(e))
         except Exception as e:
@@ -153,14 +137,16 @@ class Round:
         Node state loading and saving.
 
         Args:
-            previous_state_id: previous Node state id. Defaults to None (which is the state_id for the first Round).
+            previous_state_id: previous Node state id. Defaults to None (which is the state_id default value for the first Round).
 
         Returns:
             A dictionary containing the error message if an error is triggered while parsing training and testing
             arguments, None otherwise.
         """
-        self.initialize_node_state_manager(previous_state_id)
-        return self.initialize_validate_training_arguments()
+        # initialize Node State Manager
+        self._node_state_manager.initialize(previous_state_id=previous_state_id,
+                                            testing=not self.training)
+        return self._initialize_validate_training_arguments()
 
     def download_aggregator_args(self) -> Tuple[bool, str]:
         """Retrieves aggregator arguments, that are sent through file exchange service
@@ -465,12 +451,7 @@ class Round:
                 except Exception as exc:
                     error_message = f"Cannot train model in round: {repr(exc)}"
                     return self._send_round_reply(success=False, message=error_message)
-                try:
 
-                    self._save_round_state()
-                except Exception:
-                    # don't send details to researcher
-                    return self._send_round_reply(success=False, message="Can't save new node state.")
             # Collect Optimizer auxiliary variables, if any.
             try:
                 results['optim_aux_var'] = self.collect_optim_aux_var()
@@ -500,6 +481,7 @@ class Round:
                         f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
                         f"dataset please make sure that test_ratio has been set correctly")
 
+            # FIXME: this will fail if `self.training_plan.training_data_loader = None` (see issue )
             sample_size = len(self.training_plan.training_data_loader.dataset)
 
             results["encrypted"] = False
@@ -520,6 +502,13 @@ class Round:
                 results["encrypted"] = True
                 results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
                 logger.info("Encryption is completed!")
+
+            try:
+                # Nota: for simplicty sake, we are saving Node state even if test_ratio = 1
+                self._save_round_state()
+            except Exception:
+                # don't send details to researcher
+                return self._send_round_reply(success=False, message="Can't save new node state.")
 
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
