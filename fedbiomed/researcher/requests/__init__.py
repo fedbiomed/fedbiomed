@@ -1,13 +1,9 @@
-from ._requests import Requests 
-from ._strategies import ContinueOnDisconnect, \
-    ContinueOnError, \
-    StopOnAnyDisconnect, \
+from ._requests import Requests, MessagesByNode
+from ._strategies import StopOnAnyDisconnect, \
     StopOnAnyError
 
 __all__ = [
     "Requests", 
-    "ContinueOnDisconnect",
-    "ContinueOnError",
     "StopOnAnyDisconnect", 
     "StopOnAnyError"
 ]

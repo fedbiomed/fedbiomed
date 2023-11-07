@@ -107,7 +107,7 @@ class NodeAgentAsync:
         async with self._replies_lock:
             if message.request_id in self._replies:
                 self._replies[message.request_id]['reply'] = message
-                self._replies[message.request_id]['callback'](message, self.id)
+                self._replies[message.request_id]['callback'](message)
             else:
                 logger.warning(f"A reply received from an unexpected request: {message.request_id}")
 

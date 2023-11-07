@@ -26,7 +26,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
-from fedbiomed.researcher.requests import Requests
+from fedbiomed.researcher.requests import Requests, MessagesByNode
 
 # for checking class passed to job (same definitions as experiment ...)
 # TODO : should we move this to common/constants.py ? No because it means import training plans in it ...
@@ -194,7 +194,7 @@ class Job:
 
         # Send message to each node that has been found after dataset search request
         with self._reqs.send(message, node_ids) as federated_req:
-            replies = federated_req.replies
+            replies = federated_req.replies()
 
             for node_id, reply in replies.items():
                 if reply.success is True:
@@ -326,7 +326,8 @@ class Job:
             aux_bynode = {}
 
         # Loop over nodes, add node specific data and send train request
-        messages = {}
+        messages = MessagesByNode()
+
         for node in self._nodes:
             msg['dataset_id'] = self._data.data()[node]['dataset_id']
             msg['aux_vars'] = [aux_shared, aux_bynode.get(node, None)]
@@ -344,8 +345,8 @@ class Job:
             # Sends training request
 
         with self._reqs.send(messages, self._nodes) as federated_req:
-            errors = federated_req.errors 
-            replies = federated_req.replies
+            errors = federated_req.errors() 
+            replies = federated_req.replies()
             self._get_training_testing_results(replies=replies, errors=errors, round_=round_, timer=timer)
 
         # update node states with node answers + when used node list has changed during the round

@@ -32,9 +32,7 @@ from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
 
-from ._strategies import ContinueOnDisconnect, \
-    ContinueOnError, \
-    StopOnAnyDisconnect, \
+from ._strategies import StopOnAnyDisconnect, \
     StopOnAnyError, \
     RequestStrategy, \
     StrategyController
@@ -42,12 +40,16 @@ from ._strategies import ContinueOnDisconnect, \
 
 from ._status import RequestStatus, StrategyStatus
 
+
+class MessagesByNode(dict):
+    pass
+
 class Request:
 
     def __init__(
         self, 
-        node: NodeAgent, 
         message: Message,
+        node: NodeAgent, 
         request_id: Optional[str] = None      
     ) -> None:
         """Single request for node 
@@ -103,8 +105,8 @@ class FederatedRequest:
     """
     def __init__(
         self, 
+        message: Union[Message, Dict[str, Message]],
         nodes: List[NodeAgent], 
-        message: Union[Message, Dict[str, Message]], 
         strategy: Optional[RequestStrategy] = []
     ):
 
@@ -120,13 +122,14 @@ class FederatedRequest:
 
         # Set up single requests
         if isinstance(self.message, Message):
+            print("here")
             for node in self.nodes: 
                 self.requests.append(
                     Request(self.message, node, self.request_id)
                 )
 
         # Different message for each node
-        elif isinstance(self.message, dict):
+        elif isinstance(self.message, MessagesByNode):
             for node in self.nodes: 
                 if m := self.message.get(node.id):
                     self.requests.append(
@@ -148,7 +151,7 @@ class FederatedRequest:
     def __exit__(self, type, value, traceback):
         """Clear the replies that are processed"""
 
-        for req in self.request:
+        for req in self.requests:
             req.flush()
 
     def replies(self) -> Dict[str, Message]:
@@ -276,14 +279,14 @@ class Requests(metaclass=SingletonMeta):
             'command': "ping"}
         )
         with self.send(ping) as federated_req:
-            nodes_online = [node_id for node_id, reply in federated_req.replies.items()]
+            nodes_online = [node_id for node_id, reply in federated_req.replies().items()]
         
         return nodes_online
 
     def send(
             self, 
-            message: Union[Message, Dict[str, Message]], 
-            nodes: Optional[List[str]] = None 
+            message: Union[Message, Dict[MessagesByNode, Message]],
+            nodes: Optional[List[str]] = None
         ) -> FederatedRequest:
         """Sends federated request to given nodes with given message"""
 
@@ -292,7 +295,7 @@ class Requests(metaclass=SingletonMeta):
         else:
             nodes = self._grpc_server.get_all_nodes()
 
-        return FederatedRequest(nodes, message)
+        return FederatedRequest(message, nodes)
 
     def search(self, tags: tuple, nodes: Optional[list] = None) -> dict:
         """Searches available data by tags
@@ -313,12 +316,12 @@ class Requests(metaclass=SingletonMeta):
 
         data_found = {}
         with self.send(message, nodes) as federated_req:    
-            for node_id, reply in federated_req.replies.items():
+            for node_id, reply in federated_req.replies().items():
                 if reply.databases:
                     data_found[node_id] = reply.databases
                     logger.info('Node selected for training -> {}'.format(reply.node_id))
 
-            for node_id, error in federated_req.errors.items():
+            for node_id, error in federated_req.errors().items():
                 logger.warning(f"Node {node_id} has returned error from search request {error.msg}")
 
 
@@ -345,7 +348,7 @@ class Requests(metaclass=SingletonMeta):
 
         data_found = {}
         with self.send(message, nodes) as federated_req:
-            for node_id, reply in federated_req.replies.items():
+            for node_id, reply in federated_req.replies().items():
                 data_found[node_id] = reply.databases
 
         if verbose:
@@ -425,8 +428,8 @@ class Requests(metaclass=SingletonMeta):
             'command': 'approval'})
 
         with self.send(message, nodes) as federated_req:
-            errors = federated_req.errors 
-            replies = federated_req.replies
+            errors = federated_req.errors() 
+            replies = federated_req.replies()
 
             # TODO: Loop over errors and replies
             for node_id in nodes:

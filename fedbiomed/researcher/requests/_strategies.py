@@ -88,13 +88,15 @@ class StrategyController:
             strategies: List[RequestStrategy], 
             ):
         
-        strategies.insert(RequestStrategy(), 0)
+        strategies.insert(0, RequestStrategy())
         self.strategies = strategies
 
     def continue_(self, requests) -> bool:
         """Checks if reply collection should continue according to each strategy"""
-        status = [strategy.continue_(requests=requests) for strategy in self.strategies]
-        status = all(status == StrategyStatus.CONTINUE)
+        status = all(
+            [strategy.continue_(requests=requests) == StrategyStatus.CONTINUE 
+                for strategy in self.strategies]
+        )
 
         return StrategyStatus.CONTINUE if status else False
     
