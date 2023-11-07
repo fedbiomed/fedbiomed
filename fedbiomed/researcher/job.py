@@ -379,7 +379,7 @@ class Job:
             )
 
         else:
-            aux_shared = None
+            aux_shared = {}
             aux_bynode = {}
 
         # Loop over nodes, add node specific data and send train request
