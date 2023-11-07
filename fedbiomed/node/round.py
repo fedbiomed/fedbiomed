@@ -122,7 +122,7 @@ class Round:
         self.loader_arguments = self.training_arguments.loader_arguments()
 
     def initialize_node_state_manager(self, previous_state_id: Optional[str] = None):
-        """Initializes [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager]. 
+        """Initializes [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
 
         Args:
             previous_state_id (optional): previous state_id from which to load `Node` state.
@@ -131,7 +131,7 @@ class Round:
 
         self._node_state_manager.initialize(previous_state_id=previous_state_id,
                                             testing=not self.training)
-    
+
     def initialize_validate_training_arguments(self):
         # Initialize and validate requested experiment/training arguments.
         try:
@@ -147,13 +147,13 @@ class Round:
                              previous_state_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Initializes arguments for training and testing and the NodeStateManager, the latter handling
         Node state loading and saving.
-        
+
         Args:
             previous_state_id: previous Node state id. Defaults to None (which is the state_id for the first Round).
 
         Returns:
-            A dictionary containing the error message if an error is triggered while parsing training and testing arguments, 
-            None otherwise.
+            A dictionary containing the error message if an error is triggered while parsing training and testing
+            arguments, None otherwise.
         """
         err = self.initialize_validate_training_arguments()
         if err is not None:
@@ -693,8 +693,8 @@ class Round:
             # this condition was made so we dont save stateless optimizers
             optim_path = self._node_state_manager.generate_folder_and_create_file_name(
                 self.job_id,
-                self._round, 
-                NodeStateFileName.OPTIMIZER  
+                self._round,
+                NodeStateFileName.OPTIMIZER
             )
             Serializer.dump(optimizer_state, path=optim_path)
             logger.debug("Saving optim state")
@@ -736,8 +736,8 @@ class Round:
                 # TODO: remove the following warning when secagg compatibility has been fixed
                 # if secagg is used, raise a warning that encryption is not working with auxiliary variable
                 logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the Researcher, '
-                                'but those are not encrypted with SecAgg.'
-                               'Auxiliary Variables may contain sensitive information about the Nodes.' 
+                               'but those are not encrypted with SecAgg.'
+                               'Auxiliary Variables may contain sensitive information about the Nodes.'
                                'This issue will be fixed in a future version of Fed-BioMed')
             return aux_var
         return {}
@@ -776,7 +776,7 @@ class Round:
             logger.warning("Validation will not be perform for the round, since there is no validation activated. "
                            "Please set `test_on_global_updates`, `test_on_local_updates`, or both in the "
                            "experiment.")
-        
+
         if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
             logger.warning(
                 'There is no validation activated for the round. Please set flag for `test_on_global_updates`'
