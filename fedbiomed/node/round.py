@@ -481,6 +481,11 @@ class Round:
         # Early-exit if there are no auxiliary variables to process.
         if not any(self.aux_vars):
             return
+        
+
+        aux_vars = {}
+        aux_vars.update(self.aux_vars[0])
+        aux_vars.update(self.aux_vars[1])
 
         # Fetch the training plan's BaseOptimizer.
         try:
@@ -496,7 +501,7 @@ class Round:
             )
         # Pass auxiliary variables to the Optimizer.
         try:
-            optimizer.optimizer.set_aux(self.aux_vars)
+            optimizer.optimizer.set_aux(aux_vars)
         except FedbiomedOptimizerError as exc:
             return (
                 "TrainingPlan Optimizer failed to ingest the provided "
