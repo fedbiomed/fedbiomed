@@ -327,7 +327,7 @@ class Round:
         Returns:
             Returns the corresponding node message, training reply instance
         """
-        # Validate secagg status. Raises error if the training request is compatible with
+        # Validate secagg status. Raises error if the training request is not compatible with
         # secure aggregation settings
         try:
             secagg_arguments = {} if secagg_arguments is None else secagg_arguments
