@@ -1,0 +1,14 @@
+class StrategyStatus:
+
+    STOPPED = "STOPPED"
+    COMPLETED = "COMPLETED"
+    CONTINUE = "CONTINUE"
+
+
+class RequestStatus:
+
+    DISCONNECT = "DISCONNECT"
+    TIMEOUT = "TIMEOUT"
+    ERROR = "ERROR"
+    SUCCESS = "SUCCESS"
+    NO_REPLY_YET = "NODE_REPLY_YET"
