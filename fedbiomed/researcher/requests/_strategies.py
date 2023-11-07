@@ -4,13 +4,8 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage
 from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
 
+from ._status import StrategyStatus, RequestStatus
 
-
-class StrategyStatus:
-
-    STOPPED = "STOPPED"
-    COMPLETED = "COMPLETED"
-    CONTINUE = "CONTINUE"
 
 class RequestStrategy:
     """Base strategy to collect replies from remote agents"""
@@ -44,7 +39,7 @@ class RequestStrategy:
         has_finished = all([req.has_finished() for req in requests])
         return self.keep() if not has_finished else self.completed()
         
-    def stop(self, status) -> StrategyStatus:
+    def stop(self) -> StrategyStatus:
         """Stop sign for strategy"""
         self.status = StrategyStatus.STOPPED
         return StrategyStatus.STOPPED
@@ -68,8 +63,8 @@ class StopOnAnyDisconnect(RequestStrategy):
     def continue_(self, requests) -> bool:
         
         for req in requests:
-            if req.status == "DISCONNECT":
-                return self.stop(req.status)
+            if req.status == RequestStatus.DISCONNECT:
+                return self.stop()
         
         return StrategyStatus.CONTINUE
 
@@ -81,7 +76,7 @@ class StopOnAnyError(RequestStrategy):
         
         for req in requests:
             if req.error:
-                return self.stop(req.status)
+                return self.stop()
         
         return StrategyStatus.CONTINUE
 
@@ -93,6 +88,7 @@ class StrategyController:
             strategies: List[RequestStrategy], 
             ):
         
+        strategies.insert(RequestStrategy(), 0)
         self.strategies = strategies
 
     def continue_(self, requests) -> bool:
@@ -101,4 +97,13 @@ class StrategyController:
         status = all(status == StrategyStatus.CONTINUE)
 
         return StrategyStatus.CONTINUE if status else False
- 
+    
+
+    def has_stopped(self):
+        """Returns true if request has stopped due to given strategy"""
+
+        is_stopped = any(
+            [strategy.status == StrategyStatus.STOPPED for strategy in self.strategies]
+        ) 
+
+        return is_stopped

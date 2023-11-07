@@ -37,18 +37,10 @@ from ._strategies import ContinueOnDisconnect, \
     StopOnAnyDisconnect, \
     StopOnAnyError, \
     RequestStrategy, \
-    StrategyController, \
-    StrategyStatus
+    StrategyController
     
 
-class RequestStatus:
-
-    DISCONNECT = "DISCONNECT"
-    TIMEOUT = "TIMEOUT"
-    ERROR = "ERROR"
-    SUCCESS = "SUCCESS"
-    NO_REPLY_YET = "NODE_REPLY_YET"
-
+from ._status import RequestStatus, StrategyStatus
 
 class Request:
 
@@ -77,7 +69,7 @@ class Request:
 
         if self.node.status == NodeActiveStatus.DISCONNECTED:
             self.status = RequestStatus.DISCONNECT
-            return True
+            return True # Don't expect any reply
 
         return True if self.reply or self.error else False
 
@@ -123,7 +115,7 @@ class FederatedRequest:
         self.nodes_status = {}
 
         # Set-up strategies
-        strategy.insert(RequestStrategy(), 0)
+        
         self.strategy = StrategyController(strategy)
 
         # Set up single requests
@@ -168,6 +160,10 @@ class FederatedRequest:
         """Returns errors of each request"""
 
         return {req.node.id: req.error for req in self.requests if req.error}
+
+    def disconnected_requests(self):
+        """Returns the requests to disconnected nodes"""
+        return [req for req in self.requests if req.status == RequestStatus.DISCONNECT]
 
     def send(self):
         """Sends federated request"""
@@ -279,8 +275,8 @@ class Requests(metaclass=SingletonMeta):
             'sequence': self._sequence,
             'command': "ping"}
         )
-        with self.send(ping) as (replies, _):
-            nodes_online = [node_id for node_id, reply in replies.items()]
+        with self.send(ping) as federated_req:
+            nodes_online = [node_id for node_id, reply in federated_req.replies.items()]
         
         return nodes_online
 
@@ -316,13 +312,13 @@ class Requests(metaclass=SingletonMeta):
         )
 
         data_found = {}
-        with self.send(message, nodes) as (replies, errors, st):    
-            for node_id, reply in replies.items():
+        with self.send(message, nodes) as federated_req:    
+            for node_id, reply in federated_req.replies.items():
                 if reply.databases:
                     data_found[node_id] = reply.databases
                     logger.info('Node selected for training -> {}'.format(reply.node_id))
 
-            for node_id, error in errors.items():
+            for node_id, error in federated_req.errors.items():
                 logger.warning(f"Node {node_id} has returned error from search request {error.msg}")
 
 
@@ -348,8 +344,8 @@ class Requests(metaclass=SingletonMeta):
         )
 
         data_found = {}
-        with self.send(message, nodes) as (replies, errors):
-            for node_id, reply in replies.items():
+        with self.send(message, nodes) as federated_req:
+            for node_id, reply in federated_req.replies.items():
                 data_found[node_id] = reply.databases
 
         if verbose:
@@ -428,7 +424,11 @@ class Requests(metaclass=SingletonMeta):
             'training_plan': tp_source,
             'command': 'approval'})
 
-        with self.send(message, nodes) as (replies, errors):
+        with self.send(message, nodes) as federated_req:
+            errors = federated_req.errors 
+            replies = federated_req.replies
+
+            # TODO: Loop over errors and replies
             for node_id in nodes:
                 if node_id in errors:
                     logger.info(f"Node ({node_id}) has returned error {errors[node_id].errnum}, {errors[node_id].extra_msg}")

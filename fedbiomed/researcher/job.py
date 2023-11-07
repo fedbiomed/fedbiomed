@@ -193,7 +193,8 @@ class Job:
         node_ids = self._data.node_ids()
 
         # Send message to each node that has been found after dataset search request
-        with self._reqs.send(message, node_ids) as (replies, errors):
+        with self._reqs.send(message, node_ids) as federated_req:
+            replies = federated_req.replies
 
             for node_id, reply in replies.items():
                 if reply.success is True:
@@ -342,7 +343,9 @@ class Job:
 
             # Sends training request
 
-        with self._reqs.send(messages, self._nodes) as (replies, errors):
+        with self._reqs.send(messages, self._nodes) as federated_req:
+            errors = federated_req.errors 
+            replies = federated_req.replies
             self._get_training_testing_results(replies=replies, errors=errors, round_=round_, timer=timer)
 
         # update node states with node answers + when used node list has changed during the round
