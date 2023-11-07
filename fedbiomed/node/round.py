@@ -132,8 +132,12 @@ class Round:
         self._node_state_manager.initialize(previous_state_id=previous_state_id,
                                             testing=not self.training)
 
-    def initialize_validate_training_arguments(self):
-        # Initialize and validate requested experiment/training arguments.
+    def initialize_validate_training_arguments(self) -> Dict[str, Any]:
+        """Initialize and validate requested experiment/training arguments.
+
+        Returns:
+            Returns the corresponding node message, training reply instance
+        """
         try:
             self._initialize_validate_training_arguments()
         except FedbiomedUserInputError as e:

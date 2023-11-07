@@ -183,10 +183,11 @@ class NodeStateManager:
                                                  "save node state into DataBase") from e
 
     def initialize(self, previous_state_id: Optional[str] = None, testing: Optional[bool] = False) -> None:
-        """Initializes NodeStateManager, by cerating folder that will contains Node state folders.
+        """Initializes NodeStateManager, by creating folder that will contains Node state folders.
 
         Args:
-            previous_state_id (optional): state_id from previous Round, from whch to reload a Node state
+            previous_state_id: state_id from previous Round, from whch to reload a Node state
+            testing: only doing testing, not training
         """
 
         self._previous_state_id = previous_state_id
