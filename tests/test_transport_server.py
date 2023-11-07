@@ -1,8 +1,11 @@
 import unittest
 import asyncio 
 
+
+
 from unittest.mock import patch, MagicMock, AsyncMock
 
+import fedbiomed.transport.server
 
 from fedbiomed.transport.node_agent import AgentStore
 from fedbiomed.transport.server import GrpcServer, _GrpcAsyncServer, ResearcherServicer, NodeAgent
@@ -134,7 +137,7 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
 
     async def test_grpc_async_server_01_start(self):
 
-        await self.grpc_server.start()
+        await self.grpc_server.start()        
         self.server_mock.return_value.start.assert_called_once()
         self.server_mock.return_value.wait_for_termination.assert_called_once()
 
@@ -184,13 +187,15 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
 class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
     
     def setUp(self) -> None:
-
+        
+        self.async_server_patch = patch('fedbiomed.transport.server._GrpcAsyncServer')
         self.server_patch = patch('fedbiomed.transport.server.grpc.aio.server')
         self.node_agent_patch = patch('fedbiomed.transport.server.NodeAgent', autospec=True)
         self.agent_store_patch = patch('fedbiomed.transport.server.AgentStore', autospec=True)
         self.asyncio_patch = patch('fedbiomed.transport.server.asyncio')
 
-
+        self.async_server_patch.start()
+        
         self.server_mock = self.server_patch.start()
         self.node_agent_mock = self.node_agent_patch.start()
         self.agent_store_mock = self.agent_store_patch.start()
@@ -214,16 +219,27 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         self.node_agent_patch.stop()
         self.agent_store_patch.stop()
         self.asyncio_patch.stop()
+        self.async_server_patch.stop()
+        
 
         return super().tearDown()
 
 
-    def test_grpc_server_01_start(self):
+    @patch('fedbiomed.transport.server.GrpcServer.get_all_nodes')
+    def test_grpc_server_01_start(self, get_all_nodes):
         
+        self.grpc_server = GrpcServer(
+            host='localhost',
+            port="50051",
+            on_message=self.on_message,
+            debug=False
+        )
+
         self.asyncio_patch.stop()
+        
+        with patch("fedbiomed.transport.server.MAX_GRPC_SERVER_SETUP_TIMEOUT", 2):
+            self.grpc_server.start()
 
-
-        self.grpc_server.start()
         self.server_mock.return_value.start.assert_called_once()
         self.server_mock.return_value.wait_for_termination.assert_called_once()
         self.grpc_server._thread.join()
@@ -231,7 +247,11 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         self.server_mock.return_value.start.reset_mock()
         self.server_mock.return_value.wait_for_termination.reset_mock()
         self.grpc_server._debug = True
+
+
+        get_all_nodes.side_effect = [ [], [1,2]]    
         self.grpc_server.start()
+
         self.server_mock.return_value.start.assert_called_once()
         self.server_mock.return_value.wait_for_termination.assert_called_once()
 

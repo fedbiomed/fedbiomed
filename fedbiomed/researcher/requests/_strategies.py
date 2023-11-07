@@ -1,6 +1,7 @@
-from typing import List
+from typing import List, Dict
 
 from fedbiomed.common.logger import logger
+from fedbiomed.common.message import ErrorMessage
 from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
 
 
@@ -9,146 +10,95 @@ class StrategyStatus:
 
     STOPPED = "STOPPED"
     COMPLETED = "COMPLETED"
-    UNSET = "UNSET"
+    CONTINUE = "CONTINUE"
 
 class RequestStrategy:
     """Base strategy to collect replies from remote agents"""
 
     def __init__(self):
-        self.nodes = {}
+        self.nodes = []
         self.replies = {}
-        self.errors = {}
         self.nodes_status = {}
         self.status = None 
 
-
-    def update(self, nodes: List[NodeAgent], replies, errors):
+    def update(
+            self, 
+            nodes: List[NodeAgent], 
+            replies: Dict,
+            nodes_status: Dict
+    ) -> None:
         """Updates nodes, replies and errors"""
 
         self.nodes = nodes 
-        self.replies = replies 
-        self.errors = errors
-        
-        for node in nodes:
-            self.nodes_status.update({
-                node.id: {
-                    'status': node.status,
-                    'error': True if errors.get(node.id) else False,
-                    'reply': True if replies.get(node.id) else False
-                }
-                 
-            })
+        self.replies = replies
+        self.nodes_status = nodes_status
 
-    def continue_(self) -> bool:
+
+    def continue_(self, requests) -> bool:
         """Default strategy stops collecting result once all nodes has answered
         
         Returns:
             False stops the iteration
         """
+
+        has_finished = all([req.has_finished() for req in requests])
+        return self.keep() if not has_finished else self.completed()
         
-        return not all(self.has_answered(node.id) for node in self.nodes)
+    def stop(self, status) -> StrategyStatus:
+        """Stop sign for strategy"""
+        self.status = StrategyStatus.STOPPED
+        return StrategyStatus.STOPPED
+
+    def keep(self) -> StrategyStatus:
+        """Keeps continue collecting replies from nodes"""
+        self.status = StrategyStatus.CONTINUE
         
-    
-    def has_answered(self, node_id):
-        """Check if node has any answer"""
-        return self.has_error(node_id) or self.has_reply(node_id)
+        return StrategyStatus.CONTINUE
 
-
-    def has_error(self, node_id):
-        """Check if node has replied with error"""
-        return self.nodes_status[node_id]['error']
-
-
-    def has_reply(self, node_id):
-        """Check if node has replied with non error"""
-        return self.nodes_status[node_id]['reply']
-
-    def has_not_answered_yet(self):
-
-        return [node for node in self.nodes if not self.has_answered(node.id)]
-
-class StrategyController:
-
-    def __init__(self, strategies: List[RequestStrategy]):
-        self.strategies = strategies
-
-    def continue_(self) -> bool:
-        """Checks if reply collection should continue according to each strategy"""
-        status = [strategy.continue_() for strategy in self.strategies]
-        
-        return all(status)
-
-    def update(self, nodes, replies, errors):
-        """Updates node, replies and error states of each strategy"""
-        for strategy in self.strategies:
-            strategy.update(nodes, replies, errors)
-    
-    def has_stopped(self):
-        """Checks has federated request has stopped in before finishing the request"""
-        return any([s.status == StrategyStatus.STOPPED for s in self.strategies])
-    
-
-    def get_stopper_strategies(self):
-        """Gets strategies that has stopped federated requests"""
-        return [s for s in self.strategies if s.status == StrategyStatus.STOPPED]
-
-
-
-
-
-class ContinueOnDisconnect(RequestStrategy):
-    """Continues collecting results with remaining nodes"""
-
-    def continue_(self) -> bool:
-        
-        nodes = self.has_not_answered_yet()
-        for node in nodes:
-            if self.nodes_status[node.id]['status'] == NodeActiveStatus.DISCONNECTED:
-                self.nodes.pop(node.id) 
-                logger.info("Node has been disconnected during the request. Request will "
-                            "continue with remaining nodes")
-
-        return super().continue_()
-        
-class ContinueOnError(RequestStrategy):
-    """Continue collecting results if any node raises an error"""
-
-    status: StrategyStatus = StrategyStatus.UNSET
-
-    def continue_(self) -> bool:
-
+    def completed(self) -> StrategyStatus:
+        """Updates status of strategy as completed without any issue"""
         self.status = StrategyStatus.COMPLETED
-        return super().continue_()
+    
+        return StrategyStatus.COMPLETED
 
 
 class StopOnAnyDisconnect(RequestStrategy):
     """Stops collecting results if a node disconnects"""
-    status: StrategyStatus = StrategyStatus.UNSET
-
-    def continue_(self) -> bool:
+    
+    def continue_(self, requests) -> bool:
         
-        for node in self.nodes:
-            if self.nodes_status[node.id]['status'] == NodeActiveStatus.DISCONNECTED:
-                logger.error(f'Node {node.id} has disconnected federated request will be aborted')
-                self.status = StrategyStatus.STOPPED
-                return False
-
-        self.status = StrategyStatus.COMPLETED
-        return super().continue_()
+        for req in requests:
+            if req.status == "DISCONNECT":
+                return self.stop(req.status)
+        
+        return StrategyStatus.CONTINUE
 
 
 class StopOnAnyError(RequestStrategy):
     """Stops collecting results if a node returns an error"""
-    status: StrategyStatus = StrategyStatus.UNSET
-
-    def continue_(self):
+    
+    def continue_(self, requests):
         
-        for node in self.nodes:
-            if self.nodes_status[node.id]['error']:
-                logger.error(f'Node {node.id} has returned error federated request will be aborted')
-                self.status = StrategyStatus.STOPPED
-                return False
+        for req in requests:
+            if req.error:
+                return self.stop(req.status)
         
-        self.status = StrategyStatus.COMPLETED
-        return super().continue_()
+        return StrategyStatus.CONTINUE
 
+
+class StrategyController:
+
+    def __init__(
+            self, 
+            strategies: List[RequestStrategy], 
+            ):
+        
+        self.strategies = strategies
+
+    def continue_(self, requests) -> bool:
+        """Checks if reply collection should continue according to each strategy"""
+        status = [strategy.continue_(requests=requests) for strategy in self.strategies]
+        status = all(status == StrategyStatus.CONTINUE)
+
+        return StrategyStatus.CONTINUE if status else False
+ 

@@ -231,7 +231,7 @@ class NodeAgent(NodeAgentAsync):
 
     def flush(self, request_id: str):
         """Flushes given request id from replies"""
-        future = asyncio.run_coroutine_threadsafe(
+        asyncio.run_coroutine_threadsafe(
             super().flush(request_id),
             self._loop
         )

@@ -22,7 +22,7 @@ from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 # timeout in seconds for server to establish connections with nodes and initialize
 GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + 1
-
+MAX_GRPC_SERVER_SETUP_TIMEOUT = 20
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     """RPC Servicer """
@@ -67,6 +67,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         await node_agent.set_active()
 
         task = await node_agent.get_task()
+
         # Choice: be simple, mark task as de-queued as soon as retrieved
         node_agent.task_done()
 
@@ -213,9 +214,9 @@ class _GrpcAsyncServer:
         Args:
             message: Message to broadcast
         """
-
+         
         agent = await self._agent_store.get(node_id)
-
+        
         if not agent:
             logger.info(f"Node {node_id} is not registered on server. Discard message.")
             return
@@ -282,9 +283,29 @@ class GrpcServer(_GrpcAsyncServer):
         # FIXME: This implementation assumes that nodes will be able connect and server complete setup with this delay
         logger.info("Starting researcher service...")
 
+        
         logger.info(f'Waiting {GPRC_SERVER_SETUP_TIMEOUT}s for nodes to connect...')
         time.sleep(GPRC_SERVER_SETUP_TIMEOUT)
+
+        sleep_ = 0
+        while len(self.get_all_nodes()) == 0:
             
+            if sleep_ == 0:
+                logger.info(f"No nodes found, server will wait {MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} " 
+                            "more seconds until a node creates connection.")
+            
+            if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:
+                if len(self.get_all_nodes()) == 0:
+                    logger.warning("Server has not received connection from any remote nodes in " 
+                                   f"MAX_GRPC_SERVER_SETUP_TIMEOUT: {MAX_GRPC_SERVER_SETUP_TIMEOUT} "
+                                   "This may effect the request created right after the server initialization. " 
+                                   "However, server will keep running in the background so you can retry the "
+                                   "operations for sending requests to remote nodes until one receives.")
+                break
+
+            time.sleep(1)
+            sleep_ += 1
+        
 
     def send(self, message: Message, node_id: str) -> None:
         """Send message to a specific node.

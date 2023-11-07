@@ -10,6 +10,8 @@ import os
 import tabulate
 import uuid
 import tempfile
+import queue
+
 from time import sleep
 from typing import Any, Dict, Callable, Union, List, Optional, Tuple
 
@@ -35,8 +37,71 @@ from ._strategies import ContinueOnDisconnect, \
     StopOnAnyDisconnect, \
     StopOnAnyError, \
     RequestStrategy, \
-    StrategyController
+    StrategyController, \
+    StrategyStatus
     
+
+class RequestStatus:
+
+    DISCONNECT = "DISCONNECT"
+    TIMEOUT = "TIMEOUT"
+    ERROR = "ERROR"
+    SUCCESS = "SUCCESS"
+    NO_REPLY_YET = "NODE_REPLY_YET"
+
+
+class Request:
+
+    def __init__(
+        self, 
+        node: NodeAgent, 
+        message: Message,
+        request_id: Optional[str] = None      
+    ) -> None:
+        """Single request for node 
+
+        Args: 
+            node: Node agent 
+            message: Message to send to the node
+        """
+        self.request_id = request_id if request_id else str(uuid.uuid4())
+        self.node = node 
+        self.message = message 
+
+        self.reply = None
+        self.error = None
+        self.status = None
+
+    def has_finished(self):
+        """True if node has replied the status"""
+
+        if self.node.status == NodeActiveStatus.DISCONNECTED:
+            self.status = RequestStatus.DISCONNECT
+            return True
+
+        return True if self.reply or self.error else False
+
+    def send(self):
+        """Sends the request"""
+        self.message.request_id = self.request_id
+        self.node.send(self.message, self.on_reply)
+        self.status = RequestStatus.NO_REPLY_YET
+
+    def flush(self):
+        """Flushes the reply that has been processed"""
+        self.node.flush(self.request_id)
+
+    def on_reply(self, reply):
+        """Callback for node agent to execute once it replies"""
+
+        if isinstance(reply, ErrorMessage):
+            self.error = reply 
+            self.status = RequestStatus.ERROR
+        else:
+            self.reply = reply
+            self.status = RequestStatus.SUCCESS
+
+
 
 class FederatedRequest: 
     """Dispatches federated requests 
@@ -48,65 +113,75 @@ class FederatedRequest:
         self, 
         nodes: List[NodeAgent], 
         message: Union[Message, Dict[str, Message]], 
-        strategy: Optional[RequestStrategy] = [ContinueOnDisconnect(), ContinueOnError()]
+        strategy: Optional[RequestStrategy] = []
     ):
 
-        self.request_id = str(uuid.uuid4())
-        self.replies = {}
-        self.errors = {}
+        self.message = message 
         self.nodes = nodes
-        self.message = message
+        self.requests = []
+        self.request_id = str(uuid.uuid4())
+        self.nodes_status = {}
+
+        # Set-up strategies
+        strategy.insert(RequestStrategy(), 0)
         self.strategy = StrategyController(strategy)
-        self.strategy.update(self.nodes, self.replies, self.errors) 
+
+        # Set up single requests
+        if isinstance(self.message, Message):
+            for node in self.nodes: 
+                self.requests.append(
+                    Request(self.message, node, self.request_id)
+                )
+
+        # Different message for each node
+        elif isinstance(self.message, dict):
+            for node in self.nodes: 
+                if m := self.message.get(node.id):
+                    self.requests.append(
+                        Request(m, node, self.request_id)
+                    )
+                else:
+                    ValueError(f"Undefined message for node {node.id}")
 
     def __enter__(self):
-
+        """Context manage enter method"""
         # Sends the message 
         self.send()
 
         # Blocking function that waits for the relies
         self.wait()
 
-        return self.replies, self.errors
+        return self
     
     def __exit__(self, type, value, traceback):
         """Clear the replies that are processed"""
-        for node in self.nodes:
-            node.flush(self.request_id)
+
+        for req in self.request:
+            req.flush()
+
+    def replies(self) -> Dict[str, Message]:
+        """Returns replies of each request"""
+
+        return {req.node.id: req.reply for req in self.requests if req.reply}
+
+    def errors(self) -> Dict[str, ErrorMessage]:
+        """Returns errors of each request"""
+
+        return {req.node.id: req.error for req in self.requests if req.error}
 
     def send(self):
-        """Sends the message"""
-        if isinstance(self.message, Message):
-            self.message.request_id = self.request_id
-            for node in self.nodes: 
-                node.send(self.message, self.on_reply)
-        elif isinstance(self.message, dict):
-            for node in self.nodes: 
-                m = self.message.get(node.id)
-                m.request_id = self.request_id
-                node.send(m, self.on_reply)
-        else:
-            raise TypeError(
-                "The message should be an instance of Message or dictionary of message where " 
-                "each key represents nodes."
-            )
+        """Sends federated request"""
 
+        for req in self.requests:
+            req.send()
+            
     def wait(self):
         """Waits for the replies of the messages that are sent"""
 
-        while self.strategy.continue_():
-            sleep(0.2)
-            self.strategy.update(self.nodes, self.replies, self.errors)  
-             
-    def on_reply(self, message: Message, node_id: str):
-        """Callback to execute once a reply is received"""
+        while self.strategy.continue_(self.requests) == StrategyStatus.CONTINUE:
+            sleep(0.5)
+            
 
-        if isinstance(message, ErrorMessage):
-            self.errors.update({node_id: message})
-        else:
-            self.replies.update({node_id: message})
-
-    
 
 class Requests(metaclass=SingletonMeta):
     """
@@ -241,7 +316,7 @@ class Requests(metaclass=SingletonMeta):
         )
 
         data_found = {}
-        with self.send(message, nodes) as (replies, errors):    
+        with self.send(message, nodes) as (replies, errors, st):    
             for node_id, reply in replies.items():
                 if reply.databases:
                     data_found[node_id] = reply.databases
