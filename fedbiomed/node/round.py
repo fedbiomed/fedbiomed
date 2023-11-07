@@ -159,10 +159,8 @@ class Round:
             A dictionary containing the error message if an error is triggered while parsing training and testing
             arguments, None otherwise.
         """
-        err = self.initialize_validate_training_arguments()
-        if err is not None:
-            return err
         self.initialize_node_state_manager(previous_state_id)
+        return self.initialize_validate_training_arguments()
 
     def download_aggregator_args(self) -> Tuple[bool, str]:
         """Retrieves aggregator arguments, that are sent through file exchange service
