@@ -114,11 +114,12 @@ class Round:
         self._optim_aux_var = {}  # type: Dict[str, Dict[str, Any]]
         self._node_state_manager = NodeStateManager(environ['DB_PATH'])
 
-    def _initialize_validate_training_arguments(self) -> Dict[str, Any]:
+    def _initialize_validate_training_arguments(self) -> Optional[Dict[str, Any]]:
         """Initialize and validate requested experiment/training arguments.
 
         Returns:
-            Returns the corresponding node message, training reply instance
+            A dictionary containing the error message if an error is triggered while parsing training and testing
+            arguments, None otherwise.
         """
         try:
             self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
@@ -130,6 +131,8 @@ class Round:
             msg = 'Unexpected error while validating training argument'
             logger.debug(f"{msg}: {repr(e)}")
             return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
+
+        return None
 
     def initialize_arguments(self,
                              previous_state_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
