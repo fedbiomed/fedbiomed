@@ -1,5 +1,6 @@
 import builtins
 import copy
+import importlib
 import inspect
 import logging
 import os
@@ -7,6 +8,8 @@ import tempfile
 import unittest
 from typing import Any, Dict, Tuple
 from unittest.mock import MagicMock, create_autospec, patch
+
+import numpy as np
 from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.node.node_state_manager import NodeStateFileName
@@ -28,14 +31,14 @@ from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModul
 
 from fedbiomed.common.constants import DatasetTypes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
-from fedbiomed.common.exceptions import  FedbiomedOptimizerError, FedbiomedRoundError
+from fedbiomed.common.exceptions import  FedbiomedOptimizerError, FedbiomedRoundError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.models import TorchModel, Model
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
-
+from fedbiomed.common.data import NPDataLoader
 
 # Needed to access length of dataset from Round class
 class FakeLoader:
@@ -146,7 +149,7 @@ class TestRound(NodeTestCase):
 
         # test 1: case where argument `model_kwargs` = None
         # action!
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         msg_test1 = self.r1.run_model_training()
 
         # check results
@@ -173,7 +176,7 @@ class TestRound(NodeTestCase):
                                 'param2': [1, 2, 3, 4],
                                 'param3': None}
         serialize_load_patch.reset_mock()
-        self.r2.initialize_node_state_manager()
+        self.r2.initialize_arguments()
         msg_test2 = self.r2.run_model_training()
 
         # check values in message (output of `run_model_training`)
@@ -252,7 +255,7 @@ class TestRound(NodeTestCase):
                 patch.object(FakeModel, 'training_routine') as mock_training_routine,
                 patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,  # noqa
         ):
-            self.r1.initialize_node_state_manager()
+            self.r1.initialize_arguments()
             msg = self.r1.run_model_training()
             self.assertTrue(msg.get("success"))
 
@@ -316,9 +319,9 @@ class TestRound(NodeTestCase):
             file.write(dummy_training_plan_test)
 
         # action
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         msg_test = self.r1.run_model_training()
-        print("NSG", msg_test)
+
         # checks
         serialize_load_patch.assert_called_once_with('my_python_model')
         self.assertTrue(msg_test.get('success', False))
@@ -492,6 +495,7 @@ class TestRound(NodeTestCase):
         # patching builtin objects & looking for generated logs
         # NB: this is the only way I have found to use
         # both patched bulitins functions and assertLogs
+        # YB: not sure why we are patching exec and eval here?
         with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
               patch.object(builtins, 'exec', return_value = None),
               patch.object(builtins, 'eval') as eval_patch):
@@ -514,20 +518,23 @@ class TestRound(NodeTestCase):
         # but overriding `load` through classes inheritance
         # when `load` is called, an Exception will be raised
         #
-        class FakeModelRaiseExceptionWhenLoading(FakeModel):
-            def load(self, **kwargs):
-                """Mimicks an exception happening in the `load`
-                method
+        class fakemodule:
+            class FakeModelRaiseExceptionWhenLoading(FakeModel):
+                def set_model_params(self, *args, **kwargs):
+                    """Mimicks an exception happening in the `load`
+                    method
 
-                Raises:
-                    Exception:
-                """
-                raise Exception('mimicking an error happening during model training')
+                    Raises:
+                        Exception:
+                    """
+                    raise Exception('mimicking an error happening during model training')
 
+        self.r1.training_plan_class = 'FakeModelRaiseExceptionWhenLoading'
         # action
         with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
               patch.object(builtins, 'exec', return_value=None),
-              patch.object(builtins, 'eval', return_value=FakeModelRaiseExceptionWhenLoading)
+              patch.object(importlib, 'import_module', return_value=fakemodule) as importlib_patch,
+              patch.object(Serializer, 'load')
               ):
 
             msg_test_2 = self.r1.run_model_training()
@@ -547,20 +554,31 @@ class TestRound(NodeTestCase):
         # but overriding `training_routine` through classes inheritance
         # when `training_routine` is called, an Exception will be raised
         #
-        class FakeModelRaiseExceptionInTraining(FakeModel):
-            def training_routine(self, **kwargs):
-                """Mimicks an exception happening in the `training_routine`
-                method
+        class fakemodule_2:
+            class FakeModelRaiseExceptionInTraining(FakeModel):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+                    self.training_data_loader = MagicMock(spec=NPDataLoader, return_value=[1,2,3])
+                def training_routine(self, *args, **kwargs):
+                    """Mimicks an exception happening in the `training_routine`
+                    method
 
-                Raises:
-                    Exception:
-                """
-                raise Exception('mimicking an error happening during model training')
+                    Raises:
+                        Exception:
+                    """
+                    raise Exception('mimicking an error happening during model training')
+
+        self.r1.training_plan_class = 'FakeModelRaiseExceptionInTraining'
+        self.r1.testing_arguments = {}
+        self.r1.training = True
 
         # action
         with (self.assertLogs('fedbiomed', logging.ERROR) as captured,
               patch.object(builtins, 'exec', return_value=None),
-              patch.object(builtins, 'eval', return_value= FakeModelRaiseExceptionInTraining)):
+              patch.object(importlib, 'import_module', return_value=fakemodule_2),
+              patch.object(Serializer, 'load'),
+              patch.object(Round, '_set_training_testing_data_loaders',)):
+
             msg_test_3 = self.r1.run_model_training()
 
         # checks :
@@ -675,7 +693,7 @@ class TestRound(NodeTestCase):
         data_manager_mock.dataset = my_dataset
 
         r3 = Round(training_kwargs={})
-        r3.initialize_validate_training_arguments()
+        r3.initialize_arguments()
         r3.training_plan = MagicMock()
         r3.training_plan.training_data.return_value = data_manager_mock
 
@@ -687,7 +705,7 @@ class TestRound(NodeTestCase):
         r4 = Round(training_kwargs={},
                    dlp_and_loading_block_metadata=dlp.serialize()
                    )
-        r4.initialize_validate_training_arguments()
+        r4.initialize_arguments()
         r4.training_plan = MagicMock()
         r4.training_plan.training_data.return_value = data_manager_mock
 
@@ -882,12 +900,13 @@ class TestRound(NodeTestCase):
         environ["SECURE_AGGREGATION"] = True
         environ["FORCE_SECURE_AGGREGATION"] = True
 
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         msg_test1 = self.r1.run_model_training(secagg_arguments={
             'secagg_random': 1.12,
             'secagg_servkey_id': '1234',
             'secagg_biprime_id': '1234',
         })
+        # TODO: assert something here??
 
         # Back to normal
         environ["SECURE_AGGREGATION"] = False
@@ -1364,7 +1383,7 @@ class TestRound(NodeTestCase):
         # first create state
         self.r1.training_plan = training_plan_mock
         
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         state = self.r1._save_round_state()
         self.r1._load_round_state(state['state_id'])
         
@@ -1383,12 +1402,33 @@ class TestRound(NodeTestCase):
                                            expected_state)
     
     @patch('fedbiomed.node.round.NodeStateManager.initialize')
-    def test_round_31_initialize_node_state_manager(self,
-                                                    node_state_manager_initialize_patch):
+    def test_round_31_initialize_arguments(self,
+                                           node_state_manager_initialize_patch):
         previous_state_id = 'state_id_1234'
-        self.r1.initialize_node_state_manager(previous_state_id=previous_state_id)
-        
-        node_state_manager_initialize_patch.assert_called_once_with(previous_state_id=previous_state_id)
+        self.r1.initialize_arguments(previous_state_id=previous_state_id)
+
+        node_state_manager_initialize_patch.assert_called_once_with(previous_state_id=previous_state_id, 
+                                                                    testing=False)
+
+
+    @patch('fedbiomed.node.round.TrainingArgs')
+    def test_round_32_initialize_argument_failing(self, private_initialize_validate_trainig_args_patch):
+        # test case where a `FedbiomedUserInputErrror` is raised
+        err_msg = "raised for the sake of testing"
+        err = FedbiomedUserInputError(err_msg) 
+
+        private_initialize_validate_trainig_args_patch.side_effect = err
+        msg_r1 = self.r1.initialize_arguments()
+        self.assertFalse(msg_r1.get('success', True))
+        self.assertIn(repr(err), msg_r1.get('msg'))
+
+        # test case were an unknown error is raised (here ValueError)
+        err = ValueError(err_msg)
+        private_initialize_validate_trainig_args_patch.side_effect = err
+        with self.assertLogs('fedbiomed', logging.ERROR) as captured:
+            msg_r1 = self.r1.initialize_arguments()
+        self.assertFalse(msg_r1.get('success', True))
+        self.assertIn(captured.records[-1].getMessage(), msg_r1.get('msg'))
         
     # def test_round_28_load_save_round_state_declearn_optim(self):
     # # same test as previous, but with a real declearn optimizer 
@@ -1399,6 +1439,132 @@ class TestRound(NodeTestCase):
 
     # def test_round_28_load_save_round_state_framework_native_optim(self):
     #     pass
+    
+    @patch('fedbiomed.node.round.NodeStateManager._save_state')
+    @patch('fedbiomed.node.round.NodeStateManager.get')
+    @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
+    @patch('fedbiomed.common.repository.Repository.upload_file')
+    @patch('fedbiomed.common.serializer.Serializer.dump')
+    @patch('fedbiomed.common.serializer.Serializer.load')
+    @patch('importlib.import_module')
+    @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
+    @patch('fedbiomed.common.repository.Repository.download_file')
+    @patch('uuid.uuid4')
+    def test_round_33_bug_not_loading_node_state_after_validation(self,
+                                                                  uuid_patch, 
+                                                                  download_file_patch, 
+                                                                  check_tp_security_manager_patch,
+                                                                  importlib_patch, 
+                                                                  load_serializer_patch,
+                                                                  dump_serializer_patch,
+                                                                  upload_file_patch, 
+                                                                  node_msg_format_patch,
+                                                                  node_state_mgr_get_patch,
+                                                                  node_state_mgr_save_state_patch):
+        # this test was written after a bug has been spotted:
+        # loading Node state was failing when doing a validation beforehand, because a new state_id
+        # was generated each time when loading state_id
+        # The present test try to make sure validation on local models doesnot create a new state_id or
+        # save entries in the database
+
+
+        ids_request = {'job_id': None, 'state_id': None}
+
+        def node_state_mgr_save_state_patch_side_effect(state_id: str, state: Dict):
+            self.assertEqual(state_id, state.get('state_id'))
+            job_id = state.get('job_id')
+            ids_request['job_id'] = job_id
+            ids_request['state_id'] = state_id
+
+        def repository_side_effect(training_plan_url: str, model_name: str):
+            return 200, 'my_python_model'
+
+        # create random data
+        dataset = np.random.randn(123, 10)
+        target = np.random.randn(123, 1)
+
+        class FakeModel2(FakeModel):
+
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self._optimizer = MagicMock(spec=DeclearnOptimizer)
+
+            def type(self):
+                return TrainingPlans.SkLearnTrainingPlan
+
+            def training_data(self):
+                return DataManager(dataset=dataset, target=target)
+
+        class FakeModule:
+            MyTrainingPlan = FakeModel2
+
+
+        job_id = '12345'
+        download_file_patch.side_effect = repository_side_effect
+        node_state_mgr_save_state_patch.side_effect = node_state_mgr_save_state_patch_side_effect
+
+        check_tp_security_manager_patch.return_value = (True, {'name': "model_name"})
+        importlib_patch.return_value = FakeModule
+        upload_file_patch.return_value = {'file': TestRound.URL_MSG}
+
+        uuid_patch.return_value = FakeUuid()
+        node_msg_format_patch.side_effect = TestRound.node_msg_side_effect
+
+        # perform Round 0
+        self.r1.initialize_arguments()
+        self.r1.job_id = job_id
+        msg_test_1 = self.r1.run_model_training()
+        # check results for the first round
+        self.assertTrue(msg_test_1.get('success', False))
+        ids_round_0 = copy.deepcopy(ids_request)
+        node_state_mgr_save_state_patch.assert_called_once()
+
+
+        # perform testing on Round 0
+
+        FakeUuid.VALUE = '5678'
+        testing_round = Round(training_plan_url='http://somewhere/where/my/model?is_stored=True',
+                              training_plan_class='MyTrainingPlan',
+                              params_url='https://url/to/model/params?ok=True',
+                              training_kwargs={},
+                              training=False)
+        testing_round.initialize_arguments()
+
+        testing_round.testing_arguments.update({'test_ratio':.2})
+        params = {'path': 'my/dataset/path',
+                  'dataset_id': 'id_1234'}
+        testing_round.dataset = params
+        testing_round.job_id = job_id
+        testing_round.researcher_id = '1234'
+        
+
+        msg_test_2 = testing_round.run_model_training()
+
+        # checks
+        self.assertTrue(msg_test_2.get('success', False))
+        node_state_mgr_save_state_patch.assert_called_once()
+        self.assertEqual(node_state_mgr_get_patch.call_count, 0)
+
+        # perform Round 1
+        rnd_nb = '0987'
+        FakeUuid.VALUE = rnd_nb
+        r2 = Round(training_plan_url='http://somewhere/where/my/model?is_stored=True',
+                   training_plan_class='MyTrainingPlan',
+                   params_url='https://url/to/model/params?ok=True',
+                   training_kwargs={},
+                   training=True)
+        r2.dataset = params
+        r2.job_id = job_id
+        r2.initialize_arguments(previous_state_id=msg_test_1.get('state_id'))
+        msg_test_3 = r2.run_model_training()
+
+        # checks
+        self.assertTrue(msg_test_3.get('success', False))
+        self.assertEqual(ids_round_0['job_id'], ids_request['job_id'])  # check the job_id is still the same form Round 0 to Round 1
+        self.assertEqual(ids_request['state_id'], 'node_state_' + rnd_nb)  # make sure state_id has the same random number than the one set in FakeUuid
+        self.assertNotEqual(ids_round_0['state_id'], ids_request['state_id'])  # check that state_ids from Round 0 to Round 1 has changed
+        node_state_mgr_get_patch.assert_called_once_with(job_id, msg_test_1.get('state_id'))
+        self.assertEqual(node_state_mgr_save_state_patch.call_count, 2)
 
 
 if __name__ == '__main__':  # pragma: no cover
