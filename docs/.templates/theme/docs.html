@@ -10,7 +10,7 @@
             <main class="main-docs">
                 {% if page.nb_url %}
                 <div class="row">
-                    <a href="{{ page.nb_url }}" title="Download Notebook" class="download-button"
+                    <a href="{{ page.file.abs_src_path.split('/') | last }}" title="Download Notebook" class="download-button"
                         download=""
                     >
                         <img src="{{'assets/img/download-icon.svg' | url }}"/>
@@ -26,9 +26,8 @@
                 </article>
                 {% if page.nb_url %}
                     <div class="row">
-                        <a href="{{ page.nb_url }}" title="Download Notebook" class="download-button"
+                        <a href="{{ page.file.abs_src_path.split('/') | last }}" title="Download Notebook" class="download-button"
                             download="">
-
                             <img src="{{'assets/img/download-icon.svg' | url}}"/>
                             <span>Download Notebook</span>
                         </a>
