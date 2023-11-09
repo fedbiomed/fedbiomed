@@ -98,7 +98,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 # **NOTE:** typos and/or lack of positional (required) arguments will raise error. 🤓
 
 training_args = {
-    'batch_size': 48, 
+    'loader_args': { 'batch_size': 48, },
     'optimizer_args': {
         'lr': 1e-3
     },
