@@ -409,9 +409,9 @@ sleep 3
 ALL_PIDS=""
 ALL_CONFIG=()
 i_node=0
-while [ $i_node -lt 2 ] # in order to generate two nodes containing all the datasets.
+while [ $i_node -lt 1 ] # in order to generate two nodes containing all the datasets.
 do
-  (( i_node=i_node+1 ))
+  ((i_node+=1))
   i_dataset=0
   seed=$RANDOM
 
@@ -436,8 +436,9 @@ do
 
       # populate node
       echo "== INFO: populating fedbiomed node"
-      $basedir/scripts/fedbiomed_run node config ${config} -adff $dataset
+      $basedir/scripts/fedbiomed_run node config ${config} -adff $dataset || true
 
+      ((i_dataset+=1))
   done
   # launch node
   echo "== INFO: launching fedbiomed node"
@@ -447,7 +448,6 @@ do
 
   # store node pid and subprocesses pids
   ALL_PIDS+=" $pid $(subprocess $pid)"
-  (( i_dataset=i_dataset+1 ))
 done
 
 
