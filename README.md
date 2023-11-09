@@ -1,7 +1,7 @@
 [![Documentation](https://img.shields.io/badge/Documentation-green)](https://fedbiomed.org)
 [![](https://img.shields.io/badge/Medium-black?logo=medium)](https://medium.com/fed-biomed)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md)
-[![Python-versions](https://img.shields.io/badge/python-3.9-brightgreen)](https://www.python.org/)
+[![Python-versions](https://img.shields.io/badge/python-3.10-brightgreen)](https://www.python.org/)
 [![Citation](https://img.shields.io/badge/cite-paper-orange)](https://arxiv.org/abs/2304.12012)
 [![PR](https://img.shields.io/badge/PRs-welcome-green)](https://github.com/fedbiomed/fedbiomed/pulls)
 [![codecov](https://img.shields.io/codecov/c/gh/fedbiomed/fedbiomed/develop?logo=codecov)](https://app.codecov.io/gh/fedbiomed/fedbiomed/tree/develop)
@@ -22,14 +22,14 @@ According to our coding rules, the develop branch is usable, tests and tutorials
 
 ## Install and run in development environment
 
-Fed-BioMed is developed under Linux Fedora, should be easily ported to other Linux distributions.
+Fed-BioMed is developped under Linux Fedora & Ubuntu, should be easily ported to other Linux distributions.
 It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey).
 
 This README.md file provide a quick start/installation guide for Linux.
 
 Full installation instruction are also available at: https://fedbiomed.org/latest/tutorials/installation/0-basic-software-installation/
 
-An installation guide is also provided for Windows10, which relies on WSL2: https://fedbiomed.org/latest/user-guide/installation/windows-installation/
+An installation guide is also provided for Windows11, which relies on WSL2: https://fedbiomed.org/latest/user-guide/installation/windows-installation/
 
 
 ### Prerequisites :
@@ -37,7 +37,7 @@ An installation guide is also provided for Windows10, which relies on WSL2: http
 To ensure fedbiomed will work fine, you need to install before :
 
 * docker
-* docker-compose
+* docker compose v2 (aka docker compose plugin)
 * conda
 
 ### clone repo

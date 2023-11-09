@@ -26,21 +26,21 @@ class TestAggregator(ResearcherTestCase):
     def tearDown(self):
         pass
 
-    def test_aggregator_01_save_state(self):
+    def test_aggregator_01_save_state_breakpoint(self):
 
         expected_state = {'class': 'Aggregator',
                           'module': 'fedbiomed.researcher.aggregators.aggregator',
                           'parameters': None}
 
-        state = self.aggregator.save_state()
+        state = self.aggregator.save_state_breakpoint()
         self.assertDictEqual(expected_state, state, 'State of aggregator has not been saved correctly')
 
-    def test_aggregator_02_load_state(self):
+    def test_aggregator_02_load_state_breakpoint(self):
 
         state = {
             'parameters': {'param' : True}
         }
-        self.aggregator.load_state(state)
+        self.aggregator.load_state_breakpoint(state)
         self.assertDictEqual(self.aggregator._aggregator_args,
                              state['parameters'],
                              'The state of the aggregator class has not been loaded correctly')

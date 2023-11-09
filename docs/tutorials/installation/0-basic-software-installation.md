@@ -19,10 +19,10 @@ This tutorial gives steps for installing Fed-BioMed components (network, node, r
 
 Fed-BioMed is developed and tested under up to date version of :
 
-* **Linux Fedora**, should also work or be easily ported under most Linux distributions (Ubuntu, etc.)
+* **Linux Ubuntu and Fedora**, should also work or be easily ported under most Linux distributions
 * **MacOS**
 
-Check specific guidelines for installation on [Windows 10](../../user-guide/installation/windows-installation.md).
+Check specific guidelines for installation on [Windows 11](../../user-guide/installation/windows-installation.md).
 
 
 ## Software packages
@@ -30,12 +30,12 @@ Check specific guidelines for installation on [Windows 10](../../user-guide/inst
  The following packages are required for Fed-BioMed :
 
  * [`docker`](https://docs.docker.com)
- * [`docker-compose`](https://docs.docker.com/compose)
+ * [`docker compose` v2](https://docs.docker.com/compose): don't confuse it with the obsolete `docker-compose` v1
  * [`conda`](https://conda.io)
  * `git`
 
 
-### Install docker and docker-compose
+### Install `docker` and `docker compose`
 
 #### Linux Fedora
 
@@ -62,20 +62,21 @@ Check with the account used to run Fed-BioMed that docker is up and can be used 
 $ docker run hello-world
 ```
 
-Install docker-compose and git :
+Install `docker compose` and `git` :
 ```
-$ sudo dnf install -y docker-compose git
+$ sudo dnf install -y docker-compose-plugin git
 ```
 
 #### MacOS
 
-Install docker and docker-compose choosing one of the available options for example :
+Install `docker` and `docker compose` choosing one of the available options for example :
 
 * official full [Docker Desktop](https://docs.docker.com/desktop/mac/install/) installation process, please check product license
 * your favorite third party package manager for example :
-    * macports provides [docker](https://ports.macports.org/port/docker/) [docker-compose](https://ports.macports.org/port/docker-compose/) and [git](https://ports.macports.org/port/git/) ports
-    * homebrew provides [docker](https://formulae.brew.sh/formula/docker) [docker-compose](https://formulae.brew.sh/formula/docker-compose) and [git](https://formulae.brew.sh/formula/git) formulae
-
+    * macports provides [docker](https://ports.macports.org/port/docker/) and [git](https://ports.macports.org/port/git/) ports
+    * homebrew provides [docker](https://formulae.brew.sh/formula/docker) and [git](https://formulae.brew.sh/formula/git) formulae
+    * don't use the `docker-compose` v1 from macports or homebrew !
+    * for `docker compose` v2, adapt the [manual plugin install procedure](https://docs.docker.com/compose/install/linux/#install-the-plugin-manually) by picking the [proper binary for your hardware](https://github.com/docker/compose/releases)
 
 Check with the account used to run Fed-BioMed docker is up and can be used by the current account without error :
 
@@ -85,7 +86,7 @@ $ docker run hello-world
 
 #### Other
 
-Connect under an account with administrator privileges, install [`docker`](https://docs.docker.com/engine/install), ensure it is started and give docker privilege for the account used for running Fed-BioMed. Also install [`docker-compose`](https://docs.docker.com/compose/install/) and `git`
+Connect under an account with administrator privileges, install [`docker`](https://docs.docker.com/engine/install), ensure it is started and give docker privilege for the account used for running Fed-BioMed. Also install [`docker compose` v2](https://docs.docker.com/compose/install/) and `git`
 
 Check with the account used to run Fed-BioMed docker is up and can be used by the current account without error :
 
@@ -165,27 +166,38 @@ Create or update the conda environments with :
 $ ${FEDBIOMED_DIR}/scripts/configure_conda
 ```
 
-List the existing conda environments and check the 3 environments `fedbiomed-network` `fedbiomed-node` `fedbiomed-researcher` were created :
+List the existing conda environments and check the 3 environments `fedbiomed-gui` `fedbiomed-node` `fedbiomed-researcher` were created :
 
 ```
 $ conda env list
 [...]
-fedbiomed-network        /home/mylogin/.conda/envs/fedbiomed-network
+fedbiomed-network        /home/mylogin/.conda/envs/fedbiomed-gui
 fedbiomed-node           /home/mylogin/.conda/envs/fedbiomed-node
 fedbiomed-researcher     /home/mylogin/.conda/envs/fedbiomed-researcher
 [...]
 ```
 
-!!! note "Conda environment for Fed-BioMed Node GUI"
-    Fed-BioMed comes with a user interface that allows data owners (node users) to deploy datasets and manage requested 
-    training plans easily. To be able to use Node GUI you need to install Fed-BioMed GUI conda environment as well. 
-    You can use following command to install GUI conda environment.
+!!! note "Conda environment for Fed-BioMed Network Component"
+    The Fed-BioMed network component, which consists of two modules, namely `MQTT` and `Restful`, runs in a Docker container. Although `fedbiomed-network` exists as a conda environment, it is not directly used on the local system where Fed-BioMed is installed. However, it can be used to launch the `restful` module locally instead of using Docker.
     
+    The conda environment can be installed with the following command
+
     ```
-    $ ${FEDBIOMED_DIR}/scripts/configure_conda gui
+    ${FEDBIOMED_DIR}/scripts/configure_conda network
     ```
 
-    Please follow [Node GUI user guide](../../user-guide/nodes/node-gui.md) to get more information about launching GUI on your local.
+!!! note "Conda environment for Fed-BioMed Node GUI"
+    Fed-BioMed comes with a user interface that allows data owners (node users) to deploy datasets and manage requested 
+    training plans easily. The `fedbiomed-gui` environment is not going to be used unless the Node GUI is launched. 
+    If you don't plan on using the GUI, you can install only the `fedbiomed-node` and `fedbiomed-researcher` environments.
+
+    ```
+    ${FEDBIOMED_DIR}/scripts/configure_conda node researcher
+    ```
+    
+    Please see [Node GUI user guide](../../user-guide/nodes/node-gui.md) to get more information about launching GUI on your local machine.
+
+
 
 ## The Next Step
 

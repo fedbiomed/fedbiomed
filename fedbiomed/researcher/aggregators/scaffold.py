@@ -9,6 +9,7 @@ import uuid
 from typing import Any, Dict, Collection, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 import torch
 
 from fedbiomed.common.logger import logger
@@ -347,6 +348,9 @@ class Scaffold(Aggregator):
             raise FedbiomedAggregatorError(
                 "Federated Dataset not provided, but needed for Scaffold. Please use setter `set_fds()`."
             )
+        if not isinstance(training_plan.optimizer(), NativeTorchOptimizer):
+            raise FedbiomedAggregatorError(f"Cannot run Scaffold with {training_plan.optimizer()} optimizers. Please use declearn specific Optimizer"
+                                           " (ScaffoldServerModule and ScaffoldClientModule) or use a plain PyTorch Optimizer instead.")
         if hasattr(training_plan, "_optimizer") and training_plan.type() is TrainingPlans.TorchTrainingPlan:
             if not isinstance(training_plan._optimizer.optimizer, torch.optim.SGD):
                 logger.warning(f"Found optimizer {training_plan._optimizer.optimizer}, but SCAFFOLD requieres SGD optimizer. Results may be inconsistants")
@@ -418,7 +422,7 @@ class Scaffold(Aggregator):
         # TODO: trigger a warning if user is trying to use scaffold with something else than SGD
         return training_plan_type
 
-    def save_state(
+    def save_state_breakpoint(
         self,
         breakpoint_path: str,
         global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]
@@ -431,12 +435,12 @@ class Scaffold(Aggregator):
         Serializer.dump(self.global_state, filename)
         self._aggregator_args['global_state_filename'] = filename
         # adding aggregator parameters that will be sent to nodes afterwards
-        return super().save_state(
+        return super().save_state_breakpoint(
             breakpoint_path, global_model=global_model, node_ids=self._fds.node_ids()
         )
 
-    def load_state(self, state: Dict[str, Any] = None):
-        super().load_state(state)
+    def load_state_breakpoint(self, state: Dict[str, Any] = None):
+        super().load_state_breakpoint(state)
 
         self.server_lr = self._aggregator_args['server_lr']
 

@@ -1,5 +1,5 @@
 site_name: Fed-BioMed
-site_url: https://fedbiomed.org/
+site_url: https://fedbiomed.org/latest
 site_dir: public
 
 site_description: >- 
@@ -46,6 +46,8 @@ nav:
         - 'MNIST Basic Example': "./tutorials/scikit-learn/01_sklearn_MNIST_classification_tutorial.ipynb"
         - 'Regression with Scikit-Learn':  './tutorials/scikit-learn/02_sklearn_sgd_regressor_tutorial.ipynb'
         - 'More Scikit-Learn models': './tutorials/scikit-learn/03-other-scikit-learn-models.ipynb'
+      - Optimizers:
+        - 'Advanced Optimizers': './tutorials/optimizers/01-fedopt-and-scaffold.ipynb'
       - FLamby:
         - 'General Concepts': "./tutorials/flamby/flamby.md"
         - 'FLamby examples': "./tutorials/flamby/flamby-integration-into-fedbiomed.ipynb"
@@ -81,6 +83,7 @@ nav:
         - "Listing Datasets and Selecting Nodes" : './user-guide/researcher/listing-datasets-and-selecting-nodes.md'
         - "Model Validation on the Node Side": './user-guide/researcher/model-testing-during-federated-training.md'
         - "Tensorboard" : './user-guide/researcher/tensorboard.md'
+      - Optimization: './user-guide/advanced-optimization.md'
       - "Secure Aggregation":
           - "Introduction": './user-guide/secagg/introduction.md'
           - "Configuration": './user-guide/secagg/configuration.md'
@@ -98,7 +101,7 @@ nav:
                 - Message: './developer/api/common/message.md'
                 - Messaging: './developer/api/common/messaging.md'
                 - Model: './developer/api/common/models.md'
-                - Optimizer: './developer/api/common/optimizer.md'
+                - Optimizers: './developer/api/common/optimizers.md'
                 - Repository: './developer/api/common/repository.md'
                 - TasksQueue: './developer/api/common/tasks_queue.md'
                 - TrainingPlans: './developer/api/common/training_plans.md'
@@ -109,6 +112,7 @@ nav:
                 - CLI: './developer/api/node/cli.md'
                 - DatasetManager: './developer/api/node/dataset_manager.md'
                 - Node: './developer/api/node/node.md'
+                - NodeStateManager: './developer/api/node/node_state_manager.md'
                 - TrainingPlanSecurityManager: './developer/api/node/training_plan_security_manager.md'
                 - HistoryMonitor: './developer/api/node/history_monitor.md'
                 - Round: './developer/api/node/round.md'
@@ -119,6 +123,7 @@ nav:
                 - Filetools: './developer/api/researcher/filetools.md'
                 - Job: './developer/api/researcher/job.md'
                 - Monitor: './developer/api/researcher/monitor.md'
+                - NodeStateAgent: './developer/api/researcher/node_state_agent.md'
                 - Responses: './developer/api/researcher/responses.md'
                 - Requests: './developer/api/researcher/requests.md'
                 - Strategies: './developer/api/researcher/strategies.md'
@@ -127,6 +132,7 @@ nav:
         - 'Usage and Tools': './developer/usage_and_tools.md'
         - 'Continuous Integration': './developer/ci.md'
         - 'Definition of Done': './developer/definition-of-done.md'
+        - 'Testing in Fed-BioMed': './developer/testing-in-fedbiomed.md'
   #    - 'API Reference': ./developer/api/ # Uncomment this if auto generate is active
   - Footer:
     - 'News' : './news/index.md'

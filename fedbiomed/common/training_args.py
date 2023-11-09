@@ -4,9 +4,8 @@
 """
 Provide a way to easily to manage training arguments.
 """
-
 from copy import deepcopy
-from typing import Any, Dict, TypeVar, Union, Tuple, Callable
+from typing import Any, Dict, Type, TypeVar, Union, Tuple, Callable
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
@@ -132,11 +131,9 @@ class TrainingArgs:
         """ Extracts data loader arguments
 
         Returns:
-            Contains loader arguments for PyTorch dataloader
+            The dictionary of arguments for dataloader
         """
-        keys = ["batch_size"]
-
-        return self._extract_args(keys)
+        return self["loader_args"]
 
     def optimizer_arguments(self) -> Dict:
 
@@ -155,8 +152,7 @@ class TrainingArgs:
                 "dry_run",
                 "epochs",
                 "use_gpu",
-                "num_updates",
-                "batch_size"]
+                "num_updates"]
         return self._extract_args(keys)
 
     def dp_arguments(self):
@@ -256,6 +252,25 @@ class TrainingArgs:
 
         return True
 
+    @staticmethod
+    def optional_type(typespec: Union[Type, Tuple[Type, ...]], argname: str):
+        """Utility factory function to generate functions that check for an optional type(s).
+
+        Args:
+            typespec: type specification which will be passed to the `isinstance` function
+            argname: the name of the training argument for outputting meaningful error messages
+
+        Returns:
+            type_check: a callable that takes a single argument and checks whether it is either None
+                or the required type(s)
+        """
+        @validator_decorator
+        def type_check(v):
+            if v is not None and not isinstance(v, typespec):
+                return False, f"Invalid type: {argname} must be {typespec} or None"
+            return True
+        return type_check
+
     @classmethod
     def default_scheme(cls) -> Dict:
         """
@@ -267,7 +282,7 @@ class TrainingArgs:
         | argument | meaning |
         | -------- | ------- |
         | optimizer_args | supplemental arguments for initializing the optimizer |
-        | batch_size | the number of samples in a batch |
+        | loader_args | supplemental arguments passed to the data loader |
         | epochs | the number of epochs performed during local training on each node |
         | num_updates | the number of model updates performed during local training on each node. Supersedes epochs if both are specified |
         | use_gpu | toggle requesting the use of GPUs for local training on the node when available |
@@ -282,14 +297,15 @@ class TrainingArgs:
         | fedprox_mu | set the value of mu and enable FedProx correction |
         | dp_args | arguments for Differential Privacy |
         | share_persistent_buffers | toggle whether nodes share the full state_dict (when True) or only trainable parameters (False) in a TorchTrainingPlan |
+        | random_seed | set random seed at the beginning of each round |
 
         """
         return {
             "optimizer_args": {
                 "rules": [dict], "required": True, "default": {}
             },
-            "batch_size": {
-                "rules": [int], "required": True, "default": 1
+            "loader_args": {
+                "rules": [dict], "required": True, "default": {}
             },
             "epochs": {
                 "rules": [cls._nonnegative_integer_value_validator_hook('epochs')], "required": True, "default": None
@@ -334,6 +350,9 @@ class TrainingArgs:
             },
             "share_persistent_buffers": {
                 "rules": [bool], "required": False, "default": True
+            },
+            "random_seed": {
+                "rules": [cls.optional_type(typespec=int, argname='random_seed')], "required": True, "default": None
             }
         }
 

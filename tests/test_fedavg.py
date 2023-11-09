@@ -78,23 +78,23 @@ class TestFedaverage(ResearcherTestCase):
                                     np.array([-0.02739925, 0.0234013, -0.01150177, -0.00410545, 0.41344659])))
         self.assertTrue(np.allclose(aggregated_params['intercept_'], np.array([0.04178598])))
 
-    def test_fed_average_04_save_state(self):
+    def test_fed_average_04_save_state_breakpoint(self):
         """ Testing FedAverage save state """
 
         expected_state = {'class': 'FedAverage',
                           'module': 'fedbiomed.researcher.aggregators.fedavg',
                           'parameters': None}
-        state = self.aggregator.save_state()
+        state = self.aggregator.save_state_breakpoint()
         self.assertDictEqual(expected_state, state, 'State of FedAvg has not been saved correctly')
 
-    def test_fed_average_05_load_state(self):
+    def test_fed_average_05_load_state_breakpoint(self):
 
         """ Testing FedAverage load state """
 
         state = {
             'parameters': {'param': True}
         }
-        self.aggregator.load_state(state)
+        self.aggregator.load_state_breakpoint(state)
         self.assertDictEqual(self.aggregator._aggregator_args,
                              state['parameters'],
                              'The state of the aggregator class has not been loaded correctly')

@@ -11,90 +11,163 @@ to be completed
 
 - use getters/setters instead of `@property`
 
-### regarding the exceptions
+### exceptions handling
 
+- on the node: in general, node should not stop because of exceptions that occur while executing requests received from researcher. Top level layer code should catch and handle the exceptions, and can send an error message to the researcher (but without full exception message to avoid leaking information).
 
-- use exceptions defined in **fedbiomed.common.exceptions**
+- on the researcher: general behaviour is to propagate the exceptions to the top level layer, where they are transformed to a friendlier output. Researcher displays this output and stops.
 
-- callee side: then detecting a python exception in a fedbiomed layer :
+- when a class raises an exception, it raises a FedbiomedSomethingError, not a python native error: use exceptions defined in **fedbiomed.common.exceptions** or define new ones (eg: one per module) :
 
-  - print a logger.*() message
+  Do:
+  ```
+  from fedbiomed.common.exceptions import FedbiomedSometypeError
+  raise FedbiomedSometypeError()
+  ```
 
-    - could be logger.critical -> stop the software, cannot continue
-      (ex: FedbiomedEnvironError)
-    - or logger.error -> software may continue (ex: MessageError)
+  Don't:
+  ```
+  raise NameError()
+  ```
 
-  - raise the exception as a fedbiomed exception
+- optionally, if more specificity is wanted, a class can catch a python (non-Fed-Biomed) exception and re-raise it as a FedbiomedError
 
+  Optionally do:
+  ```
+  from fedbiomed.common.exceptions import OneOfFedbiomedError
+  try:
+      something()
+  except SysError as e:
+      raise OneOfFedbiomedError()
+  ```
 
-- caller/intermediate side: trap the exceptions:
+- a class generally shouldn't catch a FedbiomedError and re-raise (a FedbiomedError):
 
-  - separate the FedbiomedError and other exceptions
+  Don't:
+  ```
+  from fedbiomed.common.exceptions import FedbiomedSometypeError, FedbiomedOnetypeError
+  try:
+    somecode()
+  except FedbiomedSometypeError;
+    raise FedbiomedOnetypeError()
+  ```
 
-```
-try:
+- when catching exceptions
 
-    something()
+  - try to be specific about the exception if easy/meaningful:
 
-except SysError as e:
-    logger.XXX()
-    raise OneOfFedbiomedError()
-```
+    Ideally:
+    ```
+    try:
+      mycode()
+    except ValueError as e:
+      ...
+    ```
 
-  - example of top level function (eg: Experiment())
+  - can use the `except Exception:` when re-raising (usually in lower layers, for error message specificity)
 
-```
-try:
+    If needed:
+    ```
+    from fedbiomed.common.exceptions import FedbiomedSomeError
+    try:
+      mycode()
+    except Exception as e:
+      raise FedbiomedSomeerror
+    ```
 
-    something()
+  - should use the `except Exception:` in top layer code for handling unexpected errors. On the node, exception is not re-raised and an error message is sent to the researcher.
 
-except FedbiomedError as e:
-    etc...
+  - don't use the very general `except:` clause
 
-except Exception as e:   <=== objective: minimize the number of type we arrive here !
-    # place to do a backtrace
-    # extra message to the end user to post this backtrace to the support team
-    etc...
-```
+    Don't
+    ```
+    try:
+      mycode()
+    except:
+      ...
+    ```
 
-  - except of the top level program, it is **forbidden** to trap all exceptions (with ```except:``` or ```except Exception```)
+  - can separate FedbiomedError and other exceptions when possible/meaningful to take distinct actions
 
+    Can do:
+    ```
+    from fedbiomed.common.exceptions import FedbiomedSomeError, FedbiomedError
+    try:
+      mycode()
+    except FedbiomedSomeError as e:
+      ...
+    except FedbiomedError as e:
+      ...
+    except Exception as e:
+      ...
+    ```
 
-- the **try:** block is as small as possible
+- in general, a class shouldn't log in logger when raising or re-raising an exception. The class should log when catching and not re-raising a FedbiomedError exception. The class can log when catching a and not re-raising a python exception.
 
-- force to read the documentation
+  Do:
+  ```
+  from fedbiomed.common.logger import logger
+  try:
+    some_function()
+  except FedbiomedSomeError:
+    logger.xxx(message)
+  ```
 
+  Can do:
+  ```
+  from fedbiomed.common.logger import logger
+  try:
+    some_function()
+  except OSError:
+    logger.xxx(message)
+  ```
+
+  Don't:
+  ```
+  from fedbiomed.common.exceptions import FedbiomedSomeException
+  from fedbiomed.common.logger import logger
+  try:
+    some_function()
+  except AnException:
+    logger.xxx(message)
+    raise FedbiomedSomeException()
+  ```
+
+- keep the **try:** block as small as possible
 
 - string associated to the exception:
 
   - comes from the fedbiomed.common.constants.ErrorNumbers
 
-  - complemented by a usefull (more precise) information:
+  - can be complemented by a useful (more precise) information:
 
   => consider ErrorNumbers as categories
 
-```
-try:
-    something()
+  ```
+  from fedbiomed.common.exceptions import OneOfFedbiomedError
+  from fedbiomed.common.constants import ErrorNumbers
+  try:
+      something()
+  except SomeError as e:
+      _msg = ErrorNumbers.FBxxx.value + ": the file " + filename + " does not exist"
+      raise OneOfFedbiomedError(_msg)
+  ```
 
-except SomeError as e:
+### arguments checking
 
-    _msg = ErrorNumbers.FBxxx.value + ": the file " + filename + " does not exist"
+Arguments checking means verifying functions' argument types and values.
 
-    logger.error(_msg)
-    raise OneOfFedbiomedError(_msg)
-```
+- in general, do argument checking when either:
+  - methods are exposed to an external input (eg: user input, receive data from network, import a file)
+  - arguments are security significant (need to check to ensure some security condition)
 
+- in general, don't do argument checking:
+  - most of the time for application internal interfaces
+  - in particular: no argument check for private methods
 
-- open questions:
+- we might want to add argument checking at a few carefully chosen functional boundaries, for modularity/robustness sake
 
-  - as a researcher, does I need sometimes the full python backtrace
-
-    - ex: loading a model on the node side
-
-    - ex: debugging fedbiomed itself
-
-    - it should be already a backtrace on the reasearcher/node console
+- argument checking should be done as near as possible to the acquisition of the data
 
 ## Docstrings writing rules
 

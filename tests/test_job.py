@@ -1,14 +1,18 @@
+from collections import defaultdict
 import copy
 import os
 import shutil
 import unittest
 import uuid
 from typing import Any, Dict
-from unittest.mock import MagicMock, create_autospec, patch
+from unittest.mock import MagicMock, call, create_autospec, patch
 
 import numpy as np
 import torch
 import fedbiomed
+from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
+from fedbiomed.common.serializer import Serializer
+from fedbiomed.researcher.datasets import FederatedDataSet
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -29,6 +33,8 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 import fedbiomed.researcher.job # needed for specific mocking
 
+
+training_args_for_testing = TrainingArgs({"loader_args": {"batch_size": 12}}, only_required=False)
 
 
 class TestJob(ResearcherTestCase):
@@ -80,25 +86,30 @@ class TestJob(ResearcherTestCase):
                               return_value=(True, environ['TMP_DIR']))
         self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.format_outgoing_message')
         self.patcher5 = patch('fedbiomed.researcher.job.atexit')
-
+        # We also patch the function for loading from a file, because below we mock the training plan class
+        # used in the job. This has the effect that `save_code` actually does not save any code, therefore we cannot
+        # load anything.
+        self.patch_tp_load_from_file = patch('fedbiomed.researcher.job.Job._load_training_plan_from_file')
 
         self.mock_request = self.patcher1.start()
         self.mock_upload_file = self.patcher2.start()
         self.mock_download_file = self.patcher3.start()
         self.mock_request_create = self.patcher4.start()
         self.mock_atexit = self.patcher5.start()
+        self.mock_tp_load_from_file = self.patch_tp_load_from_file.start()
 
         # Globally create mock for Model and FederatedDataset
         self.model = create_autospec(BaseTrainingPlan, instance=False)
-        self.fds = MagicMock()
-
+        self.fds = MagicMock(spec=FederatedDataSet)
         self.fds.data = MagicMock(return_value={})
+
         self.mock_request_create.side_effect = TestJob.msg_side_effect
+        self.mock_tp_load_from_file.return_value = self.model
 
         # Build Global Job that will be used in most of the tests
         self.job = Job(
             training_plan_class=self.model,
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=self.fds
         )
 
@@ -109,6 +120,7 @@ class TestJob(ResearcherTestCase):
         self.patcher3.stop()
         self.patcher4.stop()
         self.patcher5.stop()
+        self.patch_tp_load_from_file.stop()
 
         # shutil.rmtree(os.path.join(VAR_DIR, "breakpoints"))
         # (above) remove files created during these unit tests
@@ -133,7 +145,7 @@ class TestJob(ResearcherTestCase):
 
         j = Job(training_plan_class=self.model,
                 data=self.fds,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 keep_files_dir=environ['TMP_DIR'])
 
         # Check keep files dir properly set
@@ -144,22 +156,31 @@ class TestJob(ResearcherTestCase):
 
         reqs = Requests()
         j = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds,
                 reqs=reqs)
 
         self.assertEqual(j._reqs, reqs, 'Job did not initialize provided Request object')
 
     def test_job_04_init_building_model_from_path(self):
-        """ Test model is passed as static python file with training_plan_path """
+        """ Test model is passed as static python file with training_plan_path
+
+        Note about patching the function to load from file:
+        In this specific case we cannot rely on the basic mock from above because we would end up testing whether the
+        mocked return value is indeed what we expect. But since we set the mock return value in the first place, this
+        would not be a very significant test. Instead, we turn off the mocking and rely on the fact that, differently
+        from the other test cases, here we will actually save the training plan's code.
+        """
 
         # Get source of the model and save in tmp directory for just test purposes
         tmp_dir_model = TestJob.create_fake_model('fake_model.py')
         self.mock_upload_file.reset_mock()
 
+        self.patch_tp_load_from_file.stop()
         j = Job(training_plan_path=tmp_dir_model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 training_plan_class='FakeModel')
+        self.patch_tp_load_from_file.start()
 
         self.assertEqual(j.training_plan.__class__.__name__, FakeModel.__name__,
                          'Provided model and model instance of Job do not match, '
@@ -186,7 +207,7 @@ class TestJob(ResearcherTestCase):
 
         with self.assertRaises(SystemExit):
             _ = Job(training_plan_path=tmp_dir_model,
-                    training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                    training_args=training_args_for_testing,
                     training_plan_class='FakeModel')
             mock_logger_critical.assert_called_once()
 
@@ -199,7 +220,7 @@ class TestJob(ResearcherTestCase):
             mock_inspect.isclass.side_effect = NameError
             with self.assertRaises(NameError):
                 _ = Job(training_plan_class='FakeModel',
-                        training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                        training_args=training_args_for_testing,
                         data=self.fds)
                 mock_logger_critical.assert_called_once()
 
@@ -209,12 +230,12 @@ class TestJob(ResearcherTestCase):
 
         """ Test Job initialization when model_instance.save and save_code raises Exception """
 
-        mock_logger_error.return_values = None
+        mock_logger_error.return_value = None
 
         # Test TRY/EXCEPT when save_code raises Exception
         self.model.save_code.side_effect = Exception
         _ = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds)
         mock_logger_error.assert_called_once()
 
@@ -225,7 +246,7 @@ class TestJob(ResearcherTestCase):
         # Test TRY/EXCEPT when model.save() raises Exception
         self.model.get_model_params.side_effect = Exception
         _ = Job(training_plan_class=self.model,
-                training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+                training_args=training_args_for_testing,
                 data=self.fds)
         mock_logger_error.assert_called_once()
 
@@ -248,9 +269,9 @@ class TestJob(ResearcherTestCase):
         tr = self.job.training_replies
         self.assertEqual(self.job._training_replies, tr, 'Can not get training_replies correctly')
 
-        self.job.training_args = TrainingArgs({'batch_size': 33})
+        self.job.training_args = TrainingArgs({'loader_args': {'batch_size': 33}})
         targs = self.job.training_args
-        self.assertEqual(33, targs['batch_size'], 'Can not get or set training_args correctly')
+        self.assertEqual(33, targs['loader_args']['batch_size'], 'Can not get or set training_args correctly')
 
     @patch('fedbiomed.researcher.requests.Requests.send_message')
     @patch('fedbiomed.researcher.requests.Requests.get_responses')
@@ -374,7 +395,9 @@ class TestJob(ResearcherTestCase):
         })
 
         response_1 = {'node_id': 'node-1', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
+                      'job_id': self.job._id,
+                      'state_id': 'node_state_id_1234',
+                      'params_url': 'http://test.test',
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
@@ -384,7 +407,9 @@ class TestJob(ResearcherTestCase):
                       }
 
         response_2 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id, 'params_url': 'http://test.test',
+                      'job_id': self.job._id,
+                      'state_id': 'node_state_id_4321',
+                      'params_url': 'http://test.test',
                       'timing': {'rtime_total': 12},
                       'success': True,
                       'msg': 'MSG',
@@ -444,8 +469,47 @@ class TestJob(ResearcherTestCase):
         self.assertListEqual(nodes, ['node-1'])
         self.assertEqual(serialize_load_patch.call_count, 1)
 
-    def test_job_12_update_parameters_with_invalid_arguments(self):
-        """ Testing update_parameters method with invalid arguments.s"""
+    def test_job_12_start_nodes_training_round_optim_aux_var(self):
+        """Test that 'optim_aux_var' is properly used in 'start_nodes_training_round'."""
+        fake_aux_var = {"module": {"key": "val"}}
+        # General setup: skip requests sending and replies processing.
+        self.job.nodes = []
+        with (
+            patch('fedbiomed.researcher.requests.Requests.send_message'),
+            patch.object(self.job, "waiting_for_nodes", autospec=True)
+                as patch_waiting_for_nodes,
+        ):
+            patch_waiting_for_nodes.return_value = False
+            # Test that the aux-var upload is called when aux vars are passed.
+            with patch.object(
+                self.job, "upload_agg_optimizer_aux_var", autospec=True
+            ) as patch_upload_agg_optimizer_aux_var:
+                patch_upload_agg_optimizer_aux_var.return_value = (None, {})
+                self.job.start_nodes_training_round(
+                    1, {}, {}, do_training=True, optim_aux_var=fake_aux_var
+                )
+                patch_upload_agg_optimizer_aux_var.assert_called_once_with(
+                    fake_aux_var
+                )
+            # Test that the aux-var upload is not called without input aux var.
+            with patch.object(
+                self.job, "upload_agg_optimizer_aux_var", autospec=True
+            ) as patch_upload_agg_optimizer_aux_var:
+                self.job.start_nodes_training_round(
+                    1, {}, {}, do_training=True, optim_aux_var=None
+                )
+                patch_upload_agg_optimizer_aux_var.assert_not_called()
+            # Test that the aux-var upload is not called in evaluation mode.
+            with patch.object(
+                self.job, "upload_agg_optimizer_aux_var", autospec=True
+            ) as patch_upload_agg_optimizer_aux_var:
+                self.job.start_nodes_training_round(
+                    1, {}, {}, do_training=False, optim_aux_var=fake_aux_var
+                )
+                patch_upload_agg_optimizer_aux_var.assert_not_called()
+
+    def test_job_13_update_parameters_with_invalid_arguments(self):
+        """Testing update_parameters method with invalid arguments."""
         # Reset calls that comes from init time
         self.mock_upload_file.reset_mock()
         params = {'params': [1, 2, 3, 4]}
@@ -456,7 +520,7 @@ class TestJob(ResearcherTestCase):
         with self.assertRaises(SystemExit):
             self.job.update_parameters()
 
-    def test_job_13_update_parameters_from_params(self):
+    def test_job_14_update_parameters_from_params(self):
         """Testing update_parameters when passing 'params'."""
         params = {'params': [1, 2, 3, 4]}
         with (
@@ -472,7 +536,7 @@ class TestJob(ResearcherTestCase):
             self.job._model_params_file,
         )
 
-    def test_job_14_update_parameters_from_file(self):
+    def test_job_15_update_parameters_from_file(self):
         """Testing update_parameters when passing 'filename'."""
         params = {"params": [1, 2, 3, 4]}
         with (
@@ -484,7 +548,108 @@ class TestJob(ResearcherTestCase):
         self.model.set_model_params.assert_called_once_with(params)
         self.assertEqual((self.job._model_params_file, self.job.repo.uploads_url) , result)
 
-    def test_job_16_save_private_training_replies(self):
+    @patch('uuid.uuid4', autospec=True)
+    @patch('fedbiomed.common.serializer.Serializer.dump', autospec=True)
+    def test_job_16_upload_agg_optimizer_aux_var(
+        self,
+        patch_serializer_dump,
+        patch_uuid,
+    ):
+        """Test 'upload_agg_optimizer_aux_var' with both shared and node-specific info."""
+        # Set up: two target nodes; aux vars with shared and node-specific info.
+        self.job.nodes = ["node-1", "node-2"]
+        setattr(self.job, "_keep_files_dir", "dir")  # simplify dump paths
+        aux_var = {
+            "module_a": {"key": "val"},
+            "module_b": {f"node-{i + 1}": {"key": "val"} for i in range(3)},
+        }
+        patch_uuid.return_value = "uuid"
+        self.mock_upload_file.reset_mock()  # resetting fedbiomed.common.repository.Repository.upload_file patcher
+        self.mock_upload_file.return_value = {"file": 'url'}
+
+        # Call the tested method.
+        url_shared, url_bynode = self.job.upload_agg_optimizer_aux_var(aux_var)
+        # Verify that results and mock calls match expectations.
+        self.assertEqual(url_shared, "url")
+        self.assertDictEqual(url_bynode, {"node-1": "url", "node-2": "url"})
+        patch_serializer_dump.assert_has_calls([
+            call({"module_a": {"key": "val"}}, "dir/aux_var_shared_uuid.mpk"),
+            call({"module_b": {"key": "val"}}, "dir/aux_var_node_node-1_uuid.mpk"),
+            call({"module_b": {"key": "val"}}, "dir/aux_var_node_node-2_uuid.mpk"),
+        ], any_order=True)
+        self.mock_upload_file.assert_has_calls([
+            call("dir/aux_var_shared_uuid.mpk"),
+            call("dir/aux_var_node_node-1_uuid.mpk"),
+            call("dir/aux_var_node_node-2_uuid.mpk"),
+        ], any_order=True)
+
+    @patch('uuid.uuid4', autospec=True)
+    @patch('fedbiomed.common.serializer.Serializer.dump', autospec=True)
+    def test_job_17_upload_agg_optimizer_aux_var_shared_only(
+        self,
+        patch_serializer_dump,
+        patch_uuid,
+    ):
+        """Test 'upload_agg_optimizer_aux_var' with shared info only."""
+        # Set up: two target nodes; aux vars with shared and node-specific info.
+        self.job.nodes = ["node-1", "node-2"]
+        setattr(self.job, "_keep_files_dir", "dir")  # simplify dump paths
+        aux_var = {
+            "module_a": {"key": "val"},
+            "module_b": {"key": "val"},
+        }
+        fake_url = "url"
+
+        patch_uuid.return_value = "uuid"
+
+        self.mock_upload_file.reset_mock()  # resetting fedbiomed.common.repository.Repository.upload_file patcher
+        self.mock_upload_file.return_value = {"file": fake_url}
+
+        expected_file_path = "dir/aux_var_shared_uuid.mpk"
+        # Call the tested method.
+        url_shared, url_bynode = self.job.upload_agg_optimizer_aux_var(aux_var)
+        # Verify that results and mock calls match expectations.
+        self.assertEqual(url_shared, fake_url)
+        self.assertDictEqual(url_bynode, {})
+        patch_serializer_dump.assert_called_once_with(
+            aux_var, expected_file_path
+        )
+        self.mock_upload_file.assert_called_once_with(expected_file_path)
+
+    @patch('uuid.uuid4', autospec=True)
+    @patch('fedbiomed.common.serializer.Serializer.dump', autospec=True)
+    def test_job_18_upload_agg_optimizer_aux_var_bynode_only(
+        self,
+        patch_serializer_dump,
+        patch_uuid,
+    ):
+        """Test 'upload_agg_optimizer_aux_var' with node-specific info only."""
+        # Set up: two target nodes; aux vars with shared and node-specific info.
+        self.job.nodes = ["node-1", "node-2"]
+        setattr(self.job, "_keep_files_dir", "dir")  # simplify dump paths
+        aux_var = {
+            "module_a": {f"node-{i + 1}": {"key": "val"} for i in range(2)},
+            "module_b": {f"node-{i + 1}": {"key": "val"} for i in range(2)},
+        }
+        patch_uuid.return_value = "uuid"
+        self.mock_upload_file.reset_mock()
+        self.mock_upload_file.return_value = {"file": "url"}
+        # Call the tested method.
+        url_shared, url_bynode = self.job.upload_agg_optimizer_aux_var(aux_var)
+        # Verify that results and mock calls match expectations.
+        self.assertIsNone(url_shared)
+        self.assertDictEqual(url_bynode, {"node-1": "url", "node-2": "url"})
+        aux_var_node = {"module_a": {"key": "val"}, "module_b": {"key": "val"}}
+        patch_serializer_dump.assert_has_calls([
+            call(aux_var_node, "dir/aux_var_node_node-1_uuid.mpk"),
+            call(aux_var_node, "dir/aux_var_node_node-2_uuid.mpk"),
+        ], any_order=True)
+        self.mock_upload_file.assert_has_calls([
+            call("dir/aux_var_node_node-1_uuid.mpk"),
+            call("dir/aux_var_node_node-2_uuid.mpk"),
+        ], any_order=True)
+
+    def test_job_20_save_private_training_replies(self):
         """
         tests if `_save_training_replies` is properly extracting
         breakpoint info from `training_replies`. It uses a dummy class
@@ -498,11 +663,13 @@ class TestJob(ResearcherTestCase):
                 [
                     {
                         "node_id": '1234',
+                        'state_id': '1234',
                         'params': torch.Tensor([1, 3, 5]),
                         'dataset_id': 'id_node_1'
                     },
                     {
                         "node_id": '5678',
+                        'state_id': '5678',
                         'params': np.array([1, 3, 5]),
                         'dataset_id': 'id_node_2'
                     },
@@ -520,7 +687,7 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.responses.Responses.__getitem__')
     @patch('fedbiomed.researcher.responses.Responses.__init__')
-    def test_job_17_private_load_training_replies(
+    def test_job_21_private_load_training_replies(
             self,
             patch_responses_init,
             patch_responses_getitem
@@ -538,8 +705,8 @@ class TestJob(ResearcherTestCase):
             "model_weights": np.array([[1, 2, 3, 4, 5], [2, 8, 7, 5, 5]])
         }
         # mock FederatedDataSet
-        fds = MagicMock()
-        fds.data = MagicMock(return_value={})
+        fds = MagicMock(spec=FederatedDataSet)
+        fds.data = MagicMock(spec=dict, return_value={})
 
         # mock Responses
         #
@@ -559,7 +726,7 @@ class TestJob(ResearcherTestCase):
         # instantiate job with a mock training plan
         test_job_torch = Job(
             training_plan_class=MagicMock(),
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=fds
         )
         # second create a `training_replies` variable
@@ -569,6 +736,7 @@ class TestJob(ResearcherTestCase):
                  "msg": "",
                  "dataset_id": "dataset_1234",
                  "node_id": "node_1234",
+                 "state_id": "state_1234",
                  "params_path": "/path/to/file/param.mpk",
                  "timing": {"time": 0}
                  },
@@ -576,6 +744,7 @@ class TestJob(ResearcherTestCase):
                  "msg": "",
                  "dataset_id": "dataset_4567",
                  "node_id": "node_4567",
+                 "state_id": "state_4567",
                  "params_path": "/path/to/file/param2.mpk",
                  "timing": {"time": 0}
                  }
@@ -623,6 +792,7 @@ class TestJob(ResearcherTestCase):
                  "msg": "",
                  "dataset_id": "dataset_8888",
                  "node_id": "node_8888",
+                 "state_id": "state_8888",
                  "params_path": "/path/to/file/param2_sklearn.mpk",
                  "timing": {"time": 6}
                  }
@@ -632,7 +802,7 @@ class TestJob(ResearcherTestCase):
         # instantiate job
         test_job_sklearn = Job(
             training_plan_class=MagicMock(),
-            training_args=TrainingArgs({"batch_size": 12}, only_required=False),
+            training_args=training_args_for_testing,
             data=fds
         )
 
@@ -665,20 +835,27 @@ class TestJob(ResearcherTestCase):
 
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
-    def test_job_18_load_state(
+    def test_job_22_load_state_breakpoint(
             self,
             patch_job_update_parameters,
             patch_job_load_training_replies
     ):
         """
-        test if the job state values correctly initialize job
+        test if the job state values correctly initialize job (from breakpoints)
         """
-
+        node_states = {
+            'collection_state_ids': {'node_id_xxx': 'state_id_xxx', 'node_id_xyx': 'state_id_xyx'},
+        }
+        
+        # modifying FederatedDataset mock 
+        self.fds.data.return_value = node_states
+        self.job.nodes = node_states
         job_state = {
             'researcher_id': 'my_researcher_id_123456789',
             'job_id': 'my_job_id_abcdefghij',
             'model_params_path': '/path/to/my/model_file.py',
-            'training_replies': {0: 'un', 1: 'deux'}
+            'training_replies': {0: 'un', 1: 'deux'},
+            'node_state': node_states
         }
         new_training_replies = {2: 'trois', 3: 'quatre'}
 
@@ -689,16 +866,17 @@ class TestJob(ResearcherTestCase):
         patch_job_load_training_replies.return_value = new_training_replies
 
         # action
-        self.job.load_state(job_state)
+        self.job.load_state_breakpoint(job_state)
 
         self.assertEqual(self.job._researcher_id, job_state['researcher_id'])
         self.assertEqual(self.job._id, job_state['job_id'])
         self.assertEqual(self.job._training_replies, new_training_replies)
+        self.assertDictEqual(self.job._node_state_agent.get_last_node_states(), node_states['collection_state_ids'])
 
     @patch('fedbiomed.researcher.job.create_unique_link')
     @patch('fedbiomed.researcher.job.create_unique_file_link')
     @patch('fedbiomed.researcher.job.Job._save_training_replies')
-    def test_job_19_save_state(
+    def test_job_23_save_state_breakpoint(
             self,
             patch_job_save_training_replies,
             patch_create_unique_file_link,
@@ -707,6 +885,16 @@ class TestJob(ResearcherTestCase):
         """
         test that job breakpoint state structure + file links are created
         """
+        fds_content = {'node_id_xxx': MagicMock(), 'node_id_xyx': MagicMock()}
+        
+        # modifying FederatedDataset mock 
+        self.fds.data.return_value = fds_content
+        
+        test_job = Job(
+            training_plan_class=self.model,
+            training_args=training_args_for_testing,
+            data=self.fds
+        )
 
         new_training_replies = [
             [
@@ -742,19 +930,22 @@ class TestJob(ResearcherTestCase):
         breakpoint_path = 'xxx'
 
         # action
-        save_state = self.job.save_state(breakpoint_path)
-
-        self.assertEqual(environ['RESEARCHER_ID'], save_state['researcher_id'])
-        self.assertEqual(self.job._id, save_state['job_id'])
-        self.assertEqual(link_path, save_state['model_params_path'])
+        save_state_bkpt = test_job.save_state_breakpoint(breakpoint_path)
+        node_states = {k: None for k in fds_content}
+        self.assertEqual(environ['RESEARCHER_ID'], save_state_bkpt['researcher_id'])
+        self.assertEqual(test_job._id, save_state_bkpt['job_id'])
+        self.assertEqual(link_path, save_state_bkpt['model_params_path'])
+        self.assertDictEqual(node_states, save_state_bkpt['node_state']['collection_state_ids'])
         # check transformation of training replies
         for round_i, round in enumerate(new_training_replies):
             for response_i, _ in enumerate(round):
                 self.assertEqual(
-                    save_state['training_replies'][round_i][response_i]['params_path'],
+                    save_state_bkpt['training_replies'][round_i][response_i]['params_path'],
                     new_training_replies_state[round_i][response_i]['params_path'])
+                
+        # TODO: extend test with case when Job got replies form Nodes
 
-    def test_job_20_upload_aggregator_args(self):
+    def test_job_24_upload_aggregator_args(self):
         training_args_thr_msg = {'node-1': {'var1': 1, 'var2': [1, 2]},
                                  'node-2': {'var1': 1, 'var2': [1, 2]}}
         tensor = torch.Tensor([[1, 2, 4], [2, 3, 4]])
@@ -778,6 +969,163 @@ class TestJob(ResearcherTestCase):
                     filename = os.path.join(self.job._keep_files_dir, f"{var}_{FakeUuid.VALUE}.mpk")
                     self.assertEqual(t_a[node_id][var]['filename'], filename)
                     self.assertEqual(t_a[node_id][var]['url'], self.job.repo.uploads_url)
+
+    def test_job_25_extract_received_optimizer_aux_var_from_round(self):
+        """Test that 'extract_received_optimizer_aux_var_from_round' works well."""
+        # Set up: nodes sent back some Optimizer aux var information.
+        responses = Responses([])
+        responses.append(Responses({
+            "node_id": "node-1",
+            "optim_aux_var": {
+                "module_a": {"key": "a1"}, "module_b": {"key": "b1"}
+            },
+        }))
+        responses.append(Responses({
+            "node_id": "node-2",
+            "optim_aux_var": {
+                "module_a": {"key": "a2"}, "module_b": {"key": "b2"}
+            },
+        }))
+        getattr(self.job, "_training_replies")[1] = responses
+        # Call the method and verify that its output matches expectations.
+        aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
+        expected = {
+            "module_a": {"node-1": {"key": "a1"}, "node-2": {"key": "a2"}},
+            "module_b": {"node-1": {"key": "b1"}, "node-2": {"key": "b2"}},
+        }
+        self.assertDictEqual(aux_var, expected)
+
+    def test_job_26_extract_received_optimizer_aux_var_from_round_empty(self):
+        """Test 'extract_received_optimizer_aux_var_from_round' without aux var."""
+        # Set up: nodes did not send Optimizer aux var information.
+        responses = Responses([])
+        responses.append(Responses({"node_id": "node-1"}))
+        responses.append(Responses({"node_id": "node-2"}))
+        getattr(self.job, "_training_replies")[1] = responses
+        # Call the method and verify that it returns an empty dict.
+        aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
+        self.assertDictEqual(aux_var, {})
+
+    def test_job_27_name_error_bug_864(self):
+        class ShouldNotRaiseNameErrorTrainingPlan(BaseTrainingPlan):
+            def post_init(self, model_args=None, training_args=None, aggregator_args=None):
+                d = defaultdict()
+            def init_dependencies(self):
+                return ['from collections import defaultdict']
+            def model(self):
+                pass
+            def training_routine(self):
+                pass
+            def init_optimizer(self):
+                pass
+
+        self.patch_tp_load_from_file.stop()
+        j = Job(reqs=MagicMock(),
+                training_plan_class=ShouldNotRaiseNameErrorTrainingPlan,
+                training_plan_path=None,
+                training_args={},
+                model_args={},
+                data=None,
+                keep_files_dir='some/path')
+        self.patch_tp_load_from_file.start()
+
+    @patch('fedbiomed.researcher.job.create_unique_link')
+    @patch('fedbiomed.researcher.job.create_unique_file_link')
+    def test_job_28_update_node_state_agent(self,
+                                            patch_create_unique_file_link,
+                                            patch_create_unique_link):
+        # FIXME: this is more like an integration test rather than a unit test
+        # it should be defined in a specific class that contains all integration tests
+        # modifying fds of Job
+        
+        def set_training_replies_through_bkpt(job: Job, states: Dict):
+            """Sets Job's `training_replies` private attributethrough breakpoint API
+
+            Args:
+                job (Job): job object to be updated
+                states (Dict): job_state
+            """
+            with (patch('fedbiomed.researcher.job.Job.update_parameters') as update_param_patch,
+                  patch.object( Serializer, 'load') as serializer_patch):
+                serializer_patch = MagicMock(return_value={'model_weights': 1234})
+                job.load_state_breakpoint(states)
+
+        data = {
+            'node-1': [{'dataset_id': 'dataset-id-1',
+                        'shape': [100, 100]}],
+            'node-2': [{'dataset_id': 'dataset-id-2',
+                        'shape': [120, 120], 
+                        'test_ratio': .0}],
+            'node-3': [{'dataset_id': 'dataset-id-3',
+                        'shape': [120, 120], 
+                        'test_ratio': .0}],
+            'node-4': [{'dataset_id': 'dataset-id-4',
+                        'shape': [120, 120], 
+                        'test_ratio': .0}],
+        }
+        fds = FederatedDataSet(data)
+        
+        loaded_training_replies_torch = [
+            [
+                {"success": True,
+                 "msg": "",
+                 "dataset_id": "dataset_1234",
+                 "node_id": "node-3",
+                 "state_id": "state_1234",
+                 "params_path": "/path/to/file/param.mpk",
+                 "timing": {"time": 0}
+                 },
+                {"success": True,
+                 "msg": "",
+                 "dataset_id": "dataset_4567",
+                 "node_id": "node-4",
+                 "state_id": "state_4567",
+                 "params_path": "/path/to/file/param2.mpk",
+                 "timing": {"time": 0}
+                 }
+            ]
+        ]
+
+        test_job = Job(
+            training_plan_class=self.model,
+            training_args=training_args_for_testing,
+            data=fds
+        )
+        # do test while `before_training` = True
+        test_job._update_nodes_states_agent(before_training=True)
+        # action! collect Job state in order to retrieve state_ids
+
+        job_state = test_job.save_state_breakpoint("path/to/bkpt")
+        self.assertDictEqual({k: None for k in data.keys()}, job_state['node_state']['collection_state_ids'])
+
+        # case where `before_training` = False
+        #self.job.training_replies(loaded_training_replies_torch)
+
+        # we cannot access to `_training_replies` private attribute hence the saving/loading part
+        job_state.update({'training_replies': loaded_training_replies_torch})  
+
+        set_training_replies_through_bkpt(test_job, job_state)
+
+        # action! 
+        test_job._update_nodes_states_agent(before_training=False)
+
+        # retrieving NodeAgentState through Job state
+        job_state = test_job.save_state_breakpoint("path/to/bkpt/2")
+
+        extract_node_id_from_saving = lambda state: [k['node_id'] for k in state[-1]]
+        # check that NodeStateAgent have been updated accordingly
+        for node_id in extract_node_id_from_saving(loaded_training_replies_torch):
+            self.assertIn(node_id, list(job_state['node_state']['collection_state_ids']))
+
+        # finally we are testing that exception is raised if index cannot be extracted
+
+        loaded_training_replies = []
+        job_state.update({'training_replies': loaded_training_replies})  
+
+        set_training_replies_through_bkpt(test_job, job_state)
+
+        with self.assertRaises(FedbiomedNodeStateAgentError):
+            test_job._update_nodes_states_agent(before_training=False)
 
 
 if __name__ == '__main__':  # pragma: no cover

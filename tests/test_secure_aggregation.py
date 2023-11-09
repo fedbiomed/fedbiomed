@@ -199,14 +199,14 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
                                   encryption_factors={'node-1': [1], 'node-2': [1]}
                                   )
 
-    def test_secure_aggregation_09_save_state(self):
+    def test_secure_aggregation_09_save_state_breakpoint(self):
         # Configure for round
         self.secagg.setup(
             parties=[environ["ID"], "node-1", "node-2", "new_party"],
             job_id="exp-id-1",
         )
 
-        state = self.secagg.save_state()
+        state = self.secagg.save_state_breakpoint()
 
         self.assertEqual(state["class"], "SecureAggregation")
         self.assertEqual(state["module"], "fedbiomed.researcher.secagg._secure_aggregation")
@@ -215,7 +215,7 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
 
         pass
 
-    def test_secure_aggregation_10_load_state(self):
+    def test_secure_aggregation_10_load_state_breakpoint(self):
         job_id = "exp-id-1"
         parties = [environ["ID"], "node-1", "node-2", "new_party"]
 
@@ -228,10 +228,10 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         biprime_id = self.secagg.biprime.secagg_id
         servkey_id = self.secagg.servkey.secagg_id
 
-        state = self.secagg.save_state()
+        state = self.secagg.save_state_breakpoint()
 
         # Load from state
-        secagg = SecureAggregation.load_state(state)
+        secagg = SecureAggregation.load_state_breakpoint(state)
 
         self.assertEqual(secagg.biprime.secagg_id, biprime_id)
         self.assertEqual(secagg.servkey.secagg_id, servkey_id)

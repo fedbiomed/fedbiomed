@@ -540,7 +540,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
                 "class TestClass:\n" + \
                 "   def __init__(self, **kwargs):\n" + \
                 "       self._kwargs = kwargs\n" + \
-                "   def load_state(self, state :str):\n" + \
+                "   def load_state_breakpoint(self, state :str):\n" + \
                 "       self._state = state\n"
             with open(file, 'w') as f:
                 f.write(code_source)
@@ -1404,7 +1404,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         # test
         training_plan_before = self.tp_security_manager.get_training_plan_from_database(training_plan_file)
-
+    
         self.tp_security_manager.reply_training_plan_approval_request(msg, messaging)
 
         training_plan_after = self.tp_security_manager.get_training_plan_from_database(training_plan_file)

@@ -1,11 +1,10 @@
-## unit tests
+## Unit tests
 
-### material
+### Material
 
-tests are run with [nosetests](https://nose.readthedocs.io/en/latest/testing.html), which uses unittests as test framework.
-nosetests provide additional features:
-- more assert capabilities
-- coverage report, which provides output integrated on our Continous Integration platform
+Tests are run with [pytest](https://pytest.org) using `unittests` as test framework (no specific extension).
+We use pytest for these additional features:
+- coverage report, which provides output integrated with `codecov`
 
 
 ### how to run the tests
@@ -26,7 +25,7 @@ python -m unittest -v
 or
 ```
 cd tests
-nosetests -v
+pytest -v
 ```
 
 Because of the code structure (environ singleton), the tests **must** run
@@ -43,14 +42,14 @@ or
 
 ```
 cd tests
-nosetests --tests=test_XXX.py
+pytest ./test_XXX.py
 ```
 
 * run a specific single test. You must specify all the path to this specific test (test\_file.py:TesctClass.specific\_test\_to_run). Eg:
 
 ```
 cd tests
-nosetests test_message.py:TestMessage.test_dummy_message
+pytest test_requests.py::TestRequests::test_request_01_constructor
 ```
 
 Remarks: **nose** could also be used to run the test (same test files as with
@@ -86,7 +85,7 @@ add extra methods to this object
   - testing the raise of Exceptions
   - testing the log generation
 
-### doc on unittest
+### Doc on unittest
 
 https://docs.python.org/3/library/unittest.html
 
@@ -96,7 +95,7 @@ If you want to check the test coverage, you should use:
 
 ```
 cd tests
-nosetests --cover-xml --cover-erase --with-coverage --cover-package=fedbiomed
+pytest -v --cov=fedbiomed --cov-report term --cov-report xml:coverage.xml
 coverage html
 ```
 
@@ -266,26 +265,26 @@ if __name__ == '__main__':  # pragma: no cover
 you can run the test with the simple ```python ./test_file.py``` command.
 
 
-#### report all files in code coverage
+#### Report all files in code coverage
 
-The **test\_insert\_untested\_python\_files\_here.py** file contains all files of the fedbiomed package.
-Its purpose is to provide a code coverage report for all files of fedbiomed library, even if not proper
+The **test\_insert\_untested\_python\_files\_here.py** file contains all files of the Fed-BioMed package.
+Its purpose is to provide a code coverage report for all files of Fed-BioMed library, even if not proper
 unit test is provided for the file.
 
 Of course, this is a temporary situation, waiting for all files to be tested properly.
 
 
-## running an integration test
+## Running an end-to-end test
 
 ### global explanation
 
-We provide the script **scripts/run_integration_test** to ease the launching of
-tests during the developement process.
+We provide the script **scripts/run_end_to_end_test** to ease the launching of
+tests during the development process.
 
 The script usage is:
 
 ```
-Usage: run_integration_test -s file -d dataset.json
+Usage: run_end_to_end_test -s file -d dataset.json
 
   -h, --help                  this help
   -s, --script  <file>        script to run (.py or .ipynb)
@@ -329,7 +328,7 @@ We provide some example datasets in **tests/datasets**, you may need to adjust t
 #### MNIST tutorial
 
 ```
-$ ./scripts/run_integration_test -s ./notebooks/101_getting-started.py \
+$ ./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
                                  -d ./tests/datasets/mnist.json
 ```
 
@@ -339,7 +338,7 @@ This will run the first tutorial of Fed-BioMed with one calculation node.
 #### monai notebook tutorial with 3 nodes
 
 ```
-$ ./scripts/run_integration_test \
+$ ./scripts/run_end_to_end_test \
    -s ./notebooks/monai-2d-image-classification.ipynb \
    -d ./tests/datasets/mednist_part_1.json \
    -d ./tests/datasets/mednist_part_2.json \
@@ -357,7 +356,7 @@ You may launch this tutorial in a jupyter notebook for more informations.
 First, create the c1.csv. c2.csv, c3.csv files as described in the notebook, then:
 
 ```
-../scripts/run_integration_test \
+../scripts/run_end_to_end_test \
   -s ../notebooks/sklearn-perceptron.ipynb \
   -d ./datasets/sklearn_perceptron_1.json \
   -d datasets/sklearn_perceptron_2.json \

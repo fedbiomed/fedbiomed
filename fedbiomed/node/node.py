@@ -5,8 +5,9 @@
 Core code of the node component.
 '''
 from json import decoder
-
 from typing import Optional, Union
+
+import validators
 
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
@@ -22,8 +23,6 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-
-import validators
 
 
 class Node:
@@ -233,7 +232,7 @@ class Node:
             msg: `TrainRequest` message object to parse
 
         Returns:
-            a `Round` object for the training to perform, or None if no training 
+            a `Round` object for the training to perform, or None if no training
         """
         round = None
         # msg becomes a TrainRequest object
@@ -241,6 +240,8 @@ class Node:
                                       researcher_id=msg.get_param('researcher_id'),
                                       client=self.messaging)
         # Get arguments for the model and training
+        # NOTE: `get_param` has no real use save for monkey patching in unit tests
+        # (in real life, if the parameter is missing, an exception will be raised)
         model_kwargs = msg.get_param('model_args') or {}
         training_kwargs = msg.get_param('training_args') or {}
         training_status = msg.get_param('training') or False
@@ -248,9 +249,11 @@ class Node:
         training_plan_class = msg.get_param('training_plan_class')
         params_url = msg.get_param('params_url')
         job_id = msg.get_param('job_id')
+        state_id = msg.get_param('state_id')
         researcher_id = msg.get_param('researcher_id')
         aggregator_args = msg.get_param('aggregator_args') or None
         round_number = msg.get_param('round') or 0
+        aux_var_urls = msg.get_param('aux_var_urls') or None
 
         assert training_plan_url is not None, 'URL for training plan on repository not found.'
         assert validators.url(
@@ -280,6 +283,7 @@ class Node:
                  'extra_msg': "Did not found proper data in local datasets"}
             ).get_dict())
         else:
+
             dlp_and_loading_block_metadata = None
             if 'dlp_id' in data:
                 dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
@@ -297,9 +301,21 @@ class Node:
                 aggregator_args,
                 self.node_args,
                 round_number=round_number,
-                dlp_and_loading_block_metadata=dlp_and_loading_block_metadata
+                dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
+                aux_var_urls=aux_var_urls,
             )
 
+            # the round raises an error if it cannot initialize
+            err_msg = round.initialize_arguments(state_id)
+            if err_msg is not None:
+                self.messaging.send_message(
+                    NodeMessages.format_outgoing_message(
+                        {   'command': 'error',
+                            'node_id': environ['ID'],
+                            'errnum': ErrorNumbers.FB300,
+                            'researcher_id': researcher_id,
+                            'extra_msg': err_msg.get('msg')}
+                    ).get_dict())
         return round
 
     def task_manager(self):
@@ -359,7 +375,7 @@ class Node:
                                 }
                             ).get_dict()
                         )
-                        logger.debug(f"{ErrorNumbers.FB300}: {e}")
+                        logger.debug(f"{ErrorNumbers.FB300.value}: {e}")
                 elif command == 'secagg':
                     self._task_secagg(item)
                 else:

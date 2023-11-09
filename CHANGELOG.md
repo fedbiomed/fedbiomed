@@ -1,6 +1,16 @@
 # Fed-BioMed changelog
 
 
+## 2023-11-09 version 4.5.0
+
+- improve import interface for DecLearn optimizers
+- improve training plan dependencies import on researcher side
+- fix error when using global model node side testing due to node state bug
+- fix node GUI dependencies
+- fix `configure_conda` failing silently
+- fix misc issues in documentation and notebooks
+- fix web site download link for tutorial notebooks
+
 ## 2023-09-18 version 4.4.4
 
 - fix failure due to erroneous researcher side data quality checks: remove currently useless data quality checks
@@ -44,7 +54,7 @@
 
 ## 2023-02-08 version 4.2
 
-- add support for docker-compose v.2 file syntax
+- add support for `docker compose` v.2 file syntax
 - fix model weights computation occurring during aggregation, by sending dataset sample size from node to researcher
 - fix GUI regression failure, after merging MP-SPDZ certificate generation - such issue was freezing some web browsers
 - fix incoherent tag handling: make explicit the way datasets are tagged on nodes

@@ -18,12 +18,16 @@ detected.
 | 0   | Default version assigned prior to the introduction of versioning         |
 | 1   | Introduce default/version field tracking the version of this config file |
 
-### Node
+### Node config file
 
 | Version | Changelog                                                                |
 |-----|--------------------------------------------------------------------------|
 | 0   | Default version assigned prior to the introduction of versioning         |
 | 1   | Introduce default/version field tracking the version of this config file |
+
+### Node state
+
+Node state enable the saving of `Optimizer` and other components.
 
 ## Breakpoints
 

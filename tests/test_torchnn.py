@@ -68,15 +68,20 @@ class TestTorchnn(unittest.TestCase):
     optimizer = NativeTorchOptimizer(model, Adam([torch.zeros([2, 4])]))
 
     class FakeTrainingArgs(dict):
+        def __init__(self):
+            self['random_seed'] = 42
 
         def pure_training_arguments(self):
-            return {"dry_run": True, "epochs": 1, "batch_size": 10, "log_interval": 10}
+            return {"dry_run": True, "epochs": 1, "log_interval": 10}
 
         def optimizer_arguments(self):
             return {"lr": 0.0001}
 
         def dp_arguments(self):
             return None
+
+        def loader_arguments(self):
+            return {'batch_size': 10}
 
     class CustomDataset(Dataset):
         """ Create PyTorch Dataset for test purposes """
@@ -152,7 +157,7 @@ class TestTorchnn(unittest.TestCase):
         self.assertTrue(os.path.isfile(file))
         os.remove(file)
 
-    @patch("fedbiomed.common.training_plans.TorchTrainingPlan._configure_dependencies")
+    @patch("fedbiomed.common.training_plans.TorchTrainingPlan.configure_dependencies")
     @patch("fedbiomed.common.training_plans.TorchTrainingPlan._configure_model_and_optimizer")
     def test_torch_training_plan_02_post_init(self, conf_optimizer_model, conf_deps):
 
@@ -178,7 +183,7 @@ class TestTorchnn(unittest.TestCase):
         # Test default init dependencies
         tp = TorchTrainingPlan()
         add_dependency.reset_mock()
-        tp._configure_dependencies()
+        tp.configure_dependencies()
         add_dependency.assert_called_once()
 
         # Wrong 1 -----------------------------------------------------------------
@@ -188,7 +193,7 @@ class TestTorchnn(unittest.TestCase):
 
         tp = FakeWrongTP()
         with self.assertRaises(FedbiomedTrainingPlanError):
-            tp._configure_dependencies()
+            tp.configure_dependencies()
 
         # Wrong 2 -----------------------------------------------------------------
         class FakeWrongTP(BaseFakeTrainingPlan):
@@ -197,7 +202,7 @@ class TestTorchnn(unittest.TestCase):
 
         tp = FakeWrongTP()
         with self.assertRaises(FedbiomedTrainingPlanError):
-            tp._configure_dependencies()
+            tp.configure_dependencies()
 
     def test_torch_training_plan_04_configure_model_and_optimizer_1(self):
         """Tests method for configuring model and optimizer """
@@ -513,12 +518,12 @@ class TestTorchnn(unittest.TestCase):
         mock_dataset = MagicMock(spec=Dataset)
 
         tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=batch_size)
-        tp._training_args = {'batch_size': batch_size,
-                             'optimizer_args': {},
+        tp._training_args = {'optimizer_args': {},
                              'epochs': 1,
                              'log_interval': 1,
                              'batch_maxnum': None,
                              'num_updates': None}
+        tp._loader_args = {'batch_size': batch_size,}
         mocked_loss_result = MagicMock(spec=torch.Tensor, return_value=torch.Tensor([0.]))
         mocked_loss_result.item.return_value = 0.
         tp.training_step = lambda x, y: mocked_loss_result
@@ -584,12 +589,12 @@ class TestTorchnn(unittest.TestCase):
             tp.training_data_loader.__iter__.return_value = list(itertools.repeat(
                 (MagicMock(spec=torch.Tensor), MagicMock(spec=torch.Tensor)), num_batches_per_epoch))
             tp.training_data_loader.__len__.return_value = num_batches_per_epoch
-            tp._training_args = {'batch_size': batch_size,
-                                 'batch_maxnum': None,
+            tp._training_args = {'batch_maxnum': None,
                                  'num_updates': num_updates,
                                  'log_interval': 10,
                                  'dry_run': False,
                                  'epochs': None}
+            tp._loader_args = {'batch_size': batch_size}
             return tp
 
         # Case where we do 1 single epoch with 1 batch
@@ -683,13 +688,13 @@ class TestTorchnn(unittest.TestCase):
             optim = torch.optim.Adam(model.parameters(), **tp._optimizer_args)
             tp._optimizer = NativeTorchOptimizer(tp._model, optim)
             tp._dp_controller = FakeDPController()
-            tp._training_args = {'batch_size': batch_size,
-                                 'optimizer_args': tp._optimizer_args,
+            tp._training_args = {'optimizer_args': tp._optimizer_args,
                                  'epochs': 1,
                                  'log_interval': 10,
                                  'batch_maxnum': None,
                                  'dry_run': False,
                                  'num_updates': None}
+            tp._loader_args = {'batch_size': batch_size,}
             return tp
 
         model = torch.nn.Linear(3, 1)
@@ -874,8 +879,9 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = MagicMock(spec=TorchModel)
         tp._optimizer = MagicMock(spec=NativeTorchOptimizer)
-        tp._training_args = {'batch_size': batch_size, 'epochs': None, 'batch_maxnum': None,
+        tp._training_args = {'epochs': None, 'batch_maxnum': None,
                              'num_updates': 1, 'log_interval': 100, 'dry_run': False}
+        tp._loader_args = {'batch_size': batch_size}
 
         tp.training_data_loader = MagicMock(spec=DataLoader(MagicMock(spec=Dataset)), batch_size=2, dataset=[1, 2])
         gen_load_data_as_tuples = TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
@@ -899,8 +905,9 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp = TorchTrainingPlan()
         tp._model = MagicMock(spec=TorchModel)
         tp._optimizer = MagicMock(spec=NativeTorchOptimizer)
-        tp._training_args = {'batch_size': batch_size, 'epochs': None, 'batch_maxnum': None,
+        tp._training_args = {'epochs': None, 'batch_maxnum': None,
                              'num_updates': 1, 'log_interval': 100, 'dry_run': False}
+        tp._loader_args = {'batch_size': batch_size}
 
         mock_dataset = MagicMock(spec=Dataset())
         tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=3)
@@ -926,8 +933,9 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         #tp._model = TorchModel(torch.nn.Module())
         tp._optimizer = MagicMock(spec=NativeTorchOptimizer)
         tp._model = MagicMock(spec=TorchModel)
-        tp._training_args = {'batch_size': batch_size, 'epochs': None, 'batch_maxnum': None,
+        tp._training_args = {'epochs': None, 'batch_maxnum': None,
                              'num_updates': 1, 'log_interval': 100, 'dry_run': False}
+        tp._loader_args = {'batch_size': batch_size}
 
         # Set training data loader
         mock_dataset = MagicMock(spec=Dataset())

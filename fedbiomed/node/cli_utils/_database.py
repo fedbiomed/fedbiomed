@@ -219,18 +219,17 @@ def delete_database(interactive: bool = True):
                 opt_idx = int(input(msg)) - 1
                 assert opt_idx in range(len(my_data))
 
-                tags = my_data[opt_idx]['tags']
+                d_id = my_data[opt_idx]['dataset_id']
             else:
-                tags = ''
                 for ds in my_data:
                     if ds['name'] == 'MNIST':
-                        tags = ds['tags']
+                        d_id = ds['dataset_id']
                         break
 
-            if not tags:
+            if not d_id:
                 logger.warning('No matching dataset to delete')
                 return
-            dataset_manager.remove_database(tags)
+            dataset_manager.remove_database(d_id)
             logger.info('Dataset removed. Here your available datasets')
             dataset_manager.list_my_data()
             return
@@ -250,8 +249,8 @@ def delete_all_database():
         return
 
     for ds in my_data:
-        tags = ds['tags']
-        dataset_manager.remove_database(tags)
-        logger.info('Dataset removed for tags:' + str(tags))
+        d_id = ds['dataset_id']
+        dataset_manager.remove_database(d_id)
+        logger.info('Dataset removed for dataset_id:' + str(d_id))
 
     return

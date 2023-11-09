@@ -1,6 +1,6 @@
 # Definition of Done for Fed-BioMed
 
-v1.1 - 2023-05-31
+v1.2 - 2023-10-16
 
 
 The Definition of Done is a set of items that must be completed and quality measures that must be met, before a task or a user story can be considered complete. The DoD gives the team a shared understanding of the work that was completed. 
@@ -13,7 +13,7 @@ The Definition of Done is a set of items that must be completed and quality meas
 
 ## Review of the code 
 
-The reviewer can question any aspect of the increment in coherence with [Usage and Tools](./usage_and_tools.md#merge-request), exchange with the developer (good practice : leave a gitlab trace of the exchanges), approve it or not.
+The reviewer can question any aspect of the increment in coherence with [Usage and Tools](./usage_and_tools.md#merge-request), exchange with the developer (good practice : leave a github trace of the exchanges), approve it or not.
 
 - Be specific in the pull request about what to review (critical code or properties of the code).
 - Coding style: inspire from PEP-8.
@@ -35,8 +35,11 @@ The reviewer can question any aspect of the increment in coherence with [Usage a
 
 ## Write unit-test for the code
 
-- Be clever : put reasonable effort on writing tests. Current target of unit tests is to reach 100% coverage of code, with reasonably clever functional coverage.
+- Focus on pure unit tests, no integration tests for now.
+- Be clever : put reasonable effort on writing tests. Current target of unit tests is to reach 100% coverage of code, with reasonably clever functional coverage. When tests are too complicated to write, don't write them (until we consider code is mature enough to have hgher tests requirements).
 - Add unit test when correcting a bug.
+
+Please refer to [the guide of unit testing practices](./testing-in-fedbiomed.md) before starting to write or to modify the unit tests in Fed-BioMed. 
 
 ## Post-merge actions
 

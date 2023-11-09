@@ -143,6 +143,7 @@ class FedbiomedOptimizerError(FedbiomedError):
     Exception raised when an error is encountered within `Optimizer` code.
     """
 
+
 class FedbiomedTrainingPlanSecurityManagerError(FedbiomedError):
     """
     Exception specific to the TrainingPlanSecurityManager.
@@ -294,4 +295,16 @@ class FedbiomedSecureAggregationError(FedbiomedError):
 class FedbiomedVersionError(FedbiomedError):
     """
     Error in the versions of one of Fed-BioMed's components
+    """
+
+
+class FedbiomedNodeStateManagerError(FedbiomedError):
+    """
+    Error in Node State Manager
+    """
+
+
+class FedbiomedNodeStateAgentError(FedbiomedError):
+    """
+    Error in Node State Agent 
     """

@@ -13,10 +13,13 @@ each node training the same model. The number of samples, the quality of the sam
 In Fed-BioMed, we currently work on providing various solutions for this heterogeneity. Up to now, we support 
 [`FedAverage`](https://arxiv.org/abs/1602.05629) which performs the standard aggregation scheme in federated learning: federated averaging. We also provide [`FedProx`](https://arxiv.org/abs/1812.06127) and [`SCAFFOLD`](https://arxiv.org/pdf/2207.06343.pdf) aggregation methods.
 
-
+!!! warning "Important"
+    The following `Aggregators` can also be used with `declearn Optimizers`, providing advanced gradient-based optimization modules.
+    These `Optimizers` are cross-framework, meaning it is possible to use it with all machine learning framework provided by Fed-BioMed. Please visit the webpage dedicated to [*advanced optimization*](../../advanced-optimization).
+ 
 ## Fed-BioMed `Aggregators`:
 
-Fed-BioMed `Aggregators` are showcased in the following [tutorial](../../tutorials/pytorch/05-aggregation-in-fed-biomed.ipynb). 
+Fed-BioMed `Aggregators` are showcased in the following [tutorial](../tutorials/pytorch/05-aggregation-in-fed-biomed). 
 
 ### Federated Averaging (FedAveraging)
 
@@ -70,8 +73,9 @@ Additional parameters are needed when working with `SCAFFOLD`:
 Please note that:
 
  - `SCAFFOLD` should be used only with `SGD` optimizer. Using other `Optimizers` in Fed-BioMed is possible, but without any convergence guarantees.
- - `SCAFFOLD` can only be used with the `PyTorch` framework at the moment.
+ - `SCAFFOLD` can only be used with the `PyTorch` framework at the moment, and correction terms are not encrypted when exchanged (even when using SecAgg).
  - `SCAFFOLD` **requires** using the `num_updates` training argument to control the number of [training iterations](./experiment.md#controlling-the-number-of-training-loop-iterations). Using only `epochs` will raise an error.
+ - `SCAFFOLD` also exists as an `declearn` cross framework optimizer. Using `SCAFFOLD` implementation in `declearn` enables the use of other machine learning frameworks such as `scikit-learn`.
 
 
 ## How to Create Your Custom Aggregator

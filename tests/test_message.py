@@ -412,6 +412,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job',
+            state_id='state_id_1234',
             success=True,
             node_id='titi',
             dataset_id='my_data',
@@ -1385,6 +1386,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             job_id='job_number',
+            state_id='state_id_1234',
             params_url='this_is_an_url',
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
@@ -1398,7 +1400,9 @@ class TestMessage(unittest.TestCase):
             secagg_clipping_range=None,
             round=1,
             command='do_it',
-            aggregator_args={'aggregator_name': 'fedavg'})
+            aggregator_args={'aggregator_name': 'fedavg'},
+            aux_var_urls=None,
+        )
 
         # bad param number
         self.check_class_args(
@@ -1756,6 +1760,7 @@ class TestMessage(unittest.TestCase):
             "protocol_version": '99.99',
             "researcher_id": 'toto',
             "job_id": 'job',
+            "state_id": None,
             "success": True,
             "node_id": 'titi',
             "dataset_id": 'my_data',
@@ -1763,7 +1768,8 @@ class TestMessage(unittest.TestCase):
             "timing": {"t0": 0.0, "t1": 1.0},
             "msg": 'message_in_a_bottle',
             "sample_size": 100,
-            "command": 'train'}
+            "command": 'train'
+        }
 
         r = message.ResearcherMessages.format_incoming_message(params)
         self.assertIsInstance(r, message.TrainReply)
@@ -1775,6 +1781,7 @@ class TestMessage(unittest.TestCase):
             "protocol_version": '99.99',
             "researcher_id": 'toto',
             "job_id": 'job',
+            "state_id": 'state_id_1234',
             "params_url": "https://dev.null",
             "training_args": {},
             "dataset_id": 'my_dataset',
@@ -1788,7 +1795,9 @@ class TestMessage(unittest.TestCase):
             "training_plan_url": "https://dev.null",
             "training_plan_class": "my_model",
             "aggregator_args": {},
-            "command": 'train'}
+            "aux_var_urls": ["https://dev.null", "https://dev.null"],
+            "command": 'train'
+        }
 
         r = message.ResearcherMessages.format_outgoing_message(params)
         self.assertIsInstance(r, message.TrainRequest)
