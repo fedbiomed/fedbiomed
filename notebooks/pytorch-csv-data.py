@@ -92,7 +92,7 @@ model_args = {
 
 # training parameters 
 training_args = {
-    'batch_size': 20, 
+    'loader_args': { 'batch_size': 20, },
     'optimizer_args': {
         'lr': 1e-3
     }, 
