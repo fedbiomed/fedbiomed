@@ -18,8 +18,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import validators
 
-from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.exceptions import FedbiomedRepositoryError, FedbiomedDataQualityCheckError
+from fedbiomed.common.constants import TrainingPlanApprovalStatus, JOB_PREFIX, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError, FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.repository import Repository
 from fedbiomed.common.serializer import Serializer
@@ -29,6 +29,7 @@ from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
+from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.responses import Responses
 
@@ -45,7 +46,6 @@ class Job:
 
     def __init__(self,
                  reqs: Requests = None,
-                 nodes: dict = None,
                  training_plan_class: Union[Type[Callable], str] = None,
                  training_plan_path: str = None,
                  training_args: TrainingArgs = None,
@@ -57,7 +57,6 @@ class Job:
 
         Args:
             reqs: Researcher's requests assigned to nodes. Defaults to None.
-            nodes: A dict of node_id containing the nodes used for training
             training_plan_class: instance or class of the TrainingPlan.
             training_plan_path: Path to file containing model class code
             training_args: Contains training parameters; lr, epochs, batch_size.
@@ -69,14 +68,18 @@ class Job:
         Raises:
             NameError: If model is not defined or if the class can not to be inspected
         """
+        # List of node ID of the nodes used in the current round
+        # - initially None (no current round yet)
+        # - then updated during the round with the list of nodes to be used in the round, then the nodes
+        #   that actually replied during the round
+        self._nodes : Optional[List[str]] = None
 
-        self._id = str(uuid.uuid4())  # creating a unique job id
+        self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
         self._repository_args = {}
         self._training_args = training_args
         self._model_args = model_args
-        self._nodes = nodes
-        self._training_replies = {}  # will contain all node replies for every round
+        self._training_replies = {}  # will contain all node replies for every round (type: Dict[Responses]])
         self._model_file = None  # path to local file containing model code
         self._model_params_file = ""  # path to local file containing current version of aggregated params
         self._training_plan_class = training_plan_class
@@ -98,6 +101,8 @@ class Job:
 
         self.last_msg = None
         self._data = data
+        self._node_state_agent = NodeStateAgent(list(self._data.data().keys())
+                                                if self._data and self._data.data() else [])
 
         # Model is mandatory
         if self._training_plan_class is None:
@@ -410,6 +415,10 @@ class Job:
         msg = {**headers, **self._repository_args}
         time_start = {}
 
+        if do_training:
+            # update node states when used node list has changed from one round to another
+            self._update_nodes_states_agent()
+
         # pass heavy aggregator params through file exchange system
         self.upload_aggregator_args(aggregator_args_thr_msg, aggregator_args_thr_files)
 
@@ -422,10 +431,15 @@ class Job:
             aux_url_shared = None
             aux_url_bynode = {}
 
+        # FIXME: should be part of a method called from Experiment
+        # (behaviour can be defined by user / changed by strategy)
+        nodes_state_ids = self._node_state_agent.get_last_node_states()
         for cli in self._nodes:
             msg['dataset_id'] = self._data.data()[cli]['dataset_id']
             cli_aux_urls = (aux_url_shared, aux_url_bynode.get(cli, None))
             msg['aux_var_urls'] = [url for url in cli_aux_urls if url] or None
+
+            msg['state_id'] = nodes_state_ids.get(cli)
 
             if aggregator_args_thr_msg:
                 # add aggregator parameters to message header
@@ -517,6 +531,7 @@ class Job:
                     'msg': m['msg'],
                     'dataset_id': m['dataset_id'],
                     'node_id': m['node_id'],
+                    'state_id': m['state_id'],
                     'params_path': params_path,
                     'params': params,
                     'optimizer_args': optimizer_args,
@@ -526,6 +541,9 @@ class Job:
                     'timing': timing,
                 })
                 self._training_replies[round_].append(response)
+        if do_training:
+            # update node states with node answers + when used node list has changed during the round
+            self._update_nodes_states_agent(before_training=False)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
@@ -635,7 +653,7 @@ class Job:
             format `{mod_name: {node_id: node_dict}}`.
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
-        for reply in self.training_replies[round_id]:
+        for reply in self._training_replies[round_id]:
             node_id = reply["node_id"]
             node_av = reply.get("optim_aux_var", {})
             for module, params in node_av.items():
@@ -720,7 +738,37 @@ class Job:
             logger.error("'Job.update_parameters' failed with error: %s", exc)
             sys.exit(-1)
 
-    def save_state(self, breakpoint_path: str) -> dict:
+    def _update_nodes_states_agent(self, before_training: bool = True):
+        """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
+        state_id coming from `Nodes` contained among all `Nodes` within
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
+
+        Args:
+            before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
+                - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
+                - if after, updates `NodeStateAgent` wrt latest [`Responses`][fedbiomed.researcher.responses.Responses]
+
+        Raises:
+            FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
+
+        """
+        node_ids = list(self._data.data().keys()) if self._data and self._data.data() else []
+        if before_training:
+            self._node_state_agent.update_node_states(node_ids)
+        else:
+            # extract last node state
+            # FIXME: for now we are only considering the case where we need last Round update,
+            # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
+            # previous Node replies)
+            try:
+                last_tr_entry = list(self._training_replies.keys())[-1]
+            except IndexError as ie:
+                raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
+                                                   "replies form Node(s) has(ve) been recieved!") from ie
+
+            self._node_state_agent.update_node_states(node_ids, self._training_replies[last_tr_entry])
+
+    def save_state_breakpoint(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.
 
         Includes creating links to files included in the job state.
@@ -738,7 +786,8 @@ class Job:
             'researcher_id': self._researcher_id,
             'job_id': self._id,
             'model_params_path': self._model_params_file,
-            'training_replies': self._save_training_replies(self._training_replies)
+            'training_replies': self._save_training_replies(self._training_replies),
+            'node_state': self._node_state_agent.save_state_breakpoint()
         }
 
         state['model_params_path'] = create_unique_link(
@@ -755,7 +804,7 @@ class Job:
 
         return state
 
-    def load_state(self, saved_state: Dict[str, Any]) -> None:
+    def load_state_breakpoint(self, saved_state: Dict[str, Any]) -> None:
         """Load breakpoints state for a Job from a saved state
 
         Args:
@@ -764,9 +813,10 @@ class Job:
         # Reload the job and researched ids.
         self._id = saved_state.get('job_id')
         self._researcher_id = saved_state.get('researcher_id')
+        self._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
         # Upload the latest model parameters. This records the filename and url.
         self.update_parameters(filename=saved_state.get("model_params_path"))
-        # Reloadthe latest training replies.
+        # Reload the latest training replies.
         self._training_replies = self._load_training_replies(
             saved_state.get('training_replies', [])
         )

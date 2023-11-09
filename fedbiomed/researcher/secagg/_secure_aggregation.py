@@ -344,7 +344,7 @@ class SecureAggregation:
 
         return aggregated_params
 
-    def save_state(self) -> Dict[str, Any]:
+    def save_state_breakpoint(self) -> Dict[str, Any]:
         """Saves state of the secagg
 
         Returns:
@@ -360,8 +360,8 @@ class SecureAggregation:
                 'clipping_range': self.clipping_range,
             },
             "attributes": {
-                "_biprime": self._biprime.save_state() if self._biprime is not None else None,
-                "_servkey": self._servkey.save_state() if self._servkey is not None else None,
+                "_biprime": self._biprime.save_state_breakpoint() if self._biprime is not None else None,
+                "_servkey": self._servkey.save_state_breakpoint() if self._servkey is not None else None,
                 "_job_id": self._job_id,
                 "_parties": self._parties
             }
@@ -370,7 +370,7 @@ class SecureAggregation:
         return state
 
     @classmethod
-    def load_state(
+    def load_state_breakpoint(
             cls,
             state: Dict
     ) -> 'SecureAggregation':
@@ -387,11 +387,11 @@ class SecureAggregation:
 
         if state["attributes"]["_biprime"] is not None:
             state["attributes"]["_biprime"] = SecaggBiprimeContext. \
-                load_state(state=state["attributes"]["_biprime"])
+                load_state_breakpoint(state=state["attributes"]["_biprime"])
 
         if state["attributes"]["_servkey"] is not None:
             state["attributes"]["_servkey"] = SecaggServkeyContext. \
-                load_state(state=state["attributes"]["_servkey"])
+                load_state_breakpoint(state=state["attributes"]["_servkey"])
 
         # Set attributes
         for name, val in state["attributes"].items():

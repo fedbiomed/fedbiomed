@@ -425,7 +425,7 @@ class SecaggContext(ABC):
         }
         return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
 
-    def save_state(self) -> Dict[str, Any]:
+    def save_state_breakpoint(self) -> Dict[str, Any]:
         """Method for saving secagg state for saving breakpoints
 
         Returns:
@@ -450,7 +450,7 @@ class SecaggContext(ABC):
         return state
 
     @staticmethod
-    def load_state(
+    def load_state_breakpoint(
             state: Dict[str, Any]
     ) -> 'SecaggContext':
 

@@ -1263,7 +1263,7 @@ class Experiment:
     # TODO: training_args need checking of dict items, to be done by Job and node
     # (using a training plan method ? changing `training_routine` prototype ?)
     @exp_exceptions
-    def set_training_args(self, training_args: dict, reset: bool = True) -> dict:
+    def set_training_args(self, training_args: Union[dict, TrainingArgs], reset: bool = True) -> dict:
         """ Sets `training_args` + verification on arguments type
 
         Args:
@@ -1529,7 +1529,7 @@ class Experiment:
         # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
-                  f', in method `run_once` param `increase` : type {type(increase)}'
+                f', in method `run_once` param `increase` : type {type(increase)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1569,6 +1569,7 @@ class Experiment:
         # If secure aggregation is activated ---------------------------------------------------------------------
         secagg_arguments = None
         if self._secagg.active:
+
             self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
                                job_id=self._job.id)
             secagg_arguments = self._secagg.train_arguments()
@@ -1661,7 +1662,7 @@ class Experiment:
 
     def _collect_optim_aux_var(
             self,
-        ) -> Optional[Dict[str, Dict[str, Any]]]:
+    ) -> Optional[Dict[str, Dict[str, Any]]]:
         """Collect auxiliary variables of the held Optimizer, if any."""
         if self._agg_optimizer is None:
             return None
@@ -1919,7 +1920,7 @@ class Experiment:
         if self._job is None:
             # cannot check training plan status if job not defined
             msg = ErrorNumbers.FB412.value + \
-                  ', in method `check_training_plan_status` : no `job` defined for experiment'
+                ', in method `check_training_plan_status` : no `job` defined for experiment'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1997,15 +1998,16 @@ class Experiment:
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(breakpoint_path, global_model=self._global_model),  # aggregator state
+            # aggregator state
+            'aggregator': self._aggregator.save_state_breakpoint(breakpoint_path, global_model=self._global_model),
             'agg_optimizer': self._save_optimizer(breakpoint_path),
-            'node_selection_strategy': self._node_selection_strategy.save_state(),
+            'node_selection_strategy': self._node_selection_strategy.save_state_breakpoint(),
             # strategy state
             'tags': self._tags,
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
-            'job': self._job.save_state(breakpoint_path),  # job state
-            'secagg': self._secagg.save_state()
+            'job': self._job.save_state_breakpoint(breakpoint_path),  # job state
+            'secagg': self._secagg.save_state_breakpoint()
         }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
@@ -2117,7 +2119,7 @@ class Experiment:
                          training_args=saved_state.get("training_args"),
                          save_breakpoints=True,
                          experimentation_folder=saved_state.get('experimentation_folder'),
-                         secagg=SecureAggregation.load_state(saved_state.get('secagg')))
+                         secagg=SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
 
         # nota: we are initializing experiment with no aggregator: hence, by default,
         # `loaded_exp` will be loaded with FedAverage.
@@ -2144,7 +2146,7 @@ class Experiment:
         loaded_exp.set_aggregator(bkpt_aggregator)
 
         # changing `Job` attributes
-        loaded_exp._job.load_state(saved_state.get('job'))
+        loaded_exp._job.load_state_breakpoint(saved_state.get('job'))
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
@@ -2345,11 +2347,11 @@ class Experiment:
             raise FedbiomedExperimentError(msg)
 
         # load breakpoint state for object
-        if "training_plan" in inspect.signature(object_instance.load_state).parameters:
-            object_instance.load_state(args, training_plan=training_plan)
+        if "training_plan" in inspect.signature(object_instance.load_state_breakpoint).parameters:
+            object_instance.load_state_breakpoint(args, training_plan=training_plan)
         else:
-            object_instance.load_state(args)
-        # note: exceptions for `load_state` should be handled in training plan
+            object_instance.load_state_breakpoint(args)
+        # note: exceptions for `load_state_breakpoint` should be handled in training plan
 
         return object_instance
 

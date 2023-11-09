@@ -6,7 +6,6 @@ implementation of Round class of the node component
 '''
 
 import importlib
-import inspect
 import os
 import sys
 import time
@@ -29,6 +28,7 @@ from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
+from fedbiomed.node.node_state_manager import NodeStateManager, NodeStateFileName
 from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.common.secagg import SecaggCrypter
@@ -112,13 +112,44 @@ class Round:
         self._biprime = None
         self._servkey = None
         self._optim_aux_var = {}  # type: Dict[str, Dict[str, Any]]
+        self._node_state_manager = NodeStateManager(environ['DB_PATH'])
 
-    def initialize_validate_training_arguments(self) -> None:
-        """Validates and separates training argument for experiment round"""
+    def _initialize_validate_training_arguments(self) -> Optional[Dict[str, Any]]:
+        """Initialize and validate requested experiment/training arguments.
 
-        self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
-        self.testing_arguments = self.training_arguments.testing_arguments()
-        self.loader_arguments = self.training_arguments.loader_arguments()
+        Returns:
+            A dictionary containing the error message if an error is triggered while parsing training and testing
+            arguments, None otherwise.
+        """
+        try:
+            self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
+            self.testing_arguments = self.training_arguments.testing_arguments()
+            self.loader_arguments = self.training_arguments.loader_arguments()
+        except FedbiomedUserInputError as e:
+            return self._send_round_reply(success=False, message=repr(e))
+        except Exception as e:
+            msg = 'Unexpected error while validating training argument'
+            logger.debug(f"{msg}: {repr(e)}")
+            return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
+
+        return None
+
+    def initialize_arguments(self,
+                             previous_state_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Initializes arguments for training and testing and the NodeStateManager, the latter handling
+        Node state loading and saving.
+
+        Args:
+            previous_state_id: previous Node state id. Defaults to None (which is the state_id default value for the first Round).
+
+        Returns:
+            A dictionary containing the error message if an error is triggered while parsing training and testing
+            arguments, None otherwise.
+        """
+        # initialize Node State Manager
+        self._node_state_manager.initialize(previous_state_id=previous_state_id,
+                                            testing=not self.training)
+        return self._initialize_validate_training_arguments()
 
     def download_aggregator_args(self) -> Tuple[bool, str]:
         """Retrieves aggregator arguments, that are sent through file exchange service
@@ -267,6 +298,7 @@ class Round:
 
     def run_model_training(
             self,
+            # state_id: Optional[str] = None,
             secagg_arguments: Union[Dict, None] = None,
     ) -> Dict[str, Any]:
         """This method downloads training plan file; then runs the training of a model
@@ -282,7 +314,7 @@ class Round:
         Returns:
             Returns the corresponding node message, training reply instance
         """
-        # Validate secagg status. Raises error if the training request is compatible with
+        # Validate secagg status. Raises error if the training request is not compatible with
         # secure aggregation settings
         try:
             secagg_arguments = {} if secagg_arguments is None else secagg_arguments
@@ -294,16 +326,6 @@ class Round:
         except FedbiomedRoundError as e:
             return self._send_round_reply(success=False, message=str(e))
 
-        # Initialize and validate requested experiment/training arguments.
-        try:
-            self.initialize_validate_training_arguments()
-        except FedbiomedUserInputError as e:
-            return self._send_round_reply(success=False, message=repr(e))
-        except Exception as e:
-            msg = 'Unexpected error while validating training argument'
-            logger.debug(f"{msg}: {repr(e)}")
-            return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
-
         # Download and validate the training plan.
         # Download the model weights and any auxiliary information.
         try:
@@ -311,7 +333,7 @@ class Round:
             import_module = 'training_plan_' + str(uuid.uuid4().hex)
             status, _ = self.repository.download_file(self.training_plan_url,
                                                       import_module + '.py')
-            
+
             if status != 200:
                 error_message = "Cannot download training plan file: " + self.training_plan_url
                 return self._send_round_reply(success=False, message=error_message)
@@ -362,6 +384,15 @@ class Round:
             error_message = f"Can't initialize training plan with the arguments: {repr(e)}"
             return self._send_round_reply(success=False, message=error_message)
 
+        # load node state
+        previous_state_id = self._node_state_manager.previous_state_id
+        if previous_state_id is not None:
+            try:
+                self._load_round_state(previous_state_id)
+            except Exception:
+                # don't send error details
+                return self._send_round_reply(success=False, message="Can't read previous node state.")
+
         # import model params into the training plan instance
         try:
             params = Serializer.load(params_path)["model_weights"]
@@ -377,6 +408,7 @@ class Round:
 
         # Split training and validation data
         try:
+
             self._set_training_testing_data_loaders()
         except FedbiomedError as fe:
             error_message = f"Can not create validation/train data: {repr(fe)}"
@@ -452,6 +484,7 @@ class Round:
                         f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
                         f"dataset please make sure that test_ratio has been set correctly")
 
+            # FIXME: this will fail if `self.training_plan.training_data_loader = None` (see issue )
             sample_size = len(self.training_plan.training_data_loader.dataset)
 
             results["encrypted"] = False
@@ -473,8 +506,16 @@ class Round:
                 results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
                 logger.info("Encryption is completed!")
 
+            try:
+                # Nota: for simplicty sake, we are saving Node state even if test_ratio = 1
+                self._save_round_state()
+            except Exception:
+                # don't send details to researcher
+                return self._send_round_reply(success=False, message="Can't save new node state.")
+
             results['researcher_id'] = self.researcher_id
             results['job_id'] = self.job_id
+            results['state_id'] = self._node_state_manager.state_id
             results['model_weights'] = model_weights
             results['node_id'] = environ['NODE_ID']
             results['optimizer_args'] = self.training_plan.optimizer_args()
@@ -487,8 +528,10 @@ class Round:
                 # Upload that file to the remote repository.
                 res = self.repository.upload_file(filename)
                 logger.info("results uploaded successfully ")
+
             except Exception as exc:
                 return self._send_round_reply(success=False, message=f"Cannot upload results: {exc}")
+
 
             # end : clean the namespace
             try:
@@ -497,6 +540,7 @@ class Round:
             except Exception as e:
                 logger.debug(f'Exception raise while deleting training plan instance: {repr(e)}')
 
+            # save collected statistics
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,
                                                   'ptime_training': ptime_after - ptime_before},
@@ -533,15 +577,16 @@ class Round:
             logger.error(message)
 
         return NodeMessages.format_outgoing_message({'node_id': environ['NODE_ID'],
-                                          'job_id': self.job_id,
-                                          'researcher_id': self.researcher_id,
-                                          'command': 'train',
-                                          'success': success,
-                                          'dataset_id': self.dataset['dataset_id'] if success else '',
-                                          'params_url': params_url,
-                                          'msg': message,
-                                          'sample_size': sample_size,
-                                          'timing': timing}).get_dict()
+                                                     'job_id': self.job_id,
+                                                     'state_id': self._node_state_manager.state_id,
+                                                     'researcher_id': self.researcher_id,
+                                                     'command': 'train',
+                                                     'success': success,
+                                                     'dataset_id': self.dataset['dataset_id'] if success else '',
+                                                     'params_url': params_url,
+                                                     'msg': message,
+                                                     'sample_size': sample_size,
+                                                     'timing': timing}).get_dict()
 
     def process_optim_aux_var(self) -> str:
         """Process researcher-emitted Optimizer auxiliary variables, if any.
@@ -573,6 +618,103 @@ class Round:
             )
         return ""
 
+    def _load_round_state(self, state_id: str) -> None:
+        """Loads optimizer state of previous `Round`, given a `state_id`.
+
+        Loads optimizer with default values if optimizer entry hasnot been found
+        or if Optimizer type has changed between current and previous `Round`. Should
+        be called at the begining of a `Round`, before training a model.
+        If loading fails, skip the loading part and loads `Optimizer` with default values.
+
+        Args:
+            state_id: state_id from which to recover `Node`'s state
+
+        Raises:
+            FedbiomedRoundError: raised if `Round` doesnot have any `job_id` attribute.
+
+        Returns:
+            True
+        """
+
+        # define here all the object that should be reloaded from the node state database
+        state = self._node_state_manager.get(self.job_id, state_id)
+
+        optimizer_wrapper = self._get_base_optimizer()  # optimizer from TrainingPlan
+        if state['optimizer_state'] is not None and \
+           str(optimizer_wrapper.__class__) == state['optimizer_state']['optimizer_type']:
+
+            optim_state_path = state['optimizer_state'].get('state_path')
+            try:
+                optim_state = Serializer.load(optim_state_path)
+
+                optimizer_wrapper.load_state(optim_state, load_from_state=True)
+                logger.debug(f"Optimizer loaded state {optim_state}")
+                logger.info(f"State {state_id} loaded")
+
+            except Exception as err:
+                logger.warning(f"Loading Optimizer from state {state_id} failed ... Resuming Experiment with default"
+                               "Optimizer state.")
+                logger.debug(f" Error detail {err}")
+
+        # add below other components that need to be reloaded from node state database
+
+
+    def _save_round_state(self) -> Dict:
+        """Saves `Round` state (mainly Optimizer state) in database through
+        [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
+
+        Some piece of information such as Optimizer state are also aved in files (located under
+        $FEDBIOMED_DIR/var/node_state<node_id>/job_id_<job_id>/).
+        Should be called at the end of a `Round`, once the model has been trained.
+
+        Entries saved in State:
+        - optimizer_state:
+            - optimizer_type (str)
+            - state_path (str)
+
+        Returns:
+            `Round` state that will be saved in the database.
+        """
+
+        state: Dict[str, Any] = {}
+        _success: bool = True
+
+        # saving optimizer state
+        optimizer = self._get_base_optimizer()
+
+        optimizer_state = optimizer.save_state()
+        if optimizer_state is not None:
+            # this condition was made so we dont save stateless optimizers
+            optim_path = self._node_state_manager.generate_folder_and_create_file_name(
+                self.job_id,
+                self._round,
+                NodeStateFileName.OPTIMIZER
+            )
+            Serializer.dump(optimizer_state, path=optim_path)
+            logger.debug("Saving optim state")
+
+            optimizer_state_entry: Dict = {
+                'optimizer_type': str(optimizer.__class__),
+                'state_path': optim_path
+            }
+            # FIXME: we do not save auxiliary variables for scaffold, but not sure about what to do
+
+        else:
+            logger.warning(f"Unable to save optimizer state of type {type(optimizer)}. Skipping...")
+            _success = False
+            optimizer_state_entry = None
+        state['optimizer_state'] = optimizer_state_entry
+        # add here other object states (ie model state, ...)
+
+        # save completed node state
+
+        self._node_state_manager.add(self.job_id, state)
+        if _success:
+            logger.debug("Node state saved into DataBase")
+        else:
+            logger.debug("Node state has been partially saved into the Database")
+        return state
+
     def collect_optim_aux_var(self) -> Dict[str, Any]:
         """Collect auxiliary variables from the wrapped Optimizer, if any.
 
@@ -587,8 +729,9 @@ class Round:
             if aux_var and self._use_secagg:
                 # TODO: remove the following warning when secagg compatibility has been fixed
                 # if secagg is used, raise a warning that encryption is not working with auxiliary variable
-                logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the Researcher, but those are not encrypted with SecAgg.'
-                               'Auxiliary Variables may contain sensitive information about the Nodes.' 
+                logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the Researcher, '
+                               'but those are not encrypted with SecAgg.'
+                               'Auxiliary Variables may contain sensitive information about the Nodes.'
                                'This issue will be fixed in a future version of Fed-BioMed')
             return aux_var
         return {}
@@ -635,7 +778,6 @@ class Round:
 
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
-
         # Set models validating and training parts for training plan
         self.training_plan.set_data_loaders(train_data_loader=training_data_loader,
                                             test_data_loader=testing_data_loader)
@@ -685,7 +827,6 @@ class Round:
             data_manager.load(tp_type=training_plan_type)
         except FedbiomedError as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}")
-
         # Get dataset property
         if hasattr(data_manager.dataset, "set_dataset_parameters"):
             dataset_parameters = self.dataset.get("dataset_parameters", {})

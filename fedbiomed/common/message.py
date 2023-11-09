@@ -584,6 +584,7 @@ class TrainRequest(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     job_id: str
+    state_id: (str, type(None))
     params_url: str
     training_args: dict
     dataset_id: str
@@ -622,6 +623,7 @@ class TrainReply(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     job_id: str
+    state_id: (str, type(None))
     success: bool
     node_id: str
     dataset_id: str
