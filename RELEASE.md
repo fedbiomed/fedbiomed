@@ -17,7 +17,7 @@ git pull --prune
 - check that the CI for `develop` builds correctly (github checks)
 - set the release version tag for the release (or use this tag directly in commands)
 ```bash
-export RELEASE_TAG=v4.4.0
+export RELEASE_TAG=v4.5.0
 ```
 - fork a `release/$RELEASE_TAG` branch from `develop`, and checkout the `release/$RELEASE_TAG` branch
 ```bash
@@ -29,7 +29,6 @@ git checkout -b release/$RELEASE_TAG
 - in the `release/$RELEASE_TAG` branch, do the release time updates:
   * `CHANGELOG.md`
   * `fedbiomed/common/constants.py` : change `__version__`
-- **add new version news in documentation**
 - in the `release` branch, commit the release time updates
 ```bash
 git commit -a
@@ -93,6 +92,8 @@ git pull -p
 git checkout develop
 git branch -d release/$RELEASE_TAG
 ```
+- **add new version news in documentation**
+
 
 # Fed-BioMed hotfix HOWTO
 
@@ -121,10 +122,10 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
   export HOTFIX_NAME=521-short-description
   ```
 
-- set the hotfix version tag for the release (or use this tag directly in commands).For example, if the previous version was `v4.4.0`, it becomes `v4.4.1`.
+- set the hotfix version tag for the release (or use this tag directly in commands).For example, if the previous version was `v4.5.0`, it becomes `v4.5.1`.
 
   ```bash
-  export HOTFIX_TAG=v4.4.1
+  export HOTFIX_TAG=v4.5.1
   ```
 
 - fork a `hotfix/$HOTFIX_NAME` branch from `master`, and checkout the `hotfix/$HOTFIX_NAME` branch
