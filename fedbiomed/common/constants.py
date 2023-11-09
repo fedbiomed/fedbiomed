@@ -38,7 +38,7 @@ JOB_PREFIX = 'job_'
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
-__version__ = FBM_Component_Version('4.4.4')  # Fed-BioMed software version
+__version__ = FBM_Component_Version('4.5.0')  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version('1')  # researcher config file version
 __node_config_version__ = FBM_Component_Version('1')  # node config file version
 __node_state_version__ = FBM_Component_Version('1')  # node state version
