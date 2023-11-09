@@ -12,14 +12,13 @@ import pandas as pd
 from PIL import Image
 import os
 import numpy as np
-
 class CelebaTrainingPlan(TorchTrainingPlan):
-
-    # Defines model
+         
+    # Defines model 
     def init_model(self):
         model = self.Net()
-        return model
-
+        return model 
+    
     # Here we define the custom dependencies that will be needed by our custom Dataloader
     def init_dependencies(self):
         deps = ["from torch.utils.data import Dataset",
@@ -32,7 +31,7 @@ class CelebaTrainingPlan(TorchTrainingPlan):
 
     # Torch modules class
     class Net(nn.Module):
-
+        
         def __init__(self):
             super().__init__()
             #convolution layers
@@ -76,8 +75,8 @@ class CelebaTrainingPlan(TorchTrainingPlan):
 
     class CelebaDataset(Dataset):
         """Custom Dataset for loading CelebA face images"""
-
-        # we dont load the full data of the images, we retrieve the image with the get item.
+        
+        # we dont load the full data of the images, we retrieve the image with the get item. 
         # in our case, each image is 218*178 * 3colors. there is 67533 images. this take at leas 7G of ram
         # loading images when needed takes more time during training but it wont impact the ram usage as much as loading everything
         def __init__(self, txt_path, img_dir, transform=None):
@@ -98,17 +97,17 @@ class CelebaTrainingPlan(TorchTrainingPlan):
 
         def __len__(self):
             return self.y.shape[0]
-
-    # The training_data creates the Dataloader to be used for training in the
+    
+    # The training_data creates the Dataloader to be used for training in the 
     # general class Torchnn of fedbiomed
-    def training_data(self,  batch_size = 48):
+    def training_data(self):
         dataset = self.CelebaDataset(self.dataset_path + "/target.csv", self.dataset_path + "/data/")
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        train_kwargs = {'shuffle': True}
         return DataManager(dataset, **train_kwargs)
-
-    # This function must return the loss to backward it
+    
+    # This function must return the loss to backward it 
     def training_step(self, data, target):
-
+        
         output = self.model().forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
