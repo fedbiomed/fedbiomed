@@ -251,11 +251,99 @@ def recover_data(data_missing, data_full, fed_mean = None, fed_std = None):
         return xmiss, mask, xhat_global_std, xfull_global_std, xhat_local_std, xfull_local_std, mean, std
     else:
         return xmiss, mask, xhat_local_std, xfull_local_std, mean, std
-        
+
 
 def testing_func(features,data_missing, data_full, mask, encoder, decoder, iota, d,L,
                  idx_cl=4,result_folder='results',method='FedAvg',kind="single",num_samples=20,
-                 mean = None, std = None):
+                 mean = None, std = None, do_figures = False, stat_mul = None):
+
+    xhat = np.copy(data_missing)
+    xhat_0 = np.copy(data_missing)
+    xfull = np.copy(data_full)
+
+    p = data_full.shape[1] # number of features
+    n = data_full.shape[0] # number of features
+
+    if ((mean is not None) and (std is not None)):
+        if ((type(mean) != np.ndarray) and (type(std) != np.ndarray)):
+            mean, std = mean.numpy(), std.numpy()
+        normalized = True
+
+    if kind == 'single':
+        xhat_single = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, data = torch.from_numpy(xhat_0).float(),
+                               mask = torch.from_numpy(mask).float(),p=p, d = d,L= L)        
+        xhat[~mask] = xhat_single.cpu().data.numpy()[~mask]
+
+    else:
+        xhat_mul = np.copy(xhat_0)
+        xfull_mul = np.copy(xfull)
+        Err_mul_mean = [np.copy(xhat_0) for  _ in range(num_samples + 1)]
+        for i in range(n):
+            if (np.sum(mask[i,:])<=p-1):
+                xhat_single, xhat_multiple = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, 
+                                                        data = torch.from_numpy(xhat_0[i,:]).reshape([1,p]).float(), 
+                                                        mask = torch.from_numpy(mask[i,:]).reshape([1,p]).float(),
+                                                        p=p, d = d,L= L,kind=kind,num_samples=num_samples)
+
+                true_values = xfull[i,~mask[i,:].astype(bool)]
+                single_imp = np.squeeze(xhat_single[:,~mask[i,:].astype(bool)])
+                xhat[i,~mask[i,:].astype(bool)] = single_imp.numpy()
+                mul_imp = np.squeeze(xhat_multiple.numpy()[:,:,~mask[i,:].astype(bool)])
+                features_i = np.array(features)[~mask[i,:].astype(bool)]
+                xfull_mask = np.copy(xfull)[:,~mask[i,:].astype(bool)]
+                if ((do_figures) and (np.sum(mask[i,:])<=p-2)):
+                    multiple_imputation_plot(result_folder,xfull_mask,mul_imp,single_imp,true_values,method,
+                                            idx_cl,i,features_i,std,mean,mask[i,:],normalized)
+                mul_imp_i = np.append(mul_imp,[single_imp.numpy()],axis=0)
+
+                if stat_mul == 'MSE_of_mean':
+                    mul_imp_mean_i = np.mean(mul_imp_i,axis=0)
+                    xhat_mul[i,~mask[i,:].astype(bool)] = mul_imp_mean_i
+
+                else:
+                    for nsam in range(num_samples+1):
+                        Err_mul_mean[nsam][i,~mask[i,:].astype(bool)]=mul_imp_i[nsam]#mul_imp_i[nsam,:]
+
+    err_standardized = float(np.array([mse(xhat,xfull,mask)]))
+
+    if normalized:
+        xhat_destd = np.copy(xhat)
+        xhat_destd = xhat_destd*std + mean
+        xfull_destd = np.copy(xfull)
+        xfull_destd = xfull_destd*std + mean
+        err = float(np.array([mse(xhat_destd,xfull_destd,mask,normalized=normalized)]))
+        if kind != 'single':
+            xfull_mul = xfull_mul*std + mean 
+            if stat_mul == 'MSE_of_mean':
+                xhat_mul = xhat_mul*std + mean
+            else:
+                for nsam in range(num_samples+1):
+                    Err_mul_mean[nsam] = Err_mul_mean[nsam]*std + mean
+    if kind != 'single':                        
+        if stat_mul == 'MSE_of_mean':
+            err_mul = float(np.array([mse(xhat_mul,xfull_mul,mask,normalized=normalized)]))
+        else:
+            Errs_mul = [float(np.array([mse(Err_mul_mean[i],xfull_mul,mask,normalized=normalized)])) for i in range(num_samples+1)]
+            err_mul=float(np.mean(Errs_mul))
+            min_mul = float(np.min(Errs_mul))
+            max_mul = float(np.max(Errs_mul))
+            std_mul = float(np.std(Errs_mul))
+
+    if (kind=="single"):
+        return [err_standardized] if normalized==False else [err_standardized,err]
+    else:
+        if normalized==False:
+            return [err_standardized,err_mul]  if stat_mul == 'MSE_of_mean' else [err_standardized,err_mul,min_mul,max_mul,std_mul]
+        else:
+            return [err_standardized,err,err_mul] if stat_mul == 'MSE_of_mean' else [err_standardized,err,err_mul,min_mul,max_mul,std_mul]
+
+        
+
+def testing_func_deprecated(features,data_missing, data_full, mask, encoder, decoder, iota, d,L,
+                 idx_cl=4,result_folder='results',method='FedAvg',kind="single",num_samples=20,
+                 mean = None, std = None, do_figures = False, stat_mul = None):
+
+#'mean_RMSE','mean_MSE','MSE_of_mean'
 
     #features = data_full.columns.values.tolist()
     xhat = np.copy(data_missing)
@@ -276,21 +364,21 @@ def testing_func(features,data_missing, data_full, mask, encoder, decoder, iota,
         xhat_destd = xhat_destd*std + mean
         xfull_destd = np.copy(xfull)
         xfull_destd = xfull_destd*std + mean
-        err_standardized = np.array([mse(xhat,xfull,mask)])
-        err = np.array([mse(xhat_destd,xfull_destd,mask,normalized=True)])
+        err_standardized = float(np.array([mse(xhat,xfull,mask)]))
+        err = float(np.array([mse(xhat_destd,xfull_destd,mask,normalized=True)]))
         normalized = True
-        print('MSE (standardized data)',err_standardized)
-        print('MSE (de-standardized data)',err)
     else:
         normalized = False
-        err = np.array([mse(xhat,xfull,mask)])
+        err = float(np.array([mse(xhat,xfull,mask)]))
 
     if (kind=="single"):
-        return [float(err)] if normalized==False else [float(err_standardized),float(err)]
+        return [err] if normalized==False else [err_standardized,err]
     else:
         n = data_full.shape[0]
-        xhat_mul = np.copy(xhat) if normalized==False else np.copy(xhat_destd)
-        xfull_mul = np.copy(xfull) if normalized==False else np.copy(xfull_destd)
+        xhat_mul = np.copy(xhat_0)
+        #xhat_mul_median = np.copy(xhat_0)
+        xfull_mul = np.copy(xfull) if normalized==False else xfull_destd
+        Err_mul_mean = [np.copy(xhat_0) for  _ in range(num_samples + 1)]
         for i in range(n):
             if (np.sum(mask[i,:])<=p-2):
                 xhat_single, xhat_multiple = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, 
@@ -304,21 +392,51 @@ def testing_func(features,data_missing, data_full, mask, encoder, decoder, iota,
                 single_imp = np.squeeze(xhat_single[:,~mask[i,:].astype(bool)])
                 mul_imp = np.squeeze(xhat_multiple.numpy()[:,:,~mask[i,:].astype(bool)])
                 features_i = np.array(features)[~mask[i,:].astype(bool)]
-                if normalized:
-                    xfull_mask *= std[~mask[i,:].astype(bool)]
-                    xfull_mask += mean[~mask[i,:].astype(bool)]
-                    true_values *=std[~mask[i,:].astype(bool)]
-                    true_values += mean[~mask[i,:].astype(bool)]
-                    single_imp *= std[~mask[i,:].astype(bool)]
-                    single_imp += mean[~mask[i,:].astype(bool)]
-                    mul_imp *= std[~mask[i,:].astype(bool)]
-                    mul_imp += mean[~mask[i,:].astype(bool)]
-                multiple_imputation_plot(result_folder,xfull_mask,mul_imp,single_imp,true_values,method,idx_cl,i,features_i)
-                mul_imp_i = (sum(mul_imp)+single_imp.numpy())/(num_samples+1)
-                xhat_mul[i,~mask[i,:].astype(bool)] = mul_imp_i
-        err_mul = np.array([mse(xhat_mul,xfull_mul,mask,normalized=normalized)])
-        print(err_mul,err)
-        return [float(err),float(err_mul)] if normalized==False else [float(err_standardized),float(err),float(err_mul)]
+                if do_figures:
+                    multiple_imputation_plot(result_folder,xfull_mask,mul_imp,single_imp,true_values,method,idx_cl,i,features_i,std,mean,mask[i,:].astype(bool),normalized)
+                mul_imp_i = np.append(mul_imp,[single_imp.numpy()],axis=0)
+
+                if stat_mul == 'MSE_of_mean':
+                    mul_imp_mean_i = np.mean(mul_imp_i,axis=0)
+                    #mul_imp_median_i = np.median(mul_imp_i,axis=0)
+                    xhat_mul[i,~mask[i,:].astype(bool)] = mul_imp_mean_i
+                    #xhat_mul_median[i,~mask[i,:].astype(bool)] = mul_imp_median_i 
+
+                else:
+                    for nsam in range(num_samples+1):
+                        Err_mul_mean[nsam][i,~mask[i,:].astype(bool)]=mul_imp_i[nsam,:]
+                        #mul_imp_i_ns = np.copy(xhat_0[i,:])
+                        #mul_imp_i_ns[~mask[i,:].astype(bool)] = mul_imp_i[nsam,:]
+                        #if normalized:
+                        #    mul_imp_i_ns = mul_imp_i_ns*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
+                        ##Err_mul_mean[nsam].append(float(np.array([mse(mul_imp_i_ns,xfull_mul[i,~mask[i,:].astype(bool)],mask[i,~mask[i,:].astype(bool)],normalized=normalized)])))
+                        #Err_mul_mean[nsam].append(np.power(mul_imp_i_ns-xfull_mul[i,:],2))
+                        
+        if stat_mul == 'MSE_of_mean':
+            if normalized:
+                xhat_mul = xhat_mul*std + mean
+                #xhat_mul_median = xhat_mul_median*std + mean
+            err_mul = float(np.array([mse(xhat_mul,xfull_mul,mask,normalized=normalized)]))
+            #err_mul_median = float(np.array([mse(xhat_mul_median,xfull_mul,mask,normalized=normalized)]))
+        else:
+            if normalized:
+                for nsam in range(num_samples+1):
+                    Err_mul_mean[nsam] = Err_mul_mean[nsam]*std + mean
+            ##err_mul=float(np.mean([np.mean(Err_mul_mean[i]) for i in range(num_samples+1)]))
+            #Errs_mul = [np.mean(Err_mul_mean[i]) for i in range(num_samples+1)] if normalized == False else \
+            #        [np.mean(Err_mul_mean[i])/np.mean(np.power(xfull_mul,2)[~mask]) for i in range(num_samples+1)]
+            Errs_mul = [float(np.array([mse(Err_mul_mean[i],xfull_mul,mask,normalized=normalized)])) for i in range(num_samples+1)]
+            err_mul=float(np.mean(Errs_mul))
+            min_mul = float(np.min(Errs_mul))
+            max_mul = float(np.max(Errs_mul))
+            std_mul = float(np.std(Errs_mul))
+
+        
+        #print(err_mul,err_mul_median,err)
+        if normalized==False:
+            return [err,err_mul] 
+        else:
+            return [err_standardized,err,err_mul] if stat_mul == 'MSE_of_mean' else [err_standardized,err,err_mul,min_mul,max_mul,std_mul]
 
 def save_results(result_folder, Split_type,Train_data,Test_data,
                 perc_missing_train,perc_missing_test,model,
@@ -392,21 +510,28 @@ def databases(data_folder,Split_type,idx_clients,idx_Test_data,N_cl,root_dir=Non
 
     return Clients_data, Clients_missing, data_test, data_test_missing, Perc_missing, Perc_missing_test
 
-def multiple_imputation_plot(result_folder,xfull,mul_imp,single_imp,true_values,method,idx_cl,i,features_i):
+def multiple_imputation_plot(result_folder,xfull,mul_imp,single_imp,true_values,method,idx_cl,i,features_i,std,mean,mask_i,normalized):
     figures_folder = result_folder+'/Figures'
     os.makedirs(figures_folder, exist_ok=True)
     exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'_'+str(np.random.randint(9999, dtype=int))
     file_name = 'Multiple_imp_'+method+exp_id+'Client_'+str(idx_cl)
     ax = plt.figure(figsize=(9,10))
-    sns.kdeplot(x=mul_imp[:,0],y=mul_imp[:,1],fill=True)
-    plt.scatter(x=single_imp[0],y=single_imp[1], s =100, marker = "P",  c = '#2ca02c')
-    plt.scatter(x=true_values[0],y=true_values[1], s =100, marker = "X",  c = '#d62728')
+    if normalized == True:
+        xfull = xfull*std[~mask_i.astype(bool)]+mean[~mask_i.astype(bool)]
+        mul_imp = mul_imp*std[~mask_i.astype(bool)]+mean[~mask_i.astype(bool)]
+        single_imp = single_imp*std[~mask_i.astype(bool)]+mean[~mask_i.astype(bool)]
+        true_values = true_values*std[~mask_i.astype(bool)]+mean[~mask_i.astype(bool)]
+    feature_idx = np.random.choice(range(len(single_imp)),2,replace=False)
+    i0, i1 = int(feature_idx[0]), int(feature_idx[1])
+    sns.kdeplot(x=mul_imp[:,i0],y=mul_imp[:,i1],fill=True)
+    plt.scatter(x=single_imp[i0],y=single_imp[i1], s =100, marker = "P",  c = '#2ca02c')
+    plt.scatter(x=true_values[i0],y=true_values[i1], s =100, marker = "X",  c = '#d62728')
     legend_elements = [Line2D([0], [0], color='b', lw=4, label='MIWAE (KDE of multiple imp.)'),
                     Line2D([0], [0], marker='P', color='w', markerfacecolor = '#2ca02c', label='MIWAE (single imp.)', markersize=20, lw=0),
                     Line2D([0], [0], marker='X', color='w', markerfacecolor = '#d62728', label='True value', markersize=20, lw=0)]
     ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5), fontsize=25)
-    plt.xlabel(str(features_i[0]), fontsize=25)
-    plt.ylabel(str(features_i[1]), fontsize=25)
+    plt.xlabel(str(features_i[i0]), fontsize=25)
+    plt.ylabel(str(features_i[i1]), fontsize=25)
     plt.tick_params(axis='both', labelsize = 20)
     plt.title('Subject'+str(i))
     plt.savefig(figures_folder + '/' + file_name +'.pdf',format='pdf',bbox_inches='tight')
@@ -415,13 +540,13 @@ def multiple_imputation_plot(result_folder,xfull,mul_imp,single_imp,true_values,
 
     ax = plt.figure(figsize=(9,10))
     file_name = 'px_miss_px_obs_'+method+exp_id+'Client_'+str(idx_cl)
-    sns.kdeplot(x=mul_imp[:,0],y=mul_imp[:,1], color = 'b')
-    sns.kdeplot(x=xfull[:,0],y=xfull[:,1], color = 'r')
+    sns.kdeplot(x=mul_imp[:,i0],y=mul_imp[:,i1], color = 'b')
+    sns.kdeplot(x=xfull[:,i0],y=xfull[:,i1], color = 'r')
     legend_elements = [Line2D([0], [0], color='b', label='p(xmiss|xobs) via KDE of MIWAE multiple imp.'),
                     Line2D([0], [0], color='r', label='p(xmiss) via KDE on the fully observed dataset')]
     ax.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1, 0.5), fontsize=25)
-    plt.xlabel(str(features_i[0]), fontsize=25)
-    plt.ylabel(str(features_i[1]), fontsize=25)
+    plt.xlabel(str(features_i[i0]), fontsize=25)
+    plt.ylabel(str(features_i[i1]), fontsize=25)
     plt.tick_params(axis='both', labelsize = 20)
     plt.title('Subject'+str(i))
     plt.savefig(figures_folder + '/' + file_name +'.pdf',format='pdf',bbox_inches='tight')

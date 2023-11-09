@@ -399,7 +399,9 @@ def standardize_data(data, fed_mean = None, fed_std = None):
 
 def testing_func_mul(features, data_missing, data_full, x_cat, mask, encoder, decoder, iota, d,L,
                  idx_cl=4,result_folder='results',method='FedAvg',kind="single",num_samples=20,
-                 mean = None, std = None):
+                 mean = None, std = None, do_figures = False, stat_mul = None):
+    
+    num_samples=2
 
     #features = data_full.columns.values.tolist()
     xhat = np.copy(data_missing)
@@ -411,64 +413,82 @@ def testing_func_mul(features, data_missing, data_full, x_cat, mask, encoder, de
     n = data_full.shape[0] # number of features
     ncov = x_cat.shape[1]
 
-    #xhat[~mask] = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, data = torch.from_numpy(xhat_0).float(), x_cat = torch.from_numpy(x_cat).float(),
-    #                    mask = torch.from_numpy(mask).float(),p=p, d = d,L= L).cpu().data.numpy()[~mask]
-
-    for i in range(n):
-        if (np.sum(mask[i,:])<=p-1):
-            xhat[i,~mask[i,:]] = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, 
-                                              data = torch.from_numpy(xhat_0[i,:]).float().reshape([1,p]), 
-                                              x_cat = torch.from_numpy(x_cat[i,:]).float().reshape([1,ncov]),
-                                mask = torch.from_numpy(mask[i,:]).float().reshape([1,p]),p=p, d = d,L= L).cpu().data.numpy()[0][~mask[i,:]]
-
     if ((mean is not None) and (std is not None)):
         if ((type(mean) != np.ndarray) and (type(std) != np.ndarray)):
             mean, std = mean.numpy(), std.numpy()
-        xhat_destd = np.copy(xhat)
-        xhat_destd = xhat_destd*std + mean
-        xfull_destd = np.copy(xfull)
-        xfull_destd = xfull_destd*std + mean
-        err_standardized = np.array([mse(xhat,xfull,mask)])
-        err = np.array([mse(xhat_destd,xfull_destd,mask,normalized=True)])
         normalized = True
-        print('MSE (standardized data)',err_standardized)
-        print('MSE (de-standardized data)',err)
-    else:
-        normalized = False
-        err = np.array([mse(xhat,xfull,mask)])        
 
-    #xm = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, data = torch.from_numpy(xhat_0).float(),
-    #                           mask = torch.from_numpy(mask).float(),p=p, d = d,L= L)
-    #    
-    #xhat[~mask] = xm.cpu().data.numpy()[~mask]
-    #err = np.array([mse(xhat,xfull,mask)])
+    if kind != 'single':
+        xhat_mul = np.copy(xhat_0)
+        xfull_mul = np.copy(xfull)
+        Err_mul_mean = [np.copy(xhat_0) for  _ in range(num_samples + 1)]
 
-    if (kind=="single"):
-        return float(err)
-    else:
-        for i in range(n):
-            if (np.sum(mask[i,:])<=p-2):
+    for i in range(n):
+        if (np.sum(mask[i,:])<=p-1):
+            if kind == 'single':
+                xhat[i,~mask[i,:]] = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, 
+                                                data = torch.from_numpy(xhat_0[i,:]).float().reshape([1,p]), 
+                                                x_cat = torch.from_numpy(x_cat[i,:]).float().reshape([1,ncov]),
+                                                mask = torch.from_numpy(mask[i,:]).float().reshape([1,p]),p=p, 
+                                                d = d,L= L).cpu().data.numpy()[0][~mask[i,:]]
+            else:
                 xhat_single, xhat_multiple = miwae_impute(encoder = encoder, decoder = decoder, iota = iota, 
                                                         data = torch.from_numpy(xhat_0[i,:]).reshape([1,p]).float(), 
                                                         x_cat = torch.from_numpy(x_cat[i,:]).float().reshape([1,ncov]),
                                                         mask = torch.from_numpy(mask[i,:]).reshape([1,p]).float(),
                                                         p=p, d = d,L= L,kind=kind,num_samples=num_samples)
 
-
                 true_values = xfull[i,~mask[i,:].astype(bool)]
                 single_imp = np.squeeze(xhat_single[:,~mask[i,:].astype(bool)])
+                xhat[i,~mask[i,:].astype(bool)] = single_imp.numpy()
                 mul_imp = np.squeeze(xhat_multiple.numpy()[:,:,~mask[i,:].astype(bool)])
                 features_i = np.array(features[ncov:])[~mask[i,:].astype(bool)]
                 xfull_mask = np.copy(xfull)[:,~mask[i,:].astype(bool)]
-                if normalized:
-                    xfull_mask = xfull_mask*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
-                    true_values = true_values*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
-                    single_imp = single_imp*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
-                    mul_imp = mul_imp*std[~mask[i,:].astype(bool)] + mean[~mask[i,:].astype(bool)]
-                multiple_imputation_plot(result_folder,xfull_mask,
-                                         mul_imp,single_imp,true_values,method,idx_cl,i,features_i)
+                if ((do_figures) and (np.sum(mask[i,:])<=p-2)):
+                    multiple_imputation_plot(result_folder,xfull_mask,mul_imp,single_imp,true_values,
+                                    method,idx_cl,i,features_i,std,mean,mask[i,:].astype(bool),normalized)
+                mul_imp_i = np.append(mul_imp,[single_imp.numpy()],axis=0)
 
-        return float(err)
+                if stat_mul == 'MSE_of_mean':
+                    mul_imp_mean_i = np.mean(mul_imp_i,axis=0)
+                    xhat_mul[i,~mask[i,:].astype(bool)] = mul_imp_mean_i
+
+                else:
+                    for nsam in range(num_samples+1):
+                        Err_mul_mean[nsam][i,~mask[i,:].astype(bool)]=mul_imp_i[nsam]
+
+    err_standardized = float(np.array([mse(xhat,xfull,mask)]))
+
+    if normalized:
+        xhat_destd = np.copy(xhat)
+        xhat_destd = xhat_destd*std + mean
+        xfull_destd = np.copy(xfull)
+        xfull_destd = xfull_destd*std + mean
+        err = float(np.array([mse(xhat_destd,xfull_destd,mask,normalized=normalized)]))
+        if kind != 'single':
+            xfull_mul = xfull_mul*std + mean 
+            if stat_mul == 'MSE_of_mean':
+                xhat_mul = xhat_mul*std + mean
+            else:
+                for nsam in range(num_samples+1):
+                    Err_mul_mean[nsam] = Err_mul_mean[nsam]*std + mean
+    if kind != 'single':                        
+        if stat_mul == 'MSE_of_mean':
+            err_mul = float(np.array([mse(xhat_mul,xfull_mul,mask,normalized=normalized)]))
+        else:
+            Errs_mul = [float(np.array([mse(Err_mul_mean[i],xfull_mul,mask,normalized=normalized)])) for i in range(num_samples+1)]
+            err_mul=float(np.mean(Errs_mul))
+            min_mul = float(np.min(Errs_mul))
+            max_mul = float(np.max(Errs_mul))
+            std_mul = float(np.std(Errs_mul))
+
+    if (kind=="single"):
+        return [err_standardized] if normalized==False else [err_standardized,err]
+    else:
+        if normalized==False:
+            return [err_standardized,err_mul]  if stat_mul == 'MSE_of_mean' else [err_standardized,err_mul,min_mul,max_mul,std_mul]
+        else:
+            return [err_standardized,err,err_mul] if stat_mul == 'MSE_of_mean' else [err_standardized,err,err_mul,min_mul,max_mul,std_mul]
 
 def testing_func(data_missing, data_full, x_cat, mask, encoder, decoder, iota, d,L):
 
@@ -564,9 +584,9 @@ def databases(data_folder,task,idx_clients,mask_num,root_dir=None,idx_Test_data=
         data_folder = root_dir.joinpath(data_folder)
 
     if task == 'imputation':
-        test_missing_file = os.path.join(str(data_folder_miss),"dataset_"+str(idx_Test_data)+".csv")
-        data_test_missing = pd.read_csv(test_missing_file, sep=",",index_col=False)
         if idx_Test_data is not None:
+            test_missing_file = os.path.join(str(data_folder_miss),"dataset_"+str(idx_Test_data)+".csv")
+            data_test_missing = pd.read_csv(test_missing_file, sep=",",index_col=False)
             test_mask_file = os.path.join(str(data_folder_miss),"mask_"+str(idx_Test_data)+".csv")
             test_mask = pd.read_csv(test_mask_file, sep=",",index_col=False)
             test_mask_np = np.copy(test_mask)
@@ -684,7 +704,7 @@ def save_plots(epochs,likelihood,loss,mse,fig_folder,file_name):
     plt.clf()
     plt.close()
 
-def generate_save_plots_prediction(result_folder,testing_error,validation_error,conf_matr,model,regressor):
+def generate_save_plots_prediction(result_folder,testing_error,validation_error,Losses,Accuracies,conf_matr,model,regressor):
     figures_folder = result_folder+'/Figures_pred'
     os.makedirs(figures_folder, exist_ok=True)
     exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'_'+str(np.random.randint(9999, dtype=int))
@@ -703,6 +723,24 @@ def generate_save_plots_prediction(result_folder,testing_error,validation_error,
     plt.xlabel('FL round')
     plt.ylabel('Validation error')
     filename = exp_id+'_Validation_error_'+model+'_'+regressor
+    plt.savefig(figures_folder + '/' + filename)
+    plt.clf()
+    plt.close()
+
+    plt.plot(Losses)
+    plt.title('FL losses')
+    plt.xlabel('FL round')
+    plt.ylabel('Losses')
+    filename = exp_id+'_Losses_'+model+'_'+regressor
+    plt.savefig(figures_folder + '/' + filename)
+    plt.clf()
+    plt.close()
+
+    plt.plot(Accuracies)
+    plt.title('FL accuracies')
+    plt.xlabel('FL round')
+    plt.ylabel('Accuracies')
+    filename = exp_id+'_Accuracies_'+model+'_'+regressor
     plt.savefig(figures_folder + '/' + filename)
     plt.clf()
     plt.close()
@@ -728,12 +766,18 @@ def generate_save_plots_prediction(result_folder,testing_error,validation_error,
     #plt.clf()
     #plt.close()
 
-def multiple_imputation_plot(result_folder,xfull,mul_imp,single_imp,true_values,method,idx_cl,i,features_i):
+def multiple_imputation_plot(result_folder,xfull,mul_imp,single_imp,true_values,method,idx_cl,i,features_i,std,mean,mask_i,normalized):
+    #(result_folder,xfull_mask,mul_imp,single_imp,true_values,method,idx_cl,i,features_i,std,mean,mask[i,:].astype(bool),normalized)
     figures_folder = result_folder+'/Figures'
     os.makedirs(figures_folder, exist_ok=True)
     exp_id = datetime.now().strftime('%Y-%m-%d %H:%M:%S')+'_'+str(np.random.randint(9999, dtype=int))
     file_name = 'Multiple_imp_'+method+exp_id+'Client_'+str(idx_cl)
     ax = plt.figure(figsize=(9,10))
+    if normalized == True:
+        xfull = xfull*std[~mask_i.astype(bool)]+mean[~mask_i.astype(bool)]
+        mul_imp = mul_imp*std[~mask_i.astype(bool)]+mean[~mask_i.astype(bool)]
+        single_imp = single_imp*std[~mask_i.astype(bool)]+mean[~mask_i.astype(bool)]
+        true_values = true_values*std[~mask_i.astype(bool)]+mean[~mask_i.astype(bool)]
     sns.kdeplot(x=mul_imp[:,0],y=mul_imp[:,1],fill=True)
     plt.scatter(x=single_imp[0],y=single_imp[1], s =100, marker = "P",  c = '#2ca02c')
     plt.scatter(x=true_values[0],y=true_values[1], s =100, marker = "X",  c = '#d62728')

@@ -66,15 +66,14 @@ class FedMeanStdTrainingPlan(TorchTrainingPlan):
         
         ### NOTE: batch_size should be == dataset size ###
         batch_size = df.shape[0]
+        self._loader_args['batch_size']=batch_size
         x_train = df.values.astype(np.float64)
-        #print(x_train.dtype)
         x_mask = np.isfinite(x_train)
         xhat_0 = np.copy(x_train)
         ### NOTE: we keep nan when data is missing
-        #xhat_0[np.isnan(x_train)] = 0
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        loader_kwargs = {'shuffle': True}
         
-        data_manager = DataManager(dataset=xhat_0 , target=x_mask , **train_kwargs)
+        data_manager = DataManager(dataset=xhat_0 , target=x_mask , **loader_kwargs)
         
         return data_manager
     
@@ -231,16 +230,15 @@ class MIWAETrainingPlan(TorchTrainingPlan):
         return neg_bound
 
     def training_data(self):
-        batch_size=self._training_args.get('batch_size')
         df = pd.read_csv(self.dataset_path, sep=',', index_col=False)
         x_train = df.values.astype(np.float64)
         x_mask = np.isfinite(x_train)
         xhat_0 = np.copy(x_train)
             
         xhat_0[np.isnan(x_train)] = 0
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        loader_kwargs = {'shuffle': True}
         
-        data_manager = DataManager(dataset=xhat_0 , target=x_mask , **train_kwargs)
+        data_manager = DataManager(dataset=xhat_0 , target=x_mask , **loader_kwargs)
         
         return data_manager
     
@@ -381,7 +379,6 @@ class SGDRegressorTraumabaseTrainingPlan(FedSGDRegressor):
         super().post_init(model_args, training_args)
 
     def training_data(self):
-        batch_size = self._training_args.get('batch_size')
 
         dataset = pd.read_csv(self.dataset_path, sep=',', index_col=False)
         
@@ -394,8 +391,10 @@ class SGDRegressorTraumabaseTrainingPlan(FedSGDRegressor):
             X = np.concatenate((X_cov, X_cont), axis=1)
 
         y = dataset[self.target_col].values.astype(int).ravel()
+        
+        loader_kwargs = {'shuffle': True}
 
-        return DataManager(dataset=X, target=y, batch_size=batch_size, shuffle=True)
+        return DataManager(dataset=X, target=y, **loader_kwargs)
     
     def standardize_data(self,data):
         data_norm = np.copy(data)
@@ -433,9 +432,6 @@ class FedLogisticRegTraumabase(FedSGDClassifier):
     def __init__(self) -> None:
         """Class constructor."""
         super().__init__()
-        self._model.set_params(loss="log")
-        #self._model.set_params(penalty="elasticnet")
-        #self._model.set_params(class_weight="balanced")
 
     def post_init(
             self,
@@ -443,6 +439,7 @@ class FedLogisticRegTraumabase(FedSGDClassifier):
             training_args: Dict[str, Any],
             aggregator_args: Optional[Dict[str, Any]] = None,
         ) -> None:
+        #model_args["loss"] = "perceptron"#"log_loss"
         model_args["loss"] = "log"#"log_loss"
         #model_args["penalty"] = "elasticnet"
         #model_args["class_weight"]="balanced"
@@ -463,9 +460,12 @@ class FedLogisticRegTraumabase(FedSGDClassifier):
                 self.fed_std = None
 
         super().post_init(model_args, training_args)
+        #self._model.set_params(loss="perceptron")
+        self._model.set_params(loss="log")
+        #self._model.set_params(penalty="elasticnet")
+        #self._model.set_params(class_weight="balanced")
 
     def training_data(self):
-        batch_size = self._training_args.get('batch_size')
 
         dataset = pd.read_csv(self.dataset_path, sep=',', index_col=False)
         
@@ -482,7 +482,9 @@ class FedLogisticRegTraumabase(FedSGDClassifier):
         dict_class_weight = {np.unique(y)[0]:class_weight[0],np.unique(y)[1]:class_weight[1]}
         self._model.set_params(class_weight=dict_class_weight)
 
-        return DataManager(dataset=X, target=y, batch_size=batch_size, shuffle=True)
+        loader_kwargs = {'shuffle': True}
+
+        return DataManager(dataset=X, target=y, **loader_kwargs)
     
     def standardize_data(self,data):
         data_norm = np.copy(data)

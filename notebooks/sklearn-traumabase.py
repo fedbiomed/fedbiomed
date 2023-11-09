@@ -28,7 +28,7 @@ import numpy as np
 import torch
 import pandas as pd
 import argparse
-from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, precision_score, mean_squared_error
+from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, precision_score, mean_squared_error, hinge_loss
 
 from func_miwae_traumabase import databases, databases_pred, generate_save_plots_prediction,\
     recover_data_prediction, save_results_prediction, save_model, load_and_predict_data, save_results_load_and_predict
@@ -59,8 +59,6 @@ if __name__ == '__main__':
                         help='Folder cotaining the results csv')
     parser.add_argument('--batch_size', metavar='-bs', type=int, default=48,
                         help='Batch size')
-    parser.add_argument('--learning_rate', metavar='-lr', type=float, default=1e-3,
-                        help='Learning rate')
     parser.add_argument('--standardize', metavar='-std', default=True, action=argparse.BooleanOptionalAction,
                         help='Standardize data for regression')
     parser.add_argument('--do_fed_std', metavar='-fstd', default=True, action=argparse.BooleanOptionalAction,
@@ -135,7 +133,10 @@ if __name__ == '__main__':
                 model_args = {'n_features': data_size, 'n_cov': num_covariates}
 
                 training_args = {
-                    'batch_size': 48, 
+                    'loader_args': {
+                        'batch_size': 48,
+                        'drop_last': True
+                    },
                     'optimizer_args': {
                         'lr': 0
                     }, 
@@ -182,7 +183,12 @@ if __name__ == '__main__':
             standardization = {} if method == 'FedProx_loc' else {'fed_mean':fed_mean.tolist(),'fed_std':fed_std.tolist()}
             model_args.update(standardization=standardization)
 
-        training_args = {'batch_size': batch_size, 'num_updates': num_updates, 'dry_run': False}
+        training_args = {
+            'loader_args': {
+                'batch_size': batch_size,
+                'drop_last': True
+            },
+            'num_updates': num_updates, 'dry_run': False}
 
         if regressor == 'logistic':
             model_args.update(n_classes = 2)
@@ -289,6 +295,8 @@ if __name__ == '__main__':
 
             testing_error = []
             Validation = []
+            Losses = []
+            Accuracies = []
 
             for i in range(rounds):
                 model_pred.coef_ = exp.aggregated_params()[i]['params']['coef_'].copy()
@@ -299,6 +307,10 @@ if __name__ == '__main__':
                 tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
                 validation_err = (w0*fn+w1*fp)/(fn+fp)
                 Validation.append(validation_err)
+                prediction = model_pred.decision_function(X_test)
+                Losses.append(hinge_loss(y_test, prediction))
+                Accuracies.append(model_pred.score(X_test,y_test))
+
 
             model_pred.coef_ = exp.aggregated_params()[rounds - 1]['params']['coef_'].copy()
             model_pred.intercept_ = exp.aggregated_params()[rounds - 1]['params']['intercept_'].copy() 
@@ -330,7 +342,7 @@ if __name__ == '__main__':
                                     coefs, feat_names)
 
             if args.do_figures==True:
-                generate_save_plots_prediction(result_folder,testing_error,Validation,conf_matr,method,regressor)
+                generate_save_plots_prediction(result_folder,testing_error,Validation,Losses,Accuracies,conf_matr,method,regressor)
 
     elif task == 'load_and_predict':
         # Y_pred = []
@@ -387,7 +399,7 @@ if __name__ == '__main__':
             vote = 0 if count_0>count_1 else 1
             Y_pred_strong.append(vote)
             Y_pred_prob.append([count_0,count_1])
-            Prediction_df = Prediction_df.append({'Strong_pred': vote, 'Prob_pred_0': count_0, \
+            Prediction_df = Prediction_df._append({'Strong_pred': vote, 'Prob_pred_0': count_0, \
                                                   'Prob_pred_1': count_1, 'True_label': y_test[n], \
                                                     'Correct': True if vote == y_test[n] else False},ignore_index=True)
 

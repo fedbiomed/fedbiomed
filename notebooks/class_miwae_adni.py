@@ -55,15 +55,14 @@ class FedMeanStdTrainingPlan(TorchTrainingPlan):
         
         ### NOTE: batch_size should be == dataset size ###
         batch_size = df.shape[0]
+        self._loader_args['batch_size']=batch_size
         x_train = df.values.astype(np.float64)
-        #print(x_train.dtype)
         x_mask = np.isfinite(x_train)
         xhat_0 = np.copy(x_train)
         ### NOTE: we keep nan when data is missing
-        #xhat_0[np.isnan(x_train)] = 0
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        loader_kwargs = {'shuffle': True}
         
-        data_manager = DataManager(dataset=xhat_0 , target=x_mask , **train_kwargs)
+        data_manager = DataManager(dataset=xhat_0 , target=x_mask , **loader_kwargs)
         
         return data_manager
     
@@ -206,16 +205,15 @@ class MIWAETrainingPlan(TorchTrainingPlan):
         return neg_bound
 
     def training_data(self):
-        batch_size=self._training_args.get('batch_size')
         df = pd.read_csv(self.dataset_path, sep=',', index_col=False)
         x_train = df.values.astype(np.float64)
         x_mask = np.isfinite(x_train)
         xhat_0 = np.copy(x_train)
             
         xhat_0[np.isnan(x_train)] = 0
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        loader_kwargs = {'shuffle': True}
         
-        data_manager = DataManager(dataset=xhat_0 , target=x_mask , **train_kwargs)
+        data_manager = DataManager(dataset=xhat_0 , target=x_mask , **loader_kwargs)
         
         return data_manager
     
