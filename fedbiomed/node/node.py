@@ -4,17 +4,16 @@
 '''
 Core code of the node component.
 '''
-from json import decoder
-from typing import Optional, Union
+from typing import Optional, Union, Callable
 
-import validators
-
-from fedbiomed.common.constants import ComponentType, ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest
-from fedbiomed.common.messaging import Messaging
+from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest, ErrorMessage
 from fedbiomed.common.tasks_queue import TasksQueue
+
+from fedbiomed.transport.controller import GrpcController
+from fedbiomed.transport.client import ResearcherCredentials
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -46,9 +45,14 @@ class Node:
             node_args: Command line arguments for node.
         """
 
-        self.tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
-        self.messaging = Messaging(self.on_message, ComponentType.NODE,
-                                   environ['NODE_ID'], environ['MQTT_BROKER'], environ['MQTT_BROKER_PORT'])
+        self._tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
+        # TODO: extend for multiple researchers, currently expect only one
+        res = environ["RESEARCHERS"][0]
+        self._grpc_client = GrpcController(
+            node_id=environ["ID"],
+            researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
+            on_message=self.on_message,
+        )
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
 
@@ -60,7 +64,7 @@ class Node:
         Args:
             task: A `Message` object describing a training task
         """
-        self.tasks_queue.add(task)
+        self._tasks_queue.add(task)
 
     def on_message(self, msg: dict, topic: str = None):
         """Handler to be used with `Messaging` class (ie the messager).
@@ -82,7 +86,8 @@ class Node:
                 be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
-        msg_print = {key: value for key, value in msg.items() if key != 'aggregator_args'}
+        no_print = ["aggregator_args", "aux_vars", "params", "training_plan"]
+        msg_print = {key: value for key, value in msg.items() if key not in no_print}
         logger.debug('Message received: ' + str(msg_print))
         try:
             # get the request from the received message (from researcher)
@@ -94,7 +99,7 @@ class Node:
             elif command == 'secagg-delete':
                 self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
             elif command == 'ping':
-                self.messaging.send_message(
+                self._grpc_client.send(
                     NodeMessages.format_outgoing_message(
                         {
                             'researcher_id': msg['researcher_id'],
@@ -102,46 +107,43 @@ class Node:
                             'success': True,
                             'sequence': msg['sequence'],
                             'command': 'pong'
-                        }).get_dict())
+                        }))
             elif command == 'search':
                 # Look for databases matching the tags
                 databases = self.dataset_manager.search_by_tags(msg['tags'])
                 if len(databases) != 0:
                     databases = self.dataset_manager.obfuscate_private_information(databases)
                     # FIXME: what happens if len(database) == 0
-                    self.messaging.send_message(NodeMessages.format_outgoing_message(
+                    self._grpc_client.send(NodeMessages.format_outgoing_message(
                         {'success': True,
                          'command': 'search',
                          'node_id': environ['NODE_ID'],
                          'researcher_id': msg['researcher_id'],
                          'databases': databases,
-                         'count': len(databases)}).get_dict())
+                         'count': len(databases)}))
             elif command == 'list':
                 # Get list of all datasets
                 databases = self.dataset_manager.list_my_data(verbose=False)
                 databases = self.dataset_manager.obfuscate_private_information(databases)
-                self.messaging.send_message(NodeMessages.format_outgoing_message(
+                self._grpc_client.send(NodeMessages.format_outgoing_message(
                     {'success': True,
                      'command': 'list',
                      'node_id': environ['NODE_ID'],
                      'researcher_id': msg['researcher_id'],
                      'databases': databases,
                      'count': len(databases),
-                     }).get_dict())
+                     }))
             elif command == 'approval':
                 # Ask for training plan approval
-                self.tp_security_manager.reply_training_plan_approval_request(request, self.messaging)
+                reply = self.tp_security_manager.reply_training_plan_approval_request(request)
+                self._grpc_client.send(reply)
             elif command == 'training-plan-status':
                 # Check is training plan approved
-                self.tp_security_manager.reply_training_plan_status_request(request, self.messaging)
-
+                reply = self.tp_security_manager.reply_training_plan_status_request(request)
+                self._grpc_client.send(reply)
             else:
                 raise NotImplementedError('Command not found')
-        except decoder.JSONDecodeError:
-            resid = msg.get('researcher_id', 'unknown_researcher_id')
-            self.send_error(ErrorNumbers.FB301,
-                            extra_msg="Not able to deserialize the message",
-                            researcher_id=resid)
+
         except NotImplementedError:
             resid = msg.get('researcher_id', 'unknown_researcher_id')
             self.send_error(ErrorNumbers.FB301,
@@ -234,124 +236,98 @@ class Node:
         Returns:
             a `Round` object for the training to perform, or None if no training
         """
-        round = None
+        round_ = None
         # msg becomes a TrainRequest object
         hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
                                       researcher_id=msg.get_param('researcher_id'),
-                                      client=self.messaging)
-        # Get arguments for the model and training
-        # NOTE: `get_param` has no real use save for monkey patching in unit tests
-        # (in real life, if the parameter is missing, an exception will be raised)
-        model_kwargs = msg.get_param('model_args') or {}
-        training_kwargs = msg.get_param('training_args') or {}
-        training_status = msg.get_param('training') or False
-        training_plan_url = msg.get_param('training_plan_url')
-        training_plan_class = msg.get_param('training_plan_class')
-        params_url = msg.get_param('params_url')
-        job_id = msg.get_param('job_id')
-        state_id = msg.get_param('state_id')
-        researcher_id = msg.get_param('researcher_id')
-        aggregator_args = msg.get_param('aggregator_args') or None
-        round_number = msg.get_param('round') or 0
-        aux_var_urls = msg.get_param('aux_var_urls') or None
-
-        assert training_plan_url is not None, 'URL for training plan on repository not found.'
-        assert validators.url(
-            training_plan_url), 'URL for training plan on repository is not valid.'
-        assert training_plan_class is not None, 'classname for the training plan and training routine ' \
-                                                'was not found in message.'
-
-        assert isinstance(
-            training_plan_class,
-            str), '`training_plan_class` must be a string corresponding to the classname for the training plan ' \
-                  'and training routine in the repository'
+                                      send=self._grpc_client.send)
 
         dataset_id = msg.get_param('dataset_id')
         data = self.dataset_manager.get_by_id(dataset_id)
-        if data is None or 'path' not in data.keys():
-            # FIXME: 'the condition above depends on database model
-            # if database model changes (ie `path` field removed/
-            # modified);
-            # condition above is likely to be false
-            logger.error('Did not found proper data in local datasets ' +
+
+        if data is None:
+            logger.error('Did not found proper data in local datasets '
                          f'on node={environ["NODE_ID"]}')
-            self.messaging.send_message(NodeMessages.format_outgoing_message(
+            self._grpc_client.send(NodeMessages.format_outgoing_message(
                 {'command': "error",
                  'node_id': environ['NODE_ID'],
-                 'researcher_id': researcher_id,
-                 'errnum': ErrorNumbers.FB313,
+                 'researcher_id': msg.get_param('researcher_id'),
+                 'errnum': ErrorNumbers.FB313.name,
                  'extra_msg': "Did not found proper data in local datasets"}
-            ).get_dict())
+            ))
         else:
-
             dlp_and_loading_block_metadata = None
             if 'dlp_id' in data:
                 dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
-            round = Round(
-                model_kwargs,
-                training_kwargs,
-                training_status,
-                data,
-                training_plan_url,
-                training_plan_class,
-                params_url,
-                job_id,
-                researcher_id,
-                hist_monitor,
-                aggregator_args,
-                self.node_args,
-                round_number=round_number,
-                dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-                aux_var_urls=aux_var_urls,
-            )
+
+            round_ = Round(training_plan=msg.get_param('training_plan'),
+                           training_plan_class=msg.get_param('training_plan_class'),
+                           model_kwargs=msg.get_param('model_args') or {},
+                           training_kwargs=msg.get_param('training_args') or {},
+                           training=msg.get_param('training') or False,
+                           dataset=data,
+                           params=msg.get_param('params'),
+                           job_id=msg.get_param('job_id'),
+                           researcher_id=msg.get_param('researcher_id'),
+                           history_monitor=hist_monitor,
+                           aggregator_args=msg.get_param('aggregator_args') or None,
+                           node_args=self.node_args,
+                           round_number=msg.get_param('round'),
+                           dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
+                           aux_vars=msg.get_param('aux_vars')
+                           )
 
             # the round raises an error if it cannot initialize
-            err_msg = round.initialize_arguments(state_id)
+            err_msg = round_.initialize_arguments(msg.get_param('state_id'))
             if err_msg is not None:
                 self.messaging.send_message(
                     NodeMessages.format_outgoing_message(
                         {   'command': 'error',
-                            'node_id': environ['ID'],
+                            'node_id': environ['NODE_ID'],
                             'errnum': ErrorNumbers.FB300,
-                            'researcher_id': researcher_id,
-                            'extra_msg': err_msg.get('msg')}
+                            'researcher_id': msg.get_param('researcher_id'),
+                            'extra_msg': "Could not initialize arguments."}
                     ).get_dict())
-        return round
+
+        return round_
 
     def task_manager(self):
         """Manages training tasks in the queue.
         """
 
         while True:
-            item = self.tasks_queue.get()
-            item_print = {key: value for key, value in item.items() if key != 'aggregator_args'}
-            logger.debug('[TASKS QUEUE] Item:' + str(item_print))
+            item = self._tasks_queue.get()
+            # don't want to treat again in case of failure
+            self._tasks_queue.task_done()
+
+            logger.info(f"[TASKS QUEUE] Task received by task manager: Command: "
+                        f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}")
+
             try:
 
                 item = NodeMessages.format_incoming_message(item)
                 command = item.get_param('command')
             except Exception as e:
                 # send an error message back to network if something wrong occured
-                self.messaging.send_message(
+                self._grpc_client.send(
                     NodeMessages.format_outgoing_message(
                         {
                             'command': 'error',
                             'extra_msg': str(e),
                             'node_id': environ['NODE_ID'],
                             'researcher_id': 'NOT_SET',
-                            'errnum': ErrorNumbers.FB300
+                            'errnum': ErrorNumbers.FB300.name
                         }
-                    ).get_dict()
+                    )
                 )
             else:
                 if command == 'train':
                     try:
                         round = self.parser_task_train(item)
+
                         # once task is out of queue, initiate training rounds
                         if round is not None:
-                            # iterate over each dataset found
-                            # in the current round (here round refers
-                            # to a round to be done on a specific dataset).
+                            # Runs model training and send message using callback
                             msg = round.run_model_training(
                                 secagg_arguments={
                                     'secagg_servkey_id': item.get_param('secagg_servkey_id'),
@@ -360,20 +336,20 @@ class Node:
                                     'secagg_clipping_range': item.get_param('secagg_clipping_range')
                                 }
                             )
-                            self.messaging.send_message(msg)
+                            self._grpc_client.send(msg)
                     except Exception as e:
                         # send an error message back to network if something
                         # wrong occured
-                        self.messaging.send_message(
+                        self._grpc_client.send(
                             NodeMessages.format_outgoing_message(
                                 {
                                     'command': 'error',
-                                    'extra_msg': str(e),
+                                    'extra_msg': 'Round error: ' + str(e),
                                     'node_id': environ['NODE_ID'],
-                                    'researcher_id': 'NOT_SET',
-                                    'errnum': ErrorNumbers.FB300
+                                    'researcher_id': item.get_param('researcher_id'),
+                                    'errnum': ErrorNumbers.FB300.name
                                 }
-                            ).get_dict()
+                            )
                         )
                         logger.debug(f"{ErrorNumbers.FB300.value}: {e}")
                 elif command == 'secagg':
@@ -383,15 +359,22 @@ class Node:
                     logger.error(errmess)
                     self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
 
-            self.tasks_queue.task_done()
-
-    def start_messaging(self, block: Optional[bool] = False):
+    def start_messaging(self, on_finish: Optional[Callable] = None):
         """Calls the start method of messaging class.
 
         Args:
-            block: Whether messager is blocking (or not). Defaults to False.
+            on_finish: Called when the tasks for handling all known researchers have finished.
+                Callable has no argument.
         """
-        self.messaging.start(block)
+        self._grpc_client.start(on_finish)
+
+    def is_connected(self) -> bool:
+        """Checks if node is ready for communication with researcher
+
+        Returns:
+            True if node is ready, False if node is not ready
+        """
+        return self._grpc_client.is_connected()
 
     def reply(self, msg: dict):
         """Send reply to researcher
@@ -405,7 +388,7 @@ class Node:
             reply = NodeMessages.format_outgoing_message(
                 {'node_id': environ['ID'],
                  **msg}
-            ).get_dict()
+            )
         except FedbiomedMessageError as e:
             logger.error(f"{ErrorNumbers.FB601.value}: {e}")
             self.send_error(errnum=ErrorNumbers.FB601, extra_msg=f"{ErrorNumbers.FB601.value}: Can not reply "
@@ -416,13 +399,16 @@ class Node:
                                                                  f"Unexpected error occurred")
 
         else:
-            self.messaging.send_message(reply)
+            self._grpc_client.send(reply)
+
+
 
     def send_error(
             self,
             errnum: ErrorNumbers,
             extra_msg: str = "",
-            researcher_id: str = "<unknown>"
+            researcher_id: str = "<unknown>",
+            broadcast: bool = False
     ):
         """Sends an error message.
 
@@ -435,4 +421,17 @@ class Node:
         """
 
         #
-        self.messaging.send_error(errnum=errnum, extra_msg=extra_msg, researcher_id=researcher_id)
+        try:
+            self._grpc_client.send(
+                ErrorMessage(
+                    command='error',
+                    errnum=errnum.name,
+                    node_id=environ['NODE_ID'],
+                    extra_msg=extra_msg,
+                    researcher_id=researcher_id
+                ),
+                broadcast=broadcast
+            )
+        except Exception as e:
+            # TODO: Need to keep message local, cannot send error
+            logger.error(f"{ErrorNumbers.FB601.value}: Cannot send error message: {e}")

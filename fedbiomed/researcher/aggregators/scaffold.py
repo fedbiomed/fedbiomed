@@ -275,7 +275,7 @@ class Scaffold(Aggregator):
         self,
         global_model: Dict[str, Union[torch.Tensor, np.ndarray]],
         node_ids: Collection[str]
-    ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    ) -> Dict[str, Dict[str, Any]]:
         """Return correction states that are to be sent to the nodes.
 
         Args:
@@ -284,11 +284,7 @@ class Scaffold(Aggregator):
             node_ids: identifiers of the nodes that are to receive messages.
 
         Returns:
-            aggregator_msg: Dict associating MQTT-transmitted messages to node
-                identifiers.
-            aggregator_dat: Dict associating file-exchange-transmitted messages
-                to node identifiers. The Scaffold correction states are part of
-                this dict.
+            Aggregator arguments to share with the nodes for the next round
         """
         # Optionally initialize states, and verify that nodes are known.
         if not self.nodes_deltas:
@@ -298,8 +294,7 @@ class Scaffold(Aggregator):
                 "Scaffold cannot create aggregator args for nodes that are not"
                 "covered by its attached FederatedDataset."
             )
-        # Pack node-wise messages, for the MQTT and file exchange channels.
-        aggregator_msg = {}
+
         aggregator_dat = {}
         for node_id in node_ids:
             # If a node was late-added to the FederatedDataset, create states.
@@ -312,10 +307,8 @@ class Scaffold(Aggregator):
                 'aggregator_name': self.aggregator_name,
                 'aggregator_correction': self.nodes_deltas[node_id]
             }
-            aggregator_msg[node_id] = {
-                'aggregator_name': self.aggregator_name
-            }
-        return aggregator_msg, aggregator_dat
+    
+        return aggregator_dat
 
     def check_values(self, n_updates: int, training_plan: BaseTrainingPlan) -> True:
         """Check if all values/parameters are correct and have been set before using aggregator.
@@ -434,6 +427,8 @@ class Scaffold(Aggregator):
         filename = os.path.join(breakpoint_path, f"global_state_{uuid.uuid4()}.mpk")
         Serializer.dump(self.global_state, filename)
         self._aggregator_args['global_state_filename'] = filename
+
+        self._aggregator_args["nodes"] = self._fds.node_ids()
         # adding aggregator parameters that will be sent to nodes afterwards
         return super().save_state_breakpoint(
             breakpoint_path, global_model=global_model, node_ids=self._fds.node_ids()
@@ -448,6 +443,5 @@ class Scaffold(Aggregator):
         global_state_filename = self._aggregator_args['global_state_filename']
         self.global_state = Serializer.load(global_state_filename)
 
-        for node_id in self._aggregator_args['aggregator_correction']:
-            arg_filename = self._aggregator_args['aggregator_correction'][node_id]
-            self.nodes_deltas[node_id] = Serializer.load(arg_filename)
+        for node_id in self._aggregator_args['nodes']:
+            self.nodes_deltas[node_id] = self._aggregator_args[node_id]['aggregator_correction']

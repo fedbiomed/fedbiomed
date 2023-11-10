@@ -149,7 +149,7 @@ class TestTrainingArgs(unittest.TestCase):
         self.assertEqual(t['test_metric'], MetricTypes.ACCURACY)
 
         dico = t.dict()
-        self.assertEqual(dico['test_metric'], "ACCURACY")
+        self.assertEqual(dico['test_metric'], MetricTypes.ACCURACY)
 
         with self.assertRaises(FedbiomedUserInputError):
             t ^= {"test_metric": "RULE_OF_THUMB"}

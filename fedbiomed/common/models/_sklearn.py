@@ -365,7 +365,8 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             changed = ",\n\t".join(changed_params)
             logger.warning(
                 "The following non-default model parameters were overridden "
-                f"due to the disabling of the scikit-learn internal optimizer:\n\t{changed}"
+                f"due to the disabling of the scikit-learn internal optimizer:\n\t{changed}",
+                broadcast=True
             )
 
     def enable_internal_optimizer(self) -> None:

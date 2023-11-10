@@ -3,13 +3,8 @@
 
 # # Fed-BioMed Researcher to train a variational autoencoder
 
-# ## Start the network
-# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
-#
-# ## Start the network and setting node up
-# 
-# Before running this notebook, you should start the network
-# Therefore, it is necessary to previously configure a node:
+
+# t is necessary to previously configure a node:
 # 
 # 1. `./scripts/fedbiomed_run node add`
 #   * Select option 2 (default) to add MNIST to the node

@@ -9,8 +9,6 @@
 # 
 # If GPU doesn't have enough memory you will get a **out of memory error** at run time.
 
-# ## Start the network
-# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
 #
 # ## Setting the nodes up
 # We need at least 1 node, let's test using 3 nodes. For each node, add the MNIST dataset :

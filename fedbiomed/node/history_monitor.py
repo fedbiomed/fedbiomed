@@ -4,11 +4,11 @@
 '''Send information from node to researcher during the training
 '''
 
-from typing import Union, Dict
+from typing import Union, Dict, Callable
 
-from fedbiomed.common.message import NodeMessages
-from fedbiomed.common.messaging import Messaging
+from fedbiomed.common.message import FeedbackMessage, Scalar
 from fedbiomed.node.environ import environ
+from fedbiomed.common.logger import logger
 
 
 class HistoryMonitor:
@@ -18,7 +18,7 @@ class HistoryMonitor:
     def __init__(self,
                  job_id: str,
                  researcher_id: str,
-                 client: Messaging):
+                 send: Callable):
         """Simple constructor for the class.
 
         Args:
@@ -28,7 +28,7 @@ class HistoryMonitor:
         """
         self.job_id = job_id
         self.researcher_id = researcher_id
-        self.messaging = client
+        self.send = send
 
     def add_scalar(
             self,
@@ -61,11 +61,11 @@ class HistoryMonitor:
             test_on_local_updates: TODO
 
         """
-
-        self.messaging.send_message(NodeMessages.format_outgoing_message({
+        logger.debug("Send is executed!")
+        self.send(
+            FeedbackMessage(researcher_id=self.researcher_id, scalar=Scalar(**{
             'node_id': environ['NODE_ID'],
             'job_id': self.job_id,
-            'researcher_id': self.researcher_id,
             'train': train,
             'test': test,
             'test_on_global_updates': test_on_global_updates,
@@ -77,5 +77,4 @@ class HistoryMonitor:
             'total_samples': total_samples,
             'batch_samples': batch_samples,
             'num_batches': num_batches,
-            'command': 'add_scalar'
-        }).get_dict(), client='monitoring')
+        })))

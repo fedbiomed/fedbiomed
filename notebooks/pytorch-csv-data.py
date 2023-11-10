@@ -6,12 +6,6 @@
 # This example shows how to use a CSV format file as a node dataset. The example CSV
 # file is synthetic data with a format inspired from ADNI dataset.
 
-# ## Start the network
-# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
-#
-## Start the network and setting the node up
-# Before running this notebook, you should start the network from fedbiomed-network
-# Therefore, it is necessary to previously configure a node:
 # 1. `./scripts/fedbiomed_run node add`
 #   * Select option 1 to add a csv file to the node
 #   * Choose the name, tags and description of the dataset

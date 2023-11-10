@@ -5,8 +5,6 @@
 
 # This example shows how to run a Fed-BioMed job locally on the server, and then compare the training results with the federated training.
 
-# ## Start the network
-# Before running this notebook, start the network with `./scripts/fedbiomed_run network`
 
 # ## Setting the node up
 # It is necessary to previously configure a node:

@@ -2,8 +2,8 @@
 
 Fed-BioMed can be deployed in different ways:
 
-* **single-machine** (nodes, network and researcher run on the same machine) or **multiple-machine**
-* **with or without containers** (each component runs in its `docker` container) **and VPN** (all communications between components are tunneled in a WireGuard VPN with mutual authentication of the VPN endpoints)
+* **single-machine** (nodes and researcher run on the same machine) or **multiple-machine**
+* **with or without containers** (each component runs in its `docker` container) **plus VPN** (all communications between components are tunneled in a WireGuard VPN with mutual authentication of the VPN endpoints)
 
 Choose a scenario depending on the context and requirements:
 

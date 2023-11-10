@@ -16,7 +16,6 @@ dependencies:
   - pip >= 23.0
   - ipython ~=8.13.2
   - flask >= 2.3.2,<2.4.0
-  - paho-mqtt ~=1.6.1
   # tests
   - tinydb ~=4.7.1
   - tabulate >=0.9.0,<0.10.0
@@ -52,5 +51,5 @@ dependencies:
       # FLamby
       - git+https://github.com/owkin/FLamby@main
       # declearn
-      - declearn[torch] ~=2.2.0
+      - declearn[torch1] ~=2.3.2
       - gmpy2 >=2.1,< 2.2

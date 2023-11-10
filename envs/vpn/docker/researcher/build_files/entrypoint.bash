@@ -19,9 +19,9 @@ configure_wireguard
 trap finish TERM INT QUIT
 
 ## TODO : make more general by including in the VPN configuration file and in user environment
-export MQTT_BROKER=10.220.0.2
-export MQTT_BROKER_PORT=1883
-export UPLOADS_URL="http://10.220.0.3:8000/upload/"
+export FEDBIOMED_NO_RESET=1
+export RESEARCHER_SERVER_HOST=10.222.0.2
+export RESEARCHER_SERVER_PORT=50051
 export PYTHONPATH=/fedbiomed
 export MPSPDZ_IP=$VPN_IP
 export MPSPDZ_PORT=14000

@@ -22,7 +22,7 @@ class MyTrainingPlan(TorchTrainingPlan):
         # Since we will train on MNIST, we need datasets and transform from torchvision
         deps = ["from torchvision import datasets, transforms",
                "from torch.utils.data import DataLoader"]
-        self.add_dependency(deps)
+        self._add_dependency(deps)
 
     def forward(self, x):
         x = self.conv1(x)

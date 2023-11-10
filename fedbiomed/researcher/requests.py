@@ -5,24 +5,26 @@
 Implements the message exchanges from researcher to nodes
 """
 
-import inspect
 import json
 import os
 import tabulate
 import uuid
+import tempfile
+from time import sleep
+from typing import Any, Dict, Callable, Union, List, Optional, Tuple
 
 from python_minifier import minify
-from time import sleep
-from typing import Any, Dict, Callable, Union
 
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.constants import MessageType
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ResearcherMessages
-from fedbiomed.common.messaging import Messaging
-from fedbiomed.common.repository import Repository
+from fedbiomed.common.message import ResearcherMessages, Message
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.common.utils import import_class_object_from_file
+
+from fedbiomed.transport.server import GrpcServer
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
@@ -34,7 +36,7 @@ class Requests(metaclass=SingletonMeta):
     incoming message. Starts a message queue and reconfigures  message to be sent into a `Messaging` object.
     """
 
-    def __init__(self, mess: Any = None):
+    def __init__(self):
         """
         Constructor of the class
 
@@ -46,64 +48,55 @@ class Requests(metaclass=SingletonMeta):
         # eg: a notebook not quitted and launching a script
         self.queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'] + '_' + str(uuid.uuid4()), environ['TMP_DIR'])
 
-        if mess is None or type(mess) is not Messaging:
-            self.messaging = Messaging(self.on_message,
-                                       ComponentType.RESEARCHER,
-                                       environ['RESEARCHER_ID'],
-                                       environ['MQTT_BROKER'],
-                                       environ['MQTT_BROKER_PORT'])
-            self.messaging.start(block=False)
-        else:
-            self.messaging = mess
-
         # defines the sequence used for ping protocol
         self._sequence = 0
 
         self._monitor_message_callback = None
 
-    def get_messaging(self) -> Messaging:
-        """Retrieves Messaging object
+        # Creates grpc server and starts it
+        self._grpc_server = GrpcServer(
+            host=environ["SERVER_HOST"],
+            port=environ["SERVER_PORT"],
+            on_message=self.on_message
+        )
+        self.start_messaging()
 
-        Returns:
-            Messaging object
+
+    def start_messaging(self):
+        """Start communications endpoint
         """
-        return self.messaging
+        self._grpc_server.start()
 
-    def on_message(self, msg: Dict[str, Any], topic: str):
-        """ Handler called by the [`Messaging`][fedbiomed.common.messaging] class,  when a message is received on
-        researcher side.
+    def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType):
+        """ Handler called by the [`ResearcherServer`][fedbiomed.transport.researcher_server] class,
+        when a message is received on researcher side.
 
-        It is run in the communication process and must ba as quick as possible:
+        It is run in the communication process and must be as quick as possible:
         - it deals with quick messages (eg: ping/pong)
-        - it stores the replies of the nodes to the task queue, the message will bee
+        - it stores the replies of the nodes to the task queue, the message will be
         treated by the main (computing) thread.
 
         Args:
             msg: de-serialized msg
-            topic: topic to publish message (MQTT channel)
+            type: Reply type one of reply, log, scalar
         """
 
-        if topic == "general/logger":
-            #
+        if type_ == MessageType.LOG:
             # forward the treatment to node_log_handling() (same thread)
-            self.print_node_log_message(ResearcherMessages.format_incoming_message(msg).get_dict())
-        elif topic == "general/researcher":
-            #
-            # *Reply messages (SearchReply, TrainReply) added to the TaskQueue
+            self.print_node_log_message(msg.get_dict())
+        elif type_ == MessageType.REPLY:
+            # Adds reply message to the queue
             self.queue.add(ResearcherMessages.format_incoming_message(msg).get_dict())
 
-            # we may trap FedbiomedTaskQueueError here then queue full
-            # but what can we do except of quitting ?
-
-        elif topic == "general/monitoring":
+        elif type_ == MessageType.SCALAR:
             if self._monitor_message_callback is not None:
                 # Pass message to Monitor's on message handler
-                self._monitor_message_callback(ResearcherMessages.format_incoming_message(msg).get_dict())
+                self._monitor_message_callback(msg.get_dict())
         else:
-            logger.error("message received on wrong topic (" + topic + ") - IGNORING")
+            logger.error(f"Undefined message type received  {type_} - IGNORING")
 
     @staticmethod
-    def print_node_log_message(log: Dict[str, Any]):
+    def print_node_log_message(log: Dict[str, Any]) -> None:
         """Prints logger messages coming from the node
 
         It is run on the communication process and must be as quick as possible:
@@ -125,32 +118,59 @@ class Requests(metaclass=SingletonMeta):
                                 original_msg["message"],
                                 5 * "-------------"))
 
-    def send_message(self, msg: dict, client: str = None, add_sequence: bool = False) -> \
-            Union[int, None]:
+    def _add_sequence(self) -> int:
+        """Increases sequence number and saves it each time it is called
+
+        Returns:
+            Current sequence number
         """
-        Ask the messaging class to send a new message (receivers are
-        deduced from the message content)
+        seq = self._sequence
+        self._sequence = + 1
+
+        return seq
+
+    def send_message(self, msg: dict, client: str, add_sequence: bool = False) -> Optional[int]:
+        """Request the communication layer to send a message to a node.
+
+        Args:
+            msg: the message to send to node
+            client: unique node ID of the destination node for the message
+            add_sequence: if `True`, add unique sequence number to the message
+
+        Returns:
+            sequence: If `add_sequence` is True return the sequence number added to the message.
+                If `add_sequence` is False, return None
+        """
+
+        if add_sequence:
+            msg['sequence'] = self._add_sequence()
+
+        # Send message to client
+        self._grpc_server.send(ResearcherMessages.format_outgoing_message(msg), client)
+
+        return msg.get('sequence', None)
+
+    def broadcast(self, message, add_sequence: bool = False) -> Optional[int]:
+        """Request the communication layer to roadcast a message to all nodes.
 
         Args:
             msg: the message to send to nodes
-            client: defines the channel to which the message will be sent. Defaults to None (all nodes)
             add_sequence: if `True`, add unique sequence number to the message
 
         Returns:
             If `add_sequence` is True return the sequence number added to the message.
                 If `add_sequence` is False, return None
         """
-        logger.debug(str(environ['RESEARCHER_ID']))
-        sequence = None
-        if add_sequence:
-            sequence = self._sequence
-            self._sequence += 1
-            msg['sequence'] = sequence
 
-        self.messaging.send_message(
-            ResearcherMessages.format_outgoing_message(msg).get_dict(),
-            client=client)
-        return sequence
+        if add_sequence:
+            message['sequence'] = self._add_sequence()
+
+        # TODO: Return also  the list of node that the messages are sent
+        self._grpc_server.broadcast(
+            ResearcherMessages.format_outgoing_message(message)
+        )
+
+        return message.get('sequence', None)
 
     def get_messages(self, commands: list = [], time: float = .0) -> Responses:
         """Goes through the queue and gets messages with the specific command
@@ -185,11 +205,13 @@ class Requests(metaclass=SingletonMeta):
 
         return Responses(answers)
 
-    def get_responses(self,
-                      look_for_commands: list,
-                      timeout: float = None,
-                      only_successful: bool = True,
-                      while_responses: bool = True) -> Responses:
+    def get_responses(
+            self,
+            look_for_commands: list,
+            timeout: float = None,
+            only_successful: bool = True,
+            while_responses: bool = True,
+    ) -> Responses:
         """Waits for all nodes' answers, regarding a specific command returns the list of all nodes answers
 
         Args:
@@ -209,6 +231,7 @@ class Requests(metaclass=SingletonMeta):
             sleep(timeout)
             new_responses = []
             for resp in self.get_messages(commands=look_for_commands, time=0):
+
                 try:
                     if not only_successful:
                         new_responses.append(resp)
@@ -235,44 +258,51 @@ class Requests(metaclass=SingletonMeta):
         Returns:
             List ids of up and running nodes
         """
-        self.send_message(
-            {'researcher_id': environ['RESEARCHER_ID'], 'command': 'ping'},
-            add_sequence=True)
+
+        # Broadcasts ping request
+        self.broadcast({
+                'researcher_id': environ["ID"],
+                'sequence': self._sequence,
+                'command': "ping"
+            },
+            add_sequence=True
+        )
 
         # TODO: check sequence number in pong
         # TODO: (below, above) handle exceptions
         nodes_online = [resp['node_id'] for resp in self.get_responses(look_for_commands=['pong'])]
         return nodes_online
 
-    def search(self, tags: tuple, nodes: list = None) -> dict:
-        """ Searches available data by tags
+    def search(self, tags: tuple, nodes: Optional[list] = None) -> dict:
+        """Searches available data by tags
 
         Args:
             tags: Tuple containing tags associated to the data researcher is looking for.
-            nodes: optionally filter nodes with this list. Default is no filtering, consider all nodes
+            nodes: optionally filter nodes with this list. Default is None, no filtering, consider all nodes
 
         Returns:
             A dict with node_id as keys, and list of dicts describing available data as values
         """
 
         # Search datasets based on node specifications
-        if nodes:
+        if nodes is not None:
             logger.info(f'Searching dataset with data tags: {tags} on specified nodes: {nodes}')
             for node in nodes:
-                self.messaging.send_message(
-                    ResearcherMessages.format_outgoing_message({'tags': tags,
-                                                       'researcher_id': environ['RESEARCHER_ID'],
-                                                       "command": "search"}
-                                                               ).get_dict(),
+                self.send_message(
+                    {'tags': tags,
+                     'researcher_id': environ['RESEARCHER_ID'],
+                     "command": "search"},
                     client=node)
         else:
             logger.info(f'Searching dataset with data tags: {tags} for all nodes')
-            self.messaging.send_message(
-                ResearcherMessages.format_outgoing_message({'tags': tags,
-                                                   'researcher_id': environ['RESEARCHER_ID'],
-                                                   "command": "search"}
-                                                           ).get_dict())
+            # TODO: Unlike MQTT implementation, in gRPC, all the nodes that are broadcasted
+            # are known by the researcher gRPC server. Therefore, using timeout is not necessary.
+            self.broadcast({'tags': tags,
+                            'researcher_id': environ['RESEARCHER_ID'],
+                            "command": "search"})
 
+        # TODO: currently a node with no dataset does not answer
+        # We may robustify by having any node answer and check this matches the list of ACTIVE nodes
         data_found = {}
         for resp in self.get_responses(look_for_commands=['search']):
             if not nodes:
@@ -287,28 +317,29 @@ class Requests(metaclass=SingletonMeta):
 
         return data_found
 
-    def list(self, nodes: list = None, verbose: bool = False) -> dict:
+    def list(self, nodes: Optional[list] = None, verbose: bool = False) -> dict:
         """Lists available data in each node
 
         Args:
-            nodes: Listings datasets by given node ids. Default is None.
+            nodes: optionally filter nodes with this list. Default is None, no filtering, consider all nodes
             verbose: If it is true it prints datasets in readable format
+
+        Returns:
+            A dict with node_id as keys, and list of dicts describing available data as values
         """
 
         # If nodes list is provided
-        if nodes:
+        if nodes is not None:
             for node in nodes:
-                self.messaging.send_message(
-                    ResearcherMessages.format_outgoing_message({'researcher_id': environ['RESEARCHER_ID'],
-                                                       "command": "list"}
-                                                               ).get_dict(),
+                self.send_message(
+                    {"researcher_id": environ['RESEARCHER_ID'],
+                     "command": "list"},
                     client=node)
             logger.info(f'Listing datasets of given list of nodes : {nodes}')
         else:
-            self.messaging.send_message(
-                ResearcherMessages.format_outgoing_message({'researcher_id': environ['RESEARCHER_ID'],
-                                                   "command": "list"}).get_dict())
-            logger.info('Listing available datasets in all nodes... ')
+            self.broadcast({'researcher_id': environ['RESEARCHER_ID'],
+                            "command": "list"})
+            logger.info(f'Listing available datasets in all nodes... {nodes} ')
 
         # Get datasets from node responses
         data_found = {}
@@ -333,7 +364,7 @@ class Requests(metaclass=SingletonMeta):
         return data_found
 
     def training_plan_approve(self,
-                              training_plan: 'BaseTrainingPlan',
+                              training_plan: BaseTrainingPlan,
                               description: str = "no description provided",
                               nodes: list = [],
                               timeout: int = 5) -> dict:
@@ -343,15 +374,10 @@ class Requests(metaclass=SingletonMeta):
         to all nodes of the list.
         If the node id(s) list is None (default), the message is broadcast to all nodes.
 
-
         Args:
-            training_plan: the training plan to upload and send to the nodes for approval.
-                   It can be:
-                   - a path_name (str)
-                   - a training plan (class)
-                   - an instance of a training plan (TrainingPlan instance)
-            nodes: list of nodes (specified by their UUID)
+            training_plan: the training plan class to send to the nodes for approval.
             description: Description of training plan approval request
+            nodes: list of nodes (specified by their UUID)
             timeout: maximum waiting time for the answers
 
         Returns:
@@ -366,48 +392,33 @@ class Requests(metaclass=SingletonMeta):
             logger.error("bad nodes argument, training plan not sent")
             return {}
 
-        # verify the training plan and save it to a local file name if necessary
-        if isinstance(training_plan, str):
-            # training plan is provided as a file
-            # TODO: verify that this file a a proper TrainingPlan
-            if os.path.isfile(training_plan) and os.access(training_plan, os.R_OK):
-                training_plan_file = training_plan
-            else:
-                logger.error(f"cannot access to the file ({training_plan})")
-                return {}
-        else:
-            # we need a training plan instance in other cases
-            if inspect.isclass(training_plan):
-                # case if `training_plan` is a class
-                try:
-                    training_plan_instance = training_plan()
-                    deps = training_plan_instance.init_dependencies()
-                    training_plan_instance.add_dependency(deps)
-                except Exception as e:  # TODO: be more specific
-                    logger.error(f"cannot instantiate the given training plan ({e})")
-                    return {}
-            else:
-                # also handle case where training plan is already an instance of a class
-                training_plan_instance = training_plan
+        if not issubclass(training_plan, BaseTrainingPlan):
+            logger.error("bad training plan argument, no request sent")
+            return {}
 
-            # then save this instance to a file
-            training_plan_file = os.path.join(environ['TMP_DIR'],
-                                              "training_plan_" + str(uuid.uuid4()) + ".py")
-
+        # save and load training plan to a file to be sure
+        # 1. a file is associated to training plan so we can read its source, etc.
+        # 2. all dependencies are applied
+        training_plan_instance = training_plan()
+        training_plan_module = 'my_model_' + str(uuid.uuid4())
+        with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmp_dir:
+            training_plan_file = os.path.join(tmp_dir, training_plan_module + '.py')
             try:
                 training_plan_instance.save_code(training_plan_file)
-            except Exception as e:  # TODO: be more specific
-                logger.error(f"Cannot save the training plan to a file ({e})")
-                logger.error(f"Are you sure that {training_plan} is a TrainingPlan ?")
+            except Exception as e:
+                logger.error(f"Cannot save the training plan to a local tmp dir : {e}")
                 return {}
 
-        # verify that the file can be minified before sending
-        #
-        # TODO: enforce a stronger check here (user story #179)
+            try:
+                _, training_plan_instance = import_class_object_from_file(
+                    training_plan_file, training_plan.__name__)
+                tp_source = training_plan_instance.source()
+            except Exception as e:
+                logger.error(f"Cannot instantiate the training plan: {e}")
+                return {}
+
         try:
-            with open(training_plan_file, "r") as f:
-                content = f.read()
-            minify(content,
+            minify(tp_source,
                    remove_annotations=False,
                    combine_imports=False,
                    remove_pass=False,
@@ -419,20 +430,11 @@ class Requests(metaclass=SingletonMeta):
             logger.error(f"This file is not a python file ({e})")
             return {}
 
-        # create a repository instance and upload the training plan file
-        repository = Repository(environ['UPLOADS_URL'],
-                                environ['TMP_DIR'],
-                                environ['CACHE_DIR'])
-
-        upload_status = repository.upload_file(training_plan_file)
-
-        logger.debug(f"training_plan_approve: upload_status = {upload_status}")
-
         # send message to node(s)
         message = {
             'researcher_id': environ['RESEARCHER_ID'],
             'description': str(description),
-            'training_plan_url': upload_status['file'],
+            'training_plan': tp_source,
             'command': 'approval'}
 
         if nodes:
@@ -441,12 +443,14 @@ class Requests(metaclass=SingletonMeta):
                 sequence = self.send_message(message, client=n, add_sequence=True)
         else:
             # broadcast message
-            sequence = self.send_message(message, add_sequence=True)
+            sequence = self.broadcast(message, add_sequence=True)
 
         # wait for answers for a certain timeout
         result = {}
+
         for resp in self.get_responses(look_for_commands=['approval'],
                                        timeout=timeout):
+            
             if sequence != resp['sequence']:
                 logger.error("received an approval_reply with wrong sequence, ignoring it")
                 continue

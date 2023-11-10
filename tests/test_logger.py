@@ -5,7 +5,8 @@ import tempfile
 import time
 import uuid
 
-import paho.mqtt.client as mqtt
+
+from unittest.mock import MagicMock
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.logger import DEFAULT_LOG_LEVEL
@@ -35,18 +36,18 @@ class TestLogger(unittest.TestCase):
         '''
 
         # string -> logging.* translator
-        self.assertEqual( logger._internalLevelTranslator("DEBUG"),
+        self.assertEqual( logger._internal_level_translator("DEBUG"),
                           logging.DEBUG)
-        self.assertEqual( logger._internalLevelTranslator("INFO"),
+        self.assertEqual( logger._internal_level_translator("INFO"),
                           logging.INFO)
-        self.assertEqual( logger._internalLevelTranslator("WARNING"),
+        self.assertEqual( logger._internal_level_translator("WARNING"),
                           logging.WARNING)
-        self.assertEqual( logger._internalLevelTranslator("ERROR"),
+        self.assertEqual( logger._internal_level_translator("ERROR"),
                           logging.ERROR)
-        self.assertEqual( logger._internalLevelTranslator("CRITICAL"),
+        self.assertEqual( logger._internal_level_translator("CRITICAL"),
                           logging.CRITICAL)
 
-        self.assertEqual( logger._internalLevelTranslator("STUPIDO"),
+        self.assertEqual( logger._internal_level_translator("STUPIDO"),
                           DEFAULT_LOG_LEVEL)
         pass
 
@@ -65,15 +66,15 @@ class TestLogger(unittest.TestCase):
         self.assertEqual( len(logger._handlers) , 1 )
 
         # should also return len() = 1
-        logger._internalAddHandler( "CONSOLE", handler)
+        logger._internal_add_handler( "CONSOLE", handler)
         self.assertEqual( len(logger._handlers) , 1 )
 
         # add a new one
-        logger._internalAddHandler( "TEST1", handler)
+        logger._internal_add_handler( "TEST1", handler)
         self.assertEqual( len(logger._handlers) , 2)
 
         # handler already exists -> count does not change
-        logger._internalAddHandler( "TEST1", handler)
+        logger._internal_add_handler( "TEST1", handler)
         self.assertEqual( len(logger._handlers) , 2)
 
 
@@ -158,7 +159,7 @@ class TestLogger(unittest.TestCase):
         # add a new handler and verify its initial level
         handler = logging.NullHandler()
 
-        logger._internalAddHandler( "H_1", handler)
+        logger._internal_add_handler( "H_1", handler)
         self.assertEqual( logger._handlers["H_1"].level,
                           DEFAULT_LOG_LEVEL)
 
@@ -237,8 +238,7 @@ class TestLogger(unittest.TestCase):
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(captured.records[0].getMessage(), "TEST_7")
 
-    # minimal on_* handlers for mqtt
-    # the self._mqtt_is_connected will conditionnate the tests later
+    # minimal on_* handlers
     def on_message(self, client, userdata, msg):
         '''
         empty on_message handler
@@ -249,56 +249,35 @@ class TestLogger(unittest.TestCase):
         '''
         empty on_connect handler
         '''
-        self._mqtt_is_connected = True
+        pass
 
     def on_disconnect(self, client, userdata, flags, rc):
         '''
         empty on_disconnect handler
         '''
-        self._mqtt_is_connected = False
+        pass
 
 
-    def test_logger_06_mqtt(self):
+    def test_logger_06_grpc_handler(self):
         '''
-        test mqtt handler
+        test grpc handler
         '''
 
-        # try to connect to MQTT
-        self._mqtt_is_connected  = False
-        self._node_id            = "test_logger_node_" + str(uuid.uuid4())
-        self._mqtt               = mqtt.Client(client_id = self._node_id)
-        self._mqtt.on_message    = self.on_message
-        self._mqtt.on_connect    = self.on_connect
-        self._mqtt.on_disconnect = self.on_disconnect
-
-        try:
-            self._mqtt.connect('localhost', 1883)
-        except:
-            # be silent -- no MQTT server
-            pass
-
-        self._mqtt.loop_start()
-        time.sleep(1)
-
-        # only test this if a mqtt server is available
-        if not self._mqtt_is_connected:
-            self.skipTest("no MQTT server - skipping test")
+        grpc = MagicMock()
 
         #
-        logger.addMqttHandler(
-            mqtt      = self._mqtt,
-            node_id   = self._node_id
+        logger.add_grpc_handler(
+            on_log=grpc.send,
+            node_id="dummy-id"
         )
 
-        logger.debug("mqtt+console DEBUG message")
-        logger.error("mqtt+console ERROR message")
+        logger.debug("console DEBUG message", researcher_id="test-id")
+        logger.error("console ERROR message")
 
         #
         logger.setLevel("DEBUG")
-        logger.delMqttHandler()
         logger.critical("verify that logger still works properly")
 
-        self._mqtt.loop_stop()
         pass
 
 
@@ -309,7 +288,7 @@ class TestLogger(unittest.TestCase):
 
         randomfile = tempfile.NamedTemporaryFile()
 
-        logger.addFileHandler( filename = randomfile.name)
+        logger.add_file_handler( filename = randomfile.name)
         logger.log("ERROR", "YYY-FIND_THIS_IN_TEMPFILE-XXX")
 
         # give some time to the logger

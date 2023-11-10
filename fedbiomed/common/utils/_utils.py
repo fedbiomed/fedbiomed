@@ -2,13 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import sys
+import os
 import inspect
+import importlib.util
+import re
 from collections.abc import Iterable
-from typing import Callable, Iterator, List, Optional, Union
+from typing import Callable, Iterator, List, Optional, Union, Any, Tuple
 from IPython.core.magics.code import extract_symbols
 
 import torch
 import numpy as np
+
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -27,7 +32,7 @@ def read_file(path):
             file.close()
     except Exception as e:
         raise FedbiomedError(
-            f"Can not read file {path}. Error: {e}"
+            f"{ErrorNumbers.FB627.value}: Can not read file {path}. Error: {e}"
         )
     else:
         return content
@@ -50,7 +55,7 @@ def get_class_source(cls: Callable) -> str:
     """
 
     if not inspect.isclass(cls):
-        raise FedbiomedError('The argument `cls` must be a python class')
+        raise FedbiomedError(f'{ErrorNumbers.FB627.value}: The argument `cls` must be a python class')
 
     # Check ipython status
     status = is_ipython()
@@ -83,6 +88,110 @@ def is_ipython() -> bool:
         return False
 
 
+def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:
+    """Import a module from a file and create an instance of a specified class of the module.
+
+    Args:
+        module_path: path to python module file
+        class_name: name of the class
+
+    Returns:
+        Tuple of the module created and the training plan object created
+
+    Raises:
+        FedbiomedError: bad argument type
+        FedbiomedError: cannot instantiate object
+    """
+    for arg in [module_path, class_name]:
+        if not isinstance(arg, str):
+            raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Expected argument type is string but got '{type(arg)}'")
+
+    module, train_class = import_class_from_file(module_path, class_name)
+    
+    try:
+        train_class_instance = train_class()
+    except Exception as e:
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Cannot instantiate training plan object: {e}")
+
+    return module, train_class_instance
+
+
+def import_class_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:
+    """Import a module from a file and return a specified class of the module.
+
+    Args:
+        module_path: path to python module file
+        class_name: name of the class
+
+    Returns:
+        Tuple of the module created and the training plan class loaded
+
+    Raises:
+        FedbiomedError: bad argument type
+        FedbiomedError: cannot load module or class
+    """
+    if not os.path.isfile(module_path):
+        raise FedbiomedError(f"{ErrorNumbers.FB627}: Given path for importing {class_name} is not existing")
+
+    module_base_name = os.path.basename(module_path)
+    pattern = re.compile("(.*).py$")
+
+    match = pattern.match(module_base_name)
+    if not match:
+        raise FedbiomedError(f"{ErrorNumbers.FB627}: File is not a python file.")
+
+    module = match.group(1)
+    sys.path.insert(0, os.path.dirname(module_path))
+
+    try:
+        module = importlib.import_module(module)
+    except ModuleNotFoundError as exp:
+        raise FedbiomedError(f"Specified module is not existing. {exp}") from exp
+
+    try:
+        class_ = getattr(module, class_name)
+    except AttributeError as exp:
+        raise FedbiomedError(f"{ErrorNumbers.FB627}, Attribute error while loading the class "
+                             f"{class_name} from {module_path}") from exp
+    sys.path.pop(0)
+
+    return module, class_
+
+
+def import_class_from_spec(code: str, class_name: str) -> Tuple[Any, Any] :
+    """Import a module from a code and extract the code of a specified class of the module.
+
+    Args:
+        code: code of the module
+        class_name: name of the class
+
+    Returns:
+        Tuple of the module created and the extracted class
+
+    Raises:
+        FedbiomedError: bad argument type
+        FedbiomedError: cannot load module or extract clas
+    """
+
+    for arg in [code, class_name]:
+        if not isinstance(arg, str):
+            raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Expected argument type is string but got '{type(arg)}'")
+
+    try:
+        spec = importlib.util.spec_from_loader("module_", loader=None)
+        module = importlib.util.module_from_spec(spec)
+        exec(code, module.__dict__)
+    except Exception as e:
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Can not load module from given code: {e}")
+
+    try:
+        class_ = getattr(module, class_name)
+    except AttributeError:
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Can not import {class_name} from given code")
+
+    return module, class_
+
+
 def get_ipython_class_file(cls: Callable) -> str:
     """Get source file/cell-id of the class which is defined in ZMQInteractiveShell or TerminalInteractiveShell
 
@@ -105,7 +214,7 @@ def get_ipython_class_file(cls: Callable) -> str:
             if inspect.isfunction(member) and cls.__qualname__ + '.' + member.__name__ == member.__qualname__:
                 return inspect.getfile(member)
     else:
-        raise FedbiomedError(f'{cls} has no attribute `__module__`, source is not found.')
+        raise FedbiomedError(f'{ErrorNumbers.FB627.value}: {cls} has no attribute `__module__`, source is not found.')
 
 
 def get_method_spec(method: Callable) -> dict:
@@ -141,14 +250,15 @@ def convert_to_python_float(value: Union[torch.Tensor, np.integer, np.floating, 
     """
 
     if not isinstance(value, (torch.Tensor, np.integer, np.floating, float, int)):
-        raise FedbiomedError(f"Converting {type(value)} to python to float is not supported.")
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB627.value}: Converting {type(value)} to python to float is not supported.")
 
     # if the result is a tensor, convert it back to numpy
     if isinstance(value, torch.Tensor):
         value = value.numpy()
 
     if isinstance(value, Iterable) and value.size > 1:
-        raise FedbiomedError("Can not convert array-type objects to float.")
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Can not convert array-type objects to float.")
 
     return float(value)
 
@@ -164,7 +274,7 @@ def convert_iterator_to_list_of_python_floats(iterator: Iterator) -> List[float]
     """
 
     if not isinstance(iterator, Iterable):
-        raise FedbiomedError(f"object {type(iterator)} is not iterable")
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: object {type(iterator)} is not iterable")
 
     list_of_floats = []
     if isinstance(iterator, dict):

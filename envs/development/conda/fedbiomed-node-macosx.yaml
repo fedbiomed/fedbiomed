@@ -22,7 +22,6 @@ dependencies:
   - tabulate >=0.9.0,<0.10.0
   # code
   - requests ~=2.29.0
-  - paho-mqtt ~=1.6.1
   - validators >=0.20.0,<0.21.0
   - git ~=2.40.1
   - packaging ~=23.1
@@ -56,8 +55,11 @@ dependencies:
       # FLamby
       - git+https://github.com/owkin/FLamby@main
       # declearn
-      - declearn[torch] ~=2.2.0
+      - declearn[torch1] ~=2.3.2
       - gmpy2 >=2.1,< 2.2
+      # grpc
+      - grpcio ~=1.57.0
+      - grpcio-tools ~=1.57.0
 #### Notebook-specific packages ####
 # This section contains packages that are needed only to run specific notebooks
       - unet >=0.7.7,<0.8.0

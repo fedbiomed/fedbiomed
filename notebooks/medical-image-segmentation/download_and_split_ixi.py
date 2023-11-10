@@ -11,18 +11,27 @@ from sklearn.model_selection import train_test_split
 
 config_file = """
 [default]
-node_id = CENTER_ID
-uploads_url = http://localhost:8844/upload/
-
-[mqtt]
-broker_ip = localhost
-port = 1883
-keep_alive = 60
+id = CENTER_ID
+component = NODE
+version = 2
 
 [security]
 hashing_algorithm = SHA256
 allow_default_training_plans = True
 training_plan_approval = False
+secure_aggregation = False
+force_secure_aggregation = False
+
+[researcher]
+ip = localhost
+port = 50051
+
+[mpspdz]
+private_key = dummy_path
+public_key = dummy_path
+mpspdz_ip = localhost
+mpspdz_port = 14000
+allow_default_biprimes = True
 """
 
 
@@ -106,7 +115,7 @@ if __name__ == '__main__':
         os.makedirs(cfg_folder, exist_ok=True)
         cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
 
-        print(f'Creating node at: {cfg_file} (config file)')
+        print(f'Creating node at: {cfg_file}')
         with open(cfg_file, 'w') as f:
             f.write(config_file.replace('CENTER_ID', center_name))
 
@@ -144,10 +153,7 @@ if __name__ == '__main__':
     print(f'Federated dataset located at: {federated_data_folder}')
 
     print()
-    print("Make sure Network component is running before launching Nodes: \t./scripts/fedbiomed_run network ")
-    print()
-
-    print('Please add the data to your nodes executing and using the `ixi-train` tag:')
+    print('Please add the data to your nodes executing and using the `bids-train` tag:')
     for center_name in center_names:
         print(f'\t./scripts/fedbiomed_run node config {center_name.lower()}.ini add')
 

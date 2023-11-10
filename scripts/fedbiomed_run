@@ -67,7 +67,7 @@ node      : a second argument is mandatory
 
             an optional config file CONFIG_NAME can be given it will be used instead of the default one (config.ini)
 
-            an optional IP_ADDRESS can be used to join the network component instead of
+            an optional IP_ADDRESS can be used to join the researcher component instead of
                 the default localhost
 
             optional additional PARAMS are passed to fedbiomed
@@ -94,16 +94,8 @@ researcher: launch a researcher notebook
             - configuration : Option for configuration management.
                             Please see details 'fedbiomed_run researcher configuration -h'
 
-            an optional IP_ADDRESS (eg 10.1.2.3 or host.foo) can be used to join the network
+            an optional IP_ADDRESS (eg 10.1.2.3 or host.foo) can be used to join the researcher
                 component instead of the default localhost
-EOF
-        ;;
-
-        network)
-            cat <<EOF
-
-network   : run the necessary docker containers (in development mode)
-            stop the containers if stop argument is provided
 EOF
         ;;
 
@@ -149,15 +141,6 @@ EOF
             usage_body researcher
         ;;
 
-        network)
-            cat <<EOF
-usage: fedbiomed_run network (stop)
-
-Runs the fedbiomed network component.
-EOF
-            usage_body network
-        ;;
-
         gui)
             cat <<EOF
 usage: febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | cert CERTIFICATE_NAME | key PRIVATE_KEY_NAME | host IP_ADDRESS | port PORT | --recreate] (start)
@@ -169,8 +152,7 @@ EOF
 
         *|'')
             cat <<EOF
-usage: fedbiomed_run network (stop)
-       fedbiomed_run researcher [ip_address IP_ADDRESS] start
+usage: fedbiomed_run researcher [ip_address IP_ADDRESS] start
        fedbiomed_run node [config CONFIG_NAME | ip_address IP_ADDRESS | enable-training-plan-approval | disable-training-plan-approval | allow-default-training-plans | disable-default-training-plans ]
                          (start | add | list | delete | add-mnist PATH_TO_DATASET | delete-mnist | list-training-plans | view-training-plan | register-training-plan | delete-training-plan | update-training-plan) PARAMS
        febiomed_run gui [data-folder DATAFOLDER | config CONFIG_NAME | cert CERTIFICATE_NAME | key PRIVATE_KEY_NAME | host IP_ADDRESS | port PORT | --recreate]
@@ -180,7 +162,6 @@ usage: fedbiomed_run network (stop)
 Runs the fedbiomed components after properly initializing the environments.
 The component name is mandatory.
 EOF
-            usage_body network
             usage_body researcher
             usage_body node
             usage_body gui
@@ -227,32 +208,6 @@ function forward_command_to_python_cli(){
 #
 case $1 in
 
-
-    network)
-        cd ./envs/development/docker
-        #
-        case $2 in
-            stop)
-                docker-compose down
-                ;;
-            help|-h|--help)
-                usage network
-                ;;
-            *)
-                source $basedir/scripts/choose_docker_compose
-                docker_compose
-
-                CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-                             CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
-                             CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
-                             $DOCKER_COMPOSE build restful mqtt
-                CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) \
-                             CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') \
-                             CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') \
-                             $DOCKER_COMPOSE up -d restful mqtt
-                ;;
-        esac
-        ;;
     gui)
         # Get params starting from second
         EXTRA_PARAMS=${@:2}
@@ -262,7 +217,7 @@ case $1 in
     node)
         while true ; do
             case $2 in
-                # handle optional parameters : config file, network ip, training plan approval and allow default training plans
+                # handle optional parameters : config file, researcher ip, training plan approval and allow default training plans
                 config)
                     if [ $# -lt 3 ] ; then
                         echo "ERROR: missing config file name"
@@ -274,7 +229,7 @@ case $1 in
                 ;;
                 ip_address)
                     if [ $# -lt 3 ] ; then
-                        echo "ERROR: missing network ip"
+                        echo "ERROR: missing researcher ip"
                         exit 1
                     fi
                     IP_ADDRESS=$3
@@ -389,9 +344,6 @@ case $1 in
                     ;;
 
                 start|--start|-s)
-                    #export MQTT_BROKER=localhost
-                    #export MQTT_BROKER_PORT=1883
-                    #export UPLOADS_URL='http://localhost:8844/upload/'
                     python -m fedbiomed.node.cli --start $PARAMS
                     ;;
 
@@ -406,15 +358,11 @@ case $1 in
         ;;
 
     researcher)
-        #export MQTT_BROKER=localhost
-        #export MQTT_BROKER_PORT=1883
-        #export UPLOADS_URL='http://localhost:8844/upload/'
-
         while true ; do
             case $2 in
                 ip_address)
                     if [ $# -lt 3 ] ; then
-                        echo "ERROR: missing network ip"
+                        echo "ERROR: missing researcher ip"
                         exit 1
                     fi
                     IP_ADDRESS=$3
@@ -475,7 +423,6 @@ case $1 in
             node) usage node;;
             researcher) usage researcher;;
             gui) usage gui;;
-            network) usage network;;
             certificate-dev-setup)
                 source "$basedir"/scripts/fedbiomed_environment node $IP_ADDRESS
                 python -m fedbiomed.common.cli $2 '-h' $PARAMS

@@ -1,5 +1,3 @@
-import sys
-
 import os
 import importlib
 import inspect
@@ -62,11 +60,13 @@ class TestNodeEnviron(unittest.TestCase):
     @patch("os.mkdir")
     def test_03_node_environ_set_component_specific_variables(self,
                                                               mock_mkdir):
+        
+        self.mock_environ.sections.return_value = ['researcher-1']
         os.environ["NODE_ID"] = "node-1"
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
 
-        self.environ.from_config.side_effect = [None, None, None, "SHA256", '', '']
+        self.mock_environ.from_config.side_effect = [None, None, None, "SHA256", '', '', "localhost", "50051"]
         self.environ._set_component_specific_variables()
 
         self.assertEqual(self.environ._values["MESSAGES_QUEUE_DIR"],
@@ -75,13 +75,13 @@ class TestNodeEnviron(unittest.TestCase):
         self.assertEqual(self.environ._values["TRAINING_PLANS_DIR"], os.path.join("dummy/var/dir",
                                                                                   "training_plans_node-1"))
 
-        self.environ.from_config.side_effect = None
-        self.environ.from_config.side_effect = [None, None, None, "SHA256BLABLA", '', '']
+        self.mock_environ.from_config.side_effect = None
+        self.mock_environ.from_config.side_effect = [None, None, None, "SHA256BLABLA", '', '', "localhost", "50051"]
         with self.assertRaises(FedbiomedEnvironError):
             self.environ._set_component_specific_variables()
 
-        self.environ.from_config.side_effect = None
-        self.environ.from_config.side_effect = [None, False, False, "SHA256", '', '']
+        self.mock_environ.from_config.side_effect = None
+        self.mock_environ.from_config.side_effect = [None, False, False, "SHA256", '', '', "localhost", "50051"]
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
         self.environ._set_component_specific_variables()
@@ -89,20 +89,35 @@ class TestNodeEnviron(unittest.TestCase):
         self.assertTrue(self.environ._values['ALLOW_DEFAULT_TRAINING_PLANS'], "os.getenv did not overwrite the value")
         self.assertTrue(self.environ._values['TRAINING_PLAN_APPROVAL'], "os.getenv did not overwrite the value")
 
+        os.environ.pop('RESEARCHER_SERVER_HOST', None)
+        os.environ.pop('RESEARCHER_SERVER_PORT', None)
+        self.mock_environ.from_config.side_effect = None
+        self.mock_environ.from_config.side_effect = [None, False, False, "SHA256", 't', 't', "50051", "localhost"]
+        self.environ._set_component_specific_variables()
+        self.assertEqual(self.environ._values["RESEARCHERS"][0]["ip"], "localhost")
+        self.assertEqual(self.environ._values["RESEARCHERS"][0]["port"], "50051")
+
+        self.mock_environ.from_config.side_effect = None
+        self.mock_environ.from_config.side_effect = [None, False, False, "SHA256", 't', 't', None, None]
+        os.environ["RESEARCHER_SERVER_HOST"] = "localhost"
+        os.environ["RESEARCHER_SERVER_PORT"] = "50051"
+        self.environ._set_component_specific_variables()
+        self.assertEqual(self.environ._values["RESEARCHERS"][0]["ip"], "localhost", "os.getenv did not overwrite the value")
+        self.assertEqual(self.environ._values["RESEARCHERS"][0]["port"], "50051", "os.getenv did not overwrite the value")
+
     def test_04_node_environ_set_component_specific_config_parameters(self):
         from fedbiomed.node.environ import __config_version__
         os.environ["NODE_ID"] = "node-1"
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
 
-        self.environ._get_uploads_url.return_value = "localhost"
+        
 
         self.environ._set_component_specific_config_parameters()
 
         self.assertEqual(self.environ._cfg["default"], {
             'id': 'node-1',
             'component': "NODE",
-            'uploads_url': "localhost",
             'version': str(__config_version__)
         })
 
@@ -114,6 +129,11 @@ class TestNodeEnviron(unittest.TestCase):
             'force_secure_aggregation': "False"
         })
 
+        self.assertEqual(self.environ._cfg["researcher"], {
+            'ip': "localhost",
+            'port': "50051",
+        })
+
     @patch("fedbiomed.common.logger.logger.info")
     @patch("os.mkdir")
     def test_05_node_environ_info(self, mock_mkdir, mock_logger_info):
@@ -121,7 +141,7 @@ class TestNodeEnviron(unittest.TestCase):
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
 
-        self.environ.from_config.side_effect = [None, None, None, "SHA256", "False", '']
+        self.environ.from_config.side_effect = [None, None, None, "SHA256", "False", '', '', "50051", "localhost"]
         self.environ._set_component_specific_variables()
 
         self.environ.info()

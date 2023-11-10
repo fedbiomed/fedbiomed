@@ -2,9 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Fed-BioMed constants/enums"""
+import sys
 
 from packaging.version import Version as FBM_Component_Version
+from fedbiomed.common.exceptions import FedbiomedError
 from enum import Enum
+
 
 CONFIG_FOLDER_NAME = "etc"
 """Directory/folder name where configurations are saved"""
@@ -38,13 +41,29 @@ JOB_PREFIX = 'job_'
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 
-__version__ = FBM_Component_Version('4.5.0')  # Fed-BioMed software version
-__researcher_config_version__ = FBM_Component_Version('1')  # researcher config file version
-__node_config_version__ = FBM_Component_Version('1')  # node config file version
+# !!! info "Instructions for developers"
+# If you make a change that changes the format / metadata / structure of one of the components below,
+# you ** must update ** the version.
+#
+# Instructions for updating the version
+#
+# 1. check [versions page](https://fedbiomed.org/latest/user-guide/deployment/versions)
+# for background information
+# 2. bump the version below: if your change breaks backward compatibility you must increase the
+# major version, else the minor version. Micro versions are supported but their use is currently discouraged.
+
+__version__ = FBM_Component_Version('5.0.0')  # Fed-BioMed software version
+__researcher_config_version__ = FBM_Component_Version('2')  # researcher config file version
+__node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('1')  # node state version
-__breakpoints_version__ = FBM_Component_Version('1')  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version('1')  # format of MQTT messages.
+__breakpoints_version__ = FBM_Component_Version('2')  # breakpoints format version
+__messaging_protocol_version__ = FBM_Component_Version('2')  # format of gRPC messages.
 # Nota: for messaging protocol version, all changes should be a major version upgrade
+
+
+
+# Max message length as bytes
+MAX_MESSAGE_BYTES_LENGTH = 4000000 - sys.getsizeof(bytes("", encoding="UTF-8")) # 4MB 
 
 
 
@@ -56,6 +75,27 @@ class _BaseEnum(Enum):
     @classmethod
     def list(cls):
         return list(map(lambda c: c.value, cls))
+
+
+class MessageType(_BaseEnum):
+    """Types of messages received by researcher
+
+    Attributes:
+        REPLY: reply messages (TrainReply, SearchReply, etc.)
+        LOG: 'log' message (LogMessage)
+        SCALAR: 'add_scalar' message (Scalar)
+    """
+    REPLY = "REPLY"
+    LOG = "LOG"
+    SCALAR = "SCALAR"
+
+    @classmethod
+    def convert(cls, type_):
+        """Converts given text message to to MessageType instance"""
+        try:
+            return getattr(cls, type_.upper())
+        except AttributeError as exp:
+            raise FedbiomedError(f"There is no MessageType as {type_}")
 
 
 class ComponentType(_BaseEnum):
@@ -211,7 +251,7 @@ class VEParameters:
 class ErrorNumbers(_BaseEnum):
     """List of all error messages types"""
 
-    # MQTT errors
+    # GRPC errors
     FB100 = "FB100: undetermined messaging server error"
     FB101 = "FB101: cannot connect to the messaging server"
     FB102 = "FB102: messaging server does not answer in dedicated time"
@@ -271,8 +311,9 @@ class ErrorNumbers(_BaseEnum):
     FB414 = "FB414: bad type or value for training arguments"
     FB415 = "FB415: secure aggregation handling error"
     FB416 = "FB416: federated dataset error"
-    FB417 = "FB417: Secure aggregation error"
-    FB418 = "FB418: Node state agent error"
+    FB417 = "FB417: secure aggregation error"
+    FB418 = "FB418: error in experiment's `Job`"
+    FB419 = "FB419: node state agent error"
 
     # node problem detected by researcher
 
@@ -308,7 +349,8 @@ class ErrorNumbers(_BaseEnum):
     FB624 = "FB624: Secure aggregation crypter error"
     FB625 = "FB625: Component version error"
     FB626 = "FB626: Fed-BioMed optimizer error"
-
+    FB627 = "FB627: Utility function error"
+    FB628 = "FB628: Communication error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 
