@@ -1,10 +1,14 @@
 from ._requests import Requests, MessagesByNode
-from ._strategies import StopOnAnyDisconnect, \
-    StopOnAnyError
+from ._policies import StopOnDisconnect, \
+    StopOnError, \
+    DiscardOnTimeout, \
+    StopOnTimeout
 
 __all__ = [
+    "MessagesByNode"
     "Requests", 
-    "StopOnAnyDisconnect", 
-    "StopOnAnyError"
+    "StopOnDisconnect", 
+    "StopOnError",
+    "DiscardOnTimeout",
+    "StopOnTimeout"
 ]
-

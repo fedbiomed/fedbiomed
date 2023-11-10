@@ -653,9 +653,8 @@ class SecaggRequest(RequestReply, RequiresProtocolVersion):
     """
     researcher_id: str
     secagg_id: str
-    sequence: int
     element: int
-    job_id: (str, type(None))
+    job_id: Optional[str]
     parties: list
     command: str
 
@@ -679,7 +678,6 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
     """
     researcher_id: str
     secagg_id: str
-    sequence: int
     success: bool
     node_id: str
     msg: str

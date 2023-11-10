@@ -1,4 +1,4 @@
-class StrategyStatus:
+class PolicyStatus:
 
     STOPPED = "STOPPED"
     COMPLETED = "COMPLETED"

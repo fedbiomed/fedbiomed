@@ -4,13 +4,15 @@
 """Secure Aggregation management on the researcher"""
 import importlib
 import uuid
+import concurrent.futures
+
 from typing import Callable, List, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
 import time
 import random
 
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.requests import Requests
+from fedbiomed.researcher.requests import Requests, StopOnDisconnect, StopOnError
 
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType
@@ -20,7 +22,7 @@ from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime, get_method_spec
-
+from fedbiomed.common.message import SecaggRequest
 
 _CManager = CertificateManager(
     db_path=environ["DB_PATH"]
@@ -272,83 +274,41 @@ class SecaggContext(ABC):
         """
         # reset values in case `setup()` was already run (and fails during this new execution,
         # or this is a deletion)
-        return_value = False
+
+
         self._status = False
         self._context = None
-        timeout = timeout or environ['TIMEOUT']
 
-        # FIXME: There are scenarios where key-share are calculated but it is lost on the
-        # researcher side
-        sequence = {}
-        for node in self._parties[1:]:
-            sequence[node] = self._requests.send_message(msg, node, add_sequence=True)
-        status = {}
+        msg = SecaggRequest(**msg)
 
-        # basic implementation: synchronous payload on researcher, then read answers from other parties
-        context, status[self._researcher_id] = payload()
+        # Federated request should stop if any error occurs
+        policies = [StopOnDisconnect(timeout=30), StopOnError()]
 
-        # `timeout` covers only the time waiting for answers from other nodes
-        start_time = time.time()
 
-        while True:
-            # wait at most until `timeout` by chunks <= 1 second
-            remain_time = start_time + timeout - time.time()
-            if remain_time <= 0:
-                break
-            wait_time = min(1, remain_time)
+        executer = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        context_future = executer.submit(payload)
 
-            responses = self._requests.get_responses(
-                look_for_commands=[command],
-                timeout=wait_time,
-                only_successful=False,
-                while_responses=False
-            )
+        with self._requests.send(msg, self._parties[1:], policies) as fed_request:
+            replies = fed_request.replies()
+            errors = fed_request.errors()
 
-            for resp in responses.data():
-                # order of test matters !
-                if resp['researcher_id'] != self._researcher_id:
-                    continue
+            if fed_request.policy.has_stopped():
+                self._MPC.kill()
+                context_future.cancel()
+                raise FedbiomedSecaggError(f"Request is not successful. Policy " 
+                                           f"report => {fed_request.policy.report()}. Errors => {errors}")
 
-                if resp['secagg_id'] != self._secagg_id:
-                    logger.debug(
-                        f"Unexpected secagg reply: expected `secagg_id` {self._secagg_id}"
-                        f" and received {resp['secagg_id']}")
-                    continue
+            status = {rep.node_id: rep.success for rep in replies.values()}
 
-                if resp['node_id'] not in self._parties[1:]:
-                    errmess = f'{ErrorNumbers.FB415.value}: received message from node "{resp["node_id"]}"' \
-                              'which is not a party of secagg "{self._secagg_id}"'
-                    logger.error(errmess)
-                    raise FedbiomedSecaggError(errmess)
+        context, status[self._researcher_id] = context_future.result()
 
-                if resp['sequence'] != sequence[resp['node_id']]:
-                    logger.debug(
-                        f"Out of sequence secagg reply: expected `sequence` {sequence[resp['node_id']]}"
-                        f" and received {resp['sequence']}"
-                    )
-                    continue
 
-                # this answer belongs to current secagg context setup
-                status[resp['node_id']] = resp['success']
+        success = all(status.values())
+        if can_set_status and success:
+            self._status = True
+            self._context = context
 
-            if set(status.keys()) == set(self._parties):
-                break
-
-        if not set(status.keys()) == set(self._parties):
-            # case where some parties did not answer
-            # self._status = False
-            # self._context = None
-            absent = list(set(self._parties) - set(status.keys()))
-            errmess = f'{ErrorNumbers.FB415.value}: some parties did not answer before timeout {absent}'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-        else:
-            return_value = all(status.values())
-            if can_set_status and return_value:
-                self._status = True
-                self._context = context
-
-        return return_value
+        return success
 
     def setup(
             self,

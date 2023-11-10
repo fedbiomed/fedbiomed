@@ -28,21 +28,16 @@ from fedbiomed.common.utils import import_class_object_from_file
 
 from fedbiomed.transport.server import GrpcServer
 from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
-
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.responses import Responses
 
-from ._strategies import StopOnAnyDisconnect, \
-    StopOnAnyError, \
-    RequestStrategy, \
-    StrategyController
-    
-
-from ._status import RequestStatus, StrategyStatus
+from ._policies import RequestPolicy, PolicyController, DiscardOnTimeout
+from ._status import RequestStatus, PolicyStatus
 
 
 class MessagesByNode(dict):
+    """Type to defined messages by node"""
     pass
+
 
 class Request:
 
@@ -71,7 +66,7 @@ class Request:
 
         if self.node.status == NodeActiveStatus.DISCONNECTED:
             self.status = RequestStatus.DISCONNECT
-            return True # Don't expect any reply
+            return True  # Don't expect any reply
 
         return True if self.reply or self.error else False
 
@@ -81,9 +76,9 @@ class Request:
         self.node.send(self.message, self.on_reply)
         self.status = RequestStatus.NO_REPLY_YET
 
-    def flush(self):
+    def flush(self, stopped):
         """Flushes the reply that has been processed"""
-        self.node.flush(self.request_id)
+        self.node.flush(self.request_id, stopped)
 
     def on_reply(self, reply):
         """Callback for node agent to execute once it replies"""
@@ -99,7 +94,7 @@ class Request:
 
 class FederatedRequest: 
     """Dispatches federated requests 
-    
+
     This class has been design to be send a request and wait until a
     response is received 
     """
@@ -107,7 +102,7 @@ class FederatedRequest:
         self, 
         message: Union[Message, Dict[str, Message]],
         nodes: List[NodeAgent], 
-        strategy: Optional[RequestStrategy] = []
+        policy: Optional[List[RequestPolicy]] = None
     ):
 
         self.message = message 
@@ -116,13 +111,11 @@ class FederatedRequest:
         self.request_id = str(uuid.uuid4())
         self.nodes_status = {}
 
-        # Set-up strategies
-        
-        self.strategy = StrategyController(strategy)
+        # Set-up policies
+        self.policy = PolicyController(policy)
 
         # Set up single requests
         if isinstance(self.message, Message):
-            print("here")
             for node in self.nodes: 
                 self.requests.append(
                     Request(self.message, node, self.request_id)
@@ -140,6 +133,7 @@ class FederatedRequest:
 
     def __enter__(self):
         """Context manage enter method"""
+
         # Sends the message 
         self.send()
 
@@ -147,12 +141,14 @@ class FederatedRequest:
         self.wait()
 
         return self
-    
+
     def __exit__(self, type, value, traceback):
         """Clear the replies that are processed"""
 
+
+        has_stopped = self.policy.has_stopped()
         for req in self.requests:
-            req.flush()
+            req.flush(stopped=has_stopped)
 
     def replies(self) -> Dict[str, Message]:
         """Returns replies of each request"""
@@ -170,16 +166,15 @@ class FederatedRequest:
 
     def send(self):
         """Sends federated request"""
-
         for req in self.requests:
             req.send()
-            
+
     def wait(self):
         """Waits for the replies of the messages that are sent"""
 
-        while self.strategy.continue_(self.requests) == StrategyStatus.CONTINUE:
+        while self.policy.continue_(self.requests) == PolicyStatus.CONTINUE:
             sleep(0.5)
-            
+
 
 
 class Requests(metaclass=SingletonMeta):
@@ -220,13 +215,7 @@ class Requests(metaclass=SingletonMeta):
         self._grpc_server.start()
 
     def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType):
-        """ Handler called by the [`ResearcherServer`][fedbiomed.transport.researcher_server] class,
-        when a message is received on researcher side.
-
-        It is run in the communication process and must be as quick as possible:
-        - it deals with quick messages (eg: ping/pong)
-        - it stores the replies of the nodes to the task queue, the message will be
-        treated by the main (computing) thread.
+        """Handles arbitrary messages received from the remote agents
 
         Args:
             msg: de-serialized msg
@@ -280,14 +269,15 @@ class Requests(metaclass=SingletonMeta):
         )
         with self.send(ping) as federated_req:
             nodes_online = [node_id for node_id, reply in federated_req.replies().items()]
-        
+
         return nodes_online
 
     def send(
             self, 
             message: Union[Message, Dict[MessagesByNode, Message]],
-            nodes: Optional[List[str]] = None
-        ) -> FederatedRequest:
+            nodes: Optional[List[str]] = None,
+            policies: List[RequestPolicy] = None
+    ) -> FederatedRequest:
         """Sends federated request to given nodes with given message"""
 
         if nodes is not None:
@@ -295,7 +285,7 @@ class Requests(metaclass=SingletonMeta):
         else:
             nodes = self._grpc_server.get_all_nodes()
 
-        return FederatedRequest(message, nodes)
+        return FederatedRequest(message, nodes, policies)
 
     def search(self, tags: tuple, nodes: Optional[list] = None) -> dict:
         """Searches available data by tags
@@ -315,7 +305,8 @@ class Requests(metaclass=SingletonMeta):
         )
 
         data_found = {}
-        with self.send(message, nodes) as federated_req:    
+        with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req: 
+
             for node_id, reply in federated_req.replies().items():
                 if reply.databases:
                     data_found[node_id] = reply.databases
@@ -328,7 +319,8 @@ class Requests(metaclass=SingletonMeta):
             if not data_found:
                 logger.info("No available dataset has found in nodes with tags: {}".format(tags))
 
-            return data_found
+        return data_found
+
 
     def list(self, nodes: Optional[list] = None, verbose: bool = False) -> dict:
         """Lists available data in each node
@@ -347,7 +339,7 @@ class Requests(metaclass=SingletonMeta):
         )
 
         data_found = {}
-        with self.send(message, nodes) as federated_req:
+        with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
             for node_id, reply in federated_req.replies().items():
                 data_found[node_id] = reply.databases
 
@@ -369,7 +361,7 @@ class Requests(metaclass=SingletonMeta):
             training_plan: BaseTrainingPlan,
             description: str = "no description provided",
             nodes: list = []
-        ) -> dict:
+    ) -> dict:
         """Send a training plan and a ApprovalRequest message to node(s).
 
         If a list of node id(s) is provided, the message will be individually sent
@@ -427,7 +419,7 @@ class Requests(metaclass=SingletonMeta):
             'training_plan': tp_source,
             'command': 'approval'})
 
-        with self.send(message, nodes) as federated_req:
+        with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
             errors = federated_req.errors() 
             replies = federated_req.replies()
 
@@ -438,7 +430,7 @@ class Requests(metaclass=SingletonMeta):
 
                 if node_id not in replies:
                     logger.info(f"Node ({node_id}) has not replied")
-            
+
             return replies 
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):

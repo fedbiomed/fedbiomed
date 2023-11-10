@@ -49,7 +49,7 @@ class NodeStateAgent:
         Raises:
             FedbiomedNodeStateAgentError: raised if `Responses` has a missing entry that needs to be collected.
         """
-        # first, we update _collection_state_id wrt new FedratedDataset (if it has been modified)
+        # first, we update _collection_state_id wrt new FederatedDataset (if it has been modified)
         self._update_collection_state_ids(node_ids)
         if resp is not None:
             for node_reply in resp.values():

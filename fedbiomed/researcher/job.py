@@ -26,7 +26,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
-from fedbiomed.researcher.requests import Requests, MessagesByNode
+from fedbiomed.researcher.requests import Requests, MessagesByNode, DiscardOnTimeout
 
 # for checking class passed to job (same definitions as experiment ...)
 # TODO : should we move this to common/constants.py ? No because it means import training plans in it ...
@@ -193,7 +193,7 @@ class Job:
         node_ids = self._data.node_ids()
 
         # Send message to each node that has been found after dataset search request
-        with self._reqs.send(message, node_ids) as federated_req:
+        with self._reqs.send(message, node_ids, policies=[DiscardOnTimeout(5)]) as federated_req:
             replies = federated_req.replies()
 
             for node_id, reply in replies.items():
@@ -203,7 +203,7 @@ class Job:
                             logger.info(f'Training plan has been approved by the node: {node_id}')
                         else:
                             logger.warning(f'Training plan has NOT been approved by the node: {node_id}.' +
-                                            f'Training plan status : {node_id}')
+                                           f'Training plan status : {node_id}')
                     else:
                         logger.info(f'Training plan approval is not required by the node: {node_id}')
                 else:
@@ -537,7 +537,7 @@ class Job:
         )
 
         for round_replies in state['training_replies']:
-            for response in round_replies:
+            for response in round_replies.values():
                 node_params_path = create_unique_file_link(
                     breakpoint_path, response['params_path']
                 )
@@ -583,7 +583,7 @@ class Job:
         for round_ in training_replies.keys():
             training_reply = copy.deepcopy(training_replies[round_])
             # we want to strip some fields for the breakpoint
-            for  reply in training_reply.values():
+            for reply in training_reply.values():
                 reply.pop('params', None)
 
             converted_training_replies.append(training_reply)

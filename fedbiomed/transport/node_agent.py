@@ -47,6 +47,7 @@ class NodeAgentAsync:
         self._last_request: Optional[datetime] = None
         self._peer: str = peer
         self._replies = Replies()
+        self._stopped_request_ids = []
         # Node should be active when it is first instantiated
         self._status: NodeActiveStatus = NodeActiveStatus.ACTIVE
 
@@ -57,6 +58,7 @@ class NodeAgentAsync:
         # protect read/write operations on self._status + self._status_task + self._last_request)
         self._status_lock = asyncio.Lock()
         self._replies_lock = asyncio.Lock()
+        self._stopped_request_ids_lock = asyncio.Lock()
 
         # handle race condition when a task in finished/canceled between (1) receiving new task
         # (2) executing coroutine for handling task end
@@ -82,11 +84,15 @@ class NodeAgentAsync:
         """
         return self._id
 
-    async def flush(self, request_id: str):
+    async def flush(self, request_id: str, stopped: bool = False):
         """Flushes processed reply"""
 
         async with self._replies_lock:
             self._replies.pop(request_id, None)
+
+        if stopped:
+            async with self._stopped_request_ids_lock:
+                self._stopped_request_ids.append(request_id)
 
     def get_task(self) -> asyncio.coroutine:
         """Get tasks assigned by the main thread
@@ -109,7 +115,14 @@ class NodeAgentAsync:
                 self._replies[message.request_id]['reply'] = message
                 self._replies[message.request_id]['callback'](message)
             else:
-                logger.warning(f"A reply received from an unexpected request: {message.request_id}")
+                async with self._stopped_request_ids_lock:
+                    if message.request_id in self._stopped_request_ids:
+                        logger.warning(f"A reply received from an federated request has been "
+                                       f"stopped: {message.request_id}. This reply has been received form " 
+                                       "the node that didn't not cause stopping")
+                        self._stopped_request_ids.remove(message.request_id)
+                    else:
+                        logger.warning(f"AA reply received from an unexpected request: {message.request_id}")
 
 
     async def send(self, message: Message, on_reply: Optional[Callable] = None) -> None:
@@ -229,10 +242,10 @@ class NodeAgent(NodeAgentAsync):
         )
         return future.result()
 
-    def flush(self, request_id: str):
+    def flush(self, request_id: str, stopped: bool = False):
         """Flushes given request id from replies"""
         asyncio.run_coroutine_threadsafe(
-            super().flush(request_id),
+            super().flush(request_id, stopped),
             self._loop
         )
 
