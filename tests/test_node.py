@@ -382,14 +382,12 @@ class TestNode(NodeTestCase):
                                                      extra_msg='Message was not serializable',
                                                      researcher_id=resid)
 
-    @patch('fedbiomed.node.round.Round.__init__', return_value=None, autospec=True)
-    @patch('fedbiomed.node.round.Round.initialize_node_state_manager', autospec=True)
+    @patch('fedbiomed.node.node.Round', autospec=True)
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     def test_node_12_parser_task_train_create_round(self,
                                                     node_msg_request_patch,
                                                     history_monitor_patch,
-                                                    initialize_node_state_manager,
                                                     round_patch,
 
                                                     ):
@@ -401,6 +399,7 @@ class TestNode(NodeTestCase):
 
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
+        round_patch.return_value.initialize_arguments.return_value = None
 
         # test 1: case where 1 dataset has been found
         dict_msg_1_dataset = {
@@ -409,7 +408,6 @@ class TestNode(NodeTestCase):
             'training': True,
             'training_plan': 'dummy_plan',
             'training_plan_class': 'my_test_training_plan',
-            'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
             'dataset_id': 'dataset_id_1234',
@@ -499,6 +497,7 @@ class TestNode(NodeTestCase):
         }
         # we convert this dataset into a string
         msg1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
+        round_patch.return_value.initialize_arguments.return_value = None
 
         # defining patchers
 
@@ -562,9 +561,10 @@ class TestNode(NodeTestCase):
         msg_1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
 
         # defining patchers
-        #round_patch.return_value = None
+
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
+        round_patch.return_value.initialize_arguments.return_value = None
 
         # action
         self.n1.parser_task_train(msg_1_dataset)

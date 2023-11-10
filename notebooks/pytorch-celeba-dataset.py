@@ -166,7 +166,7 @@ class CelebaTrainingPlan(TorchTrainingPlan):
 model_args = {}
 
 training_args = {
-    'batch_size': 32, 
+    'loader_args': { 'batch_size': 32, },
     'optimizer_args': {
         'lr': 1e-3
     }, 

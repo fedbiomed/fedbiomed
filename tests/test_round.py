@@ -1,5 +1,6 @@
 import builtins
 import copy
+import importlib
 import inspect
 import logging
 import os
@@ -7,6 +8,8 @@ import tempfile
 import unittest
 from typing import Any, Dict, Tuple
 from unittest.mock import MagicMock, create_autospec, patch, PropertyMock
+
+import numpy as np
 from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.node.node_state_manager import NodeStateFileName
@@ -28,14 +31,14 @@ from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModul
 
 from fedbiomed.common.constants import DatasetTypes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
-from fedbiomed.common.exceptions import  FedbiomedOptimizerError, FedbiomedRoundError
+from fedbiomed.common.exceptions import  FedbiomedOptimizerError, FedbiomedRoundError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.models import TorchModel, Model
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.node.environ import environ
 from fedbiomed.node.round import Round
-
+from fedbiomed.common.data import NPDataLoader
 
 # Needed to access length of dataset from Round class
 class FakeLoader:
@@ -167,7 +170,7 @@ class TestRound(NodeTestCase):
 
         # test 1: case where argument `model_kwargs` = None
         # action!
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         msg_test1 = self.r1.run_model_training()
 
         # check results
@@ -181,7 +184,7 @@ class TestRound(NodeTestCase):
         self.r2.model_kwargs = {'param1': 1234,
                                 'param2': [1, 2, 3, 4],
                                 'param3': None}
-        self.r2.initialize_node_state_manager()
+        self.r2.initialize_arguments()
         msg_test2 = self.r2.run_model_training()
 
         # check values in message (output of `run_model_training`)
@@ -237,7 +240,7 @@ class TestRound(NodeTestCase):
                 patch.object(FakeModel, 'training_routine') as mock_training_routine,
                 patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,  # noqa
         ):
-            self.r1.initialize_node_state_manager()
+            self.r1.initialize_arguments()
             msg = self.r1.run_model_training()
             self.assertTrue(msg.get_dict().get("success"))
 
@@ -288,8 +291,9 @@ class TestRound(NodeTestCase):
         self.r1.training_plan_source = dummy_training_plan_test
         self.r1.training_plan_class = "MyTrainingPlan"
         # action
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         msg_test = self.r1.run_model_training()
+
         # checks
 
         self.assertTrue(msg_test.get_dict().get('success', False))
@@ -335,7 +339,6 @@ class TestRound(NodeTestCase):
         msg_test_1 = self.r1.run_model_training()
         self.assertFalse(msg_test_1.success)
 
-
         self.ic_from_file_mock.side_effect = None
         self.ic_from_spec_mock.side_effect = Exception
         msg_test_1 = self.r1.run_model_training()
@@ -349,7 +352,7 @@ class TestRound(NodeTestCase):
         # when `load` is called, an Exception will be raised
         #
         class FakeModelRaiseExceptionWhenLoading(FakeModel):
-            def load(self, **kwargs):
+            def set_model_params(self, *args, **kwargs):
                 """Mimicks an exception happening in the `load`
                 method
 
@@ -409,7 +412,7 @@ class TestRound(NodeTestCase):
         data_manager_mock.dataset = my_dataset
 
         self.r1.training_kwargs = {}
-        self.r1.initialize_validate_training_arguments()
+        self.r1.initialize_arguments()
         self.r1.training_plan = MagicMock()
         self.r1.training_plan.training_data.return_value = data_manager_mock
 
@@ -420,7 +423,7 @@ class TestRound(NodeTestCase):
         dlp = DataLoadingPlan({LoadingBlockTypesForTesting.MODIFY_GETITEM: ModifyGetItemDP()})
         self.r1._dlp_and_loading_block_metadata = dlp.serialize()
         self.r1.training_kwargs = {}
-        self.r1.initialize_validate_training_arguments()
+        self.r1.initialize_arguments()
        
 
         training_data_loader, _ = self.r1._split_train_and_test_data(test_ratio=0.)
@@ -555,12 +558,13 @@ class TestRound(NodeTestCase):
         environ["SECURE_AGGREGATION"] = True
         environ["FORCE_SECURE_AGGREGATION"] = True
 
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         msg_test1 = self.r1.run_model_training(secagg_arguments={
             'secagg_random': 1.12,
             'secagg_servkey_id': '1234',
             'secagg_biprime_id': '1234',
         })
+        # TODO: assert something here??
 
         # Back to normal
         environ["SECURE_AGGREGATION"] = False
@@ -917,7 +921,7 @@ class TestRound(NodeTestCase):
         # first create state
         self.r1.training_plan = training_plan_mock
         
-        self.r1.initialize_node_state_manager()
+        self.r1.initialize_arguments()
         state = self.r1._save_round_state()
         print(state)
         self.r1._load_round_state('test-state-id')
@@ -925,11 +929,14 @@ class TestRound(NodeTestCase):
         self.state_manager_mock.return_value.get.assert_called_once_with(str(job_id), 'test-state-id')
         self.state_manager_mock.return_value.add.assert_called_once()
 
-    def test_round_31_initialize_node_state_manager(self):
+
+    def test_round_31_initialize_arguments(self):
         previous_state_id = 'state_id_1234'
-        self.r1.initialize_node_state_manager(previous_state_id=previous_state_id)
-        
-        self.state_manager_mock.return_value.initialize.assert_called_once_with(previous_state_id=previous_state_id)
+
+        self.r1.initialize_arguments(previous_state_id=previous_state_id)
+
+        self.state_manager_mock.return_value.initialize.assert_called_once_with(previous_state_id=previous_state_id, 
+                                                                                testing=False)
 
 
 if __name__ == '__main__':  # pragma: no cover

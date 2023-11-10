@@ -365,8 +365,9 @@ class Job:
 
         timer = {}
 
-        # update node states when used node list has changed from one round to another
-        self._update_nodes_states_agent()
+        if do_training:
+            # update node states when used node list has changed from one round to another
+            self._update_nodes_states_agent()
 
         # FIXME: should be part of a method called from Experiment
         # (behaviour can be defined by user / changed by strategy)
@@ -400,8 +401,9 @@ class Job:
 
         self._get_training_testing_results(round_=round_, timer=timer)
 
-        # update node states with node answers + when used node list has changed during the round
-        self._update_nodes_states_agent(before_training=False)
+        if do_training:
+            # update node states with node answers + when used node list has changed during the round
+            self._update_nodes_states_agent(before_training=False)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
@@ -460,7 +462,7 @@ class Job:
             format `{mod_name: {node_id: node_dict}}`.
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
-        for reply in self.training_replies[round_id]:
+        for reply in self._training_replies[round_id]:
             node_id = reply["node_id"]
             node_av = reply.get("optim_aux_var", {})
             for module, params in node_av.items():
@@ -553,12 +555,12 @@ class Job:
             # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
             # previous Node replies)
             try:
-                last_tr_entry = list(self.training_replies.keys())[-1]
+                last_tr_entry = list(self._training_replies.keys())[-1]
             except IndexError as ie:
                 raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
                                                    "replies form Node(s) has(ve) been recieved!") from ie
 
-            self._node_state_agent.update_node_states(node_ids, self.training_replies[last_tr_entry])
+            self._node_state_agent.update_node_states(node_ids, self._training_replies[last_tr_entry])
 
     def save_state_breakpoint(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.
