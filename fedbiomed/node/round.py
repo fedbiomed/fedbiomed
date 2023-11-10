@@ -688,7 +688,7 @@ class Round:
                            "experiment.",
                            researcher_id=self.researcher_id)
 
-        if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
+        if test_ratio == 0 and (test_local_updates is True or test_global_updates is True):
             logger.warning(
                 'There is no validation activated for the round. Please set flag for `test_on_global_updates`'
                 ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored',
