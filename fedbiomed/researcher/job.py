@@ -17,7 +17,7 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus, JOB_PREFIX, E
 from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedNodeStateAgentError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.message import ResearcherMessages, TrainRequest
+from fedbiomed.common.message import  TrainRequest, TrainReply
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.common import utils
@@ -234,14 +234,12 @@ class Job:
             self._nodes.remove(node_id)
 
         # Loops over replies
-        for node_id, reply in replies.items():  # retrieve all models
-            # (there should have as many models done as nodes)
-            # manage error messages during training
-
-            # manage training failure for this job
+        for node_id, reply in replies.items():
+            
+            reply: TrainReply
             if not reply.success:
-                logger.error(f"Training failed for node {m['node_id']}: {m['msg']}")
-                self._nodes.remove(m['node_id'])  # remove the faulty node from the list
+                logger.error(f"Training failed for node {reply.node_id}: {reply.msg}")
+                self._nodes.remove(reply.node_id)  # remove the faulty node from the list
                 continue
 
             params_path = os.path.join(self._keep_files_dir, f"params_{node_id}.mpk")
@@ -308,8 +306,9 @@ class Job:
 
         timer = {}
 
-        # update node states when used node list has changed from one round to another
-        self._update_nodes_states_agent()
+        if do_training:
+            # update node states when used node list has changed from one round to another
+            self._update_nodes_states_agent()
 
         # FIXME: should be part of a method called from Experiment
         # (behaviour can be defined by user / changed by strategy)
@@ -349,8 +348,9 @@ class Job:
             replies = federated_req.replies()
             self._get_training_testing_results(replies=replies, errors=errors, round_=round_, timer=timer)
 
-        # update node states with node answers + when used node list has changed during the round
-        self._update_nodes_states_agent(before_training=False)
+        if do_training:
+            # update node states with node answers + when used node list has changed during the round
+            self._update_nodes_states_agent(before_training=False)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
@@ -502,12 +502,12 @@ class Job:
             # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
             # previous Node replies)
             try:
-                last_tr_entry = list(self.training_replies.keys())[-1]
+                last_tr_entry = list(self._training_replies.keys())[-1]
             except IndexError as ie:
                 raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
                                                    "replies form Node(s) has(ve) been recieved!") from ie
 
-            self._node_state_agent.update_node_states(node_ids, self.training_replies[last_tr_entry])
+            self._node_state_agent.update_node_states(node_ids, self._training_replies[last_tr_entry])
 
     def save_state_breakpoint(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.

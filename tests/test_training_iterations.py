@@ -189,7 +189,9 @@ class TestMiniBatchTrainingIterationsAccountant(unittest.TestCase):
             'batch_maxnum': None,
             'num_updates': None,
             'log_interval': 1,
-            'batch_size': reference_batch_size
+            'loader_args': {
+                'batch_size': reference_batch_size
+            },
         }
         iter_accountant = MiniBatchTrainingIterationsAccountant(mock_training_plan)
         tot_steps_counter = 0
