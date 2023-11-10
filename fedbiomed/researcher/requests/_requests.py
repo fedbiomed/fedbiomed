@@ -18,11 +18,9 @@ from typing import Any, Dict, Callable, Union, List, Optional, Tuple
 from python_minifier import minify
 
 from fedbiomed.common.constants import MessageType
-from fedbiomed.common.exceptions import FedbiomedTaskQueueError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ResearcherMessages, SearchRequest, SearchReply, ErrorMessage, Message
+from fedbiomed.common.message import ResearcherMessages, SearchRequest, ErrorMessage, Message
 from fedbiomed.common.singleton import SingletonMeta
-from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.utils import import_class_object_from_file
 
@@ -190,10 +188,6 @@ class Requests(metaclass=SingletonMeta):
         Args:
             mess: message to be sent by default.
         """
-        # Need to ensure unique per researcher instance message queue to avoid conflicts
-        # in case several instances of researcher (with same researcher_id ?) are active,
-        # eg: a notebook not quitted and launching a script
-        self.queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'] + '_' + str(uuid.uuid4()), environ['TMP_DIR'])
 
         # defines the sequence used for ping protocol
         self._sequence = 0

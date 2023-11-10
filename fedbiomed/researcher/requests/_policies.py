@@ -20,7 +20,7 @@ class RequestPolicy:
         self._nodes = nodes
         self.stop_caused_by = None
 
-    def continue_(self, requests) -> bool:
+    def continue_(self, requests) -> PolicyStatus:
         """Default strategy stops collecting result once all nodes has answered
 
         Returns:
@@ -95,7 +95,7 @@ class StopOnTimeout(_ReplyTimeoutPolicy):
 class StopOnDisconnect(_ReplyTimeoutPolicy):
     """Stops collecting results if a node disconnects"""
 
-    def continue_(self, requests: TRequest) -> bool:
+    def continue_(self, requests: TRequest) -> PolicyStatus:
         """Continues federated request if nodes are not disconnect"""
 
         if self._nodes:
@@ -111,7 +111,7 @@ class StopOnDisconnect(_ReplyTimeoutPolicy):
 class StopOnError(RequestPolicy):
     """Stops collecting results if a node returns an error"""
 
-    def continue_(self, requests: TRequest):
+    def continue_(self, requests: TRequest) -> PolicyStatus:
         """Continues federated request if nodes does not return error"""
 
         if self._nodes:
@@ -127,15 +127,15 @@ class StopOnError(RequestPolicy):
 class PolicyController:
 
     def __init__(
-            self, 
-            policies: Optional[List[RequestPolicy]] = None, 
+        self, 
+        policies: Optional[List[RequestPolicy]] = None, 
     ):
 
         policies = policies or []
         policies.insert(0, RequestPolicy())
         self.policies = policies
 
-    def continue_(self, requests: List[TRequest]) -> bool:
+    def continue_(self, requests: List[TRequest]) -> PolicyStatus:
         """Checks if reply collection should continue according to each strategy
 
         Returning anything different than StrategyStatus.CONTINUE stops the 
@@ -153,7 +153,7 @@ class PolicyController:
                 for policy in self.policies]
         )
 
-        return PolicyStatus.CONTINUE if status else False
+        return PolicyStatus.CONTINUE if status else PolicyStatus.COMPLETED
 
     def has_stopped(self):
         """Returns true if request has stopped due to given strategy"""
