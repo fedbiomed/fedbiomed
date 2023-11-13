@@ -170,9 +170,7 @@ class FederatedRequest:
         """Waits for the replies of the messages that are sent"""
 
         while self.policy.continue_(self.requests) == PolicyStatus.CONTINUE:
-            #sleep(0.5)
-            sleep(5)
-
+            sleep(0.5)
 
 
 class Requests(metaclass=SingletonMeta):
