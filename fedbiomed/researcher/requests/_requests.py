@@ -153,7 +153,6 @@ class FederatedRequest:
     def __exit__(self, type, value, traceback):
         """Clear the replies that are processed"""
 
-
         has_stopped = self.policy.has_stopped()
         for req in self.requests:
             req.flush(stopped=has_stopped)
