@@ -112,17 +112,23 @@ class NodeAgentAsync:
 
         async with self._replies_lock:
             if message.request_id in self._replies:
-                self._replies[message.request_id]['reply'] = message
-                self._replies[message.request_id]['callback'](message)
+                if self._replies[message.request_id]['reply'] is None:
+                    self._replies[message.request_id]['reply'] = message
+                    self._replies[message.request_id]['callback'](message)
+                else:
+                    # Handle case of multiple replies
+                    # Avoid conflict with consumption of reply.
+                    logger.warning(f"Received multiple replies for request {message.request_id}. "
+                                   "Keep first reply, ignore subsquent replies")
             else:
                 async with self._stopped_request_ids_lock:
                     if message.request_id in self._stopped_request_ids:
-                        logger.warning(f"A reply received from an federated request has been "
+                        logger.warning("A reply received from an federated request has been "
                                        f"stopped: {message.request_id}. This reply has been received form " 
                                        "the node that didn't not cause stopping")
                         self._stopped_request_ids.remove(message.request_id)
                     else:
-                        logger.warning(f"AA reply received from an unexpected request: {message.request_id}")
+                        logger.warning(f"A reply received from an unexpected request: {message.request_id}")
 
 
     async def send_async(self, message: Message, on_reply: Optional[Callable] = None) -> None:
