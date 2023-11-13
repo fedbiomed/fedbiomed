@@ -17,6 +17,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_case import ResearcherTestCase
+from testsupport.base_mocks import MockRequestModule
 #############################################################
 
 from testsupport.fake_training_plan import FakeModel, FakeTorchTrainingPlan
@@ -27,6 +28,7 @@ from testsupport import fake_training_plan
 
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.message import TrainingPlanStatusReply, TrainingPlanStatusRequest, TrainReply, ErrorMessage
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.exceptions import FedbiomedJobError
@@ -40,7 +42,7 @@ import fedbiomed.researcher.job # needed for specific mocking
 training_args_for_testing = TrainingArgs({"loader_args": {"batch_size": 12}}, only_required=False)
 
 
-class TestJob(ResearcherTestCase):
+class TestJob(ResearcherTestCase, MockRequestModule):
 
     @classmethod
     def create_fake_model(cls, name: str):
@@ -80,13 +82,12 @@ class TestJob(ResearcherTestCase):
 
 
     def setUp(self):
-        
-        self.patcher1 = patch('fedbiomed.researcher.job.Requests', autospec=True)
+        MockRequestModule.setUp(self, module="fedbiomed.researcher.job.Requests")
+
         self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.format_outgoing_message')
         self.patcher5 = patch('fedbiomed.researcher.job.atexit')
         self.ic_from_file_patch = patch('fedbiomed.researcher.job.utils.import_class_object_from_file', autospec=True)
         
-        self.mock_request = self.patcher1.start()
         self.mock_request_create = self.patcher4.start()
         self.mock_atexit = self.patcher5.start()
         self.ic_from_file_mock = self.ic_from_file_patch.start()
@@ -111,7 +112,6 @@ class TestJob(ResearcherTestCase):
 
     def tearDown(self) -> None:
 
-        self.patcher1.stop()
         self.patcher4.stop()
         self.patcher5.stop()
         self.ic_from_file_patch.stop()
@@ -122,6 +122,8 @@ class TestJob(ResearcherTestCase):
         tmp_dir = os.path.join(environ['TMP_DIR'], 'tmp_models')
         if os.path.isdir(tmp_dir):
             shutil.rmtree(tmp_dir)
+
+        super().tearDown()
 
 
     @patch('fedbiomed.common.logger.logger.critical')
@@ -148,7 +150,7 @@ class TestJob(ResearcherTestCase):
     def test_job_03_init_provide_request(self):
         """ Testing initialization of Job by providing Request object """
 
-        reqs = Requests()
+        reqs = MagicMock(spec=Requests)
         j = Job(training_plan_class=self.model,
                 training_args=training_args_for_testing,
                 data=self.fds,
@@ -206,98 +208,60 @@ class TestJob(ResearcherTestCase):
         """ Testing the method that check training plan approval status of the nodes"""
 
         self.fds.node_ids = MagicMock(return_value=['node-1', 'node-2'])
-        self.mock_request.return_value.send_message.return_value = None
-
-        message = {'researcher_id': self.job._researcher_id,
-                   'job_id': self.job._id,
-                   'training_plan': self.job._training_plan.source(),
-                   'command': 'training-plan-status'}
+        base_reply = {'researcher_id': self.job._researcher_id, "job_id": self.job._id, 'msg':'test', 'training_plan': 'test', 'command': 'training-plan-status'}
 
         # Test when model is approved by all nodes
-        responses = FakeResponses(
-            [
-                {'node_id': 'node-1', 'success': True, 'approval_obligation': True, 'is_approved': True},
-                {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': True}
-            ]
-        )
-        self.mock_request.return_value.get_responses.return_value = responses
-        result = self.job.check_training_plan_is_approved_by_nodes()
-        calls = self.mock_request.return_value.send_message.call_args_list
-        print(calls)
-        self.assertListEqual(list(calls[0][0]), [message, 'node-1'])
-        self.assertListEqual(list(calls[1][0]), [message, 'node-2'])
+        responses = {
+            'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': True, 'approval_obligation': True, 'status': 'APPROVED'}),
+            'node-2': TrainingPlanStatusReply(**{**base_reply,'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'status': 'APPROVED'})
+        } 
 
-        self.assertListEqual(responses.data(), result.data(),
+        self.mock_federated_request.replies.return_value = responses
+        result = self.job.check_training_plan_is_approved_by_nodes()
+
+        self.assertDictEqual(responses, result,
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when model is approved by only one node
-        responses = FakeResponses([
-            {'node_id': 'node-1', 'success': True, 'approval_obligation': True, 'is_approved': True},
-            {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': False}
-        ])
-        self.mock_request.return_value.get_responses.return_value = responses
+        responses = {
+            'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': True, 'approval_obligation': True, 'status': 'APPROVED'}),
+            'node-2': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'status': 'REJECTED'})
+        } 
+        self.mock_federated_request.replies.return_value = responses
         result = self.job.check_training_plan_is_approved_by_nodes()
-        self.assertListEqual(responses.data(), result.data(),
+        self.assertDictEqual(responses, result,
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when training plan approval obligation is False by one node
-        responses = FakeResponses([
-            {'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'is_approved': False},
-            {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': True}
-        ])
-        self.mock_request.return_value.get_responses.return_value = responses
+        responses = {
+            'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'status': 'REJECTED'}),
+            'node-2': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-2', 'success': True, 'approval_obligation': True,  'status': 'APPROVED'})
+        } 
+        self.mock_federated_request.replies.return_value = responses
         result = self.job.check_training_plan_is_approved_by_nodes()
-        self.assertListEqual(responses.data(), result.data(),
+        self.assertDictEqual(responses, result,
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when one of the reply success status is False
-        responses = FakeResponses([
-            {'node_id': 'node-1', 'success': False, 'approval_obligation': False, 'is_approved': False},
-            {'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'is_approved': True}
-        ])
-        self.mock_request.return_value.get_responses.return_value = responses
+        responses = {
+            'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': False, 'approval_obligation': False, 'status': 'REJECTED'}),
+            'node-2': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'status': 'REJECTED'})
+        } 
+        self.mock_federated_request.replies.return_value = responses
         result = self.job.check_training_plan_is_approved_by_nodes()
-        self.assertListEqual(responses.data(), result.data(),
+        self.assertDictEqual(responses, result,
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when one of the nodes does not reply
-        responses = FakeResponses([
-            {'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'is_approved': False}
-        ])
-        self.mock_request.return_value.get_responses.return_value = responses
+        responses = {
+            'node-1': TrainingPlanStatusReply(**{**base_reply,'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'status': 'REJECTED'})
+        } 
+        self.mock_federated_request.replies.return_value = responses
         result = self.job.check_training_plan_is_approved_by_nodes()
-        self.assertListEqual(list(calls[0][0]), [message, 'node-1'])
-        self.assertListEqual(list(calls[1][0]), [message, 'node-2'])
-        self.assertListEqual(responses.data(), result.data(),
+        self.assertDictEqual(responses, result,
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
-    def test_job_10_waiting_for_nodes(self):
-        """ Testing the method waiting_for_nodes method that runs during federated training """
-
-        responses = FakeResponses([
-            {'node_id': 'node-1'}
-        ])
-
-        # Test False
-        self.job._nodes = ['node-1']
-        result = self.job.waiting_for_nodes(responses)
-        self.assertFalse(result, 'wating_for_nodes method return True while expected is False')
-
-        # Test True
-        self.job._nodes = ['node-1', 'node-2']
-        result = self.job.waiting_for_nodes(responses)
-        self.assertTrue(result, 'waiting_for_nodes method return False while expected is True')
-
-        responses = MagicMock(return_value=None)
-        type(responses).dataframe = MagicMock(side_effect=KeyError)
-        result = self.job.waiting_for_nodes(responses)
-        self.assertTrue(result, 'waiting_for_nodes returned False while expected is False')
-
-
-    @patch('fedbiomed.researcher.responses.Responses')
-    def test_job_11_start_training_round(self,
-                                         mock_responses,
-                                         ):
+    def test_job_11_start_training_round(self):
         """ Test Job - start_training_round method with 3 different scenarios
 
             Test - 1 : When all the nodes successful completes training
@@ -306,87 +270,71 @@ class TestJob(ResearcherTestCase):
                        This test also checks whether previous node (which returned)
                        error is removed or not
         """
-
-        mock_responses.side_effect = TestJob.fake_responses_side_effect
-
+        train_reply_base = {'job_id': self.job._id, 'researcher_id': environ['RESEARCHER_ID']}
         self.job._nodes = ['node-1', 'node-2']
+        self.job._model_args = {}
         self.fds.data = MagicMock(return_value={
             'node-1': {'dataset_id': '1234'},
             'node-2': {'dataset_id': '12345'}
         })
 
-        response_1 = {'node_id': 'node-1', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id,
-                      'state_id': 'node_state_id_1234',
-                      'params': {"x": 0},
-                      'optimizer_args': None,
-                      'optim_aux_var': None,
-                      'encryption_factor': None,
-                      'timing': {'rtime_total': 12},
-                      'success': True,
-                      'msg': 'MSG',
-                      'dataset_id': '1234',
-                      'command': 'train',
-                      'sample_size': 100,
-                      }
+        reply_base = TrainReply(**{
+            'node_id': 'node-1', 'researcher_id': environ['RESEARCHER_ID'],
+            'job_id': self.job._id,
+            'state_id': 'node_state_id_1234',
+            'params': {"x": 0},
+            'optimizer_args': None,
+            'optim_aux_var': None,
+            'encryption_factor': None,
+            'timing': {'rtime_total': 12},
+            'success': True,
+            'msg': 'MSG',
+            'dataset_id': '1234',
+            'command': 'train',
+            'sample_size': 100})
+        replies = {
+            'node-1': reply_base,
+            'node-2': reply_base
+        }
 
-        response_2 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'job_id': self.job._id,
-                      'state_id': 'node_state_id_4321',
-                      'params': {"x": 0},
-                      'optimizer_args': None,
-                      'optim_aux_var': None,
-                      'encryption_factor': None,
-                      'timing': {'rtime_total': 12},
-                      'success': True,
-                      'msg': 'MSG',
-                      'dataset_id': '1234',
-                      'command': 'train',
-                      'sample_size': 100,
-                      }
+        replies['node-1'].node_id = 'node-1'
+        replies['node-2'].node_id = 'node-2'
+        replies['node-2'].state_id = 'node_state_id_4321'
 
-        response_3 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'errnum': ErrorNumbers.FB100,
-                      'extra_msg': 'this extra msg',
-                      'command': 'error',
-                      'dataset_id': '1234',
-                      'sample_size': 100,
-                      }
 
-        response_4 = {'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
-                      'extra_msg': False,
-                      'errnum': ErrorNumbers.FB100,
-                      'command': 'error',
-                      'dataset_id': '1234',
-                      'sample_size': 100,
-                      }
+        reply_error_1 = ErrorMessage(**{
+            'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
+            'errnum': ErrorNumbers.FB100.value,
+            'extra_msg': 'this extra msg',
+            'command': 'error'})
 
-        responses = FakeResponses([response_1, response_2])
+        reply_error_2 = ErrorMessage(**{
+            'node_id': 'node-2', 'researcher_id': environ['RESEARCHER_ID'],
+            'extra_msg': '',
+            'errnum': ErrorNumbers.FB100.value,
+            'command': 'error'})
 
-        self.mock_request.return_value.get_responses.return_value = responses
+
+        self.mock_federated_request.replies.return_value = replies
         aggregator_args = { node_id: {'aggregator_name': 'my_aggregator'} for node_id in self.job._nodes}
 
         # Test - 1
         nodes = self.job.start_nodes_training_round(1, aggregator_args=aggregator_args)
-        _ = self.mock_request.return_value.send_message.call_args_list
-        self.assertEqual(self.mock_request.return_value.send_message.call_count, 2)
+        self.mock_requests.return_value.send.assert_called_once()
         self.assertListEqual(nodes, ['node-1', 'node-2'])
 
         # Test - 2 When one of the nodes returns error
-        self.mock_request.return_value.send_message.reset_mock()
-        responses = FakeResponses([response_1, response_3])
-        self.mock_request.return_value.get_responses.return_value = responses
+        self.mock_federated_request.replies.return_value = {'node-1': replies['node-1']}
+        self.mock_federated_request.errors.return_value  = {'node-2': reply_error_1}
         nodes = self.job.start_nodes_training_round(2, aggregator_args=aggregator_args)
-        self.assertEqual(self.mock_request.return_value.send_message.call_count, 2)
         self.assertListEqual(nodes, ['node-1'])
 
         # Test - 2 When one of the nodes returns error without extra_msg and
         # check node-2 is removed since it returned error in the previous test call
-        self.mock_request.return_value.send_message.reset_mock()
-        responses = FakeResponses([response_1, response_4])
-        self.mock_request.return_value.get_responses.return_value = responses
+        self.job._nodes = ['node-1', 'node-2']
+        self.mock_federated_request.replies.return_value = {'node-1': replies['node-1']}
+        self.mock_federated_request.errors.return_value  = {'node-2': reply_error_2}
         nodes = self.job.start_nodes_training_round(3, aggregator_args=aggregator_args)
-        self.assertEqual(self.mock_request.return_value.send_message.call_count, 1)
         self.assertListEqual(nodes, ['node-1'])
 
     def test_job_12_start_nodes_training_round_optim_aux_var(self):
@@ -398,11 +346,11 @@ class TestJob(ResearcherTestCase):
         self.job.start_nodes_training_round(
             1, {}, {}, do_training=True, optim_aux_var=fake_aux_var
         )
- 
+
         self.job.start_nodes_training_round(
                 1, {}, {}, do_training=False, optim_aux_var=fake_aux_var
         )
- 
+
     def test_job_14_update_parameters_from_params(self):
         """Testing update_parameters when passing 'params'."""
         params = {'params': [1, 2, 3, 4]}
@@ -412,7 +360,7 @@ class TestJob(ResearcherTestCase):
             result = self.job.update_parameters(params=params)
             self.assertEqual(self.job._model_params_file, result)
 
-    
+
     def test_job_20_save_private_training_replies(self):
         """
         tests if `_save_training_replies` is properly extracting
@@ -421,66 +369,40 @@ class TestJob(ResearcherTestCase):
         """
 
         # first create a `_training_replies` variable
-        training_replies = {
-            0: FakeResponses([]),
-            1: FakeResponses(
-                [
-                    {
-                        "node_id": '1234',
-                        'state_id': '1234',
-                        'params': torch.Tensor([1, 3, 5]),
-                        'dataset_id': 'id_node_1'
-                    },
-                    {
-                        "node_id": '5678',
-                        'state_id': '5678',
-                        'params': np.array([1, 3, 5]),
-                        'dataset_id': 'id_node_2'
-                    },
-                ])
-        }
+        training_replies = { 0: {
+            'node-1': {
+                "node_id": '1234',
+                'state_id': '1234',
+                'params': torch.Tensor([1, 3, 5]),
+                'dataset_id': 'id_node_1'},
+            'node-2': {
+                "node_id": '5678',
+                'state_id': '5678',
+                'params': np.array([1, 3, 5]),
+                'dataset_id': 'id_node_2'}}}
 
         # action
         new_training_replies = self.job._save_training_replies(training_replies)
 
         # check if `training_replies` is  saved accordingly
         self.assertTrue(type(new_training_replies) is list)
-        self.assertTrue(len(new_training_replies) == 2)
-        self.assertTrue('params' not in new_training_replies[1][0])
-        self.assertEqual(new_training_replies[1][1].get('dataset_id'), 'id_node_2')
+        self.assertTrue(len(new_training_replies) == 1)
+        self.assertTrue('params' not in new_training_replies[0]['node-1'])
+        self.assertEqual(new_training_replies[0]['node-2'].get('dataset_id'), 'id_node_2')
 
-    @patch('fedbiomed.researcher.responses.Responses.__getitem__')
-    @patch('fedbiomed.researcher.responses.Responses.__init__')
-    def test_job_21_private_load_training_replies(
-            self,
-            patch_responses_init,
-            patch_responses_getitem
-    ):
+
+    def test_job_21_private_load_training_replies(self):
         """tests if `_load_training_replies` is loading file content from path file
         and is building a proper training replies structure from breakpoint info
         """
         # Declare mock model parameters, for torch and scikit-learn.
-        pytorch_params =  torch.Tensor([1, 3, 5, 7])
-        sklearn_params =  np.array([[1, 2, 3, 4, 5], [2, 8, 7, 5, 5]])
+        pytorch_params = torch.Tensor([1, 3, 5, 7])
+        sklearn_params = np.array([[1, 2, 3, 4, 5], [2, 8, 7, 5, 5]])
 
         # mock FederatedDataSet
         fds = MagicMock(spec=FederatedDataSet)
         fds.data = MagicMock(spec=dict, return_value={})
 
-        # mock Responses
-        #
-        # nota: works fine only with one instance of Response active at a time thus
-        # - cannot be used in `test_save_private_training_replies`
-        # - if testing on more than 1 round, only the last round can be used for Asserts
-        def side_responses_init(data, *args):
-            self.responses_data = data
-
-        def side_responses_getitem(arg, *args):
-            return self.responses_data[arg]
-
-        patch_responses_init.side_effect = side_responses_init
-        patch_responses_init.return_value = None
-        patch_responses_getitem.side_effect = side_responses_getitem
 
         # instantiate job with a mock training plan
         test_job_torch = Job(
@@ -490,24 +412,24 @@ class TestJob(ResearcherTestCase):
         )
         # second create a `training_replies` variable
         loaded_training_replies_torch = [
-            [
-                {"success": True,
-                 "msg": "",
-                 "dataset_id": "dataset_1234",
-                 "node_id": "node_1234",
-                 "state_id": "state_1234",
-                 "params_path": "/path/to/file/param.mpk",
-                 "timing": {"time": 0}
-                 },
-                {"success": True,
-                 "msg": "",
-                 "dataset_id": "dataset_4567",
-                 "node_id": "node_4567",
-                 "state_id": "state_4567",
-                 "params_path": "/path/to/file/param2.mpk",
-                 "timing": {"time": 0}
-                 }
-            ]
+            
+                {
+                    "node_1234": {"success": True,
+                        "msg": "",
+                        "dataset_id": "dataset_1234",
+                        "node_id": "node_1234",
+                        "state_id": "state_1234",
+                        "params_path": "/path/to/file/param.mpk",
+                        "timing": {"time": 0}},
+                    "node_4567": {"success": True,
+                        "msg": "",
+                        "dataset_id": "dataset_4567",
+                        "node_id": "node_4567",
+                        "state_id": "state_4567",
+                        "params_path": "/path/to/file/param2.mpk",
+                        "timing": {"time": 0}}
+                }
+            
         ]
 
         # action
@@ -519,79 +441,25 @@ class TestJob(ResearcherTestCase):
             )
         self.assertEqual(load_patch.call_count, 2)
         load_patch.assert_called_with(
-            loaded_training_replies_torch[0][1]["params_path"],
+            loaded_training_replies_torch[0]['node_4567']["params_path"],
         )
         self.assertIsInstance(torch_training_replies, dict)
         # heuristic check `training_replies` for existing field in input
         self.assertEqual(
-            torch_training_replies[0][0]['node_id'],
-            loaded_training_replies_torch[0][0]['node_id'])
+            torch_training_replies[0]['node_1234']['node_id'],
+            loaded_training_replies_torch[0]['node_1234']['node_id'])
         # check `training_replies` for pytorch models
         self.assertTrue(torch.eq(
-            torch_training_replies[0][1]['params'],
+            torch_training_replies[0]['node_4567']['params'],
             pytorch_params
         ).all())
         self.assertEqual(
-            torch_training_replies[0][1]['params_path'],
+            torch_training_replies[0]['node_4567']['params_path'],
             "/path/to/file/param2.mpk"
         )
-        self.assertTrue(isinstance(torch_training_replies[0], Responses))
+        self.assertTrue(isinstance(torch_training_replies[0], Dict))
 
-        # #### REPRODUCE TESTS BUT FOR SKLEARN MODELS AND 2 ROUNDS
-        # create a `training_replies` variable
-        loaded_training_replies_sklearn = [
-            [
-                {
-                    # dummy
-                    "params_path": "/path/to/file/param_sklearn.mpk"
-                }
-            ],
-            [
-                {"success": False,
-                 "msg": "",
-                 "dataset_id": "dataset_8888",
-                 "node_id": "node_8888",
-                 "state_id": "state_8888",
-                 "params_path": "/path/to/file/param2_sklearn.mpk",
-                 "timing": {"time": 6}
-                 }
-            ]
-        ]
-
-        # instantiate job
-        test_job_sklearn = Job(
-            training_plan_class=FakeTorchTrainingPlan,
-            training_args=training_args_for_testing,
-            data=fds
-        )
-
-        # action
-        with patch(
-            "fedbiomed.common.serializer.Serializer.load", return_value=sklearn_params
-        ) as load_patch:
-            sklearn_training_replies = test_job_sklearn._load_training_replies(
-                loaded_training_replies_sklearn
-            )
-        self.assertEqual(load_patch.call_count, 2)
-        load_patch.assert_called_with(
-            loaded_training_replies_sklearn[1][0]["params_path"],
-        )
-        # heuristic check `training_replies` for existing field in input
-        self.assertEqual(
-            sklearn_training_replies[1][0]['node_id'],
-            loaded_training_replies_sklearn[1][0]['node_id'])
-        # check `training_replies` for sklearn models
-        self.assertTrue(np.allclose(
-            sklearn_training_replies[1][0]['params'],
-            sklearn_params
-        ))
-        self.assertEqual(
-            sklearn_training_replies[1][0]['params_path'],
-            "/path/to/file/param2_sklearn.mpk"
-        )
-        self.assertTrue(isinstance(sklearn_training_replies[0],
-                                   Responses))
-
+      
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
     @patch('fedbiomed.researcher.job.Serializer.load')
@@ -657,23 +525,16 @@ class TestJob(ResearcherTestCase):
             data=self.fds
         )
 
-        new_training_replies = [
-            [
-                {'params_path': '/path/to/job_test_save_state_params0.pt'}
-            ],
-            [
-                {'params_path': '/path/to/job_test_save_state_params1.pt'}
-            ]
-        ]
+        new_training_replies = [{
+            "node-1": {'params_path': '/path/to/job_test_save_state_params0.pt'},
+            "node-2": {'params_path': '/path/to/job_test_save_state_params1.pt'},
+        }]
         # expected transformed values of new_training_replies for save state
-        new_training_replies_state = [
-            [
-                {'params_path': 'xxx/job_test_save_state_params0.pt'}
-            ],
-            [
-                {'params_path': 'xxx/job_test_save_state_params1.pt'}
-            ]
-        ]
+        new_training_replies_state = [{
+            "node-1": {'params_path': 'xxx/job_test_save_state_params0.pt'},
+            "node-2": {'params_path': 'xxx/job_test_save_state_params1.pt'},
+        }]
+        
 
         link_path = '/path/to/job_test_save_state_params_link.pt'
 
@@ -697,31 +558,24 @@ class TestJob(ResearcherTestCase):
         self.assertEqual(test_job._id, save_state_bkpt['job_id'])
         self.assertEqual(link_path, save_state_bkpt['model_params_path'])
         self.assertDictEqual(node_states, save_state_bkpt['node_state']['collection_state_ids'])
-        # check transformation of training replies
-        for round_i, round in enumerate(new_training_replies):
-            for response_i, _ in enumerate(round):
-                self.assertEqual(
-                    save_state_bkpt['training_replies'][round_i][response_i]['params_path'],
-                    new_training_replies_state[round_i][response_i]['params_path'])
-                
-        # TODO: extend test with case when Job got replies form Nodes
+
 
     def test_job_25_extract_received_optimizer_aux_var_from_round(self):
         """Test that 'extract_received_optimizer_aux_var_from_round' works well."""
         # Set up: nodes sent back some Optimizer aux var information.
-        responses = Responses([])
-        responses.append(Responses({
+        responses = {}
+        responses.update({'node-1': {
             "node_id": "node-1",
             "optim_aux_var": {
                 "module_a": {"key": "a1"}, "module_b": {"key": "b1"}
-            },
-        }))
-        responses.append(Responses({
+            }}})
+
+        responses.update({'node-2': {
             "node_id": "node-2",
             "optim_aux_var": {
                 "module_a": {"key": "a2"}, "module_b": {"key": "b2"}
-            },
-        }))
+            }}})
+
         getattr(self.job, "_training_replies")[1] = responses
         # Call the method and verify that its output matches expectations.
         aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
@@ -734,9 +588,13 @@ class TestJob(ResearcherTestCase):
     def test_job_26_extract_received_optimizer_aux_var_from_round_empty(self):
         """Test 'extract_received_optimizer_aux_var_from_round' without aux var."""
         # Set up: nodes did not send Optimizer aux var information.
-        responses = Responses([])
-        responses.append(Responses({"node_id": "node-1"}))
-        responses.append(Responses({"node_id": "node-2"}))
+        responses = {}
+        responses.update({'node-1': {
+            "node_id": "node-1"}})
+
+        responses.update({'node-2': {
+            "node_id": "node-2"}})
+
         getattr(self.job, "_training_replies")[1] = responses
         # Call the method and verify that it returns an empty dict.
         aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
@@ -778,42 +636,37 @@ class TestJob(ResearcherTestCase):
                         'test_ratio': .0}],
         }
         fds = FederatedDataSet(data)
-        
-        loaded_training_replies_torch = [
-            [
-                {"success": True,
-                 "msg": "",
-                 "dataset_id": "dataset_1234",
-                 "node_id": "node-3",
-                 "state_id": "state_1234",
-                 "params_path": "/path/to/file/param.mpk",
-                 "timing": {"time": 0}
-                 },
-                {"success": True,
-                 "msg": "",
-                 "dataset_id": "dataset_4567",
-                 "node_id": "node-4",
-                 "state_id": "state_4567",
-                 "params_path": "/path/to/file/param2.mpk",
-                 "timing": {"time": 0}
-                 }
-            ]
+
+        loaded_training_replies_torch = [{ 
+            'node-1': {
+                "success": True,
+                "msg": "",
+                "dataset_id": "dataset_1234",
+                "node_id": "node-3",
+                "state_id": "state_1234",
+                "params_path": "/path/to/file/param.mpk",
+                "timing": {"time": 0}},
+            'node-2': {
+                "success": True,
+                "msg": "",
+                "dataset_id": "dataset_4567",
+                "node_id": "node-4",
+                "state_id": "state_4567",
+                "params_path": "/path/to/file/param2.mpk",
+                "timing": {"time": 0}}}
         ]
 
         test_job = Job(
             training_plan_class=self.model,
             training_args=training_args_for_testing,
-            data=fds
-        )
+            data=fds)
+
         # do test while `before_training` = True
         test_job._update_nodes_states_agent(before_training=True)
         # action! collect Job state in order to retrieve state_ids
 
         job_state = test_job.save_state_breakpoint("path/to/bkpt")
         self.assertDictEqual({k: None for k in data.keys()}, job_state['node_state']['collection_state_ids'])
-
-        # case where `before_training` = False
-        #self.job.training_replies(loaded_training_replies_torch)
 
         # we cannot access to `_training_replies` private attribute hence the saving/loading part
         job_state.update({'training_replies': loaded_training_replies_torch})  
@@ -826,9 +679,8 @@ class TestJob(ResearcherTestCase):
         # retrieving NodeAgentState through Job state
         job_state = test_job.save_state_breakpoint("path/to/bkpt/2")
 
-        extract_node_id_from_saving = lambda state: [k['node_id'] for k in state[-1]]
         # check that NodeStateAgent have been updated accordingly
-        for node_id in extract_node_id_from_saving(loaded_training_replies_torch):
+        for node_id, reply in loaded_training_replies_torch[-1].items():
             self.assertIn(node_id, list(job_state['node_state']['collection_state_ids']))
 
         # finally we are testing that exception is raised if index cannot be extracted
