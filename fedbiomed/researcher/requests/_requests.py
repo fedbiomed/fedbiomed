@@ -10,6 +10,7 @@ import os
 import tabulate
 import uuid
 import tempfile
+import threading
 
 from time import sleep
 from typing import Any, Dict, Callable, Union, List, Optional
@@ -42,17 +43,22 @@ class Request:
         self, 
         message: Message,
         node: NodeAgent, 
-        request_id: Optional[str] = None      
+        request_id: Optional[str] = None,
+        sem_pending: threading.Semaphore = None
     ) -> None:
         """Single request for node 
 
         Args: 
-            node: Node agent 
             message: Message to send to the node
+            node: Node agent
+            request_id: unique ID of request
+            sem_pending: semaphore for signaling new pending reply
         """
         self.request_id = request_id if request_id else str(uuid.uuid4())
         self.node = node 
-        self.message = message 
+        self.message = message
+
+        self._sem_pending = sem_pending
 
         self.reply = None
         self.error = None
@@ -87,6 +93,7 @@ class Request:
             self.reply = reply
             self.status = RequestStatus.SUCCESS
 
+        self._sem_pending.release()
 
 
 class FederatedRequest: 
@@ -101,12 +108,16 @@ class FederatedRequest:
         nodes: List[NodeAgent], 
         policy: Optional[List[RequestPolicy]] = None
     ):
+        """TODO: add docstring !
+        """
 
         self.message = message 
         self.nodes = nodes
         self.requests = []
         self.request_id = str(uuid.uuid4())
         self.nodes_status = {}
+
+        self._pending_replies = threading.Semaphore(value=0)
 
         # Set-up policies
         self.policy = PolicyController(policy)
@@ -115,7 +126,7 @@ class FederatedRequest:
         if isinstance(self.message, Message):
             for node in self.nodes: 
                 self.requests.append(
-                    Request(self.message, node, self.request_id)
+                    Request(self.message, node, self.request_id, self._pending_replies)
                 )
 
         # Different message for each node
@@ -123,7 +134,7 @@ class FederatedRequest:
             for node in self.nodes: 
                 if m := self.message.get(node.id):
                     self.requests.append(
-                        Request(m, node, self.request_id)
+                        Request(m, node, self.request_id, self._pending_replies)
                     )
                 else:
                     ValueError(f"Undefined message for node {node.id}")
@@ -170,7 +181,7 @@ class FederatedRequest:
         """Waits for the replies of the messages that are sent"""
 
         while self.policy.continue_(self.requests) == PolicyStatus.CONTINUE:
-            sleep(0.5)
+            self._pending_replies.acquire(timeout=10)
 
 
 class Requests(metaclass=SingletonMeta):
