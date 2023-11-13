@@ -35,9 +35,6 @@ Common Global Variables:
 - VAR_DIR                 : Var directory of Fed-BioMed
 - CACHE_DIR               : Cache directory of Fed-BioMed
 - TMP_DIR                 : Temporary directory
-- MQTT_BROKER             : MQTT broker IP address
-- MQTT_BROKER_PORT        : MQTT broker port
-- UPLOADS_URL             : Upload URL for file repository
 - MPSPDZ_IP               : MP-SPDZ endpoint IP of component
 - DEFAULT_BIPRIMES_DIR    : Path of directory for storing default secure aggregation biprimes
 - ALLOW_DEFAULT_BIPRIMES  : True if the component enables the default secure aggregation biprimes
@@ -50,17 +47,24 @@ import configparser
 import os
 
 from abc import abstractmethod
-from typing import Any, Tuple, Union
+from typing import Any, Tuple, Union, List
 
 from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, MPSPDZ_certificate_prefix, \
     CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
-from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR
+from fedbiomed.common.utils import (
+    ROOT_DIR, 
+    CONFIG_DIR, 
+    VAR_DIR, 
+    CACHE_DIR, 
+    TMP_DIR, 
+    __default_version__, 
+    raise_for_version_compatibility, 
+    FBM_Component_Version)
+
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
 from fedbiomed.common.certificate_manager import CertificateManager
-import fedbiomed.common.utils
-from fedbiomed.common.utils import raise_for_version_compatibility, FBM_Component_Version
 
 
 class Environ(metaclass=SingletonABCMeta):
@@ -160,6 +164,11 @@ class Environ(metaclass=SingletonABCMeta):
             raise FedbiomedEnvironError(_msg)
 
         return _cfg_value
+
+    def sections(self) -> List[str]:
+        """Gets sections of config file"""
+
+        return self._cfg.sections()
 
     def setup_environment(self):
         """Final environment setup function """
@@ -265,9 +274,6 @@ class Environ(metaclass=SingletonABCMeta):
             # Create new config file
             self._set_component_specific_config_parameters()
 
-            # Updates config file with MQTT configuration
-            self._configure_mqtt()
-
             # Update config with secure aggregation parameters
             self._configure_secure_aggregation()
 
@@ -281,16 +287,6 @@ class Environ(metaclass=SingletonABCMeta):
             FedbiomedEnvironError: In case of missing keys/values
         """
 
-        # broker location
-        broker_ip = self.from_config('mqtt', 'broker_ip')
-        broker_port = self.from_config('mqtt', 'port')
-        self._values['MQTT_BROKER'] = os.getenv('MQTT_BROKER', broker_ip)
-        self._values['MQTT_BROKER_PORT'] = int(os.getenv('MQTT_BROKER_PORT', broker_port))
-
-        # Uploads URL
-        uploads_url = self._get_uploads_url(from_config=True)
-
-        self._values['UPLOADS_URL'] = uploads_url
         self._values['TIMEOUT'] = 5
 
         # MPSPDZ variables
@@ -313,48 +309,6 @@ class Environ(metaclass=SingletonABCMeta):
             "MPSPDZ_CERTIFICATE_PEM",
             os.path.join(self._values["CONFIG_DIR"], public_key)
         )
-
-    def _get_uploads_url(self,
-                         from_config: bool = False
-                         ) -> str:
-        """Gets uploads url from env
-
-        # TODO: Get IP, port and end-point information separately
-
-        Args:
-            from_config: if True, use uploads URL value from config as default value, if False use last resort
-                default value.
-
-        Returns:
-            Uploads url
-        """
-
-        uploads_url = self.from_config("default", "uploads_url") if \
-            from_config is True else \
-            "http://localhost:8844/upload/"
-
-        # Modify URL with custom IP
-        uploads_ip = os.getenv('UPLOADS_IP')
-        if uploads_ip:
-            uploads_url = f"http://{uploads_ip}:8844/upload/"
-
-        # Environment variable always overwrites config value
-        url = os.getenv('UPLOADS_URL', uploads_url)
-
-        return url
-
-    def _configure_mqtt(self):
-        """Configures MQTT  credentials."""
-
-        # Message broker
-        mqtt_broker = os.getenv('MQTT_BROKER', 'localhost')
-        mqtt_broker_port = int(os.getenv('MQTT_BROKER_PORT', 1883))
-
-        self._cfg['mqtt'] = {
-            'broker_ip': mqtt_broker,
-            'port': mqtt_broker_port,
-            'keep_alive': 60
-        }
 
     def _generate_certificate(
             self,
@@ -490,7 +444,7 @@ class Environ(metaclass=SingletonABCMeta):
         try:
             config_file_version = self.from_config('default', 'version')
         except FedbiomedEnvironError:
-            config_file_version = fedbiomed.common.utils.__default_version__
+            config_file_version = __default_version__
         raise_for_version_compatibility(config_file_version, version_from_runtime,
                                         f"Configuration file {self._values['CONFIG_FILE']}: "
                                         f"found version %s expected version %s")

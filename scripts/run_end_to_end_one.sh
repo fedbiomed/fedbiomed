@@ -3,7 +3,6 @@
 # End-to end test (can also be used on CI slaves)
 #
 # This script runs all necessary components for a single test:
-# - a dockerized network
 # - a set of node(s)
 # - a researcher
 #
@@ -27,7 +26,6 @@
 #
 # Remark: multiple instances of this script cannot run at the same time
 #         because:
-#         - it starts and stops the dockerized network component
 #         - it runs a researcher
 #
 
@@ -60,7 +58,6 @@ Remarks:
 provided script and dataset is not validated by this launcher
 2. the -d directive can be repeated to run more than one node
 3. multiple instances of this script cannot run at the same time because:
-   - it starts and stops the dockerized network component
    - it runs a researcher
 
 Example:
@@ -203,10 +200,6 @@ cleaning() {
         sleep 3
         kill -9 $ALL_PIDS 2> /dev/null
     fi
-
-    # kill the docker containers
-    ( cd $basedir/envs/development/docker ; source $basedir/scripts/choose_docker_compose ; \
-        docker_compose ; $DOCKER_COMPOSE down  )
 
     #
     # clean all datasets from nodes
@@ -399,11 +392,6 @@ case $CMD_TO_RUN in
 esac
 
 ##### try to run the whole thing....
-
-# launch network
-banner "launching fedbiomed network"
-$basedir/scripts/fedbiomed_run network
-sleep 3
 
 # run and start nodes, memorize the pids of all these processes and subprocesses
 ALL_PIDS=""

@@ -11,18 +11,27 @@ from sklearn.model_selection import train_test_split
 
 config_file = """
 [default]
-node_id = CENTER_ID
-uploads_url = http://localhost:8844/upload/
-
-[mqtt]
-broker_ip = localhost
-port = 1883
-keep_alive = 60
+id = CENTER_ID
+component = NODE
+version = 2
 
 [security]
 hashing_algorithm = SHA256
 allow_default_training_plans = True
 training_plan_approval = False
+secure_aggregation = False
+force_secure_aggregation = False
+
+[researcher]
+ip = localhost
+port = 50051
+
+[mpspdz]
+private_key = dummy_path
+public_key = dummy_path
+mpspdz_ip = localhost
+mpspdz_port = 14000
+allow_default_biprimes = True
 """
 
 

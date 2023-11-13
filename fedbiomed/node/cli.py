@@ -40,13 +40,17 @@ __intro__ = """
 
 """
 
+
+
 # this may be changed on command line or in the config_node.ini
 logger.setLevel("DEBUG")
 
 readline.parse_and_bind("tab: complete")
 
+_node = None
 
-def node_signal_handler(signum: int, frame: Union[FrameType, None]):
+
+def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
     """Signal handler that terminates the process.
 
     Args:
@@ -58,18 +62,32 @@ def node_signal_handler(signum: int, frame: Union[FrameType, None]):
     """
 
     # get the (running) Node object
-    global node
+    global _node
 
-    if node:
-        node.send_error(ErrorNumbers.FB312)
-    else:
-        logger.error("Cannot send error message to researcher (node not initialized yet)")
-    logger.critical("Node stopped in signal_handler, probably by user decision (Ctrl C)")
-    time.sleep(1)
-    sys.exit(signum)
+    try:
+        if _node and _node.is_connected():
+            _node.send_error(ErrorNumbers.FB312,
+                             extra_msg = "Node is stopped",
+                             broadcast=True)
+            time.sleep(2)
+            logger.critical("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
+        else:
+            # take care of logger level used because message cannot be sent to node
+            logger.info("Cannot send error message to researcher (node not initialized yet)")
+            logger.info("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
+    finally:
+        # give some time to send messages to the researcher
+        time.sleep(0.5)
+        sys.exit(signum)
 
 
-def manage_node(node_args: Union[dict, None] = None):
+def _node_signal_trigger_term() -> None:
+    """Triggers a TERM signal to the current process
+    """
+    os.kill(os.getpid(), signal.SIGTERM)
+
+
+def _manage_node(node_args: Union[dict, None] = None):
     """Runs the node component and blocks until the node terminates.
 
     Intended to be launched by the node in a separate process/thread.
@@ -82,10 +100,10 @@ def manage_node(node_args: Union[dict, None] = None):
             See `Round()` for details.
     """
 
-    global node
+    global _node
 
     try:
-        signal.signal(signal.SIGTERM, node_signal_handler)
+        signal.signal(signal.SIGTERM, _node_signal_handler)
 
         logger.info('Launching node...')
 
@@ -101,13 +119,13 @@ def manage_node(node_args: Union[dict, None] = None):
                            'This might cause security problems. Please, consider to enable training plan approval.')
 
         logger.info('Starting communication channel with network')
-        node = Node(dataset_manager=dataset_manager,
-                    tp_security_manager=tp_security_manager,
-                    node_args=node_args)
-        node.start_messaging(block=False)
+        _node = Node(dataset_manager=dataset_manager,
+                     tp_security_manager=tp_security_manager,
+                     node_args=node_args)
+        _node.start_messaging(_node_signal_trigger_term)
 
         logger.info('Starting task manager')
-        node.task_manager()  # handling training tasks in queue
+        _node.task_manager()  # handling training tasks in queue
 
     except FedbiomedError:
         logger.critical("Node stopped.")
@@ -115,7 +133,7 @@ def manage_node(node_args: Union[dict, None] = None):
 
     except Exception as e:
         # must send info to the researcher (no mqqt should be handled by the previous FedbiomedError)
-        node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(e))
+        _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(e))
         logger.critical("Node stopped.")
 
     finally:
@@ -142,7 +160,7 @@ def launch_node(node_args: Union[dict, None] = None):
             See `Round()` for details.
     """
 
-    p = Process(target=manage_node, name='node-' + environ['NODE_ID'], args=(node_args,))
+    p = Process(target=_manage_node, name='node-' + environ['NODE_ID'], args=(node_args,))
     p.daemon = True
     p.start()
 
@@ -153,7 +171,7 @@ def launch_node(node_args: Union[dict, None] = None):
     except KeyboardInterrupt:
         p.terminate()
 
-        # give time to the node to send a MQTT message
+        # give time to the node to send message
         time.sleep(1)
         while p.is_alive():
             logger.info("Terminating process id =" + str(p.pid))
@@ -169,10 +187,13 @@ def launch_cli():
     """Parses command line input for the node component and launches node accordingly.
     """
 
+
+
     cli = CommonCLI()
     cli.set_environ(environ=environ)
     cli.initialize_certificate_parser()
     cli.initialize_create_configuration()
+
 
     # Register description for CLI
     cli.description = f'{__intro__}:A CLI app for fedbiomed researchers.'
@@ -236,6 +257,8 @@ def launch_cli():
                             help='Force use of a GPU device, if any available, even if researcher doesnt ' +
                                  'request it (default: dont use GPU)',
                             action='store_true')
+
+
 
     print(__intro__)
     print('\t- 🆔 Your node ID:', environ['NODE_ID'], '\n')
@@ -327,6 +350,7 @@ def launch_cli():
             'gpu_num': cli.arguments.gpu_num,
             'gpu_only': (cli.arguments.gpu_only is True)
         }
+
         launch_node(node_args)
 
 

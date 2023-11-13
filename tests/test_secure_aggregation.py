@@ -2,14 +2,14 @@ import unittest
 from unittest.mock import patch
 
 from testsupport.base_case import ResearcherTestCase
-from testsupport.base_mocks import MockRequestMessaging
+from testsupport.base_mocks import MockRequestGrpc
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError, FedbiomedSecaggError
 
 
-class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
+class TestSecureAggregation(ResearcherTestCase):
 
     def setUp(self) -> None:
 

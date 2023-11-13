@@ -11,6 +11,7 @@ class FederatedDataSetMock():
     """
     def __init__(self, data: Any):
         self._data = data
+        self._node_ids = []
 
     def data(self) -> Any:
         """Returns data values stored in FederatedDataSetMock
@@ -19,3 +20,6 @@ class FederatedDataSetMock():
             Any: values stored in class
         """
         return self._data
+    
+    def node_ids(self):
+        return self._node_ids

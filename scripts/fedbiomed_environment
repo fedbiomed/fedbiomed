@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# configure a development environment for each component (network, node, researcher)
+# configure a development environment for each component (node, researcher, gui)
 #
 
 #
@@ -40,18 +40,18 @@ environment_info() {
     environment_printvar "Conda   env   " "${CONDA_DEFAULT_ENV}"
     environment_printvar "Python  env   " "${PYTHONPATH}"
     environment_printvar "FEDBIOMED_DIR " "${FEDBIOMED_DIR}"
-    environment_printvar "MQTT   host   " "${MQTT_BROKER}"
-    environment_printvar "MQTT   port   " "${MQTT_BROKER_PORT}"
-    environment_printvar "UPLOADS url   " "${UPLOADS_URL}"
+    environment_printvar "Server  host  " "${RESEARCHER_SERVER_HOST}"
+    environment_printvar "Server  port  " "${RESEARCHER_SERVER_PORT}"
 }
 
 development_env() {
     export FEDBIOMED_DIR=$basedir
-    export IP_ADDRESS=${1:-localhost}
-    # use the (if provided) UPLOADS_URL var env
-    [[ -z "$UPLOADS_URL" ]] && { export UPLOADS_URL="http://${IP_ADDRESS}:8844/upload/" ; }
-    [[ -z "$MQTT_BROKER" ]] && { export MQTT_BROKER="${IP_ADDRESS}" ; }
-    [[ -z "$MQTT_BROKER_PORT" ]] && { export MQTT_BROKER_PORT=1883 ;}
+    if [[ -n "$1" ]] ; then
+        export IP_ADDRESS=$1
+        [[ -z "$RESEARCHER_SERVER_HOST" ]] && { export RESEARCHER_SERVER_HOST="${IP_ADDRESS}" ; }
+    else
+        export IP_ADDRESS=localhost
+    fi
 }
 
 environment_reset() {
@@ -59,18 +59,9 @@ environment_reset() {
     [[ ! -z "$verbose" ]] && echo "** Deactivating all environment"
     conda deactivate
     unset PYTHONPATH
-    unset MQTT_BROKER
-    unset MQTT_BROKER_PORT
+    unset RESEARCHER_SERVER_HOST
+    unset RESEARCHER_SERVER_PORT
     unset IP_ADDRESS
-    unset UPLOADS_URL
-    [[ ! -z "$verbose" ]] && environment_info
-}
-
-activate_network() {
-    verbose=$1
-    [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-network environment"
-    conda activate fedbiomed-network
-    unset PYTHONPATH
     [[ ! -z "$verbose" ]] && environment_info
 }
 
@@ -108,35 +99,14 @@ activate_gui() {
 [[ -n "$ZSH_NAME" ]] && myname=${(%):-%x}
 basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
 
-# temporary: `docker compose` migration
-source $basedir/scripts/choose_docker_compose
-
 # initialize development environment for....
 case $1 in
 
     clean)
-        conda deactivate
-        environment_reset
-        activate_network
         echo "** Cleaning all caches / temporary files"
-        # docker containers
-        DOCKER_COMPOSE=$(docker_compose ; echo $DOCKER_COMPOSE) # dont call directly `docker_compose` or the calling process exists in case of error
-        # note: do as much cleaning as possible even if `docker compose` is not found
-        (cd ${basedir}/envs/development/docker/ && [ -n "$DOCKER_COMPOSE" ] && $DOCKER_COMPOSE rm -sf &&  echo " * Docker cleaning" )
 
-        # network cleaner
-        echo " * Network cleaning"
-        restful_mount='envs/development/docker/restful/run_mounts'
-        net_temp_paths="${restful_mount}/app/db.sqlite3 ${restful_mount}/app/data/static"
-        net_temp_paths+=" ${restful_mount}/app/data/media/uploads ${restful_mount}/app/data/media/persistent/*"
-        for p in $net_temp_paths ; do
-            if [ -e "${basedir}/$p" ] ; then
-                echo "[INFO] Removing directory ${basedir}/$p"
-                rm -rf ${basedir}/$p
-            fi
-        done
-
-        # node/researcher cleaners
+        # node/researcher/gui cleaners
+        conda deactivate
         environment_reset
         activate_node
         if [ -f ${basedir}/scripts/clean_node.py ]
@@ -185,12 +155,6 @@ case $1 in
         environment_reset verbose
         ;;
 
-    network)
-        conda deactivate
-        environment_reset
-        activate_network verbose
-        ;;
-
     node|n)
         conda deactivate
         [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
@@ -215,12 +179,12 @@ case $1 in
     *)
         conda deactivate
         cat <<EOF
-Usage: fedbiomed_environment network|node [IP_ADDRESS] |researcher [IP_ADDRESS] |gui |reset|clean
+Usage: fedbiomed_environment node [IP_ADDRESS] |researcher [IP_ADDRESS] |gui |reset|clean
 
 Please specify:
-- network, node [IP_ADDRESS], researcher [IP_ADDRESS], gui : to activate an environment
-        with optional IP_ADDRESS (eg 10.1.2.3 or host.foo) for joining network
-        components (default: localhost)
+- node [IP_ADDRESS], researcher [IP_ADDRESS], gui : to activate an environment
+        with optional IP_ADDRESS (eg 10.1.2.3 or host.foo) for joining researcher
+        component (default: localhost)
 - reset                     : to leave the current environment
 - clean                     : to clean all caches, tempo files,...
 EOF

@@ -10,10 +10,10 @@ Following features were added from to the original module:
 
 - provides a logger instance of FedLogger, which is also a singleton, so it can be used "as is"
 - provides a dedicated file handler
-- provides a JSON/MQTT handler: all messages with priority greater than error are sent to the MQQT handler
+- provides a JSON/gRPC handler
 (this permit to send error messages from a node to a researcher)
 - works on python scripts / ipython / notebook
-- manages a dictionary of handlers. Default keys are 'CONSOLE', 'MQTT', 'FILE',
+- manages a dictionary of handlers. Default keys are 'CONSOLE', 'GRPC', 'FILE',
   but any key is allowed (only one handler by key)
 - allow changing log level globally, or on a specific handler (using its key)
 - log levels can be provided as string instead of logging.* levels (no need to
@@ -42,25 +42,22 @@ Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the
     Please pay attention to not create dependency loop then importing other fedbiomed package
 """
 
-import json  # we do not use fedbiomed.common.json to avoid dependancy loops
-
+import json
 import logging
 import logging.handlers
 
 from typing import Callable, Any
-# these fedbiomed.* import are OK, they do not introduce dependancy loops
-from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedLoggerError
+
 from fedbiomed.common.singleton import SingletonMeta
 
 # default values
 DEFAULT_LOG_FILE = 'mylog.log'
 DEFAULT_LOG_LEVEL = logging.WARNING
-DEFAULT_LOG_TOPIC = 'general/logger'
+DEFAULT_FORMAT = '%(asctime)s %(name)s %(levelname)s - %(message)s'
 
 
-class _MqttFormatter(logging.Formatter):
-    """Mqtt  formatter """
+class _GrpcFormatter(logging.Formatter):
+    """gRPC log  formatter """
 
     # ATTENTION: should not be imported from this module
 
@@ -68,32 +65,9 @@ class _MqttFormatter(logging.Formatter):
         super().__init__()
         self._node_id = node_id
 
-    # fields of record
-    #
-    # name: 'fedbiomed'
-    # msg: 'mqtt+console ERROR message'
-    # args: ()
-    # levelname: 'ERROR'
-    # levelno: 40
-    # pathname: '/.../common/logger.py'
-    # filename: 'logger.py'
-    # module: 'logger'
-    # exc_info: None
-    # exc_text: None
-    # stack_info: None
-    # lineno: 349
-    # funcName: 'error'
-    # created: 1631108190.796861
-    # msecs: 796.860933303833
-    # relativeCreated: 3110.7118129730225
-    # thread: 4484275712
-    # threadName: 'MainThread'
-    # processName: 'MainProcess'
-    # process: 41544
-    # message: 'mqtt+console ERROR message'
-    # asctime: '2021-09-08 15:36:30796'
-
     def format(self, record):
+        """Formats the message/data that is going to be send to remote party through gRPC"""
+
         json_message = {"asctime": record.__dict__["asctime"], "node_id": self._node_id,
                         "name": record.__dict__["name"], "level": record.__dict__["levelname"],
                         "message": record.__dict__["message"]}
@@ -102,71 +76,59 @@ class _MqttFormatter(logging.Formatter):
         return super().format(record)
 
 
-#
-# mqtt handler
-#
-class _MqttHandler(logging.Handler):
-    """
-    (internal) handler class to deal with MQTT
+class _GrpcHandler(logging.Handler):
+    """Logger handler for GRPC connections
 
-    should be imported
+    This class handles the log messages that are tagged as to be sent to
+    researcher.
     """
 
-    def __init__(self,
-                 mqtt: Any = None,
-                 node_id: str = None,
-                 topic: str = DEFAULT_LOG_TOPIC
-                 ):
-        """
-        Constructor
+    def __init__(
+            self,
+            on_log: Callable,
+            node_id: str = None,
+    ) -> None:
+        """Constructor
 
         Args:
-            mqtt: opened MQTT object
-            node_id: unique MQTT client id
-            topic: topic/channel to publish to (default to logging.WARNING)
+            on_log: Method to call to send log to researcher
+            node_id: unique node id
         """
 
         logging.Handler.__init__(self)
         self._node_id = node_id
-        self._mqtt = mqtt
-        self._topic = topic
+        self._on_log = on_log
 
     def emit(self, record: Any):
-        """Do the proper job (override the logging.Handler method() )
+        """Emits the logged record
 
         Args:
             record: is automatically passed by the logger class
         """
 
-        # format a message as expected for LogMessage
-        # TODO:
-        # - get the researcher_id from the caller (is it needed ???)
-        #   researcher_id is not known then adding the mqtt handler....
+        if hasattr(record, 'broadcast') or hasattr(record, 'researcher_id'):
 
-        msg = dict(command='log',
-                   level=record.__dict__["levelname"],
-                   msg=self.format(record),
-                   node_id=self._node_id,
-                   researcher_id='<unknown>')
-        try:
+
+            msg = dict(
+                level=record.__dict__["levelname"],
+                msg=self.format(record),
+                node_id=self._node_id)
+
             # import is done here to avoid circular import it must also be done each time emit() is called
             import fedbiomed.common.message as message
+            feedback = message.FeedbackMessage(researcher_id=record.researcher_id, log=message.Log(**msg))
 
-            # verify the message content with Message validator
-            _ = message.NodeMessages.format_outgoing_message(msg)
-            self._mqtt.publish(self._topic, json.dumps(msg))
-        except Exception:  # pragma: no cover
-            # obviously cannot call logger here... (infinite loop)  cannot also send the message to the researcher
-            # (which was the purpose of the try block which failed)
-            print(record.__dict__["asctime"],
-                  record.__dict__["name"],
-                  "CRITICAL - badly formatted MQTT log message. Cannot send MQTT message")
-            _msg = ErrorNumbers.FB602.value + ": badly formatted MQTT log message. Cannot send MQTT message"
-            raise FedbiomedLoggerError(_msg)
+            try:
+                self._on_log(feedback, record.broadcast)
+            except Exception:
+                logging.error("Not able to send log message to remote party")
+
 
 
 class FedLogger(metaclass=SingletonMeta):
-    """Base class for the logger. it uses python logging module by composition (only log() method is overwritten)
+    """Base class for the logger.
+
+    It uses python logging module by composition (only log() method is overwritten)
 
     All methods from the logging module can be accessed through the _logger member of the class if necessary
     (instead of overloading all the methods) (ex:  logger._logger.getEffectiveLevel() )
@@ -212,17 +174,17 @@ class FedLogger(metaclass=SingletonMeta):
         self._logger.propagate = False
 
         self._default_level = DEFAULT_LOG_LEVEL  # MANDATORY ! KEEP THIS PLEASE !!!
-        self._default_level = self._internalLevelTranslator(level)
+        self._default_level = self._internal_level_translator(level)
 
         self._logger.setLevel(self._default_level)
 
         # init the handlers list and add a console handler on startup
         self._handlers = {}
-        self.addConsoleHandler()
+        self.add_console_handler()
 
         pass
 
-    def _internalAddHandler(self, output: str, handler: Callable):
+    def _internal_add_handler(self, output: str, handler: Callable):
         """Private method
 
         Add a handler to the logger. only one handler is allowed
@@ -249,7 +211,7 @@ class FedLogger(metaclass=SingletonMeta):
 
         pass
 
-    def _internalLevelTranslator(self, level: Any = DEFAULT_LOG_LEVEL) -> Any:
+    def _internal_level_translator(self, level: Any = DEFAULT_LOG_LEVEL) -> Any:
         """Private method
 
         This helper allows to use a string instead of logging.* then using logger levels. This is the opposite
@@ -260,8 +222,6 @@ class FedLogger(metaclass=SingletonMeta):
 
         Returns:
             logging.* form of the level
-
-
         """
 
         # logging.*
@@ -270,44 +230,40 @@ class FedLogger(metaclass=SingletonMeta):
 
         # strings
         if isinstance(level, str):
-            upperlevel = level.upper()
+            upper_level = level.upper()
+            if upper_level in self._nameToLevel:
+                return self._nameToLevel[upper_level]
 
-            if upperlevel in self._nameToLevel:
-                return self._nameToLevel[upperlevel]
+        self._logger.warning("Calling selLevel() with bad value: " + str(level))
+        self._logger.warning("Setting " + self._levelToName[DEFAULT_LOG_LEVEL] + " level instead")
 
-        # bad input !
-
-        # should always work, even at startup with _logger badly initialized
-        # because this method is called by __init__
-        # (where else to log this really ?)
-        self._logger.warning("calling selLevel() with bad value: " + str(level))
-        self._logger.warning("setting " + self._levelToName[DEFAULT_LOG_LEVEL] + " level instead")
         return DEFAULT_LOG_LEVEL
 
-    def addFileHandler(self,
-                       filename: str = DEFAULT_LOG_FILE,
-                       format: str = '%(asctime)s %(name)s %(levelname)s - %(message)s',
-                       level: any = DEFAULT_LOG_LEVEL):
+    def add_file_handler(
+            self,
+            filename: str = DEFAULT_LOG_FILE,
+            format: str = DEFAULT_FORMAT,
+            level: any = DEFAULT_LOG_LEVEL):
         """Adds a file handler
 
         Args:
             filename: File to log to
             format: Log format
-            level: Initial level of the logger (optionnal)
+            level: Initial level of the logger
         """
 
         handler = logging.FileHandler(filename=filename, mode='a')
-        handler.setLevel(self._internalLevelTranslator(level))
+        handler.setLevel(self._internal_level_translator(level))
 
         formatter = logging.Formatter(format)
         handler.setFormatter(formatter)
 
-        self._internalAddHandler("FILE", handler)
-        pass
+        self._internal_add_handler("FILE", handler)
 
-    def addConsoleHandler(self,
-                          format: str = '%(asctime)s %(name)s %(levelname)s - %(message)s',
-                          level: Any = DEFAULT_LOG_LEVEL):
+
+    def add_console_handler(self,
+                            format: str = DEFAULT_FORMAT,
+                            level: Any = DEFAULT_LOG_LEVEL):
 
         """Adds a console handler
 
@@ -318,55 +274,51 @@ class FedLogger(metaclass=SingletonMeta):
 
         handler = logging.StreamHandler()
 
-        handler.setLevel(self._internalLevelTranslator(level))
+        handler.setLevel(self._internal_level_translator(level))
 
         formatter = logging.Formatter(format)
         handler.setFormatter(formatter)
-        self._internalAddHandler("CONSOLE", handler)
+        self._internal_add_handler("CONSOLE", handler)
 
         pass
 
-    def addMqttHandler(self,
-                       mqtt: Any = None,
-                       node_id: str = None,
-                       topic: Any = DEFAULT_LOG_TOPIC,
-                       level: Any = logging.ERROR
-                       ):
+    def add_grpc_handler(self,
+                         on_log: Callable = None,
+                         node_id: str = None,
+                         level: Any = logging.INFO
+                         ):
 
-        """Adds a mqtt handler, to publish error message on a topic
+        """Adds a gRPC handler, to publish error message on a topic
 
         Args:
-            mqtt: already opened MQTT object
+            on_log: Provided by higher level GRPC implementation
             node_id: id of the caller (necessary for msg formatting to the researcher)
-            topic: topic to publish to (non-mandatory)
             level: level of this handler (non-mandatory) level must be lower than ERROR to ensure that the
                 research get all ERROR/CRITICAL messages
         """
 
-        handler = _MqttHandler(
-            mqtt=mqtt,
+        handler = _GrpcHandler(
+            on_log=on_log,
             node_id=node_id,
-            topic=topic
         )
 
         # may be not necessary ?
-        handler.setLevel(self._internalLevelTranslator(level))
-        formatter = _MqttFormatter(node_id)
+        handler.setLevel(self._internal_level_translator(level))
+        formatter = _GrpcFormatter(node_id)
 
         handler.setFormatter(formatter)
-        self._internalAddHandler("MQTT", handler)
+        self._internal_add_handler("GRPC", handler)
 
         # as a side effect this will set the minimal level to ERROR
-        self.setLevel(level, "MQTT")
+        self.setLevel(level, "GRPC")
+
         pass
 
-    def delMqttHandler(self):
-        self._internalAddHandler("MQTT", None)
 
     def log(self, level: Any, msg: str):
         """Overrides the logging.log() method to allow the use of string instead of a logging.* level """
 
-        level = logger._internalLevelTranslator(level)
+        level = logger._internal_level_translator(level)
         self._logger.log(
             level,
             msg
@@ -393,7 +345,7 @@ class FedLogger(metaclass=SingletonMeta):
                 change the level of all known handlers
         """
 
-        level = self._internalLevelTranslator(level)
+        level = self._internal_level_translator(level)
 
         if htype is None:
             # store this level (for future handler adding)
@@ -410,16 +362,49 @@ class FedLogger(metaclass=SingletonMeta):
         # htype provided but no handler for this type exists
         self._logger.warning(htype + " handler not initialized yet")
 
+
+    def info(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
+        """Extends arguments of info message.
+
+        Valid only GrpcHandler is existing
+
+        Args:
+            msg: Message to log
+            broadcast: Broadcast message to all available researchers
+            researcher_id: ID of the researcher that the message will be sent.
+                If broadcast True researcher id will be ignored
+        """
+        self._logger.info(msg, *args, **kwargs,
+                          extra={"researcher_id": researcher_id, 'broadcast': broadcast})
+
+    def debug(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
+        """Same as info message"""
+        self._logger.debug(msg, *args, **kwargs,
+                           extra={"researcher_id": researcher_id, 'broadcast': broadcast})
+
+    def warning(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
+        """Same as info message"""
+        self._logger.warning(msg, *args, **kwargs,
+                             extra={"researcher_id": researcher_id, 'broadcast': broadcast})
+
+    def critical(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
+        """Same as info message"""
+        self._logger.critical(msg, *args, **kwargs,
+                              extra={"researcher_id": researcher_id, 'broadcast': broadcast})
+
+    def error(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
+        """Same as info message"""
+        self._logger.error(msg, *args, **kwargs,
+                           extra={"researcher_id": researcher_id, 'broadcast': broadcast})
+
+
     def __getattr__(self, s: Any):
         """Calls the method from self._logger if not override by this class"""
 
         try:
-            _x = self.__getattribute__(s)
+            return self.__getattribute__(s)
         except AttributeError:
-            _x = self._logger.__getattribute__(s)
-            return _x
-        else:
-            return _x  # pragma: no cover
+            return self._logger.__getattribute__(s)
 
 
 """Instantiation of the logger singleton"""

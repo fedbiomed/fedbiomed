@@ -401,7 +401,10 @@ class NativeTorchOptimizer(BaseOptimizer):
             List[float]: list of single learning rate or multiple learning rates
                 (as many as the number of the layers contained in the model)
         """
-        logger.warning("`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases")
+        logger.warning(
+            "`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases",
+            broadcast=True)
+
         mapping_lr_layer_name: Dict[str, float] = {}
 
         for param_group in self.optimizer.param_groups:

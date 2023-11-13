@@ -44,7 +44,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     - a `training_data()` function
     - a `training_step()` function
 
-    Researcher may have to add extra dependencies/python imports, by using `add_dependencies` method.
+    Researcher may have to add extra dependencies/python imports, by using `init_dependencies` method.
 
     Attributes:
         dataset_path: The path that indicates where dataset has been stored
@@ -98,7 +98,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._device = self._device_init
 
         # list dependencies of the model
-        self.add_dependency(["import torch",
+        self._add_dependency(["import torch",
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
                              "from fedbiomed.common.training_plans import TorchTrainingPlan",
@@ -110,6 +110,9 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Aggregated model parameters
         #self._init_params: List[torch.Tensor] = None
+
+        # Add dependencies
+        self._configure_dependencies()
 
     def post_init(
             self,
@@ -147,8 +150,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         torch.manual_seed(rseed)
         # Optionally set up differential privacy.
         self._dp_controller = DPController(training_args.dp_arguments() or None)
-        # Add dependencies
-        self.configure_dependencies()
         # Configure aggregator-related arguments
         # TODO: put fedprox mu inside strategy_args
         self._fedprox_mu = self._training_args.get('fedprox_mu')
@@ -290,11 +291,13 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         use_cuda = cuda_available and ((use_gpu and node_args['gpu']) or node_args['gpu_only'])
 
         if node_args['gpu_only'] and not cuda_available:
-            logger.error('Node wants to force model training on GPU, but no GPU is available')
+            logger.error('Node wants to force model training on GPU, but no GPU is available',
+                         broadcast=True)
         if use_cuda and not use_gpu:
-            logger.warning('Node enforces model training on GPU, though it is not requested by researcher')
+            logger.warning('Node enforces model training on GPU, though it is not requested by researcher',
+                           broadcast=True)
         if not use_cuda and use_gpu:
-            logger.warning('Node training model on CPU, though researcher requested GPU')
+            logger.warning('Node training model on CPU, though researcher requested GPU', broadcast=True)
 
         # Set device for training
         self._device = "cpu"
@@ -303,7 +306,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 if node_args['gpu_num'] in range(torch.cuda.device_count()):
                     self._device = "cuda:" + str(node_args['gpu_num'])
                 else:
-                    logger.warning(f"Bad GPU number {node_args['gpu_num']}, using default GPU")
+                    logger.warning(f"Bad GPU number {node_args['gpu_num']}, using default GPU",
+                                   broadcast=True)
                     self._device = "cuda"
             else:
                 self._device = "cuda"
@@ -555,13 +559,13 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             self.model().train()  # restore training behaviors
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
-        """Handles and loads aggregators arguments sent through MQTT and
-        file exchanged system. If sent through file exchanged system, loads the arguments.
+        """Handles and loads aggregators arguments to received from the researcher
 
         Args:
-            aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument name with its value (eg
-            'aggregator_correction' with correction states)
+            aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument 
+                name with its value (eg 'aggregator_correction' with correction states)
         """
+        
         self.aggregator_name = aggregator_args.get('aggregator_name', self.aggregator_name)
         # FIXME: this is too specific to Scaffold. Should be redesigned, or handled
         # by an aggregator handler that contains all keys for all strategies

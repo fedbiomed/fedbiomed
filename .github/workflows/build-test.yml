@@ -77,7 +77,6 @@ jobs:
               - 'scripts/**'
               - 'tests/**'
               - 'envs/development/conda/**'
-              - 'envs/development/docker/**'
               - 'envs/build/**'
               - 'modules/**'
               - 'MP-SPDZ/**'
@@ -130,7 +129,6 @@ jobs:
               - 'fedbiomed/**'
               - 'scripts/**'
               - 'envs/development/conda/**'
-              - 'envs/development/docker/**'
               - 'notebooks/**'
               - '.github/**'
 
@@ -139,14 +137,7 @@ jobs:
         run: |
           source ~/.bashrc
           ./scripts/configure_conda node
-          ./scripts/fedbiomed_run network
           ./scripts/run_test_mnist ../../../..
         shell: bash -l {0}
-      
-      - name: Stop network component 
-        if: always()
-        run: |
-          source ~/.bashrc
-          ./scripts/fedbiomed_run network stop
-        shell: bash -l {0}
+
 

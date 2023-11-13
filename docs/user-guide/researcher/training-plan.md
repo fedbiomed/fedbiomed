@@ -335,8 +335,7 @@ from the researcher and downloaded the training plan file.
 
 As you can see from the following code snippet, the training routine requires some training arguments such 
 as `epochs`, `lr`, `batch_size` etc. Since the `training_routine` is already defined by Fed-BioMed, you are only allowed 
-to control the training process by changing these arguments. Modifying the training routine from the training plan class might raise unexpected errors. These training arguments are passed to the node by
-the [experiment](../../researcher/experiment) through the network component.
+to control the training process by changing these arguments. Modifying the training routine from the training plan class might raise unexpected errors.
 
 ```python
  def training_routine(self,

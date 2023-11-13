@@ -4,10 +4,8 @@ Most real-life deployments require protecting node data. Deployment using VPN/co
 
 This tutorial details a deployment scenario where:
 
-* Fed-BioMed network and researcher components run on the same machine ("the **server**") in the following `docker` containers
+* Fed-BioMed vpnserver and researcher components run on the same machine ("the **server**") in the following `docker` containers
     - `vpnserver` / `fedbiomed/vpn-vpnserver`: WireGuard server
-    - `mqtt` / `fedbiomed/vpn-mqtt`: MQTT message broker server
-    - `restful` / `fedbiomed/vpn-restful`: HTTP REST communication server
     - `researcher` / `fedbiomed/vpn-researcher`: a researcher jupyter notebooks
 * several Fed-BioMed **node** components run, one node per machine with the following containers
     - `node` / `fedbiomed/vpn-node`: a node component
@@ -18,7 +16,10 @@ This tutorial details a deployment scenario where:
 ## Requirements
 
 !!! info "Supported operating systems and software requirements"
-    Supported operating systems for containers/VPN deployment include **Fedora 38**, **Ubuntu 22.04 LTS**. Should also work for most recent Linux, **MacOS X 12.6.6 and 13**, **Windows 11** with WSL2 using Ubuntu-22.04 distribution. Also requires **docker compose >= 2.0**.
+    Supported operating systems for containers/VPN deployment include **Fedora 38**, **Ubuntu 22.04 LTS**. Should also work for most recent Linux, **MacOS X 12.6.6 and 13**, **Windows 11** with WSL2 using Ubuntu-22.04 distribution. Also requires
+    **docker** and **docker compose >= 2.0**.
+
+    Check here for [guidelines](./vpn-dependencies-install.md) on `docker` and `docker-compose` installation
 
     Check here for [detailed requirements](https://github.com/fedbiomed/fedbiomed/blob/master/envs/vpn/README.md#requirements).
 
@@ -50,7 +51,7 @@ More options for containers/VPN deployment are not covered in this tutorial but 
 * using GPU in `node` container
 * building containers (eg: `node` and `gui`) on one machine, using this pre-built containers on the nodes
 * using different identity (account) for building and launching a container
-* deploying network and researcher on distinct machines
+* deploying vpnserver and researcher on distinct machines
 
 
 ## Notations
@@ -97,38 +98,34 @@ It covers the initial server deployment, including build, configuration and laun
 * build server-side containers
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn build vpnserver mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn build vpnserver researcher
     ```
 
 * configure the VPN keys for containers running on the server side, after starting the `vpnserver` container
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn configure mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn configure researcher
     ```
 
 * start other server side containers
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start researcher
     ```
 
 * check all containers are running as expected on the server side
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn status vpnserver mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn status vpnserver researcher
     ```
 
     Server side containers should be up and able to ping the VPN server
 
     ```bash
-    ** Checking docker VPN images & VPN access: vpnserver mqtt restful researcher
+    ** Checking docker VPN images & VPN access: vpnserver researcher
     - container vpnserver is running
-    - container mqtt is running
-    - container restful is running
     - container researcher is running
     - pinging VPN server from container vpnserver -> OK
-    - pinging VPN server from container mqtt -> OK
-    - pinging VPN server from container restful -> OK
     - pinging VPN server from container researcher -> OK
     ```
 
@@ -247,7 +244,7 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 * do initial node configuration
 
     ```bash
-    [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14001 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node configuration create'
+    [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14001 && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node configuration create'
     ```
 
 
@@ -336,7 +333,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
         ```bash
         [user@node $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-        [user@node $] docker compose exec -u $(id -u) node bash -ci 'export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14001 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
+        [user@node $] docker compose exec -u $(id -u) node bash -ci 'export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
         ```
 
     * start the Fed-BioMed node, for example in background:
@@ -398,7 +395,7 @@ Optionally use the researcher container's command line instead of the Jupyter no
 
     ```bash
     [user@server $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-    [user@server $] docker compose exec -u $(id -u) researcher bash -ci 'export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14000 && export MQTT_BROKER=10.220.0.2 && export MQTT_BROKER_PORT=1883 && export UPLOADS_URL="http://10.220.0.3:8000/upload/" && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-researcher && bash'
+    [user@server $] docker compose exec -u $(id -u) researcher bash -ci 'export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-researcher && bash'
     ```
 
 * launch a command, for example a training:
@@ -415,7 +412,7 @@ Some possible management commands after initial deployment include:
 * check all containers running on the server side
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn status vpnserver mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn status vpnserver researcher
     ```
 
 * check the VPN peers known from the VPN server
@@ -424,8 +421,6 @@ Some possible management commands after initial deployment include:
     [user@server $] ( cd ${FEDBIOMED_DIR}/envs/vpn/docker ; docker compose exec vpnserver bash -ci "python ./vpn/bin/configure_peer.py list" )
     type        id           prefix         peers
     ----------  -----------  -------------  ------------------------------------------------
-    management  mqtt         10.220.0.2/32  ['1exampleofdummykey12345abcdef6789ghijklmnop=']
-    management  restful      10.220.0.3/32  ['1exampleofdummykeyA79s0VsN5SFahT2fqxyooQAjQ=']
     researcher  researcher1  10.222.0.2/32  ['1exampleofdummykeyVo+lj/ZfT/wYv+I9ddWYzohC0=']
     node        NODETAG      10.221.0.2/32  ['1exampleofdummykey/Z1SKEzjsMkSe1qztF0uXglnA=']
     ```
@@ -433,8 +428,8 @@ Some possible management commands after initial deployment include:
 * restart all containers running on the server side
 
     ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver mqtt restful researcher
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start vpnserver mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start vpnserver researcher
     ```
 
     VPN configurations and container files are kept unchanged when restarting containers.
@@ -442,7 +437,7 @@ Some possible management commands after initial deployment include:
 * clean running containers, container files and temporary files on the server side. Requires to stop containers before.
 
     ``` bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver mqtt restful researcher
+    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver researcher
     [user@server $] source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
     [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean
     ```

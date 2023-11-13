@@ -2,7 +2,7 @@
 
 This page describes the network communications:
 
-- between the Fed-BioMed components (`node`s, `network` and `researcher`), aka application internal / backend communications 
+- between the Fed-BioMed components (`node`s, and `researcher`), aka application internal / backend communications 
 - for user access to the Fed-BioMed components GUI
 - for Fed-BioMed software installation and docker image build
 
@@ -13,12 +13,12 @@ Network communications for the setup of host machines and the installation of [s
 
 ## Introduction
 
-Fed-BioMed network communications basic principle is that all communications between components are outbound from one `node` or from the `researcher` to the `network`. There is no direct communication from a `node` to the `researcher`, or inbound communications to a `node` or the `researcher`.
+Fed-BioMed network communications basic principle is that all communications between components are outbound from one `node` to the `researcher`. There is no inbound communications to a `node`.
 
-Nevertheless, future releases will introduce some optional direct communications between the components for using the secure aggregation feature (eg. `node`/`researcher` to `node`/`researcher` communication for cryptographic material negotiation).
+The exception to this principle are optional direct communications between the components for using the secure aggregation feature (eg. `node`/`researcher` to `node`/`researcher` communication for cryptographic material negotiation). The communications for crypto material are closed after the negotiation is completed and handle only secagg key negotiation requests.
 
 Fed-BioMed provides some optional GUI for the `node` (node configuration GUI) and the `researcher` (Jupyter notebook and Tensorboard).
-Currently, Fed-BioMed does not include secure communications to these GUI components. So they are configured by default to accept only communications from the same machine (*localhost*).
+By default, these GUI components are not secured (no HTTPS and/or no certificate signed by well known authority). So they are configured by default to accept only communications from the same machine (*localhost*).
 
 
 ## Software installation
@@ -36,12 +36,12 @@ They cover all [deployment scenarios](./deployment.md). If multiple machines are
 
 <br>
 
-"Component" is the `node`, `network` or `researcher`. 
+"Component" is the `node` or `researcher`. 
 
 For destination machine, it is simpler to authorize outbound communications to all Internet addresses for the required ports during installation. Indeed, several packaging systems are used for installation, with no guarantee of stable IP address used by the packaging server:
 
-- for all [deployment scenarios](./deployment.md): conda, pip (all components) and yarn/npm (node GUI component) packages
-- plus for VPN/containers scenarios: dockerhub images, apt apk and cargo packages, git over https cloning, wget and curl download 
+- For all [deployment scenarios](./deployment.md): conda, pip (all components) and yarn/npm (node GUI component) packages
+- Plus for VPN/containers scenarios: dockerhub images, apt apk and cargo packages, git over https cloning, wget and curl download 
 
 Note: when using a VPN/containers scenario, a site with very stringent requirements on `node`'s communication can avoid authorizing the above communications for installation of the node components (`node` and `gui`). For that, it needs to build the components docker image on another machine (with the above filter), save the image, copy it to the node machine, load it on the node machine. This scenario is not fully packaged and documented by Fed-BioMed but you can find [some guidelines here](https://github.com/fedbiomed/fedbiomed/blob/master/envs/vpn/README.md#specific-instructions-building-node-image-on-a-different-machine).
 
@@ -53,16 +53,15 @@ Note: when using a VPN/containers scenario, a site with very stringent requireme
 
 This part describes the communication matrix for running Fed-BioMed without VPN/containers:
 
-* direction is *out* (outbound communication from the component) or *in* (inbound communication to the component)
-* type of communication is either *backend* (between the application components) or *user* (user access to a component GUI). Command line user access to component from *localhost* are not noted here. GUI access are noted though recommended default configuration is to give access only from *localhost*
-* status is either *mandatory* (needed to run Fed-BioMed) or *optional* (a Fed-BioMed experiment can run without this part)
+* The direction is *out* (outbound communication from the component) or *in* (inbound communication to the component)
+* Type of communication is either *backend* (between the application components) or *user* (user access to a component GUI). Command line user access to component from *localhost* are not noted here. GUI access are noted though recommended default configuration is to give access only from *localhost*
+* The status is either *mandatory* (needed to run Fed-BioMed) or *optional* (a Fed-BioMed experiment can run without this part)
 
 On the node component (`node` + `gui` ):
 
 | dir | source machine | destination machine | destination port | service   | type     | status    | comment  |
 | --  | ------------   | -----------------   | --------------   | -----     | ------   | --------  | ------   |
-| out | node           | restful             | TCP/8844         | HTTP      | backend  | mandatory |          |
-| out | node           | mqtt                | TCP/1883         | MQTT      | backend  | mandatory |          |
+| out | node           | researcher             | TCP/50051     | HTTP      | backend  | mandatory |          |
 | out | node           | *other nodes* + researcher | TCP/14000+ | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *other nodes* + researcher | node      | TCP/14000+       | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *localhost*    | gui                 | TCP/8484         | HTTP      | user     | optional  | node GUI |
@@ -70,21 +69,13 @@ On the node component (`node` + `gui` ):
 * `node` and `gui` also need a shared filesystem, so they are usually installed on the same machine.
 * MP-SPDZ uses port TCP/14000 when one component runs on a machine. It also uses following port numbers when multiple components run on the same machine (one port per component).
 
-On the network component (`mqtt` + `restful`):
-
-| dir | source machine     | destination machine | destination port | service   | type     | status    | comment |
-| --  | ---------------    | -----------------   | --------------   | -----     | ------   | --------  | -----   |
-| in  | nodes + researcher | mqtt                | TCP/1883         | MQTT      | backend  | mandatory |         |
-| in  | nodes + researcher | restful             | TCP/8844         | HTTP      | backend  | mandatory |         |
-
 <br>
 
 On the researcher component (`researcher`):
 
 | dir | source machine | destination machine | destination port | service   | type     | status    | comment     |
 | --  | ------------   | -----------------   | --------------   | -----     | ------   | --------  | -----       |
-| out | researcher     | restful             | TCP/8844         | HTTP      | backend  | mandatory |             |
-| out | researcher     | mqtt                | TCP/1883         | MQTT      | backend  | mandatory |             |
+| out | *nodes*        | researcher          | TCP/50051        | HTTP      | backend  | mandatory |             |
 | out | researcher     | *nodes*             | TCP/14000+       | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *nodes*        | researcher          | TCP/14000+       | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *localhost*    | researcher          | TCP/8888         | HTTP      | user     | optional  | Jupyter     |
@@ -97,9 +88,9 @@ On the researcher component (`researcher`):
 
 This part describes the communication matrix for running Fed-BioMed with VPN/containers:
 
-* direction is *out* (outbound communication from the component) or *in* (inbound communication to the component)
-* type of communication is either *backend* (between the application components) or *user* (user access to a component GUI). Command line user access to component from *localhost* are not noted here. GUI access are noted though recommended default configuration is to give access only from *localhost*
-* status is either *mandatory* (needed to run Fed-BioMed) or *optional* (a Fed-BioMed experiment can run without this part)
+* The direction is *out* (outbound communication from the component) or *in* (inbound communication to the component)
+* Type of communication is either *backend* (between the application components) or *user* (user access to a component GUI). Command line user access to component from *localhost* are not noted here. GUI access are noted though recommended default configuration is to give access only from *localhost*
+* The status is either *mandatory* (needed to run Fed-BioMed) or *optional* (a Fed-BioMed experiment can run without this part)
 
 On the node component (`node` + `gui` ):
 
@@ -109,14 +100,6 @@ On the node component (`node` + `gui` ):
 | in  | *localhost*    | gui                 | TCP/8443         | HTTPS     | user     | optional  | node GUI |
 
 * `node` and `gui` also need a shared filesystem, so they are usually installed on the same machine.
-
-On the network component (`vpnserver` + `mqtt` + `restful`):
-
-| dir | source machine     | destination machine | destination port | service   | type     | status    | comment |
-| --  | ---------------    | -----------------   | --------------   | -----     | ------   | --------  | -----   |
-| in  | nodes + researcher | vpnserver           | UDP/51820        | WireGuard | backend  | mandatory |         |
-
-* `mqtt` and `restful` also communicate with the `vpnserver` through a WireGuard tunnel
 
 <br>
 
@@ -128,4 +111,4 @@ On the researcher component (`researcher`):
 | in  | *localhost*    | researcher          | TCP/8888         | HTTP      | user     | optional  | Jupyter     |
 | in  | *localhost*    | researcher          | TCP/6006         | HTTP      | user     | optional  | Tensorboard |
 
-In this scenario, MQTT, restful and MP-SPDZ communications are tunneled within the WireGuard VPN.
+In this scenario, MP-SPDZ communication tunneled within the WireGuard VPN.

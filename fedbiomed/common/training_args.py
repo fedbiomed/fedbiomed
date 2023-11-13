@@ -503,10 +503,6 @@ class TrainingArgs:
         """Returns a copy of the training_args as a dictionary."""
 
         ta = deepcopy(self._ta)
-        if 'test_metric' in ta and \
-                isinstance(ta['test_metric'], MetricTypes):
-            # replace MetricType value by a string
-            ta['test_metric'] = ta['test_metric'].name
         return ta
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -519,5 +515,5 @@ class TrainingArgs:
         try:
             return deepcopy(self._ta[key])
         except KeyError:
-            # TODO: test if provided defualt value is compliant with the scheme
+            # TODO: test if provided default value is compliant with the scheme
             return default

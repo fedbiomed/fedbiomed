@@ -57,7 +57,7 @@ class NodeStateAgent:
                 try:
                     node_id, state_id = node_reply['node_id'], node_reply['state_id']
                 except KeyError as ke:
-                    raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Missing entry in Response") from ke
+                    raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB419.value}: Missing entry in Response") from ke
                 if node_id in self._collection_state_ids:
                     self._collection_state_ids[node_id] = state_id
 

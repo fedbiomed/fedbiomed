@@ -67,6 +67,12 @@ class ResearcherEnviron(Environ):
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(self._values['VAR_DIR'], 'queue_messages')
         self._values['DB_PATH'] = os.path.join(self._values['VAR_DIR'],
                                                f'{DB_PREFIX}{self._values["RESEARCHER_ID"]}.json')
+
+        self._values["SERVER_HOST"] = os.getenv('RESEARCHER_SERVER_HOST', 
+                                                self.from_config('server', 'host'))
+        self._values["SERVER_PORT"] = os.getenv('RESEARCHER_SERVER_PORT', 
+                                                self.from_config('server', 'port'))
+
         for _key in 'TENSORBOARD_RESULTS_DIR', 'EXPERIMENTS_DIR':
             dir = self._values[_key]
             if not os.path.isdir(dir):
@@ -82,16 +88,18 @@ class ResearcherEnviron(Environ):
                     raise FedbiomedEnvironError(_msg)
 
     def _set_component_specific_config_parameters(self):
-        # get uploads url
-        uploads_url = self._get_uploads_url()
-
         # Default configuration
         researcher_id = os.getenv('RESEARCHER_ID', 'researcher_' + str(uuid.uuid4()))
         self._cfg['default'] = {
             'id': researcher_id,
             'component': "RESEARCHER",
-            'uploads_url': uploads_url,
             'version': __config_version__
+        }
+
+        # gRPC server host and port
+        self._cfg['server'] = {
+            'host': os.getenv('RESEARCHER_SERVER_HOST', 'localhost'),
+            'port': os.getenv('RESEARCHER_SERVER_PORT', '50051')
         }
 
     def info(self):

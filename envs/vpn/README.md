@@ -11,7 +11,7 @@ Which identity to use ?
 
 Which machine to use ?
 
-- when using distinct machines for the components, type node commands (eg `[user@node $]`) on node, researcher commands (eg `[user@researcher $]`) on researcher, network commands on network (eg `[user@network $]`)
+- when using distinct machines for the components, type node commands (eg `[user@node $]`) on node, researcher commands (eg `[user@researcher $]`) on researcher, VPN server commands on network (eg `[user@network $]`)
 - when running all components on a single laptop, all components are on this machine
 
 ## requirements
@@ -24,7 +24,7 @@ Supported operating systems for using containers :
 
 Pre-requisites for using containers :
 
-* **`docker >= 20.10.0`** is needed to build mqtt, see [there](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2). With older docker version it fails with a `make: sh: Operation not permitted`
+* **`docker** is needed
 * **`docker compose` >= 2.0** is needed for extended file format for [GPU support in docker](https://docs.docker.com/compose/gpu-support/) even if you're not using GPU in container.
   -  some distributions (eg Fedora 32) don't provide a package with a recent enough version.
   - Type `docker compose version` to check installed version (if it gives an error and `docker-compose --version` succeeds then you have a compose v1 installed)
@@ -32,7 +32,7 @@ Pre-requisites for using containers :
   - If no suitable package exist for your system, you can use the [docker compose plugin install page](https://docs.docker.com/compose/install/linux/).
 
 Installation notes for Windows 11 with WSL2 Ubuntu-22.04:
-* build of containers `mqtt` `restful` may fail in `cargo install` step with error `spurious network error [...] Timeout was reached`. This is due to bad name resolution of `crates.io` package respository with default WSL2 DNS configuration. If this happens connect to wsl (`wsl` from Windows command line tool), get admin privileges (`sudo bash`) and create a [`/etc/wsl.conf`](https://docs.microsoft.com/fr-fr/windows/wsl/wsl-config) file containing:
+* build of containers may fail in `cargo install` step with error `spurious network error [...] Timeout was reached`. This is due to bad name resolution of `crates.io` package respository with default WSL2 DNS configuration. If this happens connect to wsl (`wsl` from Windows command line tool), get admin privileges (`sudo bash`) and create a [`/etc/wsl.conf`](https://docs.microsoft.com/fr-fr/windows/wsl/wsl-config) file containing:
 ```bash
 [network]
 generateResolvConf = false
@@ -65,7 +65,7 @@ Usually build each image separately when initializing each container (see after)
 ## **TODO**: check if we can use different id than the account building the images
 #
 ## when running on a single machine : build all needed containers at one time with
-#[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g')  docker compose build base vpnserver mqtt restful basenode node gui researcher
+#[user@laptop $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g')  docker compose build base vpnserver basenode node gui researcher
 ```
 
 ### initializing vpnserver
@@ -90,8 +90,6 @@ Run this only at first launch of container or after cleaning :
 * connect and generate config for components
 ```bash
 [user@network $] docker compose exec vpnserver bash
-[root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management mqtt
-[root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management restful
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf node NODETAG
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf researcher researcher1
 ```
@@ -100,89 +98,6 @@ Run this for all launches of the container :
 * launch container
 ```bash
 [user@network $] docker compose up -d vpnserver
-```
-
-### initializing mqtt
-
-Run this only at first launch of container or after cleaning :
-
-* build container
-```bash
-[user@network $] cd ./envs/vpn/docker
-[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g')  docker compose build mqtt
-```
-* generate VPN client for this container (see above in vpnserver)
-* configure the VPN client for this container
-```bash
-[user@network $] cd ./envs/vpn/docker
-[user@network $] cp ./vpnserver/run_mounts/config/config_peers/management/mqtt/config.env ./mqtt/run_mounts/config/config.env
-```
-* launch container
-```bash
-[user@network $] docker compose up -d mqtt
-```
-* retrieve the *publickey*
-```bash
-[user@network $] docker compose exec mqtt wg show wg0 public-key
-```
-* connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
-```bash
-[user@network $] docker compose exec vpnserver python ./vpn/bin/configure_peer.py add management mqtt *publickey*
-## other option :
-#[user@network $] docker compose exec vpnserver bash
-#[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add management mqtt *publickey*
-```
-* check the container correctly established a VPN with vpnserver:
-```bash
-# 10.220.0.1 is vpnserver contacted inside the VPN
-# it should answer to the ping
-[user@network $] docker compose exec mqtt ping -c 3 -W 1 10.220.0.1
-```
-
-Run this for all launches of the container :
-* launch container
-```bash
-[user@network $] docker compose up -d mqtt
-```
-
-### initializing restful
-
-Run this only at first launch of container or after cleaning :
-
-* build container
-```bash
-[user@network $] cd ./envs/vpn/docker
-[user@network $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g')  docker compose build restful
-```
-* generate VPN client for this container (see above in vpnserver)
-* configure the VPN client for this container
-```bash
-[user@network $] cd ./envs/vpn/docker
-[user@network $] cp ./vpnserver/run_mounts/config/config_peers/management/restful/config.env ./restful/run_mounts/config/config.env
-```
-* launch container
-```bash
-[user@network $] docker compose up -d restful
-```
-* retrieve the *publickey*
-```bash
-[user@network $] docker compose exec restful wg show wg0 public-key
-```
-* connect to the VPN server to declare the container as a VPN client with cut-paste of *publickey*
-```bash
-[user@network $] docker compose exec vpnserver python ./vpn/bin/configure_peer.py add management restful *publickey*
-```
-* check the container correctly established a VPN with vpnserver:
-```bash
-# 10.220.0.1 is vpnserver contacted inside the VPN
-# it should answer to the ping
-[user@network $] docker compose exec restful ping -c 3 -W 1 10.220.0.1
-```
-
-Run this for all launches of the container :
-* launch container
-```bash
-[user@network $] docker compose up -d restful
 ```
 
 ### initializing node
@@ -328,9 +243,8 @@ Run this for all launches of the container :
 # TODO : make more general by including it in the VPN configuration and user environment ?
 # TODO : create scripts in VPN environment
 # need proper parameters at first launch to create configuration file
-[user@node-container $] export MQTT_BROKER=10.220.0.2
-[user@node-container $] export MQTT_BROKER_PORT=1883
-[user@node-container $] export UPLOADS_URL="http://10.220.0.3:8000/upload/"
+[user@node-container $] export RESEARCHER_SERVER_HOST=10.222.0.2
+[user@node-container $] export RESEARCHER_SERVER_PORT=50051
 [user@node-container $] export PYTHONPATH=/fedbiomed
 [user@node-container $] eval "$(conda shell.bash hook)"
 [user@node-container $] conda activate fedbiomed-node
@@ -449,15 +363,15 @@ Run this for all launches of the container :
 #### using the gui
 
 Use the node gui from outside the gui container :
-* connect to `http://localhost:8484` from your browser.
+* connect to `https://localhost:8443` from your browser.
 
 By default, only connections from `localhost` are authorized. To enable connection to the GUI from any IP address
   - specify the bind IP address at container launch time (eg: your node public IP address `NODE_IP`, or `0.0.0.0` to listen on all node addresses)
 ```bash
 [user@node $] GUI_SERVER_IP=0.0.0.0 docker compose up -d gui
 ```
-  - connect to `http://${NODE_IP}:8484`
-  - **warning** allowing connections from non-`localhost` exposes the gui to attacks from the network. Only use with proper third party security measures (web proxy, firewall, etc.) Currently, the provided gui container does not include a user authentication mechanism or encrypted communications for the user.
+  - connect to `https://${NODE_IP}:8443`
+  - **warning** allowing connections from non-`localhost` exposes the gui to attacks from the network. Only use with proper third party security measures (web proxy, firewall, certificate signed by well known authority, etc.) 
 
 
 
@@ -508,9 +422,8 @@ Run this for all launches of the container :
 # TODO : make more general by including it in the VPN configuration and user environment ?
 # TODO : create scripts in VPN environment
 # need proper parameters at first launch to create configuration file
-[user@researcher-container $] export MQTT_BROKER=10.220.0.2
-[user@researcher-container $] export MQTT_BROKER_PORT=1883
-[user@researcher-container $] export UPLOADS_URL="http://10.220.0.3:8000/upload/"
+[user@researcher-container $] export RESEARCHER_SERVER_HOST=10.222.0.2
+[user@researcher-container $] export RESEARCHER_SERVER_PORT=50051
 [user@researcher-container $] export PYTHONPATH=/fedbiomed
 [user@researcher-container $] eval "$(conda shell.bash hook)"
 [user@researcher-container $] conda activate fedbiomed-researcher
@@ -613,11 +526,9 @@ container: unknown.
 
 You can connect to a container only if the corresponding container is already running
 
-* connect on the VPN server / node / mqtt server / restful as root to configure the VPN
+* connect on the VPN server / node /researcher as root to configure the VPN
 ```bash
 [user@network $] docker compose exec vpnserver bash
-[user@network $] docker compose exec mqtt bash
-[user@network $] docker compose exec restful bash
 [user@node $] docker compose exec node bash
 [user@researcher $] docker compose exec researcher bash
 ```
@@ -650,43 +561,7 @@ Note : can also use commands in the form, so you don't have to be in the docker 
 
 # level 3 : image
 [user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base
-[user@network $] docker image prune -af
-```
-
-### mqtt
-
-```bash
-[user@network $] cd ./envs/vpn/docker
-
-# level 1 : container instance
-[user@network $] docker compose rm -sf mqtt
-
-# level 2 : configuration
-[user@network $] rm -rf ./mqtt/run_mounts/config/{config.env,wireguard}
-
-# level 3 : image
-[user@network $] docker image rm fedbiomed/vpn-mqtt
-[user@network $] docker image prune -af
-```
-
-### restful
-
-```bash
-[user@network $] cd ./envs/vpn/docker
-
-# level 1 : container instance
-[user@network $] docker compose rm -sf restful
-
-# level 2 : configuration
-[user@network $] rm -rf ./restful/run_mounts/config/{config.env,wireguard}
-[user@network $] rm -rf ./restful/run_mounts/app/data/media/{persistent,uploads}
-[user@network $] rm -rf ./restful/run_mounts/app/data/static
-[user@network $] rm -f ./restful/run_mounts/app/db.sqlite3
-# also clean saved files ? (same for env/developement)
-
-# level 3 : image
-[user@network $] docker image rm fedbiomed/vpn-restful
-[user@network $] docker image prune -af
+[user@network $] docker image prune -f
 ```
 
 ### node 
@@ -705,7 +580,7 @@ Note : can also use commands in the form, so you don't have to be in the docker 
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-node fedbiomed/vpn-basenode
-[user@network $] docker image prune -af
+[user@network $] docker image prune -f
 ```
 
 ### node gui
@@ -721,7 +596,7 @@ Note : can also use commands in the form, so you don't have to be in the docker 
 
 # level 3 : image
 [user@node $] docker image rm fedbiomed/vpn-gui
-[user@network $] docker image prune -af
+[user@network $] docker image prune -f
 ```
 
 ### researcher
@@ -740,7 +615,7 @@ Same as node
 
 # level 3 : image
 [user@researcher $] docker image rm fedbiomed/vpn-researcher fedbiomed/vpn-base
-[user@network $] docker image prune -af
+[user@network $] docker image prune -f
 ```
 
 ## background / wireguard
@@ -760,17 +635,14 @@ Peers in VPN server can be listed or removed through `configure_peer.py`.
 
 **Example:**
 
-Following code snippet will generate configurations for `mqtt` and `restful` component register their public keys in 
-VPN server. 
+Following code snippet will generate configuration for a `node` component with a unique name of `NODETAG` and register its public key in VPN server. 
 ```bash
 [user@network $] docker compose up -d vpnserver
 [user@network $] docker compose exec vpnserver bash
-[root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management mqtt
-[root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf management restful
-[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add management mqtt 1OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=
-[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add management restful 2OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf node NODETAG
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add node NODETAG FSCB4ftV0SLqRKNDp7JL1KUzhxjKYkWEQonF/D8fpVo=
 ```
-After running above commands, there will be two peers registered under the management as `mqtt` and `restful`. These 
+After running above commands, there will be one peer registered under the node`. These 
 peers can be listed with the `list` command.
 
 ```bash
@@ -778,29 +650,26 @@ peers can be listed with the `list` command.
 >>> Output:
 type        id       prefix         peers
 ----------  -------  -------------  ------------------------------------------------
-management  restful  10.220.0.3/32  ['2OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
-management  mqtt     10.220.0.2/32  ['XOIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
+node        NODETAG      10.221.0.2/32  ['FSCB4ftV0SLqRKNDp7JL1KUzhxjKYkWEQonF/D8fpVo=']
 ```
 A peer can have multiple registered keys: 
 
 ```bash
-[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add management mqtt 3OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py add node NODETAG 3OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py list
 >>> Output:
 type        id       prefix         peers
 ----------  -------  -------------  ------------------------------------------------------------------------------------------------
-management  restful  10.220.0.3/32  ['2OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
-management  mqtt     10.220.0.2/32  ['3OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=', 'XOIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
+node        NODETAG      10.221.0.2/32  ['FSCB4ftV0SLqRKNDp7JL1KUzhxjKYkWEQonF/D8fpVo=', '3OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
 ```
 
 To remove registered keys of the peer from VPN server: 
 ```bash
-[root@vpnserver-container #] python ./vpn/bin/configure_peer.py remove management mqtt
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py remove node NODETAG
 >>> Output:
 type        id       prefix         peers
 ----------  -------  -------------  ------------------------------------------------
-management  restful  10.220.0.3/32  ['2OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
-management  mqtt     10.220.0.2/32  []
+node        NODETAG      10.221.0.2/32  []
 ```
 
 `remove` command removes only the registered keys for the given peer. Since the configuration files are not removed from 
@@ -810,18 +679,17 @@ for the peer without generating configuration file all over again.
 Config files of peers can be removed with the `removeconf` flag.
 
 ```bash
-[root@vpnserver-container #] python ./vpn/bin/configure_peer.py removeconf management mqtt
+[root@vpnserver-container #] python ./vpn/bin/configure_peer.py removeconf node NODETAG
 >>> Output:
 type        id       prefix         peers
 ----------  -------  -------------  -----------------------------------------------
-management  restful  10.220.0.3/32  ['2OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
 ```
 
 ## using different identity for build and run
 
 We already documented the use of different values of `CONTAINER_{UID,GID,USER,GROUP}` at build time and at runtime for the `node` and `gui` containers. The build time identity is the default identity at runtime but it can be overloaded when launching the container. This is useful when building a `node` or `gui` image that is used on several node machines that don't use the same identity for running it.
 
-Different values at build time and runtime is also supported by `vpnserver` `mqtt` `restful` and `researcher` containers. Usage is the same as for `node` and `gui`.
+Different values at build time and runtime is also supported by `vpnserver` and `researcher` containers. Usage is the same as for `node` and `gui`.
 
 Example : build a researcher container with a default user/group `fedbiomed` (id `1234`), run it with the same account as the account on the researcher machine.
 ```bash

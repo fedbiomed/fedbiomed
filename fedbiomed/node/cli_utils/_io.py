@@ -90,7 +90,6 @@ def validated_path_input(type: str) -> str:
                 path = pick_with_tkinter(mode='file')
                 logger.debug(path)
                 if not path:
-                    # node is not in computation mode, MQTT message cannot be sent
                     logger.critical('No file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
@@ -99,7 +98,6 @@ def validated_path_input(type: str) -> str:
                 path = pick_with_tkinter(mode='txt')
                 logger.debug(path)
                 if not path:
-                    # node is not in computation mode, MQTT message cannot be sent
                     logger.critical('No python file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
@@ -107,7 +105,6 @@ def validated_path_input(type: str) -> str:
                 path = pick_with_tkinter(mode='dir')
                 logger.debug(path)
                 if not path:
-                    # node is not in computation mode, MQTT message cannot be sent
                     logger.critical('No directory was selected. Exiting')
                     exit(1)
                 assert os.path.isdir(path)

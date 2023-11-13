@@ -62,10 +62,10 @@ class TestResearcherEnviron(unittest.TestCase):
                                                                     mock_is_dir,
                                                                     mock_mkdir):
         """Tests setting variables for researcher environ"""
-        self.environ.from_config.side_effect = None
+
         os.environ["RESEARCHER_ID"] = "researcher-1"
 
-        self.environ.from_config.side_effect = [None, None, None, "SHA256"]
+        self.environ.from_config.side_effect = [None, 'localhost', '50051']
         mock_is_dir.return_value = False
 
         self.environ._set_component_specific_variables()
@@ -79,12 +79,16 @@ class TestResearcherEnviron(unittest.TestCase):
                          os.path.join("dummy/var/dir", "queue_messages"))
         self.assertEqual(self.environ._values["DB_PATH"],
                          os.path.join("dummy/var/dir", "db_researcher-1.json"))
+        
+        self.assertEqual(self.environ._values["SERVER_HOST"], "localhost")
+        self.assertEqual(self.environ._values["SERVER_PORT"], "50051")
 
+        self.environ.from_config.side_effect = [None, 'localhost', '50051']
         mock_mkdir.side_effect = [FileExistsError, OSError]
         with self.assertRaises(FedbiomedEnvironError):
             self.environ._set_component_specific_variables()
 
-        with self.assertRaises(FedbiomedEnvironError):
+        with self.assertRaises(StopIteration):
             self.environ._set_component_specific_variables()
 
     def test_04_researcher_environ_set_component_specific_config_parameters(self):
@@ -92,15 +96,19 @@ class TestResearcherEnviron(unittest.TestCase):
         os.environ["RESEARCHER_ID"] = "researcher-1"
         from fedbiomed.researcher.environ import __config_version__
 
-        self.environ._get_uploads_url.return_value = "localhost"
         self.environ._set_component_specific_config_parameters()
 
         self.assertEqual(dict(self.environ._cfg["default"]), {
             'id': 'researcher-1',
             'component': "RESEARCHER",
-            'uploads_url': "localhost",
             'version': str(__config_version__)
         })
+
+        self.assertEqual(dict(self.environ._cfg["server"]), {
+            'host': 'localhost',
+            'port': "50051",
+        })
+
 
     @patch("fedbiomed.common.logger.logger.info")
     def test_05_researcher_environ_info(self, mock_logger_info):

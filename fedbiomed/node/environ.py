@@ -26,6 +26,7 @@ from fedbiomed.common.constants import __node_config_version__ as __config_versi
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX, NODE_PREFIX
 from fedbiomed.common.environ import Environ
+from fedbiomed.transport.client import ResearcherCredentials
 
 
 class NodeEnviron(Environ):
@@ -101,33 +102,37 @@ class NodeEnviron(Environ):
 
         self._values['EDITOR'] = os.getenv('EDITOR')
 
-        # ========= PATCH MNIST Bug torchvision 0.9.0 ===================
-        # https://github.com/pytorch/vision/issues/1938
 
-        # imported only for the node component
-        from six.moves import urllib
-
-        opener = urllib.request.build_opener()
-        opener.addheaders = [
-            ('User-agent', 'Python-urllib/3.7'),
-            ('Accept',
-             'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'),
-            ('Accept-Language', 'en-US,en;q=0.9'),
-            ('Accept-Encoding', 'gzip, deflate, br')
-        ]
-        urllib.request.install_opener(opener)
+        # Parse each researcher ip and port
+        researcher_sections = [section for section in self.sections() if section.startswith("researcher")]
+        self._values['RESEARCHERS'] = os.getenv('NODE_RESEARCHERS')
+        if os.getenv('RESEARCHER_SERVER_HOST'):
+            # Environ variables currently permit to specify only 1 researcher
+            self._values["RESEARCHERS"] = [
+                {
+                    'port': os.getenv('RESEARCHER_SERVER_PORT', '50051'),  # use default port if not specified
+                    'ip': os.getenv('RESEARCHER_SERVER_HOST'),
+                    'certificate': None
+                }
+            ]
+        else:
+            self._values["RESEARCHERS"] = []
+            for section in researcher_sections:
+                self._values["RESEARCHERS"].append({
+                    'port': self.from_config(section, "port"),
+                    'ip': self.from_config(section, "ip"),
+                    'certificate': None
+                })
 
     def _set_component_specific_config_parameters(self):
         """Updates config file with Node specific parameters"""
 
         # TODO: We may remove node_id in the future (to simplify the code)
         node_id = os.getenv('NODE_ID', NODE_PREFIX + str(uuid.uuid4()))
-        uploads_url = self._get_uploads_url()
 
         self._cfg['default'] = {
             'id': node_id,
             'component': "NODE",
-            'uploads_url': uploads_url,
             'version': __config_version__
         }
 
@@ -140,6 +145,12 @@ class NodeEnviron(Environ):
             'force_secure_aggregation': os.getenv('FORCE_SECURE_AGGREGATION', False)
         }
 
+        # gRPC server host and port
+        self._cfg["researcher"] = {
+            'ip': os.getenv('RESEARCHER_SERVER_HOST', 'localhost'),
+            'port': os.getenv('RESEARCHER_SERVER_PORT', '50051')
+        }
+
     def info(self):
         """Print useful information at environment creation"""
 
@@ -150,5 +161,7 @@ class NodeEnviron(Environ):
 
 sys.tracebacklimit = 3
 
-# global dictionary which contains all environment for the NODE
+
+
+# # global dictionary which contains all environment for the NODE
 environ = NodeEnviron()
