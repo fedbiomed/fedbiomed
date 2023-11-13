@@ -143,13 +143,13 @@ class NodeAgentAsync:
                             "this node to convert it as ACTIVE. Node will be updated "
                             "as DISCONNECTED soon if no request received.")
 
-        await self._queue.put(message)
-
         # Updates replies 
         async with self._replies_lock:
             self._replies.update({
                 message.request_id: {'callback': on_reply, 'reply': None} 
             })
+
+        await self._queue.put(message)
 
 
     def set_context(self, context) -> None:
