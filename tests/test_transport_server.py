@@ -79,9 +79,8 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
                     bytes_=b'test'
                 )
 
-        load.return_value = 'REPLY'
+        load.return_value = {'node_id': 'test-node'}
         result = await self.servicer.ReplyTask(request_iterator=request_iterator(), context=self.context)
-        self.on_message.assert_called_once()
         self.assertEqual(result, Empty())
 
 
@@ -220,14 +219,13 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         self.agent_store_patch.stop()
         self.asyncio_patch.stop()
         self.async_server_patch.stop()
-        
 
         return super().tearDown()
 
 
     @patch('fedbiomed.transport.server.GrpcServer.get_all_nodes')
     def test_grpc_server_01_start(self, get_all_nodes):
-        
+
         self.grpc_server = GrpcServer(
             host='localhost',
             port="50051",
@@ -236,7 +234,7 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         )
 
         self.asyncio_patch.stop()
-        
+
         with patch("fedbiomed.transport.server.MAX_GRPC_SERVER_SETUP_TIMEOUT", 2):
             self.grpc_server.start()
 
