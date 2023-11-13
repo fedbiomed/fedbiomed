@@ -22,7 +22,7 @@ from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime, get_method_spec
-from fedbiomed.common.message import SecaggRequest
+from fedbiomed.common.message import Message, SecaggRequest, SecaggDeleteRequest
 
 _CManager = CertificateManager(
     db_path=environ["DB_PATH"]
@@ -246,7 +246,7 @@ class SecaggContext(ABC):
 
     def _secagg_round(
             self,
-            msg: dict,
+            msg: Message,
             command: str,
             can_set_status: bool,
             payload: Callable,
@@ -279,7 +279,6 @@ class SecaggContext(ABC):
         self._status = False
         self._context = None
 
-        msg = SecaggRequest(**msg)
 
         # Federated request should stop if any error occurs
         policies = [StopOnDisconnect(timeout=30), StopOnError()]
@@ -291,7 +290,7 @@ class SecaggContext(ABC):
         with self._requests.send(msg, self._parties[1:], policies) as fed_request:
             replies = fed_request.replies()
             errors = fed_request.errors()
-
+            print(fed_request.policy.has_stopped())
             if fed_request.policy.has_stopped():
                 self._MPC.kill()
                 context_future.cancel()
@@ -337,14 +336,14 @@ class SecaggContext(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        msg = {
+        msg = SecaggRequest(**{
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
             'element': self._element.value,
             'job_id': self._job_id,
             'parties': self._parties,
             'command': 'secagg',
-        }
+        })
 
         return self._secagg_round(msg, 'secagg', True, self._payload, timeout)
 
@@ -376,13 +375,13 @@ class SecaggContext(ABC):
 
         self._status = False
         self._context = None
-        msg = {
+        msg = SecaggDeleteRequest(**{
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
             'element': self._element.value,
             'job_id': self._job_id,
             'command': 'secagg-delete',
-        }
+        })
         return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
 
     def save_state_breakpoint(self) -> Dict[str, Any]:
