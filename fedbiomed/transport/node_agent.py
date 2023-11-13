@@ -125,7 +125,7 @@ class NodeAgentAsync:
                         logger.warning(f"AA reply received from an unexpected request: {message.request_id}")
 
 
-    async def send(self, message: Message, on_reply: Optional[Callable] = None) -> None:
+    async def send_async(self, message: Message, on_reply: Optional[Callable] = None) -> None:
         """Async function send message to researcher.
 
         Args:
@@ -249,10 +249,10 @@ class NodeAgent(NodeAgentAsync):
             self._loop
         )
 
-    def send(self, message: Message, on_reply: Callable):
+    def send(self, message: Message, on_reply: Optional[Callable] = None):
         """Send message"""
         asyncio.run_coroutine_threadsafe(
-            super().send(message=message, on_reply=on_reply),
+            super().send_async(message=message, on_reply=on_reply),
             self._loop
         )
 

@@ -160,7 +160,7 @@ class _GrpcAsyncServer:
         Raises:
             FedbiomedCommunicationError: bad argument type
         """
- 
+
         # inform all threads whether server is started
         self._is_started = threading.Event()
 
@@ -215,14 +215,14 @@ class _GrpcAsyncServer:
         Args:
             message: Message to broadcast
         """
-         
+
         agent = await self._agent_store.get(node_id)
-        
+
         if not agent:
             logger.info(f"Node {node_id} is not registered on server. Discard message.")
             return
 
-        await agent.send(message)
+        await agent.send_async(message)
 
 
     async def broadcast(self, message: Message) -> None:
@@ -234,7 +234,7 @@ class _GrpcAsyncServer:
 
         agents = await self._agent_store.get_all()
         for _, agent in agents.items():
-            await agent.send(message)
+            await agent.send_async(message)
 
     async def get_node(self, node_id: str) -> Optional[NodeAgent]:
         """Returns given node
@@ -291,17 +291,17 @@ class GrpcServer(_GrpcAsyncServer):
         # FIXME: This implementation assumes that nodes will be able connect and server complete setup with this delay
         logger.info("Starting researcher service...")
 
-        
+
         logger.info(f'Waiting {GPRC_SERVER_SETUP_TIMEOUT}s for nodes to connect...')
         time.sleep(GPRC_SERVER_SETUP_TIMEOUT)
 
         sleep_ = 0
         while len(self.get_all_nodes()) == 0:
-            
+
             if sleep_ == 0:
                 logger.info(f"No nodes found, server will wait {MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} " 
                             "more seconds until a node creates connection.")
-            
+
             if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:
                 if len(self.get_all_nodes()) == 0:
                     logger.warning("Server has not received connection from any remote nodes in " 
@@ -313,7 +313,7 @@ class GrpcServer(_GrpcAsyncServer):
 
             time.sleep(1)
             sleep_ += 1
-        
+
 
     def send(self, message: Message, node_id: str) -> None:
         """Send message to a specific node.
