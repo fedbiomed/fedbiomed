@@ -24,6 +24,7 @@ from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + 1
 MAX_GRPC_SERVER_SETUP_TIMEOUT = 20
 
+
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     """RPC Servicer """
 
@@ -93,7 +94,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
         Args:
             request_iterator: Iterator for streaming
-            unused_context: Request service context
+            context: Request service context
         """
         
         reply = bytes()
