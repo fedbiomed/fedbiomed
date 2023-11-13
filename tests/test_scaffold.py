@@ -446,14 +446,16 @@ class TestIntegrationScaffold(unittest.TestCase):
             tp.post_init({}, training_args , {})
 
             # create Responses
-            responses = Responses([])
+            responses = {}
             for node_id in self.node_ids:
-                responses.append(
-                    {'node_id': node_id, 'optimizer_args': {
-                                    'lr' : tp.optimizer().get_learning_rate()
-                                                        }
+                responses.update({
+                    node_id: {
+                        'node_id': node_id, 
+                        'optimizer_args': {
+                            'lr' : tp.optimizer().get_learning_rate()}
                     }
-                    )
+                })
+                 
             responses = Responses([responses])
 
             global_params = tp.after_training_params()
