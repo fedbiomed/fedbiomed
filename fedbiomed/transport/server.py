@@ -1,6 +1,6 @@
 
 import time
-from typing import Callable, Iterable, Any, Coroutine, Dict, Optional
+from typing import Callable, Iterable, Any, Coroutine, Dict, Optional, List
 import threading
 
 import asyncio
@@ -235,16 +235,23 @@ class _GrpcAsyncServer:
         for _, agent in agents.items():
             await agent.send(message)
 
-    async def get_node(self, node_id: str):
-        """Returns given node"""
+    async def get_node(self, node_id: str) -> Optional[NodeAgent]:
+        """Returns given node
+
+        Args:
+            node_id: ID of node to retrieve
+
+        Returns:
+            A node agent
+        """
 
         return await self._agent_store.get(node_id)
 
-    async def get_all_nodes(self) -> Dict[str, str]:
-        """Returns all known nodes and their status
+    async def get_all_nodes(self) -> List[NodeAgent]:
+        """Returns all known nodes
 
         Returns:
-            A dictionary of node IDs (keys) and status (values)
+            A list of node agents
         """
 
         agents = await self._agent_store.get_all()
@@ -348,22 +355,34 @@ class GrpcServer(_GrpcAsyncServer):
 
     # TODO: Currently unused
 
-    def get_all_nodes(self) -> Dict[str, str]:
-        """Gets all nodes ID known by server and their status.
+    def get_all_nodes(self) -> List[NodeAgent]:
+        """Returns all known nodes
 
         Returns:
-            A dictionary of node IDs (keys) and status (values)
+            A list of node agents
 
         Raises:
             FedbiomedCommunicationError: server is not started
         """
-
         if not self._is_started.is_set():
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         return self._run_threadsafe(super().get_all_nodes())
 
-    def get_node(self, node_id):
+    def get_node(self, node_id) -> Optional[NodeAgent]:
+        """Returns given node
+
+        Args:
+            node_id: ID of node to retrieve
+
+        Returns:
+            A node agent
+
+        Raises:
+            FedbiomedCommunicationError: server is not started
+        """
+        if not self._is_started.is_set():
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         return self._run_threadsafe(super().get_node(node_id))
 
