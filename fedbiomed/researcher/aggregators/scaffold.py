@@ -21,7 +21,6 @@ from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.functional import initialize
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.responses import Responses
 
 
 class Scaffold(Aggregator):
@@ -116,7 +115,7 @@ class Scaffold(Aggregator):
                   weights: Dict[str, float],
                   global_model: Dict[str, Union[torch.Tensor, np.ndarray]],
                   training_plan: BaseTrainingPlan,
-                  training_replies: Responses,
+                  training_replies: Dict,
                   n_updates: int = 1,
                   n_round: int = 0,
                   *args, **kwargs) -> Dict:
@@ -353,16 +352,16 @@ class Scaffold(Aggregator):
     def set_nodes_learning_rate_after_training(
         self,
         training_plan: BaseTrainingPlan,
-        training_replies: Responses,
+        training_replies: Dict,
         n_round: int
     ) -> Dict[str, List[float]]:
         """Gets back learning rate of optimizer from Node (if learning rate scheduler is used)
 
         Args:
-            training_plan (BaseTrainingPlan): training plan instance
-            training_replies (List[Responses]): training replies that must contain am `optimizer_args`
+            training_plan: training plan instance
+            training_replies: training replies that must contain am `optimizer_args`
                 entry and a learning rate
-            n_round (int): number of rounds already performed
+            n_round: number of rounds already performed
 
         Raises:
             FedbiomedAggregatorError: raised when setting learning rate has been unsuccessful
