@@ -683,15 +683,15 @@ class Round:
 
         # Inform user about mismatch arguments settings
         if test_ratio != 0 and test_local_updates is False and test_global_updates is False:
-            logger.warning("Validation will not be perform for the round, since there is no validation activated. "
+            logger.warning("Validation will not be performed for the round, since there is no validation activated. "
                            "Please set `test_on_global_updates`, `test_on_local_updates`, or both in the "
                            "experiment.",
                            researcher_id=self.researcher_id)
 
         if test_ratio == 0 and (test_local_updates is True or test_global_updates is True):
             logger.warning(
-                'There is no validation activated for the round. Please set flag for `test_on_global_updates`'
-                ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored',
+                'Validation is activated but `test_ratio` is 0. Please change `test_ratio`. '
+                'No validation will be performed. Splitting dataset for validation will be ignored',
                 researcher_id=self.researcher_id
             )
 
