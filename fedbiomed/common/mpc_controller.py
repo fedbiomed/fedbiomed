@@ -36,7 +36,6 @@ class MPCController:
         # Get root directory of fedbiomed
         self._root = ROOT_DIR
         self._component_type = component_type
-        self._pid = None
 
         mpc_controller_id = str(uuid.uuid4())
 

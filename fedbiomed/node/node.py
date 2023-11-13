@@ -258,7 +258,7 @@ class Node:
                          f'on node={environ["NODE_ID"]}')
             self._grpc_client.send(NodeMessages.format_outgoing_message(
                 {'command': "error",
-                 'reqeust_id': msg.request_id,
+                 'request_id': msg.request_id,
                  'node_id': environ['NODE_ID'],
                  'researcher_id': msg.get_param('researcher_id'),
                  'errnum': ErrorNumbers.FB313.name,
