@@ -14,7 +14,6 @@ from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, Compone
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.mpc_controller import MPCController
-from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime
 
 from fedbiomed.node.environ import environ
