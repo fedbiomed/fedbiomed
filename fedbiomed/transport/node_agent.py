@@ -287,6 +287,7 @@ class AgentStore:
 
         Args:
             node_id: ID of receiving node
+            context: Request service context
 
         Return:
             The node agent to manage tasks that are assigned to it.
