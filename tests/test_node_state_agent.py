@@ -53,11 +53,12 @@ class TestNodeStateAgent(unittest.TestCase):
 
         # now we update wrt Responses
 
-        resp = Responses([{'node_id': 'node_id_1234',
-                           'state_id': 'node_state_1234'},
-                          {'node_id': 'node_id_5678',
-                           'state_id': 'node_state_5678'}
-                          ])
+        resp = {
+            'node_id_1234': {'node_id': 'node_id_1234',
+                             'state_id': 'node_state_1234'},
+            'node_id_5678': {'node_id': 'node_id_5678',
+                             'state_id': 'node_state_5678'}
+        }
 
         nsa.update_node_states(node_ids_2, resp)
         res = nsa.get_last_node_states()
@@ -65,18 +66,20 @@ class TestNodeStateAgent(unittest.TestCase):
 
         # finally, we update with a node_id that is not present in the FederatedDataset
 
-        nodes_replies_content = [{'node_id': 'node_id_1234',
+        nodes_replies_content = {
+            'node_id_1234': {'node_id': 'node_id_1234',
                                   'state_id': 'node_state_1234'},
-                                 {'node_id': 'node_id_5678',
-                                  'state_id': 'node_state_5678'},
-                                 {'node_id': 'unknown-node_id',
-                                  'state_id': 'unknown_state-id'}]
-        resp = Responses(nodes_replies_content)
+            'node_id_5678': {'node_id': 'node_id_5678',
+                             'state_id': 'node_state_5678'},
+            'unknown-node_id': {'node_id': 'unknown-node_id',
+                                'state_id': 'unknown_state-id'} 
+        }
+        resp = nodes_replies_content
 
         nsa.update_node_states(node_ids_2, resp)
         res = nsa.get_last_node_states()
 
-        nodes_replies_content_nodes_id = [x['node_id'] for x in nodes_replies_content]
+        nodes_replies_content_nodes_id = list(nodes_replies_content.keys())
         nodes_replies_content_nodes_id.remove('unknown-node_id')
         self.assertListEqual(list(res.keys()), node_ids_2)
         self.assertNotIn('unknown-node_id', res)
@@ -85,11 +88,11 @@ class TestNodeStateAgent(unittest.TestCase):
 
     def test_node_state_agent_5_update_node_state_failure(self):
         nsa = NodeStateAgent(self.node_ids_1)
-
-        bad_resp = Responses([{'node_id': 'node_id_1234',
-                               'state_id': 'node_state_1234'},
-                              {'node_id': 'node_id_5678', }
-                              ])
+        
+        bad_resp = {'node_id_1234': {'node_id': 'node_id_1234',
+                                     'state_id': 'node_state_1234'},
+                    'node_id_5678': {'node_id': 'node_id_5678'}
+                    }
 
         with self.assertRaises(FedbiomedNodeStateAgentError):
             nsa.update_node_states(self.node_ids_1, bad_resp)

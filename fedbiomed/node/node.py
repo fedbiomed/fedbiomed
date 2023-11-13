@@ -184,7 +184,6 @@ class Node:
             'researcher_id': msg.get_param('researcher_id'),
             'secagg_id': secagg_id,
             'request_id': msg.request_id,
-            'sequence': msg.get_param('sequence'),
             'command': 'secagg-delete'}
 
         try:
@@ -226,7 +225,6 @@ class Node:
                                "secagg_id": msg.get_param('secagg_id'),
                                'request_id': msg.request_id,
                                "msg": str(error_message),
-                               "sequence": msg.get_param('sequence'),
                                "success": False,
                                "command": "secagg"})
 

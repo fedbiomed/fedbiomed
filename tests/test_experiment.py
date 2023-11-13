@@ -1369,16 +1369,17 @@ class TestExperiment(ResearcherTestCase):
 
         )
 
-        training_replies_content = {self.test_exp.round_current():
-                        Responses( [{ 'success': True,
-                         'msg': "this is a sucessful training",
-                             'dataset_id': 'dataset-id-123abc',
-                             'node_id': node_id,
-                             'params_path': '/path/to/my/file',
-                             'params': model_param,
-                             'sample_size': sample_size
-                             } for node_id, sample_size in zip(node_ids, node_sample_size)
-                        ])}
+        training_replies_content = {self.test_exp.round_current(): {
+            node_id: {
+                'success': True,
+                'msg': "this is a sucessful training",
+                'dataset_id': 'dataset-id-123abc',
+                'node_id': node_id,
+                'params_path': '/path/to/my/file',
+                'params': model_param,
+                'sample_size': sample_size } for node_id, sample_size in zip(node_ids, node_sample_size) }}
+
+
         type(mock_job_init.return_value).training_replies = PropertyMock(
             return_value=training_replies_content
         )

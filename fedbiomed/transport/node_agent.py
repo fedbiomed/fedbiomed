@@ -64,8 +64,7 @@ class NodeAgentAsync:
         # (2) executing coroutine for handling task end
         self._is_waiting = Event()
 
-    @property
-    async def status(self) -> NodeActiveStatus:
+    async def status_async(self) -> NodeActiveStatus:
         """Getter for node status.
 
         Returns:
@@ -243,7 +242,7 @@ class NodeAgent(NodeAgentAsync):
     def status(self):
         """Gets the status of the node"""
         future = asyncio.run_coroutine_threadsafe(
-            super().status,
+            self.status_async(),
             self._loop
         )
         return future.result()
@@ -251,16 +250,17 @@ class NodeAgent(NodeAgentAsync):
     def flush(self, request_id: str, stopped: bool = False):
         """Flushes given request id from replies"""
         asyncio.run_coroutine_threadsafe(
-            super().flush(request_id, stopped),
+            self.flush(request_id, stopped),
             self._loop
         )
 
     def send(self, message: Message, on_reply: Optional[Callable] = None):
         """Send message"""
-        asyncio.run_coroutine_threadsafe(
-            super().send_async(message=message, on_reply=on_reply),
+        future = asyncio.run_coroutine_threadsafe(
+            self.send_async(message=message, on_reply=on_reply),
             self._loop
         )
+        return future.result()
 
 
 
