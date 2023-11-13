@@ -46,7 +46,6 @@ from fedbiomed.researcher.filetools import (
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.requests import Requests
-from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
@@ -1801,7 +1800,7 @@ class Experiment:
     # TODO: change format of returned data (during experiment results refactor ?)
     # a properly defined structure/class instead of the generic responses
     @exp_exceptions
-    def check_training_plan_status(self) -> Responses:
+    def check_training_plan_status(self) -> Dict:
         """ Method for checking training plan status, ie whether it is approved or not by the nodes
 
         Returns:

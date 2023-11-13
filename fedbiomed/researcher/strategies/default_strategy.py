@@ -15,7 +15,6 @@ from fedbiomed.common.logger import logger
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.strategies import Strategy
-from fedbiomed.researcher.responses import Responses
 
 
 class DefaultStrategy(Strategy):
@@ -56,7 +55,7 @@ class DefaultStrategy(Strategy):
 
     def refine(
             self,
-            training_replies: Responses,
+            training_replies: Dict,
             round_i: int
     ) -> Tuple[Dict[str, float],
                Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
@@ -101,7 +100,7 @@ class DefaultStrategy(Strategy):
 
         if self._sampling_node_history.get(round_i) is None:
             raise FedbiomedStrategyError(ErrorNumbers.FB408.value + f": Missing Nodes Responses for round: {round_i}")
-        
+
         for cl in self._sampling_node_history[round_i]:
             if cl in training_replies:
                 answers_count += 1

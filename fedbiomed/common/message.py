@@ -602,9 +602,8 @@ class SecaggDeleteRequest(RequestReply, RequiresProtocolVersion):
     """
     researcher_id: str
     secagg_id: str
-    sequence: int
     element: int
-    job_id: (str, type(None))
+    job_id: Optional[str]
     command: str
 
 
@@ -627,7 +626,6 @@ class SecaggDeleteReply(RequestReply, RequiresProtocolVersion):
     """
     researcher_id: str
     secagg_id: str
-    sequence: int
     success: bool
     node_id: str
     msg: str

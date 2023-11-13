@@ -1,8 +1,9 @@
-from ._requests import Requests, MessagesByNode
+from ._requests import Requests, MessagesByNode, FederatedRequest
 from ._policies import StopOnDisconnect, \
     StopOnError, \
     DiscardOnTimeout, \
-    StopOnTimeout
+    StopOnTimeout, \
+    PolicyController
 
 __all__ = [
     "MessagesByNode"

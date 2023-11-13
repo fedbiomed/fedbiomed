@@ -6,8 +6,6 @@ from typing import Dict, Optional, List
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
 
-from fedbiomed.researcher.responses import Responses
-
 
 class NodeStateAgent:
     """
