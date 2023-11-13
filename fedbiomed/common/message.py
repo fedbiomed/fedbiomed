@@ -80,7 +80,7 @@ class Message(object):
         """
 
         if not self.__validate(self.__dataclass_fields__.items()):
-            _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()[0:200] + "..." 
+            _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()[0:1000] + "..." 
             logger.critical(_msg)
             raise FedbiomedMessageError(_msg)
 

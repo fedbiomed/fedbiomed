@@ -17,7 +17,7 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus, JOB_PREFIX, E
 from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedNodeStateAgentError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.message import  TrainRequest, TrainReply
+from fedbiomed.common.message import  TrainRequest, TrainReply, TrainingPlanStatusRequest
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.common import utils
@@ -183,12 +183,12 @@ class Job:
             A list of Responses objects, one for each job's nodes
         """
 
-        message = {
+        message = TrainingPlanStatusRequest(**{
             'researcher_id': self._researcher_id,
             'job_id': self._id,
             'training_plan': self._training_plan.source(),
             'command': 'training-plan-status'
-        }
+        })
 
         node_ids = self._data.node_ids()
 
