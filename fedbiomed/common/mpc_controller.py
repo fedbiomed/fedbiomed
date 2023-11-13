@@ -4,10 +4,10 @@
 import uuid
 import os
 import subprocess
-import signal
+from typing import Tuple
+
 import psutil
 
-from typing import Tuple
 from fedbiomed.common.exceptions import FedbiomedMPCControllerError
 from fedbiomed.common.utils import ROOT_DIR
 from fedbiomed.common.logger import logger
