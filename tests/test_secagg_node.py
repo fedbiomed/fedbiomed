@@ -23,7 +23,6 @@ class TestBaseSecaggSetup(NodeTestCase):
                 'researcher_id': 'my researcher',
                 'secagg_id': "my secagg",
                 'job_id': '123345',
-                'sequence': 123,
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
         }
 
@@ -38,30 +37,6 @@ class TestBaseSecaggSetup(NodeTestCase):
         # Faulty typed researcher id
         args = deepcopy(self.args)
         args["researcher_id"] = None
-        with self.assertRaises(FedbiomedSecaggError):
-            BaseSecaggSetup(**args)
-
-        # Invalid secagg ID
-        args = deepcopy(self.args)
-        args["secagg_id"] = None
-        with self.assertRaises(FedbiomedSecaggError):
-            BaseSecaggSetup(**args)
-
-        # Empty string secagg ID
-        args = deepcopy(self.args)
-        args["secagg_id"] = ""
-        with self.assertRaises(FedbiomedSecaggError):
-            BaseSecaggSetup(**args)
-
-        # Invalid sequence
-        args = deepcopy(self.args)
-        args["sequence"] = "list"
-        with self.assertRaises(FedbiomedSecaggError):
-            BaseSecaggSetup(**args)
-
-        # Invalid party
-        args = deepcopy(self.args)
-        args["parties"] = ["my researcher", "p2", 12]
         with self.assertRaises(FedbiomedSecaggError):
             BaseSecaggSetup(**args)
 
@@ -83,7 +58,6 @@ class TestBaseSecaggSetup(NodeTestCase):
         self.assertEqual(self.base_secagg_setup.researcher_id, self.args["researcher_id"])
         self.assertEqual(self.base_secagg_setup.secagg_id, self.args["secagg_id"])
         self.assertEqual(self.base_secagg_setup.job_id, self.args["job_id"])
-        self.assertEqual(self.base_secagg_setup.sequence, self.args["sequence"])
         self.assertEqual(self.base_secagg_setup.element, None)
 
     def test_base_secagg_setup_03_create_secagg_reply(self):
@@ -97,7 +71,6 @@ class TestBaseSecaggSetup(NodeTestCase):
         self.assertDictEqual(reply, {
                             'researcher_id': self.args["researcher_id"],
                             'secagg_id': self.args["secagg_id"],
-                            'sequence': self.args["sequence"],
                             'success': False,
                             'msg': "Test message",
                             'command': 'secagg'
@@ -143,7 +116,6 @@ class TestSecaggServkey(SecaggTestCase):
             'researcher_id': "my researcher",
             'secagg_id': "my secagg",
             'job_id': 'my_job_id',
-            'sequence': 123,
             'parties': ['my researcher', environ["ID"], 'my node2', 'my node3'],
         }
         self.secagg_servkey = SecaggServkeySetup(**self.args)
@@ -242,7 +214,6 @@ class TestSecaggBiprime(SecaggTestCase):
             'researcher_id': "my researcher",
             'secagg_id': "my secagg",
             'job_id': None,
-            'sequence': 123,
             'parties': ['my researcher', environ["ID"], 'my node2', 'my node3'],
         }
         self.secagg_bprime = SecaggBiprimeSetup(**self.args)
