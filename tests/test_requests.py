@@ -144,7 +144,6 @@ class TestRequests(ResearcherTestCase):
 
 
         req_1 = Requests()
-        self.assertEqual(0, req_1._sequence, "Request is not properly initialized")
         self.assertEqual(None, req_1._monitor_message_callback, "Request is not properly initialized")
 
         # Remove previous singleton instance
@@ -153,7 +152,6 @@ class TestRequests(ResearcherTestCase):
 
         # Build new fresh requests
         req_2 = Requests()
-        self.assertEqual(0, req_2._sequence, "Request is not properly initialized")
         self.assertEqual(None, req_2._monitor_message_callback, "Request is not properly initialized")
 
     @patch('fedbiomed.researcher.requests.Requests.print_node_log_message')

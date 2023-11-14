@@ -268,7 +268,6 @@ class TestSecaggSetup(NodeTestCase):
         args = {
             "researcher_id": "r-1",
             "job_id": "job-id",
-            "sequence": 1,
             "element": 0,
             "secagg_id": "secagg-id",
             "parties": ["r-1", "node-1", "node-2"]

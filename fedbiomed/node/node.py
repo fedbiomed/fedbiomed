@@ -285,14 +285,14 @@ class Node:
             # the round raises an error if it cannot initialize
             err_msg = round_.initialize_arguments(msg.get_param('state_id'))
             if err_msg is not None:
-                self.messaging.send_message(
+                self._grpc_client.send(
                     NodeMessages.format_outgoing_message(
                         {   'command': 'error',
                             'node_id': environ['NODE_ID'],
                             'errnum': ErrorNumbers.FB300,
                             'researcher_id': msg.get_param('researcher_id'),
                             'extra_msg': "Could not initialize arguments."}
-                    ).get_dict())
+                    ))
 
         return round_
 

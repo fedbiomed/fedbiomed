@@ -199,10 +199,6 @@ class Requests(metaclass=SingletonMeta):
         Args:
             mess: message to be sent by default.
         """
-
-        # defines the sequence used for ping protocol
-        self._sequence = 0
-
         self._monitor_message_callback = None
 
         # Creates grpc server and starts it

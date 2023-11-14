@@ -584,7 +584,6 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         msg = {
             'researcher_id': 'r-1',
             'description': 'test',
-            'sequence': 1,
             'command': 'approval'
         }
 

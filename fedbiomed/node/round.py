@@ -325,11 +325,11 @@ class Round:
             self._set_training_testing_data_loaders()
         except FedbiomedError as fe:
             error_message = f"Can not create validation/train data: {repr(fe)}"
-            self._send_round_reply(success=False, message=error_message)
+            return self._send_round_reply(success=False, message=error_message)
         except Exception as e:
             error_message = f"Undetermined error while creating data for training/validation. Can not create " \
                             f"validation/train data: {repr(e)}"
-            self._send_round_reply(success=False, message=error_message)
+            return self._send_round_reply(success=False, message=error_message)
         # ------------------------------------------------------------------------
 
 

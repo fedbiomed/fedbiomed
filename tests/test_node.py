@@ -170,7 +170,6 @@ class TestNode(NodeTestCase):
         ping_msg = {
             'command': 'ping',
             'researcher_id': 'researcher_id_1234',
-            'sequence': 1234
         }
 
         # action
@@ -197,7 +196,6 @@ class TestNode(NodeTestCase):
             'command': 'secagg-delete',
             'researcher_id': 'researcher_id_1234',
             'secagg_id': 'my_test_secagg_id',
-            'sequence': 1234,
             'element': 0,
             'job_id': 'a_dummy_job_id',
         }
@@ -339,7 +337,6 @@ class TestNode(NodeTestCase):
         resid = 'researcher_id_1234'
         no_command_msg = {
             'researcher_id': resid,
-            'sequence': 1234
         }
 
         # action
@@ -370,7 +367,6 @@ class TestNode(NodeTestCase):
         ping_msg = {
             'command': command,
             'researcher_id': resid,
-            'sequence': 1234,
             'request_id': '1234'
         }
 
@@ -719,7 +715,6 @@ class TestNode(NodeTestCase):
             "protocol_version": '99.99',
             "researcher_id": "my_test_researcher",
             "secagg_id": "my_test_secagg",
-            "sequence": 2345,
             "element": 33,
             "job_id": "my_job",
             "parties": [],
