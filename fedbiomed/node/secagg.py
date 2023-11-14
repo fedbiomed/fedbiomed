@@ -215,7 +215,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
             parties: List of parties participating to the secagg context element setup
 
         Raises:
-            FedbiomedSecaggError: bad argument type or value 
+            FedbiomedSecaggError: bad argument type or value
         """
         super().__init__(researcher_id, secagg_id, parties, job_id)
 

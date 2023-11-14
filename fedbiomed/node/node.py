@@ -122,7 +122,7 @@ class Node:
                      'researcher_id': msg['researcher_id'],
                      'databases': databases,
                      'count': len(databases)}))
-                
+
             elif command == 'list':
                 # Get list of all datasets
                 databases = self.dataset_manager.list_my_data(verbose=False)
@@ -132,7 +132,7 @@ class Node:
                      'request_id': msg['request_id'],
                      'command': 'list',
                      'node_id': environ['NODE_ID'],
-                     'researcher_id': msg['researcher_id'], 
+                     'researcher_id': msg['researcher_id'],
                      'databases': databases,
                      'count': len(databases),
                      }))

@@ -80,7 +80,7 @@ class Message(object):
         """
 
         if not self.__validate(self.__dataclass_fields__.items()):
-            _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()[0:1000] + "..." 
+            _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()[0:1000] + "..."
             logger.critical(_msg)
             raise FedbiomedMessageError(_msg)
 
@@ -211,7 +211,7 @@ class ProtoSerializableMessage(Message):
 
 
 @dataclass(kw_only=True)
-class RequestReply(Message): 
+class RequestReply(Message):
     """Common attribute for Request and Reply Message"""
     request_id: Optional[str] = None
 

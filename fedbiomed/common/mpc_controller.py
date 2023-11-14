@@ -25,8 +25,8 @@ class MPCController:
         """Multi Party Computation for negotiating cryptographic material with other parties.
 
         Args:
-            tmp_dir: directory use as basedir for temporary files 
-            component_type: type of component (researcher or node) this 
+            tmp_dir: directory use as basedir for temporary files
+            component_type: type of component (researcher or node) this
             component_id: unique ID of this component
 
         Raises:

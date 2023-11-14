@@ -71,7 +71,7 @@ class Job:
         if not inspect.isclass(training_plan_class):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` {type(training_plan_class)}"
             raise FedbiomedJobError(msg)
-        
+
         if not issubclass(training_plan_class, training_plans_types):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
                   f" supported training plans {training_plans_types}"
@@ -235,7 +235,7 @@ class Job:
 
         # Loops over replies
         for node_id, reply in replies.items():
-            
+
             reply: TrainReply
             if not reply.success:
                 logger.error(f"Training failed for node {reply.node_id}: {reply.msg}")
@@ -344,7 +344,7 @@ class Job:
             # Sends training request
 
         with self._reqs.send(messages, self._nodes) as federated_req:
-            errors = federated_req.errors() 
+            errors = federated_req.errors()
             replies = federated_req.replies()
             self._get_training_testing_results(replies=replies, errors=errors, round_=round_, timer=timer)
 
@@ -647,7 +647,7 @@ class localJob:
             )
         if not issubclass(training_plan_class, training_plans_types):
             raise FedbiomedJobError(
-                f"{ErrorNumbers.FB418}: bad type for argument " 
+                f"{ErrorNumbers.FB418}: bad type for argument "
                 "`training_plan_class` {training_plan_class} is not subclass of training plans")
 
         # Initialize values

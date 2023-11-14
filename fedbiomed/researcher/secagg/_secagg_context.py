@@ -127,7 +127,7 @@ class SecaggContext(ABC):
 
     @property
     def secagg_id(self) -> str:
-        """Getter for secagg context element ID 
+        """Getter for secagg context element ID
 
         Returns:
             secagg context element unique ID
@@ -293,7 +293,7 @@ class SecaggContext(ABC):
             if fed_request.policy.has_stopped_any():
                 self._MPC.kill()
                 context_future.cancel()
-                raise FedbiomedSecaggError(f"Request is not successful. Policy " 
+                raise FedbiomedSecaggError(f"Request is not successful. Policy "
                                            f"report => {fed_request.policy.report()}. Errors => {errors}")
 
             status = {rep.node_id: rep.success for rep in replies.values()}

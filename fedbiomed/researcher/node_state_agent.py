@@ -37,7 +37,7 @@ class NodeStateAgent:
     def update_node_states(self, node_ids: List[str], resp: Optional[Dict] = None):
         """Updates the state_id collection with respect to current nodes and latest Nodes replies.
 
-        Adds node IDs contained in node_ids argument that was not part of the previous Round, and discards node_ids that 
+        Adds node IDs contained in node_ids argument that was not part of the previous Round, and discards node_ids that
         do not belong to the current Round anymore.
 
         Args:
@@ -75,7 +75,7 @@ class NodeStateAgent:
                 self._collection_state_ids.pop(node_id)
 
     def save_state_breakpoint(self) -> Dict:
-        """NodeStateAgent's state, to be saved in a breakpoint. 
+        """NodeStateAgent's state, to be saved in a breakpoint.
 
         Returns:
             Node state for breakpoint

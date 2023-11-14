@@ -454,7 +454,7 @@ class TrainingPlanSecurityManager:
             logger.error(f"Error while training plan approval request {exp}")
             reply.update({'message': 'Can not check whether training plan has already be registered or not due to error',
                           'success': False})
-   
+
             return NodeMessages.format_outgoing_message(reply)
 
 
@@ -495,7 +495,7 @@ class TrainingPlanSecurityManager:
                 reply.update({'message': "Training plan already sent for Approval (status Pending). "
                                          "Please wait for Node approval."})
             elif self.check_training_plan_status(training_plan, TrainingPlanApprovalStatus.APPROVED)[0]:
-                reply.update({'message': f"Training plan '{msg['description']}' is already Approved. Ready " 
+                reply.update({'message': f"Training plan '{msg['description']}' is already Approved. Ready "
                                          "to train on this training plan." })
             else:
                 reply.update({'message': "Training plan already exists in database. Aborting" })
@@ -555,7 +555,7 @@ class TrainingPlanSecurityManager:
             reply.update({
                 'success': False,
                 'status': 'Error',
-                'msg': f"{ErrorNumbers.FB606.value}: Cannot check if training plan has been registered due " 
+                'msg': f"{ErrorNumbers.FB606.value}: Cannot check if training plan has been registered due "
                        "to an internal error"
             })
 
@@ -628,10 +628,10 @@ class TrainingPlanSecurityManager:
                     ErrorNumbers.FB606.value +
                     f": failed to get training_plan info for training plan {training_plan}"
                 f"Details : {str(err)}")
-            
+
             # Check if hashing algorithm has changed
             try:
-                hash, algorithm, _ = self._create_hash(os.path.join(environ['DEFAULT_TRAINING_PLANS_DIR'], 
+                hash, algorithm, _ = self._create_hash(os.path.join(environ['DEFAULT_TRAINING_PLANS_DIR'],
                                                                     training_plan))
 
                 if training_plan_info['algorithm'] != environ['HASHING_ALGORITHM']:
@@ -654,7 +654,7 @@ class TrainingPlanSecurityManager:
 
                     logger.info("Modified default training plan file has been detected. "
                                 f"Hashing will be updated for: {training_plan}")
-                    
+
                     self._db.update({'hash': hash, 'algorithm': algorithm,
                                      'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                                      'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")},

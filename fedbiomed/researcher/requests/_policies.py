@@ -1,10 +1,8 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 import datetime
-
-from typing import List, Dict, Optional, TypeVar
-
-from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ErrorMessage
-from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
+from typing import List, Optional, TypeVar
 
 from ._status import PolicyStatus, RequestStatus
 
@@ -16,7 +14,7 @@ class RequestPolicy:
     """Base strategy to collect replies from remote agents"""
 
     def __init__(self, nodes: Optional[List[str]] = None):
-        self.status = None 
+        self.status = None
         self._nodes = nodes
         self.stop_caused_by = None
 
@@ -73,7 +71,7 @@ class _ReplyTimeoutPolicy(RequestPolicy):
 
         for req in requests:
             if not req.has_finished() and self.is_timeout():
-                req.status = RequestStatus.TIMEOUT  
+                req.status = RequestStatus.TIMEOUT
                 if stop:
                     return self.stop(req)
 
@@ -127,8 +125,8 @@ class StopOnError(RequestPolicy):
 class PolicyController:
 
     def __init__(
-        self, 
-        policies: Optional[List[RequestPolicy]] = None, 
+        self,
+        policies: Optional[List[RequestPolicy]] = None,
     ):
 
         policies = policies or []
@@ -138,10 +136,10 @@ class PolicyController:
     def continue_all(self, requests: List[TRequest]) -> PolicyStatus:
         """Checks if reply collection should continue according to each strategy
 
-        Returning anything different than StrategyStatus.CONTINUE stops the 
+        Returning anything different than StrategyStatus.CONTINUE stops the
         federated request loop
 
-        Args: 
+        Args:
             requests: List of [Request][fedbiomed.researcher.requests.Request] object
         """
 
@@ -149,7 +147,7 @@ class PolicyController:
             return False
 
         status = all(
-            [policy.continue_(requests=requests) == PolicyStatus.CONTINUE 
+            [policy.continue_(requests=requests) == PolicyStatus.CONTINUE
                 for policy in self.policies]
         )
 
@@ -160,7 +158,7 @@ class PolicyController:
 
         is_stopped = any(
             [policy.status == PolicyStatus.STOPPED for policy in self.policies]
-        ) 
+        )
 
         return is_stopped
 
@@ -171,4 +169,4 @@ class PolicyController:
             if st.status == PolicyStatus.STOPPED:
                 report.update({st.stop_caused_by.node.id : st.__class__.__name__})
 
-        return report 
+        return report

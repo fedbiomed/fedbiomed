@@ -249,13 +249,13 @@ class Round:
                 check_training_plan_status(
                     self.training_plan_source,
                     TrainingPlanApprovalStatus.APPROVED)
-            
+
             if not approved:
                 return self._send_round_reply(
                     False,
                     f'Requested training plan is not approved by the node: {environ["NODE_ID"]}')
             else:
-                logger.info(f'Training plan has been approved by the node {training_plan_["name"]}', 
+                logger.info(f'Training plan has been approved by the node {training_plan_["name"]}',
                             researcher_id=self.researcher_id)
 
         # Import training plan, save to file, reload, instantiate a training plan
@@ -351,7 +351,7 @@ class Round:
                                  f"{repr(e)}", researcher_id=self.researcher_id)
             else:
                 logger.error(f"{ErrorNumbers.FB314}: Can not execute validation routine due to missing testing dataset"
-                             f"Please make sure that `test_ratio` has been set correctly", 
+                             f"Please make sure that `test_ratio` has been set correctly",
                              researcher_id=self.researcher_id)
 
         # If training is activated.
@@ -398,7 +398,7 @@ class Round:
                 else:
                     logger.error(
                         f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
-                        f"dataset please make sure that test_ratio has been set correctly", 
+                        f"dataset please make sure that test_ratio has been set correctly",
                         researcher_id=self.researcher_id)
 
             # FIXME: this will fail if `self.training_plan.training_data_loader = None` (see issue )
@@ -424,7 +424,7 @@ class Round:
                 model_weights = encrypt(params=model_weights)
                 results["encrypted"] = True
                 results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
-                logger.info("Encryption is completed!", 
+                logger.info("Encryption is completed!",
                             researcher_id=self.researcher_id)
 
             results['params'] = model_weights
@@ -497,7 +497,7 @@ class Round:
         # Early-exit if there are no auxiliary variables to process.
         if not any(self.aux_vars):
             return
-        
+
 
         aux_vars = {}
         aux_vars.update(self.aux_vars[0])

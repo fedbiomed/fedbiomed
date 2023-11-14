@@ -306,7 +306,7 @@ class Scaffold(Aggregator):
                 'aggregator_name': self.aggregator_name,
                 'aggregator_correction': self.nodes_deltas[node_id]
             }
-    
+ 
         return aggregator_dat
 
     def check_values(self, n_updates: int, training_plan: BaseTrainingPlan) -> True:

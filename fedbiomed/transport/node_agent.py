@@ -31,8 +31,8 @@ class NodeActiveStatus(Enum):
 
 
 class Replies(dict):
-    pass 
-    
+    pass
+
 
 class NodeAgentAsync:
 
@@ -123,7 +123,7 @@ class NodeAgentAsync:
                 async with self._stopped_request_ids_lock:
                     if message.request_id in self._stopped_request_ids:
                         logger.warning("A reply received from an federated request has been "
-                                       f"stopped: {message.request_id}. This reply has been received form " 
+                                       f"stopped: {message.request_id}. This reply has been received form "
                                        "the node that didn't not cause stopping")
                         self._stopped_request_ids.remove(message.request_id)
                     else:
@@ -148,10 +148,10 @@ class NodeAgentAsync:
                             "this node to convert it as ACTIVE. Node will be updated "
                             "as DISCONNECTED soon if no request received.")
 
-        # Updates replies 
+        # Updates replies
         async with self._replies_lock:
             self._replies.update({
-                message.request_id: {'callback': on_reply, 'reply': None} 
+                message.request_id: {'callback': on_reply, 'reply': None}
             })
 
         await self._queue.put(message)

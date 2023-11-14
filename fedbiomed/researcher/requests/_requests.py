@@ -43,22 +43,22 @@ class MessagesByNode(dict):
 class Request:
 
     def __init__(
-        self, 
+        self,
         message: Message,
-        node: NodeAgent, 
+        node: NodeAgent,
         request_id: Optional[str] = None,
         sem_pending: threading.Semaphore = None
     ) -> None:
-        """Single request for node 
+        """Single request for node
 
-        Args: 
+        Args:
             message: Message to send to the node
             node: Node agent
             request_id: unique ID of request
             sem_pending: semaphore for signaling new pending reply
         """
         self.request_id = request_id if request_id else str(uuid.uuid4())
-        self.node = node 
+        self.node = node
         self.message = message
 
         self._sem_pending = sem_pending
@@ -90,7 +90,7 @@ class Request:
         """Callback for node agent to execute once it replies"""
 
         if isinstance(reply, ErrorMessage):
-            self.error = reply 
+            self.error = reply
             self.status = RequestStatus.ERROR
         else:
             self.reply = reply
@@ -99,22 +99,22 @@ class Request:
         self._sem_pending.release()
 
 
-class FederatedRequest: 
-    """Dispatches federated requests 
+class FederatedRequest:
+    """Dispatches federated requests
 
     This class has been design to be send a request and wait until a
-    response is received 
+    response is received
     """
     def __init__(
-        self, 
+        self,
         message: Union[Message, Dict[str, Message]],
-        nodes: List[NodeAgent], 
+        nodes: List[NodeAgent],
         policy: Optional[List[RequestPolicy]] = None
     ):
         """TODO: add docstring !
         """
 
-        self.message = message 
+        self.message = message
         self.nodes = nodes
         self.requests = []
         self.request_id = str(uuid.uuid4())
@@ -127,14 +127,14 @@ class FederatedRequest:
 
         # Set up single requests
         if isinstance(self.message, Message):
-            for node in self.nodes: 
+            for node in self.nodes:
                 self.requests.append(
                     Request(self.message, node, self.request_id, self._pending_replies)
                 )
 
         # Different message for each node
         elif isinstance(self.message, MessagesByNode):
-            for node in self.nodes: 
+            for node in self.nodes:
                 if m := self.message.get(node.id):
                     self.requests.append(
                         Request(m, node, self.request_id, self._pending_replies)
@@ -145,7 +145,7 @@ class FederatedRequest:
     def __enter__(self):
         """Context manage enter method"""
 
-        # Sends the message 
+        # Sends the message
         self.send()
 
         # Blocking function that waits for the relies
@@ -276,8 +276,8 @@ class Requests(metaclass=SingletonMeta):
         return nodes_online
 
     def send(
-            self, 
-            message: Union[Message, Dict[MessagesByNode, Message]],
+            self,
+            message: Union[Message, MessagesByNode],
             nodes: Optional[List[str]] = None,
             policies: List[RequestPolicy] = None
     ) -> FederatedRequest:
@@ -308,7 +308,7 @@ class Requests(metaclass=SingletonMeta):
         )
 
         data_found = {}
-        with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req: 
+        with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
 
             for node_id, reply in federated_req.replies().items():
                 if reply.databases:
@@ -423,7 +423,7 @@ class Requests(metaclass=SingletonMeta):
             'command': 'approval'})
 
         with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
-            errors = federated_req.errors() 
+            errors = federated_req.errors()
             replies = federated_req.replies()
 
             # TODO: Loop over errors and replies
@@ -434,7 +434,7 @@ class Requests(metaclass=SingletonMeta):
                 if node_id not in replies:
                     logger.info(f"Node ({node_id}) has not replied")
 
-            return replies 
+            return replies
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
         """ Adds callback function for monitor messages

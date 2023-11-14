@@ -63,7 +63,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             node_id=task_request["node"],
             context=context
         )
-        
+
         # Update node active status as active
         await node_agent.set_active()
 
@@ -96,7 +96,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             request_iterator: Iterator for streaming
             context: Request service context
         """
-        
+
         reply = bytes()
         async for answer in request_iterator:
             reply += answer.bytes_
@@ -105,7 +105,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             else:
                 # Deserialize message
                 message = Serializer.loads(reply)
-                
+
                 # Replies are handles by node agent callbacks
                 node = await self._agent_store.get(message["node_id"])
                 await node.on_reply(message)
@@ -298,14 +298,14 @@ class GrpcServer(_GrpcAsyncServer):
         while len(self.get_all_nodes()) == 0:
 
             if sleep_ == 0:
-                logger.info(f"No nodes found, server will wait {MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} " 
+                logger.info(f"No nodes found, server will wait {MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} "
                             "more seconds until a node creates connection.")
 
             if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:
                 if len(self.get_all_nodes()) == 0:
-                    logger.warning("Server has not received connection from any remote nodes in " 
+                    logger.warning("Server has not received connection from any remote nodes in "
                                    f"MAX_GRPC_SERVER_SETUP_TIMEOUT: {MAX_GRPC_SERVER_SETUP_TIMEOUT} "
-                                   "This may effect the request created right after the server initialization. " 
+                                   "This may effect the request created right after the server initialization. "
                                    "However, server will keep running in the background so you can retry the "
                                    "operations for sending requests to remote nodes until one receives.")
                 break

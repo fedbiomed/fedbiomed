@@ -1310,7 +1310,7 @@ class Experiment:
             logger.debug('Experimentation `job` changed after running '
                          '{self._round_current} rounds, may give inconsistent results')
 
-        
+
 
         if self._training_plan_class is None:
             # training plan not defined yet
@@ -1328,8 +1328,8 @@ class Experiment:
                             training_args=self._training_args,
                             data=self._fds,
                             keep_files_dir=self.experimentation_path())
-            
-            
+
+
 
         return self._job
 
