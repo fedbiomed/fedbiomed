@@ -5,7 +5,6 @@ from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
-from fedbiomed.researcher.responses import Responses
 
 
 class TestNodeStateAgent(unittest.TestCase):
@@ -42,7 +41,7 @@ class TestNodeStateAgent(unittest.TestCase):
                       'node_id_0987']
 
         nsa = NodeStateAgent(self.node_ids_1)
-        # case where Responses is None
+        # case where node replies are none
 
         nsa.update_node_states(node_ids_2)
 
@@ -51,7 +50,7 @@ class TestNodeStateAgent(unittest.TestCase):
         expected_res = {k: None for k in node_ids_2}
         self.assertDictEqual(res, expected_res)  # we check here that keys and initialization has been done
 
-        # now we update wrt Responses
+        # now we update wrt node replies
 
         resp = {
             'node_id_1234': {'node_id': 'node_id_1234',

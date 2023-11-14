@@ -14,19 +14,15 @@ from testsupport.base_case import ResearcherTestCase
 
 
 from testsupport.fake_message import FakeMessages
-from testsupport.fake_responses import FakeResponses
 
-from fedbiomed.common.exceptions import FedbiomedTaskQueueError
-from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.constants import MessageType
-from fedbiomed.common.message import Log, Scalar, SearchReply, PingReply, SearchRequest, ErrorMessage, ApprovalReply
+from fedbiomed.common.message import Log, Scalar, SearchReply, SearchRequest, ErrorMessage, ApprovalReply
 
 from fedbiomed.researcher.requests import Requests, FederatedRequest
-from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.monitor import Monitor
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
-from testsupport.fake_training_plan import FakeTorchTrainingPlan, FakeTorchTrainingPlan2
+from testsupport.fake_training_plan import FakeTorchTrainingPlan2
 
 
 # for test_request_13_model_approve
@@ -62,12 +58,7 @@ class TestRequests(ResearcherTestCase):
             fake_node_msg = FakeMessages(msg)
             return fake_node_msg
 
-        def responses_side_effect(data):
-            fake_responses = FakeResponses(data)
-            return fake_responses
-
         cls.msg_side_effect = msg_side_effect
-        cls.responses_side_effect = responses_side_effect
 
     def setUp(self):
         """Setup Requests and patches for testing"""

@@ -9,7 +9,6 @@ from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.functional import federated_averaging
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.responses import Responses
 from testsupport.fake_uuid import FakeUuid
 import torch
 import torch.nn as nn
@@ -35,9 +34,9 @@ class TestScaffold(ResearcherTestCase):
         self.fds = FederatedDataSet({node: {} for node in self.node_ids})
         self.models = {node_id: Linear(10, 3).state_dict() for i, node_id in enumerate(self.node_ids)}
         self.zero_model = copy.deepcopy(self.model)  # model where all parameters are equals to 0
-        self.responses = {}
+        self.replies = {}
         for node_id in self.node_ids:
-            self.responses.update({
+            self.replies.update({
                 node_id: {
                     'node_id': node_id, 
                     'optimizer_args': {
@@ -47,7 +46,7 @@ class TestScaffold(ResearcherTestCase):
                     }
                 }}
             )
-        self.responses = [self.responses]
+        self.replies = [self.replies]
         self.weights = [{node_id: random.random()} for (node_id, _) in zip(self.node_ids, self.models)]
 
         # setting all coefficients of `zero_model` to 0
@@ -175,7 +174,7 @@ class TestScaffold(ResearcherTestCase):
             weights=weights,
             global_model=copy.deepcopy(self.zero_model.state_dict()),
             training_plan=training_plan,
-            training_replies=self.responses,
+            training_replies=self.replies,
             n_round=n_round
         )
         aggregated_model_params_fedavg = FedAverage().aggregate(
@@ -445,18 +444,16 @@ class TestIntegrationScaffold(unittest.TestCase):
             training_args = TrainingArgs({'share_persistent_buffers': share_persistent_buffers_option}, only_required=False)
             tp.post_init({}, training_args , {})
 
-            # create Responses
-            responses = {}
+            # create training replies
+            replies = {0: {}}
             for node_id in self.node_ids:
-                responses.update({
+                replies.update({
                     node_id: {
                         'node_id': node_id, 
                         'optimizer_args': {
                             'lr' : tp.optimizer().get_learning_rate()}
                     }
                 })
-                 
-            responses = Responses([responses])
 
             global_params = tp.after_training_params()
             local_models = {node_id: copy.deepcopy(tp.after_training_params()) for i, node_id in enumerate(self.node_ids)}
@@ -467,7 +464,7 @@ class TestIntegrationScaffold(unittest.TestCase):
                                             self.weights,
                                             global_model=global_params,
                                             training_plan=tp,
-                                            training_replies=responses,
+                                            training_replies=replies,
                                             node_ids=self.node_ids, 
                                             n_updates=n_updates,
                                             n_round=0)

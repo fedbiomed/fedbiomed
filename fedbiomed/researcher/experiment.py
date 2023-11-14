@@ -1798,7 +1798,7 @@ class Experiment:
         return self._job.training_plan_file
 
     # TODO: change format of returned data (during experiment results refactor ?)
-    # a properly defined structure/class instead of the generic responses
+    # a properly defined structure/class instead of the generic replies
     @exp_exceptions
     def check_training_plan_status(self) -> Dict:
         """ Method for checking training plan status, ie whether it is approved or not by the nodes
@@ -1817,10 +1817,10 @@ class Experiment:
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        # always returns a `Responses()` object
-        responses = self._job.check_training_plan_is_approved_by_nodes()
+        # always returns a `Dict[str, Message]` object
+        replies = self._job.check_training_plan_is_approved_by_nodes()
 
-        return responses
+        return replies
 
     # Breakpoint functions
 

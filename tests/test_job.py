@@ -22,8 +22,6 @@ from testsupport.base_mocks import MockRequestModule
 
 from testsupport.fake_training_plan import FakeModel, FakeTorchTrainingPlan
 from testsupport.fake_message import FakeMessages
-from testsupport.fake_responses import FakeResponses
-from testsupport.fake_uuid import FakeUuid
 from testsupport import fake_training_plan
 
 
@@ -35,7 +33,6 @@ from fedbiomed.common.exceptions import FedbiomedJobError
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.requests import Requests
-from fedbiomed.researcher.responses import Responses
 import fedbiomed.researcher.job # needed for specific mocking
 
 
@@ -73,12 +70,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             return fake_node_msg
 
         cls.msg_side_effect = msg_side_effect
-
-        def fake_responses(data: Dict):
-            fake = FakeResponses(data)
-            return fake
-
-        cls.fake_responses_side_effect = fake_responses
 
 
     def setUp(self):
@@ -211,54 +202,54 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         base_reply = {'researcher_id': self.job._researcher_id, "job_id": self.job._id, 'msg':'test', 'training_plan': 'test', 'command': 'training-plan-status'}
 
         # Test when model is approved by all nodes
-        responses = {
+        replies = {
             'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': True, 'approval_obligation': True, 'status': 'APPROVED'}),
             'node-2': TrainingPlanStatusReply(**{**base_reply,'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'status': 'APPROVED'})
         } 
 
-        self.mock_federated_request.replies.return_value = responses
+        self.mock_federated_request.replies.return_value = replies
         result = self.job.check_training_plan_is_approved_by_nodes()
 
-        self.assertDictEqual(responses, result,
+        self.assertDictEqual(replies, result,
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when model is approved by only one node
-        responses = {
+        replies = {
             'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': True, 'approval_obligation': True, 'status': 'APPROVED'}),
             'node-2': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'status': 'REJECTED'})
         } 
-        self.mock_federated_request.replies.return_value = responses
+        self.mock_federated_request.replies.return_value = replies
         result = self.job.check_training_plan_is_approved_by_nodes()
-        self.assertDictEqual(responses, result,
+        self.assertDictEqual(replies, result,
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when training plan approval obligation is False by one node
-        responses = {
+        replies = {
             'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'status': 'REJECTED'}),
             'node-2': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-2', 'success': True, 'approval_obligation': True,  'status': 'APPROVED'})
         } 
-        self.mock_federated_request.replies.return_value = responses
+        self.mock_federated_request.replies.return_value = replies
         result = self.job.check_training_plan_is_approved_by_nodes()
-        self.assertDictEqual(responses, result,
+        self.assertDictEqual(replies, result,
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when one of the reply success status is False
-        responses = {
+        replies = {
             'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': False, 'approval_obligation': False, 'status': 'REJECTED'}),
             'node-2': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'status': 'REJECTED'})
         } 
-        self.mock_federated_request.replies.return_value = responses
+        self.mock_federated_request.replies.return_value = replies
         result = self.job.check_training_plan_is_approved_by_nodes()
-        self.assertDictEqual(responses, result,
+        self.assertDictEqual(replies, result,
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
         # Test when one of the nodes does not reply
-        responses = {
+        replies = {
             'node-1': TrainingPlanStatusReply(**{**base_reply,'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'status': 'REJECTED'})
         } 
-        self.mock_federated_request.replies.return_value = responses
+        self.mock_federated_request.replies.return_value = replies
         result = self.job.check_training_plan_is_approved_by_nodes()
-        self.assertDictEqual(responses, result,
+        self.assertDictEqual(replies, result,
                              'Response of `check_training_plan_is_approved_by_nodes` is not as expected')
 
     def test_job_11_start_training_round(self):
@@ -364,8 +355,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
     def test_job_20_save_private_training_replies(self):
         """
         tests if `_save_training_replies` is properly extracting
-        breakpoint info from `training_replies`. It uses a dummy class
-        FakeResponses, a weak implementation of `Responses` class
+        breakpoint info from `training_replies`.
         """
 
         # first create a `_training_replies` variable
@@ -563,20 +553,20 @@ class TestJob(ResearcherTestCase, MockRequestModule):
     def test_job_25_extract_received_optimizer_aux_var_from_round(self):
         """Test that 'extract_received_optimizer_aux_var_from_round' works well."""
         # Set up: nodes sent back some Optimizer aux var information.
-        responses = {}
-        responses.update({'node-1': {
+        replies = {}
+        replies.update({'node-1': {
             "node_id": "node-1",
             "optim_aux_var": {
                 "module_a": {"key": "a1"}, "module_b": {"key": "b1"}
             }}})
 
-        responses.update({'node-2': {
+        replies.update({'node-2': {
             "node_id": "node-2",
             "optim_aux_var": {
                 "module_a": {"key": "a2"}, "module_b": {"key": "b2"}
             }}})
 
-        getattr(self.job, "_training_replies")[1] = responses
+        getattr(self.job, "_training_replies")[1] = replies
         # Call the method and verify that its output matches expectations.
         aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
         expected = {
@@ -588,14 +578,14 @@ class TestJob(ResearcherTestCase, MockRequestModule):
     def test_job_26_extract_received_optimizer_aux_var_from_round_empty(self):
         """Test 'extract_received_optimizer_aux_var_from_round' without aux var."""
         # Set up: nodes did not send Optimizer aux var information.
-        responses = {}
-        responses.update({'node-1': {
+        replies = {}
+        replies.update({'node-1': {
             "node_id": "node-1"}})
 
-        responses.update({'node-2': {
+        replies.update({'node-2': {
             "node_id": "node-2"}})
 
-        getattr(self.job, "_training_replies")[1] = responses
+        getattr(self.job, "_training_replies")[1] = replies
         # Call the method and verify that it returns an empty dict.
         aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
         self.assertDictEqual(aux_var, {})

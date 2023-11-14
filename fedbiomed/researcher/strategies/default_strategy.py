@@ -99,7 +99,7 @@ class DefaultStrategy(Strategy):
         answers_count = 0
 
         if self._sampling_node_history.get(round_i) is None:
-            raise FedbiomedStrategyError(ErrorNumbers.FB408.value + f": Missing Nodes Responses for round: {round_i}")
+            raise FedbiomedStrategyError(ErrorNumbers.FB408.value + f": Missing Nodes replies for round: {round_i}")
 
         for cl in self._sampling_node_history[round_i]:
             if cl in training_replies:

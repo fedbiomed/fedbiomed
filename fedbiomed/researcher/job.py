@@ -87,7 +87,7 @@ class Job:
         self._researcher_id = environ['RESEARCHER_ID']
         self._training_args = training_args
         self._model_args = model_args
-        self._training_replies = {}  # will contain all node replies for every round (type: Dict[Responses]])
+        self._training_replies = {}  # will contain all node replies for every round
         self._model_file = None  # path to local file containing model code
         self._model_params_file = ""  # path to local file containing current version of aggregated params
         self._training_plan_class = training_plan_class
@@ -180,7 +180,7 @@ class Job:
         So, researchers can find out if their model has been approved
 
         Returns:
-            A list of Responses objects, one for each job's nodes
+            A dict of `Message` objects indexed by node ID, one for each job's nodes
         """
 
         message = TrainingPlanStatusRequest(**{
@@ -267,7 +267,7 @@ class Job:
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> None:
-        """ Sends training request to nodes and waits for the responses
+        """ Sends training request to nodes and waits for the replies
 
         Args:
             round_: current number of round the algorithm is performing (a round is considered to be all the
@@ -487,7 +487,7 @@ class Job:
         Args:
             before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
                 - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
-                - if after, updates `NodeStateAgent` wrt latest [`Responses`][fedbiomed.researcher.responses.Responses]
+                - if after, updates `NodeStateAgent` wrt latest reply
 
         Raises:
             FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.

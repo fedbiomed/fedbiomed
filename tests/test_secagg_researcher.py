@@ -14,7 +14,6 @@ from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.constants import SecaggElementTypes
 from fedbiomed.common.message import SecaggReply, SecaggDeleteReply
 from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
-from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.requests import FederatedRequest
 
 
