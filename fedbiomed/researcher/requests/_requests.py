@@ -7,14 +7,12 @@ Implements the message exchanges from researcher to nodes
 
 import json
 import os
-import tabulate
 import uuid
 import tempfile
 import threading
-
-from time import sleep
 from typing import Any, Dict, Callable, Union, List, Optional
 
+import tabulate
 from python_minifier import minify
 
 from fedbiomed.common.constants import MessageType
@@ -26,6 +24,7 @@ from fedbiomed.common.utils import import_class_object_from_file
 
 from fedbiomed.transport.server import GrpcServer
 from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
+
 from fedbiomed.researcher.environ import environ
 
 from ._policies import RequestPolicy, PolicyController, DiscardOnTimeout
@@ -67,8 +66,14 @@ class Request:
         self.error = None
         self.status = None
 
-    def has_finished(self):
-        """True if node has replied the status"""
+    def has_finished(self) -> bool:
+        """Queries if the request has finished.
+
+        Also tracks if node has disconnected.
+
+        Args:
+            True if a reply was received from node
+        """
 
         if self.node.status == NodeActiveStatus.DISCONNECTED:
             self.status = RequestStatus.DISCONNECT
@@ -76,18 +81,26 @@ class Request:
 
         return True if self.reply or self.error else False
 
-    def send(self):
+    def send(self) -> None:
         """Sends the request"""
         self.message.request_id = self.request_id
         self.node.send(self.message, self.on_reply)
         self.status = RequestStatus.NO_REPLY_YET
 
-    def flush(self, stopped):
-        """Flushes the reply that has been processed"""
+    def flush(self, stopped: bool) -> None:
+        """Flushes the reply that has been processed
+
+        Args:
+            stopped: True if the request was stopped before completion
+        """
         self.node.flush(self.request_id, stopped)
 
-    def on_reply(self, reply):
-        """Callback for node agent to execute once it replies"""
+    def on_reply(self, reply: dict) -> None:
+        """Callback for node agent to execute once it replies.
+
+        Args:
+            reply: reply message received from node
+        """
 
         if isinstance(reply, ErrorMessage):
             self.error = reply
@@ -107,11 +120,17 @@ class FederatedRequest:
     """
     def __init__(
         self,
-        message: Union[Message, Dict[str, Message]],
+        message: Union[Message, MessagesByNode],
         nodes: List[NodeAgent],
         policy: Optional[List[RequestPolicy]] = None
     ):
-        """TODO: add docstring !
+        """Constructor of the class.
+
+        Args:
+            message: either a common `Message` to send to nodes or a dict of distinct message per node
+                indexed by the node ID
+            nodes: list of nodes that are sent the message
+            policy: list of policies for controlling the handling of the request
         """
 
         self.message = message
@@ -140,10 +159,14 @@ class FederatedRequest:
                         Request(m, node, self.request_id, self._pending_replies)
                     )
                 else:
-                    ValueError(f"Undefined message for node {node.id}")
+                    logger.warning(f"Node {node.id} is unknown. Send message to others, ignore this one.")
 
     def __enter__(self):
-        """Context manage enter method"""
+        """Context manager entry method
+
+        Returns:
+            The class object
+        """
 
         # Sends the message
         self.send()
@@ -154,32 +177,51 @@ class FederatedRequest:
         return self
 
     def __exit__(self, type, value, traceback):
-        """Clear the replies that are processed"""
+        """Context manager exit method
 
+        Args:
+            type: ignored
+            value: ignored
+            traceback: ignored
+        """
+
+        # Clear the replies that are processed
         has_stopped = self.policy.has_stopped_any()
         for req in self.requests:
             req.flush(stopped=has_stopped)
 
     def replies(self) -> Dict[str, Message]:
-        """Returns replies of each request"""
+        """Returns replies of each request
+
+        Returns:
+            A dict of replies `Message` received for this request, indexed by node ID 
+        """
 
         return {req.node.id: req.reply for req in self.requests if req.reply}
 
     def errors(self) -> Dict[str, ErrorMessage]:
-        """Returns errors of each request"""
+        """Returns errors of each request
+
+        Returns:
+            A dict of error `Message` received for this request, indexed by node ID         
+        """
 
         return {req.node.id: req.error for req in self.requests if req.error}
 
-    def disconnected_requests(self):
-        """Returns the requests to disconnected nodes"""
+    def disconnected_requests(self) -> List[Message]:
+        """Returns the requests to disconnected nodes
+
+        Returns:
+            A list of request `Message` sent to disconnected nodes
+        """
         return [req for req in self.requests if req.status == RequestStatus.DISCONNECT]
 
-    def send(self):
+    def send(self) -> None:
         """Sends federated request"""
         for req in self.requests:
             req.send()
 
-    def wait(self):
+    def wait(self) -> None:
         """Waits for the replies of the messages that are sent"""
 
         while self.policy.continue_all(self.requests) == PolicyStatus.CONTINUE:
@@ -188,16 +230,11 @@ class FederatedRequest:
 
 class Requests(metaclass=SingletonMeta):
     """
-    Represents the requests addressed from Researcher to nodes. It creates a task queue storing reply to each
-    incoming message. Starts a message queue and reconfigures  message to be sent into a `Messaging` object.
+    Manages communication between researcher and nodes.
     """
 
     def __init__(self):
-        """
-        Constructor of the class
-
-        Args:
-            mess: message to be sent by default.
+        """Constructor of the class
         """
         self._monitor_message_callback = None
 
@@ -210,12 +247,12 @@ class Requests(metaclass=SingletonMeta):
         self.start_messaging()
 
 
-    def start_messaging(self):
+    def start_messaging(self) -> None:
         """Start communications endpoint
         """
         self._grpc_server.start()
 
-    def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType):
+    def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType) -> None:
         """Handles arbitrary messages received from the remote agents
 
         This callback is only used for feedback messages from nodes (logs, experiment
@@ -223,7 +260,7 @@ class Requests(metaclass=SingletonMeta):
 
         Args:
             msg: de-serialized msg
-            type: Reply type one of reply, log, scalar
+            type_: Reply type one of reply, log, scalar
         """
 
         if type_ == MessageType.LOG:
@@ -244,6 +281,9 @@ class Requests(metaclass=SingletonMeta):
         It is run on the communication process and must be as quick as possible:
         - all logs (coming from the nodes) are forwarded to the researcher logger
         (immediate display on console/file/whatever)
+
+        Args:
+            log: log message and its metadata
         """
 
         # log contains the original message sent by the node
@@ -264,7 +304,7 @@ class Requests(metaclass=SingletonMeta):
         """ Pings online nodes
 
         Returns:
-            List ids of up and running nodes
+            List of ID of up and running nodes
         """
         ping = ResearcherMessages.format_outgoing_message({
             'researcher_id': environ["ID"],
@@ -281,7 +321,17 @@ class Requests(metaclass=SingletonMeta):
             nodes: Optional[List[str]] = None,
             policies: List[RequestPolicy] = None
     ) -> FederatedRequest:
-        """Sends federated request to given nodes with given message"""
+        """Sends federated request to given nodes with given message
+
+        Args:
+            message: either a common `Message` to send to nodes or a dict of distinct message per node
+                indexed by the node ID
+            nodes: list of nodes that are sent the message. If None, send the message to all known active nodes.
+            policy: list of policies for controlling the handling of the request, or None
+
+        Returns:
+            The object for handling the communications for this request
+        """
 
         if nodes is not None:
             nodes = [self._grpc_server.get_node(node) for node in nodes]
@@ -375,7 +425,6 @@ class Requests(metaclass=SingletonMeta):
             training_plan: the training plan class to send to the nodes for approval.
             description: Description of training plan approval request
             nodes: list of nodes (specified by their UUID)
-            timeout: maximum waiting time for the answers
 
         Returns:
             a dictionary of pairs (node_id: status), where status indicates to the researcher
