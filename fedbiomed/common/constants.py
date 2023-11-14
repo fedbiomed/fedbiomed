@@ -3,6 +3,7 @@
 
 """Fed-BioMed constants/enums"""
 import sys
+import os 
 
 from packaging.version import Version as FBM_Component_Version
 from fedbiomed.common.exceptions import FedbiomedError
@@ -39,7 +40,16 @@ NODE_STATE_PREFIX = 'node_state_'
 JOB_PREFIX = 'job_'
 """Prefix for job ID"""
 
+
+ETC_FOLDER_NAME = 'etc'
+"""Folder name for etc directory"""
+
+CERTS_FOLDER_NAME = os.path.join(ETC_FOLDER_NAME, 'certs')
+"""FOLDER name for Certs directory"""
+
+
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
+SERVER_certificate_prefix = "server_certificate"
 
 # !!! info "Instructions for developers"
 # If you make a change that changes the format / metadata / structure of one of the components below,

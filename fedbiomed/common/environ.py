@@ -82,7 +82,6 @@ class Environ(metaclass=SingletonABCMeta):
         """
         # dict with contains all configuration values
         self._values = {}
-        self._cfg = configparser.ConfigParser()
         self._root_dir = root_dir
 
     def __getitem__(self, key: str) -> Any:
@@ -124,70 +123,7 @@ class Environ(metaclass=SingletonABCMeta):
         self._values[key] = value
         return value
 
-    @abstractmethod
-    def _check_config_version(self):
-        """Abstract method for checking if config version is compatible and setting config version"""
-
-    @abstractmethod
-    def _set_component_specific_variables(self):
-        """Abstract method for setting component specific values to `self._values` """
-
-    @abstractmethod
-    def _set_component_specific_config_parameters(self):
-        """Abstract method for setting component specific parameters"""
-
-    @abstractmethod
-    def default_config_file(self) -> str:
-        """Abstract method for retrieving default configuration file path"""
-
-    @abstractmethod
-    def info(self):
-        """Abstract method to return component information"""
-
-    def from_config(self, section, key) -> Any:
-        """Gets values from config file
-        Args:
-            section: the section of the key
-            key: the name of the key
-
-        Returns:
-            The value of the key
-
-        Raises:
-            FedbiomedEnvironError: If the key does not exist in the configuration
-        """
-        try:
-            _cfg_value = self._cfg.get(section, key)
-        except configparser.Error:
-            _msg = f"{ErrorNumbers.FB600.value}: no {section}/{key} in config file. Please recreate a new config file"
-            logger.error(_msg)
-            raise FedbiomedEnvironError(_msg)
-
-        return _cfg_value
-
-    def sections(self) -> List[str]:
-        """Gets sections of config file"""
-
-        return self._cfg.sections()
-
-    def setup_environment(self):
-        """Final environment setup function """
-        # Initialize common environment variables
-        self._initialize_common_variables()
-
-        # Parse config file or create if not existing
-        self.parse_write_config_file()
-
-        # Check that config version is compatible
-        self._check_config_version()
-
-        # Configuring network variables
-        self._set_network_variables()
-
-        # Initialize environment variables
-        self._set_component_specific_variables()
-
-    def _initialize_common_variables(self):
+    def set(self):
         """Common configuration values for researcher and node
 
         Raises:
@@ -233,74 +169,20 @@ class Environ(metaclass=SingletonABCMeta):
                     logger.critical(_msg)
                     raise FedbiomedEnvironError(_msg)
 
-    def set_config_file(self):
-        """Sets configuration file """
-        config_file = os.getenv('CONFIG_FILE')
-        if config_file:
-            if not os.path.isabs(config_file):
-                config_file = os.path.join(self._values['CONFIG_DIR'],
-                                           os.getenv('CONFIG_FILE'))
-        else:
-            config_file = self.default_config_file()
-
-        self._values["CONFIG_FILE"] = config_file
-
-    def parse_write_config_file(self, new: bool = False):
-        """Parses configuration file.
-
-        Create new config file if it is not existing.
-
-        Args:
-            new: True if configuration file is not expected to exist
-
-        Raise:
-            FedbiomedEnvironError: cannot read configuration file
-        """
-        # Sets configuration file path
-        self.set_config_file()
-
-        # Parse configuration if it is existing
-        if os.path.isfile(self._values["CONFIG_FILE"]) and not new:
-            # get values from .ini file
-            try:
-                self._cfg.read(self._values["CONFIG_FILE"])
-            except configparser.Error:
-                _msg = ErrorNumbers.FB600.value + ": cannot read config file, check file permissions"
-                logger.critical(_msg)
-                raise FedbiomedEnvironError(_msg)
-
-        # Create new configuration file
-        else:
-            # Create new config file
-            self._set_component_specific_config_parameters()
-
-            # Update config with secure aggregation parameters
-            self._configure_secure_aggregation()
-
-            # Writes config file to a file
-            self._write_config_file()
-
-    def _set_network_variables(self):
-        """Initialize network configurations
-
-        Raises:
-            FedbiomedEnvironError: In case of missing keys/values
-        """
 
         self._values['TIMEOUT'] = 5
+        self._values["MPSPDZ_IP"] = os.getenv("MPSPDZ_IP", 
+                                              self.config.get("mpspdz", "mpspdz_ip"))
+        self._values["MPSPDZ_PORT"] = os.getenv("MPSPDZ_PORT", 
+                                                self.config.get("mpspdz", "mpspdz_port"))
 
-        # MPSPDZ variables
-        mpspdz_ip = self.from_config("mpspdz", "mpspdz_ip")
-        mpspdz_port = self.from_config("mpspdz", "mpspdz_port")
-        self._values["MPSPDZ_IP"] = os.getenv("MPSPDZ_IP", mpspdz_ip)
-        self._values["MPSPDZ_PORT"] = os.getenv("MPSPDZ_PORT", mpspdz_port)
-
-        allow_dbp = self.from_config('mpspdz', 'allow_default_biprimes')
-        self._values['ALLOW_DEFAULT_BIPRIMES'] = os.getenv('ALLOW_DEFAULT_BIPRIMES', allow_dbp) \
+        self._values['ALLOW_DEFAULT_BIPRIMES'] = \
+            os.getenv('ALLOW_DEFAULT_BIPRIMES', 
+                      self.config.get('mpspdz', 'allow_default_biprimes') ) \
             .lower() in ('true', '1', 't', True)
 
-        public_key = self.from_config("mpspdz", "public_key")
-        private_key = self.from_config("mpspdz", "private_key")
+        public_key = self.config.get("mpspdz", "public_key")
+        private_key = self.config.get("mpspdz", "private_key")
         self._values["MPSPDZ_CERTIFICATE_KEY"] = os.getenv(
             "MPSPDZ_CERTIFICATE_KEY",
             os.path.join(self._values["CONFIG_DIR"], private_key)
@@ -310,130 +192,6 @@ class Environ(metaclass=SingletonABCMeta):
             os.path.join(self._values["CONFIG_DIR"], public_key)
         )
 
-    def _generate_certificate(
-            self,
-            component_id
-    ) -> Tuple[str, str]:
-        """Generates certificates
-
-        Args:
-            component_id: ID of the component for which the certificate will be generated
-
-        Returns:
-            key_file: The path where private key file is saved
-            pem_file: The path where public key file is saved
-
-        Raises:
-            FedbiomedEnvironError: If certificate directory for the component has already `certificate.pem` or
-                `certificate.key` files generated.
-        """
-
-        certificate_path = os.path.join(self._values["CERT_DIR"], f"cert_{component_id}")
-
-        if os.path.isdir(certificate_path) \
-                and (os.path.isfile(os.path.join(certificate_path, "certificate.key")) or
-                     os.path.isfile(os.path.join(certificate_path, "certificate.pem"))):
-
-            raise FedbiomedEnvironError(f"Certificate generation is aborted. Directory {certificate_path} already "
-                                        f"certificates. Please remove those files to regenerate")
-        else:
-            os.makedirs(certificate_path, exist_ok=True)
-
-        try:
-            key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
-                certificate_folder=certificate_path,
-                certificate_name=MPSPDZ_certificate_prefix,
-                component_id=component_id
-            )
-        except FedbiomedError as e:
-            raise FedbiomedEnvironError(f"Can not generate certificate: {e}")
-
-        return key_file, pem_file
-
-    def _configure_secure_aggregation(self):
-        """ Add MPSDPZ section into configuration file."""
-
-        ip, port = self._retrieve_ip_and_port(self._values["PORT_INCREMENT_FILE"])
-
-        component_id = self.from_config("default", "id")
-
-        allow_default_biprimes = os.getenv('ALLOW_DEFAULT_BIPRIMES', True)
-
-        # Generate self-signed certificates
-        key_file, pem_file = self._generate_certificate(
-            component_id=component_id
-        )
-
-        self._cfg['mpspdz'] = {
-            'private_key': os.path.relpath(key_file, self._values["CONFIG_DIR"]),
-            'public_key': os.path.relpath(pem_file, self._values["CONFIG_DIR"]),
-            'mpspdz_ip': ip,
-            'mpspdz_port': port,
-            'allow_default_biprimes': allow_default_biprimes
-        }
-
-    @staticmethod
-    def _retrieve_ip_and_port(
-            increment_file,
-            new: bool = False,
-            increment: Union[int, None] = None
-    ) -> Tuple[str, int]:
-        """Creates MPSDPZ IP and PORT based on increment file for ports
-
-        Args:
-            increment_file: Path to port increment file
-            new: If `True`, ignores increment file and create new one
-            increment: if not None, increment value (port number) that will be used if `new = True`.
-                If None, then use a default value (environment variable or last resort value)
-
-        Returns:
-            ip: The IP for the MPSDPZ
-            port: The port number for MPSPDZ
-        """
-
-        ip = os.getenv('MPSPDZ_IP', "localhost")
-
-        if os.path.isfile(increment_file) and new is False:
-            with open(increment_file, "r+") as file:
-                port_increment = file.read()
-                if port_increment != "":
-                    port = int(port_increment) + 1
-                    file.truncate(0)
-                    file.close()
-
-                    # Renew port in the  file
-                    _ = Environ._retrieve_ip_and_port(
-                        increment_file,
-                        new=True,
-                        increment=port)
-                else:
-                    _, port = Environ._retrieve_ip_and_port(
-                        increment_file,
-                        new=True)
-        else:
-            with open(increment_file, "w") as file:
-                port = os.getenv('MPSPDZ_PORT', 14000) if increment is None else increment
-                file.write(f"{port}")
-                file.close()
-
-        return ip, port
-
-    def _write_config_file(self):
-
-        # write the config for future relaunch of the same component
-        # (only if the file does not exist)
-
-        if "CONFIG_FILE" not in self._values:
-            raise FedbiomedEnvironError("Please set config file first!")
-
-        try:
-            with open(self._values["CONFIG_FILE"], 'w') as f:
-                self._cfg.write(f)
-        except configparser.Error:
-            _msg = ErrorNumbers.FB600.value + ": cannot save config file: " + self._values["CONFIG_FILE"]
-            logger.critical(_msg)
-            raise FedbiomedEnvironError(_msg)
-
     def check_and_set_config_file_version(self,
                                           version_from_runtime: Union[str, FBM_Component_Version]):
         """Check compatibility of config file and set corresponding environment value.
@@ -442,7 +200,7 @@ class Environ(metaclass=SingletonABCMeta):
             version_from_runtime: the version hardcoded in common/constants.py
         """
         try:
-            config_file_version = self.from_config('default', 'version')
+            config_file_version = self.config.get('default', 'version')
         except FedbiomedEnvironError:
             config_file_version = __default_version__
         raise_for_version_compatibility(config_file_version, version_from_runtime,

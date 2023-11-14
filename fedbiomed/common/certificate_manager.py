@@ -6,15 +6,17 @@ import os
 import random
 
 from OpenSSL import crypto
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Optional
 from tinydb import TinyDB, Query
 from tinydb.table import Table
 from tabulate import tabulate
 
-from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix, NODE_PREFIX, ErrorNumbers
+from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix, NODE_PREFIX, ErrorNumbers, ETC_FOLDER_NAME, CERTS_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedCertificateError
 from fedbiomed.common.utils import read_file
 from fedbiomed.common.db import DBTable
+
+
 
 class CertificateManager:
     """ Certificate manager to manage certificates of parties
@@ -442,3 +444,82 @@ class CertificateManager:
             )
 
         return key_file, pem_file
+
+def retrieve_ip_and_port(
+        root: str, 
+        new: bool = False,
+        increment: Union[int, None] = None
+) -> Tuple[str, str]:
+
+    # Get IP from global environment
+    ip = os.getenv('MPSPDZ_IP', "localhost")
+
+    increment_file = os.path.join(root, ETC_FOLDER_NAME, 'port_increment')
+
+    if os.path.isfile(increment_file) and new is False:
+        with open(increment_file, "r+") as file:
+            port_increment = file.read()
+            if port_increment != "":
+                port = int(port_increment) + 1
+                file.truncate(0)
+                file.close()
+
+                # Renew port in the  file
+                _ = retrieve_ip_and_port(
+                    root,
+                    new=True,
+                    increment=port)
+            else:
+                _, port = retrieve_ip_and_port(
+                    root,
+                    new=True)
+    else:
+        with open(increment_file, "w") as file:
+            port = os.getenv('MPSPDZ_PORT', 14000) if increment is None else increment
+            file.write(f"{port}")
+            file.close()
+
+    return ip, port
+
+
+def generate_certificate(
+    root,
+    component_id,
+    prefix: Optional[str] = None
+) -> Tuple[str, str]:
+    """Generates certificates
+
+    Args:
+        component_id: ID of the component for which the certificate will be generated
+
+    Returns:
+        key_file: The path where private key file is saved
+        pem_file: The path where public key file is saved
+
+    Raises:
+        FedbiomedEnvironError: If certificate directory for the component has already `certificate.pem` or
+            `certificate.key` files generated.
+    """
+
+    certificate_path = os.path.join(root, CERTS_FOLDER_NAME, f"cert_{component_id}")
+
+    if os.path.isdir(certificate_path) \
+            and (os.path.isfile(os.path.join(certificate_path, "certificate.key")) or
+                 os.path.isfile(os.path.join(certificate_path, "certificate.pem"))):
+
+        raise ValueError(f"Certificate generation is aborted. Directory {certificate_path} already "
+                         f"certificates. Please remove those files to regenerate")
+    else:
+        os.makedirs(certificate_path, exist_ok=True)
+
+    try:
+        key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+            certificate_folder=certificate_path,
+            certificate_name=prefix if prefix else '',
+            component_id=component_id
+        )
+    except FedbiomedError as e:
+        raise ValueError(f"Can not generate certificate: {e}")
+
+    return key_file, pem_file
+

@@ -30,7 +30,6 @@ from ._config_utils import (
 )
 
 
-
 from ._secagg_utils import (
     matching_parties_servkey,
     matching_parties_biprime

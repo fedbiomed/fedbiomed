@@ -22,7 +22,6 @@ def _get_fedbiomed_root() -> str:
     return os.path.abspath(os.path.join(__file__, '..', "..", "..", ".."))
 
 
-
 # Main directories definition
 ROOT_DIR = _get_fedbiomed_root()
 CONFIG_DIR = os.path.join(ROOT_DIR, CONFIG_FOLDER_NAME)
@@ -142,5 +141,3 @@ def get_existing_component_db_names():
         db_names = {**db_names, component_id: db_name}
 
     return db_names
-
-
