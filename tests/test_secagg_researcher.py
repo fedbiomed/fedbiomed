@@ -50,7 +50,7 @@ class BaseTestCaseSecaggContext(ResearcherTestCase, MockRequestModule):
         # self.mock_policy = MagicMock()
         # self.m_requests.return_value.send.return_value = self.mock_federated_req
         # type(self.mock_federated_req).policy = PropertyMock(return_value=self.mock_policy)
-        # self.mock_policy.has_stopped.return_value = False
+        # self.mock_policy.has_stopped_any.return_value = False
 
 
     def tearDown(self) -> None:
@@ -152,7 +152,7 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
             self.assertTrue(result)
 
             with self.assertRaises(FedbiomedSecaggError):
-                self.mock_policy.has_stopped.return_value = True
+                self.mock_policy.has_stopped_any.return_value = True
                 self.secagg_context.setup(timeout=1)
 
     def test_secagg_06_breakpoint(

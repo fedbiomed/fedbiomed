@@ -290,8 +290,7 @@ class SecaggContext(ABC):
         with self._requests.send(msg, self._parties[1:], policies) as fed_request:
             replies = fed_request.replies()
             errors = fed_request.errors()
-            print(fed_request.policy.has_stopped())
-            if fed_request.policy.has_stopped():
+            if fed_request.policy.has_stopped_any():
                 self._MPC.kill()
                 context_future.cancel()
                 raise FedbiomedSecaggError(f"Request is not successful. Policy " 

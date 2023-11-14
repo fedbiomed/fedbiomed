@@ -106,11 +106,10 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                 # Deserialize message
                 message = Serializer.loads(reply)
                 
-                # New implementation
+                # Replies are handles by node agent callbacks
                 node = await self._agent_store.get(message["node_id"])
                 await node.on_reply(message)
 
-                # self._on_message(message, MessageType.REPLY)
                 reply = bytes()
 
         return Empty()
@@ -132,7 +131,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         one_of = request.WhichOneof("feedback_type")
         feedback = FeedbackMessage.from_proto(request)
 
-        # Execute on message assigned by the researcher.requests modules
+        # Execute on_message assigned by the researcher.requests modules
         self._on_message(feedback.get_param(one_of), MessageType.convert(one_of))
 
         return Empty()

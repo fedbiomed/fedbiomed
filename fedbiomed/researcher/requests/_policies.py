@@ -135,7 +135,7 @@ class PolicyController:
         policies.insert(0, RequestPolicy())
         self.policies = policies
 
-    def continue_(self, requests: List[TRequest]) -> PolicyStatus:
+    def continue_all(self, requests: List[TRequest]) -> PolicyStatus:
         """Checks if reply collection should continue according to each strategy
 
         Returning anything different than StrategyStatus.CONTINUE stops the 
@@ -155,7 +155,7 @@ class PolicyController:
 
         return PolicyStatus.CONTINUE if status else PolicyStatus.COMPLETED
 
-    def has_stopped(self):
+    def has_stopped_any(self):
         """Returns true if request has stopped due to given strategy"""
 
         is_stopped = any(

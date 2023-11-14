@@ -156,7 +156,7 @@ class FederatedRequest:
     def __exit__(self, type, value, traceback):
         """Clear the replies that are processed"""
 
-        has_stopped = self.policy.has_stopped()
+        has_stopped = self.policy.has_stopped_any()
         for req in self.requests:
             req.flush(stopped=has_stopped)
 
@@ -182,7 +182,7 @@ class FederatedRequest:
     def wait(self):
         """Waits for the replies of the messages that are sent"""
 
-        while self.policy.continue_(self.requests) == PolicyStatus.CONTINUE:
+        while self.policy.continue_all(self.requests) == PolicyStatus.CONTINUE:
             self._pending_replies.acquire(timeout=REQUEST_STATUS_CHECK_TIMEOUT)
 
 
@@ -217,6 +217,9 @@ class Requests(metaclass=SingletonMeta):
 
     def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType):
         """Handles arbitrary messages received from the remote agents
+
+        This callback is only used for feedback messages from nodes (logs, experiment
+        monitor), not for node replies to requests.
 
         Args:
             msg: de-serialized msg

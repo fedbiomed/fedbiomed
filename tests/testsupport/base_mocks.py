@@ -30,7 +30,7 @@ class MockRequestModule:
         self.mock_policy  = MagicMock(spec=PolicyController)
         type(self.mock_federated_request).policy  = PropertyMock(return_value=self.mock_policy)
         self.mock_requests.return_value.send.return_value = self.mock_federated_request
-        self.mock_policy.has_stopped.return_value = False
+        self.mock_policy.has_stopped_any.return_value = False
         self.mock_federated_request.__enter__.return_value = self.mock_federated_request
 
     def tearDown(self) -> None:
