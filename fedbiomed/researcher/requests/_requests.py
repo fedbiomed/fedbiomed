@@ -31,6 +31,9 @@ from fedbiomed.researcher.environ import environ
 from ._policies import RequestPolicy, PolicyController, DiscardOnTimeout
 from ._status import RequestStatus, PolicyStatus
 
+# timeout in seconds for checking disconnection and node status changes
+REQUEST_STATUS_CHECK_TIMEOUT = 0.5
+
 
 class MessagesByNode(dict):
     """Type to defined messages by node"""
@@ -180,7 +183,7 @@ class FederatedRequest:
         """Waits for the replies of the messages that are sent"""
 
         while self.policy.continue_(self.requests) == PolicyStatus.CONTINUE:
-            self._pending_replies.acquire(timeout=10)
+            self._pending_replies.acquire(timeout=REQUEST_STATUS_CHECK_TIMEOUT)
 
 
 class Requests(metaclass=SingletonMeta):
