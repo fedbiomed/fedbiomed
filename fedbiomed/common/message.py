@@ -330,7 +330,6 @@ class ApprovalRequest(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: id of the researcher that sends the request
         description: description of the training plan
-        sequence: (unique) sequence number which identifies the message
         training_plan_url: URL where TrainingPlan is available
         command: request command string
 
@@ -339,7 +338,6 @@ class ApprovalRequest(RequestReply, RequiresProtocolVersion):
     """
     researcher_id: str
     description: str
-    sequence: int
     training_plan: str
     command: str
 
@@ -352,7 +350,6 @@ class ApprovalReply(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: Id of the researcher that will receive the reply
         node_id: Node id that replys the request
-        sequence: sequence number of the corresponding request
         status: status code received after uploading the training plan (usually HTTP status)
         command: Reply command string
 
@@ -362,7 +359,6 @@ class ApprovalReply(RequestReply, RequiresProtocolVersion):
     researcher_id: str
     message: str
     node_id: str
-    sequence: int
     status: int
     command: str
     success: bool
@@ -503,15 +499,13 @@ class PingRequest(RequestReply, RequiresProtocolVersion):
     """Describes a ping message sent by the researcher
 
     Attributes:
-        researcher_id: Id of the researcher that send ping reqeust
-        sequence: Ping sequence
+        researcher_id: Id of the researcher that send ping request
         command: Request command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
-    sequence: int
     command: str
 
 
@@ -525,7 +519,6 @@ class PingReply(RequestReply, RequiresProtocolVersion):
         researcher_id: Id of the researcher that will receive the reply
         node_id: Node id that replys the request
         succes: True if the node process the request as expected, false if any exception occurs
-        sequence: Ping sequence
         command: Reply command string
 
     Raises:
@@ -534,7 +527,6 @@ class PingReply(RequestReply, RequiresProtocolVersion):
     researcher_id: str
     node_id: str
     success: bool
-    sequence: int
     command: str
 
 
@@ -592,7 +584,6 @@ class SecaggDeleteRequest(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: ID of the researcher that requests deletion
         secagg_id: ID of secagg context element that is sent by researcher
-        sequence: (unique) sequence number which identifies the message
         element: Type of secagg context element
         job_id: Id of the Job to which this secagg context element is attached
         command: Request command string
@@ -615,7 +606,6 @@ class SecaggDeleteReply(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: ID of the researcher that requests deletion
         secagg_id: ID of secagg context element that is sent by researcher
-        sequence: (unique) sequence number which identifies the message
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies to the request
         msg: Custom message
@@ -640,7 +630,6 @@ class SecaggRequest(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: ID of the researcher that requests setup
         secagg_id: ID of secagg context element that is sent by researcher
-        sequence: (unique) sequence number which identifies the message
         element: Type of secagg context element
         job_id: Id of the Job to which this secagg context element is attached
         parties: List of parties participating to the secagg context element setup
@@ -665,7 +654,6 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: ID of the researcher that requests setup
         secagg_id: ID of secagg context element that is sent by researcher
-        sequence: (unique) sequence number which identifies the message
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies to the request
         msg: Custom message
@@ -708,7 +696,7 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     """
     researcher_id: str
     job_id: str
-    state_id: (str, type(None))
+    state_id: Optional[str]
     training_args: dict
     dataset_id: str
     training: bool

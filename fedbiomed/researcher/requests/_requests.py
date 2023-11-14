@@ -266,7 +266,6 @@ class Requests(metaclass=SingletonMeta):
         """
         ping = ResearcherMessages.format_outgoing_message({
             'researcher_id': environ["ID"],
-            'sequence': self._sequence,
             'command': "ping"}
         )
         with self.send(ping) as federated_req:
@@ -315,7 +314,7 @@ class Requests(metaclass=SingletonMeta):
                     logger.info('Node selected for training -> {}'.format(reply.node_id))
 
             for node_id, error in federated_req.errors().items():
-                logger.warning(f"Node {node_id} has returned error from search request {error.msg}")
+                logger.warning(f"Node {node_id} has returned error from search request {error.extra_msg}")
 
 
             if not data_found:

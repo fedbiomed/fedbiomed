@@ -437,7 +437,6 @@ class TrainingPlanSecurityManager:
         reply = {
             'researcher_id': msg['researcher_id'],
             'node_id': environ['NODE_ID'],
-            'sequence': msg['sequence'],
             'message': '',
             'status': 0,  # HTTP status (set by default to 0, non-existing HTTP status code)
             'command': 'approval'

@@ -106,7 +106,6 @@ class Node:
                             'request_id': msg['request_id'],
                             'node_id': environ['NODE_ID'],
                             'success': True,
-                            'sequence': msg['sequence'],
                             'command': 'pong'
                         }))
             elif command == 'search':
