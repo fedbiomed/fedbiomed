@@ -363,7 +363,7 @@ class Requests(metaclass=SingletonMeta):
             self,
             training_plan: BaseTrainingPlan,
             description: str = "no description provided",
-            nodes: list = []
+            nodes: Optional[List[str]] = None
     ) -> dict:
         """Send a training plan and a ApprovalRequest message to node(s).
 
@@ -427,14 +427,10 @@ class Requests(metaclass=SingletonMeta):
             replies = federated_req.replies()
 
             # TODO: Loop over errors and replies
-            for node_id in nodes:
-                if node_id in errors:
-                    logger.info(f"Node ({node_id}) has returned error {errors[node_id].errnum}, {errors[node_id].extra_msg}")
+            for node_id, error in errors.items():
+                logger.info(f"Node ({node_id}) has returned error {error.errnum}, {error.extra_msg}")
 
-                if node_id not in replies:
-                    logger.info(f"Node ({node_id}) has not replied")
-
-            return replies
+        return replies
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
         """ Adds callback function for monitor messages

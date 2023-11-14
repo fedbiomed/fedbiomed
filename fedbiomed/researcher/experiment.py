@@ -2258,8 +2258,7 @@ class Experiment:
     def training_plan_approve(self,
                               training_plan: BaseTrainingPlan,
                               description: str = "no description provided",
-                              nodes: list = [],
-                              timeout: int = 5) -> dict:
+                              nodes: Optional[List[str]] = None) -> dict:
         """Send a training plan and a ApprovalRequest message to node(s).
 
         This is a simple redirect to the Requests.training_plan_approve() method.
@@ -2282,5 +2281,4 @@ class Experiment:
         """
         return self._reqs.training_plan_approve(training_plan,
                                                 description,
-                                                nodes,
-                                                timeout)
+                                                nodes)

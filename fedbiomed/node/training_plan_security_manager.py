@@ -436,6 +436,7 @@ class TrainingPlanSecurityManager:
 
         reply = {
             'researcher_id': msg['researcher_id'],
+            'request_id': msg['request_id'],
             'node_id': environ['NODE_ID'],
             'message': '',
             'status': 0,  # HTTP status (set by default to 0, non-existing HTTP status code)
@@ -519,6 +520,7 @@ class TrainingPlanSecurityManager:
         # Main header for the training plan status request
         reply = {
             'researcher_id': msg['researcher_id'],
+            'request_id': msg['request_id'],
             'node_id': environ['NODE_ID'],
             'job_id': msg['job_id'],
             'approval_obligation': True,
