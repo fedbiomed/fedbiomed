@@ -9,8 +9,6 @@ import grpc
 
 from fedbiomed.common.message import Message, ResearcherMessages
 from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import FedbiomedCommunicationError
-from fedbiomed.common.constants import ErrorNumbers
 
 # timeout in seconds for server to wait for a new task request from node before assuming node is disconnected
 GPRC_SERVER_TASK_WAIT_TIMEOUT = 10
@@ -39,13 +37,16 @@ class NodeAgentAsync:
     def __init__(
             self,
             id: str,
-            peer: str,
             loop: asyncio.AbstractEventLoop,
     ) -> None:
-        """Represent the client that connects to gRPC server"""
+        """Represent the client that connects to gRPC server
+
+        Args:
+            id: node unique ID
+            loop: event loop
+        """
         self._id: str = id
         self._last_request: Optional[datetime] = None
-        self._peer: str = peer
         self._replies = Replies()
         self._stopped_request_ids = []
         # Node should be active when it is first instantiated
@@ -83,8 +84,13 @@ class NodeAgentAsync:
         """
         return self._id
 
-    async def flush(self, request_id: str, stopped: bool = False):
-        """Flushes processed reply"""
+    async def flush(self, request_id: str, stopped: bool = False) -> None:
+        """Flushes processed reply
+
+        Args:
+            request_id: request ID for which the replies should be flushed
+            stopped: the request was stopped during processing
+        """
 
         async with self._replies_lock:
             self._replies.pop(request_id, None)
@@ -135,6 +141,7 @@ class NodeAgentAsync:
 
         Args:
             message: Message to send to the researcher
+            on_reply: optional callback to execute when receiving message reply
         """
 
         async with self._status_lock:
@@ -239,29 +246,40 @@ class NodeAgentAsync:
 class NodeAgent(NodeAgentAsync):
 
     @property
-    def status(self):
-        """Gets the status of the node"""
+    def status(self) -> NodeActiveStatus:
+        """Getter for node status.
+
+        Returns:
+            node status
+        """
         future = asyncio.run_coroutine_threadsafe(
             self.status_async(),
             self._loop
         )
         return future.result()
 
-    def flush(self, request_id: str, stopped: bool = False):
-        """Flushes given request id from replies"""
+    def flush(self, request_id: str, stopped: bool = False) -> None:
+        """Flush processed replies
+
+        Args:
+            request_id: request ID for which the replies should be flushed
+            stopped: the request was stopped during processing
+        """
         asyncio.run_coroutine_threadsafe(
             super().flush(request_id, stopped),
             self._loop
         )
 
-    def send(self, message: Message, on_reply: Optional[Callable] = None):
-        """Send message"""
-        future = asyncio.run_coroutine_threadsafe(
+    def send(self, message: Message, on_reply: Optional[Callable] = None) -> None:
+        """Send message to researcher.
+
+        Args:
+            message: Message to send to the researcher
+        """
+        asyncio.run_coroutine_threadsafe(
             self.send_async(message=message, on_reply=on_reply),
             self._loop
         )
-        return future.result()
-
 
 
 class AgentStore:
@@ -302,7 +320,7 @@ class AgentStore:
         async with self._store_lock:
             node = self._node_agents.get(node_id)
             if not node:
-                node = NodeAgent(id=node_id, loop=self._loop, peer=context.peer())
+                node = NodeAgent(id=node_id, loop=self._loop)
                 self._node_agents.update({node_id: node})
 
         node.set_context(context)

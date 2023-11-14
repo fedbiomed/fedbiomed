@@ -10,7 +10,7 @@ from google.protobuf.message import Message as ProtoBufMessage
 from fedbiomed.transport.protocols.researcher_pb2 import Empty
 import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
 from fedbiomed.transport.client import GRPC_CLIENT_CONN_RETRY_TIMEOUT
-from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus, NodeAgent
+from fedbiomed.transport.node_agent import AgentStore, NodeAgent
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
@@ -88,13 +88,13 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     async def ReplyTask(
             self,
             request_iterator: Iterable[ProtoBufMessage],
-            context: grpc.aio.ServicerContext
+            unused_context: grpc.aio.ServicerContext
     ) -> None:
         """Gets stream replies from the nodes
 
         Args:
             request_iterator: Iterator for streaming
-            context: Request service context
+            unused_context: Request service context
         """
 
         reply = bytes()
@@ -156,8 +156,6 @@ class _GrpcAsyncServer:
             port: server TCP port
             on_message: Callback function to execute once a message received from the nodes
             debug: Activate debug mode for gRPC asyncio
-        Raises:
-            FedbiomedCommunicationError: bad argument type
         """
 
         # inform all threads whether server is started
@@ -209,10 +207,11 @@ class _GrpcAsyncServer:
 
 
     async def send(self, message: Message, node_id: str) -> None:
-        """Broadcasts given message to all active clients.
+        """Send given message to a given client
 
         Args:
             message: Message to broadcast
+            node_id: unique ID of node
         """
 
         agent = await self._agent_store.get(node_id)
@@ -282,7 +281,7 @@ class GrpcServer(_GrpcAsyncServer):
             logger.error(f"Researcher gRPC server has stopped. Please try to restart: {e}")
 
     def start(self) -> None:
-        """Stats async GrpcServer """
+        """Starts async GrpcServer """
 
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -352,8 +351,6 @@ class GrpcServer(_GrpcAsyncServer):
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         self._run_threadsafe(super().broadcast(message))
-
-    # TODO: Currently unused
 
     def get_all_nodes(self) -> List[NodeAgent]:
         """Returns all known nodes
