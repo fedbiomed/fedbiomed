@@ -9,8 +9,6 @@ import grpc
 
 from fedbiomed.common.message import Message, ResearcherMessages
 from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import FedbiomedCommunicationError
-from fedbiomed.common.constants import ErrorNumbers
 
 # timeout in seconds for server to wait for a new task request from node before assuming node is disconnected
 GPRC_SERVER_TASK_WAIT_TIMEOUT = 10
