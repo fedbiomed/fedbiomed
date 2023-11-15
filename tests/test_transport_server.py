@@ -80,7 +80,7 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
                 )
 
         load.return_value = {'node_id': 'test-node'}
-        result = await self.servicer.ReplyTask(request_iterator=request_iterator(), context=self.context)
+        result = await self.servicer.ReplyTask(request_iterator=request_iterator(), unused_context=self.context)
         self.assertEqual(result, Empty())
 
 
