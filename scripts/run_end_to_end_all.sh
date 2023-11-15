@@ -6,41 +6,42 @@ bats_file=$(mktemp /tmp/run.bats.XXXXXX)
 echo "${bats_file}"
 exec 5>"$bats_file" # associating a file descriptor with the temp file, so that is removed whatever the reason the script ends.
 
+: ${CONDA:=conda}
 if [ "$(uname)" == "Darwin" ]; then
-  conda env update -f ./envs/development/conda/fedbiomed-researcher-macosx.yaml
-  conda env update -f ./envs/development/conda/fedbiomed-node-macosx.yaml
+  ${CONDA} env update -f ./envs/development/conda/fedbiomed-researcher-macosx.yaml
+  ${CONDA} env update -f ./envs/development/conda/fedbiomed-node-macosx.yaml
 else
-  conda env update -f ./envs/development/conda/fedbiomed-researcher.yaml
-  conda env update -f ./envs/development/conda/fedbiomed-node.yaml
+  ${CONDA} env update -f ./envs/development/conda/fedbiomed-researcher.yaml
+  ${CONDA} env update -f ./envs/development/conda/fedbiomed-node.yaml
 fi
-conda env update -f ./envs/development/conda/fedbiomed-network.yaml
-conda env update -f ./envs/ci/conda/fedbiomed-researcher-end-to-end.yaml
+${CONDA} env update -f ./envs/development/conda/fedbiomed-network.yaml
+${CONDA} env update -f ./envs/ci/conda/fedbiomed-researcher-end-to-end.yaml
 
 rmdir ./data
 ln -s ~/Data/fedbiomed ./data
 
 #list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
 
-#list_notebooks=( notebooks/{\
-#101_getting-started,\
+list_notebooks=( notebooks/{\
+101_getting-started,\
+general-breakpoint-save-resume,\
+general-list-datasets-select-node,\
+general-tensorboard,\
+general-training-plan-approval,\
+general-use-gpu,\
+pytorch-MNIST-FedProx,\
+pytorch-celeba-dataset,\
+pytorch-csv-data,\
+pytorch-local-training,\
+pytorch-opacus-MNIST,\
+pytorch-variational-autoencoder\
+}.ipynb)
+
 #declearn-with-pytorch,\
 #declearn-with-sklearn,\
-#general-breakpoint-save-resume,\
-#general-list-datasets-select-node,\
-#general-tensorboard,\
-#general-training-plan-approval,\
-#general-use-gpu,\
-#pytorch-MNIST-FedProx,\
-#pytorch-celeba-dataset,\
-#pytorch-csv-data,\
-#pytorch-local-training,\
-#pytorch-opacus-MNIST,\
-#pytorch-variational-autoencoder\
-#}.ipynb)
-
-list_notebooks=( notebooks/declearn-with-sklearn.ipynb notebooks/declearn-with-pytorch.ipynb )
-#list_notebooks=( notebooks/101_getting-started.ipynb )
-#declearn-with-sklearn,\
+#list_notebooks=( notebooks/declearn-with-sklearn.ipynb notebooks/declearn-with-pytorch.ipynb )
+#list_notebooks=( notebooks/declearn-with-pytorch.ipynb )
+#list_notebooks=( notebooks/declearn-with-sklearn.ipynb )
 
 test_counter=1
 for notebook in "${list_notebooks[@]}"; do
