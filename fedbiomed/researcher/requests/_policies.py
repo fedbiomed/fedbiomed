@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
-from typing import List, Optional, TypeVar
+from typing import List, Optional, TypeVar, Dict
 
 from ._status import PolicyStatus, RequestStatus
 
@@ -52,19 +52,36 @@ class _ReplyTimeoutPolicy(RequestPolicy):
     """Base class for Timeout policies"""
 
     def __init__(self, timeout: int = 5, nodes: Optional[List[str]] = None) -> None:
-        """Implements timeout attributes"""
+        """Implements timeout attributes
+
+        Args:
+            timeout: maximum time for policy
+            nodes: optional list of nodes to apply the policy. By default applies to all known nodes of request.
+        """
         super().__init__(nodes)
         self.timeout = timeout
         self._time = None
 
     def is_timeout(self) -> bool:
-        """Returns True if timeout"""
+        """Checks if timeout is reached.
+
+        Returns:
+            True if timeout
+        """
         self._time = self._time or datetime.datetime.now()
         time_interest = datetime.datetime.now()
         return (time_interest - self._time).seconds > self.timeout
 
-    def apply(self, requests: List[TRequest], stop: bool):
-        """Applies timeout loop over requests"""
+    def apply(self, requests: List[TRequest], stop: bool) -> PolicyStatus:
+        """Applies timeout loop over requests
+
+        Args:
+            requests: list of requests to check for timeout
+            stop: whether to fail (STOPPED) if some request has reached the timeout
+
+        Returns:
+            CONTINUE if no node has reached the timeout, or if `stop` is False
+        """
 
         if self._nodes:
             requests = [req for req in requests if req.node.id in self._nodes]
@@ -79,22 +96,39 @@ class _ReplyTimeoutPolicy(RequestPolicy):
 
 
 class DiscardOnTimeout(_ReplyTimeoutPolicy):
-    """Discards request that does not answers in givin timeout"""
+    """Discards request that do not answer in given timeout"""
     def continue_(self, requests: TRequest) -> PolicyStatus:
+        """Discards requests that reach timeout, always continue
+
+        Returns:
+            CONTINUE
+        """
         return self.apply(requests, False)
 
 
 class StopOnTimeout(_ReplyTimeoutPolicy):
-    """Stops the request if nodes does not answers in givin timeout"""
+    """Stops the request if nodes do not answer in given timeout"""
     def continue_(self, requests) -> PolicyStatus:
+        """Continues federated request if nodes dont reach timeout
+
+        Returns:
+            CONTINUE if no node reached timeout, STOPPED if some node reached timeout
+                and timeout is reached
+        """
         return self.apply(requests, True)
 
 
 class StopOnDisconnect(_ReplyTimeoutPolicy):
-    """Stops collecting results if a node disconnects"""
+    """Stops collecting results if a node disconnects
+    """
 
     def continue_(self, requests: TRequest) -> PolicyStatus:
-        """Continues federated request if nodes are not disconnect"""
+        """Continues federated request if nodes are not disconnect
+
+        Returns:
+            CONTINUE if no node disconnect found, STOPPED if some node disconnect found
+                and timeout is reached
+        """
 
         if self._nodes:
             requests = [req for req in requests if req.node.id in self._nodes]
@@ -107,10 +141,15 @@ class StopOnDisconnect(_ReplyTimeoutPolicy):
 
 
 class StopOnError(RequestPolicy):
-    """Stops collecting results if a node returns an error"""
+    """Stops collecting results if a node returns an error
+    """
 
     def continue_(self, requests: TRequest) -> PolicyStatus:
-        """Continues federated request if nodes does not return error"""
+        """Continues federated request if nodes does not return error
+
+        Returns:
+            CONTINUE if no error found, STOPPED if some error found
+        """
 
         if self._nodes:
             requests = [req for req in requests if req.node.id in self._nodes]
@@ -134,13 +173,14 @@ class PolicyController:
         self.policies = policies
 
     def continue_all(self, requests: List[TRequest]) -> PolicyStatus:
-        """Checks if reply collection should continue according to each strategy
-
-        Returning anything different than StrategyStatus.CONTINUE stops the
-        federated request loop
+        """Checks if all policies indicate to continue.
 
         Args:
-            requests: List of [Request][fedbiomed.researcher.requests.Request] object
+            requests: List of [Request][fedbiomed.researcher.requests.Request] objects to
+                check against policies
+
+        Returns:
+            CONTINUE if all policies indicates to continue
         """
 
         if not requests:
@@ -153,8 +193,12 @@ class PolicyController:
 
         return PolicyStatus.CONTINUE if status else PolicyStatus.COMPLETED
 
-    def has_stopped_any(self):
-        """Returns true if request has stopped due to given strategy"""
+    def has_stopped_any(self) -> bool:
+        """Checks if any of the policies indicates to stop
+
+        Returns:
+            True if request has stopped due to given strategy
+        """
 
         is_stopped = any(
             [policy.status == PolicyStatus.STOPPED for policy in self.policies]
@@ -162,8 +206,12 @@ class PolicyController:
 
         return is_stopped
 
-    def report(self):
-        """Reports strategy stop status"""
+    def report(self) -> Dict[str, str]:
+        """Reports strategy stop status
+
+        Returns:
+            Dict of policies stopped, indexed by the node ID that caused the stop
+        """
         report = {}
         for st in self.policies:
             if st.status == PolicyStatus.STOPPED:
