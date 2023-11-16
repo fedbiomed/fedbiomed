@@ -310,7 +310,7 @@ class Requests(metaclass=SingletonMeta):
             'researcher_id': environ["ID"],
             'command': "ping"}
         )
-        with self.send(ping) as federated_req:
+        with self.send(ping, policies=[DiscardOnTimeout(5)]) as federated_req:
             nodes_online = [node_id for node_id, reply in federated_req.replies().items()]
 
         return nodes_online
