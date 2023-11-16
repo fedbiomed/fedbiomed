@@ -12,7 +12,8 @@ import time
 import random
 
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.requests import Requests, StopOnDisconnect, StopOnError
+from fedbiomed.researcher.requests import Requests, StopOnDisconnect, StopOnError, \
+    StopOnTimeout
 
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType
@@ -247,30 +248,24 @@ class SecaggContext(ABC):
     def _secagg_round(
             self,
             msg: Message,
-            command: str,
             can_set_status: bool,
             payload: Callable,
-            timeout: float = 0
     ) -> bool:
         """Negotiate secagg context element action with defined parties.
 
         Args:
             msg: message sent to the parties during the round
-            command: reply command expected from the parties
             can_set_status: `True` if this action can result in a valid secagg context
             payload: function that holds researcher side payload for this round. Needs to return
                 a tuple of `context` and `status` for this action
-            timeout: maximum time waiting for answers from other nodes, after completing the setup locally.
-                It does not include the time for the local setup payload.
-                Defaults to `environ['TIMEOUT']` if unset or equals 0.
 
         Returns:
             True if secagg context element action could be done for all parties, False if at least
                 one of the parties could not do the context element action.
 
         Raises:
-            FedbiomedSecaggError: some parties did not answer before timeout
-            FedbiomedSecaggError: received a reply for a non-party to the negotiation
+            FedbiomedSecaggError: some parties did not answer before timeout or answered error
+            FedbiomedSecaggError: local payload did not complete before timeout
         """
         # reset values in case `setup()` was already run (and fails during this new execution,
         # or this is a deletion)
@@ -281,7 +276,7 @@ class SecaggContext(ABC):
 
 
         # Federated request should stop if any error occurs
-        policies = [StopOnDisconnect(timeout=30), StopOnError()]
+        policies = [StopOnDisconnect(timeout=30), StopOnError(), StopOnTimeout(timeout=120)]
 
 
         executer = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -293,13 +288,17 @@ class SecaggContext(ABC):
             if fed_request.policy.has_stopped_any():
                 self._MPC.kill()
                 context_future.cancel()
-                raise FedbiomedSecaggError(f"Request is not successful. Policy "
+                raise FedbiomedSecaggError("Request is not successful. Policy "
                                            f"report => {fed_request.policy.report()}. Errors => {errors}")
 
             status = {rep.node_id: rep.success for rep in replies.values()}
 
-        context, status[self._researcher_id] = context_future.result()
-
+        try:
+            context, status[self._researcher_id] = context_future.result(timeout=120)
+        except TimeoutError:
+            self._MPC.kill()
+            context_future.cancel()
+            raise FedbiomedSecaggError("Request is not successful, timeout on researcher payload.")
 
         success = all(status.values())
         if can_set_status and success:
@@ -308,33 +307,13 @@ class SecaggContext(ABC):
 
         return success
 
-    def setup(
-            self,
-            timeout: float = 0
-    ) -> bool:
+    def setup(self) -> bool:
         """Setup secagg context element on defined parties.
-
-        Args:
-            timeout: maximum time waiting for answers from other nodes, after completing the setup locally.
-                It does not include the time for the local setup payload.
-                Defaults to `environ['TIMEOUT']` if unset or equals 0.
 
         Returns:
             True if secagg context element could be setup for all parties, False if at least
                 one of the parties could not setup context element.
-
-        Raises:
-            FedbiomedSecaggError: bad argument type
         """
-        if isinstance(timeout, int):
-            timeout = float(timeout)  # accept int (and bool...)
-        try:
-            self._v.validate(timeout, float)
-        except ValidatorError as e:
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `timeout`: {e}'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-
         msg = ResearcherMessages.format_outgoing_message({
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
@@ -344,34 +323,15 @@ class SecaggContext(ABC):
             'command': 'secagg',
         })
 
-        return self._secagg_round(msg, 'secagg', True, self._payload, timeout)
+        return self._secagg_round(msg, True, self._payload)
 
-    def delete(
-            self,
-            timeout: float = 0
-    ) -> bool:
+    def delete(self) -> bool:
         """Delete secagg context element on defined parties.
-
-        Args:
-            timeout: maximum duration for the deletion phase. Defaults to `environ['TIMEOUT']` if unset
-                or equals 0.
 
         Returns:
             True if secagg context element could be deleted for all parties, False if at least
                 one of the parties could not delete context element.
-
-        Raises:
-            FedbiomedSecaggError: bad argument type
         """
-        if isinstance(timeout, int):
-            timeout = float(timeout)  # accept int (and bool...)
-        try:
-            self._v.validate(timeout, float)
-        except ValidatorError as e:
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `timeout`: {e}'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-
         self._status = False
         self._context = None
         msg = ResearcherMessages.format_outgoing_message({
@@ -381,7 +341,7 @@ class SecaggContext(ABC):
             'job_id': self._job_id,
             'command': 'secagg-delete',
         })
-        return self._secagg_round(msg, 'secagg-delete', False, self._delete_payload, timeout)
+        return self._secagg_round(msg, False, self._delete_payload)
 
     def save_state_breakpoint(self) -> Dict[str, Any]:
         """Method for saving secagg state for saving breakpoints

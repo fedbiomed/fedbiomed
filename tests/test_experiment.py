@@ -1850,8 +1850,7 @@ class TestExperiment(ResearcherTestCase):
                 '_parties': ['node-1', 'node-2']
             },
             'arguments': {
-                'active': True,
-                'timeout': 10
+                'active': True
             }
         }
 
@@ -2078,8 +2077,7 @@ class TestExperiment(ResearcherTestCase):
                     '_parties': ['node-1', 'node-2']
                 },
                 'arguments': {
-                    'active': True,
-                    'timeout': 10
+                    'active': True
                 }
             }
 
