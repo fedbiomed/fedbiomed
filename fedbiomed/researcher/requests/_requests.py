@@ -350,11 +350,10 @@ class Requests(metaclass=SingletonMeta):
         Returns:
             A dict with node_id as keys, and list of dicts describing available data as values
         """
-
-        message = SearchRequest(
-            tags=tags,
-            researcher_id=environ['RESEARCHER_ID'],
-            command='search'
+        message = ResearcherMessages.format_outgoing_message(
+            {'researcher_id': environ['RESEARCHER_ID'],
+             'tags': tags,
+             'command': 'search'}
         )
 
         data_found = {}

@@ -113,7 +113,6 @@ class Node:
                 databases = self.dataset_manager.search_by_tags(msg['tags'])
                 if len(databases) != 0:
                     databases = self.dataset_manager.obfuscate_private_information(databases)
-                    # FIXME: what happens if len(database) == 0
                 self._grpc_client.send(NodeMessages.format_outgoing_message(
                     {'request_id': msg['request_id'],
                      'success': True,
@@ -350,7 +349,6 @@ class Node:
                             NodeMessages.format_outgoing_message(
                                 {
                                     'command': 'error',
-                                    'request_id': item.request_id,
                                     'extra_msg': 'Round error: ' + str(e),
                                     'node_id': environ['NODE_ID'],
                                     'researcher_id': item.get_param('researcher_id'),
