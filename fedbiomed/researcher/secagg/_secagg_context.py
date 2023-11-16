@@ -22,7 +22,7 @@ from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime, get_method_spec
-from fedbiomed.common.message import Message, SecaggRequest, SecaggDeleteRequest
+from fedbiomed.common.message import Message, ResearcherMessages
 
 _CManager = CertificateManager(
     db_path=environ["DB_PATH"]
@@ -335,7 +335,7 @@ class SecaggContext(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        msg = SecaggRequest(**{
+        msg = ResearcherMessages.format_outgoing_message({
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
             'element': self._element.value,
@@ -374,7 +374,7 @@ class SecaggContext(ABC):
 
         self._status = False
         self._context = None
-        msg = SecaggDeleteRequest(**{
+        msg = ResearcherMessages.format_outgoing_message({
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
             'element': self._element.value,
