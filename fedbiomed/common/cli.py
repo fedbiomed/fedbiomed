@@ -19,6 +19,8 @@ from fedbiomed.common.utils import get_existing_component_db_names, \
     get_method_spec, \
     ROOT_DIR
 from fedbiomed.common.secagg_manager import SecaggBiprimeManager
+from fedbioemd.common.config import ResearcherConfig, NodeConfig
+
 
 RED = '\033[1;31m'  # red
 YLW = '\033[1;33m'  # yellow
@@ -134,6 +136,35 @@ class CommonCLI:
             help="Creates configuration file for the specified component if it does not exist. "
                  "If the configuration file exists, leave it unchanged"
         )
+
+
+        # Add arguments
+        configuration.add_argument(
+            '-c',
+            '--component',
+            metavar='COMPONENT_TYPE[ NODE|RESEARCHER ]',
+            type=str,
+            nargs='?',
+            required=True,
+            help='Component type NODE or RESEARCHER')
+
+        configuration.add_argument(
+            '-n',
+            '--name',
+            metavar='CONFIGURATION_FILE_NAME',
+            type=str,
+            nargs='?',
+            required=True,
+            help='Certificate/key that will be registered')
+
+        configuration.add_argument(
+            '-f',
+            '--force',
+            metavar='FORCE',
+            type=str,
+            nargs='?',
+            required=False,
+            help='Force configuration create')
 
         create.set_defaults(func=self._create_component)
 
@@ -285,6 +316,13 @@ class CommonCLI:
             files.
         """
 
+        if args.component.lower() == "node":
+            config = NodeConfig()
+        elif args.component.lower() == "researcher":
+            config = ResearcherConfig()
+        else: 
+            logger.error(f"Undefined component type {args.component}")
+            
         # Update secure aggregation biprimes in component database
         print(
             "Updating secure aggregation default biprimes with:\n" 
