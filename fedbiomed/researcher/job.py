@@ -711,6 +711,11 @@ class localJob:
                 # if user wants to perform validation, display this message
                 logger.warning("Cannot perform validation, not supported for LocalJob")
 
+        if not isinstance(training_args, TrainingArgs):
+            self._training_args = TrainingArgs(training_args, only_required=False)
+        else:
+            self._training_args = training_args
+
         # create/save model instance
         self._training_plan = training_plan_class()
 
