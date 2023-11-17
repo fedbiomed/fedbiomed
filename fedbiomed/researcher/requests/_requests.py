@@ -17,7 +17,7 @@ from python_minifier import minify
 
 from fedbiomed.common.constants import MessageType
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ResearcherMessages, SearchRequest, ErrorMessage, Message
+from fedbiomed.common.message import ResearcherMessages, ErrorMessage, Message
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.utils import import_class_object_from_file
@@ -56,7 +56,7 @@ class Request:
             request_id: unique ID of request
             sem_pending: semaphore for signaling new pending reply
         """
-        self.request_id = request_id if request_id else 'node_' + str(uuid.uuid4())
+        self.request_id = request_id if request_id else 'request_' + str(uuid.uuid4())
         self.node = node
         self.message = message
 
@@ -136,7 +136,7 @@ class FederatedRequest:
         self.message = message
         self.nodes = nodes
         self.requests = []
-        self.request_id = str(uuid.uuid4())
+        self.request_id = 'request_' + str(uuid.uuid4())
         self.nodes_status = {}
 
         self._pending_replies = threading.Semaphore(value=0)
@@ -473,12 +473,13 @@ class Requests(metaclass=SingletonMeta):
         with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
+            results = {req.node.id: False for req in federated_req.requests}
 
             # TODO: Loop over errors and replies
             for node_id, error in errors.items():
                 logger.info(f"Node ({node_id}) has returned error {error.errnum}, {error.extra_msg}")
 
-        return replies
+        return results | {id: rep.success for id, rep in replies.items()}
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
         """ Adds callback function for monitor messages
