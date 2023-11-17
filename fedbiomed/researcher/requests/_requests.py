@@ -56,7 +56,7 @@ class Request:
             request_id: unique ID of request
             sem_pending: semaphore for signaling new pending reply
         """
-        self.request_id = request_id if request_id else str(uuid.uuid4())
+        self.request_id = request_id if request_id else 'node_' + str(uuid.uuid4())
         self.node = node
         self.message = message
 
@@ -433,7 +433,7 @@ class Requests(metaclass=SingletonMeta):
         """
 
         training_plan_instance = training_plan()
-        training_plan_module = 'my_model_' + str(uuid.uuid4())
+        training_plan_module = 'model_' + str(uuid.uuid4())
         with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmp_dir:
             training_plan_file = os.path.join(tmp_dir, training_plan_module + '.py')
             try:

@@ -117,7 +117,7 @@ class Job:
         # save and load training plan to a file to be sure
         # 1. a file is associated to training plan so we can read its source, etc.
         # 2. all dependencies are applied
-        training_plan_module = 'my_model_' + str(uuid.uuid4())
+        training_plan_module = 'model_' + str(uuid.uuid4())
         self._training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
         try:
             self._training_plan.save_code(self._training_plan_file)
