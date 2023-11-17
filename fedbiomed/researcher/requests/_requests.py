@@ -340,11 +340,11 @@ class Requests(metaclass=SingletonMeta):
 
         return FederatedRequest(message, nodes, policies)
 
-    def search(self, tags: tuple, nodes: Optional[list] = None) -> dict:
+    def search(self, tags: List[str], nodes: Optional[list] = None) -> dict:
         """Searches available data by tags
 
         Args:
-            tags: Tuple containing tags associated to the data researcher is looking for.
+            tags: List containing tags associated to the data researcher is looking for.
             nodes: optionally filter nodes with this list. Default is None, no filtering, consider all nodes
 
         Returns:
