@@ -170,7 +170,7 @@ class PolicyController:
 
         policies = policies or []
         policies.insert(0, RequestPolicy())
-        self.policies = policies
+        self._policies = policies
 
     def continue_all(self, requests: List[TRequest]) -> PolicyStatus:
         """Checks if all policies indicate to continue.
@@ -188,7 +188,7 @@ class PolicyController:
 
         status = all(
             [policy.continue_(requests=requests) == PolicyStatus.CONTINUE
-                for policy in self.policies]
+                for policy in self._policies]
         )
 
         return PolicyStatus.CONTINUE if status else PolicyStatus.COMPLETED
@@ -201,7 +201,7 @@ class PolicyController:
         """
 
         is_stopped = any(
-            [policy.status == PolicyStatus.STOPPED for policy in self.policies]
+            [policy.status == PolicyStatus.STOPPED for policy in self._policies]
         )
 
         return is_stopped
@@ -213,7 +213,7 @@ class PolicyController:
             Dict of policies stopped, indexed by the node ID that caused the stop
         """
         report = {}
-        for st in self.policies:
+        for st in self._policies:
             if st.status == PolicyStatus.STOPPED:
                 report.update({st.stop_caused_by.node.id : st.__class__.__name__})
 

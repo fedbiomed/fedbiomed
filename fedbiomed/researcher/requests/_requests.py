@@ -56,15 +56,20 @@ class Request:
             request_id: unique ID of request
             sem_pending: semaphore for signaling new pending reply
         """
-        self.request_id = request_id if request_id else str(uuid.uuid4())
-        self.node = node
-        self.message = message
+        self._request_id = request_id if request_id else str(uuid.uuid4())
+        self._node = node
+        self._message = message
 
         self._sem_pending = sem_pending
 
         self.reply = None
         self.error = None
         self.status = None
+
+    @property
+    def node(self) -> NodeAgent:
+        """Returns node agent"""
+        return self._node
 
     def has_finished(self) -> bool:
         """Queries if the request has finished.
@@ -75,7 +80,7 @@ class Request:
             True if a reply was received from node
         """
 
-        if self.node.status == NodeActiveStatus.DISCONNECTED:
+        if self._node.status == NodeActiveStatus.DISCONNECTED:
             self.status = RequestStatus.DISCONNECT
             return True  # Don't expect any reply
 
@@ -83,8 +88,8 @@ class Request:
 
     def send(self) -> None:
         """Sends the request"""
-        self.message.request_id = self.request_id
-        self.node.send(self.message, self.on_reply)
+        self._message.request_id = self._request_id
+        self._node.send(self._message, self.on_reply)
         self.status = RequestStatus.NO_REPLY_YET
 
     def flush(self, stopped: bool) -> None:
@@ -93,7 +98,7 @@ class Request:
         Args:
             stopped: True if the request was stopped before completion
         """
-        self.node.flush(self.request_id, stopped)
+        self._node.flush(self._request_id, stopped)
 
     def on_reply(self, reply: dict) -> None:
         """Callback for node agent to execute once it replies.
@@ -133,33 +138,43 @@ class FederatedRequest:
             policy: list of policies for controlling the handling of the request
         """
 
-        self.message = message
-        self.nodes = nodes
-        self.requests = []
-        self.request_id = str(uuid.uuid4())
-        self.nodes_status = {}
+        self._message = message
+        self._nodes = nodes
+        self._requests = []
+        self._request_id = str(uuid.uuid4())
+        self._nodes_status = {}
 
         self._pending_replies = threading.Semaphore(value=0)
 
         # Set-up policies
-        self.policy = PolicyController(policy)
+        self._policy = PolicyController(policy)
 
         # Set up single requests
-        if isinstance(self.message, Message):
-            for node in self.nodes:
-                self.requests.append(
-                    Request(self.message, node, self.request_id, self._pending_replies)
+        if isinstance(self._message, Message):
+            for node in self._nodes:
+                self._requests.append(
+                    Request(self._message, node, self._request_id, self._pending_replies)
                 )
 
         # Different message for each node
-        elif isinstance(self.message, MessagesByNode):
-            for node in self.nodes:
-                if m := self.message.get(node.id):
-                    self.requests.append(
-                        Request(m, node, self.request_id, self._pending_replies)
+        elif isinstance(self._message, MessagesByNode):
+            for node in self._nodes:
+                if m := self._message.get(node.id):
+                    self._requests.append(
+                        Request(m, node, self._request_id, self._pending_replies)
                     )
                 else:
                     logger.warning(f"Node {node.id} is unknown. Send message to others, ignore this one.")
+
+    @property
+    def policy(self) -> PolicyController:
+        """Returns policy controller"""
+        return self._policy
+
+    @property
+    def requests(self) -> List[Request]:
+        """Returns requests"""
+        return self._requests
 
     def __enter__(self):
         """Context manager entry method
@@ -186,8 +201,8 @@ class FederatedRequest:
         """
 
         # Clear the replies that are processed
-        has_stopped = self.policy.has_stopped_any()
-        for req in self.requests:
+        has_stopped = self._policy.has_stopped_any()
+        for req in self._requests:
             req.flush(stopped=has_stopped)
 
     def replies(self) -> Dict[str, Message]:
@@ -197,7 +212,7 @@ class FederatedRequest:
             A dict of replies `Message` received for this request, indexed by node ID 
         """
 
-        return {req.node.id: req.reply for req in self.requests if req.reply}
+        return {req.node.id: req.reply for req in self._requests if req.reply}
 
     def errors(self) -> Dict[str, ErrorMessage]:
         """Returns errors of each request
@@ -206,7 +221,7 @@ class FederatedRequest:
             A dict of error `Message` received for this request, indexed by node ID         
         """
 
-        return {req.node.id: req.error for req in self.requests if req.error}
+        return {req.node.id: req.error for req in self._requests if req.error}
 
     def disconnected_requests(self) -> List[Message]:
         """Returns the requests to disconnected nodes
@@ -214,17 +229,17 @@ class FederatedRequest:
         Returns:
             A list of request `Message` sent to disconnected nodes
         """
-        return [req for req in self.requests if req.status == RequestStatus.DISCONNECT]
+        return [req for req in self._requests if req.status == RequestStatus.DISCONNECT]
 
     def send(self) -> None:
         """Sends federated request"""
-        for req in self.requests:
+        for req in self._requests:
             req.send()
 
     def wait(self) -> None:
         """Waits for the replies of the messages that are sent"""
 
-        while self.policy.continue_all(self.requests) == PolicyStatus.CONTINUE:
+        while self._policy.continue_all(self._requests) == PolicyStatus.CONTINUE:
             self._pending_replies.acquire(timeout=REQUEST_STATUS_CHECK_TIMEOUT)
 
 
