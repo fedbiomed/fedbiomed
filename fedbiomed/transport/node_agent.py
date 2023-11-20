@@ -114,6 +114,10 @@ class NodeAgentAsync:
 
         message = ResearcherMessages.format_incoming_message(message)
 
+        if not message.request_id:
+            logger.error(f"Server received a reply from the client {self._id} that does " 
+                         "not contains request id.")
+
         async with self._replies_lock:
             if message.request_id in self._replies:
                 if self._replies[message.request_id]['reply'] is None:
@@ -123,7 +127,7 @@ class NodeAgentAsync:
                     # Handle case of multiple replies
                     # Avoid conflict with consumption of reply.
                     logger.warning(f"Received multiple replies for request {message.request_id}. "
-                                   "Keep first reply, ignore subsquent replies")
+                                   "Keep first reply, ignore subsequent replies")
             else:
                 async with self._stopped_request_ids_lock:
                     if message.request_id in self._stopped_request_ids:
