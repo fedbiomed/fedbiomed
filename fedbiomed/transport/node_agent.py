@@ -91,13 +91,12 @@ class NodeAgentAsync:
             request_id: request ID for which the replies should be flushed
             stopped: the request was stopped during processing
         """
-
         async with self._replies_lock:
-            self._replies.pop(request_id, None)
+            if stopped and self._replies[request_id]['reply'] is None:
+                async with self._stopped_request_ids_lock:
+                    self._stopped_request_ids.append(request_id)
 
-        if stopped:
-            async with self._stopped_request_ids_lock:
-                self._stopped_request_ids.append(request_id)
+            self._replies.pop(request_id, None)
 
     def get_task(self) -> asyncio.coroutine:
         """Get tasks assigned by the main thread
