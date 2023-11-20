@@ -63,6 +63,8 @@ class MPCController:
                     f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC config data : {e}"
                 )
 
+        self._process = None
+
     @property
     def mpc_data_dir(self) -> str:
         """Getter for MPC config data directory

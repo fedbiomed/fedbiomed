@@ -1389,7 +1389,7 @@ class Experiment:
     def set_secagg(self, secagg: Union[bool, SecureAggregation]):
 
         if isinstance(secagg, bool):
-            self._secagg = SecureAggregation(active=secagg, timeout=10)
+            self._secagg = SecureAggregation(active=secagg)
         elif isinstance(secagg, SecureAggregation):
             self._secagg = secagg
         else:
@@ -2271,7 +2271,6 @@ class Experiment:
             training_plan: the training plan class to send to the nodes for approval.
             nodes: list of nodes (specified by their UUID)
             description: Description for training plan approve request
-            timeout: maximum waiting time for the answers
 
         Returns:
             a dictionary of pairs (node_id: status), where status indicates to the researcher

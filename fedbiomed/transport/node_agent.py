@@ -91,13 +91,12 @@ class NodeAgentAsync:
             request_id: request ID for which the replies should be flushed
             stopped: the request was stopped during processing
         """
-
         async with self._replies_lock:
-            self._replies.pop(request_id, None)
+            if stopped and self._replies[request_id]['reply'] is None:
+                async with self._stopped_request_ids_lock:
+                    self._stopped_request_ids.append(request_id)
 
-        if stopped:
-            async with self._stopped_request_ids_lock:
-                self._stopped_request_ids.append(request_id)
+            self._replies.pop(request_id, None)
 
     def get_task(self) -> asyncio.coroutine:
         """Get tasks assigned by the main thread
@@ -128,12 +127,11 @@ class NodeAgentAsync:
             else:
                 async with self._stopped_request_ids_lock:
                     if message.request_id in self._stopped_request_ids:
-                        logger.warning("A reply received from an federated request has been "
-                                       f"stopped: {message.request_id}. This reply has been received form "
-                                       "the node that didn't not cause stopping")
+                        logger.warning("Received a reply from a federated request that has been "
+                                       f"stopped: {message.request_id}.")
                         self._stopped_request_ids.remove(message.request_id)
                     else:
-                        logger.warning(f"A reply received from an unexpected request: {message.request_id}")
+                        logger.warning(f"Received a reply from an unexpected request: {message.request_id}")
 
 
     async def send_async(self, message: Message, on_reply: Optional[Callable] = None) -> None:
@@ -157,9 +155,10 @@ class NodeAgentAsync:
 
         # Updates replies
         async with self._replies_lock:
-            self._replies.update({
-                message.request_id: {'callback': on_reply, 'reply': None}
-            })
+            if message.request_id:
+                self._replies.update({
+                    message.request_id: {'callback': on_reply, 'reply': None}
+                })
 
         await self._queue.put(message)
 

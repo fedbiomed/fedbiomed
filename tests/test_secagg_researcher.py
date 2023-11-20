@@ -148,12 +148,12 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
 
         with patch("fedbiomed.researcher.secagg.SecaggContext._payload") as mock_payload:
             mock_payload.return_value = ("KEY", True)
-            result = self.secagg_context.setup(timeout=1)
+            result = self.secagg_context.setup()
             self.assertTrue(result)
 
             with self.assertRaises(FedbiomedSecaggError):
                 self.mock_policy.has_stopped_any.return_value = True
-                self.secagg_context.setup(timeout=1)
+                self.secagg_context.setup()
 
     def test_secagg_06_breakpoint(
             self):
@@ -316,20 +316,17 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
         self.mock_federated_request.replies.return_value = replies
         self.srvkey_context._element = SecaggElementTypes.SERVER_KEY
 
-        result = self.srvkey_context.delete(timeout=1)
+        result = self.srvkey_context.delete()
         self.assertTrue(result)
 
         with patch("fedbiomed.researcher.secagg.SecaggContext._delete_payload") as mock_payload:
             mock_payload.return_value = ("KEY", True)
-            result = self.srvkey_context.delete(timeout=1)
+            result = self.srvkey_context.delete()
             self.assertTrue(result)
 
             mock_payload.return_value = ("KEY", False)
-            result = self.srvkey_context.delete(timeout=1)
+            result = self.srvkey_context.delete()
             self.assertFalse(result)
-
-        with self.assertRaises(FedbiomedSecaggError):
-            self.srvkey_context.delete(timeout="oops")
 
     def test_servkey_context_05_delete_payload_fail(self):
         """Test when removing from the database fails"""
@@ -423,20 +420,17 @@ class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
         self.mock_federated_request.replies.return_value = replies
         self.biprime_context._element = SecaggElementTypes.SERVER_KEY
 
-        result = self.biprime_context.delete(timeout=1)
+        result = self.biprime_context.delete()
         self.assertTrue(result)
 
         with patch("fedbiomed.researcher.secagg.SecaggContext._delete_payload") as mock_payload:
             mock_payload.return_value = ("KEY", True)
-            result = self.biprime_context.delete(timeout=1)
+            result = self.biprime_context.delete()
             self.assertTrue(result)
 
             mock_payload.return_value = ("KEY", False)
-            result = self.biprime_context.delete(timeout=1)
+            result = self.biprime_context.delete()
             self.assertFalse(result)
-
-        with self.assertRaises(FedbiomedSecaggError):
-            self.biprime_context.delete(timeout="oops")
 
     def test_biprime_context_05_delete_payload_fail(self):
         """Test when removing from the database fails"""

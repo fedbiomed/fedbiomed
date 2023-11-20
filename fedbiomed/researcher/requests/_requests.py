@@ -17,7 +17,7 @@ from python_minifier import minify
 
 from fedbiomed.common.constants import MessageType
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ResearcherMessages, SearchRequest, ErrorMessage, Message
+from fedbiomed.common.message import ResearcherMessages, ErrorMessage, Message
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.utils import import_class_object_from_file
@@ -355,21 +355,20 @@ class Requests(metaclass=SingletonMeta):
 
         return FederatedRequest(message, nodes, policies)
 
-    def search(self, tags: tuple, nodes: Optional[list] = None) -> dict:
+    def search(self, tags: List[str], nodes: Optional[list] = None) -> dict:
         """Searches available data by tags
 
         Args:
-            tags: Tuple containing tags associated to the data researcher is looking for.
+            tags: List containing tags associated to the data researcher is looking for.
             nodes: optionally filter nodes with this list. Default is None, no filtering, consider all nodes
 
         Returns:
             A dict with node_id as keys, and list of dicts describing available data as values
         """
-
-        message = SearchRequest(
-            tags=tags,
-            researcher_id=environ['RESEARCHER_ID'],
-            command='search'
+        message = ResearcherMessages.format_outgoing_message(
+            {'researcher_id': environ['RESEARCHER_ID'],
+             'tags': tags,
+             'command': 'search'}
         )
 
         data_found = {}
@@ -449,7 +448,7 @@ class Requests(metaclass=SingletonMeta):
         """
 
         training_plan_instance = training_plan()
-        training_plan_module = 'my_model_' + str(uuid.uuid4())
+        training_plan_module = 'model_' + str(uuid.uuid4())
         with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmp_dir:
             training_plan_file = os.path.join(tmp_dir, training_plan_module + '.py')
             try:
@@ -489,12 +488,13 @@ class Requests(metaclass=SingletonMeta):
         with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
+            results = {req.node.id: False for req in federated_req.requests}
 
             # TODO: Loop over errors and replies
             for node_id, error in errors.items():
                 logger.info(f"Node ({node_id}) has returned error {error.errnum}, {error.extra_msg}")
 
-        return replies
+        return results | {id: rep.success for id, rep in replies.items()}
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
         """ Adds callback function for monitor messages
