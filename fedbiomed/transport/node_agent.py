@@ -155,9 +155,10 @@ class NodeAgentAsync:
 
         # Updates replies
         async with self._replies_lock:
-            self._replies.update({
-                message.request_id: {'callback': on_reply, 'reply': None}
-            })
+            if message.request_id:
+                self._replies.update({
+                    message.request_id: {'callback': on_reply, 'reply': None}
+                })
 
         await self._queue.put(message)
 
