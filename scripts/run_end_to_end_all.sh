@@ -21,6 +21,14 @@ ln -s ~/Data/fedbiomed ./data
 
 #list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
 
+list_notebooks=( notebooks/{\
+101_getting-started,\
+general-breakpoint-save-resume,\
+general-list-datasets-select-node,\
+general-tensorboard,\
+general-training-plan-approval,\
+general-use-gpu,\
+}.ipynb)
 #list_notebooks=( notebooks/{\
 #101_getting-started,\
 #general-breakpoint-save-resume,\
@@ -36,13 +44,8 @@ ln -s ~/Data/fedbiomed ./data
 #pytorch-variational-autoencoder\
 #}.ipynb)
 
-list_notebooks=( notebooks/pytorch-celeba-dataset.ipynb )
-
 #declearn-with-pytorch,\
 #declearn-with-sklearn,\
-#list_notebooks=( notebooks/declearn-with-sklearn.ipynb notebooks/declearn-with-pytorch.ipynb )
-#list_notebooks=( notebooks/declearn-with-pytorch.ipynb )
-#list_notebooks=( notebooks/declearn-with-sklearn.ipynb )
 
 test_counter=1
 for notebook in "${list_notebooks[@]}"; do
