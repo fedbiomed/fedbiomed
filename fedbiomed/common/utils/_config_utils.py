@@ -30,8 +30,6 @@ CACHE_DIR = os.path.join(VAR_DIR, CACHE_FOLDER_NAME)
 TMP_DIR = os.path.join(VAR_DIR, TMP_FOLDER_NAME)
 
 
-
-
 def get_component_config(
         config_path: str
 ) -> configparser.ConfigParser:

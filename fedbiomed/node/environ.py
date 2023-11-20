@@ -27,7 +27,7 @@ from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX, NODE_PREFIX
 from fedbiomed.common.environ import Environ
 from fedbiomed.transport.client import ResearcherCredentials
-from fedbiomed.node.config import NodeConfig
+from fedbiomed.common.config import NodeConfig
 
 
 class NodeEnviron(Environ):
@@ -40,14 +40,14 @@ class NodeEnviron(Environ):
 
         logger.setLevel("INFO")
         self._values["COMPONENT_TYPE"] = ComponentType.NODE
-        self.set()
+        self.set_environment()
 
 
-    def set(self):
+    def set_environment(self):
         """Initializes environment variables """
 
         # Sets common variable
-        super().set()
+        super().set_environment()
 
         node_id = self.config.get('default', 'id')
         self._values['NODE_ID'] = os.getenv('NODE_ID', node_id)
@@ -55,8 +55,6 @@ class NodeEnviron(Environ):
 
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(self._values['VAR_DIR'],
                                                           f'queue_manager_{self._values["NODE_ID"]}')
-        self._values['DB_PATH'] = os.path.join(self._values['VAR_DIR'],
-                                               f'{DB_PREFIX}{self._values["NODE_ID"]}.json')
 
         self._values['DEFAULT_TRAINING_PLANS_DIR'] = os.path.join(self._values['ROOT_DIR'],
                                                                   'envs', 'common', 'default_training_plans')

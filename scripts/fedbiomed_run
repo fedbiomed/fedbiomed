@@ -190,13 +190,10 @@ function forward_command_to_python_cli(){
 
     COMPONENT=$1
     EXTRA_PARAMS=$2
-    IP_ADDRESS=$3
 
     if [ -z "$EXTRA_PARAMS" ]; then
       error "Please provide a command. See fedbiomed_run $COMPONENT -h"
     fi
-
-    source "$basedir"/scripts/fedbiomed_environment "$COMPONENT" "$IP_ADDRESS"
 
     # dont write error message in this case, cli already does it
     python -m fedbiomed."$COMPONENT".cli $EXTRA_PARAMS
@@ -271,11 +268,12 @@ case $1 in
             export PARAMS=
         fi
 
-        # TODO : better test with python module loading attempt and try/except
-#        source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
+
+         # Activate node envirenment
+        source "$basedir"/scripts/fedbiomed_environment node "$IP_ADDRESS"
 
         # silently initialize environment before any command
-        if ! forward_command_to_python_cli node "configuration create" "$IP_ADDRESS" >/dev/null; then
+        if ! python -m fedbiomed.common.cli configuration create --component node --name $CONFIG_FILE -uc  >/dev/null; then
             echo -e "${RED}ERROR:${NC}"
             echo -e "${BOLD}Error while generating the configuration (config) file. Please check the error message above."
             exit 1
@@ -348,7 +346,7 @@ case $1 in
                     ;;
 
                 *)
-                  forward_command_to_python_cli "node" "$EXTRA_PARAMS" "$IP_ADDRESS"
+                  forward_command_to_python_cli "node" "$EXTRA_PARAMS"
 
                 ;;
             esac
@@ -387,9 +385,11 @@ case $1 in
 
         # Execution -------------------------------------------------------------------------------------------------
         # Activate conda environment
+         # Activate node envirenment
+        source "$basedir"/scripts/fedbiomed_environment researcher "$IP_ADDRESS"
+
         case $2 in
             start)
-                source "$basedir"/scripts/fedbiomed_environment researcher $IP_ADDRESS
                 cd notebooks
                 # Windows WSL and others cannot handle using redirect file for securing notebook launch
                 # https://jupyter-notebook.readthedocs.io/en/stable/config.html (section NotebookApp.use_redirect_file)
@@ -400,7 +400,7 @@ case $1 in
                     NB_OPTS='--NotebookApp.use_redirect_file=false'
                 fi
 
-                if ! forward_command_to_python_cli researcher "configuration create" "$IP_ADDRESS"; then
+                if ! python -m fedbiomed.common.cli configuration create --component researcher -uc; then
                     echo -e "${RED}ERROR:${NC}"
                     echo -e "${BOLD}Error related to configuration (config) file. Please check you have valid config file for researcher"
                     exit 1
@@ -413,7 +413,7 @@ case $1 in
                 usage researcher
             ;;
             *)
-              forward_command_to_python_cli "researcher" "$EXTRA_PARAMS" "$IP_ADDRESS"
+              forward_command_to_python_cli "researcher" "$EXTRA_PARAMS"
             ;;
         esac
         ;;

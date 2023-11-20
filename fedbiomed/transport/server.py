@@ -24,6 +24,23 @@ from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + 1
 MAX_GRPC_SERVER_SETUP_TIMEOUT = 20
 
+
+class SSLCredentials:
+    """Contains credentials for SSL certifcate of the gRPC server"""
+    def __init__(self, key: str, cert: str):
+        """Reads private key and cert file
+
+        Args:
+            key: path to private key
+            cert: path to certificate
+        """
+        with open(key, 'rb') as f:
+            self.private_key = f.read()
+        with open(cert, 'rb') as f:
+            self.certificate = f.read()
+
+
+
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     """RPC Servicer """
 
@@ -138,6 +155,7 @@ class _GrpcAsyncServer:
             host: str,
             port: str,
             on_message: Callable,
+            ssl: SSLCredentials,
             debug: bool = False,
     ) -> None:
         """Class constructor
@@ -153,7 +171,7 @@ class _GrpcAsyncServer:
  
         # inform all threads whether server is started
         self._is_started = threading.Event()
-
+        self._ssl = ssl
         self._host = host
         self._port = port
 
@@ -184,7 +202,11 @@ class _GrpcAsyncServer:
             server=self._server
         )
 
-        self._server.add_insecure_port(self._host + ':' + str(self._port))
+        server_credentials = grpc.ssl_server_credentials(
+            ( (self._ssl.private_key, self._ssl.certificate), )
+        )
+
+        self._server.add_secure_port(self._host + ':' + str(self._port), server_credentials)
 
         # Starts async gRPC server
         await self._server.start()
@@ -276,11 +298,11 @@ class GrpcServer(_GrpcAsyncServer):
 
         sleep_ = 0
         while len(self.get_all_nodes()) == 0:
-            
+
             if sleep_ == 0:
                 logger.info(f"No nodes found, server will wait {MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} " 
                             "more seconds until a node creates connection.")
-            
+
             if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:
                 if len(self.get_all_nodes()) == 0:
                     logger.warning("Server has not received connection from any remote nodes in " 
@@ -292,7 +314,7 @@ class GrpcServer(_GrpcAsyncServer):
 
             time.sleep(1)
             sleep_ += 1
-        
+
 
     def send(self, message: Message, node_id: str) -> None:
         """Send message to a specific node.

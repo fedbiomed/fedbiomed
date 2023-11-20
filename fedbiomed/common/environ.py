@@ -50,15 +50,15 @@ from abc import abstractmethod
 from typing import Any, Tuple, Union, List
 
 from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, MPSPDZ_certificate_prefix, \
-    CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME
+    CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME, ETC_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
 from fedbiomed.common.utils import (
     ROOT_DIR, 
     CONFIG_DIR, 
     VAR_DIR, 
     CACHE_DIR, 
-    TMP_DIR, 
-    __default_version__, 
+    TMP_DIR,
+    __default_version__,
     raise_for_version_compatibility, 
     FBM_Component_Version)
 
@@ -123,7 +123,7 @@ class Environ(metaclass=SingletonABCMeta):
         self._values[key] = value
         return value
 
-    def set(self):
+    def set_environment(self):
         """Common configuration values for researcher and node
 
         Raises:
@@ -149,6 +149,11 @@ class Environ(metaclass=SingletonABCMeta):
             self._values['VAR_DIR'] = os.path.join(root_dir, VAR_FOLDER_NAME)
             self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], CACHE_FOLDER_NAME)
             self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], TMP_FOLDER_NAME)
+
+
+        self._values['DB_PATH'] = os.path.normpath(
+            os.path.join(self._values["ROOT_DIR"], ETC_FOLDER_NAME, self.config.get('default', 'db')
+        ))
 
         # initialize other directories
         self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, CONFIG_FOLDER_NAME, "port_increment")

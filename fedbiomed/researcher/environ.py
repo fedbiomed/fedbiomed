@@ -26,7 +26,7 @@ from fedbiomed.common.constants import ComponentType, ErrorNumbers, DB_PREFIX, \
     TENSORBOARD_FOLDER_NAME
 from fedbiomed.common.constants import __researcher_config_version__ as __config_version__
 from fedbiomed.common.environ import Environ
-from fedbiomed.researcher.config import ResearcherConfig
+from fedbiomed.common.config import ResearcherConfig
 
 
 class ResearcherEnviron(Environ):
@@ -41,11 +41,11 @@ class ResearcherEnviron(Environ):
         # Set component type
         self._values["COMPONENT_TYPE"] = ComponentType.RESEARCHER
         # Setup environment variables
-        self.set()
+        self.set_environment()
 
-    def set(self):
+    def set_environment(self):
 
-        super().set()
+        super().set_environment()
 
         # we may remove RESEARCHER_ID in the future (to simplify the code)
         # and use ID instead
@@ -58,13 +58,15 @@ class ResearcherEnviron(Environ):
         self._values['TENSORBOARD_RESULTS_DIR'] = os.path.join(self._values['ROOT_DIR'], TENSORBOARD_FOLDER_NAME)
         self._values['EXPERIMENTS_DIR'] = os.path.join(self._values['VAR_DIR'], "experiments")
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(self._values['VAR_DIR'], 'queue_messages')
-        self._values['DB_PATH'] = os.path.join(self._values['VAR_DIR'],
-                                               f'{DB_PREFIX}{self._values["RESEARCHER_ID"]}.json')
 
         self._values["SERVER_HOST"] = os.getenv('RESEARCHER_SERVER_HOST', 
                                                 self.config.get('server', 'host'))
         self._values["SERVER_PORT"] = os.getenv('RESEARCHER_SERVER_PORT', 
                                                 self.config.get('server', 'port'))
+
+
+        self._values["SERVER_SSL_KEY"] = os.path.join(self._values["CONFIG_DIR"], self.config.get('server', 'key'))
+        self._values["SERVER_SSL_CERT"] = os.path.join(self._values["CONFIG_DIR"], self.config.get('server', 'pem'))
 
         for _key in 'TENSORBOARD_RESULTS_DIR', 'EXPERIMENTS_DIR':
             dir = self._values[_key]

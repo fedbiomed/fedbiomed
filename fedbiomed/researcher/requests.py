@@ -24,7 +24,7 @@ from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.utils import import_class_object_from_file
 
-from fedbiomed.transport.server import GrpcServer
+from fedbiomed.transport.server import GrpcServer, SSLCredentials
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.responses import Responses
@@ -57,7 +57,10 @@ class Requests(metaclass=SingletonMeta):
         self._grpc_server = GrpcServer(
             host=environ["SERVER_HOST"],
             port=environ["SERVER_PORT"],
-            on_message=self.on_message
+            on_message=self.on_message,
+            ssl=SSLCredentials(
+                key=environ['SERVER_SSL_KEY'],
+                cert=environ['SERVER_SSL_CERT'])
         )
         self.start_messaging()
 

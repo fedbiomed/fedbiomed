@@ -63,10 +63,7 @@ def create_channel(
     if certificate is None:
         channel = grpc.aio.insecure_channel(f"{host}:{port}", options=channel_options)
     else:
-        # TODO: Create secure channel
-        pass
-
-    # TODO: add callback for connection state
+        channel = grpc.aio.secure_channel(f"{host}:{port}", certificate, options=channel_options)
 
     return channel
 
@@ -88,10 +85,18 @@ class GrpcClient:
         self._port = researcher.port
         self._host = researcher.host
 
-        feedback_channel = create_channel(port=researcher.port, host=researcher.host, certificate=None)
+        feedback_channel = create_channel(
+            port=researcher.port,
+            host=researcher.host,
+            certificate=grpc.ssl_channel_credentials()
+        )
         feedback_stub = ResearcherServiceStub(channel=feedback_channel)
 
-        task_channel = create_channel(port=researcher.port, host=researcher.host, certificate=None)
+        task_channel = create_channel(
+            port=researcher.port,
+            host=researcher.host,
+            certificate= None # grpc.ssl_channel_credentials()
+        )
         task_stub = ResearcherServiceStub(channel=task_channel)
 
         self._task_listener = TaskListener(
