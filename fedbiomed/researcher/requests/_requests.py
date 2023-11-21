@@ -45,8 +45,8 @@ class Request:
         self,
         message: Message,
         node: NodeAgent,
+        sem_pending: threading.Semaphore,
         request_id: Optional[str] = None,
-        sem_pending: threading.Semaphore = None
     ) -> None:
         """Single request for node
 
@@ -100,7 +100,7 @@ class Request:
         """
         self._node.flush(self._request_id, stopped)
 
-    def on_reply(self, reply: dict) -> None:
+    def on_reply(self, reply: Message) -> None:
         """Callback for node agent to execute once it replies.
 
         Args:

@@ -87,7 +87,8 @@ class _ReplyTimeoutPolicy(RequestPolicy):
             requests = [req for req in requests if req.node.id in self._nodes]
 
         for req in requests:
-            if not req.has_finished() and self.is_timeout():
+            is_timeout = self.is_timeout()
+            if not req.has_finished() and is_timeout:
                 req.status = RequestStatus.TIMEOUT
                 if stop:
                     return self.stop(req)
@@ -134,7 +135,8 @@ class StopOnDisconnect(_ReplyTimeoutPolicy):
             requests = [req for req in requests if req.node.id in self._nodes]
 
         for req in requests:
-            if req.status == RequestStatus.DISCONNECT and self.is_timeout():
+            is_timeout = self.is_timeout()
+            if req.status == RequestStatus.DISCONNECT and is_timeout:
                 return self.stop(req)
 
         return PolicyStatus.CONTINUE

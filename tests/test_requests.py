@@ -3,10 +3,11 @@ import os.path
 import string
 import random
 import unittest
+import time
 
 from typing import Any, Dict
-from unittest.mock import patch, MagicMock, ANY
-
+from unittest.mock import patch,PropertyMock, MagicMock, ANY
+from threading import Semaphore
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_case import ResearcherTestCase
@@ -19,8 +20,22 @@ from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.constants import MessageType
 from fedbiomed.common.message import Log, Scalar, SearchReply, SearchRequest, ErrorMessage, ApprovalReply
 
-from fedbiomed.researcher.requests import Requests, FederatedRequest
+from fedbiomed.researcher.requests import (
+    Requests,
+    FederatedRequest,
+    Request,
+    RequestStatus,
+    RequestPolicy,
+    PolicyStatus,
+    PolicyController,
+    DiscardOnTimeout,
+    StopOnTimeout,
+    StopOnDisconnect,
+    StopOnError,
+    MessagesByNode)
 from fedbiomed.researcher.monitor import Monitor
+
+from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 from testsupport.fake_training_plan import FakeTorchTrainingPlan2
 
@@ -395,6 +410,277 @@ class TestRequests(ResearcherTestCase):
         self.assertTrue(len(keys), 1)
         self.assertTrue(result[keys[0]])
 
+
+class TestRequest(unittest.TestCase):
+
+    def setUp(self):
+        self.message = MagicMock(spec=SearchRequest)
+        self.node = MagicMock(spec=NodeAgent)
+        self.sem_pending = MagicMock(spec=Semaphore)
+
+        self.request  = Request(
+            message = self.message,
+            node=self.node,
+            request_id = 'test-request-id',
+            sem_pending = self.sem_pending
+        )
+
+        pass
+
+    def test_01_request_send(self):
+
+        # Test getter
+        node = self.request.node
+        self.assertEqual(node, self.request._node)
+
+
+        self.request.send()
+        self.node.send.assert_called_once_with(self.message, self.request.on_reply)
+        self.assertEqual(self.request.status, RequestStatus.NO_REPLY_YET)
+
+
+    def test_02_request_flush(self):
+
+        self.request.flush(stopped = True)
+        self.node.flush.assert_called_once_with(self.request._request_id, True)
+
+    def test_03_request_on_reply(self):
+
+        self.request.on_reply(self.message)
+        self.assertEqual(self.request.reply, self.message)
+
+        err_message = MagicMock(spec=ErrorMessage)
+        self.request.on_reply(err_message)
+        self.assertEqual(self.request.error, err_message)
+
+    def test_04_request_has_finished(self):
+
+
+        type(self.node).status = PropertyMock(return_value=NodeActiveStatus.DISCONNECTED)
+        r = self.request.has_finished()
+        self.assertTrue(r)
+
+        type(self.node).status = PropertyMock(return_value=NodeActiveStatus.ACTIVE)
+        r = self.request.has_finished()
+        self.assertFalse(r)
+
+
+        self.request.on_reply(self.message)
+        r = self.request.has_finished()
+        self.assertTrue(r)
+
+
+class TestFederatedRequest(unittest.TestCase):
+
+    def setUp(self):
+
+        self.sem_patch = patch('fedbiomed.researcher.requests._requests.threading.Semaphore')
+        self.sem_mock = self.sem_patch.start()
+
+        self.policy_patch = patch('fedbiomed.researcher.requests._requests.PolicyController', autospec=True)
+        self.policy_mock = self.policy_patch.start()
+
+        self.message_1 = MagicMock(spec=SearchRequest)
+        self.policy = MagicMock(spec=RequestPolicy)
+
+        self.node_1 = MagicMock(spec=NodeAgent)
+        type(self.node_1).id = PropertyMock(return_value='node-1')
+
+        self.node_2 = MagicMock(spec=NodeAgent)
+        type(self.node_2).id = PropertyMock(return_value='node-2')
+
+        self.federated_request = FederatedRequest(
+            message=self.message_1,
+            nodes = [self.node_1, self.node_2],
+            policy = [self.policy]
+        )
+
+    def tearDown(self):
+
+        self.sem_patch.stop()
+        self.policy_patch.stop()
+
+    def test_01_federated_request_init(self):
+
+        message = MessagesByNode(
+            {'node-1' : self.message_1,
+             'node-3' : self.message_1},  # prints warning message
+        )
+
+        r = FederatedRequest(
+            message=message,
+            nodes = [self.node_1, self.node_2],
+            policy = [self.policy]
+        )
+
+        self.assertEqual(1, len(r.requests))
+
+
+    def test_02_federeated_request_send(self):
+
+        self.federated_request.send()
+
+        self.node_1.send.assert_called_once_with(self.message_1, ANY)
+        self.node_2.send.assert_called_once_with(self.message_1, ANY)
+
+
+    def test_03_federated_request_wait(self):
+
+        self.policy_mock.return_value.continue_all.side_effect = [ PolicyStatus.CONTINUE, PolicyStatus.COMPLETED]
+        self.federated_request.wait()
+
+    def test_04_federaeted_request_with_context_manager(self):
+
+        self.policy_mock.return_value.continue_all.side_effect = [ PolicyStatus.CONTINUE, PolicyStatus.COMPLETED]
+
+        with FederatedRequest(message=self.message_1,
+                              nodes = [self.node_1, self.node_2],
+                              policy = [self.policy]) as fed_req:
+            self.assertEqual(2, len(fed_req.requests))
+            self.assertEqual(0, len(fed_req.disconnected_requests()))
+            self.assertEqual({}, fed_req.replies())
+            self.assertEqual({}, fed_req.errors())
+
+
+
+class TestRequestPolicy(unittest.TestCase):
+
+    def setUp(self):
+
+        self.req_1 = MagicMock(spec=Request)
+        self.req_2 = MagicMock(spec=Request)
+        self.pol = RequestPolicy()
+
+
+    def test_01_request_policy_continue(self):
+
+        self.req_1.has_finished.return_value = False
+        self.req_2.has_finished.return_value = True
+
+        r = self.pol.continue_([self.req_1, self.req_2])
+        self.assertEqual(r, PolicyStatus.CONTINUE)
+
+
+    def test_02_request_policy_stop(self):
+
+        r = self.pol.stop(self.req_1)
+        self.assertEqual(r, PolicyStatus.STOPPED)
+        self.assertEqual(self.pol.status, PolicyStatus.STOPPED)
+        self.assertEqual(self.pol.stop_caused_by, self.req_1)
+
+    def test_03_request_policy_keep(self):
+        r = self.pol.keep()
+        self.assertEqual(r, PolicyStatus.CONTINUE)
+        self.assertEqual(self.pol.status, PolicyStatus.CONTINUE)
+
+
+    def test_04_request_policy_completed(self):
+        r = self.pol.completed()
+        self.assertEqual(r, PolicyStatus.COMPLETED)
+        self.assertEqual(self.pol.status, PolicyStatus.COMPLETED)
+
+
+class TestPolicyController(unittest.TestCase):
+
+    def setUp(self):
+
+        self.req_policy_patch = patch('fedbiomed.researcher.requests._policies.RequestPolicy')
+        self.req_policy_mock = self.req_policy_patch.start()
+
+        self.policy_1 = MagicMock()
+        self.req_1 = MagicMock(spec=Request)
+        self.req_2 = MagicMock(spec=Request)
+
+        self.pol_cont = PolicyController(
+            policies=[self.policy_1]
+        )
+
+    def tearDown(self):
+        self.req_policy_patch.stop()
+
+
+    def test_01_policy_controller_continue_all(self):
+
+        self.req_policy_mock.return_value.continue_.return_value = PolicyStatus.CONTINUE
+        self.policy_1.continue_.return_value = PolicyStatus.CONTINUE
+
+        r = self.pol_cont.continue_all([self.req_1, self.req_1])
+        self.assertEqual(r, PolicyStatus.CONTINUE)
+
+    def test_02_policy_controller_has_stopped_any(self):
+
+        type(self.policy_1).status = PropertyMock(return_value=PolicyStatus.STOPPED)
+        r  = self.pol_cont.has_stopped_any()
+        self.assertTrue(r)
+
+
+    def test_03_policy_controller_(self):
+        type(self.policy_1).status = PropertyMock(return_value=PolicyStatus.STOPPED)
+        r = self.pol_cont.report()
+
+        self.assertTrue(r[list(r.keys())[0]])
+
+
+class TestPolicyImplementations(unittest.TestCase):
+
+    def setUp(self):
+
+        self.req = MagicMock(spec=Request)
+        self.node = MagicMock()
+
+        type(self.node).id = PropertyMock(return_value='node-1')
+        type(self.req).node = PropertyMock(return_value=self.node)
+        type(self.req).status = PropertyMock()
+        type(self.req).error = PropertyMock()
+
+
+    def test_01_discard_on_timeout(self):
+
+        pol = DiscardOnTimeout(nodes=['node-1'], timeout=0.1)
+
+        def time_out():
+            time.sleep(1)
+            return False
+
+        self.req.has_finished.side_effect = time_out
+        pol.continue_([self.req])
+        pol.continue_([self.req])
+
+    def test_02_stop_on_timeout(self):
+
+        pol = StopOnTimeout(nodes=['node-1'], timeout=0.1)
+
+        def time_out():
+            time.sleep(1)
+            return False
+
+        self.req.has_finished.side_effect = time_out
+        pol.continue_([self.req])
+        r = pol.continue_([self.req])
+        self.assertEqual(r, PolicyStatus.STOPPED)
+
+    def test_01_stop_on_disconnect(self):
+
+        pol = StopOnDisconnect(nodes=['node-1'], timeout=0)
+
+        r = pol.continue_([self.req])
+        self.assertEqual(r, PolicyStatus.CONTINUE)
+
+        time.sleep(1)
+        type(self.req).status = PropertyMock(return_value=RequestStatus.DISCONNECT)
+        r = pol.continue_([self.req])
+        self.assertEqual(r, PolicyStatus.STOPPED)
+
+    def test_01_stop_on_error(self):
+
+        pol = StopOnError(nodes=['node-1'])
+
+        type(self.req).error = PropertyMock(return_value=False)
+        r = pol.continue_([self.req])
+        self.assertEqual(r, PolicyStatus.CONTINUE)
+        type(self.req).error = PropertyMock(return_value={'error': True})
+        r = pol.continue_([self.req])
+        self.assertEqual(r, PolicyStatus.STOPPED)
 
 
 if __name__ == '__main__':  # pragma: no cover

@@ -14,4 +14,4 @@ class RequestStatus:
     TIMEOUT = "TIMEOUT"
     ERROR = "ERROR"
     SUCCESS = "SUCCESS"
-    NO_REPLY_YET = "NODE_REPLY_YET"
+    NO_REPLY_YET = "NO_REPLY_YET"
