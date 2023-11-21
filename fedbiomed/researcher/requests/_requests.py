@@ -153,7 +153,7 @@ class FederatedRequest:
         if isinstance(self._message, Message):
             for node in self._nodes:
                 self._requests.append(
-                    Request(self._message, node, self._request_id, self._pending_replies)
+                    Request(self._message, node, self._pending_replies, self._request_id)
                 )
 
         # Different message for each node
@@ -161,7 +161,7 @@ class FederatedRequest:
             for node in self._nodes:
                 if m := self._message.get(node.id):
                     self._requests.append(
-                        Request(m, node, self._request_id, self._pending_replies)
+                        Request(m, node, self._pending_replies, self._request_id)
                     )
                 else:
                     logger.warning(f"Node {node.id} is unknown. Send message to others, ignore this one.")
