@@ -61,6 +61,7 @@ class GrpcAsyncTaskController:
         """"Starts the tasks for each GrpcClient"""
 
         tasks = []
+
         for researcher in self._researchers:
             client = GrpcClient(self._node_id, researcher, self._update_id_ip_map)
             tasks.extend(client.start(on_task=self._on_message))

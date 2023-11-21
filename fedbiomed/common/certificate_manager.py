@@ -371,12 +371,11 @@ class CertificateManager:
 
 
     @staticmethod
-    def create_ca(subject: Optional[Dict[str, str] = None]):
+    def create_ca(subject: Optional[Dict[str, str]] = None):
 
         # Generate key
         pkey = crypto.PKey()
         pkey.generate_key(crypto.TYPE_RSA, 2048)
-
 
 
     @staticmethod
