@@ -14,7 +14,6 @@ from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, Compone
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.mpc_controller import MPCController
-from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime
 
 from fedbiomed.node.environ import environ
@@ -35,7 +34,6 @@ class BaseSecaggSetup(ABC):
             self,
             researcher_id: str,
             secagg_id: str,
-            sequence: int,
             parties: List[str],
             job_id: Union[str, None] = None,
     ):
@@ -45,36 +43,12 @@ class BaseSecaggSetup(ABC):
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
             job_id: ID of the job to which this secagg context element is attached (empty string if no attached job)
-            sequence: unique sequence number of setup request
             parties: List of parties participating in the secagg context element setup
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        # check arguments
-        self._v = Validator()
-        for param, type in [(researcher_id, str), (secagg_id, str), (sequence, int)]:
-            try:
-                self._v.validate(param, type)
-            except ValidatorError as e:
-                errmess = f'{ErrorNumbers.FB318.value}: bad parameter `{param}` should be a {type}: {e}'
-                logger.error(errmess)
-                raise FedbiomedSecaggError(errmess)
 
-        for param, name in [(researcher_id, 'researcher_id'), (secagg_id, 'secagg_id')]:
-            if not param:
-                errmess = f'{ErrorNumbers.FB318.value}: bad parameter `{name}` should not be empty string'
-                logger.error(errmess)
-                raise FedbiomedSecaggError(errmess)
-
-        try:
-            self._v.validate(parties, list)
-            for p in parties:
-                self._v.validate(p, str)
-        except ValidatorError as e:
-            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `parties` must be a list of strings: {e}'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
         if len(parties) < 3:
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `parties` : {parties} : need  ' \
                 'at least 3 parties for secure aggregation'
@@ -91,7 +65,6 @@ class BaseSecaggSetup(ABC):
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
         self._job_id = job_id
-        self._sequence = sequence
         self._parties = parties
         self._element = None
 
@@ -133,15 +106,6 @@ class BaseSecaggSetup(ABC):
         return self._job_id
 
     @property
-    def sequence(self) -> str:
-        """ Getter for `sequence`
-
-        Returns:
-            sequence number for this request
-        """
-        return self._sequence
-
-    @property
     def element(self) -> Enum:
         """Getter for secagg context element type
 
@@ -169,7 +133,6 @@ class BaseSecaggSetup(ABC):
         return {
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
-            'sequence': self._sequence,
             'success': success,
             'msg': message,
             'command': 'secagg'
@@ -240,7 +203,6 @@ class SecaggServkeySetup(BaseSecaggSetup):
             self,
             researcher_id: str,
             secagg_id: str,
-            sequence: int,
             parties: List[str],
             job_id: str,
     ):
@@ -250,13 +212,12 @@ class SecaggServkeySetup(BaseSecaggSetup):
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
             job_id: ID of the job to which this secagg context element is attached
-            sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
 
         Raises:
-            FedbiomedSecaggError: bad argument type or value 
+            FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(researcher_id, secagg_id, sequence, parties, job_id)
+        super().__init__(researcher_id, secagg_id, parties, job_id)
 
         self._element = SecaggElementTypes.SERVER_KEY
         self._secagg_manager = SKManager
@@ -327,7 +288,6 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
             self,
             researcher_id: str,
             secagg_id: str,
-            sequence: int,
             parties: List[str],
             job_id: None = None):
 
@@ -337,13 +297,12 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
             job_id: unused argument
-            sequence: unique sequence number of setup request
             parties: List of parties participating to the secagg context element setup
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(researcher_id, secagg_id, sequence, parties, None)
+        super().__init__(researcher_id, secagg_id, parties, None)
 
         self._element = SecaggElementTypes.BIPRIME
         self._secagg_manager = BPrimeManager

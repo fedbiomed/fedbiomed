@@ -3,10 +3,11 @@ import os.path
 import string
 import random
 import unittest
+import time
 
 from typing import Any, Dict
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import patch,PropertyMock, MagicMock, ANY
+from threading import Semaphore
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_case import ResearcherTestCase
@@ -14,19 +15,29 @@ from testsupport.base_case import ResearcherTestCase
 
 
 from testsupport.fake_message import FakeMessages
-from testsupport.fake_responses import FakeResponses
 
-from fedbiomed.common.exceptions import FedbiomedTaskQueueError
-from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.constants import MessageType
-from fedbiomed.common.message import Log, Scalar, SearchReply, PingReply
+from fedbiomed.common.message import Log, Scalar, SearchReply, SearchRequest, ErrorMessage, ApprovalReply
 
-from fedbiomed.researcher.requests import Requests
-from fedbiomed.researcher.responses import Responses
+from fedbiomed.researcher.requests import (
+    Requests,
+    FederatedRequest,
+    Request,
+    RequestStatus,
+    RequestPolicy,
+    PolicyStatus,
+    PolicyController,
+    DiscardOnTimeout,
+    StopOnTimeout,
+    StopOnDisconnect,
+    StopOnError,
+    MessagesByNode)
 from fedbiomed.researcher.monitor import Monitor
+
+from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
-from testsupport.fake_training_plan import FakeTorchTrainingPlan, FakeTorchTrainingPlan2
+from testsupport.fake_training_plan import FakeTorchTrainingPlan2
 
 
 # for test_request_13_model_approve
@@ -62,12 +73,7 @@ class TestRequests(ResearcherTestCase):
             fake_node_msg = FakeMessages(msg)
             return fake_node_msg
 
-        def responses_side_effect(data):
-            fake_responses = FakeResponses(data)
-            return fake_responses
-
         cls.msg_side_effect = msg_side_effect
-        cls.responses_side_effect = responses_side_effect
 
     def setUp(self):
         """Setup Requests and patches for testing"""
@@ -78,6 +84,9 @@ class TestRequests(ResearcherTestCase):
         self.grpc_server_patcher2 = patch('fedbiomed.transport.server.GrpcServer.start', autospec=True)
         self.grpc_server_patcher3 = patch('fedbiomed.transport.server.GrpcServer.send', autospec=True)
         self.grpc_server_patcher4 = patch('fedbiomed.transport.server.GrpcServer.broadcast', autospec=True)
+        self.grpc_server_patcher5 = patch('fedbiomed.transport.server.GrpcServer.get_node', autospec=True)
+        self.grpc_server_patcher6 = patch('fedbiomed.transport.server.GrpcServer.get_all_nodes', autospec=True)
+        self.fed_req_enter_patcher1 = patch('fedbiomed.researcher.requests.FederatedRequest.__enter__', autospec=True)
         self.req_patcher4 = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__')
         self.req_patcher5 = patch('fedbiomed.common.message.ResearcherMessages.format_outgoing_message')
         self.req_patcher6 = patch('fedbiomed.common.message.ResearcherMessages.format_incoming_message')
@@ -88,6 +97,9 @@ class TestRequests(ResearcherTestCase):
         self.grpc_server_start = self.grpc_server_patcher2.start()
         self.grpc_server_send = self.grpc_server_patcher3.start()
         self.grpc_server_broadcast = self.grpc_server_patcher4.start()
+        self.grpc_server_get_node = self.grpc_server_patcher5.start()
+        self.grpc_server_get_all_nodes = self.grpc_server_patcher6.start()
+        self.fed_req_enter = self.fed_req_enter_patcher1.start()
         self.task_queue_init = self.req_patcher4.start()
         self.format_outgoing_message = self.req_patcher5.start()
         self.format_incoming_message = self.req_patcher6.start()
@@ -120,6 +132,9 @@ class TestRequests(ResearcherTestCase):
         self.grpc_server_patcher2.stop()
         self.grpc_server_patcher3.stop()
         self.grpc_server_patcher4.stop()
+        self.grpc_server_patcher5.stop()
+        self.grpc_server_patcher6.stop()
+        self.fed_req_enter_patcher1.stop()
         self.req_patcher4.stop()
         self.req_patcher5.stop()
         self.req_patcher6.stop()
@@ -135,9 +150,7 @@ class TestRequests(ResearcherTestCase):
 
 
         req_1 = Requests()
-        self.assertEqual(0, req_1._sequence, "Request is not properly initialized")
         self.assertEqual(None, req_1._monitor_message_callback, "Request is not properly initialized")
-        self.assertIsInstance(req_1.queue, TasksQueue, "Request constructor didn't create proper TasksQueue")
 
         # Remove previous singleton instance
         if Requests in Requests._objects:
@@ -145,16 +158,12 @@ class TestRequests(ResearcherTestCase):
 
         # Build new fresh requests
         req_2 = Requests()
-        self.assertEqual(0, req_1._sequence, "Request is not properly initialized")
-        self.assertEqual(None, req_1._monitor_message_callback, "Request is not properly initialized")
-        self.assertIsInstance(req_2.queue, TasksQueue, "Request constructor didn't create proper TasksQueue")
+        self.assertEqual(None, req_2._monitor_message_callback, "Request is not properly initialized")
 
     @patch('fedbiomed.researcher.requests.Requests.print_node_log_message')
-    @patch('fedbiomed.common.tasks_queue.TasksQueue.add')
     @patch('fedbiomed.common.logger.logger.error')
     def test_request_02_on_message(self,
                                    mock_logger_error,
-                                   mock_task_add,
                                    mock_print_node_log_message):
         """ Testing on_message method """
 
@@ -168,22 +177,6 @@ class TestRequests(ResearcherTestCase):
         self.requests.on_message(msg_logger, type_=MessageType.LOG)
         # Check the method has been called
         mock_print_node_log_message.assert_called_once_with(msg_logger.get_dict())
-
-        msg_researcher_reply = {'protocol_version': '2',
-                                'researcher_id': 'DummyID',
-                                'success': True,
-                                'databases': [],
-                                'count': 1,
-                                'node_id': 'DummyNodeID',
-                                'command': 'search'}
-
-        
-        
-        self.requests.on_message(msg_researcher_reply, type_=MessageType.REPLY)
-        # Get researcher reply for `assert_called_with`
-        msg_researcher_reply = SearchReply(**msg_researcher_reply)
-        mock_task_add.assert_called_once_with(msg_researcher_reply.get_dict())
-
 
         msg_monitor = {'node_id': 'DummyNodeID',
                        'job_id': 'DummyJobID',
@@ -232,258 +225,119 @@ class TestRequests(ResearcherTestCase):
             # testing what is happening when no argument are provided
             self.requests.print_node_log_message()
 
-    @patch('fedbiomed.common.logger.logger.debug')
-    def test_request_04_send_message(self, mock_logger_debug):
+    def test_request_04_send(self):
         """ Testing send message method of Request """
 
-        self.requests.send_message({}, None)
-        self.requests.send_message({}, 'NodeID')
+        sr = SearchRequest(
+            researcher_id="researhcer-id",
+            tags=["x"],
+            command="search"
+        )
 
-        self.assertEqual(self.grpc_server_send.call_count, 2, 'Requests: send_message -> m.send_message called unexpected '
-                                                          'number of times, expected: 2')
+        request_1 = self.requests.send(sr, None)
+        self.grpc_server_get_all_nodes.assert_called_once()
+        self.assertIsInstance(request_1, FederatedRequest)
 
-        # Test invalid call of send_message
-        with self.assertRaises(TypeError):
-            self.requests.send_message()
+        request_2 = self.requests.send({}, ['node-1'])
+        self.grpc_server_get_node.assert_called_once_with(ANY, 'node-1')
+        self.assertIsInstance(request_2, FederatedRequest)
 
-    @patch('fedbiomed.common.tasks_queue.TasksQueue.qsize')
-    @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
-    @patch('fedbiomed.common.tasks_queue.TasksQueue.get')
-    def test_request_05_get_messages(self,
-                                     mock_task_get,
-                                     mock_task_task_done,
-                                     mock_task_qsize):
-        """ Testing get_messages """
 
-        mock_task_qsize.return_value = 1
-        mock_task_task_done.return_value = None
-
-        # Test with empty Task
-        self.requests.get_messages(commands=['search'])
-        mock_task_get.return_value = {}
-
-        # Test with task
-        data = {"command": 'train'}
-        mock_task_get.return_value = data
-        response = self.requests.get_messages(commands=['train'])
-
-        # Check methods are called
-        self.assertEqual(mock_task_task_done.call_count, 2, 'Requests:  get_messages -> queue.get called unexpected '
-                                                            'number of times, expected: 2')
-        self.assertEqual(mock_task_get.call_count, 2, 'Requests:  get_messages -> queue.get called unexpected number '
-                                                      'of times, expected: 2')
-
-        # Check result of the get_messages
-        self.assertListEqual(response.data(), [data], 'get_messages result is not set correctly')
-
-        # Test try/except block when .get() method exception
-        mock_task_get.side_effect = FedbiomedTaskQueueError()
-
-        resp1 = self.requests.get_messages(commands=['test-1'])
-        # check if output is a `Responses` object
-        self.assertIsInstance(resp1, Responses)
-
-        # Test try/except block when .task_done() method raises exception
-        mock_task_get.side_effect = None
-        mock_task_task_done.side_effect = FedbiomedTaskQueueError
-        resp2 = self.requests.get_messages(commands=['test-2'])
-        # check if output is a `Responses` object
-        self.assertIsInstance(resp2, Responses)
-
-    @patch('fedbiomed.researcher.requests.Requests.get_messages')
-    @patch('fedbiomed.researcher.responses.Responses')
-    def test_request_07_get_responses(self,
-                                      mock_responses_init,
-                                      mock_get_messages):
-        """ Testing get responses method """
-
-        mock_responses_init.side_effect = TestRequests.responses_side_effect
-
-        test_response = FakeResponses([{'command': 'test', 'success': True}])
-        mock_get_messages.side_effect = [test_response,
-                                         FakeResponses([])]
-
-        responses_1 = self.requests.get_responses(look_for_commands='test', timeout=0.1)
-        self.assertEqual(responses_1[0], test_response[0], 'Values of provided responses and values of result does not '
-                                                           'match')
-
-        # Test when `only_successful` or `while_responses` is False
-        mock_get_messages.side_effect = [test_response,
-                                         FakeResponses([])]
-
-        responses_2 = self.requests.get_responses(look_for_commands='test', timeout=0.1, only_successful=False)
-        self.assertEqual(responses_2[0], test_response[0], 'Values of provided responses and values of result does not '
-                                                           'match')
-
-        mock_get_messages.side_effect = [test_response,
-                                         FakeResponses([])]
-
-        responses_2bis = self.requests.get_responses(look_for_commands='test', timeout=0.1, while_responses=False)
-        self.assertEqual(responses_2bis[0], test_response[0], 'Values of provided responses and values of result does not '
-                                                           'match')
-
-        mock_get_messages.side_effect = [Exception()]
-        with self.assertRaises(Exception):
-            self.requests.get_responses(look_for_commands='test', timeout=0.1, only_successful=False)
-
-        # Get into Except block by providing incorrect message
-        mock_get_messages.side_effect = [FakeResponses([{}])]
-        responses_3 = self.requests.get_responses(look_for_commands='test', timeout=0.1)
-        self.assertEqual(len(responses_3), 0, 'The length of responses are more than 0')
-
-    @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    def test_request_08_ping_nodes(self, mock_get_responses):
+    def test_request_08_ping_nodes(self):
         """ Testing ping method """
 
-        mock_get_responses.return_value = [
-            {'command': 'ping', 'researcher_id': 'r', 'sequence': 2, 'node_id': 'dummy-id-1', 'success': True},
-            {'command': 'ping', 'researcher_id': 'r', 'sequence': 2, 'node_id': 'dummy-id-2', 'success': True},
-        ]
-
         self.req_patcher5.stop()
+        self.requests.ping_nodes()
+        self.fed_req_enter.assert_called_once()
 
-        result = self.requests.ping_nodes()
+    @patch('fedbiomed.researcher.requests.Requests.send')
+    def test_request_09_search(self,
+                               send):
+        """ Testing search request """
 
-        self.grpc_server_broadcast.assert_called_once()
-        self.assertEqual(result[0], 'dummy-id-1', 'Ping result does not contain provided node id `dummy-id-1`')
-        self.assertEqual(result[1], 'dummy-id-2', 'Ping result does not contain provided node id `dummy-id-2`')
+        replies = {
+            'node-1': SearchReply(**{
+                'node_id': 'node-1',
+                'researcher_id': 'r-xxx',
+                'databases': [
+                    {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
+                    {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
+                ],
+                'success': True,
+                'count': 2,
+                'command': 'search'}),
+            'node-2': SearchReply(**{
+                'node_id': 'node-2',
+                'researcher_id': 'r-xxx',
+                'databases': [
+                    {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
+                    {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
+                ],
+                'success': True,
+                'count': 2,
+                'command': 'search'})
+        }
 
-    @patch('fedbiomed.researcher.requests.Requests.get_responses')
-    @patch('fedbiomed.common.logger.logger.info')
-    def test_reqeust_09_search(self,
-                               mock_logger_info,
-                               mock_get_responses):
-        """ Testing search reqeust """
+        fed_req = MagicMock()
+        fed_req.replies.return_value = replies
+        fed_req.errors.return_value = {'node-3': ErrorMessage(researcher_id="r", 
+                                                              node_id="node-3",  
+                                                              errnum="x", 
+                                                              extra_msg="x", 
+                                                              command="err" )}
 
-        mock_logger_info.return_value = None
-
-        node_1 = {'node_id': 'node-1',
-                  'researcher_id': 'r-xxx',
-                  'databases': [
-                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
-                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
-                  ],
-                  'success': True,
-                  'count': 2,
-                  'command': 'search'
-                  }
-
-        node_2 = {'node_id': 'node-2',
-                  'researcher_id': 'r-xxx',
-                  'databases': [
-                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
-                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
-                  ],
-                  'success': True,
-                  'count': 2,
-                  'command': 'search'
-                  }
-
+        send.return_value.__enter__.return_value = fed_req
         tags = ['test']
 
         # Test with single node without providing node ids
-        mock_get_responses.return_value = FakeResponses([node_1])
         search_result = self.requests.search(tags=tags)
-        self.assertTrue('node-1' in search_result, 'Requests search result does not contain `node-1`')
-        self.assertEqual(mock_logger_info.call_count, 2, 'Requests: Search- > Logger called unexpected number of '
-                                                         'times, expected: 2')
+        self.assertTrue('node-2' in search_result.keys())
+        self.assertTrue('node-1' in search_result.keys())
+     
 
-        # Test with multiple nodes by providing node ids
-        mock_logger_info.reset_mock()
-        mock_get_responses.return_value = FakeResponses([node_1, node_2])
-        search_result_2 = self.requests.search(tags=tags, nodes=['node-1', 'node-2'])
-        self.assertTrue('node-1' in search_result_2, 'Requests search result does not contain `node-1`')
-        self.assertTrue('node-2' in search_result_2, 'Requests search result does not contain `node-2`')
-        self.assertEqual(mock_logger_info.call_count, 3, 'Requests: Search- > Logger called unexpected number of '
-                                                         'times, expected: 3')
-        # Test with empty response
-        mock_logger_info.reset_mock()
-        mock_get_responses.return_value = FakeResponses([])
-        search_result_3 = self.requests.search(tags=tags)
-        self.assertDictEqual(search_result_3, {})
-        self.assertEqual(mock_logger_info.call_count, 2, 'Requests: Search- > Logger called unexpected number of '
-                                                         'times, expected: 2')
 
-    @patch('fedbiomed.researcher.requests.Requests.get_responses')
     @patch('tabulate.tabulate')
-    @patch('fedbiomed.common.logger.logger.info')
+    @patch('fedbiomed.researcher.requests.Requests.send')
     def test_request_10_list(self,
-                             mock_logger_info,
-                             mock_tabulate,
-                             request_get_response):
+                             send,
+                             mock_tabulate):
         """ Testing list reqeust """
 
         mock_tabulate.return_value = 'Test'
-        mock_logger_info.return_value = None
 
         # Test with single response database
-        node_1 = {'node_id': 'node-1',
-                  'researcher_id': 'r-xxx',
-                  'databases': [
-                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
-                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
-                  ],
-                  'success': True,
-                  'count': 2,
-                  'command': 'list'
-                  }
 
-        node_2 = {'node_id': 'node-2',
-                  'researcher_id': 'r-xxx',
-                  'databases': [
-                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
-                      {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
-                  ],
-                  'success': True,
-                  'count': 2,
-                  'command': 'list'
-                  }
+        replies = {
+            'node-1': SearchReply(**{
+                'node_id': 'node-1',
+                'researcher_id': 'r-xxx',
+                'databases': [
+                    {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
+                    {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
+                ],
+                'success': True,
+                'count': 2,
+                'command': 'list'}),
+            'node-2': SearchReply(**{
+                'node_id': 'node-2',
+                'researcher_id': 'r-xxx',
+                'databases': [],
+                'success': True,
+                'count': 0,
+                'command': 'list'})
+        }
 
-        node_3 = {'node_id': 'node-3',
-                  'researcher_id': 'r-xxx',
-                  'databases': [],
-                  'success': True,
-                  'count': 2,
-                  'command': 'list'
-                  }
+        fed_req = MagicMock()
+        fed_req.replies.return_value = replies
+        fed_req.errors.return_value = {'node-3': ErrorMessage(researcher_id="r", 
+                                                              node_id="node-3",  
+                                                              errnum="x", 
+                                                              extra_msg="x", 
+                                                              command="err" )}
 
-        request_get_response.return_value = FakeResponses([node_1])
-        result = self.requests.list()
-        self.assertTrue('node-1' in result, 'List result does not contain `node-1`')
-
-        # Test with multiple nodes
-        request_get_response.return_value = FakeResponses([node_1, node_2])
-        result = self.requests.list()
-        self.assertTrue('node-1' in result, 'List result does not contain `node-1` while testing multiple')
-        self.assertTrue('node-2' in result, 'List result does not contain `node-1` while testing multiple')
-
-        # Test verbosity
-        request_get_response.return_value = FakeResponses([node_1, node_2])
-        result = self.requests.list(verbose=True)
-        self.assertTrue('node-1' in result, 'List result does not contain `node-1` while testing verbosity')
-        self.assertTrue('node-2' in result, 'List result does not contain `node-1` while testing verbosity')
-        self.assertEqual(mock_tabulate.call_count, 2, 'tabulate called unexpected number of times, expected: 2')
-        # Logger will be called 5 times
-        self.assertEqual(mock_logger_info.call_count, 5, 'logger.info called unexpected number of times, expected: 5')
-
-        # Test verbosity with empty list of dataset
-        mock_tabulate.reset_mock()
-        mock_logger_info.reset_mock()
-        request_get_response.return_value = FakeResponses([node_3])
-        result = self.requests.list(verbose=True)
-        mock_tabulate.assert_not_called()
-        # Logger will be called 2 times
-        self.assertEqual(mock_logger_info.call_count, 2, 'Logger called unexpected number of times, expected: 2')
-
-        # Test by providing node_ids
-        self.grpc_server_send.reset_mock()
-        request_get_response.return_value = FakeResponses([node_1, node_2])
-        result = self.requests.list(nodes=['node-1', 'node-2'])
-        self.assertEqual(self.grpc_server_send.call_count, 2, 'send_message has been called times that are not equal to '
-                                                          'expected')
-
-        self.assertTrue('node-1' in result, 'List result does not contain correct values')
-        self.assertTrue('node-2' in result, 'List result does not contain correct values')
+        send.return_value.__enter__.return_value = fed_req
+        r = self.requests.list()
+        self.assertTrue('node-1' in r )
 
     @patch('fedbiomed.researcher.monitor.Monitor.__init__')
     @patch('fedbiomed.researcher.monitor.Monitor.on_message_handler')
@@ -518,143 +372,315 @@ class TestRequests(ResearcherTestCase):
         self.requests.remove_monitor_callback()
         self.assertIsNone(self.requests._monitor_message_callback, "Monitor callback hasn't been removed")
 
-    @patch('fedbiomed.researcher.requests.Requests.get_responses')
+    @patch('fedbiomed.researcher.requests.Requests.send')
     def test_request_13_training_plan_approve(self,
-                                      mock_get_responses):
+                                              send):
         """ Testing training_plan_approve method """
-
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
-                                                     "this file does not exist",
-                                                     timeout=2
-                                                     )
-        self.assertDictEqual(result, {})
-
-        # this does not even send a message to the node
-        # as this is not a python file
-        filename = os.path.join(self.cwd,
-                                "README.md")
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
-                                                     "this is not a python file !!",
-                                                     timeout=2
-                                                     )
-        self.assertDictEqual(result, {})
-
-        # bad argument
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan,
-                                                     "this is not a python file !!",
-                                                     timeout=2,
-                                                     nodes="and not a list of UUIDs"
-                                                     )
-        self.assertDictEqual(result, {})
-
-
 
         # model is not a TrainingPlan
         result = self.requests.training_plan_approve(TrainingPlanBad,
-                                                     "not a training plan !!",
-                                                     timeout=2
+                                                     "not a training plan !!"
                                                      )
         self.assertDictEqual(result, {})
 
 
-
-       # model that cannot be save
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
-                                                     "cannot save",
-                                                     timeout=2
-                                                     )
-        self.assertDictEqual(result, {})
-
-
-        # provide a real python file but do not get an answer before timeout
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
-                                                     "test-training-plan-1",
-                                                     timeout=2
-                                                     )
-        self.assertDictEqual(result, {})
+        fed_req = MagicMock()
+        send.return_value.__enter__.return_value = fed_req
+        fed_req.errors.return_value = {'node-3': ErrorMessage(researcher_id="r", 
+                                                              node_id="node-3",  
+                                                              errnum="x", 
+                                                              extra_msg="x", 
+                                                              command="err" )}
 
 
+        fed_req.replies.return_value = {"dummy-id-1": ApprovalReply(**{
+            'command': 'approval',
+            'node_id': 'dummy-id-1',
+            'success': True,
+            'message': "hello",
+            'researcher_id': "id",
+            "status": True})}
 
-        # same, but with a node list -> different answer
-        mock_get_responses.return_value = [
-            {'command': 'approval',
-             'node_id': 'dummy-id-1',
-             'success': True,
-             'sequence': -1}
-        ]
-        self.requests._sequence = 2
         result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
                                                      "test-training-plan-1",
-                                                     timeout=2,
                                                      nodes=["dummy-id-1"]
                                                      )
 
         keys = list(result.keys())
         self.assertTrue(len(keys), 1)
-        self.assertFalse(result[keys[0]])
-
-        # same, but with a fake wrong sequence
-        mock_get_responses.return_value = [
-            {'command': 'approval',
-             'node_id': 'dummy-id-1',
-             'success': False,
-             'sequence': -1}
-        ]
-
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
-                                                     "test-training-plan-1",
-                                                     timeout=2
-                                                     )
-        self.assertDictEqual(result, {})
-
-        # sequence is OK, but simulated node did not download the file correctly
-        self.requests._sequence = 12345
-        mock_get_responses.return_value = [
-            {'command': 'approval',
-             'node_id': 'dummy-id-1',
-             'success': False,
-             'sequence': 12345}
-        ]
-
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
-                                                     "test-training-plan-1",
-                                                     timeout=2
-                                                     )
-        keys = list(result.keys())
-        self.assertTrue(len(keys), 1)
-        self.assertFalse(result[keys[0]])
-
-        # this time everything is OK
-        self.requests._sequence = 54321
-        mock_get_responses.return_value = [
-            {'command': 'approval',
-             'node_id': 'dummy-id-1',
-             'success': True,
-             'sequence': 54321}
-        ]
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
-                                                     "test-training-plan-1",
-                                                     timeout=2
-                                                     )
-        keys = list(result.keys())
         self.assertTrue(result[keys[0]])
 
-        # send a proper TrainingPlan
-        model = TrainingPlanGood
-        self.requests._sequence = 112233
-        mock_get_responses.return_value = [
-            {'command': 'approval',
-             'node_id': 'dummy-id-1',
-             'success': True,
-             'sequence': 112233}
-        ]
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
-                                                     "model is a TrainingPlan subclass",
-                                                     timeout=1
-                                                     )
-        keys = list(result.keys())
-        self.assertTrue(result[keys[0]])
 
+class TestRequest(unittest.TestCase):
+
+    def setUp(self):
+        self.message = MagicMock(spec=SearchRequest)
+        self.node = MagicMock(spec=NodeAgent)
+        self.sem_pending = MagicMock(spec=Semaphore)
+
+        self.request  = Request(
+            message = self.message,
+            node=self.node,
+            request_id = 'test-request-id',
+            sem_pending = self.sem_pending
+        )
+
+        pass
+
+    def test_01_request_send(self):
+
+        # Test getter
+        node = self.request.node
+        self.assertEqual(node, self.request._node)
+
+
+        self.request.send()
+        self.node.send.assert_called_once_with(self.message, self.request.on_reply)
+        self.assertEqual(self.request.status, RequestStatus.NO_REPLY_YET)
+
+
+    def test_02_request_flush(self):
+
+        self.request.flush(stopped = True)
+        self.node.flush.assert_called_once_with(self.request._request_id, True)
+
+    def test_03_request_on_reply(self):
+
+        self.request.on_reply(self.message)
+        self.assertEqual(self.request.reply, self.message)
+
+        err_message = MagicMock(spec=ErrorMessage)
+        self.request.on_reply(err_message)
+        self.assertEqual(self.request.error, err_message)
+
+    def test_04_request_has_finished(self):
+
+
+        type(self.node).status = PropertyMock(return_value=NodeActiveStatus.DISCONNECTED)
+        r = self.request.has_finished()
+        self.assertTrue(r)
+
+        type(self.node).status = PropertyMock(return_value=NodeActiveStatus.ACTIVE)
+        r = self.request.has_finished()
+        self.assertFalse(r)
+
+
+        self.request.on_reply(self.message)
+        r = self.request.has_finished()
+        self.assertTrue(r)
+
+
+class TestFederatedRequest(unittest.TestCase):
+
+    def setUp(self):
+
+        self.sem_patch = patch('fedbiomed.researcher.requests._requests.threading.Semaphore')
+        self.sem_mock = self.sem_patch.start()
+
+        self.policy_patch = patch('fedbiomed.researcher.requests._requests.PolicyController', autospec=True)
+        self.policy_mock = self.policy_patch.start()
+
+        self.message_1 = MagicMock(spec=SearchRequest)
+        self.policy = MagicMock(spec=RequestPolicy)
+
+        self.node_1 = MagicMock(spec=NodeAgent)
+        type(self.node_1).id = PropertyMock(return_value='node-1')
+
+        self.node_2 = MagicMock(spec=NodeAgent)
+        type(self.node_2).id = PropertyMock(return_value='node-2')
+
+        self.federated_request = FederatedRequest(
+            message=self.message_1,
+            nodes = [self.node_1, self.node_2],
+            policy = [self.policy]
+        )
+
+    def tearDown(self):
+
+        self.sem_patch.stop()
+        self.policy_patch.stop()
+
+    def test_01_federated_request_init(self):
+
+        message = MessagesByNode(
+            {'node-1' : self.message_1,
+             'node-3' : self.message_1},  # prints warning message
+        )
+
+        r = FederatedRequest(
+            message=message,
+            nodes = [self.node_1, self.node_2],
+            policy = [self.policy]
+        )
+
+        self.assertEqual(1, len(r.requests))
+
+
+    def test_02_federeated_request_send(self):
+
+        self.federated_request.send()
+
+        self.node_1.send.assert_called_once_with(self.message_1, ANY)
+        self.node_2.send.assert_called_once_with(self.message_1, ANY)
+
+
+    def test_03_federated_request_wait(self):
+
+        self.policy_mock.return_value.continue_all.side_effect = [ PolicyStatus.CONTINUE, PolicyStatus.COMPLETED]
+        self.federated_request.wait()
+
+    def test_04_federaeted_request_with_context_manager(self):
+
+        self.policy_mock.return_value.continue_all.side_effect = [ PolicyStatus.CONTINUE, PolicyStatus.COMPLETED]
+
+        with FederatedRequest(message=self.message_1,
+                              nodes = [self.node_1, self.node_2],
+                              policy = [self.policy]) as fed_req:
+            self.assertEqual(2, len(fed_req.requests))
+            self.assertEqual(0, len(fed_req.disconnected_requests()))
+            self.assertEqual({}, fed_req.replies())
+            self.assertEqual({}, fed_req.errors())
+
+
+
+class TestRequestPolicy(unittest.TestCase):
+
+    def setUp(self):
+
+        self.req_1 = MagicMock(spec=Request)
+        self.req_2 = MagicMock(spec=Request)
+        self.pol = RequestPolicy()
+
+
+    def test_01_request_policy_continue(self):
+
+        self.req_1.has_finished.return_value = False
+        self.req_2.has_finished.return_value = True
+
+        r = self.pol.continue_([self.req_1, self.req_2])
+        self.assertEqual(r, PolicyStatus.CONTINUE)
+
+
+    def test_02_request_policy_stop(self):
+
+        r = self.pol.stop(self.req_1)
+        self.assertEqual(r, PolicyStatus.STOPPED)
+        self.assertEqual(self.pol.status, PolicyStatus.STOPPED)
+        self.assertEqual(self.pol.stop_caused_by, self.req_1)
+
+    def test_03_request_policy_keep(self):
+        r = self.pol.keep()
+        self.assertEqual(r, PolicyStatus.CONTINUE)
+        self.assertEqual(self.pol.status, PolicyStatus.CONTINUE)
+
+
+    def test_04_request_policy_completed(self):
+        r = self.pol.completed()
+        self.assertEqual(r, PolicyStatus.COMPLETED)
+        self.assertEqual(self.pol.status, PolicyStatus.COMPLETED)
+
+
+class TestPolicyController(unittest.TestCase):
+
+    def setUp(self):
+
+        self.req_policy_patch = patch('fedbiomed.researcher.requests._policies.RequestPolicy')
+        self.req_policy_mock = self.req_policy_patch.start()
+
+        self.policy_1 = MagicMock()
+        self.req_1 = MagicMock(spec=Request)
+        self.req_2 = MagicMock(spec=Request)
+
+        self.pol_cont = PolicyController(
+            policies=[self.policy_1]
+        )
+
+    def tearDown(self):
+        self.req_policy_patch.stop()
+
+
+    def test_01_policy_controller_continue_all(self):
+
+        self.req_policy_mock.return_value.continue_.return_value = PolicyStatus.CONTINUE
+        self.policy_1.continue_.return_value = PolicyStatus.CONTINUE
+
+        r = self.pol_cont.continue_all([self.req_1, self.req_1])
+        self.assertEqual(r, PolicyStatus.CONTINUE)
+
+    def test_02_policy_controller_has_stopped_any(self):
+
+        type(self.policy_1).status = PropertyMock(return_value=PolicyStatus.STOPPED)
+        r  = self.pol_cont.has_stopped_any()
+        self.assertTrue(r)
+
+
+    def test_03_policy_controller_(self):
+        type(self.policy_1).status = PropertyMock(return_value=PolicyStatus.STOPPED)
+        r = self.pol_cont.report()
+
+        self.assertTrue(r[list(r.keys())[0]])
+
+
+class TestPolicyImplementations(unittest.TestCase):
+
+    def setUp(self):
+
+        self.req = MagicMock(spec=Request)
+        self.node = MagicMock()
+
+        type(self.node).id = PropertyMock(return_value='node-1')
+        type(self.req).node = PropertyMock(return_value=self.node)
+        type(self.req).status = PropertyMock()
+        type(self.req).error = PropertyMock()
+
+
+    def test_01_discard_on_timeout(self):
+
+        pol = DiscardOnTimeout(nodes=['node-1'], timeout=0.1)
+
+        def time_out():
+            time.sleep(1)
+            return False
+
+        self.req.has_finished.side_effect = time_out
+        pol.continue_([self.req])
+        pol.continue_([self.req])
+
+    def test_02_stop_on_timeout(self):
+
+        pol = StopOnTimeout(nodes=['node-1'], timeout=0.1)
+
+        def time_out():
+            time.sleep(1)
+            return False
+
+        self.req.has_finished.side_effect = time_out
+        pol.continue_([self.req])
+        r = pol.continue_([self.req])
+        self.assertEqual(r, PolicyStatus.STOPPED)
+
+    def test_01_stop_on_disconnect(self):
+
+        pol = StopOnDisconnect(nodes=['node-1'], timeout=0)
+
+        r = pol.continue_([self.req])
+        self.assertEqual(r, PolicyStatus.CONTINUE)
+
+        time.sleep(1)
+        type(self.req).status = PropertyMock(return_value=RequestStatus.DISCONNECT)
+        r = pol.continue_([self.req])
+        self.assertEqual(r, PolicyStatus.STOPPED)
+
+    def test_01_stop_on_error(self):
+
+        pol = StopOnError(nodes=['node-1'])
+
+        type(self.req).error = PropertyMock(return_value=False)
+        r = pol.continue_([self.req])
+        self.assertEqual(r, PolicyStatus.CONTINUE)
+        type(self.req).error = PropertyMock(return_value={'error': True})
+        r = pol.continue_([self.req])
+        self.assertEqual(r, PolicyStatus.STOPPED)
 
 
 if __name__ == '__main__':  # pragma: no cover

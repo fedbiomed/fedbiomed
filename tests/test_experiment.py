@@ -48,7 +48,6 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
-from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
@@ -1017,11 +1016,6 @@ class TestExperiment(ResearcherTestCase):
         # https://docs.python.org/3/library/unittest.mock.html#unittest.mock.PropertyMock
         type(self.mock_job.return_value).nodes = PropertyMock(return_value=["node-1", "node-2"])
 
-        # mock_job_training.return_value = None
-        # mock_job_training_replies.return_value = {
-        #     self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
-        # }
-        #mock_job_training_plan_type.return_value = PropertyMock(return_value=training_plan)
         mock_strategy_refine.return_value = ({'param': 1}, [12.2], 10, {'node-1': [1234], 'node-2': [1234]})
         mock_fedavg_aggregate.return_value = None
         mock_fedavg_create_aggregator_args.return_value = ({}, {})
@@ -1072,12 +1066,6 @@ class TestExperiment(ResearcherTestCase):
         result = self.test_exp.run_once()
         self.assertEqual(result, 0)
         self.mock_logger_warning.assert_called_once()
-
-        # Update training_replies mock value since round_current has been increased
-        # FIXME: something may have been broken
-        # mock_job_training_replies.return_value = {
-        #     self.test_exp.round_current(): Responses([{"node_id": "node-1"}, {"node_id": "node-2"}])
-        # }
 
         # Try same scenario with increase argument as True
         round_limit = self.test_exp.round_limit()
@@ -1369,16 +1357,17 @@ class TestExperiment(ResearcherTestCase):
 
         )
 
-        training_replies_content = {self.test_exp.round_current():
-                        Responses( [{ 'success': True,
-                         'msg': "this is a sucessful training",
-                             'dataset_id': 'dataset-id-123abc',
-                             'node_id': node_id,
-                             'params_path': '/path/to/my/file',
-                             'params': model_param,
-                             'sample_size': sample_size
-                             } for node_id, sample_size in zip(node_ids, node_sample_size)
-                        ])}
+        training_replies_content = {self.test_exp.round_current(): {
+            node_id: {
+                'success': True,
+                'msg': "this is a sucessful training",
+                'dataset_id': 'dataset-id-123abc',
+                'node_id': node_id,
+                'params_path': '/path/to/my/file',
+                'params': model_param,
+                'sample_size': sample_size } for node_id, sample_size in zip(node_ids, node_sample_size) }}
+
+
         type(mock_job_init.return_value).training_replies = PropertyMock(
             return_value=training_replies_content
         )
@@ -1424,18 +1413,18 @@ class TestExperiment(ResearcherTestCase):
 
         node_sample_size = [10, None]
 
-        
-        training_replies_raising_fbmstrategyerror = {
-            self.test_exp.round_current():
-            Responses([{'success': True,
-                         'msg': "this is a sucessful training",
-                             'dataset_id': 'dataset-id-123abc',
-                             'node_id': node_id,
-                             'params_path': '/path/to/my/file',
-                             'params': model_param,
-                             'sample_size': sample_size
-                             } for node_id, sample_size in zip(node_ids, node_sample_size)
-                        ])}
+
+        training_replies_raising_fbmstrategyerror = { self.test_exp.round_current(): {}}
+        for node_id, sample_size in zip(node_ids, node_sample_size):
+            training_replies_raising_fbmstrategyerror[self.test_exp.round_current()][node_id] = {
+                'success': True,
+                'msg': "this is a sucessful training",
+                'dataset_id': 'dataset-id-123abc',
+                'node_id': node_id,
+                'params_path': '/path/to/my/file',
+                'params': model_param,
+                'sample_size': sample_size
+            }
         
         type(mock_job_init.return_value).training_replies = PropertyMock(
             return_value=training_replies_raising_fbmstrategyerror
@@ -1861,8 +1850,7 @@ class TestExperiment(ResearcherTestCase):
                 '_parties': ['node-1', 'node-2']
             },
             'arguments': {
-                'active': True,
-                'timeout': 10
+                'active': True
             }
         }
 
@@ -2089,8 +2077,7 @@ class TestExperiment(ResearcherTestCase):
                     '_parties': ['node-1', 'node-2']
                 },
                 'arguments': {
-                    'active': True,
-                    'timeout': 10
+                    'active': True
                 }
             }
 

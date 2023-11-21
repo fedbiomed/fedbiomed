@@ -28,7 +28,7 @@ from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.secagg import SecureAggregation
 Experiment(
     #...
-    secagg=SecureAggregation(timeout=5, clipping_range=30),
+    secagg=SecureAggregation(clipping_range=30),
     #....
 )
 ```

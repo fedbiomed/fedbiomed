@@ -293,7 +293,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id='titi',
-            sequence=100,
             success=True,
             command='do_it')
 
@@ -326,17 +325,9 @@ class TestMessage(unittest.TestCase):
             message.PingReply,
             expected_result=False,
 
-            sequence=100
-        )
-
-        self.check_class_args(
-            message.PingReply,
-            expected_result=False,
-
             researcher_id='toto',
             node_id='titi',
             success=True,
-            sequence=100,
             command='do_it',
             extra_arg='foobar')
 
@@ -349,7 +340,6 @@ class TestMessage(unittest.TestCase):
             researcher_id=True,
             node_id='titi',
             success=True,
-            sequence=100,
             command='do_it')
 
         self.check_class_args(
@@ -360,7 +350,6 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             node_id=True,
             success=True,
-            sequence=100,
             command='do_it')
 
         self.check_class_args(
@@ -371,7 +360,6 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             node_id='titi',
             success='not_a_bool',
-            sequence=100,
             command='do_it')
 
         self.check_class_args(
@@ -382,7 +370,6 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             node_id='titi',
             success='not_a_bool',
-            sequence=False,
             command='do_it')
 
         self.check_class_args(
@@ -1176,7 +1163,6 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            sequence=100,
             command='do_it')
 
         # bad param number
@@ -1186,11 +1172,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto')
 
-        self.check_class_args(
-            message.PingRequest,
-            expected_result=False,
-
-            sequence=100)
 
         self.check_class_args(
             message.PingRequest,
@@ -1204,7 +1185,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             command='do_it',
-            sequence=100,
             extra_arg='???')
 
         # bad param type
@@ -1214,7 +1194,6 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id=False,
-            sequence=100,
             command='do_it')
 
         self.check_class_args(
@@ -1223,7 +1202,6 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            sequence=False,
             command=False)
 
         self.check_class_args(
@@ -1232,7 +1210,6 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            sequence=100,
             command=False)
 
         pass
@@ -1694,7 +1671,6 @@ class TestMessage(unittest.TestCase):
             "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
-            "sequence": 100,
             "success": True,
             "command": 'pong'
         }
@@ -1706,7 +1682,6 @@ class TestMessage(unittest.TestCase):
 
         params = {
             "researcher_id": 'toto',
-            "sequence": 100,
             "command": 'ping'
         }
         r = message.ResearcherMessages.format_outgoing_message(params)
@@ -1869,7 +1844,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             description='this is a description string',
-            sequence=1234,
             training_plan='TP',
             command='do_it')
 
@@ -1888,7 +1862,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             description='this is a description string',
-            sequence=1234,
             training_plan='TP',
             command='do_it',
             unknown_extra_arg='whatever'
@@ -1901,7 +1874,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id=False,
             description='this is a description string',
-            sequence=1234,
             training_plan_url='http://dev.null',
             command='do_it')
 
@@ -1912,7 +1884,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             description=False,
-            sequence=1234,
             training_plan_url='http://dev.null',
             command='do_it')
 
@@ -1923,18 +1894,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             description='this is a description string',
-            sequence="not an integer",
-            training_plan_url='http://dev.null',
-            command='do_it')
-
-        self.check_class_args(
-            message.ApprovalRequest,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            description='this is a description string',
-            sequence=1234,
             training_plan_url=False,
             command='do_it')
 
@@ -1945,7 +1904,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             description='this is a description string',
-            sequence=1234,
             training_plan_url='http://dev.null',
             command=None)
 
@@ -1960,7 +1918,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id='titi',
-            sequence=100,
             message="xxx",
             status=200,
             success=True,
@@ -1982,7 +1939,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id='titi',
-            sequence=100,
             status=200,
             success=True,
             message="xxx",
@@ -1998,7 +1954,6 @@ class TestMessage(unittest.TestCase):
             researcher_id=False,
             message="xxx",
             node_id='titi',
-            sequence=100,
             status=200,
             success=True,
             command='do_it')
@@ -2011,23 +1966,10 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             message="xxx",
             node_id=False,
-            sequence=100,
             status=200,
             success=True,
             command='do_it')
 
-        self.check_class_args(
-            message.ApprovalReply,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            message="xxx",
-            node_id='titi',
-            sequence="not an int",
-            status=200,
-            success=True,
-            command='do_it')
 
         self.check_class_args(
             message.ApprovalReply,
@@ -2037,7 +1979,6 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             node_id='titi',
             message="xxx",
-            sequence=100,
             status="not an int",
             success=True,
             command='do_it')
@@ -2050,7 +1991,6 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             message="xxx",
             node_id='titi',
-            sequence=100,
             status=200,
             success=True,
             command=False)
@@ -2063,7 +2003,6 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             node_id='titi',
             message="xxx",
-            sequence=100,
             status=200,
             success="not a bool",
             command='do_it')
@@ -2076,7 +2015,6 @@ class TestMessage(unittest.TestCase):
         params_request = {
             "researcher_id": 'toto',
             "description": 'this string describes the sent object',
-            "sequence": 12345,
             "training_plan": "TP",
             "command": "approval"
 
@@ -2091,7 +2029,6 @@ class TestMessage(unittest.TestCase):
             "protocol_version": '99.99',
             "researcher_id": 'toto',
             "node_id": 'titi',
-            "sequence": 12345,
             "status": 200,
             "message": "xxx",
             "success": True,

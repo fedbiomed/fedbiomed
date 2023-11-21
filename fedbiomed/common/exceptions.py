@@ -187,13 +187,6 @@ class FedbiomedOptimizerError(FedbiomedError):
     pass
 
 
-class FedbiomedResponsesError(FedbiomedError):
-    """
-    Exception specific to Responses class.
-    """
-    pass
-
-
 class FedbiomedRoundError(FedbiomedError):
     """
     Exceptions specific for the node round class.
