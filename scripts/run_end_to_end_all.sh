@@ -28,6 +28,12 @@ general-list-datasets-select-node,\
 general-tensorboard,\
 general-training-plan-approval,\
 general-use-gpu,\
+pytorch-MNIST-FedProx,\
+pytorch-celeba-dataset,\
+pytorch-csv-data,\
+pytorch-local-training,\
+pytorch-opacus-MNIST,\
+pytorch-variational-autoencoder\
 }.ipynb)
 #list_notebooks=( notebooks/{\
 #101_getting-started,\
