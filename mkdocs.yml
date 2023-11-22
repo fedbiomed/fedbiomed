@@ -124,7 +124,6 @@ nav:
                 - Job: './developer/api/researcher/job.md'
                 - Monitor: './developer/api/researcher/monitor.md'
                 - NodeStateAgent: './developer/api/researcher/node_state_agent.md'
-                - Responses: './developer/api/researcher/responses.md'
                 - Requests: './developer/api/researcher/requests.md'
                 - Strategies: './developer/api/researcher/strategies.md'
                 - Secagg: './developer/api/researcher/secagg.md'

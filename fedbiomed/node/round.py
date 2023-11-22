@@ -249,13 +249,13 @@ class Round:
                 check_training_plan_status(
                     self.training_plan_source,
                     TrainingPlanApprovalStatus.APPROVED)
-            
+
             if not approved:
                 return self._send_round_reply(
                     False,
                     f'Requested training plan is not approved by the node: {environ["NODE_ID"]}')
             else:
-                logger.info(f'Training plan has been approved by the node {training_plan_["name"]}', 
+                logger.info(f'Training plan has been approved by the node {training_plan_["name"]}',
                             researcher_id=self.researcher_id)
 
         # Import training plan, save to file, reload, instantiate a training plan
@@ -270,7 +270,7 @@ class Round:
         # save and load training plan to a file to be sure
         # 1. a file is associated to training plan so we can read its source, etc.
         # 2. all dependencies are applied
-        training_plan_module = 'my_model_' + str(uuid.uuid4())
+        training_plan_module = 'model_' + str(uuid.uuid4())
         training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
         try:
             self.training_plan.save_code(training_plan_file, from_code=self.training_plan_source)
@@ -325,11 +325,11 @@ class Round:
             self._set_training_testing_data_loaders()
         except FedbiomedError as fe:
             error_message = f"Can not create validation/train data: {repr(fe)}"
-            self._send_round_reply(success=False, message=error_message)
+            return self._send_round_reply(success=False, message=error_message)
         except Exception as e:
             error_message = f"Undetermined error while creating data for training/validation. Can not create " \
                             f"validation/train data: {repr(e)}"
-            self._send_round_reply(success=False, message=error_message)
+            return self._send_round_reply(success=False, message=error_message)
         # ------------------------------------------------------------------------
 
 
@@ -351,7 +351,7 @@ class Round:
                                  f"{repr(e)}", researcher_id=self.researcher_id)
             else:
                 logger.error(f"{ErrorNumbers.FB314}: Can not execute validation routine due to missing testing dataset"
-                             f"Please make sure that `test_ratio` has been set correctly", 
+                             f"Please make sure that `test_ratio` has been set correctly",
                              researcher_id=self.researcher_id)
 
         # If training is activated.
@@ -398,7 +398,7 @@ class Round:
                 else:
                     logger.error(
                         f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
-                        f"dataset please make sure that test_ratio has been set correctly", 
+                        f"dataset please make sure that test_ratio has been set correctly",
                         researcher_id=self.researcher_id)
 
             # FIXME: this will fail if `self.training_plan.training_data_loader = None` (see issue )
@@ -424,7 +424,7 @@ class Round:
                 model_weights = encrypt(params=model_weights)
                 results["encrypted"] = True
                 results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
-                logger.info("Encryption is completed!", 
+                logger.info("Encryption is completed!",
                             researcher_id=self.researcher_id)
 
             results['params'] = model_weights
@@ -497,7 +497,7 @@ class Round:
         # Early-exit if there are no auxiliary variables to process.
         if not any(self.aux_vars):
             return
-        
+
 
         aux_vars = {}
         aux_vars.update(self.aux_vars[0])

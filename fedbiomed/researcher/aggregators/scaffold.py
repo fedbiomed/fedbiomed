@@ -21,7 +21,6 @@ from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.functional import initialize
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.responses import Responses
 
 
 class Scaffold(Aggregator):
@@ -116,7 +115,7 @@ class Scaffold(Aggregator):
                   weights: Dict[str, float],
                   global_model: Dict[str, Union[torch.Tensor, np.ndarray]],
                   training_plan: BaseTrainingPlan,
-                  training_replies: Responses,
+                  training_replies: Dict,
                   n_updates: int = 1,
                   n_round: int = 0,
                   *args, **kwargs) -> Dict:
@@ -307,7 +306,7 @@ class Scaffold(Aggregator):
                 'aggregator_name': self.aggregator_name,
                 'aggregator_correction': self.nodes_deltas[node_id]
             }
-    
+ 
         return aggregator_dat
 
     def check_values(self, n_updates: int, training_plan: BaseTrainingPlan) -> True:
@@ -353,16 +352,16 @@ class Scaffold(Aggregator):
     def set_nodes_learning_rate_after_training(
         self,
         training_plan: BaseTrainingPlan,
-        training_replies: Responses,
+        training_replies: Dict,
         n_round: int
     ) -> Dict[str, List[float]]:
         """Gets back learning rate of optimizer from Node (if learning rate scheduler is used)
 
         Args:
-            training_plan (BaseTrainingPlan): training plan instance
-            training_replies (List[Responses]): training replies that must contain am `optimizer_args`
+            training_plan: training plan instance
+            training_replies: training replies that must contain am `optimizer_args`
                 entry and a learning rate
-            n_round (int): number of rounds already performed
+            n_round: number of rounds already performed
 
         Raises:
             FedbiomedAggregatorError: raised when setting learning rate has been unsuccessful
@@ -376,12 +375,11 @@ class Scaffold(Aggregator):
         for node_id in self._fds.node_ids():
             lrs: Dict[str, float] = {}
 
-            # retrieve node learning rate from training replies
-            node_idx: int = training_replies[n_round].get_index_from_node_id(node_id)
-            if node_idx is not None:
-                # case where node provided lr information
-                lrs = training_replies[n_round][node_idx]['optimizer_args'].get('lr')
-            if node_idx is None or lrs is None:
+            node = training_replies[n_round].get(node_id, None)
+            if node is not None:
+                lrs = training_replies[n_round][node_id]["optimizer_args"].get('lr')
+
+            if node is None or lrs is None:
                 # fall back to default value if no lr information was provided
                 lrs = training_plan.optimizer().get_learning_rate()
 

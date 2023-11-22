@@ -253,17 +253,6 @@ class ErrorNumbers(_BaseEnum):
 
     # GRPC errors
     FB100 = "FB100: undetermined messaging server error"
-    FB101 = "FB101: cannot connect to the messaging server"
-    FB102 = "FB102: messaging server does not answer in dedicated time"
-    FB103 = "FB103: messaging call error"
-    FB104 = "FB104: message exchange error"
-
-    # HTTP errors
-
-    FB200 = "FB200: undetermined repository server error"
-    FB201 = "FB201: server not reachable"
-    FB202 = "FB202: server returns 404 error"
-    FB203 = "FB203: server returns other 4xx or 500 error"
 
     # application error on node
 
@@ -272,13 +261,8 @@ class ErrorNumbers(_BaseEnum):
     FB302 = "FB302: TrainingPlan class does not load"
     FB303 = "FB303: TrainingPlan class does not contain expected methods"
     FB304 = "FB304: TrainingPlan method crashes"
-    FB305 = "FB305: TrainingPlan loops indefinitely"
-    FB306 = "FB306: bad URL for TrainingPlan (.py)"
-    FB307 = "FB307: bad URL for training params (.mpk)"
-    FB308 = "FB308: bad training request (.json)"
     FB309 = "FB309: bad model params (.mpk)"
     FB310 = "FB310: bad data format"
-    FB311 = "FB311: receiving a new computation request during a running computation"
     FB312 = "FB312: Node stopped in SIGTERM signal handler"
     FB313 = "FB313: no dataset matching request"
     FB314 = "FB314: Node round error"
@@ -297,10 +281,6 @@ class ErrorNumbers(_BaseEnum):
     FB400 = "FB400: undetermined application error"
     FB401 = "FB401: aggregation crashes or returns an error"
     FB402 = "FB402: strategy method crashes or sends an error"
-    FB403 = "FB403: bad URL (.pt) for model param"
-    FB404 = "FB404: bad model param (.pt) format for TrainingPlan"
-    FB405 = "FB405: received delayed answer for previous computation round"
-    FB406 = "FB406: list of nodes is empty at data lookup phase"
     FB407 = "FB407: list of nodes became empty when training (all nodes failed training or did not answer)"
     FB408 = "FB408: training failed on node or node did not answer during training"
     FB409 = "FB409: node sent Status=Error during training"
@@ -315,18 +295,11 @@ class ErrorNumbers(_BaseEnum):
     FB418 = "FB418: error in experiment's `Job`"
     FB419 = "FB419: node state agent error"
 
-    # node problem detected by researcher
-
-    FB500 = "FB500: undetermined node error, detected by server"
-    FB501 = "FB501: node not reachable"
-
     # general application errors (common to node/researcher/..)
 
     FB600 = "FB600: environ error"
     FB601 = "FB601: message error"
-    FB602 = "FB602: logger error"
     FB603 = "FB603: task queue error"
-    FB604 = "FB604: repository error"
     FB605 = "FB605: training plan error"
     FB606 = "FB606: model manager error"
     FB607 = "FB607: data manager error"

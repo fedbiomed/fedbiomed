@@ -29,9 +29,6 @@ class TestSecureAggregation(ResearcherTestCase):
         """Tests invalid argument for __init__"""
 
         with self.assertRaises(FedbiomedSecureAggregationError):
-            SecureAggregation(timeout="111")
-
-        with self.assertRaises(FedbiomedSecureAggregationError):
             SecureAggregation(active="111")
 
         with self.assertRaises(FedbiomedSecureAggregationError):
@@ -211,7 +208,7 @@ class TestSecureAggregation(ResearcherTestCase):
         self.assertEqual(state["class"], "SecureAggregation")
         self.assertEqual(state["module"], "fedbiomed.researcher.secagg._secure_aggregation")
         self.assertEqual(list(state["attributes"].keys()), ['_biprime', '_servkey', '_job_id', '_parties'])
-        self.assertEqual(list(state["arguments"].keys()), ['active', 'timeout', 'clipping_range'])
+        self.assertEqual(list(state["arguments"].keys()), ['active', 'clipping_range'])
 
         pass
 

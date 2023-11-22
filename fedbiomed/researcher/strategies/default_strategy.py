@@ -15,7 +15,6 @@ from fedbiomed.common.logger import logger
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.strategies import Strategy
-from fedbiomed.researcher.responses import Responses
 
 
 class DefaultStrategy(Strategy):
@@ -56,7 +55,7 @@ class DefaultStrategy(Strategy):
 
     def refine(
             self,
-            training_replies: Responses,
+            training_replies: Dict,
             round_i: int
     ) -> Tuple[Dict[str, float],
                Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
@@ -97,13 +96,13 @@ class DefaultStrategy(Strategy):
                 impossible to compute aggregation weights.
         """
         # check that all nodes answered
-        cl_answered = [val['node_id'] for val in training_replies.data()]
         answers_count = 0
 
         if self._sampling_node_history.get(round_i) is None:
-            raise FedbiomedStrategyError(ErrorNumbers.FB408.value + f": Missing Nodes Responses for round: {round_i}")
+            raise FedbiomedStrategyError(ErrorNumbers.FB408.value + f": Missing Nodes replies for round: {round_i}")
+
         for cl in self._sampling_node_history[round_i]:
-            if cl in cl_answered:
+            if cl in training_replies:
                 answers_count += 1
             else:
                 # this node did not answer
@@ -131,7 +130,7 @@ class DefaultStrategy(Strategy):
         sample_sizes = {}
         encryption_factors = {}
         total_rows = 0
-        for tr in training_replies:
+        for tr in training_replies.values():
             if tr['success'] is True:
 
                 # TODO: Attach sample_size, weights and params in a single dict object
