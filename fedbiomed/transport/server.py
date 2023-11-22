@@ -168,7 +168,7 @@ class _GrpcAsyncServer:
         Raises:
             FedbiomedCommunicationError: bad argument type
         """
- 
+
         # inform all threads whether server is started
         self._is_started = threading.Event()
         self._ssl = ssl

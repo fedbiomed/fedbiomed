@@ -61,7 +61,6 @@ class HistoryMonitor:
             test_on_local_updates: TODO
 
         """
-        logger.debug("Send is executed!")
         self.send(
             FeedbackMessage(researcher_id=self.researcher_id, scalar=Scalar(**{
             'node_id': environ['NODE_ID'],
