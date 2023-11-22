@@ -22,7 +22,7 @@ from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 # timeout in seconds for server to establish connections with nodes and initialize
 GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + 1
-MAX_GRPC_SERVER_SETUP_TIMEOUT = 20
+MAX_GRPC_SERVER_SETUP_TIMEOUT = 200
 
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
