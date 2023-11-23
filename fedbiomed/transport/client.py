@@ -61,7 +61,7 @@ def create_channel(
         ("grpc.initial_reconnect_backoff_ms", 1000),
         ("grpc.min_reconnect_backoff_ms", 500),
         ("grpc.max_reconnect_backoff_ms", 2000),
-        ('grpc.ssl_target_name_override', 'localhost')
+        # ('grpc.ssl_target_name_override', 'localhost') # ...
     ]
 
     if certificate is None:
@@ -123,11 +123,12 @@ class ServerState:
         """
         if self._assure_connection.is_set():
             return True
-        else:
-            await asyncio.sleep(0)  # This call is required to release async tasks
-            self._continue_requests.set()
-            self._continue_requests.clear()
-            return False
+
+        self._continue_requests.set()
+        self._continue_requests.clear()
+        await asyncio.sleep(0.01)  # This call is required to release async tasks
+
+        return False
 
 class Channels:
     """Keeps gRPC server channels"""
@@ -235,7 +236,6 @@ class GrpcClient:
                         "Researcher server is not available, will retry connect in "
                         f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                     await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-
             
     def start(self, on_task) -> List[Awaitable[Optional[Callable]]]:
         """Start researcher gRPC agent.

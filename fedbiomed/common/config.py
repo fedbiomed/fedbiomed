@@ -7,7 +7,11 @@ from abc import ABC
 from typing import Optional
 
 from fedbiomed.common.constants import ErrorNumbers, MPSPDZ_certificate_prefix, CONFIG_FOLDER_NAME
-from fedbiomed.common.utils import  raise_for_version_compatibility, CONFIG_DIR, ROOT_DIR
+from fedbiomed.common.utils import (
+    create_fedbiomed_setup_folders,
+    raise_for_version_compatibility,
+    CONFIG_DIR,
+    ROOT_DIR)
 from fedbiomed.common.certificate_manager import retrieve_ip_and_port, generate_certificate
 from fedbiomed.common.constants import SERVER_certificate_prefix, \
     __researcher_config_version__, __node_config_version__, \
@@ -40,8 +44,12 @@ class Config(ABC):
             self.path = os.path.join(CONFIG_DIR, self.name)
             self.root = ROOT_DIR
 
+        # Creates setup folders if not existing
+        create_fedbiomed_setup_folders(self.root)
+
         if auto_generate:
             self.generate()
+
 
     def is_config_existing(self):
         """Checks if config file is exsiting"""
@@ -80,6 +88,12 @@ class Config(ABC):
 
         if self.is_config_existing() and not force:
             return self.read()
+
+        if not os.path.isdir(os.path.join(self.root, ETC_FOLDER_NAME)):
+            os.mkdir(os.path.join(self.root, ETC_FOLDER_NAME))
+
+        if not os.path.isdir(os.path.join(self.root, VAR_FOLDER_NAME)):
+            os.mkdir(os.path.join(self.root, VAR_FOLDER_NAME))
 
         component_id = self._cfg['default']['id']
         self._cfg['default']['component'] = self.COMPONENT_TYPE 

@@ -160,20 +160,6 @@ class Environ(metaclass=SingletonABCMeta):
         self._values['CERT_DIR'] = os.path.join(root_dir, CONFIG_FOLDER_NAME, "certs")
         self._values['DEFAULT_BIPRIMES_DIR'] = os.path.join(root_dir, 'envs', 'common', 'default_biprimes')
 
-        for _key in 'CONFIG_DIR', 'VAR_DIR', 'CACHE_DIR', 'TMP_DIR', 'CERT_DIR', 'DEFAULT_BIPRIMES_DIR':
-            dir_ = self._values[_key]
-            if not os.path.isdir(dir_):
-                try:
-                    os.makedirs(dir_)
-                except FileExistsError:
-                    _msg = ErrorNumbers.FB600.value + ": path already exists but is not a directory: " + dir
-                    logger.critical(_msg)
-                    raise FedbiomedEnvironError(_msg)
-                except OSError:
-                    _msg = ErrorNumbers.FB600.value + ": cannot create environment subtree in: " + dir
-                    logger.critical(_msg)
-                    raise FedbiomedEnvironError(_msg)
-
 
         self._values['TIMEOUT'] = 5
         self._values["MPSPDZ_IP"] = os.getenv("MPSPDZ_IP", 

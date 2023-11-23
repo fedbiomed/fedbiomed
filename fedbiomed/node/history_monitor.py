@@ -62,18 +62,20 @@ class HistoryMonitor:
 
         """
         self.send(
-            FeedbackMessage(researcher_id=self.researcher_id, scalar=Scalar(**{
-            'node_id': environ['NODE_ID'],
-            'job_id': self.job_id,
-            'train': train,
-            'test': test,
-            'test_on_global_updates': test_on_global_updates,
-            'test_on_local_updates': test_on_local_updates,
-            'metric': metric,
-            'iteration': iteration,
-            'epoch': epoch,
-            'num_samples_trained': num_samples_trained,
-            'total_samples': total_samples,
-            'batch_samples': batch_samples,
-            'num_batches': num_batches,
-        })))
+            FeedbackMessage(researcher_id=self.researcher_id,
+                            scalar=Scalar(**{
+                                'node_id': environ['NODE_ID'],
+                                'job_id': self.job_id,
+                                'train': train,
+                                'test': test,
+                                'test_on_global_updates': test_on_global_updates,
+                                'test_on_local_updates': test_on_local_updates,
+                                'metric': metric,
+                                'iteration': iteration,
+                                'epoch': epoch,
+                                'num_samples_trained': num_samples_trained,
+                                'total_samples': total_samples,
+                                'batch_samples': batch_samples,
+                                'num_batches': num_batches}
+                            ))
+        )

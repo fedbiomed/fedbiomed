@@ -207,7 +207,7 @@ class _GrpcAsyncServer:
         )
 
         self._server.add_secure_port(self._host + ':' + str(self._port), server_credentials)
-        # self._server.add_insecure_port(self._host + ':' + str(self._port))
+        #self._server.add_insecure_port(self._host + ':' + str(self._port))
 
         # Starts async gRPC server
         await self._server.start()

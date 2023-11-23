@@ -27,6 +27,7 @@ from ._config_utils import (
     get_all_existing_config_files,
     get_all_existing_certificates,
     get_existing_component_db_names,
+    create_fedbiomed_setup_folders,
 )
 
 
