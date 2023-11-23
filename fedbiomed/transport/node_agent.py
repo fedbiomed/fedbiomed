@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Dict
+from typing import Optional, Dict, Callable
 from datetime import datetime
 import copy
 from threading import Event
@@ -7,10 +7,8 @@ from threading import Event
 import asyncio
 import grpc
 
-from fedbiomed.common.message import Message
+from fedbiomed.common.message import Message, ResearcherMessages
 from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import FedbiomedCommunicationError
-from fedbiomed.common.constants import ErrorNumbers
 
 # timeout in seconds for server to wait for a new task request from node before assuming node is disconnected
 GPRC_SERVER_TASK_WAIT_TIMEOUT = 10
@@ -30,17 +28,27 @@ class NodeActiveStatus(Enum):
     DISCONNECTED = 3
 
 
-class NodeAgent:
+class Replies(dict):
+    pass
+
+
+class NodeAgentAsync:
 
     def __init__(
             self,
             id: str,
             loop: asyncio.AbstractEventLoop,
     ) -> None:
-        """Represent the client that connects to gRPC server"""
+        """Represent the client that connects to gRPC server
+
+        Args:
+            id: node unique ID
+            loop: event loop
+        """
         self._id: str = id
         self._last_request: Optional[datetime] = None
-
+        self._replies = Replies()
+        self._stopped_request_ids = []
         # Node should be active when it is first instantiated
         self._status: NodeActiveStatus = NodeActiveStatus.ACTIVE
 
@@ -50,12 +58,14 @@ class NodeAgent:
 
         # protect read/write operations on self._status + self._status_task + self._last_request)
         self._status_lock = asyncio.Lock()
+        self._replies_lock = asyncio.Lock()
+        self._stopped_request_ids_lock = asyncio.Lock()
+
         # handle race condition when a task in finished/canceled between (1) receiving new task
         # (2) executing coroutine for handling task end
         self._is_waiting = Event()
 
-    @property
-    async def status(self) -> NodeActiveStatus:
+    async def status_async(self) -> NodeActiveStatus:
         """Getter for node status.
 
         Returns:
@@ -73,6 +83,97 @@ class NodeAgent:
             node id
         """
         return self._id
+
+    async def flush(self, request_id: str, stopped: bool = False) -> None:
+        """Flushes processed reply
+
+        Args:
+            request_id: request ID for which the replies should be flushed
+            stopped: the request was stopped during processing
+        """
+        async with self._replies_lock:
+            if stopped and self._replies[request_id]['reply'] is None:
+                async with self._stopped_request_ids_lock:
+                    self._stopped_request_ids.append(request_id)
+
+            self._replies.pop(request_id, None)
+
+    def get_task(self) -> asyncio.coroutine:
+        """Get tasks assigned by the main thread
+
+        !!! note "Returns coroutine"
+            This function return an asyncio coroutine. Please use `await` while calling.
+
+        Returns:
+            Coroutine to await for retrieving a task
+        """
+        return self._queue.get()
+
+    async def on_reply(self, message: Dict):
+        """Callback to execute each time new reply received from the node"""
+
+        message = ResearcherMessages.format_incoming_message(message)
+
+        if not message.request_id:
+            logger.error(f"Server received a reply from the client {self._id} that does " 
+                         "not contains request id.")
+
+        async with self._replies_lock:
+            if message.request_id in self._replies:
+                if self._replies[message.request_id]['reply'] is None:
+                    self._replies[message.request_id]['reply'] = message
+                    self._replies[message.request_id]['callback'](message)
+                else:
+                    # Handle case of multiple replies
+                    # Avoid conflict with consumption of reply.
+                    logger.warning(f"Received multiple replies for request {message.request_id}. "
+                                   "Keep first reply, ignore subsequent replies")
+            else:
+                async with self._stopped_request_ids_lock:
+                    if message.request_id in self._stopped_request_ids:
+                        logger.warning("Received a reply from a federated request that has been "
+                                       f"stopped: {message.request_id}.")
+                        self._stopped_request_ids.remove(message.request_id)
+                    else:
+                        logger.warning(f"Received a reply from an unexpected request: {message.request_id}")
+
+
+    async def send_async(self, message: Message, on_reply: Optional[Callable] = None) -> None:
+        """Async function send message to researcher.
+
+        Args:
+            message: Message to send to the researcher
+            on_reply: optional callback to execute when receiving message reply
+        """
+
+        async with self._status_lock:
+            if self._status == NodeActiveStatus.DISCONNECTED:
+                logger.info(f"Node {self._id} is disconnected. Discard message.")
+                return
+
+            if self._status == NodeActiveStatus.WAITING:
+                logger.info(f"Node {self._id} is in WAITING status. Server is "
+                            "waiting for receiving a request from "
+                            "this node to convert it as ACTIVE. Node will be updated "
+                            "as DISCONNECTED soon if no request received.")
+
+        # Updates replies
+        async with self._replies_lock:
+            if message.request_id:
+                self._replies.update({
+                    message.request_id: {'callback': on_reply, 'reply': None}
+                })
+
+        await self._queue.put(message)
+
+
+    def set_context(self, context) -> None:
+        """Sets context for the current RPC call
+
+        Args:
+            context: RPC call context
+        """
+        context.add_done_callback(self._on_get_task_request_done)
 
     async def set_active(self) -> None:
         """Updates node status as active"""
@@ -93,50 +194,6 @@ class NodeAgent:
 
             # we are not waiting for a task request from node
             self._is_waiting.clear()
-
-    async def send(self, message: Message) -> None:
-        """Async function send message to researcher.
-
-        Args:
-            message: Message to send to the researcher
-        """
-
-        async with self._status_lock:
-            if self._status == NodeActiveStatus.DISCONNECTED:
-                logger.info(f"Node {self._id} is disconnected. Discard message.")
-                return
-
-            if self._status == NodeActiveStatus.WAITING:
-                logger.info(f"Node {self._id} is in WAITING status. Server is "
-                            "waiting for receiving a request from "
-                            "this node to convert it as ACTIVE. Node will be updated "
-                            "as DISCONNECTED soon if no request received.")
-
-        try:
-            await self._queue.put(message)
-        except Exception as exp:
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Can't send message to the client. Exception: {exp}")
-
-    def set_context(self, context) -> None:
-        """Sets context for the current RPC call
-
-        Args:
-            context: RPC call context
-        """
-        context.add_done_callback(self._on_get_task_request_done)
-
-
-    def get_task(self) -> asyncio.coroutine:
-        """Get tasks assigned by the main thread
-
-        !!! note "Returns coroutine"
-            This function return an asyncio coroutine. Please use `await` while calling.
-
-        Returns:
-            Coroutine to await for retrieving a task
-        """
-        return self._queue.get()
 
     def task_done(self) -> None:
         """Acknowledge completion of a de-queued task
@@ -188,6 +245,46 @@ class NodeAgent:
                 # TODO: empty the queue when becoming disconnected ?
 
 
+
+class NodeAgent(NodeAgentAsync):
+
+    @property
+    def status(self) -> NodeActiveStatus:
+        """Getter for node status.
+
+        Returns:
+            node status
+        """
+        future = asyncio.run_coroutine_threadsafe(
+            self.status_async(),
+            self._loop
+        )
+        return future.result()
+
+    def flush(self, request_id: str, stopped: bool = False) -> None:
+        """Flush processed replies
+
+        Args:
+            request_id: request ID for which the replies should be flushed
+            stopped: the request was stopped during processing
+        """
+        asyncio.run_coroutine_threadsafe(
+            super().flush(request_id, stopped),
+            self._loop
+        )
+
+    def send(self, message: Message, on_reply: Optional[Callable] = None) -> None:
+        """Send message to researcher.
+
+        Args:
+            message: Message to send to the researcher
+        """
+        asyncio.run_coroutine_threadsafe(
+            self.send_async(message=message, on_reply=on_reply),
+            self._loop
+        )
+
+
 class AgentStore:
     """Stores node agents"""
 
@@ -207,7 +304,8 @@ class AgentStore:
 
     async def retrieve(
             self,
-            node_id: str
+            node_id: str,
+            context: grpc.aio.ServicerContext
     ) -> NodeAgent:
         """Retrieves a node agent for a given node ID.
 
@@ -216,6 +314,7 @@ class AgentStore:
 
         Args:
             node_id: ID of receiving node
+            context: Request service context
 
         Return:
             The node agent to manage tasks that are assigned to it.
@@ -226,6 +325,8 @@ class AgentStore:
             if not node:
                 node = NodeAgent(id=node_id, loop=self._loop)
                 self._node_agents.update({node_id: node})
+
+        node.set_context(context)
 
         return node
 

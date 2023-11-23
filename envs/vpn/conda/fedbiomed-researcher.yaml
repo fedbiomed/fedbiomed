@@ -24,6 +24,7 @@ dependencies:
   # tools
   - colorama >=0.4.6,<0.5
   # code
+  - psutil ~=5.9.0
   - requests ~=2.29.0
   - validators >=0.20.0,<0.21.0
   - git ~=2.40.1

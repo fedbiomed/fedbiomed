@@ -6,6 +6,8 @@ import os
 import inspect
 import importlib.util
 import re
+import uuid
+
 from collections.abc import Iterable
 from typing import Callable, Iterator, List, Optional, Union, Any, Tuple
 from IPython.core.magics.code import extract_symbols
@@ -86,7 +88,6 @@ def is_ipython() -> bool:
             return False
     except NameError:
         return False
-
 
 def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:
     """Import a module from a file and create an instance of a specified class of the module.

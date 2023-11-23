@@ -87,7 +87,6 @@ import fedbiomed.researcher.filetools
 import fedbiomed.researcher.job
 import fedbiomed.researcher.monitor
 import fedbiomed.researcher.requests
-import fedbiomed.researcher.responses
 import fedbiomed.researcher.secagg.__init__
 import fedbiomed.researcher.secagg._secagg_context
 import fedbiomed.researcher.secagg._secure_aggregation
