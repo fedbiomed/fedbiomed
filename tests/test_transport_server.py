@@ -3,11 +3,11 @@ import asyncio
 
 
 
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock, AsyncMock, PropertyMock
 
 
 from fedbiomed.transport.node_agent import AgentStore
-from fedbiomed.transport.server import GrpcServer, _GrpcAsyncServer, ResearcherServicer, NodeAgent
+from fedbiomed.transport.server import SSLCredentials, GrpcServer, _GrpcAsyncServer, ResearcherServicer, NodeAgent
 from fedbiomed.transport.node_agent import NodeActiveStatus
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import SearchRequest, SearchReply
@@ -34,6 +34,7 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
 
+
         self.request = TaskRequest(
             node="node-1",
             protocol_version="x"
@@ -46,7 +47,7 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
 
         self.servicer = ResearcherServicer(
             agent_store=self.agent_store,
-            on_message=self.on_message
+            on_message=self.on_message,
         )
         return super().setUp()
 
@@ -104,6 +105,11 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
 
+
+        ssl_credentials = MagicMock()
+        type(ssl_credentials).private_key = PropertyMock(return_value=b'test')
+        type(ssl_credentials).certificate = PropertyMock(return_value=b'test')
+
         self.server_patch = patch('fedbiomed.transport.server.grpc.aio.server')
         self.node_agent_patch = patch('fedbiomed.transport.server.NodeAgent', autospec=True)
         self.agent_store_patch = patch('fedbiomed.transport.server.AgentStore', autospec=True)
@@ -119,6 +125,7 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
         self.grpc_server = _GrpcAsyncServer(
             host='localhost',
             port="50051",
+            ssl=ssl_credentials,
             on_message=self.on_message,
             debug=False
         )
@@ -188,6 +195,11 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
 
+        self.ssl_credentials = MagicMock()
+        type(self.ssl_credentials).private_key = PropertyMock(return_value=b'test')
+        type(self.ssl_credentials).certificate = PropertyMock(return_value=b'test')
+
+
         self.async_server_patch = patch('fedbiomed.transport.server._GrpcAsyncServer')
         self.server_patch = patch('fedbiomed.transport.server.grpc.aio.server')
         self.node_agent_patch = patch('fedbiomed.transport.server.NodeAgent', autospec=True)
@@ -209,6 +221,7 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         self.grpc_server = GrpcServer(
             host='localhost',
             port="50051",
+            ssl=self.ssl_credentials,
             on_message=self.on_message,
             debug=False
         )
@@ -230,6 +243,7 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         self.grpc_server = GrpcServer(
             host='localhost',
             port="50051",
+            ssl=self.ssl_credentials,
             on_message=self.on_message,
             debug=False
         )

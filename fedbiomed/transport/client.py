@@ -86,50 +86,6 @@ def is_server_alive(host:str, port: str):
             return True
 
 
-class ServerState:
-    """Keeps server events and state.
-
-    Holds server connection events to release gRPC request or connection
-    refreshes.
-    """
-
-    def __init__(self):
-        """Creates asyncio Events"""
-        self._continue_requests = asyncio.Event()
-        self._assure_connection = asyncio.Event()
-
-        self._assure_connection.set()
-
-    def connection_is_ready(self) -> Awaitable:
-        """Waits for successful connection to the grpc server."""
-        return self._continue_requests.wait()
-
-    def continue_requests(self) -> None:
-        """Sparks events that wait for succesful connection."""
-        self._continue_requests.set()
-        self._continue_requests.clear()
-        self._assure_connection.clear()
-
-    def reassure_connection(self) -> None:
-        """Triggers event to reassure server connection."""
-        self._assure_connection.set()
-
-    async def do_assure_connection(self) -> bool:
-        """Checks constanly if connection should be started or restarted.
-
-        Returns:
-            True if connection is dropped or required to be verified. False if
-                connection is already stable
-        """
-        if self._assure_connection.is_set():
-            return True
-
-        self._continue_requests.set()
-        self._continue_requests.clear()
-        await asyncio.sleep(0.01)  # This call is required to release async tasks
-
-        return False
-
 class Channels:
     """Keeps gRPC server channels"""
 
@@ -140,11 +96,12 @@ class Channels:
 
         self.task_channel: grpc.aio.Channel = None
         self.feedback_channel: grpc.aio.Channel = None
-
         self.task_stub: ResearhcerServiceStub = None
         self.feedback_stub: ResearcherServiceStub = None
 
     async def connect(self):
+        """Connects gRPC server and instatiates stubs"""
+
 
         # Closes fi channels are open
         if self.feedback_channel:
@@ -153,13 +110,13 @@ class Channels:
         if self.task_channel:
             await self.task_channel.close()
 
-        self.feedback_channel = self.create()
+        self.feedback_channel = self._create()
         self.feedback_stub = ResearcherServiceStub(channel=self.feedback_channel)
 
-        self.task_channel = self.create()
+        self.task_channel = self._create()
         self.task_stub = ResearcherServiceStub(channel=self.task_channel)
 
-    def create(self):
+    def _create(self):
         """Creates new channel"""
         return create_channel(
             port=self.researcher.port,
@@ -168,11 +125,15 @@ class Channels:
         )
 
 
-
 class GrpcClient:
     """An agent of remote researcher gRPC server."""
 
-    def __init__(self, node_id: str, researcher: ResearcherCredentials, update_id_map: Callable) -> None:
+    def __init__(
+        self,
+        node_id: str,
+        researcher: ResearcherCredentials,
+        update_id_map: Callable
+    ) -> None:
         """Class constructor
 
         Args:
@@ -181,10 +142,7 @@ class GrpcClient:
             update_id_map: function to call when updating the researcher ID, needs proper prototype
         """
         self._id = None
-
         self._researcher = researcher
-        self._server_state = ServerState()
-
         self._channels = Channels(researcher)
 
         self._task_stub = None
@@ -194,7 +152,6 @@ class GrpcClient:
         self._task_channel = None
 
         self._task_listener = TaskListener(
-            server_state=self._server_state,
             channels=self._channels,
             node_id=node_id,
             on_status_change = self._on_status_change,
@@ -202,7 +159,6 @@ class GrpcClient:
 
         self._sender = Sender(
             channels=self._channels,
-            server_state=self._server_state,
             on_status_change = self._on_status_change)
 
         # TODO: use `self._status` for finer gRPC agent handling.
@@ -212,31 +168,6 @@ class GrpcClient:
         self._update_id_map = update_id_map
         self._tasks = []
 
-    async def connect(self):
-        """Updates connection state and dispatch event to run listeners
-
-        This method also implements auto-trust for server certificate
-        """
-
-        while True:
-            if await self._server_state.do_assure_connection():
-                if is_server_alive(self._researcher.host, self._researcher.port):
-                    # Gets server certificate before creating the channel
-                    # This implementation assumes that the provided IP and PORT trusted
-                    self._researcher.certificate = \
-                        bytes(ssl.get_server_certificate(
-                            (self._researcher.host, self._researcher.port)),
-                              'utf-8')
-                    # Connect to channels and create stubs
-                    await self._channels.connect()
-                    # Dispatch event to continue requests
-                    self._server_state.continue_requests()
-                else:
-                    logger.info(
-                        "Researcher server is not available, will retry connect in "
-                        f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
-                    await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-            
     def start(self, on_task) -> List[Awaitable[Optional[Callable]]]:
         """Start researcher gRPC agent.
 
@@ -250,12 +181,20 @@ class GrpcClient:
             A list of task objects of the agent
         """
 
-        # taks listener and sender will depend on connectivity task
-        connect = asyncio.create_task(self.connect())
+        async def run():
+            """Connects and dispatches the tasks"""
 
-        self._tasks = [connect, self._task_listener.listen(on_task), self._sender.listen()]
+            # First connects to channel
+            await self._connect()
 
-        return self._tasks
+            # Launch listeners
+            await asyncio.gather(
+                self._task_listener.listen(on_task),
+                self._sender.listen()
+            )
+
+        # Returns client task
+        return asyncio.create_task(run())
 
 
     async def send(self, message: Message) -> None:
@@ -267,6 +206,32 @@ class GrpcClient:
 
         await self._sender.send(message)
 
+
+    async def _connect(self):
+        """Updates connection state and dispatch event to run listeners
+
+        This method also implements auto-trust for server certificate
+        """
+
+        while True:
+            if is_server_alive(self._researcher.host, self._researcher.port):
+                # Gets server certificate before creating the channel
+                # This implementation assumes that the provided IP and PORT trusted
+                self._researcher.certificate = \
+                    bytes(ssl.get_server_certificate(
+                        (self._researcher.host, self._researcher.port)),
+                          'utf-8')
+                # Connect to channels and create stubs
+                await self._channels.connect()
+
+                break;
+            else:
+                logger.info(
+                    "Researcher server is not available, will retry connect in "
+                    f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
+                await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+
+        
 
     def _on_status_change(self, status: ClientStatus) -> None:
         """Callback function to change the researcher status
@@ -300,12 +265,10 @@ class GrpcClient:
 class Listener:
     """Abstract generic listener method for a node's communications."""
 
-    def __init__(self, server_state, channels: Channels) -> None:
+    def __init__(self, channels: Channels) -> None:
         """Constructs task listener channels
         """
         self._channels = channels
-        self._server_state = server_state
-
 
     def listen(self, callback: Optional[Callable] = None) -> Awaitable[Optional[Callable]]:
         """Listens for tasks from given channels
@@ -329,7 +292,6 @@ class TaskListener(Listener):
 
     def __init__(
             self,
-            server_state: ServerState,
             channels: Channels,
             node_id: str,
             on_status_change: Callable,
@@ -343,7 +305,7 @@ class TaskListener(Listener):
             on_status_change: Callback function to run for changing node agent status
             update_id: Callback function to run updating peer researcher ID
         """
-        super().__init__(server_state, channels)
+        super().__init__(channels)
 
         self._node_id = node_id
         self._on_status_change = on_status_change
@@ -360,8 +322,6 @@ class TaskListener(Listener):
         """
 
         while True:
-
-            await self._server_state.connection_is_ready()
             try:
                 await self._request(callback)
             except grpc.aio.AioRpcError as exp:
@@ -371,7 +331,11 @@ class TaskListener(Listener):
                             "Researcher did not request executing a task before timeout. Send new task request")
                     case grpc.StatusCode.UNAVAILABLE:
                         self._on_status_change(ClientStatus.DISCONNECTED)
-                        self._server_state.reassure_connection()
+                        logger.info(
+                            "Researcher server is not available, will retry connect in "
+                            f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
+                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+
                     case grpc.StatusCode.UNKNOWN:
                         self._on_status_change(ClientStatus.FAILED)
                         logger.error("Unexpected error raised by researcher gRPC server. This is probably due to "
@@ -428,7 +392,6 @@ class Sender(Listener):
 
     def __init__(
         self,
-        server_state: ServerState,
         channels: Channels,
         on_status_change: Callable,
     ) -> None:
@@ -439,7 +402,7 @@ class Sender(Listener):
             task_stub: RPC stub to use for node replies to researcher task requests
             on_status_change: Callback function to run for changing node agent status
         """
-        super().__init__(server_state, channels)
+        super().__init__(channels)
 
         self._queue = asyncio.Queue()
         self._on_status_change = on_status_change
@@ -457,10 +420,6 @@ class Sender(Listener):
 
         # While loop retires to send if first one fails to send the result
         while True:
-
-            await self._server_state.connection_is_ready()
-
-            # Waits until there is something to send back to researcher
             try:
                 await self._get(callback)
             except grpc.aio.AioRpcError as exp:
@@ -473,7 +432,10 @@ class Sender(Listener):
                         self._queue.task_done()
                     case grpc.StatusCode.UNAVAILABLE:
                         self._on_status_change(ClientStatus.DISCONNECTED)
-                        self._server_state.reassure_connection()
+                        logger.info(
+                            "Researcher server is not available, will retry connect in "
+                            f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
+                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
                         self._retry_count += 1
                     case grpc.StatusCode.UNKNOWN:
                         self._on_status_change(ClientStatus.FAILED)

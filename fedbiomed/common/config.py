@@ -2,7 +2,7 @@ import configparser
 import os 
 import uuid 
 
-from abc import ABC
+from abc import ABCMeta, abstractmethod
 
 from typing import Optional
 
@@ -22,8 +22,11 @@ from fedbiomed.common.constants import SERVER_certificate_prefix, \
 
 
 
-class Config(ABC):
+class Config(metaclass=ABCMeta):
     """Base Config class"""
+
+    DEFAULT_CONFIG_FILE_NAME: str = 'config'
+    COMPONENT_TYPE: str = 'UNKNOWN'
 
     def __init__(
         self,
@@ -51,13 +54,20 @@ class Config(ABC):
             self.generate()
 
 
-    def is_config_existing(self):
-        """Checks if config file is exsiting"""
+    def is_config_existing(self) -> bool:
+        """Checks if config file is exsiting
+
+        Returns:
+            True if config file is already existing
+        """
 
         return os.path.isfile(self.path)
 
-    def read(self):
-        """Reads configuration file that is already existing in given path"""
+    def read(self) -> bool:
+        """Reads configuration file that is already existing in given path
+
+        Raises verision compatibility error
+        """
 
         self._cfg.read(self.path)
 
@@ -79,6 +89,16 @@ class Config(ABC):
 
         return self._cfg.sections()
 
+    def write(self):
+        """Writes config file"""
+
+        try:
+            with open(self.path, 'w') as f:
+                self._cfg.write(f)
+        except configparser.Error:
+            raise IOError(ErrorNumbers.FB600.value + ": cannot save config file: " + self.path)
+
+
     def generate(self, force: bool = False) -> bool:
         """"Generate configuration file
 
@@ -86,18 +106,18 @@ class Config(ABC):
         force: Overwrites existing configration file
         """
 
+        # Check if configuration is already existing
         if self.is_config_existing() and not force:
             return self.read()
 
-        if not os.path.isdir(os.path.join(self.root, ETC_FOLDER_NAME)):
-            os.mkdir(os.path.join(self.root, ETC_FOLDER_NAME))
+        component_id = f"{self.COMPONENT_TYPE}_{uuid.uuid4()}"
 
-        if not os.path.isdir(os.path.join(self.root, VAR_FOLDER_NAME)):
-            os.mkdir(os.path.join(self.root, VAR_FOLDER_NAME))
+        self._cfg['default'] = {
+            'id': component_id,
+            'component': self.COMPONENT_TYPE,
+            'version': str(self.CONFIG_VERSION)
+        }
 
-        component_id = self._cfg['default']['id']
-        self._cfg['default']['component'] = self.COMPONENT_TYPE 
-        self._cfg['default']['version'] = str(self.CONFIG_VERSION)
         # DB PATH RELATIVE
         db_path  = os.path.join(self.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{component_id}.json")
         self._cfg['default']['db'] = os.path.relpath(db_path, os.path.join(self.root, ETC_FOLDER_NAME))
@@ -123,13 +143,15 @@ class Config(ABC):
             )
         }
 
-        try:
-            with open(self.path, 'w') as f:
-                self._cfg.write(f)
-        except configparser.Error:  
-            raise IOError(ErrorNumbers.FB600.value + ": cannot save config file: " + self.path)
+        # Calls child class add_parameterss
+        self.add_parameters()
 
-        return True
+        # Write configuration file
+        return self.write()
+
+    @abstractmethod
+    def add_parameters(self):
+        """"Component specific argument creation"""
 
 
 class NodeConfig(Config):
@@ -138,12 +160,8 @@ class NodeConfig(Config):
     COMPONENT_TYPE: str = 'NODE'
     CONFIG_VERSION: str = __node_config_version__
 
-    def generate(self, force: bool = False):
+    def add_parameters(self):
         """Generate researcher config"""
-
-        node_id = os.getenv('NODE_ID', 'node_' + str(uuid.uuid4()))
-        self._cfg['default'] = {'id': node_id}
-
 
         # Security variables
         self._cfg['security'] = {
@@ -160,8 +178,6 @@ class NodeConfig(Config):
             'port': os.getenv('RESEARCHER_SERVER_PORT', '50051')
         }
 
-        return super().generate(force)
-
 
 class ResearcherConfig(Config):
 
@@ -169,11 +185,8 @@ class ResearcherConfig(Config):
     COMPONENT_TYPE: str = 'RESEARCHER'
     CONFIG_VERSION: str = __researcher_config_version__
 
-    def generate(self, force: bool = False):
+    def add_parameters(self):
         """Generate researcher config"""
-
-        researcher_id = os.getenv('RESEARCHER_ID', 'researcher_' + str(uuid.uuid4()))
-        self._cfg['default'] = { 'id': researcher_id }
 
         grpc_host = os.getenv('RESEARCHER_SERVER_HOST', 'localhost')
         grpc_port = os.getenv('RESEARCHER_SERVER_PORT', '50051')
@@ -181,7 +194,7 @@ class ResearcherConfig(Config):
         # Generate certificate for gRPC server
         key_file, pem_file = generate_certificate(
             root=self.root, 
-            component_id=researcher_id, 
+            component_id=self._cfg['default']['id'],
             prefix=SERVER_certificate_prefix,
             subject={'CommonName': grpc_host}
         )
@@ -192,5 +205,3 @@ class ResearcherConfig(Config):
             'pem' : os.path.relpath(pem_file, os.path.join(self.root, ETC_FOLDER_NAME)),
             'key' : os.path.relpath(key_file, os.path.join(self.root, ETC_FOLDER_NAME))
         }
-
-        return super().generate(force)

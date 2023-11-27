@@ -369,57 +369,6 @@ class CertificateManager:
                 f"operation. Please check raised exception: {e}"
             )
 
-
-    @staticmethod
-    def create_ca(subject: Optional[Dict[str, str]] = None):
-
-        # Generate key
-        pkey = crypto.PKey()
-        pkey.generate_key(crypto.TYPE_RSA, 2048)
-
-
-    @staticmethod
-    def create_certificate_request(
-        cert,
-        certficate_folder,
-        certificate_name
-    ) -> Tuple[str, str]:
-
-        pkey = crypto.PKey()
-        pkey.generate_key(crypto.TYPE_RSA, 2048)
-
-        req = crypto.X509Req()
-        subject = req.get_subject()
-
-        subject.commonName = cert.domain_name
-        subject.organizationName = cert.org_name
-
-        req.set_pubkey(pkey)
-        req.sign(pkey, 'SHA256')
-
-        key_file = os.path.join(certificate_folder, f"{certificate_name}_req.key")
-        pem_file = os.path.join(certificate_folder, f"{certificate_name}_req.pem")
-
-        with open(key_file, "wb") as f:
-            f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
-
-        with open(pem_file, "wb") as f:
-            f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, x509))
-
-        return key_file, pem_file
-
-    @staticmethod
-    def sign_certificate(
-        ca_cert_key: str,
-        ca_cert: str,
-        csr: str,
-    ) -> Tuple[str, str]:
-
-        serial = random.getrandbits(64)
-        ca_cert  = crypto.load_certificate(crypto.FILETYPE_PEM, ca.certificate)
-        pass
-
-
     @staticmethod
     def generate_self_signed_ssl_certificate(
             certificate_folder,
@@ -582,4 +531,3 @@ def generate_certificate(
         raise ValueError(f"Can not generate certificate: {e}")
 
     return key_file, pem_file
-

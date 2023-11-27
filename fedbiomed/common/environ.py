@@ -49,22 +49,18 @@ import os
 from abc import abstractmethod
 from typing import Any, Tuple, Union, List
 
-from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, MPSPDZ_certificate_prefix, \
+from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, \
     CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME, ETC_FOLDER_NAME
-from fedbiomed.common.exceptions import FedbiomedEnvironError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.utils import (
     ROOT_DIR, 
     CONFIG_DIR, 
     VAR_DIR, 
     CACHE_DIR, 
     TMP_DIR,
-    __default_version__,
-    raise_for_version_compatibility, 
-    FBM_Component_Version)
-
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
-from fedbiomed.common.certificate_manager import CertificateManager
 
 
 class Environ(metaclass=SingletonABCMeta):
@@ -182,19 +178,3 @@ class Environ(metaclass=SingletonABCMeta):
             "MPSPDZ_CERTIFICATE_PEM",
             os.path.join(self._values["CONFIG_DIR"], public_key)
         )
-
-    def check_and_set_config_file_version(self,
-                                          version_from_runtime: Union[str, FBM_Component_Version]):
-        """Check compatibility of config file and set corresponding environment value.
-
-        Args:
-            version_from_runtime: the version hardcoded in common/constants.py
-        """
-        try:
-            config_file_version = self.config.get('default', 'version')
-        except FedbiomedEnvironError:
-            config_file_version = __default_version__
-        raise_for_version_compatibility(config_file_version, version_from_runtime,
-                                        f"Configuration file {self._values['CONFIG_FILE']}: "
-                                        f"found version %s expected version %s")
-        self._values["CONFIG_FILE_VERSION"] = config_file_version

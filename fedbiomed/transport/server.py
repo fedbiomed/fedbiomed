@@ -39,8 +39,10 @@ class SSLCredentials:
         with open(cert, 'rb') as f:
             self.certificate = f.read()
 
+
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     """RPC Servicer """
+
 
     def __init__(
             self,
@@ -352,6 +354,7 @@ class GrpcServer(_GrpcAsyncServer):
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628.value}: Communication client is not initialized.")
 
         self._run_threadsafe(super().send(message, node_id))
+
 
     def broadcast(self, message: Message) -> None:
         """Broadcast message to all known and reachable nodes

@@ -61,10 +61,9 @@ class GrpcAsyncTaskController:
         """"Starts the tasks for each GrpcClient"""
 
         tasks = []
-
         for researcher in self._researchers:
             client = GrpcClient(self._node_id, researcher, self._update_id_ip_map)
-            tasks.extend(client.start(on_task=self._on_message))
+            tasks.append(client.start(on_task=self._on_message))
             self._clients[f"{researcher.host}:{researcher.port}"] = client
 
         self._loop = asyncio.get_running_loop()

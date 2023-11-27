@@ -50,8 +50,8 @@ class NodeEnviron(Environ):
         super().set_environment()
 
         node_id = self.config.get('default', 'id')
-        self._values['NODE_ID'] = os.getenv('NODE_ID', node_id)
-        self._values['ID'] = self._values['NODE_ID']
+        self._values['ID'] = node_id
+        self._values['NODE_ID'] = node_id
 
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(self._values['VAR_DIR'],
                                                           f'queue_manager_{self._values["NODE_ID"]}')
