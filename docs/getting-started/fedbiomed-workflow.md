@@ -82,9 +82,12 @@ The following Diagram 6 provides a technical description of the training process
 ![running-an-experiment-with-fedbiomed](../assets/img/diagrams/fedbiomed-workflow.jpg#img-centered-xlr)
 *Diagram 6: Showcasing an iteration of federated training in Fed-BioMed.*
 
+![running-an-experiment-with-fedbiomed-alternate](../assets/img/fedbiomed-workflow-convert.gif#img-centered-lr)
+*Diagram 7: Alternate view of an iteration of federated training in Fed-BioMed.*
+
 ### Monitoring an `Experiment`.
 
-The loss evolution is sent back to the `Researcher` at each evaluation step during the training. The `Researcher` can keep track of the loss using [Tensorboard](../user-guide/researcher/tensorboard.md), as shown in DIagram 8.
+The loss evolution is sent back to the `Researcher` at each evaluation step during the training. The `Researcher` can keep track of the loss using [Tensorboard](../user-guide/researcher/tensorboard.md), as shown in Diagram 8.
 
 ![monitoring-experiment](../assets/img/diagrams/fedbiomed-monitoring.jpg#img-centered-xlr)
 *Diagram 8: model training monitoring facility available in Fed-BioMed*
