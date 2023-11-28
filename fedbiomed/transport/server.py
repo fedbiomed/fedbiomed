@@ -1,5 +1,6 @@
 
 import time
+import os
 from typing import Callable, Iterable, Any, Coroutine, Dict, Optional, List
 import threading
 
@@ -21,8 +22,11 @@ from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 
 # timeout in seconds for server to establish connections with nodes and initialize
-GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + 1
-MAX_GRPC_SERVER_SETUP_TIMEOUT = 20
+
+server_setup_timeout = int(os.getenv('GRPC_SERVER_SETUP_TIMEOUT', 1))
+
+GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + server_setup_timeout
+MAX_GRPC_SERVER_SETUP_TIMEOUT = 20 * server_setup_timeout
 
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
