@@ -118,7 +118,8 @@ class SecaggCrypter:
                     f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
                     f"{VEParameters.WEIGHT_RANGE}."
                 )
-        params = self._apply_weighing(params, weight)
+        if weight is not None:
+            params = self._apply_weighing(params, weight)
 
 
         public_param = self._setup_public_param(biprime=biprime)
