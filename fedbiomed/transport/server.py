@@ -172,6 +172,7 @@ class _GrpcAsyncServer:
             host: server DNS name or IP address
             port: server TCP port
             on_message: Callback function to execute once a message received from the nodes
+            ssl: Ssl credentials.
             debug: Activate debug mode for gRPC asyncio
         """
 

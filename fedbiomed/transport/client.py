@@ -72,7 +72,13 @@ def create_channel(
     return channel
 
 def is_server_alive(host:str, port: str):
-    """Checks if the server is alive"""
+    """Checks if the server is alive
+
+    Args:
+        host: The host/ip of researcher/server component
+        port: Port number of researcher/server component
+    """
+
     port = int(port)
     address_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
     for family, socktype, protocol, _ , address in address_info:
@@ -91,7 +97,11 @@ class Channels:
 
 
     def __init__(self, researcher: ResearcherCredentials):
-        """Create channels and stubs"""
+        """Create channels and stubs
+
+        Args:
+            researcher: An instance of ResearcherCredentials
+        """
         self.researcher = researcher
 
         self.task_channel: grpc.aio.Channel = None
@@ -101,7 +111,6 @@ class Channels:
 
     async def connect(self):
         """Connects gRPC server and instatiates stubs"""
-
 
         # Closes fi channels are open
         if self.feedback_channel:
@@ -267,6 +276,9 @@ class Listener:
 
     def __init__(self, channels: Channels) -> None:
         """Constructs task listener channels
+
+        Args:
+            channels: Keeps channels and stubs.
         """
         self._channels = channels
 
@@ -300,7 +312,7 @@ class TaskListener(Listener):
         """Class constructor.
 
         Args:
-            stub: RPC stub to be used for polling tasks from researcher
+            channels: RPC channels and stubs to be used for polling tasks from researcher
             node_id: unique ID for this node
             on_status_change: Callback function to run for changing node agent status
             update_id: Callback function to run updating peer researcher ID
@@ -398,7 +410,7 @@ class Sender(Listener):
         """Class constructor.
 
         Args:
-            feedback_stub: RPC stub to use for node feedback messages (logs, scalar update on training)
+            channels: RPC channels and stubs to be used for polling tasks from researcher
             task_stub: RPC stub to use for node replies to researcher task requests
             on_status_change: Callback function to run for changing node agent status
         """
