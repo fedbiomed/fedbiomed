@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 import configparser
 import os 
 import uuid 
@@ -26,7 +29,7 @@ class Config(metaclass=ABCMeta):
     """Base Config class"""
 
     DEFAULT_CONFIG_FILE_NAME: str = 'config'
-    COMPONENT_TYPE: str = 'UNKNOWN'
+    COMPONENT_TYPE: str
 
     def __init__(
         self,
