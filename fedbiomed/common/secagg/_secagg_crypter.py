@@ -20,7 +20,7 @@ from ._jls import JoyeLibert, \
     quantize, \
     reverse_quantize, \
     multiply, \
-    divide
+    divide,\
     reverse_quantize, \
     multiply, \
     divide
