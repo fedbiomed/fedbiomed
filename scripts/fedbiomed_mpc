@@ -334,9 +334,12 @@ function execute_shamir_server_key(){
 
 
   # Generate the key-share
+  if [ "$PARTY_NUMBER" -gt 255 ]; then
+    error "Number of parties are limited to 255. Please make sure that the number of parties are less than 255"
+  fi
   if [ ! "$PARTY_NUMBER" -eq 0 ]; then
     echo -e "${GRN}Generating key share for party $PARTY_NUMBER ${NC}"
-    if ! python "$basedir"/MP-SPDZ/generate_sk.py --n_len 2048 > "$INPUT_FILE"-P"$PARTY_NUMBER"-0; then
+    if ! python "$basedir"/MP-SPDZ/generate_sk.py --n_len 2040 > "$INPUT_FILE"-P"$PARTY_NUMBER"-0; then #HARD CODED 2040 UP TO 256 NODES 2048 - log2(256) = 2040
       error "Error while generating key share."
     fi
     echo -e "${BOLD}Done! Key generated in $INPUT_FILE-P$PARTY_NUMBER-0${NC}"
@@ -532,4 +535,3 @@ case $1 in
 esac
 
 exit 0
-

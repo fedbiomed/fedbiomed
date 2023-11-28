@@ -21,6 +21,9 @@ from ._jls import JoyeLibert, \
     reverse_quantize, \
     multiply, \
     divide
+    reverse_quantize, \
+    multiply, \
+    divide
 
 
 class SecaggCrypter:
