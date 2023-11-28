@@ -18,7 +18,9 @@ from ._jls import JoyeLibert, \
     FDH, \
     PublicParam, \
     quantize, \
-    reverse_quantize
+    reverse_quantize, \
+    multiply, \
+    divide
 
 
 class SecaggCrypter:
@@ -101,10 +103,21 @@ class SecaggCrypter:
                 f"{ErrorNumbers.FB624.value}: The argument `key` must be integer"
             )
 
-        params = self._apply_weighing(params, weight)
-
+        # first we quantize the parameters, and we get params in the range [0, 2^VEParameters.TARGET_RANGE]
         params = quantize(weights=params,
                           clipping_range=clipping_range)
+
+        # we multiply the parameters with the weight, and we get params in the range [0, 2^(VEParameters.TARGET_RANGE + VEParameters.MAX_WEIGHT_RANGE)]
+        # check if weight if num_bits of weight is less than VEParameters.WEIGHT_RANGE
+        if weight is not None:
+            if 2**weight.bit_length() > VEParameters.WEIGHT_RANGE:
+                raise FedbiomedSecaggCrypterError(
+                    f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
+                    f"{VEParameters.WEIGHT_RANGE}."
+                )
+        params = self._apply_weighing(params, weight)
+
+
         public_param = self._setup_public_param(biprime=biprime)
 
         # Instantiates UserKey object
@@ -192,11 +205,13 @@ class SecaggCrypter:
 
         # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
+        logger.info(f"Aggregating {len(params)} parameters from {num_nodes} nodes.")
+        aggregated_params = self._apply_average(sum_of_weights, total_sample_size)
+
         aggregated_params: List[float] = reverse_quantize(
-            self._apply_average(sum_of_weights, num_nodes, total_sample_size),
+            aggregated_params,
             clipping_range=clipping_range
         )
-
         time_elapsed = time.process_time() - start
         logger.debug(f"Aggregation is completed in {round(time_elapsed, ndigits=2)} seconds.")
 
@@ -205,41 +220,35 @@ class SecaggCrypter:
     @staticmethod
     def _apply_average(
             params: List[int],
-            num_nodes: int,
-            total_sample_size: int
+            total_weight: int
     ) -> List:
-        """Takes the average of summed quantized parameters.
+        """Divides parameters with total weight
 
         Args:
-            params: List of aggregated/summed parameters
-            num_nodes: Number of nodes participated in the training
-            total_sample_size: Num of total samples used for federated training
-
+            params: List of parameters
+            total_weight: Total weight to divide
+        
         Returns:
-            Averaged parameters
+            List of averaged parameters
         """
-
-        return [param / num_nodes for param in params]
+        return divide(params, total_weight)
 
     @staticmethod
     def _apply_weighing(
-            params: List[float],
+            params: List[int],
             weight: int,
-    ) -> List[float]:
-        """Takes the average of summed parameters.
+    ) -> List[int]:
+        """Multiplies parameters with weight
 
         Args:
-            params: A list containing list of parameters
-            weight: The weight factor to apply
-
+            params: List of parameters
+            weight: Weight to multiply
+        
         Returns:
-            Weighed parameters
+            List of weighted parameters
         """
-
-        # TODO: Currently weighing is not activated due to CLIPPING_RANGE problem.
-        #  Implement weighing.
-        return [param * 1 for param in params]
-
+        return multiply(params, weight)
+    
     @staticmethod
     def _convert_to_encrypted_number(
             params: List[List[int]],
