@@ -515,7 +515,7 @@ def generate_certificate(
             and (os.path.isfile(os.path.join(certificate_path, "certificate.key")) or
                  os.path.isfile(os.path.join(certificate_path, "certificate.pem"))):
 
-        raise ValueError(f"Certificate generation is aborted. Directory {certificate_path} already "
+        raise ValueError(f"Certificate generation is aborted. Directory {certificate_path} has already "
                          f"certificates. Please remove those files to regenerate")
     else:
         os.makedirs(certificate_path, exist_ok=True)
