@@ -520,14 +520,11 @@ def generate_certificate(
     else:
         os.makedirs(certificate_path, exist_ok=True)
 
-    try:
-        key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
-            certificate_folder=certificate_path,
-            certificate_name=prefix if prefix else '',
-            component_id=component_id,
-            subject=subject
-        )
-    except FedbiomedError as e:
-        raise ValueError(f"Can not generate certificate: {e}")
+    key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=certificate_path,
+        certificate_name=prefix if prefix else '',
+        component_id=component_id,
+        subject=subject
+    )
 
     return key_file, pem_file
