@@ -20,9 +20,6 @@ from ._jls import JoyeLibert, \
     quantize, \
     reverse_quantize, \
     multiply, \
-    divide,\
-    reverse_quantize, \
-    multiply, \
     divide
 
 
@@ -118,7 +115,6 @@ class SecaggCrypter:
                     f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
                     f"{VEParameters.WEIGHT_RANGE}."
                 )
-        if weight is not None:
             params = self._apply_weighing(params, weight)
 
 
@@ -231,7 +227,7 @@ class SecaggCrypter:
         Args:
             params: List of parameters
             total_weight: Total weight to divide
-        
+
         Returns:
             List of averaged parameters
         """
@@ -247,12 +243,12 @@ class SecaggCrypter:
         Args:
             params: List of parameters
             weight: Weight to multiply
-        
+
         Returns:
             List of weighted parameters
         """
         return multiply(params, weight)
-    
+
     @staticmethod
     def _convert_to_encrypted_number(
             params: List[List[int]],
