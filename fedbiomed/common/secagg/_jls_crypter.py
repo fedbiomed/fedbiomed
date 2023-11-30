@@ -16,17 +16,13 @@ from ._jls import JoyeLibert, \
     ServerKey, \
     UserKey, \
     FDH, \
-    PublicParam, \
-    quantize, \
-    reverse_quantize, \
-    multiply, \
-    divide,\
-    reverse_quantize, \
-    multiply, \
-    divide
+    PublicParam
 
+from .utils import quantize, \
+    reverse_quantize, \
+    apply_average, apply_weighing
 
-class SecaggCrypter:
+class JLSCrypter:
     """Secure aggregation encryption and decryption manager.
 
     This class is responsible for encrypting model parameters using Joye-Libert secure
@@ -119,8 +115,7 @@ class SecaggCrypter:
                     f"{VEParameters.WEIGHT_RANGE}."
                 )
         if weight is not None:
-            params = self._apply_weighing(params, weight)
-
+            params = apply_weighing(params, weight)
 
         public_param = self._setup_public_param(biprime=biprime)
 
@@ -139,7 +134,7 @@ class SecaggCrypter:
         except (TypeError, ValueError) as exp:
             raise FedbiomedSecaggCrypterError(
                 f"{ErrorNumbers.FB624.value} Error during parameter encryption. {exp}") from exp
-
+        
         time_elapsed = time.process_time() - start
         logger.debug(f"Encryption of the parameters took {time_elapsed} seconds.")
 
@@ -210,7 +205,7 @@ class SecaggCrypter:
         # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
         logger.info(f"Aggregating {len(params)} parameters from {num_nodes} nodes.")
-        aggregated_params = self._apply_average(sum_of_weights, total_sample_size)
+        aggregated_params = apply_average(sum_of_weights, total_sample_size)
 
         aggregated_params: List[float] = reverse_quantize(
             aggregated_params,
@@ -221,38 +216,6 @@ class SecaggCrypter:
 
         return aggregated_params
 
-    @staticmethod
-    def _apply_average(
-            params: List[int],
-            total_weight: int
-    ) -> List:
-        """Divides parameters with total weight
-
-        Args:
-            params: List of parameters
-            total_weight: Total weight to divide
-        
-        Returns:
-            List of averaged parameters
-        """
-        return divide(params, total_weight)
-
-    @staticmethod
-    def _apply_weighing(
-            params: List[int],
-            weight: int,
-    ) -> List[int]:
-        """Multiplies parameters with weight
-
-        Args:
-            params: List of parameters
-            weight: Weight to multiply
-        
-        Returns:
-            List of weighted parameters
-        """
-        return multiply(params, weight)
-    
     @staticmethod
     def _convert_to_encrypted_number(
             params: List[List[int]],

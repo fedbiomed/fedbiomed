@@ -39,7 +39,7 @@ import fedbiomed.common.optimizers.generic_optimizers
 import fedbiomed.common.privacy.__init__
 import fedbiomed.common.privacy._dp_controller
 import fedbiomed.common.secagg.__init__
-import fedbiomed.common.secagg._secagg_crypter
+import fedbiomed.common.secagg._jls_crypter
 import fedbiomed.common.secagg_manager
 import fedbiomed.common.serializer
 import fedbiomed.common.singleton

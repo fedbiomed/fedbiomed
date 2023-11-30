@@ -712,6 +712,8 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     secagg_biprime_id: Optional[str] = None
     secagg_random: Optional[float] = None
     secagg_clipping_range: Optional[int] = None
+    secagg_scheme: Optional[str] = None
+    node_ids: Optional[List[int]] = None
 
 
 @catch_dataclass_exception

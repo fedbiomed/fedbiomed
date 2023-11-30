@@ -17,7 +17,7 @@ from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.common.secagg import SecaggCrypter
+from fedbiomed.common.secagg import SecaggCrypterJLS
 
 
 class Aggregator:
@@ -30,7 +30,7 @@ class Aggregator:
         self._aggregator_args: dict = None
         self._fds: FederatedDataSet = None
         self._training_plan_type: TrainingPlans = None
-        self._secagg_crypter = SecaggCrypter()
+        self._secagg_crypter = SecaggCrypterJLS()
 
     def secure_aggregation(
             self,

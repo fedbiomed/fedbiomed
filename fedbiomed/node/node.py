@@ -279,7 +279,8 @@ class Node:
                            node_args=self.node_args,
                            round_number=msg.get_param('round'),
                            dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-                           aux_vars=msg.get_param('aux_vars'))
+                           aux_vars=msg.get_param('aux_vars'),
+                           node_ids=msg.get_param('node_ids'))
 
             # the round raises an error if it cannot initialize
             err_msg = round_.initialize_arguments(msg.get_param('state_id'))
@@ -337,7 +338,8 @@ class Node:
                                     'secagg_servkey_id': item.get_param('secagg_servkey_id'),
                                     'secagg_biprime_id': item.get_param('secagg_biprime_id'),
                                     'secagg_random': item.get_param('secagg_random'),
-                                    'secagg_clipping_range': item.get_param('secagg_clipping_range')
+                                    'secagg_clipping_range': item.get_param('secagg_clipping_range'),
+                                    'secagg_scheme': item.get_param('secagg_scheme')
                                 }
                             )
                             msg.request_id = item.request_id

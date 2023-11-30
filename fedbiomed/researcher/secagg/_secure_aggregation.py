@@ -9,7 +9,7 @@ from typing import List, Union, Dict, Any, Optional
 from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
-from fedbiomed.common.secagg import SecaggCrypter
+from fedbiomed.common.secagg import SecaggCrypterJLS
 from fedbiomed.common.logger import logger
 
 
@@ -39,6 +39,7 @@ class SecureAggregation:
             self,
             active: bool = True,
             clipping_range: Union[None, int] = None,
+            scheme: str = 'jls'
     ) -> None:
         """Class constructor
 
@@ -69,14 +70,14 @@ class SecureAggregation:
             )
 
         self.clipping_range: Optional[int] = clipping_range
-
+        self.scheme = scheme 
         self._active: bool = active
         self._parties: Optional[List[str]] = None
         self._job_id: Optional[str] = None
         self._servkey: Optional[SecaggServkeyContext] = None
         self._biprime: Optional[SecaggBiprimeContext] = None
         self._secagg_random: Optional[float] = None
-        self._secagg_crypter: SecaggCrypter = SecaggCrypter()
+        self._secagg_crypter: SecaggCrypterJLS = SecaggCrypterJLS(scheme=scheme)
 
     @property
     def parties(self) -> Union[List[str], None]:
@@ -149,7 +150,8 @@ class SecureAggregation:
         return {'secagg_servkey_id': self._servkey.secagg_id if self._servkey is not None else None,
                 'secagg_biprime_id': self._biprime.secagg_id if self._biprime is not None else None,
                 'secagg_random': self._secagg_random,
-                'secagg_clipping_range': self.clipping_range}
+                'secagg_clipping_range': self.clipping_range, 
+                'secagg_scheme': self.scheme}
 
     def setup(self,
               parties: List[str],

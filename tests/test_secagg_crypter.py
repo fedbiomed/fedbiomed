@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from gmpy2 import mpz
 
-from fedbiomed.common.secagg import SecaggCrypter, EncryptedNumber
+from fedbiomed.common.secagg import SecaggCrypterJLS, EncryptedNumber
 from fedbiomed.common.secagg._jls import PublicParam
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 
@@ -15,7 +15,7 @@ class TestSecaggCrypter(unittest.TestCase):
     biprime = 158820908809271716671659880613366104677813341255487834154303909761107215283569995523817428402987962641429395032343305343341950966867458277812575065022203120547706127493272939455658018882112230042773163870472621818892994896895819790062496734944602899772583591514631486212290112369502692304700112819186167541107
 
     def setUp(self) -> None:
-        self.secagg_crypter = SecaggCrypter()
+        self.secagg_crypter = SecaggCrypterJLS()
         pass
 
     def tearDown(self) -> None:
