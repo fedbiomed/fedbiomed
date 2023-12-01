@@ -1,20 +1,20 @@
 ---
-description: Open, Transparent and Trusted Federated Learning for Real-world Healthcare Applications
-title: Federated Learning in Healthcare 
-keywords: Fed-BioMed, Federated Learning, Machine Learning
+description: Open, Transparent and Trusted Collaborative Learning for Real-world Healthcare Applications
+title: Collaborative Learning in Healthcare 
+keywords: Fed-BioMed, Federated Learning, Machine Learning, Federated Analytics
 ---
 
-## Open, Transparent and Trusted Federated Learning for Real-world Healthcare Applications
+## Open, Transparent and Trusted Collaborative Learning for Real-world Healthcare Applications
 
 What is Fed-BioMed?
 
-Fed-BioMed is an open-source research and development initiative aiming at translating federated learning (FL) into real-world medical research applications.
+Fed-BioMed is an open-source research and development initiative aiming at translating collaborative learning into real-world medical research applications.
 
 Fed-BioMed provides:
 
-- A demonstrated framework for deploying federated learning in hospital networks,
-- Easy deployment of state-of-the art federated learning methods, 
-- User-friendly tools for data managment and client participation to federated learning,
+- A demonstrated framework for deploying collaborative learning in hospital networks,
+- Easy deployment of state-of-the art federated learning and federated analytics methods, 
+- User-friendly tools for data managment and client participation to collaborative learning,
 - A framework-agnostic environment for easily deploying machine learning methods, 
 - Clear solutions compliant with data providers' privacy, and nodes governance requirements.
 
