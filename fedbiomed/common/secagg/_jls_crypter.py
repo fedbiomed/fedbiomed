@@ -60,7 +60,7 @@ class JLSCrypter:
             params: List[float],
             key: int,
             biprime: int,
-            clipping_range: Union[int, None] = None,
+            clipping_range: Union[int, None] = VEParameters.CLIPPING_RANGE,
             weight: int = None,
     ) -> List[int]:
         """Encrypts model parameters.
@@ -144,7 +144,7 @@ class JLSCrypter:
             self,
             current_round: int,
             num_nodes: int,
-            params: List[List[int]],
+            list_params: List[List[int]],
             key: int,
             biprime: int,
             total_sample_size: int,
@@ -170,18 +170,18 @@ class JLSCrypter:
         """
         start = time.process_time()
 
-        if len(params) != num_nodes:
+        if len(list_params) != num_nodes:
             raise FedbiomedSecaggCrypterError(
                 f"{ErrorNumbers.FB624.value}: Num of parameters that are received from nodes "
                 f"does not match the number of nodes has been set for the encrypter. There might "
                 f"be some nodes did not answered to training request or num of clients of "
                 "`ParameterEncrypter` has not been set properly before train request.")
 
-        if not isinstance(params, list) or not all([isinstance(p, list) for p in params]):
+        if not isinstance(list_params, list) or not all([isinstance(p, list) for p in list_params]):
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: The parameters to aggregate should "
                                               f"list containing list of parameters")
 
-        if not all([all([isinstance(p_, int) for p_ in p]) for p in params]):
+        if not all([all([isinstance(p_, int) for p_ in p]) for p in list_params]):
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: Invalid parameter type. The parameters "
                                               f"should be type of integers.")
 
@@ -190,13 +190,13 @@ class JLSCrypter:
         public_param = self._setup_public_param(biprime=biprime)
         key = ServerKey(public_param, key)
 
-        params = self._convert_to_encrypted_number(params, public_param)
+        list_params = self._convert_to_encrypted_number(list_params, public_param)
 
         try:
             sum_of_weights = self._jls.aggregate(
                 sk_0=key,
                 tau=current_round,  # The time period \\(\\tau\\)
-                list_y_u_tau=params
+                list_y_u_tau=list_params
             )
         except (ValueError, TypeError) as e:
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624.value}: The aggregation of encrypted parameters "
@@ -204,7 +204,7 @@ class JLSCrypter:
 
         # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
-        logger.info(f"Aggregating {len(params)} parameters from {num_nodes} nodes.")
+        logger.info(f"Aggregating {len(list_params)} parameters from {num_nodes} nodes.")
         aggregated_params = apply_average(sum_of_weights, total_sample_size)
 
         aggregated_params: List[float] = reverse_quantize(

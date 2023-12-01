@@ -10,7 +10,8 @@ from ._flamingo_crypter import FlamingoCrypter
 __all__ = [
     "JoyeLibert",
     "EncryptedNumber",
-    "SecaggCrypterJLS",
+    "JLSCrypter",
+    "FlamingoCrypter",
     "quantize",
     "reverse_quantize"
 ]

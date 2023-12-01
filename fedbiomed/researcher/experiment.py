@@ -1468,7 +1468,7 @@ class Experiment:
             if self._secagg.scheme == 'jls':
                 self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
                                job_id=self._job.id)
-                secagg_arguments = self._secagg.train_arguments()
+            secagg_arguments = self._secagg.train_arguments()
         # --------------------------------------------------------------------------------------------------------
 
         # Check aggregator parameter(s) before starting a round

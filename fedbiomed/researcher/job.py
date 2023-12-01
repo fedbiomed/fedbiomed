@@ -303,8 +303,8 @@ class Job:
             'command': 'train',
             'aggregator_args': {},
             'aux_vars': [],
+            'node_ids': self._nodes
         }
-
         timer = {}
 
         if do_training:
@@ -341,7 +341,6 @@ class Job:
             timer[node] = time.perf_counter()
 
             messages.update({node: TrainRequest(**msg)})
-
             # Sends training request
 
         with self._reqs.send(messages, self._nodes) as federated_req:

@@ -237,11 +237,12 @@ class Round:
         # secure aggregation settings
         try:
             secagg_arguments = {} if secagg_arguments is None else secagg_arguments
-            self._use_secagg = self._configure_secagg(
-                secagg_servkey_id=secagg_arguments.get('secagg_servkey_id'),
-                secagg_biprime_id=secagg_arguments.get('secagg_biprime_id'),
-                secagg_random=secagg_arguments.get('secagg_random'),
-            )
+            # self._use_secagg = self._configure_secagg(
+            #     secagg_servkey_id=secagg_arguments.get('secagg_servkey_id'),
+            #     secagg_biprime_id=secagg_arguments.get('secagg_biprime_id'),
+            #     secagg_random=secagg_arguments.get('secagg_random'),
+            # )
+            self._use_secagg = secagg_arguments.get('secagg_scheme') is not None
             if self._use_secagg:
                 if secagg_arguments.get('secagg_scheme') == 'jls': 
                     self._secagg_crypter = JLSCrypter()
@@ -427,7 +428,7 @@ class Round:
                         key=self._servkey["context"]["server_key"],
                         biprime=self._biprime["context"]["biprime"],
                         weight=results["sample_size"],
-                        clipping_range=secagg_arguments.get('secagg_clipping_range')
+                        # clipping_range=secagg_arguments.get('secagg_clipping_range')
                     )
                 else:
                     encrypt = functools.partial(
@@ -436,11 +437,11 @@ class Round:
                         my_node_id = environ["NODE_ID"],
                         node_ids = self.node_ids,
                         weight=results["sample_size"],
-                        clipping_range=secagg_arguments.get('secagg_clipping_range')
+                        # clipping_range=secagg_arguments.get('secagg_clipping_range')
                     )
                 model_weights = encrypt(params=model_weights)
                 results["encrypted"] = True
-                results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
+                # results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
                 logger.info("Encryption is completed!",
                             researcher_id=self.researcher_id)
 

@@ -37,19 +37,18 @@ class FlamingoCrypter:
             my_node_id: int,
             node_ids: List[int],
             params: List[float],
-            clipping_range: Union[int, None] = None,
+            clipping_range: Union[int, None] = VEParameters.CLIPPING_RANGE,
             weight: int = None,
     ) -> List[int]:
         """
         TODO: Add docstring
         """
         start = time.process_time()
-
+        print(f"my_node_id: {my_node_id}")
         if not isinstance(params, list):
             raise FedbiomedSecaggCrypterError(
                 f"{ErrorNumbers.FB624.value}: Expected argument `params` type list but got {type(params)}"
             )
-
         if not all([isinstance(p, float) for p in params]):
             raise FedbiomedSecaggCrypterError(
                 f"{ErrorNumbers.FB624.value}: The parameters to encrypt should list of floats. "
@@ -59,7 +58,6 @@ class FlamingoCrypter:
         # first we quantize the parameters, and we get params in the range [0, 2^VEParameters.TARGET_RANGE]
         params = quantize(weights=params,
                           clipping_range=clipping_range)
-
         # we multiply the parameters with the weight, and we get params in the range [0, 2^(VEParameters.TARGET_RANGE + VEParameters.MAX_WEIGHT_RANGE)]
         # check if weight if num_bits of weight is less than VEParameters.WEIGHT_RANGE
         if weight is not None:
@@ -70,11 +68,9 @@ class FlamingoCrypter:
                 )
         if weight is not None:
             params = apply_weighing(params, weight)
-
         if not self.setup_done:
             self._flamingo.setup_pairwise_secrets(my_node_id=my_node_id, nodes_ids=node_ids, num_params=len(params))
             self.setup_done = True
-        
         try:
             # Encrypt parameters
             encrypted_params: List[int] = self._flamingo.protect(
@@ -89,7 +85,7 @@ class FlamingoCrypter:
         time_elapsed = time.process_time() - start
         logger.debug(f"Encryption of the parameters took {time_elapsed} seconds.")
 
-        return [int(e_p) for e_p in encrypted_params]
+        return encrypted_params
 
     def aggregate(
             self,
@@ -109,7 +105,6 @@ class FlamingoCrypter:
                 f"does not match the number of nodes has been set for the encrypter. There might "
                 f"be some nodes did not answered to training request or num of clients of "
                 "`ParameterEncrypter` has not been set properly before train request.")
-
         if not isinstance(list_params, list) or not all([isinstance(p, list) for p in list_params]):
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: The parameters to aggregate should "
                                               f"list containing list of parameters")

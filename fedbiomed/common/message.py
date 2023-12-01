@@ -707,13 +707,13 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     command: str
     round: int
     aggregator_args: Dict
+    node_ids: list
     aux_vars: Optional[list] = None
     secagg_servkey_id: Optional[str] = None
     secagg_biprime_id: Optional[str] = None
     secagg_random: Optional[float] = None
     secagg_clipping_range: Optional[int] = None
     secagg_scheme: Optional[str] = None
-    node_ids: Optional[List[int]] = None
 
 
 @catch_dataclass_exception

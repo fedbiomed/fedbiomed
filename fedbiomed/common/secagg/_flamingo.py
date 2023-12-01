@@ -69,13 +69,15 @@ class Flamingo:
             current_round: int,
             params: List[int], 
             node_ids,
-            ):
+            )-> List[int]:
         """
         TODO: Add docstring
         """
         params = np.array(params, dtype=self.vector_dtype)
         vec = np.zeros(len(params), dtype=self.vector_dtype)
         for node_id in node_ids:
+            if node_id == self.my_node_id:
+                continue
             secret = self.pairwise_secrets[node_id]
             # generate seed for pairwise encryption
             pairwise_seed = Flamingo.prf.eval_key(key=secret, round=current_round)
@@ -88,7 +90,7 @@ class Flamingo:
                 vec -= pairwise_vector
 
         encrypted_params = vec + params
-        return encrypted_params
+        return encrypted_params.tolist()
 
     def aggregate(
             self,
@@ -97,11 +99,8 @@ class Flamingo:
         """
         TODO: Add docstring
         """
-        params = [p for _, p in params.items()]
-        sum_params = np.zeros(len(params[0]), dtype=self.vector_dtype)
-        for param in params:
-            param = np.array(param, dtype=self.vector_dtype)
-            sum_params += param
+        params = np.array(params, dtype=self.vector_dtype)
+        sum_params = np.sum(params, axis=0)
         sum_params = sum_params.astype(np.int32)
         sum_params = sum_params.tolist()
 
