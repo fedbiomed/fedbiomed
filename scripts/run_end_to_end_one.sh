@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -xv
 #
 # End-to end test (can also be used on CI slaves)
 #
@@ -15,11 +15,11 @@
 # the -d directive can be repeated to run more than one node
 #
 # Example:
-# ./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
+# ./scripts/run_end_to_end_one.sh -s ./notebooks/101_getting-started.py \
 #                                -d ./tests/datasets/mnist.json
 #
 # This will run 3 nodes:
-# ./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
+# ./scripts/run_end_to_end_one.sh -s ./notebooks/101_getting-started.py \
 #                                -d ./tests/datasets/mnist.json \
 #                                -d ./tests/datasets/mnist.json \
 #                                -d ./tests/datasets/mnist.json
@@ -276,10 +276,10 @@ find_gtimeout() {
 # ---------------
 
 # trap some signals to do a proper cleaning at the end
-trap cleaning_trap INT TERM
+#trap cleaning_trap INT TERM
 
 # locate the topdir of the distribution
-basedir=$(cd $(dirname $0)/.. || exit 1 ; pwd)
+basedir=$(cd "$(dirname $0)"/.. || exit 1 ; pwd)
 
 banner "decoding & verifying arguments"
 
@@ -373,6 +373,7 @@ done
 # Activate researcher conda environment
 # (necessary to find a proper python/ipython)
 source $basedir/scripts/fedbiomed_environment researcher
+conda activate --stack fedbiomed-researcher-end-to-end
 
 # is script ok ?
 CMD_TO_RUN=$(script_executor $SCRIPT)
@@ -393,42 +394,48 @@ esac
 ##### try to run the whole thing....
 
 # run and start nodes, memorize the pids of all these processes and subprocesses
-i=0
 ALL_PIDS=""
 ALL_CONFIG=()
-seed=$RANDOM
-while [ $i -lt ${#DATASETS[@]} ]
+i_node=0
+while [ $i_node -lt 1 ] # in order to generate two nodes containing all the datasets.
 do
-    dataset=${DATASETS[$i]}
+  ((i_node+=1))
+  i_dataset=0
+  seed=$RANDOM
 
-    banner "launching node using: $dataset"
+  # generate a random config file name
+  config=$(generate_config_filename $seed)
 
-    if [ ! -f "$dataset" ]
-    then
-        echo "== ERROR: dataset $dataset is not a valid"
-        cleaning
-        exit 1
-    fi
+  # store it for later cleaning
+  ALL_CONFIG+=("$config")
 
-    # generate a random config file name
-    config=$(generate_config_filename $seed)
+  while [ $i_dataset -lt ${#DATASETS[@]} ]
+  do
+      dataset=${DATASETS[$i_dataset]}
+      banner "i_dataset = $i_dataset"
+      banner "launching node using: $dataset"
 
-    # store it for later cleaning
-    ALL_CONFIG+=("$config")
+      if [ ! -f "$dataset" ]
+      then
+          echo "== ERROR: dataset $dataset is not a valid"
+          cleaning
+          exit 1
+      fi
 
-    # populate node
-    echo "== INFO: populating fedbiomed node"
-    $basedir/scripts/fedbiomed_run node config ${config} -adff $dataset
+      # populate node
+      echo "== INFO: populating fedbiomed node"
+      $basedir/scripts/fedbiomed_run node config ${config} -adff $dataset || true
 
-    # launch node
-    echo "== INFO: launching fedbiomed node"
-    $basedir/scripts/fedbiomed_run node config ${config} start &
-    pid=$!
-    sleep 10
+      ((i_dataset+=1))
+  done
+  # launch node
+  echo "== INFO: launching fedbiomed node"
+  $basedir/scripts/fedbiomed_run node config ${config} start &
+  pid=$!
+  sleep 10
 
-    # store node pid and subprocesses pids
-    ALL_PIDS+=" $pid $(subprocess $pid)"
-    i=$(( $i + 1 ))
+  # store node pid and subprocesses pids
+  ALL_PIDS+=" $pid $(subprocess $pid)"
 done
 
 

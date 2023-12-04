@@ -1,7 +1,7 @@
 ---
 title: Federated Training Workflow
 description: This page presents the workflow of Fed-BioMed.
-keywords: Federated Learning, workflow
+keywords: Collaborative Learning, Federated Learning, Federated Analytics, workflow
 ---
 
 # Fed-BioMed Workflow

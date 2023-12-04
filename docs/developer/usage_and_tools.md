@@ -90,7 +90,7 @@ There are two events that trigger documentation publishing:
 
 Current roles in Fed-BioMed development process are:
 
-- **Fed-BioMed Users**: people using Fed-BioMed for research and/or deployment in federated learning applications, and reporting issues.
+- **Fed-BioMed Users**: people using Fed-BioMed for research and/or deployment in collaborative learning applications, and reporting issues.
 - **Fed-BioMed Contributors**: developers proposing their changes to the Fed-BioMed code and documentation via pull requests.
 - **Fed-BioMed Reviewers**: developers reviewing the pull requests.
     * Reviewers can be Contributors, Team Developers or Core Developers.
@@ -196,7 +196,7 @@ composed of the product goal and product backlog entries. Each product backlog e
 
 The current product goal content is:
 
-1. **priority 1** : translating Federated Learning to real world healthcare applications
+1. **priority 1** : translating Collaborative Learning to real world healthcare applications
 2. **priority 2** : as an open source software initiative, developing of the community, welcoming other contributions 
 3. **priority 3** : supporting initiatives that use Fed-BioMed
 4. **priority 4** : experimenting new research and technologies

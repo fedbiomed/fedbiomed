@@ -1107,7 +1107,6 @@ class TestExperiment(ResearcherTestCase):
                                              [0.1, 0.9],
                                              10,
                                              {'node-1': [1], 'node-2': [1]})
-
         # Prepare secure aggregation context
         self.test_exp.secagg._configure_round(parties=[environ["ID"], "node-1", "node-2"],
                                               job_id="dummy-job-id")
@@ -1120,8 +1119,8 @@ class TestExperiment(ResearcherTestCase):
         # Fix secagg_random value to pass validation step
 
         with patch("fedbiomed.researcher.secagg._secure_aggregation.random.uniform") as s_m:
-            s_m.return_value = -2.8131
-            self.test_exp.secagg._secagg_random = -2.8131  # hard coded for validation of encryption
+            s_m.return_value = -2.9988
+            self.test_exp.secagg._secagg_random = -2.9988  # hard coded for validation of encryption
             self.test_exp._round_current = 1
             self.test_exp.run_once()
 
