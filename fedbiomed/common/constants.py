@@ -40,11 +40,7 @@ NODE_STATE_PREFIX = 'node_state_'
 JOB_PREFIX = 'job_'
 """Prefix for job ID"""
 
-
-ETC_FOLDER_NAME = 'etc'
-"""Folder name for etc directory"""
-
-CERTS_FOLDER_NAME = os.path.join(ETC_FOLDER_NAME, 'certs')
+CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 """FOLDER name for Certs directory"""
 
 

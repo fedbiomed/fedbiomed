@@ -50,7 +50,8 @@ from abc import abstractmethod
 from typing import Any, Tuple, Union, List
 
 from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, \
-    CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME, ETC_FOLDER_NAME
+    CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME, \
+    CERTS_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.utils import (
     ROOT_DIR, 
@@ -148,12 +149,12 @@ class Environ(metaclass=SingletonABCMeta):
 
 
         self._values['DB_PATH'] = os.path.normpath(
-            os.path.join(self._values["ROOT_DIR"], ETC_FOLDER_NAME, self.config.get('default', 'db')
+            os.path.join(self._values["ROOT_DIR"], CONFIG_FOLDER_NAME, self.config.get('default', 'db')
         ))
 
         # initialize other directories
         self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, CONFIG_FOLDER_NAME, "port_increment")
-        self._values['CERT_DIR'] = os.path.join(root_dir, CONFIG_FOLDER_NAME, "certs")
+        self._values['CERT_DIR'] = os.path.join(root_dir, CERTS_FOLDER_NAME)
         self._values['DEFAULT_BIPRIMES_DIR'] = os.path.join(root_dir, 'envs', 'common', 'default_biprimes')
 
 

@@ -20,7 +20,7 @@ from fedbiomed.common.utils import get_existing_component_db_names, \
     ROOT_DIR
 from fedbiomed.common.secagg_manager import SecaggBiprimeManager
 from fedbiomed.common.config import ResearcherConfig, NodeConfig
-from fedbiomed.common.constants import ETC_FOLDER_NAME
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME
 
 RED = '\033[1;31m'  # red
 YLW = '\033[1;33m'  # yellow
@@ -351,7 +351,7 @@ class CommonCLI:
 
         df_biprimes = config.get('mpspdz', 'allow_default_biprimes')
         biprimes_dir = os.path.normpath(
-            os.path.join(config.root, ETC_FOLDER_NAME , config.get('mpspdz', 'default_biprimes_dir'))
+            os.path.join(config.root, CONFIG_FOLDER_NAME , config.get('mpspdz', 'default_biprimes_dir'))
         )
         # Update secure aggregation biprimes in component database
         print(
@@ -361,7 +361,7 @@ class CommonCLI:
         )
 
         db_path = os.path.normpath(
-            os.path.join(config.root, ETC_FOLDER_NAME, config.get('default', 'db'))
+            os.path.join(config.root, CONFIG_FOLDER_NAME, config.get('default', 'db'))
         )
         BPrimeManager = SecaggBiprimeManager(db_path)
         BPrimeManager.update_default_biprimes(df_biprimes, biprimes_dir)

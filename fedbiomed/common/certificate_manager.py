@@ -11,7 +11,8 @@ from tinydb import TinyDB, Query
 from tinydb.table import Table
 from tabulate import tabulate
 
-from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix, NODE_PREFIX, ErrorNumbers, ETC_FOLDER_NAME, CERTS_FOLDER_NAME
+from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix, NODE_PREFIX, ErrorNumbers, \
+    CONFIG_FOLDER_NAME, CERTS_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedCertificateError
 from fedbiomed.common.utils import read_file
 from fedbiomed.common.db import DBTable
@@ -461,7 +462,7 @@ def retrieve_ip_and_port(
     # Get IP from global environment
     ip = os.getenv('MPSPDZ_IP', "localhost")
 
-    increment_file = os.path.join(root, ETC_FOLDER_NAME, 'port_increment')
+    increment_file = os.path.join(root, CONFIG_FOLDER_NAME, 'port_increment')
 
     if os.path.isfile(increment_file) and new is False:
         with open(increment_file, "r+") as file:
