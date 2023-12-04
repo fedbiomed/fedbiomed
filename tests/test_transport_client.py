@@ -228,8 +228,8 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
         self.channels = MagicMock()
         self.channels.feedback_stub.Feedback = MagicMock(spec=grpc.aio.UnaryUnaryMultiCallable)
         self.channels.task_stub.ReplyTask = MagicMock(spec=grpc.aio.StreamUnaryMultiCallable)
-        self.task_stub = MagicMock()
-        self.task_stub.ReplyTask = MagicMock(spec=grpc.aio.StreamUnaryMultiCallable)
+        self._task_stub = MagicMock()
+        self._task_stub.ReplyTask = MagicMock(spec=grpc.aio.StreamUnaryMultiCallable)
         self.on_status_change = MagicMock()
         self.sender = Sender(
             channels=self.channels,

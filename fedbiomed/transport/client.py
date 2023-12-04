@@ -105,26 +105,35 @@ class Channels:
         """
         self.researcher = researcher
 
-        self.task_channel: grpc.aio.Channel = None
-        self.feedback_channel: grpc.aio.Channel = None
-        self.task_stub: ResearcherServiceStub = None
-        self.feedback_stub: ResearcherServiceStub = None
+        self._task_channel: grpc.aio.Channel = None
+        self._feedback_channel: grpc.aio.Channel = None
+        self._task_stub: ResearcherServiceStub = None
+        self._feedback_stub: ResearcherServiceStub = None
+
+    @property
+    def task_stub(self):
+        return self._task_stub
+
+    @property
+    def feedback_stub(self):
+        return self._feedback_stub
 
     async def connect(self):
         """Connects gRPC server and instatiates stubs"""
 
         # Closes fi channels are open
-        if self.feedback_channel:
-            await self.feedback_channel.close()
+        if self._feedback_channel:
+            await self._feedback_channel.close()
 
-        if self.task_channel:
-            await self.task_channel.close()
+        if self._task_channel:
+            await self._task_channel.close()
 
-        self.feedback_channel = self._create()
-        self.feedback_stub = ResearcherServiceStub(channel=self.feedback_channel)
 
-        self.task_channel = self._create()
-        self.task_stub = ResearcherServiceStub(channel=self.task_channel)
+        self._feedback_channel = self._create()
+        self._feedback_stub = ResearcherServiceStub(channel=self._feedback_channel)
+
+        self._task_channel = self._create()
+        self._task_stub = ResearcherServiceStub(channel=self._task_channel)
 
     def _create(self):
         """Creates new channel"""
@@ -154,12 +163,6 @@ class GrpcClient:
         self._id = None
         self._researcher = researcher
         self._channels = Channels(researcher)
-
-        self._task_stub = None
-        self._feedback_stub = None
-
-        self._feedback_channel = None
-        self._task_channel = None
 
         self._task_listener = TaskListener(
             channels=self._channels,
@@ -411,7 +414,6 @@ class Sender(Listener):
 
         Args:
             channels: RPC channels and stubs to be used for polling tasks from researcher
-            task_stub: RPC stub to use for node replies to researcher task requests
             on_status_change: Callback function to run for changing node agent status
         """
         super().__init__(channels)
