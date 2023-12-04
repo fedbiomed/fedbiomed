@@ -71,7 +71,8 @@ def create_channel(
 
     return channel
 
-def is_server_alive(host:str, port: str):
+
+def is_server_alive(host: str, port: str):
     """Checks if the server is alive
 
     Args:
@@ -106,7 +107,7 @@ class Channels:
 
         self.task_channel: grpc.aio.Channel = None
         self.feedback_channel: grpc.aio.Channel = None
-        self.task_stub: ResearhcerServiceStub = None
+        self.task_stub: ResearcherServiceStub = None
         self.feedback_stub: ResearcherServiceStub = None
 
     async def connect(self):
@@ -130,7 +131,7 @@ class Channels:
         return create_channel(
             port=self.researcher.port,
             host=self.researcher.host,
-            certificate= grpc.ssl_channel_credentials(self.researcher.certificate) # grpc.ssl_channel_credentials()
+            certificate= grpc.ssl_channel_credentials(self.researcher.certificate)  # grpc.ssl_channel_credentials()
         )
 
 
@@ -229,18 +230,17 @@ class GrpcClient:
                 self._researcher.certificate = \
                     bytes(ssl.get_server_certificate(
                         (self._researcher.host, self._researcher.port)),
-                          'utf-8')
+                        'utf-8')
                 # Connect to channels and create stubs
                 await self._channels.connect()
 
-                break;
+                break
             else:
                 logger.info(
                     "Researcher server is not available, will retry connect in "
                     f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                 await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
 
-        
 
     def _on_status_change(self, status: ClientStatus) -> None:
         """Callback function to change the researcher status

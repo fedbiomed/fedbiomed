@@ -19,7 +19,7 @@ from fedbiomed.common.certificate_manager import retrieve_ip_and_port, generate_
 from fedbiomed.common.constants import SERVER_certificate_prefix, \
     __researcher_config_version__, __node_config_version__, \
     HashingAlgorithms, \
-    ETC_FOLDER_NAME, \
+    CONFIG_FOLDER_NAME, \
     VAR_FOLDER_NAME, \
     DB_PREFIX
 
@@ -123,7 +123,7 @@ class Config(metaclass=ABCMeta):
 
         # DB PATH RELATIVE
         db_path  = os.path.join(self.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{component_id}.json")
-        self._cfg['default']['db'] = os.path.relpath(db_path, os.path.join(self.root, ETC_FOLDER_NAME))
+        self._cfg['default']['db'] = os.path.relpath(db_path, os.path.join(self.root, CONFIG_FOLDER_NAME))
 
         ip, port = retrieve_ip_and_port(self.root)
         allow_default_biprimes = os.getenv('ALLOW_DEFAULT_BIPRIMES', True)
@@ -205,6 +205,6 @@ class ResearcherConfig(Config):
         self._cfg['server'] = {
             'host': grpc_host,
             'port': grpc_port,
-            'pem' : os.path.relpath(pem_file, os.path.join(self.root, ETC_FOLDER_NAME)),
-            'key' : os.path.relpath(key_file, os.path.join(self.root, ETC_FOLDER_NAME))
+            'pem' : os.path.relpath(pem_file, os.path.join(self.root, CONFIG_FOLDER_NAME)),
+            'key' : os.path.relpath(key_file, os.path.join(self.root, CONFIG_FOLDER_NAME))
         }
