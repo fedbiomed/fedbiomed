@@ -1,18 +1,18 @@
 ---
 title: Federated Training architecture
 description: This page presents the architecture of Fed-BioMed.
-keywords: Federated Learning, architecture
+keywords: Collaborative Learning, Federated Learning, Federated Analytics, architecture
 ---
 
 # Fedbiomed Main components
 
-Fed-BioMed has two components ensuring the correct execution of federated learning algorithms. These components  are `Node` and `Researcher`, and are defined in the following sections:
+Fed-BioMed has two components ensuring the correct execution of collaborative learning algorithms. These components  are `Node` and `Researcher`, and are defined in the following sections:
 
 ### `Node`
 
 In Fed-BioMed, `Node` provides 2 main functionalities: 
 
- - `Node` stores datasets, upon which the Federated Learning Model will be trained. Datasets paths towards files and folders in a [TinyDB](https://tinydb.readthedocs.io/en/latest/) database, as well as other metadata such as datatype, data shape, ... .
+ - `Node` stores datasets, upon which the Federated Learning Model will be trained and Federated Analytics will be performed. Datasets paths towards files and folders in a [TinyDB](https://tinydb.readthedocs.io/en/latest/) database, as well as other metadata such as datatype, data shape, ... .
  - `Node` trains a model upon a `TrainRequest` (sent by `Researcher`), and send it back to the `Researcher` once training is completed.
  
 `Node` is a client that is responsible for sending replies in response to Researcher requests. Since `Node` is not a 

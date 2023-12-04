@@ -3,7 +3,7 @@ site_url: https://fedbiomed.org/latest
 site_dir: public
 
 site_description: >- 
-    Open, Transparent and Trusted Federated Learning for Real-world Healthcare Applications
+    Open, Transparent and Trusted Collaborative Learning for Real-world Healthcare Applications
 theme:
   name: material
   logo: assets/img/fedbiomed-logo-small.png

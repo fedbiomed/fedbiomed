@@ -163,4 +163,4 @@ The environment and the API for integration tests are still in working process.
 
 ## End-to-End Testing
 
-End-to-end testing focuses on testing the entire system or application as a whole, ensuring that all components work together correctly. In the context of Fed-BioMed, end-to-end testing would involve testing the complete workflow and functionalities of the federated learning framework, including data collection, model training, aggregation, and evaluation.
+End-to-end testing focuses on testing the entire system or application as a whole, ensuring that all components work together correctly. In the context of Fed-BioMed, end-to-end testing would involve testing the complete workflow and functionalities of the collaborative learning framework, including data collection, model training, aggregation, and evaluation.

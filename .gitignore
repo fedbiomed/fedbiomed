@@ -404,6 +404,7 @@ cover/
 mylog.log
 sgd.sav
 data/*
+!data/.gitkeep
 
 # vpn configurations - now in run_mounts for containers
 #**/config/config_peers
