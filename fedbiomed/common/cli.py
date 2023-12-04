@@ -163,7 +163,7 @@ class CommonCLI:
             type=str,
             nargs='?',
             required=False,
-            help='Certificate/key that will be registered')
+            help='Name of configuration file')
 
         create.add_argument(
             '-uc',
