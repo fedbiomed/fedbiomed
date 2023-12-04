@@ -177,8 +177,8 @@ class TestSecureAggregation(ResearcherTestCase):
         self.assertTrue(len(agg_params) == 5)
 
         # IMPORTANT: this value has been set for biprime 1234 and servkey 1234
-        # aggregation of [1], [1] will be closer to -2.8131
-        self.secagg._secagg_random = -2.8131
+        # aggregation of [1], [1] will be closer to -2.9988
+        self.secagg._secagg_random = -2.9988
 
         agg_params = self.secagg.aggregate(round_=1,
                                            total_sample_size=100,
@@ -189,7 +189,7 @@ class TestSecureAggregation(ResearcherTestCase):
 
         # Will fail since secagg random is not correctly decrypted
         with self.assertRaises(FedbiomedSecureAggregationError):
-            self.secagg._secagg_random = 2.8131
+            self.secagg._secagg_random = 2.9988
             self.secagg.aggregate(round_=1,
                                   total_sample_size=100,
                                   model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
