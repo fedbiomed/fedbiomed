@@ -9,20 +9,19 @@ from abc import ABCMeta, abstractmethod
 
 from typing import Optional
 
-from fedbiomed.common.constants import ErrorNumbers, MPSPDZ_certificate_prefix, CONFIG_FOLDER_NAME
+from fedbiomed.common.constants import ErrorNumbers, MPSPDZ_certificate_prefix, \
+    SERVER_certificate_prefix, \
+    __researcher_config_version__, __node_config_version__, \
+    HashingAlgorithms, \
+    CONFIG_FOLDER_NAME, \
+    VAR_FOLDER_NAME, \
+    DB_PREFIX
 from fedbiomed.common.utils import (
     create_fedbiomed_setup_folders,
     raise_for_version_compatibility,
     CONFIG_DIR,
     ROOT_DIR)
 from fedbiomed.common.certificate_manager import retrieve_ip_and_port, generate_certificate
-from fedbiomed.common.constants import SERVER_certificate_prefix, \
-    __researcher_config_version__, __node_config_version__, \
-    HashingAlgorithms, \
-    CONFIG_FOLDER_NAME, \
-    VAR_FOLDER_NAME, \
-    DB_PREFIX
-
 
 
 class Config(metaclass=ABCMeta):
