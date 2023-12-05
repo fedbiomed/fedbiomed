@@ -338,6 +338,9 @@ class CommonCLI:
             files.
         """
 
+        # TODO: this implementation is a temporary hack as it introduces a dependency of
+        # fedbiomed.common to fedbiomed.node or fedbiomed.researcher
+        # To be suppressed when redesigning the imports
         if args.component.lower() == "node":
             NodeConfig = importlib.import_module('fedbiomed.node.config').NodeConfig
             config = NodeConfig(root=args.root, name=args.name, auto_generate=False)
