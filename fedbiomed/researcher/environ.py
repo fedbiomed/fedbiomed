@@ -33,7 +33,7 @@ class ResearcherEnviron(Environ):
         """Constructs ResearcherEnviron object """
         super().__init__(root_dir=root_dir)
 
-        self.config = ResearcherConfig(root_dir)
+        self._config = ResearcherConfig(root_dir)
 
         logger.setLevel("DEBUG")
         # Set component type
@@ -47,7 +47,7 @@ class ResearcherEnviron(Environ):
 
         # we may remove RESEARCHER_ID in the future (to simplify the code)
         # and use ID instead
-        researcher_id = self.config.get('default', 'id')
+        researcher_id = self._config.get('default', 'id')
 
         self._values['RESEARCHER_ID'] = os.getenv('RESEARCHER_ID', researcher_id)
         self._values['ID'] = self._values['RESEARCHER_ID']
@@ -58,13 +58,13 @@ class ResearcherEnviron(Environ):
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(self._values['VAR_DIR'], 'queue_messages')
 
         self._values["SERVER_HOST"] = os.getenv('RESEARCHER_SERVER_HOST', 
-                                                self.config.get('server', 'host'))
+                                                self._config.get('server', 'host'))
         self._values["SERVER_PORT"] = os.getenv('RESEARCHER_SERVER_PORT', 
-                                                self.config.get('server', 'port'))
+                                                self._config.get('server', 'port'))
 
 
-        self._values["SERVER_SSL_KEY"] = os.path.join(self._values["CONFIG_DIR"], self.config.get('server', 'key'))
-        self._values["SERVER_SSL_CERT"] = os.path.join(self._values["CONFIG_DIR"], self.config.get('server', 'pem'))
+        self._values["SERVER_SSL_KEY"] = os.path.join(self._values["CONFIG_DIR"], self._config.get('server', 'key'))
+        self._values["SERVER_SSL_CERT"] = os.path.join(self._values["CONFIG_DIR"], self._config.get('server', 'pem'))
 
         for _key in 'TENSORBOARD_RESULTS_DIR', 'EXPERIMENTS_DIR':
             dir = self._values[_key]

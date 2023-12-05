@@ -33,7 +33,7 @@ class NodeEnviron(Environ):
         """Constructs NodeEnviron object """
         super().__init__(root_dir=root_dir)
 
-        self.config = NodeConfig(root_dir)
+        self._config = NodeConfig(root_dir)
 
         logger.setLevel("INFO")
         self._values["COMPONENT_TYPE"] = ComponentType.NODE
@@ -46,7 +46,7 @@ class NodeEnviron(Environ):
         # Sets common variable
         super().set_environment()
 
-        node_id = self.config.get('default', 'id')
+        node_id = self._config.get('default', 'id')
         self._values['ID'] = node_id
         self._values['NODE_ID'] = node_id
 
@@ -65,17 +65,17 @@ class NodeEnviron(Environ):
             # create training plan directory
             os.mkdir(self._values['TRAINING_PLANS_DIR'])
 
-        allow_dtp = self.config.get('security', 'allow_default_training_plans')
+        allow_dtp = self._config.get('security', 'allow_default_training_plans')
 
         self._values['ALLOW_DEFAULT_TRAINING_PLANS'] = os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', allow_dtp) \
             .lower() in ('true', '1', 't', True)
 
-        tp_approval = self.config.get('security', 'training_plan_approval')
+        tp_approval = self._config.get('security', 'training_plan_approval')
 
         self._values['TRAINING_PLAN_APPROVAL'] = os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', tp_approval) \
             .lower() in ('true', '1', 't', True)
 
-        hashing_algorithm = self.config.get('security', 'hashing_algorithm')
+        hashing_algorithm = self._config.get('security', 'hashing_algorithm')
         if hashing_algorithm in HashingAlgorithms.list():
             self._values['HASHING_ALGORITHM'] = hashing_algorithm
         else:
@@ -83,11 +83,11 @@ class NodeEnviron(Environ):
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
-        secure_aggregation = self.config.get('security', 'secure_aggregation')
+        secure_aggregation = self._config.get('security', 'secure_aggregation')
         self._values["SECURE_AGGREGATION"] = os.getenv('SECURE_AGGREGATION',
                                                        secure_aggregation).lower() in ('true', '1', 't', True)
 
-        force_secure_aggregation = self.config.get('security', 'force_secure_aggregation')
+        force_secure_aggregation = self._config.get('security', 'force_secure_aggregation')
         self._values["FORCE_SECURE_AGGREGATION"] = os.getenv(
             'FORCE_SECURE_AGGREGATION',
             force_secure_aggregation).lower() in ('true', '1', 't', True)
@@ -96,7 +96,7 @@ class NodeEnviron(Environ):
 
 
         # Parse each researcher ip and port
-        researcher_sections = [section for section in self.config.sections() if section.startswith("researcher")]
+        researcher_sections = [section for section in self._config.sections() if section.startswith("researcher")]
         self._values['RESEARCHERS'] = os.getenv('NODE_RESEARCHERS')
         if os.getenv('RESEARCHER_SERVER_HOST'):
             # Environ variables currently permit to specify only 1 researcher
@@ -111,8 +111,8 @@ class NodeEnviron(Environ):
             self._values["RESEARCHERS"] = []
             for section in researcher_sections:
                 self._values["RESEARCHERS"].append({
-                    'port': self.config.get(section, "port"),
-                    'ip': self.config.get(section, "ip"),
+                    'port': self._config.get(section, "port"),
+                    'ip': self._config.get(section, "ip"),
                     'certificate': None
                 })
 
