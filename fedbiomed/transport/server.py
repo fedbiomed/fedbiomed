@@ -221,7 +221,7 @@ class _GrpcAsyncServer:
         )
 
         self._server.add_secure_port(self._host + ':' + str(self._port), server_credentials)
-        #self._server.add_insecure_port(self._host + ':' + str(self._port))
+        # self._server.add_insecure_port(self._host + ':' + str(self._port))
 
         # Starts async gRPC server
         await self._server.start()
@@ -327,7 +327,8 @@ class GrpcServer(_GrpcAsyncServer):
         while len(self.get_all_nodes()) == 0:
 
             if sleep_ == 0:
-                logger.info(f"No nodes found, server will wait {MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} "
+                logger.info(f"No nodes found, server will wait "
+                            "{MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} "
                             "more seconds until a node creates connection.")
 
             if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:
