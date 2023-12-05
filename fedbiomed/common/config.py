@@ -6,21 +6,21 @@ import os
 import uuid 
 
 from abc import ABCMeta, abstractmethod
-
 from typing import Optional
 
-from fedbiomed.common.constants import ErrorNumbers, MPSPDZ_certificate_prefix, \
-    SERVER_certificate_prefix, \
-    __researcher_config_version__, __node_config_version__, \
-    HashingAlgorithms, \
-    CONFIG_FOLDER_NAME, \
-    VAR_FOLDER_NAME, \
+from fedbiomed.common.constants import (
+    ErrorNumbers,
+    MPSPDZ_certificate_prefix,
+    CONFIG_FOLDER_NAME,
+    VAR_FOLDER_NAME,
     DB_PREFIX
+)
 from fedbiomed.common.utils import (
     create_fedbiomed_setup_folders,
     raise_for_version_compatibility,
     CONFIG_DIR,
-    ROOT_DIR)
+    ROOT_DIR
+)
 from fedbiomed.common.certificate_manager import retrieve_ip_and_port, generate_certificate
 
 
@@ -29,6 +29,7 @@ class Config(metaclass=ABCMeta):
 
     _DEFAULT_CONFIG_FILE_NAME: str = 'config'
     _COMPONENT_TYPE: str
+    _CONFIG_VERSION: str
 
     def __init__(
         self,
@@ -154,56 +155,3 @@ class Config(metaclass=ABCMeta):
     @abstractmethod
     def add_parameters(self):
         """"Component specific argument creation"""
-
-
-class NodeConfig(Config):
-
-    _DEFAULT_CONFIG_FILE_NAME: str = 'config_node.ini'
-    _COMPONENT_TYPE: str = 'NODE'
-    _CONFIG_VERSION: str = __node_config_version__
-
-    def add_parameters(self):
-        """Generate researcher config"""
-
-        # Security variables
-        self._cfg['security'] = {
-            'hashing_algorithm': HashingAlgorithms.SHA256.value,
-            'allow_default_training_plans': os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', True),
-            'training_plan_approval': os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', False),
-            'secure_aggregation': os.getenv('SECURE_AGGREGATION', True),
-            'force_secure_aggregation': os.getenv('FORCE_SECURE_AGGREGATION', False)
-        }
-
-        # gRPC server host and port
-        self._cfg["researcher"] = {
-            'ip': os.getenv('RESEARCHER_SERVER_HOST', 'localhost'),
-            'port': os.getenv('RESEARCHER_SERVER_PORT', '50051')
-        }
-
-
-class ResearcherConfig(Config):
-
-    _DEFAULT_CONFIG_FILE_NAME: str = 'config_researcher.ini'
-    _COMPONENT_TYPE: str = 'RESEARCHER'
-    _CONFIG_VERSION: str = __researcher_config_version__
-
-    def add_parameters(self):
-        """Generate researcher config"""
-
-        grpc_host = os.getenv('RESEARCHER_SERVER_HOST', 'localhost')
-        grpc_port = os.getenv('RESEARCHER_SERVER_PORT', '50051')
-
-        # Generate certificate for gRPC server
-        key_file, pem_file = generate_certificate(
-            root=self.root, 
-            prefix=SERVER_certificate_prefix,
-            component_id=self._cfg['default']['id'],
-            subject={'CommonName': grpc_host}
-        )
-
-        self._cfg['server'] = {
-            'host': grpc_host,
-            'port': grpc_port,
-            'pem' : os.path.relpath(pem_file, os.path.join(self.root, CONFIG_FOLDER_NAME)),
-            'key' : os.path.relpath(key_file, os.path.join(self.root, CONFIG_FOLDER_NAME))
-        }

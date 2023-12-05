@@ -24,7 +24,7 @@ from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, \
     TENSORBOARD_FOLDER_NAME
 from fedbiomed.common.environ import Environ
-from fedbiomed.common.config import ResearcherConfig
+from fedbiomed.researcher.config import ResearcherConfig
 
 
 class ResearcherEnviron(Environ):

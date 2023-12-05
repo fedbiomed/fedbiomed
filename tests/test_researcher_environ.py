@@ -15,7 +15,7 @@ class TestResearcherEnviron(unittest.TestCase):
     def setUp(self) -> None:
         """Setup test for each test function"""
 
-        self.patch_config = patch('fedbiomed.common.config.ResearcherConfig')
+        self.patch_config = patch('fedbiomed.researcher.config.ResearcherConfig')
         self.config_mock = self.patch_config.start()
 
         self.patch_mkdir = patch('os.mkdir')

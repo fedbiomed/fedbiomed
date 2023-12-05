@@ -15,7 +15,7 @@ class TestNodeEnviron(unittest.TestCase):
     def setUp(self) -> None:
         """Setup test for each test function"""
 
-        self.patch_config = patch('fedbiomed.common.config.NodeConfig')
+        self.patch_config = patch('fedbiomed.node.config.NodeConfig')
 
         self.config_mock = self.patch_config.start()
 

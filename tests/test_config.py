@@ -2,7 +2,9 @@ import unittest
 
 from unittest.mock import patch
 
-from fedbiomed.common.config import Config, NodeConfig, ResearcherConfig
+from fedbiomed.common.config import Config
+from fedbiomed.researcher.config import ResearcherConfig
+from fedbiomed.node.config import NodeConfig
 from fedbiomed.common.exceptions import FedbiomedVersionError
 
 

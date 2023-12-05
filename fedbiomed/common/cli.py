@@ -8,6 +8,7 @@ This module includes common CLI methods and parser extension
 """
 
 import argparse
+import importlib
 import os
 import sys
 from fedbiomed.common.exceptions import FedbiomedError
@@ -19,7 +20,7 @@ from fedbiomed.common.utils import get_existing_component_db_names, \
     get_method_spec, \
     ROOT_DIR
 from fedbiomed.common.secagg_manager import SecaggBiprimeManager
-from fedbiomed.common.config import ResearcherConfig, NodeConfig
+from fedbiomed.common.config import Config
 from fedbiomed.common.constants import CONFIG_FOLDER_NAME
 
 RED = '\033[1;31m'  # red
@@ -123,7 +124,7 @@ class CommonCLI:
         )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
-    def initialize_create_configuration(self) -> None:
+    def initialize_create_configuration(self, config_class: Config = None) -> None:
         """Initializes argument parser for creating configuration file."""
 
         configuration = self._subparsers.add_parser('configuration', help='Configuration')
@@ -137,6 +138,24 @@ class CommonCLI:
                  "If the configuration file exists, leave it unchanged"
         )
 
+        # Create new attribute for the class that is going
+        # to be used to parse config file
+        create.add_argument(
+            '--config-class',
+            type=Config,
+            default=config_class,
+            help=argparse.SUPPRESS
+        )
+
+        create.add_argument(
+            '-c',
+            '--component',
+            metavar='COMPONENT_TYPE[ NODE|RESEARCHER ]',
+            type=str,
+            nargs='?',
+            required=True,
+            help='Component type NODE or RESEARCHER')
+
         create.add_argument(
             '-r',
             '--root',
@@ -147,15 +166,6 @@ class CommonCLI:
             help='Root directory for configuration and Fed-BioMed setup')
 
         # Add arguments
-        create.add_argument(
-            '-c',
-            '--component',
-            metavar='COMPONENT_TYPE[ NODE|RESEARCHER ]',
-            type=str,
-            nargs='?',
-            required=True,
-            help='Component type NODE or RESEARCHER')
-
         create.add_argument(
             '-n',
             '--name',
@@ -329,8 +339,10 @@ class CommonCLI:
         """
 
         if args.component.lower() == "node":
+            NodeConfig = importlib.import_module('fedbiomed.node.config').NodeConfig
             config = NodeConfig(root=args.root, name=args.name, auto_generate=False)
         elif args.component.lower() == "researcher":
+            ResearcherConfig = importlib.import_module('fedbiomed.researcher.config').ResearcherConfig
             config = ResearcherConfig(root=args.root, name=args.name, auto_generate=False)
         else: 
             print(f"Undefined component type {args.component}")

@@ -24,7 +24,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms
 from fedbiomed.common.environ import Environ
-from fedbiomed.common.config import NodeConfig
+from fedbiomed.node.config import NodeConfig
 
 
 class NodeEnviron(Environ):

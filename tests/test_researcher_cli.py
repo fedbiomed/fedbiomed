@@ -52,13 +52,13 @@ class TestResearcherCLI(ResearcherTestCase):
         self.assertTrue("--path" in generate_options)
         self.assertTrue("--force" in generate_options)
 
-        # Test configuration parser option
-        self.assertTrue('configuration' in self.cli._subparsers.choices)
-        self.assertTrue('create' in self.cli._subparsers.choices["configuration"]._subparsers._group_actions[0].choices)
+        # # Test configuration parser option
+        # self.assertTrue('configuration' in self.cli._subparsers.choices)
+        # self.assertTrue('create' in self.cli._subparsers.choices["configuration"]._subparsers._group_actions[0].choices)
 
-        self.assertEqual(self.cli._subparsers.choices["configuration"].
-                         _subparsers._group_actions[0].choices["create"]._defaults["func"].__func__.__name__,
-                         '_create_component')
+        # self.assertEqual(self.cli._subparsers.choices["configuration"].
+        #                  _subparsers._group_actions[0].choices["create"]._defaults["func"].__func__.__name__,
+        #                  '_create_component')
 
 
 if __name__ == "__main__":

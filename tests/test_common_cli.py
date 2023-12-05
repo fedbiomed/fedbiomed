@@ -153,8 +153,8 @@ class TestCommonCLI(unittest.TestCase):
     @patch('fedbiomed.common.cli.SecaggBiprimeManager')
     @patch("builtins.print")
     @patch('builtins.open')
-    @patch('fedbiomed.common.cli.NodeConfig')
-    @patch('fedbiomed.common.cli.ResearcherConfig')
+    @patch('fedbiomed.node.config.NodeConfig')
+    @patch('fedbiomed.researcher.config.ResearcherConfig')
     def test_06_common_cli_create_component(self,rconfig, nconfig, mock_open, mock_print, mock_secagg_bp_manager):
 
         mock_secagg_bp_manager = MagicMock(return_value=None)
