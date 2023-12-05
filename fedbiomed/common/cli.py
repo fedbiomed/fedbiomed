@@ -349,7 +349,7 @@ class CommonCLI:
             return
 
         if config.is_config_existing() and args.force:
-            print("Overwriting exisitng configuration file")
+            print("Overwriting existing configuration file")
             config.generate(force=True)
         elif config.is_config_existing() and not args.force:
             if not args.use_current:

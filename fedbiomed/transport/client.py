@@ -262,6 +262,12 @@ class GrpcClient:
             if is_server_alive(self._researcher.host, self._researcher.port):
                 # Gets server certificate before creating the channel
                 # This implementation assumes that the provided IP and PORT trusted
+                # == OK for honest but curious researcher and nodes (parties in the
+                # network instance) but subject to attack by malicious MITM at each
+                # connection to server
+                #
+                # TODO: implement configurable policy instead of hardcoded current version
+                # in the future
                 self._researcher.certificate = \
                     bytes(ssl.get_server_certificate(
                         (self._researcher.host, self._researcher.port)),
