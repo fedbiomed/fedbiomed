@@ -27,8 +27,8 @@ from fedbiomed.common.certificate_manager import retrieve_ip_and_port, generate_
 class Config(metaclass=ABCMeta):
     """Base Config class"""
 
-    DEFAULT_CONFIG_FILE_NAME: str = 'config'
-    COMPONENT_TYPE: str
+    _DEFAULT_CONFIG_FILE_NAME: str = 'config'
+    _COMPONENT_TYPE: str
 
     def __init__(
         self,
@@ -40,7 +40,7 @@ class Config(metaclass=ABCMeta):
         self.root = root
         self._cfg = configparser.ConfigParser()
         self.name = name if name \
-            else os.getenv("CONFIG_FILE", self.DEFAULT_CONFIG_FILE_NAME)
+            else os.getenv("CONFIG_FILE", self._DEFAULT_CONFIG_FILE_NAME)
 
         if self.root:
             self.path = os.path.join(self.root, CONFIG_FOLDER_NAME, self.name)
@@ -76,7 +76,7 @@ class Config(metaclass=ABCMeta):
         # Validate config version
         raise_for_version_compatibility(
             self._cfg["default"]["version"],
-            self.CONFIG_VERSION,
+            self._CONFIG_VERSION,
             f"Configuration file {self.path}: found version %s expected version %s")
 
         return True
@@ -112,12 +112,12 @@ class Config(metaclass=ABCMeta):
         if self.is_config_existing() and not force:
             return self.read()
 
-        component_id = f"{self.COMPONENT_TYPE}_{uuid.uuid4()}"
+        component_id = f"{self._COMPONENT_TYPE}_{uuid.uuid4()}"
 
         self._cfg['default'] = {
             'id': component_id,
-            'component': self.COMPONENT_TYPE,
-            'version': str(self.CONFIG_VERSION)
+            'component': self._COMPONENT_TYPE,
+            'version': str(self._CONFIG_VERSION)
         }
 
         # DB PATH RELATIVE
@@ -158,9 +158,9 @@ class Config(metaclass=ABCMeta):
 
 class NodeConfig(Config):
 
-    DEFAULT_CONFIG_FILE_NAME: str = 'config_node.ini'
-    COMPONENT_TYPE: str = 'NODE'
-    CONFIG_VERSION: str = __node_config_version__
+    _DEFAULT_CONFIG_FILE_NAME: str = 'config_node.ini'
+    _COMPONENT_TYPE: str = 'NODE'
+    _CONFIG_VERSION: str = __node_config_version__
 
     def add_parameters(self):
         """Generate researcher config"""
@@ -183,9 +183,9 @@ class NodeConfig(Config):
 
 class ResearcherConfig(Config):
 
-    DEFAULT_CONFIG_FILE_NAME: str = 'config_researcher.ini'
-    COMPONENT_TYPE: str = 'RESEARCHER'
-    CONFIG_VERSION: str = __researcher_config_version__
+    _DEFAULT_CONFIG_FILE_NAME: str = 'config_researcher.ini'
+    _COMPONENT_TYPE: str = 'RESEARCHER'
+    _CONFIG_VERSION: str = __researcher_config_version__
 
     def add_parameters(self):
         """Generate researcher config"""
@@ -196,8 +196,8 @@ class ResearcherConfig(Config):
         # Generate certificate for gRPC server
         key_file, pem_file = generate_certificate(
             root=self.root, 
-            component_id=self._cfg['default']['id'],
             prefix=SERVER_certificate_prefix,
+            component_id=self._cfg['default']['id'],
             subject={'CommonName': grpc_host}
         )
 
