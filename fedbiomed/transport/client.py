@@ -137,11 +137,43 @@ class Channels:
 
     def _create(self):
         """Creates new channel"""
-        return create_channel(
+        return self._create_channel(
             port=self.researcher.port,
             host=self.researcher.host,
-            certificate= grpc.ssl_channel_credentials(self.researcher.certificate)  # grpc.ssl_channel_credentials()
-        )
+            certificate= grpc.ssl_channel_credentials(self.researcher.certificate))
+
+    @staticmethod
+    def _create_channel(
+        port: str,
+        host: str,
+        certificate: Optional[str] = None
+    ) -> grpc.Channel :
+        """Create gRPC channel
+
+        Args:
+            ip: IP address of the channel
+            port: TCP port of the channel
+            certificate: certificate for secure channel, or None for unsecure channel
+
+        Returns:
+            gRPC connection channel
+        """
+        channel_options = [
+            ("grpc.max_send_message_length", 100 * 1024 * 1024),
+            ("grpc.max_receive_message_length", 100 * 1024 * 1024),
+            ("grpc.keepalive_time_ms", 1000 * 2),
+            ("grpc.initial_reconnect_backoff_ms", 1000),
+            ("grpc.min_reconnect_backoff_ms", 500),
+            ("grpc.max_reconnect_backoff_ms", 2000),
+            # ('grpc.ssl_target_name_override', 'localhost') # ...
+        ]
+
+        if certificate is None:
+            channel = grpc.aio.insecure_channel(f"{host}:{port}", options=channel_options)
+        else:
+            channel = grpc.aio.secure_channel(f"{host}:{port}", certificate, options=channel_options)
+
+        return channel
 
 
 class GrpcClient:

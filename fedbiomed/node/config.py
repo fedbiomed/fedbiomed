@@ -5,6 +5,7 @@ import os
 from fedbiomed.common.constants import HashingAlgorithms, __node_config_version__
 from fedbiomed.common.config import Config
 
+
 class NodeConfig(Config):
 
     _DEFAULT_CONFIG_FILE_NAME: str = 'config_node.ini'
