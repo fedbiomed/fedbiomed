@@ -18,13 +18,11 @@ print(environ['RESEARCHER_ID'])
 
 import sys
 import os
-import uuid
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedEnvironError
-from fedbiomed.common.constants import ComponentType, ErrorNumbers, DB_PREFIX, \
+from fedbiomed.common.constants import ComponentType, ErrorNumbers, \
     TENSORBOARD_FOLDER_NAME
-from fedbiomed.common.constants import __researcher_config_version__ as __config_version__
 from fedbiomed.common.environ import Environ
 from fedbiomed.common.config import ResearcherConfig
 

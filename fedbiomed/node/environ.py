@@ -19,14 +19,11 @@ print(environ['NODE_ID'])
 
 import sys
 import os
-import uuid
 
 from fedbiomed.common.logger import logger
-from fedbiomed.common.constants import __node_config_version__ as __config_version__
 from fedbiomed.common.exceptions import FedbiomedEnvironError
-from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX, NODE_PREFIX
+from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms
 from fedbiomed.common.environ import Environ
-from fedbiomed.transport.client import ResearcherCredentials
 from fedbiomed.common.config import NodeConfig
 
 
