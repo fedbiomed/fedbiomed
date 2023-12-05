@@ -213,6 +213,9 @@ class _GrpcAsyncServer:
             server=self._server
         )
 
+        # TODO: current version does not require or check client certificate
+        # In other words: hardcoded policy that researcher does not check node identity yet.
+        # To be extended in a future version.
         server_credentials = grpc.ssl_server_credentials(
             ( (self._ssl.private_key, self._ssl.certificate), )
         )
