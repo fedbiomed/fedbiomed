@@ -78,6 +78,12 @@ class Environ(metaclass=SingletonABCMeta):
         # dict with contains all configuration values
         self._values = {}
         self._root_dir = root_dir
+        self._config = None
+
+    @property
+    def config(self):
+        """Returns config object"""
+        return self._config
 
     def __getitem__(self, key: str) -> Any:
         """Override the `[]` get operator to control the Exception type
