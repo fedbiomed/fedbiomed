@@ -43,11 +43,9 @@ Common Global Variables:
 - DEFAULT_BIPRIMES_DIR    : Directory for storing default biprimes files
 '''
 
-import configparser
 import os
 
-from abc import abstractmethod
-from typing import Any, Tuple, Union, List
+from typing import Any
 
 from fedbiomed.common.constants import ErrorNumbers, VAR_FOLDER_NAME, \
     CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME, \
@@ -149,8 +147,8 @@ class Environ(metaclass=SingletonABCMeta):
 
 
         self._values['DB_PATH'] = os.path.normpath(
-            os.path.join(self._values["ROOT_DIR"], CONFIG_FOLDER_NAME, self.config.get('default', 'db')
-        ))
+            os.path.join(self._values["ROOT_DIR"], CONFIG_FOLDER_NAME, self.config.get('default', 'db'))
+        )
 
         # initialize other directories
         self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, CONFIG_FOLDER_NAME, "port_increment")
