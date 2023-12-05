@@ -42,7 +42,7 @@ class TestConfig(BaseConfigTest):
     def test_01_read(self, config_parser):
 
         config = Config(auto_generate=False)
-        config.CONFIG_VERSION = '0.99'
+        config._CONFIG_VERSION = '0.99'
 
         with self.assertRaises(FedbiomedVersionError):
             config.read()
