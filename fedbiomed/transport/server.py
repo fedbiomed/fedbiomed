@@ -29,8 +29,24 @@ GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + server_setup_timeou
 MAX_GRPC_SERVER_SETUP_TIMEOUT = 20 * server_setup_timeout
 
 
+class SSLCredentials:
+    """Contains credentials for SSL certifcate of the gRPC server"""
+    def __init__(self, key: str, cert: str):
+        """Reads private key and cert file
+
+        Args:
+            key: path to private key
+            cert: path to certificate
+        """
+        with open(key, 'rb') as f:
+            self.private_key = f.read()
+        with open(cert, 'rb') as f:
+            self.certificate = f.read()
+
+
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     """RPC Servicer """
+
 
     def __init__(
             self,
@@ -151,6 +167,7 @@ class _GrpcAsyncServer:
             host: str,
             port: str,
             on_message: Callable,
+            ssl: SSLCredentials,
             debug: bool = False,
     ) -> None:
         """Class constructor
@@ -159,12 +176,13 @@ class _GrpcAsyncServer:
             host: server DNS name or IP address
             port: server TCP port
             on_message: Callback function to execute once a message received from the nodes
+            ssl: Ssl credentials.
             debug: Activate debug mode for gRPC asyncio
         """
 
         # inform all threads whether server is started
         self._is_started = threading.Event()
-
+        self._ssl = ssl
         self._host = host
         self._port = port
 
@@ -195,7 +213,15 @@ class _GrpcAsyncServer:
             server=self._server
         )
 
-        self._server.add_insecure_port(self._host + ':' + str(self._port))
+        # TODO: current version does not require or check client certificate
+        # In other words: hardcoded policy that researcher does not check node identity yet.
+        # To be extended in a future version.
+        server_credentials = grpc.ssl_server_credentials(
+            ( (self._ssl.private_key, self._ssl.certificate), )
+        )
+
+        self._server.add_secure_port(self._host + ':' + str(self._port), server_credentials)
+        # self._server.add_insecure_port(self._host + ':' + str(self._port))
 
         # Starts async gRPC server
         await self._server.start()
@@ -301,7 +327,8 @@ class GrpcServer(_GrpcAsyncServer):
         while len(self.get_all_nodes()) == 0:
 
             if sleep_ == 0:
-                logger.info(f"No nodes found, server will wait {MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} "
+                logger.info(f"No nodes found, server will wait "
+                            "{MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} "
                             "more seconds until a node creates connection.")
 
             if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:
@@ -336,6 +363,7 @@ class GrpcServer(_GrpcAsyncServer):
             raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628.value}: Communication client is not initialized.")
 
         self._run_threadsafe(super().send(message, node_id))
+
 
     def broadcast(self, message: Message) -> None:
         """Broadcast message to all known and reachable nodes

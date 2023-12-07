@@ -26,7 +26,7 @@ export PYTHONPATH=/fedbiomed
 export MPSPDZ_IP=$VPN_IP
 export MPSPDZ_PORT=14000
 su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; conda activate fedbiomed-researcher ; \
-    ./scripts/fedbiomed_run researcher configuration create ; cd notebooks ; \
+    ./scripts/fedbiomed_run configuration create --component researcher --use-current; cd notebooks ; \
     jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' " $CONTAINER_USER &
 
 # proxy port for TensorBoard

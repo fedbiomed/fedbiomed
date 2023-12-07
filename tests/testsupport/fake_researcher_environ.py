@@ -69,6 +69,9 @@ class ResearcherEnviron:
         self._values['MPSPDZ_CERTIFICATE_KEY'] = 'dummy/path'
         self._values['MPSPDZ_CERTIFICATE_PEM'] = 'dummy/path'
 
+        self._values['SERVER_SSL_KEY'] = b'key'
+        self._values['SERVER_SSL_CERT'] = b'cert'
+
         os.makedirs(self._values['EXPERIMENTS_DIR'], exist_ok=True)
         os.makedirs(self._values['TENSORBOARD_RESULTS_DIR'], exist_ok=True)
 

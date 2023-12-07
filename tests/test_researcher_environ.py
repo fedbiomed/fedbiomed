@@ -15,11 +15,18 @@ class TestResearcherEnviron(unittest.TestCase):
     def setUp(self) -> None:
         """Setup test for each test function"""
 
-        self.patch_environ = patch("fedbiomed.common.environ.Environ", Environ)
-        self.patch_setup_environ = patch("fedbiomed.common.environ.Environ.setup_environment")
+        self.patch_config = patch('fedbiomed.researcher.config.ResearcherConfig')
+        self.config_mock = self.patch_config.start()
 
-        self.mock_environ = self.patch_environ.start()
-        self.mock_setup_environ = self.patch_setup_environ.start()
+        self.patch_mkdir = patch('os.mkdir')
+        self.patch_open = patch('builtins.open')
+
+        self.patch_mkdir.start()
+        self.patch_open.start()
+
+        self.config_mock.return_value.get.side_effect = [
+            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key',  # Common
+            'researcher-id', 'localhost', '50051', 'pir-key', 'pub-key']  # Node
 
         environ_module_dir = os.path.join(os.path.dirname(
                 os.path.abspath(inspect.getfile(inspect.currentframe()))
@@ -30,84 +37,44 @@ class TestResearcherEnviron(unittest.TestCase):
             .load_module()
 
         ResearcherEnviron = self.env.ResearcherEnviron
-        self.mock_setup_environ.reset_mock()
 
-        self.environ = ResearcherEnviron()
-        self.environ._values = {**self.environ._values,
-                                "CONFIG_DIR": "dummy/config/dir",
-                                "VAR_DIR": "dummy/var/dir",
-                                "ROOT_DIR": "dummy/root/dir"
-                                }
-        self.environ._cfg = configparser.ConfigParser()
+        ## Reset
+        self.config_mock.return_value.get.side_effect = None
+        self.config_mock.return_value.get.side_effect = [
+            '../var/db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key',  # Common
+            'researcher-id', 'localhost', '50051', 'pir-key', 'pub-key']  # Node
+
+        if ResearcherEnviron in ResearcherEnviron._objects:
+            del ResearcherEnviron._objects[ResearcherEnviron]
+
+        self.environ = ResearcherEnviron(root_dir='test')
 
     def tearDown(self) -> None:
-        self.patch_environ.stop()
-        self.patch_setup_environ.stop()
-        pass
+        self.patch_mkdir.stop()
+        self.patch_open.stop()
+        self.patch_config.stop()
 
-    def test_01_researcher_environ_init(self):
-        """Tests initialization of ResearcherEnviron"""
-        self.environ.setup_environment.assert_called_once()
-        self.assertEqual(self.environ._values["COMPONENT_TYPE"], ComponentType.RESEARCHER)
-
-    def test_02_researcher_environ_default_config_file(self):
-        """Test default config method """
-
-        config = self.environ.default_config_file()
-        self.assertEqual(config, os.path.join("dummy/config/dir", "config_researcher.ini"))
-
-    @patch("os.makedirs")
-    @patch("os.path.isdir")
-    def test_03_researcher_environ_set_component_specific_variables(self,
-                                                                    mock_is_dir,
-                                                                    mock_mkdir):
+    def test_01_researcher_environ_set_component_specific_variables(self):
         """Tests setting variables for researcher environ"""
 
-        os.environ["RESEARCHER_ID"] = "researcher-1"
+        self.config_mock.return_value.get.side_effect = [
+            '../var/db_researcher-1.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key',
+            'researcher-1', 'localhost', '50051', 'pir-key', 'pub-key']
 
-        self.environ.from_config.side_effect = [None, 'localhost', '50051']
-        mock_is_dir.return_value = False
-
-        self.environ._set_component_specific_variables()
+        self.environ.set_environment()
 
         self.assertEqual(self.environ._values["ID"], "researcher-1")
         self.assertEqual(self.environ._values["EXPERIMENTS_DIR"],
-                         os.path.join("dummy/var/dir", "experiments"))
+                         os.path.join("test/var", "experiments"))
         self.assertEqual(self.environ._values["TENSORBOARD_RESULTS_DIR"],
-                         os.path.join("dummy/root/dir", "runs"))
+                         os.path.join("test", "runs"))
         self.assertEqual(self.environ._values["MESSAGES_QUEUE_DIR"],
-                         os.path.join("dummy/var/dir", "queue_messages"))
+                         os.path.join("test/var", "queue_messages"))
         self.assertEqual(self.environ._values["DB_PATH"],
-                         os.path.join("dummy/var/dir", "db_researcher-1.json"))
+                         os.path.join("test/var", "db_researcher-1.json"))
         
         self.assertEqual(self.environ._values["SERVER_HOST"], "localhost")
         self.assertEqual(self.environ._values["SERVER_PORT"], "50051")
-
-        self.environ.from_config.side_effect = [None, 'localhost', '50051']
-        mock_mkdir.side_effect = [FileExistsError, OSError]
-        with self.assertRaises(FedbiomedEnvironError):
-            self.environ._set_component_specific_variables()
-
-        with self.assertRaises(StopIteration):
-            self.environ._set_component_specific_variables()
-
-    def test_04_researcher_environ_set_component_specific_config_parameters(self):
-        """Tests setting configuration file parameters"""
-        os.environ["RESEARCHER_ID"] = "researcher-1"
-        from fedbiomed.researcher.environ import __config_version__
-
-        self.environ._set_component_specific_config_parameters()
-
-        self.assertEqual(dict(self.environ._cfg["default"]), {
-            'id': 'researcher-1',
-            'component': "RESEARCHER",
-            'version': str(__config_version__)
-        })
-
-        self.assertEqual(dict(self.environ._cfg["server"]), {
-            'host': 'localhost',
-            'port': "50051",
-        })
 
 
     @patch("fedbiomed.common.logger.logger.info")
