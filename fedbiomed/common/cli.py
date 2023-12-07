@@ -124,7 +124,7 @@ class CommonCLI:
         )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
-    def initialize_create_configuration(self, config_class: Config = None) -> None:
+    def initialize_create_configuration(self) -> None:
         """Initializes argument parser for creating configuration file."""
 
         configuration = self._subparsers.add_parser('configuration', help='Configuration')
