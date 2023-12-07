@@ -103,7 +103,7 @@ class Channels:
         Args:
             researcher: An instance of ResearcherCredentials
         """
-        self.researcher = researcher
+        self._researcher = researcher
 
         self._task_channel: grpc.aio.Channel = None
         self._feedback_channel: grpc.aio.Channel = None
@@ -138,9 +138,9 @@ class Channels:
     def _create(self):
         """Creates new channel"""
         return self._create_channel(
-            port=self.researcher.port,
-            host=self.researcher.host,
-            certificate= grpc.ssl_channel_credentials(self.researcher.certificate))
+            port=self._researcher.port,
+            host=self._researcher.host,
+            certificate= grpc.ssl_channel_credentials(self._researcher.certificate))
 
     @staticmethod
     def _create_channel(
