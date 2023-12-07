@@ -138,15 +138,6 @@ class CommonCLI:
                  "If the configuration file exists, leave it unchanged"
         )
 
-        # Create new attribute for the class that is going
-        # to be used to parse config file
-        create.add_argument(
-            '--config-class',
-            type=Config,
-            default=config_class,
-            help=argparse.SUPPRESS
-        )
-
         create.add_argument(
             '-c',
             '--component',
