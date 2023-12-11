@@ -29,7 +29,7 @@ from gmpy2 import mpz, gcd
 import numpy as np
 
 from fedbiomed.common.constants import VEParameters
-
+from ._base import EncrypterBase
 
 def invert(
         a: mpz,
@@ -617,7 +617,7 @@ class ServerKey(BaseKey):
         return pt
 
 
-class JoyeLibert:
+class JoyeLibert(EncrypterBase):
     """The Joye-Libert scheme. It consists of three Probabilistic Polynomial Time algorithms:
     `Protect`, and `Agg`.
 

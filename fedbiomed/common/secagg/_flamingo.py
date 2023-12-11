@@ -1,21 +1,19 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-
-from typing import List, Optional, Dict
-
 import numpy as np
 
 from math import ceil
-
 from Crypto.Cipher import ChaCha20
-
+from typing import List, Optional, Dict
 
 from fedbiomed.common.logger import logger
 
 
 
 class PRF(object):
+    """Pseudo Random Function"""
+
     _zero = 0
     _nonce = _zero.to_bytes(12, "big")
     security = 256
@@ -42,9 +40,10 @@ class PRF(object):
 
 class Flamingo:
     """
-    TODO: Add docstring
     """
+
     prf: Optional[PRF] = None
+
     def __init__(self) -> None:
         super().__init__()
         self.vector_dtype = 'uint32'
@@ -69,7 +68,8 @@ class Flamingo:
             current_round: int,
             params: List[int], 
             node_ids,
-            )-> List[int]:
+    ) -> List[int]:
+
         """
         TODO: Add docstring
         """
