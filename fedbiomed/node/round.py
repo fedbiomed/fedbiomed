@@ -119,22 +119,42 @@ class Round:
         atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
 
 
-    def initialize_validate_training_arguments(self) -> None:
-        """Validates and separates training argument for experiment round"""
+    def _initialize_validate_training_arguments(self) -> Optional[Dict[str, Any]]:
+        """Initialize and validate requested experiment/training arguments.
 
-        self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
-        self.testing_arguments = self.training_arguments.testing_arguments()
-        self.loader_arguments = self.training_arguments.loader_arguments()
+        Returns:
+            A dictionary containing the error message if an error is triggered while parsing training and testing
+            arguments, None otherwise.
+        """
+        try:
+            self.training_arguments = TrainingArgs(self.training_kwargs, only_required=False)
+            self.testing_arguments = self.training_arguments.testing_arguments()
+            self.loader_arguments = self.training_arguments.loader_arguments()
+        except FedbiomedUserInputError as e:
+            return self._send_round_reply(success=False, message=repr(e))
+        except Exception as e:
+            msg = 'Unexpected error while validating training argument'
+            logger.debug(f"{msg}: {repr(e)}")
+            return self._send_round_reply(success=False, message=f'{msg}. Please contact system provider')
 
+        return None
 
-    def initialize_node_state_manager(self, previous_state_id: Optional[str] = None):
-        """Initializes [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager]. 
+    def initialize_arguments(self,
+                             previous_state_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Initializes arguments for training and testing and the NodeStateManager, the latter handling
+        Node state loading and saving.
 
         Args:
-            previous_state_id (optional): previous state_id from which to load `Node` state.
-            Defaults to None (which is the value for `Round` 0).
+            previous_state_id: previous Node state id. Defaults to None (which is the state_id default value for the first Round).
+
+        Returns:
+            A dictionary containing the error message if an error is triggered while parsing training and testing
+            arguments, None otherwise.
         """
-        self._node_state_manager.initialize(previous_state_id=previous_state_id)
+        # initialize Node State Manager
+        self._node_state_manager.initialize(previous_state_id=previous_state_id,
+                                            testing=not self.training)
+        return self._initialize_validate_training_arguments()
 
 
     def _configure_secagg(
@@ -211,7 +231,7 @@ class Round:
         Returns:
             Returns the corresponding node message, training reply instance
         """
-        # Validate secagg status. Raises error if the training request is compatible with
+        # Validate secagg status. Raises error if the training request is not compatible with
         # secure aggregation settings
         try:
             secagg_arguments = {} if secagg_arguments is None else secagg_arguments
@@ -223,25 +243,19 @@ class Round:
         except FedbiomedRoundError as e:
             return self._send_round_reply(success=False, message=str(e))
 
-        # Initialize and validate requested experiment/training arguments.
-        try:
-            self.initialize_validate_training_arguments()
-        except FedbiomedUserInputError as e:
-            return self._send_round_reply(success=False, message=repr(e))
-
         # Validate and load training plan
         if environ["TRAINING_PLAN_APPROVAL"]:
             approved, training_plan_ = self.tp_security_manager.\
                 check_training_plan_status(
                     self.training_plan_source,
                     TrainingPlanApprovalStatus.APPROVED)
-            
+
             if not approved:
                 return self._send_round_reply(
                     False,
                     f'Requested training plan is not approved by the node: {environ["NODE_ID"]}')
             else:
-                logger.info(f'Training plan has been approved by the node {training_plan_["name"]}', 
+                logger.info(f'Training plan has been approved by the node {training_plan_["name"]}',
                             researcher_id=self.researcher_id)
 
         # Import training plan, save to file, reload, instantiate a training plan
@@ -256,7 +270,7 @@ class Round:
         # save and load training plan to a file to be sure
         # 1. a file is associated to training plan so we can read its source, etc.
         # 2. all dependencies are applied
-        training_plan_module = 'my_model_' + str(uuid.uuid4())
+        training_plan_module = 'model_' + str(uuid.uuid4())
         training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
         try:
             self.training_plan.save_code(training_plan_file, from_code=self.training_plan_source)
@@ -307,14 +321,15 @@ class Round:
 
         # Split training and validation data -------------------------------------
         try:
+
             self._set_training_testing_data_loaders()
         except FedbiomedError as fe:
             error_message = f"Can not create validation/train data: {repr(fe)}"
-            self._send_round_reply(success=False, message=error_message)
+            return self._send_round_reply(success=False, message=error_message)
         except Exception as e:
             error_message = f"Undetermined error while creating data for training/validation. Can not create " \
                             f"validation/train data: {repr(e)}"
-            self._send_round_reply(success=False, message=error_message)
+            return self._send_round_reply(success=False, message=error_message)
         # ------------------------------------------------------------------------
 
 
@@ -336,7 +351,7 @@ class Round:
                                  f"{repr(e)}", researcher_id=self.researcher_id)
             else:
                 logger.error(f"{ErrorNumbers.FB314}: Can not execute validation routine due to missing testing dataset"
-                             f"Please make sure that `test_ratio` has been set correctly", 
+                             f"Please make sure that `test_ratio` has been set correctly",
                              researcher_id=self.researcher_id)
 
         # If training is activated.
@@ -383,9 +398,10 @@ class Round:
                 else:
                     logger.error(
                         f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing "
-                        f"dataset please make sure that test_ratio has been set correctly", 
+                        f"dataset please make sure that test_ratio has been set correctly",
                         researcher_id=self.researcher_id)
 
+            # FIXME: this will fail if `self.training_plan.training_data_loader = None` (see issue )
             results["sample_size"] = len(self.training_plan.training_data_loader.dataset)
 
             results["encrypted"] = False
@@ -408,7 +424,7 @@ class Round:
                 model_weights = encrypt(params=model_weights)
                 results["encrypted"] = True
                 results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
-                logger.info("Encryption is completed!", 
+                logger.info("Encryption is completed!",
                             researcher_id=self.researcher_id)
 
             results['params'] = model_weights
@@ -481,7 +497,7 @@ class Round:
         # Early-exit if there are no auxiliary variables to process.
         if not any(self.aux_vars):
             return
-        
+
 
         aux_vars = {}
         aux_vars.update(self.aux_vars[0])
@@ -579,8 +595,8 @@ class Round:
             # this condition was made so we dont save stateless optimizers
             optim_path = self._node_state_manager.generate_folder_and_create_file_name(
                 self.job_id,
-                self._round, 
-                NodeStateFileName.OPTIMIZER  
+                self._round,
+                NodeStateFileName.OPTIMIZER
             )
             Serializer.dump(optimizer_state, path=optim_path)
             logger.debug("Saving optim state")
@@ -667,21 +683,20 @@ class Round:
 
         # Inform user about mismatch arguments settings
         if test_ratio != 0 and test_local_updates is False and test_global_updates is False:
-            logger.warning("Validation will not be perform for the round, since there is no validation activated. "
+            logger.warning("Validation will not be performed for the round, since there is no validation activated. "
                            "Please set `test_on_global_updates`, `test_on_local_updates`, or both in the "
                            "experiment.",
                            researcher_id=self.researcher_id)
 
-        if test_ratio == 0 and (test_local_updates is False or test_global_updates is False):
+        if test_ratio == 0 and (test_local_updates is True or test_global_updates is True):
             logger.warning(
-                'There is no validation activated for the round. Please set flag for `test_on_global_updates`'
-                ', `test_on_local_updates`, or both. Splitting dataset for validation will be ignored',
+                'Validation is activated but `test_ratio` is 0. Please change `test_ratio`. '
+                'No validation will be performed. Splitting dataset for validation will be ignored',
                 researcher_id=self.researcher_id
             )
 
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
-
         # Set models validating and training parts for training plan
         self.training_plan.set_data_loaders(train_data_loader=training_data_loader,
                                             test_data_loader=testing_data_loader)
@@ -731,7 +746,6 @@ class Round:
             data_manager.load(tp_type=training_plan_type)
         except FedbiomedError as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}")
-
         # Get dataset property
         if hasattr(data_manager.dataset, "set_dataset_parameters"):
             dataset_parameters = self.dataset.get("dataset_parameters", {})

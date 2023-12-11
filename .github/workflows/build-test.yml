@@ -1,10 +1,6 @@
 name: Fed-BioMed Build test
 run-name: Fed-BioMed Build test
 on:
-  push: 
-    branches:
-      - 'feature/test_ci'
-
   pull_request:
     types:
       - opened
@@ -13,11 +9,10 @@ on:
       - closed
       - review_requested
       - ready_for_review
-
     branches:
       - master
       - develop
-
+      - 'feature/479-bug-in-integration-test' # \todo To remove when merging.
 
 jobs:
 

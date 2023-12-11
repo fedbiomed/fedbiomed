@@ -3,19 +3,12 @@ import numpy as np
 import pandas as pd
 from fedbiomed.common.training_plans import SKLearnTrainingPlan
 from fedbiomed.common.data import DataManager
-from sklearn.linear_model import Perceptron
+from sklearn.linear_model import SGDClassifier
 from fedbiomed.common.training_plans import FedPerceptron
-from sklearn.linear_model import Perceptron
-
 class PerceptronTrainingPlan(FedPerceptron):
-
-    def init_dependencies(self):
-        return ["from fedbiomed.common.training_plans import FedPerceptron",
-                             "from sklearn.linear_model import Perceptron"]
-    
     def training_data(self):
         NUMBER_COLS = 20
         dataset = pd.read_csv(self.dataset_path,header=None,delimiter=',')
         X = dataset.iloc[:,0:NUMBER_COLS].values
-        y = dataset.iloc[:,NUMBER_COLS]       
-        return DataManager(dataset=X,target=y.values)
+        y = dataset.iloc[:,NUMBER_COLS]
+        return DataManager(dataset=X,target=y.values,  shuffle=True)

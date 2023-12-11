@@ -152,15 +152,29 @@ class TestCommonCLI(unittest.TestCase):
 
     @patch('fedbiomed.common.cli.SecaggBiprimeManager')
     @patch("builtins.print")
-    def test_06_common_cli_create_component(self, mock_print, mock_secagg_bp_manager):
+    @patch('builtins.open')
+    @patch('fedbiomed.node.config.NodeConfig')
+    @patch('fedbiomed.researcher.config.ResearcherConfig')
+    def test_06_common_cli_create_component(self,rconfig, nconfig, mock_open, mock_print, mock_secagg_bp_manager):
+
         mock_secagg_bp_manager = MagicMock(return_value=None)
+        self.cli.initialize_create_configuration()
+
         self.cli.set_environ({
             "ID": "test-id",
             "DB_PATH": '/a/dummy/path',
             "ALLOW_DEFAULT_BIPRIMES": True,
             "DEFAULT_BIPRIMES_DIR": '/not/existing/dir'})
-        self.cli._create_component({})
+
+        args = self.cli.parser.parse_args(["configuration", "create", "--component", "NODE", '-uc'])
+        self.cli._create_component(args)
         mock_print.assert_called()
+
+        mock_print.reset_mock()
+        args = self.cli.parser.parse_args(["configuration", "create", "--component", "RESEARCHER", '-uc'])
+        self.cli._create_component(args)
+        mock_print.assert_called()
+
 
     @patch("builtins.open")
     @patch("builtins.print")

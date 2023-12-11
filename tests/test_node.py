@@ -170,7 +170,6 @@ class TestNode(NodeTestCase):
         ping_msg = {
             'command': 'ping',
             'researcher_id': 'researcher_id_1234',
-            'sequence': 1234
         }
 
         # action
@@ -197,7 +196,6 @@ class TestNode(NodeTestCase):
             'command': 'secagg-delete',
             'researcher_id': 'researcher_id_1234',
             'secagg_id': 'my_test_secagg_id',
-            'sequence': 1234,
             'element': 0,
             'job_id': 'a_dummy_job_id',
         }
@@ -339,7 +337,6 @@ class TestNode(NodeTestCase):
         resid = 'researcher_id_1234'
         no_command_msg = {
             'researcher_id': resid,
-            'sequence': 1234
         }
 
         # action
@@ -370,7 +367,7 @@ class TestNode(NodeTestCase):
         ping_msg = {
             'command': command,
             'researcher_id': resid,
-            'sequence': 1234
+            'request_id': '1234'
         }
 
         # action
@@ -382,14 +379,12 @@ class TestNode(NodeTestCase):
                                                      extra_msg='Message was not serializable',
                                                      researcher_id=resid)
 
-    @patch('fedbiomed.node.round.Round.__init__', return_value=None, autospec=True)
-    @patch('fedbiomed.node.round.Round.initialize_node_state_manager', autospec=True)
+    @patch('fedbiomed.node.node.Round', autospec=True)
     @patch('fedbiomed.node.history_monitor.HistoryMonitor.__init__', spec=True)
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     def test_node_12_parser_task_train_create_round(self,
                                                     node_msg_request_patch,
                                                     history_monitor_patch,
-                                                    initialize_node_state_manager,
                                                     round_patch,
 
                                                     ):
@@ -401,6 +396,7 @@ class TestNode(NodeTestCase):
 
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
+        round_patch.return_value.initialize_arguments.return_value = None
 
         # test 1: case where 1 dataset has been found
         dict_msg_1_dataset = {
@@ -409,7 +405,6 @@ class TestNode(NodeTestCase):
             'training': True,
             'training_plan': 'dummy_plan',
             'training_plan_class': 'my_test_training_plan',
-            'params_url': 'https://link.to_somewhere.where.my.model.parameters.is',
             'job_id': 'job_id_1234',
             'researcher_id': 'researcher_id_1234',
             'dataset_id': 'dataset_id_1234',
@@ -442,7 +437,7 @@ class TestNode(NodeTestCase):
 
         # defining arguments
         resid = 'researcher_id_1234'
-        msg_without_datasets = NodeMessages.format_incoming_message({
+        msg_without_datasets = TrainRequest(**{
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
             'training_plan': 'TP',
@@ -450,7 +445,13 @@ class TestNode(NodeTestCase):
             'params': {"x": 0},
             'job_id': 'job_id_1234',
             'researcher_id': resid,
-            'dataset_id': 'dataset_id_1234'
+            'dataset_id': 'dataset_id_1234',
+            'request_id': 'request-id',
+            'aggregator_args': {},
+            'state_id': 'state',
+            'training': True,
+            'command': 'train',
+            'round': 1
         })
         # create tested object
 
@@ -499,6 +500,7 @@ class TestNode(NodeTestCase):
         }
         # we convert this dataset into a string
         msg1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
+        round_patch.return_value.initialize_arguments.return_value = None
 
         # defining patchers
 
@@ -562,9 +564,10 @@ class TestNode(NodeTestCase):
         msg_1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
 
         # defining patchers
-        #round_patch.return_value = None
+
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
+        round_patch.return_value.initialize_arguments.return_value = None
 
         # action
         self.n1.parser_task_train(msg_1_dataset)
@@ -712,7 +715,6 @@ class TestNode(NodeTestCase):
             "protocol_version": '99.99',
             "researcher_id": "my_test_researcher",
             "secagg_id": "my_test_secagg",
-            "sequence": 2345,
             "element": 33,
             "job_id": "my_job",
             "parties": [],
@@ -779,6 +781,7 @@ class TestNode(NodeTestCase):
             "protocol_version": '99.99',
             'command': 'search',
             'researcher_id': 'researcher_id_1234',
+            'request_id': 'request_id',
             'tags': ['#some_tags']
         }
         # action
@@ -796,8 +799,8 @@ class TestNode(NodeTestCase):
 
         req = {"protocol_version": '99.99',
                'researcher_id': 'party1',
+               'request_id': 'request',
                'secagg_id': 'my_dummy_secagg_id',
-               'sequence': 888,
                'element': 0,
                'job_id': 'my_test_job',
                'parties': ['party1', 'party2', 'party3'],
@@ -813,7 +816,7 @@ class TestNode(NodeTestCase):
             SecaggReply(**{'researcher_id': req['researcher_id'],
                            'protocol_version': str(__messaging_protocol_version__),
                            'secagg_id': req['secagg_id'],
-                           'sequence': req['sequence'],
+                           'request_id': 'request',
                            'success': False,
                            'node_id': environ["ID"],
                            'msg': 'Can not setup secure aggregation it might be due to unregistered certificate for the '
@@ -834,7 +837,7 @@ class TestNode(NodeTestCase):
             SecaggReply(**{'researcher_id': req['researcher_id'],
                            'protocol_version': str(__messaging_protocol_version__),
                            'secagg_id': req['secagg_id'],
-                           'sequence': req['sequence'],
+                           'request_id': 'request',
                            'success': False,
                            'node_id': environ["ID"],
                            'msg': f"FB318: Secure aggregation setup error: Received bad request message: incorrect `element` {req['element']}",
@@ -851,7 +854,7 @@ class TestNode(NodeTestCase):
         req = {"protocol_version": str(__messaging_protocol_version__),
                'researcher_id': 'party1',
                'secagg_id': 'my_dummy_secagg_id',
-               'sequence': 888,
+               'request_id': 'request',
                'element': 11,
                'job_id': 'my_test_job',
                'command': 'secagg-delete'}
@@ -865,7 +868,7 @@ class TestNode(NodeTestCase):
                 **{'protocol_version': req['protocol_version'],
                    'researcher_id': req['researcher_id'],
                    'secagg_id': req['secagg_id'],
-                   'sequence': req['sequence'],
+                   'request_id': 'request',
                    'success': False,
                    'node_id': environ["ID"],
                    'msg': 'FB321: Secure aggregation delete error: Can not instantiate SecaggManager object FB318: '
@@ -885,7 +888,7 @@ class TestNode(NodeTestCase):
                 **{'researcher_id': req['researcher_id'],
                    'protocol_version': str(__messaging_protocol_version__),
                    'secagg_id': req['secagg_id'],
-                   'sequence': req['sequence'],
+                   'request_id': 'request',
                    'success': False,
                    'node_id': environ["ID"],
                    'msg': 'FB321: Secure aggregation delete error: no such secagg context element in node database for '
@@ -905,7 +908,7 @@ class TestNode(NodeTestCase):
                     **{ 'researcher_id': req['researcher_id'],
                         'protocol_version': str(__messaging_protocol_version__),
                         'secagg_id': req['secagg_id'],
-                        'sequence': req['sequence'],
+                        'request_id': 'request',
                         'success': False,
                         'node_id': environ["ID"],
                         'msg': 'FB321: Secure aggregation delete error: error during secagg delete on '

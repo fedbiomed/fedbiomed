@@ -581,6 +581,12 @@ class TestSchemeValidator(unittest.TestCase):
         a more complicated scheme
         """
 
+        loader_args_scheme = {
+            'batch_size' : { 'rules': [ self.positive_integer ],
+                             'required': True,
+                           },
+        }
+        v_loader = SchemeValidator(loader_args_scheme)
 
         training_args_scheme = {
             'lr' : { 'rules': [ float, lambda a: (a > 0) ],
@@ -589,7 +595,7 @@ class TestSchemeValidator(unittest.TestCase):
             'round_limit' : { 'rules': [ self.positive_integer ],
                               'required': True,
                              },
-            'batch_size' : { 'rules': [ self.positive_integer ],
+            'loader_args' : { 'rules': [ v_loader ],
                              'required': True,
                             },
             'epoch' : { 'rules': [ self.positive_integer ],
@@ -606,7 +612,7 @@ class TestSchemeValidator(unittest.TestCase):
         self.assertTrue( v.is_valid() )
 
         training_args = {
-            'batch_size': 20,
+            'loader_args': { 'batch_size': 20, },
             'lr': 1e-5,
             'epochs': 1,
             'dry_run': False,
@@ -616,7 +622,7 @@ class TestSchemeValidator(unittest.TestCase):
             v.validate( training_args )
 
         training_args = {
-            'batch_size': 20,
+            'loader_args': { 'batch_size': 20, },
             'lr': 1e-5,
             'epochs': 1,
             'dry_run': False,

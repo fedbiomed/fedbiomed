@@ -464,6 +464,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         msg = {
             'researcher_id': 'ssss',
+            'request_id': 'request_id',
             'job_id': 'xxx',
             'training_plan': 'class TestTrainingPlan:\n\tpass',
             'command': 'training-plan-status'
@@ -583,8 +584,8 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         msg = {
             'researcher_id': 'r-1',
+            'request_id': 'req-id',
             'description': 'test',
-            'sequence': 1,
             'command': 'approval'
         }
 

@@ -17,6 +17,7 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus, JOB_PREFIX, E
 from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedNodeStateAgentError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
+from fedbiomed.common.message import  TrainRequest, TrainReply, TrainingPlanStatusRequest
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.common import utils
@@ -25,8 +26,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
-from fedbiomed.researcher.requests import Requests
-from fedbiomed.researcher.responses import Responses
+from fedbiomed.researcher.requests import Requests, MessagesByNode, DiscardOnTimeout
 
 # for checking class passed to job (same definitions as experiment ...)
 # TODO : should we move this to common/constants.py ? No because it means import training plans in it ...
@@ -71,7 +71,7 @@ class Job:
         if not inspect.isclass(training_plan_class):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` {type(training_plan_class)}"
             raise FedbiomedJobError(msg)
-        
+
         if not issubclass(training_plan_class, training_plans_types):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
                   f" supported training plans {training_plans_types}"
@@ -87,7 +87,7 @@ class Job:
         self._researcher_id = environ['RESEARCHER_ID']
         self._training_args = training_args
         self._model_args = model_args
-        self._training_replies = {}  # will contain all node replies for every round (type: Dict[Responses]])
+        self._training_replies = {}  # will contain all node replies for every round
         self._model_file = None  # path to local file containing model code
         self._model_params_file = ""  # path to local file containing current version of aggregated params
         self._training_plan_class = training_plan_class
@@ -117,7 +117,7 @@ class Job:
         # save and load training plan to a file to be sure
         # 1. a file is associated to training plan so we can read its source, etc.
         # 2. all dependencies are applied
-        training_plan_module = 'my_model_' + str(uuid.uuid4())
+        training_plan_module = 'model_' + str(uuid.uuid4())
         self._training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
         try:
             self._training_plan.save_code(self._training_plan_file)
@@ -173,79 +173,52 @@ class Job:
     def training_args(self, training_args: TrainingArgs):
         self._training_args = training_args
 
-    def check_training_plan_is_approved_by_nodes(self) -> List[Responses]:
+    def check_training_plan_is_approved_by_nodes(self) -> Dict:
         """ Checks whether model is approved or not.
 
         This method sends `training-plan-status` request to the nodes. It should be run before running experiment.
         So, researchers can find out if their model has been approved
 
         Returns:
-            A list of Responses objects, one for each job's nodes
+            A dict of `Message` objects indexed by node ID, one for each job's nodes
         """
 
-        message = {
+        message = TrainingPlanStatusRequest(**{
             'researcher_id': self._researcher_id,
             'job_id': self._id,
             'training_plan': self._training_plan.source(),
             'command': 'training-plan-status'
-        }
+        })
 
-        responses = Responses([])
-        replied_nodes = []
         node_ids = self._data.node_ids()
 
         # Send message to each node that has been found after dataset search request
-        for cli in node_ids:
-            logger.info('Sending request to node ' +
-                        str(cli) + " to check model is approved or not")
-            self._reqs.send_message(message, cli)
+        with self._reqs.send(message, node_ids, policies=[DiscardOnTimeout(5)]) as federated_req:
+            replies = federated_req.replies()
 
-        # Wait for responses
-        for resp in self._reqs.get_responses(look_for_commands=['training-plan-status'], only_successful=False):
-            responses.append(resp)
-            replied_nodes.append(resp.get('node_id'))
-
-            if resp.get('success') is True:
-                if resp.get('approval_obligation') is True:
-                    if resp.get('status') == TrainingPlanApprovalStatus.APPROVED.value:
-                        logger.info(f'Training plan has been approved by the node: {resp.get("node_id")}')
+            for node_id, reply in replies.items():
+                if reply.success is True:
+                    if reply.approval_obligation is True:
+                        if reply.status == TrainingPlanApprovalStatus.APPROVED.value:
+                            logger.info(f'Training plan has been approved by the node: {node_id}')
+                        else:
+                            logger.warning(f'Training plan has NOT been approved by the node: {node_id}.' +
+                                           f'Training plan status : {node_id}')
                     else:
-                        logger.warning(f'Training plan has NOT been approved by the node: {resp.get("node_id")}.' +
-                                       f'Training plan status : {resp.get("status")}')
+                        logger.info(f'Training plan approval is not required by the node: {node_id}')
                 else:
-                    logger.info(f'Training plan approval is not required by the node: {resp.get("node_id")}')
-            else:
-                logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
+                    logger.warning(f"Node : {node_id} : {reply.msg}")
 
         # Get the nodes that haven't replied training-plan-status request
-        non_replied_nodes = list(set(node_ids) - set(replied_nodes))
+        non_replied_nodes = list(set(node_ids) - set(replies.keys()))
         if non_replied_nodes:
             logger.warning(f"Request for checking training plan status hasn't been replied \
                              by the nodes: {non_replied_nodes}. You might get error \
                                  while running your experiment. ")
 
-        return responses
+        return replies
 
-    # TODO: This method should change in the future or as soon as we implement other of strategies different
-    #   than DefaultStrategy
-
-    def waiting_for_nodes(self, responses: Responses) -> bool:
-        """ Verifies if all nodes involved in the job are present and Responding
-
-        Args:
-            responses: contains message answers
-
-        Returns:
-            False if all nodes are present in the Responses object. True if waiting for at least one node.
-        """
-        try:
-            nodes_done = set(responses.dataframe()['node_id'])
-        except KeyError:
-            nodes_done = set()
-
-        return not nodes_done == set(self._nodes)
-
-    def _get_training_testing_results(self, round_, timer: Dict) -> None:
+    def _get_training_testing_results(self, replies, errors, round_, timer: Dict) -> None:
         """"Waits for training replies
 
         Args:
@@ -253,70 +226,38 @@ class Job:
             timer: Stores time elapsed on the researcher side
         """
 
-        # Recollect models trained
-        self._training_replies[round_] = Responses([])
-        while self.waiting_for_nodes(self._training_replies[round_]):
+        self._training_replies[round_] = {}
 
-            # collect nodes responses from researcher request 'train'
-            models_done = self._reqs.get_responses(look_for_commands=['train', 'error'], only_successful=False)
+        # Loops over errors
+        for node_id, error in errors.items():
+            logger.info(f"Error message received during training: {error.errnum}. {error.extra_msg}")
+            self._nodes.remove(node_id)
 
-            for m in models_done.data():  # retrieve all models
-                # (there should have as many models done as nodes)
-                # manage error messages during training
-                if m['command'] == 'error':
-                    if m['extra_msg']:
-                        logger.info(f"Error message received during training: {m['errnum']} "
-                                    f"- {str(m['extra_msg'])}")
-                    else:
-                        logger.info(f"Error message received during training: {m['errnum']}")
+        # Loops over replies
+        for node_id, reply in replies.items():
 
-                    faulty_node = m['node_id']  # remove the faulty node from the list
+            reply: TrainReply
+            if not reply.success:
+                logger.error(f"Training failed for node {reply.node_id}: {reply.msg}")
+                self._nodes.remove(reply.node_id)  # remove the faulty node from the list
+                continue
 
-                    if faulty_node not in list(self._nodes):
-                        logger.warning(f"Error message from {faulty_node} ignored, since this node is not part ot "
-                                       f"the training any mode")
-                        continue
+            params_path = os.path.join(self._keep_files_dir, f"params_{node_id}.mpk")
+            Serializer.dump(reply.params, params_path)
 
-                    self._nodes.remove(faulty_node)
-                    continue
+            rtime_total = time.perf_counter() - timer[node_id]
 
-                # only consider replies for our request
-                if m['researcher_id'] != environ['RESEARCHER_ID'] or \
-                        m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
-                    continue
+            # TODO: could choose completely different name/structure for
+            timing = reply.timing
+            timing['rtime_total'] = rtime_total
 
-                # manage training failure for this job
-                if not m['success']:
-                    logger.error(f"Training failed for node {m['node_id']}: {m['msg']}")
-                    self._nodes.remove(m['node_id'])  # remove the faulty node from the list
-                    continue
-
-                rtime_total = time.perf_counter() - timer[m['node_id']]
-
-                # TODO: could choose completely different name/structure for
-                timing = m['timing']
-                timing['rtime_total'] = rtime_total
-
-                params_path = os.path.join(self._keep_files_dir, f"params_{m['node_id']}.mpk")
-                Serializer.dump(m["params"], params_path)
-
-                response = Responses({
-                    'success': m['success'],
-                    'msg': m['msg'],
-                    'dataset_id': m['dataset_id'],
-                    'node_id': m['node_id'],
-                    'state_id': m['state_id'],
+            self._training_replies[round_].update({
+                node_id: {
+                    **reply.get_dict(),
                     'params_path': params_path,
-                    'params': m["params"],
-                    'optimizer_args': m["optimizer_args"],
-                    'optim_aux_var': m["optim_aux_var"],
-                    'sample_size': m["sample_size"],
-                    'encryption_factor': m["encryption_factor"],
                     'timing': timing,
-                })
-
-                self._training_replies[round_].append(response)
-
+                }
+            })
 
     def start_nodes_training_round(
         self,
@@ -326,7 +267,7 @@ class Job:
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> None:
-        """ Sends training request to nodes and waits for the responses
+        """ Sends training request to nodes and waits for the replies
 
         Args:
             round_: current number of round the algorithm is performing (a round is considered to be all the
@@ -365,8 +306,9 @@ class Job:
 
         timer = {}
 
-        # update node states when used node list has changed from one round to another
-        self._update_nodes_states_agent()
+        if do_training:
+            # update node states when used node list has changed from one round to another
+            self._update_nodes_states_agent()
 
         # FIXME: should be part of a method called from Experiment
         # (behaviour can be defined by user / changed by strategy)
@@ -383,6 +325,8 @@ class Job:
             aux_bynode = {}
 
         # Loop over nodes, add node specific data and send train request
+        messages = MessagesByNode()
+
         for node in self._nodes:
             msg['dataset_id'] = self._data.data()[node]['dataset_id']
             msg['aux_vars'] = [aux_shared, aux_bynode.get(node, None)]
@@ -395,13 +339,18 @@ class Job:
 
             timer[node] = time.perf_counter()
 
+            messages.update({node: TrainRequest(**msg)})
+
             # Sends training request
-            self._reqs.send_message(msg, node)  # send request to node
 
-        self._get_training_testing_results(round_=round_, timer=timer)
+        with self._reqs.send(messages, self._nodes) as federated_req:
+            errors = federated_req.errors()
+            replies = federated_req.replies()
+            self._get_training_testing_results(replies=replies, errors=errors, round_=round_, timer=timer)
 
-        # update node states with node answers + when used node list has changed during the round
-        self._update_nodes_states_agent(before_training=False)
+        if do_training:
+            # update node states with node answers + when used node list has changed during the round
+            self._update_nodes_states_agent(before_training=False)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
@@ -460,7 +409,7 @@ class Job:
             format `{mod_name: {node_id: node_dict}}`.
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
-        for reply in self.training_replies[round_id]:
+        for reply in self.training_replies[round_id].values():
             node_id = reply["node_id"]
             node_av = reply.get("optim_aux_var", {})
             for module, params in node_av.items():
@@ -538,7 +487,7 @@ class Job:
         Args:
             before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
                 - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
-                - if after, updates `NodeStateAgent` wrt latest [`Responses`][fedbiomed.researcher.responses.Responses]
+                - if after, updates `NodeStateAgent` wrt latest reply
 
         Raises:
             FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
@@ -553,12 +502,12 @@ class Job:
             # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
             # previous Node replies)
             try:
-                last_tr_entry = list(self.training_replies.keys())[-1]
+                last_tr_entry = list(self._training_replies.keys())[-1]
             except IndexError as ie:
                 raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
                                                    "replies form Node(s) has(ve) been recieved!") from ie
 
-            self._node_state_agent.update_node_states(node_ids, self.training_replies[last_tr_entry])
+            self._node_state_agent.update_node_states(node_ids, self._training_replies[last_tr_entry])
 
     def save_state_breakpoint(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.
@@ -588,7 +537,7 @@ class Job:
         )
 
         for round_replies in state['training_replies']:
-            for response in round_replies:
+            for response in round_replies.values():
                 node_params_path = create_unique_file_link(
                     breakpoint_path, response['params_path']
                 )
@@ -613,11 +562,11 @@ class Job:
         self._load_and_set_model_params_from_file(saved_state.get("model_params_path"))
         # Reload the latest training replies.
         self._training_replies = self._load_training_replies(
-            saved_state.get('training_replies', [])
+            saved_state.get('training_replies', {})
         )
 
     @staticmethod
-    def _save_training_replies(training_replies: Dict[int, Responses]) -> List[List[Dict[str, Any]]]:
+    def _save_training_replies(training_replies: Dict[int, Any]) -> List[List[Dict[str, Any]]]:
         """Extracts a copy of `training_replies` and prepares it for saving in breakpoint
 
         - strip unwanted fields
@@ -632,16 +581,17 @@ class Job:
         converted_training_replies = []
 
         for round_ in training_replies.keys():
-            training_reply = copy.deepcopy(training_replies[round_].data())
+            training_reply = copy.deepcopy(training_replies[round_])
             # we want to strip some fields for the breakpoint
-            for node in training_reply:
-                del node['params']
+            for reply in training_reply.values():
+                reply.pop('params', None)
+
             converted_training_replies.append(training_reply)
 
         return converted_training_replies
 
     @staticmethod
-    def _load_training_replies(bkpt_training_replies: List[List[dict]]) -> Dict[int, Responses]:
+    def _load_training_replies(bkpt_training_replies: List[List[dict]]) -> Dict[int, Dict]:
         """Reads training replies from a formatted breakpoint file, and build a job training replies data structure .
 
         Args:
@@ -654,11 +604,13 @@ class Job:
         training_replies = {}
         if not bkpt_training_replies:
             logger.warning("No Replies has been found in this breakpoint")
+
         for round_ in range(len(bkpt_training_replies)):
-            loaded_training_reply = Responses(bkpt_training_replies[round_])
+            loaded_training_reply = bkpt_training_replies[round_]
             # reload parameters from file params_path
-            for node in loaded_training_reply:
+            for node in loaded_training_reply.values():
                 node["params"] = Serializer.load(node["params_path"])
+
             training_replies[round_] = loaded_training_reply
 
         return training_replies
@@ -695,7 +647,7 @@ class localJob:
             )
         if not issubclass(training_plan_class, training_plans_types):
             raise FedbiomedJobError(
-                f"{ErrorNumbers.FB418}: bad type for argument " 
+                f"{ErrorNumbers.FB418}: bad type for argument "
                 "`training_plan_class` {training_plan_class} is not subclass of training plans")
 
         # Initialize values
@@ -708,6 +660,11 @@ class localJob:
                     or training_args.get('test_on_global_updates', False):
                 # if user wants to perform validation, display this message
                 logger.warning("Cannot perform validation, not supported for LocalJob")
+
+        if not isinstance(training_args, TrainingArgs):
+            self._training_args = TrainingArgs(training_args, only_required=False)
+        else:
+            self._training_args = training_args
 
         # create/save model instance
         self._training_plan = training_plan_class()

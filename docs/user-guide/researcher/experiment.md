@@ -258,8 +258,8 @@ Example of minimal loader arguments:
 ```python
 training_args = {
     'loader_args': {
-        'batch_size': 1
-    }
+        'batch_size': 1,
+    },
 }
 ```
 
@@ -323,7 +323,9 @@ of [differential privacy](../../tutorials/security/non-private-local-central-dp-
 
 ```python
 training_args = {
-    'batch_size': 20,
+    'loader_args': {
+        'batch_size': 20,
+    },
     'num_updates': 100,
     'optimizer_args': {
         'lr': 1e-3,
@@ -464,7 +466,9 @@ Running an experiment means starting the training process by sending train reque
   "researcher_id": "researcher id that sends training command",
   "job_id": "created job id by experiment",
   "training_args": {
-    "batch_size": 32,
+    "loader_args": {
+      "batch_size": 32
+    },
     "optimizer_args": {
       "lr": 0.001
     },

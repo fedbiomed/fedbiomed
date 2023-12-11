@@ -46,7 +46,6 @@ from fedbiomed.researcher.filetools import (
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.requests import Requests
-from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
@@ -1311,7 +1310,7 @@ class Experiment:
             logger.debug('Experimentation `job` changed after running '
                          '{self._round_current} rounds, may give inconsistent results')
 
-        
+
 
         if self._training_plan_class is None:
             # training plan not defined yet
@@ -1329,8 +1328,8 @@ class Experiment:
                             training_args=self._training_args,
                             data=self._fds,
                             keep_files_dir=self.experimentation_path())
-            
-            
+
+
 
         return self._job
 
@@ -1390,7 +1389,7 @@ class Experiment:
     def set_secagg(self, secagg: Union[bool, SecureAggregation]):
 
         if isinstance(secagg, bool):
-            self._secagg = SecureAggregation(active=secagg, timeout=10)
+            self._secagg = SecureAggregation(active=secagg)
         elif isinstance(secagg, SecureAggregation):
             self._secagg = secagg
         else:
@@ -1799,9 +1798,9 @@ class Experiment:
         return self._job.training_plan_file
 
     # TODO: change format of returned data (during experiment results refactor ?)
-    # a properly defined structure/class instead of the generic responses
+    # a properly defined structure/class instead of the generic replies
     @exp_exceptions
-    def check_training_plan_status(self) -> Responses:
+    def check_training_plan_status(self) -> Dict:
         """ Method for checking training plan status, ie whether it is approved or not by the nodes
 
         Returns:
@@ -1818,10 +1817,10 @@ class Experiment:
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        # always returns a `Responses()` object
-        responses = self._job.check_training_plan_is_approved_by_nodes()
+        # always returns a `Dict[str, Message]` object
+        replies = self._job.check_training_plan_is_approved_by_nodes()
 
-        return responses
+        return replies
 
     # Breakpoint functions
 
@@ -2259,8 +2258,7 @@ class Experiment:
     def training_plan_approve(self,
                               training_plan: BaseTrainingPlan,
                               description: str = "no description provided",
-                              nodes: list = [],
-                              timeout: int = 5) -> dict:
+                              nodes: Optional[List[str]] = None) -> dict:
         """Send a training plan and a ApprovalRequest message to node(s).
 
         This is a simple redirect to the Requests.training_plan_approve() method.
@@ -2273,7 +2271,6 @@ class Experiment:
             training_plan: the training plan class to send to the nodes for approval.
             nodes: list of nodes (specified by their UUID)
             description: Description for training plan approve request
-            timeout: maximum waiting time for the answers
 
         Returns:
             a dictionary of pairs (node_id: status), where status indicates to the researcher
@@ -2283,5 +2280,4 @@ class Experiment:
         """
         return self._reqs.training_plan_approve(training_plan,
                                                 description,
-                                                nodes,
-                                                timeout)
+                                                nodes)

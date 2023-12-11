@@ -3,7 +3,7 @@ site_url: https://fedbiomed.org/latest
 site_dir: public
 
 site_description: >- 
-    Open, Transparent and Trusted Federated Learning for Real-world Healthcare Applications
+    Open, Transparent and Trusted Collaborative Learning for Real-world Healthcare Applications
 theme:
   name: material
   logo: assets/img/fedbiomed-logo-small.png
@@ -124,7 +124,6 @@ nav:
                 - Job: './developer/api/researcher/job.md'
                 - Monitor: './developer/api/researcher/monitor.md'
                 - NodeStateAgent: './developer/api/researcher/node_state_agent.md'
-                - Responses: './developer/api/researcher/responses.md'
                 - Requests: './developer/api/researcher/requests.md'
                 - Strategies: './developer/api/researcher/strategies.md'
                 - Secagg: './developer/api/researcher/secagg.md'
