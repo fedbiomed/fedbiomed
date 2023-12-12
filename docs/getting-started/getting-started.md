@@ -4,7 +4,7 @@
 
 
 ## `Node`
-In Federated Learning, a `Node` is a component on which sensitive data are stored. To run a node, nothing simpler! From `Fed-BioMed` repository, enter the following command on a terminal:
+In Collaborative Learning, a `Node` is a component on which sensitive data are stored. To run a node, nothing simpler! From `Fed-BioMed` repository, enter the following command on a terminal:
 
 
 ```shell

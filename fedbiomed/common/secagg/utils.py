@@ -1,10 +1,10 @@
-from typing import List, Union
-
 import numpy as np
 
-from fedbiomed.common.constants import VEParameters
+from typing import List, Union
 
+from fedbiomed.common.constants import VEParameters
 from fedbiomed.common.logger import logger
+
 
 def _check_clipping_range(
         values: List[float],
@@ -61,22 +61,24 @@ def quantize(
         )
     )
     quantized_list = f(weights).astype(int)
-    
+
     return quantized_list.tolist()
+
 
 def multiply(xs, k):
     """
     Multiplies a list of integers by a constant
-    
+
     Args:
         xs: List of integers
         k: Constant to multiply by
-        
+
     Returns:
         List of multiplied integers
     """
     xs = np.array(xs, dtype=np.uint32)
     return (xs * k).tolist()
+
 
 def divide(xs, k):
     """
@@ -85,12 +87,13 @@ def divide(xs, k):
     Args:
         xs: List of integers
         k: Constant to divide by
-    
+
     Returns:
         List of divided integers
     """
     xs = np.array(xs, dtype=np.uint32)
     return (xs / k).tolist()
+
 
 def reverse_quantize(
     weights: List[int],
@@ -114,7 +117,7 @@ def reverse_quantize(
     min_range = -clipping_range
     step_size = (max_range - min_range) / (target_range - 1)
     f = np.vectorize(
-        lambda x: (min_range + step_size*x)
+        lambda x: (min_range + step_size * x)
     )
 
     weights = np.array(weights)
@@ -132,11 +135,12 @@ def apply_average(
     Args:
         params: List of parameters
         total_weight: Total weight to divide
-    
+
     Returns:
         List of averaged parameters
     """
     return divide(params, total_weight)
+
 
 def apply_weighing(
         params: List[int],
@@ -147,7 +151,7 @@ def apply_weighing(
     Args:
         params: List of parameters
         weight: Weight to multiply
-    
+
     Returns:
         List of weighted parameters
     """

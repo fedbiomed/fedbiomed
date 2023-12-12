@@ -14,19 +14,18 @@ Training Plan registration and approval can be done through the Fed-BioMed node 
 - Then when training begins, training plan files that are sent by a researcher are first hashed and compared to the saved hashes of approved training plans: this is training plan **control**. This process flow is presented in the following figure. 
 
 
-![training-plan-approval-process](../../assets/img/diagrams/training-plan-approval-process_v3.jpg)
+![training-plan-approval-process](../../assets/img/diagrams/model-approval-process_v3_training_plan.jpg#img-centered-lr)
 *Figure 1 - Controlling training plan file requested by researcher*
 
 Details of `Figure 1` workflow:
 
 
 1. `Researcher` creates a `TrainingPlan` to be trained on the `Node`
-2. `Researcher` submits a `TrainingPlan` to the `Node`: he/she sends a train request to the node ... 
-3. ... and sends a training plan file containing the `TrainingPlan`
-4. `Node` receives `TrainingPlan` sent by `Researcher`
-5. `Node` computes hash of the incoming `TrainingPlan`.
-6. `Node` checks if `Researcher`'s training plan has already been approved by  comparing its hash to the existing pool of approved training plan hashes.
-7. If `TrainingPlan` has been approved by the `Node`, `Researcher` will be able to train his/her training plan on the `Node`.  
+2. `Researcher` submits a `TrainingPlan` along with the training request 
+3. `Node` retrieves `TrainingPlan` class. 
+4. `Node` computes hash of the incoming `TrainingPlan`.
+5. `Node` checks if `Researcher`'s training plan has already been approved by  comparing its hash to the existing pool of approved training plan hashes.
+6. If `TrainingPlan` has been approved by the `Node`, `Researcher` will be able to train his/her training plan on the `Node`.  
 
 
 ### Hashing 

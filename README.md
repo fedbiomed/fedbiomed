@@ -12,7 +12,7 @@
 
 Fed-BioMed is an open source project focused on empowering biomedical research using non-centralized approaches for statistical analysis and machine learning.
 
-The project is currently based on Python, PyTorch and Scikit-learn, and enables developing and deploying federated learning analysis in real-world machine learning applications.
+The project is currently based on Python, PyTorch and Scikit-learn, and enables developing and deploying collaborative learning analysis in real-world machine learning applications, including federated learning and federated analytics.
 
 The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.org
 

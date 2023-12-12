@@ -24,7 +24,7 @@ from fedbiomed.common.cli import CommonCLI
 from fedbiomed.node.cli_utils import dataset_manager, add_database, delete_database, delete_all_database, \
     tp_security_manager, register_training_plan, update_training_plan, approve_training_plan, reject_training_plan, \
     delete_training_plan, view_training_plan
-
+from fedbiomed.node.config import NodeConfig
 #
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
 #
@@ -192,7 +192,7 @@ def launch_cli():
     cli = CommonCLI()
     cli.set_environ(environ=environ)
     cli.initialize_certificate_parser()
-    cli.initialize_create_configuration()
+    # cli.initialize_create_configuration(config_class=NodeConfig)
 
 
     # Register description for CLI

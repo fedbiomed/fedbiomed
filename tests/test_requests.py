@@ -80,6 +80,9 @@ class TestRequests(ResearcherTestCase):
 
         self.tp_abstract_patcher = patch.multiple(TorchTrainingPlan, __abstractmethods__=set())
 
+
+        self.ssl_credentials_patch = patch('fedbiomed.researcher.requests._requests.SSLCredentials')
+
         self.grpc_server_patcher1 = patch('fedbiomed.transport.server.GrpcServer.__init__', autospec=True)
         self.grpc_server_patcher2 = patch('fedbiomed.transport.server.GrpcServer.start', autospec=True)
         self.grpc_server_patcher3 = patch('fedbiomed.transport.server.GrpcServer.send', autospec=True)
@@ -93,6 +96,7 @@ class TestRequests(ResearcherTestCase):
 
         self.tp_abstract_patcher.start()
 
+        self.ssl_credentials_mock = self.ssl_credentials_patch.start()
         self.grpc_server_init = self.grpc_server_patcher1.start()
         self.grpc_server_start = self.grpc_server_patcher2.start()
         self.grpc_server_send = self.grpc_server_patcher3.start()
@@ -127,6 +131,7 @@ class TestRequests(ResearcherTestCase):
 
     def tearDown(self):
 
+        self.ssl_credentials_patch.stop()
         self.tp_abstract_patcher.stop()
         self.grpc_server_patcher1.stop()
         self.grpc_server_patcher2.stop()

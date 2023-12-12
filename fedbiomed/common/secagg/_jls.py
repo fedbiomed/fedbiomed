@@ -29,7 +29,130 @@ from gmpy2 import mpz, gcd
 import numpy as np
 
 from fedbiomed.common.constants import VEParameters
+from fedbiomed.common.logger import logger
+
 from ._base import EncrypterBase
+
+
+def _check_clipping_range(
+        values: List[float],
+        clipping_range: float
+) -> None:
+    """Checks clipping range for quantization
+
+    Args:
+        values: Values to check whether clipping range is exceed from both direction
+        clipping_range: Clipping range
+
+    """
+    state = False
+
+    for x in values:
+        if x < -clipping_range or x > clipping_range:
+            state = True
+
+    if state:
+        logger.info(
+            "There are some numbers in the local vector that exceeds clipping range. Please increase the "
+            "clipping range to account for value")
+
+
+def quantize(
+    weights: List[float],
+    clipping_range: Union[int, None] = None,
+    target_range: int = VEParameters.TARGET_RANGE,
+) -> List[int]:
+    """Quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
+
+    This function returns a vector in the range [0, target_range-1].
+
+    Args:
+        weights: List of model weight values
+        clipping_range: Clipping range
+        target_range: Target range
+
+    Returns:
+        Quantized model weights as numpy array.
+
+    """
+    if clipping_range is None:
+        clipping_range = VEParameters.CLIPPING_RANGE
+
+    _check_clipping_range(weights, clipping_range)
+
+    f = np.vectorize(
+        lambda x: min(
+            target_range - 1,
+            (sorted((-clipping_range, x, clipping_range))[1] + clipping_range) *
+            target_range /
+            (2 * clipping_range),
+        )
+    )
+    quantized_list = f(weights).astype(int)
+
+    return quantized_list.tolist()
+
+
+def multiply(xs: List[int], k: int) -> List[int]:
+    """
+    Multiplies a list of integers by a constant
+
+    Args:
+        xs: List of integers
+        k: Constant to multiply by
+
+    Returns:
+        List of multiplied integers
+    """
+    xs = np.array(xs, dtype=np.uint32)
+    return (xs * k).tolist()
+
+
+def divide(xs: List[int], k: int) -> List[int]:
+    """
+    Divides a list of integers by a constant
+
+    Args:
+        xs: List of integers
+        k: Constant to divide by
+
+    Returns:
+        List of divided integers
+    """
+    xs = np.array(xs, dtype=np.uint32)
+    return (xs / k).tolist()
+
+
+def reverse_quantize(
+    weights: List[int],
+    clipping_range: Union[int, None] = None,
+    target_range: int = VEParameters.TARGET_RANGE,
+) -> List[float]:
+    """Reverse quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
+
+     Args:
+        weights: List of quantized model weights
+        clipping_range: Clipping range used for quantization
+        target_range: Target range used for quantization
+
+    Returns:
+        Reversed quantized model weights as numpy array.
+    """
+
+    if clipping_range is None:
+        clipping_range = VEParameters.CLIPPING_RANGE
+
+    max_range = clipping_range
+    min_range = -clipping_range
+    step_size = (max_range - min_range) / (target_range - 1)
+    f = np.vectorize(
+        lambda x: (min_range + step_size * x)
+    )
+
+    weights = np.array(weights)
+    reverse_quantized_list = f(weights.astype(float))
+
+    return reverse_quantized_list.tolist()
 
 def invert(
         a: mpz,
@@ -626,20 +749,36 @@ class JoyeLibert(EncrypterBase):
 
     """
 
-    def __init__(self):
-        """Constructs the class"""
-        assert VEParameters.TARGET_RANGE + VEParameters.WEIGHT_RANGE <= 2**32, "The sum of target range and weight range should be less than 2^32"
+    def __init__(self, n_parties: int, biprime: int, key: int):
+        """Constructs the class
+
+        VEParameters.TARGET_RANGE + VEParameters.WEIGHT_RANGE should be
+        equal or less than 2**32
+
+        Args:
+            biprime: Biprime to use in encryption
+            key: Private key for the encryption
+        """
+        self._n_parties = n_parties
         self._vector_encoder = VES(
             ptsize=VEParameters.KEY_SIZE // 2,
-            valuesize=ceil(log2(VEParameters.TARGET_RANGE)+log2(VEParameters.WEIGHT_RANGE))
+            valuesize=ceil(log2(VEParameters.TARGET_RANGE) + log2(VEParameters.WEIGHT_RANGE))
         )
 
+        self._key = key
+        self._fdh = FDH(
+            bits_size=VEParameters.KEY_SIZE,
+            n_modulus=biprime * biprime)
+
+        self._public_param = PublicParam(
+            n_modulus=mpz(biprime),
+            bits=VEParameters.KEY_SIZE// 2,
+            hashing_function=self._fdh.H)
+
+
     def protect(self,
-                public_param: PublicParam,
-                user_key: UserKey,
-                tau: int,
-                x_u_tau: List[int],
-                n_users: int,
+                t: int,
+                vector: List[int],
                 ) -> List[mpz]:
         """ Protect user input with the user's secret key:
 
@@ -652,42 +791,37 @@ class JoyeLibert(EncrypterBase):
         $$y_{u,\\tau} = (1 + x_{u,\\tau} N) H(\\tau)^{sk_u} \\mod N^2$$
 
         Args:
-            public_param: The public parameters \\(public_param\\)
-            user_key: The user's secret key \\(sk_u\\)
-            tau: The time period \\(\\tau\\)
-            x_u_tau: The user's input \\(x_{u,\\tau}\\)
-            n_users: Number of nodes/users that participates secure aggregation
+            t: The time period \\(\\tau\\)
+            vector: The user's input \\(x_{u,\\tau}\\)
+            n_parties: Number of nodes/users that participates secure aggregation
 
         Returns:
-                The protected input of type `EncryptedNumber` or a list of `EncryptedNumber`
+            The protected input of type `EncryptedNumber` or a list of `EncryptedNumber`
 
         Raises:
                 TypeError: bad argument type
                 ValueError: bad argument value
         """
-        if not isinstance(user_key, UserKey):
-            raise TypeError(f"Expected key for encryption type is UserKey. but got {type(user_key)}")
 
-        if user_key.public_param != public_param:
-            raise ValueError("Bad public parameter. The public parameter of user key does not match the "
-                             "one given for encryption")
+        user_key = UserKey(
+            public_param = self._public_param,
+            key=self._key)
 
-        if not isinstance(x_u_tau, list):
+        if not isinstance(vector, list):
             raise TypeError(f"Bad vector for encryption. Excepted argument `x_u_tau` type list but "
-                            f"got {type(x_u_tau)}")
+                            f"got {type(vector)}")
 
         x_u_tau = self._vector_encoder.encode(
-            V=x_u_tau,
-            add_ops=n_users
+            V=vector,
+            add_ops=self._n_parties
         )
 
-        return user_key.encrypt(x_u_tau, tau)
+        return user_key.encrypt(x_u_tau, t)
 
     def aggregate(
             self,
-            sk_0: ServerKey,
-            tau: int,
-            list_y_u_tau: List[List[EncryptedNumber]]
+            t: int,
+            vectors: List[List[EncryptedNumber]]
     ) -> List[int]:
         """Aggregates users protected inputs with the server's secret key
 
@@ -713,22 +847,38 @@ class JoyeLibert(EncrypterBase):
             ValueError: bad argument value
         """
 
-        if not isinstance(sk_0, ServerKey):
-            raise ValueError("Key must be an instance of `ServerKey`")
+        server_key = ServerKey(
+            public_param = self._public_param,
+            key=self._key)
 
-        if not isinstance(list_y_u_tau, list) or not list_y_u_tau:
+
+        if not isinstance(vectors, list) or not vectors:
             raise ValueError("list_y_u_tau should be a non-empty list.")
 
-        if not isinstance(list_y_u_tau[0], list):
+        if not isinstance(vectors[0], list):
             raise ValueError("list_y_u_tau should be a list that contains list of encrypted numbers")
 
-        n_user = len(list_y_u_tau)
+        n_party = len(vectors)
+        vectors = self._convert_to_encrypted_number(vectors)
+        sum_of_vectors: List[EncryptedNumber] = [sum(ep) for ep in zip(*vectors)]
+        decrypted_vector = server_key.decrypt(sum_of_vectors, t)
 
-        sum_of_vectors: List[EncryptedNumber] = [sum(ep) for ep in zip(*list_y_u_tau)]
+        return self._vector_encoder.decode(decrypted_vector, add_ops=n_party)
 
-        decrypted_vector = sk_0.decrypt(sum_of_vectors, tau)
+    def _convert_to_encrypted_number(
+        self,
+        vectors: List[List[int]]
+    ) -> List[List[EncryptedNumber]]:
 
-        return self._vector_encoder.decode(decrypted_vector, add_ops=n_user)
+        encrypted_numbers = []
+        for vector in vectors:
+            encrypted_numbers.append(
+                [EncryptedNumber(self._public_param, mpz(num_)) for num_ in vector]
+            )
+
+        return encrypted_numbers
+
+
 
 
 class FDH:

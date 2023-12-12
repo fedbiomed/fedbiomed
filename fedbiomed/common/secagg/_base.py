@@ -11,18 +11,19 @@ class EncrypterBase(ABC):
 
 
     @abstractmethod
-    def protect(self,
-                t,
-                vector: List[int],
-                parties: List[str],
+    def protect(
+        self,
+        t,
+        vector: List[int],
     ) -> List[int]:
         """Protects given vector of integers"""
         pass
 
 
     @abstractmethod
-    def aggregate(self,
-                  vectors: List[List[int]]
+    def aggregate(
+        self,
+        vectors: List[List[int]]
     ) -> List[int]:
         """Agggregate method"""
         pass

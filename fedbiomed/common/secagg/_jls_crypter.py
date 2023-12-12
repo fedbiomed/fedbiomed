@@ -16,11 +16,16 @@ from ._jls import JoyeLibert, \
     ServerKey, \
     UserKey, \
     FDH, \
-    PublicParam
+    PublicParam, \
+    quantize, \
+    reverse_quantize, \
+    multiply, \
+    divide
 
 from .utils import quantize, \
     reverse_quantize, \
     apply_average, apply_weighing
+
 
 class JLSCrypter:
     """Secure aggregation encryption and decryption manager.
@@ -114,8 +119,8 @@ class JLSCrypter:
                     f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
                     f"{VEParameters.WEIGHT_RANGE}."
                 )
-        if weight is not None:
-            params = apply_weighing(params, weight)
+            params = self._apply_weighing(params, weight)
+
 
         public_param = self._setup_public_param(biprime=biprime)
 
@@ -134,7 +139,7 @@ class JLSCrypter:
         except (TypeError, ValueError) as exp:
             raise FedbiomedSecaggCrypterError(
                 f"{ErrorNumbers.FB624.value} Error during parameter encryption. {exp}") from exp
-        
+
         time_elapsed = time.process_time() - start
         logger.debug(f"Encryption of the parameters took {time_elapsed} seconds.")
 
@@ -215,6 +220,38 @@ class JLSCrypter:
         logger.debug(f"Aggregation is completed in {round(time_elapsed, ndigits=2)} seconds.")
 
         return aggregated_params
+
+    @staticmethod
+    def _apply_average(
+            params: List[int],
+            total_weight: int
+    ) -> List:
+        """Divides parameters with total weight
+
+        Args:
+            params: List of parameters
+            total_weight: Total weight to divide
+
+        Returns:
+            List of averaged parameters
+        """
+        return divide(params, total_weight)
+
+    @staticmethod
+    def _apply_weighing(
+            params: List[int],
+            weight: int,
+    ) -> List[int]:
+        """Multiplies parameters with weight
+
+        Args:
+            params: List of parameters
+            weight: Weight to multiply
+
+        Returns:
+            List of weighted parameters
+        """
+        return multiply(params, weight)
 
     @staticmethod
     def _convert_to_encrypted_number(
