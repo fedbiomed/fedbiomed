@@ -4,6 +4,7 @@ import asyncio
 import abc
 import ssl
 import socket
+import json
 
 from dataclasses import dataclass
 
@@ -39,39 +40,6 @@ GRPC_CLIENT_CONN_RETRY_TIMEOUT = 2
 GRPC_CLIENT_TASK_REQUEST_TIMEOUT = 60
 
 
-def create_channel(
-    port: str,
-    host: str,
-    certificate: Optional[str] = None
-) -> grpc.Channel :
-    """ Create gRPC channel
-
-    Args:
-        ip: IP address of the channel
-        port: TCP port of the channel
-        certificate: certificate for secure channel, or None for unsecure channel
-
-    Returns:
-        gRPC connection channel
-    """
-    channel_options = [
-        ("grpc.max_send_message_length", 100 * 1024 * 1024),
-        ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-        ("grpc.keepalive_time_ms", 1000 * 2),
-        ("grpc.initial_reconnect_backoff_ms", 1000),
-        ("grpc.min_reconnect_backoff_ms", 500),
-        ("grpc.max_reconnect_backoff_ms", 2000),
-        # ('grpc.ssl_target_name_override', 'localhost') # ...
-    ]
-
-    if certificate is None:
-        channel = grpc.aio.insecure_channel(f"{host}:{port}", options=channel_options)
-    else:
-        channel = grpc.aio.secure_channel(f"{host}:{port}", certificate, options=channel_options)
-
-    return channel
-
-
 def is_server_alive(host: str, port: str):
     """Checks if the server is alive
 
@@ -91,6 +59,22 @@ def is_server_alive(host: str, port: str):
         else:
             s.close()
             return True
+
+# See details https://fuchsia.googlesource.com/third_party/grpc/+/HEAD/doc/service_config.md
+# And see client retry policies https://github.com/grpc/proposal/blob/master/A6-client-retries.md#retry-policy
+service_config = json.dumps(
+    { "methodConfig": [{
+        "name": [{"service": "researcher.ResearcherService"}],
+        "retryPolicy": {
+                "maxAttempts": 5, # max is 5
+                "initialBackoff": '0.1s',
+                "maxBackoff": "2s",
+                "backoffMultiplier": 2,
+                "retryableStatusCodes": ["UNAVAILABLE"],
+            },
+        }]
+    }
+)
 
 
 class Channels:
@@ -166,6 +150,9 @@ class Channels:
             ("grpc.min_reconnect_backoff_ms", 500),
             ("grpc.max_reconnect_backoff_ms", 2000),
             # ('grpc.ssl_target_name_override', 'localhost') # ...
+            ("grpc.enable_retries", 1),
+            ("grpc.service_config", service_config)
+
         ]
 
         if certificate is None:
