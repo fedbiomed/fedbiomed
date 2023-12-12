@@ -14,6 +14,7 @@ import shutil
 import tempfile
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Type, Union
+from fedbiomed.common.message import TrainingPlanStatusRequest
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 
 import validators
@@ -28,8 +29,8 @@ from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
-from fedbiomed.researcher.requests import Requests
-from fedbiomed.researcher.responses import Responses
+from fedbiomed.researcher.requests import Requests, DiscardOnTimeout
+
 
 
 class Job:
@@ -67,7 +68,7 @@ class Job:
         self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
         self._repository_args = {}
-        self._node_state_agent: NodeStateAgent = None
+
 
         # List of node ID of the nodes used in the current round
         # - initially None (no current round yet)
@@ -167,6 +168,14 @@ class Job:
 
         return self._training_plan_file
 
+    def _get_model_params(self) -> Dict[str, Any]:
+        """Gets model parameters form the training plan.
+
+        Returns:
+            Model weights, as a dictionary mapping parameters' names to their value.
+        """
+        return self._training_plan.get_model_params()
+
     @staticmethod
     def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
         """ Validates a given dictionary by given mandatory fields.
@@ -211,41 +220,33 @@ class Job:
 
         """
 
-        message = {
+        message = TrainingPlanStatusRequest(**{
             'researcher_id': self._researcher_id,
             'job_id': self._id,
             'training_plan_url': self._repository_args['training_plan_url'],
             'command': 'training-plan-status'
-        }
+        })
 
-        responses = Responses([])
+
         replied_nodes = []
         node_ids = data.node_ids()
 
         # Send message to each node that has been found after dataset search request
-        for cli in node_ids:
-            logger.info('Sending request to node ' +
-                        str(cli) + " to check model is approved or not")
-            self._reqs.send_message(
-                message,
-                cli)
+        with self._reqs.send(message, node_ids, policies=[DiscardOnTimeout(5)]) as federated_req:
+            replies = federated_req.replies()
 
-        # Wait for responses
-        for resp in self._reqs.get_responses(look_for_commands=['training-plan-status'], only_successful=False):
-            responses.append(resp)
-            replied_nodes.append(resp.get('node_id'))
-
-            if resp.get('success') is True:
-                if resp.get('approval_obligation') is True:
-                    if resp.get('status') == TrainingPlanApprovalStatus.APPROVED.value:
-                        logger.info(f'Training plan has been approved by the node: {resp.get("node_id")}')
+            for node_id, reply in replies.items():
+                if reply.success is True:
+                    if reply.approval_obligation is True:
+                        if reply.status == TrainingPlanApprovalStatus.APPROVED.value:
+                            logger.info(f'Training plan has been approved by the node: {node_id}')
+                        else:
+                            logger.warning(f'Training plan has NOT been approved by the node: {node_id}.' +
+                                           f'Training plan status : {node_id}')
                     else:
-                        logger.warning(f'Training plan has NOT been approved by the node: {resp.get("node_id")}.' +
-                                       f'Training plan status : {resp.get("status")}')
+                        logger.info(f'Training plan approval is not required by the node: {node_id}')
                 else:
-                    logger.info(f'Training plan approval is not required by the node: {resp.get("node_id")}')
-            else:
-                logger.warning(f"Node : {resp.get('node_id')} : {resp.get('msg')}")
+                    logger.warning(f"Node : {node_id} : {reply.msg}")
 
         # Get the nodes that haven't replied training-plan-status request
         non_replied_nodes = list(set(node_ids) - set(replied_nodes))
@@ -254,28 +255,28 @@ class Job:
                              by the nodes: {non_replied_nodes}. You might get error \
                                  while running your experiment. ")
 
-        return responses
+        return replies
 
     # TODO: This method should change in the future or as soon as we implement other of strategies different
     #   than DefaultStrategy
 
-    def waiting_for_nodes(self, responses: Responses) -> bool:
-        """ Verifies if all nodes involved in the job are present and Responding
+    # def waiting_for_nodes(self, responses: Responses) -> bool:
+    #     """ Verifies if all nodes involved in the job are present and Responding
 
-        Args:
-            responses: contains message answers
+    #     Args:
+    #         responses: contains message answers
 
-        Returns:
-            False if all nodes are present in the Responses object. True if waiting for at least one node.
-        """
-        try:
-            nodes_done = set(responses.dataframe()['node_id'])
-        except KeyError:
-            nodes_done = set()
+    #     Returns:
+    #         False if all nodes are present in the Responses object. True if waiting for at least one node.
+    #     """
+    #     try:
+    #         nodes_done = set(responses.dataframe()['node_id'])
+    #     except KeyError:
+    #         nodes_done = set()
 
-        return not nodes_done == set(self._nodes)
+    #     return not nodes_done == set(self._nodes)
 
-    def save_state(self, breakpoint_path: str) -> dict:
+    def save_state_breakpoint(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.
 
         Includes creating links to files included in the job state.
@@ -302,7 +303,7 @@ class Job:
 
         return state
 
-    def load_state(self, saved_state: Dict[str, Any]) -> None:
+    def load_state_breakpoint(self, saved_state: Dict[str, Any]) -> None:
         """Load breakpoints state for a Job from a saved state
 
         Args:
@@ -316,39 +317,39 @@ class Job:
             saved_state.get('training_replies', [])
         )
 
-    def _update_nodes_states_agent(self, before_training: bool = True):
-        """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
-        state_id coming from `Nodes` contained among all `Nodes` within
-        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
+    # def _update_nodes_states_agent(self, before_training: bool = True):
+    #     """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
+    #     state_id coming from `Nodes` contained among all `Nodes` within
+    #     [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
 
-        Args:
-            before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
-                - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
-                - if after, updates `NodeStateAgent` wrt latest [`Responses`][fedbiomed.researcher.responses.Responses]
+    #     Args:
+    #         before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
+    #             - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
+    #             - if after, updates `NodeStateAgent` wrt latest [`Responses`][fedbiomed.researcher.responses.Responses]
 
-        Raises:
-            FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
+    #     Raises:
+    #         FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
 
-        """
-        # TODO: find a way to access to data
-        node_ids = list(self._data.data().keys()) if self._data and self._data.data() else []
-        if before_training:
-            self._node_state_agent.update_node_states(node_ids)
-        else:
-            # extract last node state
-            # FIXME: for now we are only considering the case where we need last Round update,
-            # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
-            # previous Node replies)
-            try:
-                last_tr_entry = list(self.training_replies.keys())[-1]
-            except IndexError as ie:
-                raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
-                                                   "replies form Node(s) has(ve) been recieved!") from ie
+    #     """
+    #     # TODO: find a way to access to data
+        
+    #     if before_training:
+    #         self._node_state_agent.update_node_states(self._nodes)
+    #     else:
+    #         # extract last node state
+    #         # FIXME: for now we are only considering the case where we need last Round update,
+    #         # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
+    #         # previous Node replies)
+    #         try:
+    #             last_tr_entry = list(self.training_replies.keys())[-1]
+    #         except IndexError as ie:
+    #             raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
+    #                                                "replies form Node(s) has(ve) been recieved!") from ie
 
-            self._node_state_agent.update_node_states(node_ids, self.training_replies[last_tr_entry])
+    #         self._node_state_agent.update_node_states(node_ids, self.training_replies[last_tr_entry])
             
     @abstractmethod
-    def _save_training_replies(training_replies: Dict[int, Responses]) -> List[List[Dict[str, Any]]]:
+    def _save_training_replies(training_replies: Dict[int, Any]) -> List[List[Dict[str, Any]]]:
         """Extracts a copy of `training_replies` and prepares it for saving in breakpoint
 
         - strip unwanted fields
@@ -362,7 +363,7 @@ class Job:
         """
 
     @abstractmethod
-    def _load_training_replies(bkpt_training_replies: List[List[dict]]) -> Dict[int, Responses]:
+    def _load_training_replies(bkpt_training_replies: List[List[dict]]) -> Dict[int, Any]:
         """Reads training replies from a formatted breakpoint file, and build a job training replies data structure .
 
         Args:

@@ -867,6 +867,9 @@ class Experiment(FederatedWorkflow):
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
+        # update node states when used node list has changed from one round to another
+        self._update_nodes_states_agent(before_training=True)
+
         replies, _ = job.start_nodes_training_round(
             round_=self._round_current,
             training_args=self._training_args,
@@ -878,6 +881,12 @@ class Experiment(FederatedWorkflow):
             secagg_arguments=secagg_arguments,
             optim_aux_var=optim_aux_var,
         )
+        
+        
+
+        # update node states with node answers + when used node list has changed during the round
+        self._update_nodes_states_agent(before_training=False)
+        
         self._training_replies[self._round_current] = replies
 
         # refining/normalizing model weights received from nodes
@@ -935,7 +944,10 @@ class Experiment(FederatedWorkflow):
             # FIXME: should we sample nodes here too?
             aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
                                                                                             training_nodes)
+            
             job.start_nodes_training_round(round_=self._round_current,
+                                           training_plan=self._training_plan,
+                                           training_plan_class=self._training_plan_class,
                                            training_args=self._training_args,
                                            model_args=self._model_args,
                                            data=self._fds,

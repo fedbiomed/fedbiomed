@@ -18,7 +18,7 @@ from pathvalidate import sanitize_filename, sanitize_filepath
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import (
-    FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
+    FedbiomedExperimentError, FedbiomedError, FedbiomedNodeStateAgentError, FedbiomedSilentTerminationError
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_args import TrainingArgs
@@ -228,7 +228,7 @@ class FederatedWorkflow(ABC):
         self.set_training_plan_class(training_plan_class)
         self.set_training_plan_path(training_plan_path)
         
-        # at this point self._fds is FederatedDataset or None (not a dict no more)
+        # at this point self._fds is FederatedDataset or None (not a dict anymore)
         self._node_state_agent = NodeStateAgent(list(self._fds.data().keys())
                                                 if self._fds and self._fds.data() else [])
 
@@ -377,7 +377,6 @@ class FederatedWorkflow(ABC):
                 'Tags',
                 'Nodes filter',
                 'Training Data',
-                'Job',
                 'Training Plan Path',
                 'Training Plan Class',
                 'Training Arguments',
@@ -391,7 +390,6 @@ class FederatedWorkflow(ABC):
                            self._tags,
                            self._nodes,
                            self._fds,
-                           self._job,
                            self._training_plan_path,
                            self._training_plan_class,
                            self._training_args,
@@ -838,3 +836,33 @@ class FederatedWorkflow(ABC):
         elif self._fds is None:
             msg='Experiment not fully configured yet: no job. Missing training data'
             raise FedbiomedExperimentError(msg)
+
+    def _update_nodes_states_agent(self, before_training: bool = True):
+        """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
+        state_id coming from `Nodes` contained among all `Nodes` within
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
+
+        Args:
+            before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
+                - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
+                - if after, updates `NodeStateAgent` wrt latest reply
+
+        Raises:
+            FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
+
+        """
+        node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
+        if before_training:
+            self._node_state_agent.update_node_states(node_ids)
+        else:
+            # extract last node state
+            # FIXME: for now we are only considering the case where we need last Round update,
+            # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
+            # previous Node replies)
+            try:
+                last_tr_entry = list(self._training_replies.keys())[-1]
+            except IndexError as ie:
+                raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
+                                                   "replies form Node(s) has(ve) been recieved!") from ie
+
+            self._node_state_agent.update_node_states(node_ids, self._training_replies[last_tr_entry])

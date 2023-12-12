@@ -12,13 +12,14 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.message import TrainReply, TrainRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
-from fedbiomed.researcher.requests import Requests
+from fedbiomed.researcher.requests import Requests, MessagesByNode
 from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.federated_workflows._job import Job
 
@@ -121,9 +122,52 @@ class TrainingJob(Job):
 
         return args_thr_msg
 
+    def _get_training_testing_results(self, replies, errors, round_, timer: Dict) -> None:
+        """"Waits for training replies
+
+        Args:
+            round_: Training round
+            timer: Stores time elapsed on the researcher side
+        """
+
+        self._training_replies[round_] = {}
+
+        # Loops over errors
+        for node_id, error in errors.items():
+            logger.info(f"Error message received during training: {error.errnum}. {error.extra_msg}")
+            self._nodes.remove(node_id)
+
+        # Loops over replies
+        for node_id, reply in replies.items():
+
+            reply: TrainReply
+            if not reply.success:
+                logger.error(f"Training failed for node {reply.node_id}: {reply.msg}")
+                self._nodes.remove(reply.node_id)  # remove the faulty node from the list
+                continue
+
+            params_path = os.path.join(self._keep_files_dir, f"params_{node_id}.mpk")
+            Serializer.dump(reply.params, params_path)
+
+            rtime_total = time.perf_counter() - timer[node_id]
+
+            # TODO: could choose completely different name/structure for
+            timing = reply.timing
+            timing['rtime_total'] = rtime_total
+
+            self._training_replies[round_].update({
+                node_id: {
+                    **reply.get_dict(),
+                    'params_path': params_path,
+                    'timing': timing,
+                }
+            })
+
     def start_nodes_training_round(
         self,
         round_: int,
+        training_plan,
+        training_plan_class,
         training_args: TrainingArgs,
         model_args: Optional[dict],
         data: FederatedDataSet,
@@ -162,6 +206,9 @@ class TrainingJob(Job):
             'training': do_training,
             'model_args': model_args if model_args is not None else {},
             'round': round_,
+            'training_plan': training_plan.source(),
+            'training_plan_class': training_plan_class.__name__,
+            'params': self._get_model_params(),
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': secagg_arguments.get('secagg_random'),
@@ -174,7 +221,7 @@ class TrainingJob(Job):
         timer = {}
 
         # update node states when used node list has changed from one round to another
-        self._update_nodes_states_agent()
+        #self._update_nodes_states_agent()
         
         # FIXME: should be part of a method called from Experiment
         # (behaviour can be defined by user / changed by strategy)
@@ -190,6 +237,9 @@ class TrainingJob(Job):
         else:
             aux_shared = {}
             aux_bynode = {}
+            
+        # Loop over nodes, add node specific data and send train request
+        messages = MessagesByNode()
 
         for node in self._nodes:
             msg['dataset_id'] = data.data()[node]['dataset_id']
@@ -203,15 +253,21 @@ class TrainingJob(Job):
             self._log_round_info(node=node, training=do_training)
 
             timer[node] = time.perf_counter()
-            self._reqs.send_message(msg, node)  # send request to node
+            messages.update({node: TrainRequest(**msg)})  # send request to node
 
-        self._get_training_testing_results(round_=round_, timer=timer)
+        # Sends training request    
+        with self._reqs.send(messages, self._nodes) as federated_req:
+            errors = federated_req.errors()
+            replies = federated_req.replies()
+            self._get_training_testing_results(replies=replies, errors=errors, round_=round_, timer=timer)
 
-        # update node states with node answers + when used node list has changed during the round
-        self._update_nodes_states_agent(before_training=False)
+        # if do_training:
+        #     # update node states with node answers + when used node list has changed during the round
+        #     self._update_nodes_states_agent(before_training=False)
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
+    
     
     def _log_round_info(self, node: str, training: True) -> None:
         """Logs round details
@@ -288,7 +344,7 @@ class TrainingJob(Job):
         #         else:
         #             params_path = None
         #             params = None
-        #             optimizer_args = None
+        #             optimizer_args = None                'Job',
         #             encryption_factor = None
 
         #         # TODO: could choose completely different name/structure for
@@ -452,7 +508,7 @@ class TrainingJob(Job):
         return filename
 
     def update_parameters(self,
-                          training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
+                          training_plan,
                           params: Optional[Dict[str, Any]] = None
     ) -> str:
         """Save and upload global model parameters, optionally after updating them.
@@ -500,7 +556,7 @@ class TrainingJob(Job):
 
         return filename
 
-    def save_state(self, breakpoint_path: str) -> dict:
+    def save_state_breakpoint(self, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.
 
         Includes creating links to files included in the job state.
@@ -538,7 +594,7 @@ class TrainingJob(Job):
 
         return state
 
-    def load_state(self, training_plan, saved_state: Dict[str, Any]) -> None:
+    def load_state_breakpoint(self, saved_state: Dict[str, Any]) -> None:
         """Load breakpoints state for a Job from a saved state
 
         Args:
@@ -559,7 +615,7 @@ class TrainingJob(Job):
 
 
     @staticmethod
-    def _save_training_replies(training_replies: Dict[int, Responses]) -> List[List[Dict[str, Any]]]:
+    def _save_training_replies(training_replies: Dict[int, Any]) -> List[List[Dict[str, Any]]]:
         """Extracts a copy of `training_replies` and prepares it for saving in breakpoint
 
         - strip unwanted fields
@@ -583,7 +639,7 @@ class TrainingJob(Job):
         return converted_training_replies
 
     @staticmethod
-    def _load_training_replies(bkpt_training_replies: List[List[dict]]) -> Dict[int, Responses]:
+    def _load_training_replies(bkpt_training_replies: List[List[dict]]) -> Dict[int, Any]:
         """Reads training replies from a formatted breakpoint file, and build a job training replies data structure .
 
         Args:
@@ -593,14 +649,16 @@ class TrainingJob(Job):
             Training replies of already executed rounds of the job
         """
 
-        training_replies = super()._load_training_replies(bkpt_training_replies)
+        training_replies = {}
         if not bkpt_training_replies:
             logger.warning("No Replies has been found in this breakpoint")
+
         for round_ in range(len(bkpt_training_replies)):
-            loaded_training_reply = Responses(bkpt_training_replies[round_])
+            loaded_training_reply = bkpt_training_replies[round_]
             # reload parameters from file params_path
-            for node in loaded_training_reply:
-                node["params"] = Serializer.load(node["params_path"])["model_weights"]
+            for node in loaded_training_reply.values():
+                node["params"] = Serializer.load(node["params_path"])
+
             training_replies[round_] = loaded_training_reply
 
         return training_replies
