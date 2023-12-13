@@ -339,7 +339,7 @@ class TestChannels(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
 
-        self.create_channel_patch = patch("fedbiomed.transport.client.create_channel", autospec=True)
+        self.create_channel_patch = patch("fedbiomed.transport.client.Channels._create_channel", autospec=True)
         self.stub_patch = patch("fedbiomed.transport.client.ResearcherServiceStub", autospec=True)
 
         self.create_channel_mock = self.create_channel_patch.start()
