@@ -4,6 +4,8 @@ import asyncio
 import abc
 import ssl
 import socket
+import time
+
 import json
 
 from dataclasses import dataclass
@@ -52,6 +54,7 @@ def is_server_alive(host: str, port: str):
     address_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
     for family, socktype, protocol, _ , address in address_info:
         s = socket.socket(family, socktype, protocol)
+        s.settimeout(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
         try:
             s.connect(address)
         except socket.error:
@@ -246,6 +249,7 @@ class GrpcClient:
         """
 
         while True:
+            time_before = time.perf_counter()
             if is_server_alive(self._researcher.host, self._researcher.port):
                 # Gets server certificate before creating the channel
                 # This implementation assumes that the provided IP and PORT trusted
@@ -267,7 +271,7 @@ class GrpcClient:
                 logger.info(
                     "Researcher server is not available, will retry connect in "
                     f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
-                await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                await asyncio.sleep(max(0, GRPC_CLIENT_CONN_RETRY_TIMEOUT - time.perf_counter() + time_before))
 
 
     def _on_status_change(self, status: ClientStatus) -> None:
