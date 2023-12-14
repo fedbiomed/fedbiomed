@@ -328,7 +328,7 @@ class GrpcServer(_GrpcAsyncServer):
 
             if sleep_ == 0:
                 logger.info(f"No nodes found, server will wait "
-                            "{MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} "
+                            f"{MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} "
                             "more seconds until a node creates connection.")
 
             if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:
