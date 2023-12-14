@@ -54,6 +54,9 @@ def is_server_alive(host: str, port: str):
     address_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
     for family, socktype, protocol, _ , address in address_info:
         s = socket.socket(family, socktype, protocol)
+        # Need this timeout for the case where the server does not answer
+        # If not present, socket timeout increases and this function takes more
+        # than GRPC_CLIENT_CONN_RETRY_TIMEOUT to execute
         s.settimeout(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
         try:
             s.connect(address)
