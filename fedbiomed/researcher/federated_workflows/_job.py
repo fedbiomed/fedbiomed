@@ -14,13 +14,14 @@ import shutil
 import tempfile
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Type, Union
+from fedbiomed.common import utils
 from fedbiomed.common.message import TrainingPlanStatusRequest
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 
 import validators
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus, JOB_PREFIX
-from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError, FedbiomedTrainingPlanError
+from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedNodeStateAgentError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -61,13 +62,11 @@ class Job:
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
                 of the job. Defaults to None, files are not kept after the end of the job.
 
-        Raises:
-            NameError: If model is not defined or if the class can not to be inspected
         """
 
         self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
-        self._repository_args = {}
+        #self._repository_args = {}
 
 
         # List of node ID of the nodes used in the current round
@@ -95,45 +94,63 @@ class Job:
         self._training_plan_file = os.path.join(self._keep_files_dir, self._training_plan_module + '.py')
 
     def get_default_constructed_workflow_instance(self,
-                                                  training_plan_path: str,
                                                   training_plan_class: Union[Type[Callable], str],
                                                   ) -> 'FederatedWorkflow':
 
-        # handle case when model is in a file
-        if training_plan_path is not None:
-            try:
-                # import model from python file
+        # create TrainingPlan instance
+        training_plan = training_plan_class()  # contains TrainingPlan
 
-                model_module = os.path.basename(training_plan_path)
-                model_module = re.search("(.*)\.py$", model_module).group(1)
-                sys.path.insert(0, os.path.dirname(training_plan_path))
-
-                module = importlib.import_module(model_module)
-                tr_class = getattr(module, training_plan_class)
-                training_plan_class = tr_class
-                sys.path.pop(0)
-
-            except Exception as e:
-                e = sys.exc_info()
-                logger.critical(f"Cannot import class {training_plan_class} from "
-                                f"path {training_plan_path} - Error: {str(e)}")
-                sys.exit(-1)
-
-        # check class is defined
+        # save and load training plan to a file to be sure
+        # 1. a file is associated to training plan so we can read its source, etc.
+        # 2. all dependencies are applied
+        training_plan_module = 'model_' + str(uuid.uuid4())
+        training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
         try:
-            _ = inspect.isclass(training_plan_class)
-        except NameError:
-            mess = f"Cannot find training plan for Job, training plan class {training_plan_class} is not defined"
-            logger.critical(mess)
-            raise NameError(mess)
+            training_plan.save_code(training_plan_file)
+        except Exception as e:
+            msg = f"{ErrorNumbers.FB418}: cannot save training plan to file: {e}"
+            logger.critical(msg)
+            raise FedbiomedJobError(msg)
+        del training_plan
 
-        # create/save TrainingPlan instance
-        if inspect.isclass(training_plan_class):
-            training_plan = training_plan_class()  # contains TrainingPlan
+        _, training_plan = utils.import_class_object_from_file(
+            training_plan_file, training_plan_class.__name__)
 
-        else:
-            training_plan = training_plan_class
-        training_plan.configure_dependencies()
+        # # handle case when model is in a file
+        # if training_plan_path is not None:
+        #     try:
+        #         # import model from python file
+
+        #         model_module = os.path.basename(training_plan_path)
+        #         model_module = re.search("(.*)\.py$", model_module).group(1)
+        #         sys.path.insert(0, os.path.dirname(training_plan_path))
+
+        #         module = importlib.import_module(model_module)
+        #         tr_class = getattr(module, training_plan_class)
+        #         training_plan_class = tr_class
+        #         sys.path.pop(0)
+
+        #     except Exception as e:
+        #         e = sys.exc_info()
+        #         logger.critical(f"Cannot import class {training_plan_class} from "
+        #                         f"path {training_plan_path} - Error: {str(e)}")
+        #         sys.exit(-1)
+
+        # # check class is defined
+        # try:
+        #     _ = inspect.isclass(training_plan_class)
+        # except NameError:
+        #     mess = f"Cannot find training plan for Job, training plan class {training_plan_class} is not defined"
+        #     logger.critical(mess)
+        #     raise NameError(mess)
+
+        # # create/save TrainingPlan instance
+        # if inspect.isclass(training_plan_class):
+        #     training_plan = training_plan_class()  # contains TrainingPlan
+
+        # else:
+        #     training_plan = training_plan_class
+        # training_plan.configure_dependencies()
 
         return training_plan
 
@@ -152,42 +169,42 @@ class Job:
 
         self._save_workflow_code_to_file(training_plan)
 
-        # upload my_model_xxx.py on repository server (contains model definition)
-        repo_response = self.repo.upload_file(self._training_plan_file)
+        # # upload my_model_xxx.py on repository server (contains model definition)
+        # repo_response = self.repo.upload_file(self._training_plan_file)
 
-        self._repository_args['training_plan_url'] = repo_response['file']
+        # self._repository_args['training_plan_url'] = repo_response['file']
 
-        training_plan_name = training_plan.__class__.__name__
-        # (below) regex: matches a character not present among "^", "\", "."
-        # characters at the end of string.
-        self._repository_args['training_plan_class'] = training_plan_name
+        # training_plan_name = training_plan.__class__.__name__
+        # # (below) regex: matches a character not present among "^", "\", "."
+        # # characters at the end of string.
+        # self._repository_args['training_plan_class'] = training_plan_name
 
-        # Validate fields in each argument
-        self.validate_minimal_arguments(self._repository_args,
-                                        ['training_plan_url', 'training_plan_class'])
+        # # Validate fields in each argument
+        # self.validate_minimal_arguments(self._repository_args,
+        #                                 ['training_plan_url', 'training_plan_class'])
 
         return self._training_plan_file
 
-    def _get_model_params(self) -> Dict[str, Any]:
-        """Gets model parameters form the training plan.
+    # def _get_model_params(self) -> Dict[str, Any]:
+    #     """Gets model parameters form the training plan.
 
-        Returns:
-            Model weights, as a dictionary mapping parameters' names to their value.
-        """
-        return self._training_plan.get_model_params()
+    #     Returns:
+    #         Model weights, as a dictionary mapping parameters' names to their value.
+    #     """
+    #     return self._training_plan.get_model_params()
 
-    @staticmethod
-    def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
-        """ Validates a given dictionary by given mandatory fields.
+    # @staticmethod
+    # def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
+    #     """ Validates a given dictionary by given mandatory fields.
 
-        Args:
-            obj: Object to be validated
-            fields: List of fields that should be present on the obj
-        """
-        for f in fields:
-            assert f in obj.keys(), f'Field {f} is required in object {obj}. Was not found.'
-            if 'url' in f:
-                assert validators.url(obj[f]), f'Url not valid: {f}'
+    #     Args:
+    #         obj: Object to be validated
+    #         fields: List of fields that should be present on the obj
+    #     """
+    #     for f in fields:
+    #         assert f in obj.keys(), f'Field {f} is required in object {obj}. Was not found.'
+    #         if 'url' in f:
+    #             assert validators.url(obj[f]), f'Url not valid: {f}'
 
     @property
     def id(self):

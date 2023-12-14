@@ -3,7 +3,7 @@
 
 """Code of the researcher. Implements the experiment orchestration"""
 
-from abc import ABC
+from abc import ABC, abstractmethod
 import functools
 import os
 import sys
@@ -12,13 +12,14 @@ import traceback
 from copy import deepcopy
 from re import findall
 from typing import Any, Dict, List, Type, TypeVar, Union, Optional
+from fedbiomed.common.message import TrainingPlanStatusRequest
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 
 from pathvalidate import sanitize_filename, sanitize_filepath
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import (
-    FedbiomedExperimentError, FedbiomedError, FedbiomedNodeStateAgentError, FedbiomedSilentTerminationError
+    FedbiomedExperimentError, FedbiomedError, FedbiomedJobError, FedbiomedNodeStateAgentError, FedbiomedSilentTerminationError
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_args import TrainingArgs
@@ -31,15 +32,15 @@ from fedbiomed.researcher.filetools import (
     create_exp_folder
 )
 from fedbiomed.researcher.federated_workflows._training_job import TrainingJob
-from fedbiomed.researcher.requests import Requests
-from fedbiomed.researcher.responses import Responses
+from fedbiomed.researcher.requests import Requests, DiscardOnTimeout
+
 from fedbiomed.researcher.secagg import SecureAggregation
 
 TFederatedWorkflow = TypeVar("TFederatedWorkflow", bound='FederatedWorkflow')  # only for typing
 
 # for checking class passed to experiment
 # TODO : should we move this to common/constants.py ?
-training_plans = (TorchTrainingPlan, SKLearnTrainingPlan)
+training_plans_types = (TorchTrainingPlan, SKLearnTrainingPlan)
 # for typing only
 TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
@@ -183,7 +184,22 @@ class FederatedWorkflow(ABC):
                 confuse the last experimentation detection heuristic by `load_breakpoint`.
             secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
+        
+        Raises:
+            FedbiomedJobError: bad argument type or value
+            FedbiomedJobError: cannot save training plan to file
+        
         """
+        
+        # Check arguments
+        if not inspect.isclass(training_plan_class):
+            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` {type(training_plan_class)}"
+            raise FedbiomedJobError(msg)
+
+        if not issubclass(training_plan_class, training_plans_types):
+            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
+                  f" supported training plans {training_plans_types}"
+            raise FedbiomedJobError(msg)
 
         # predefine all class variables, so no need to write try/except
         # block each time we use it
@@ -600,7 +616,7 @@ class FederatedWorkflow(ABC):
                 raise FedbiomedExperimentError(msg)
         elif inspect.isclass(training_plan_class):
             # training_plan_class must be a subclass of a valid training plan
-            if issubclass(training_plan_class, training_plans):
+            if issubclass(training_plan_class, training_plans_types):
                 # valid class
                 self._training_plan_class = training_plan_class
                 # training_plan_class_path may not be defined at this point
@@ -706,7 +722,7 @@ class FederatedWorkflow(ABC):
     def set_secagg(self, secagg: Union[bool, SecureAggregation]):
 
         if isinstance(secagg, bool):
-            self._secagg = SecureAggregation(active=secagg, timeout=10)
+            self._secagg = SecureAggregation(active=secagg)
         elif isinstance(secagg, SecureAggregation):
             self._secagg = secagg
         else:
@@ -758,7 +774,7 @@ class FederatedWorkflow(ABC):
     # TODO: change format of returned data (during experiment results refactor ?)
     # a properly defined structure/class instead of the generic responses
     @exp_exceptions
-    def check_training_plan_status(self) -> Responses:
+    def check_training_plan_status(self) -> Dict:
         """ Method for checking training plan status, ie whether it is approved or not by the nodes
 
         Returns:
@@ -776,9 +792,54 @@ class FederatedWorkflow(ABC):
             raise FedbiomedExperimentError(msg)
 
         # always returns a `Responses()` object
-        responses = self._job.check_training_plan_is_approved_by_nodes(self._fds)
+        responses = self.check_training_plan_is_approved_by_nodes(self._fds)
 
         return responses
+
+    def check_training_plan_is_approved_by_nodes(self) -> Dict:
+        """ Checks whether model is approved or not.
+
+        This method sends `training-plan-status` request to the nodes. It should be run before running experiment.
+        So, researchers can find out if their model has been approved
+
+        Returns:
+            A dict of `Message` objects indexed by node ID, one for each job's nodes
+        """
+
+        message = TrainingPlanStatusRequest(**{
+            'researcher_id': self._researcher_id,
+            'job_id': self._id,
+            'training_plan': self._training_plan.source(),
+            'command': 'training-plan-status'
+        })
+
+        node_ids = self._data.node_ids()
+
+        # Send message to each node that has been found after dataset search request
+        with self._reqs.send(message, node_ids, policies=[DiscardOnTimeout(5)]) as federated_req:
+            replies = federated_req.replies()
+
+            for node_id, reply in replies.items():
+                if reply.success is True:
+                    if reply.approval_obligation is True:
+                        if reply.status == TrainingPlanApprovalStatus.APPROVED.value:
+                            logger.info(f'Training plan has been approved by the node: {node_id}')
+                        else:
+                            logger.warning(f'Training plan has NOT been approved by the node: {node_id}.' +
+                                           f'Training plan status : {node_id}')
+                    else:
+                        logger.info(f'Training plan approval is not required by the node: {node_id}')
+                else:
+                    logger.warning(f"Node : {node_id} : {reply.msg}")
+
+        # Get the nodes that haven't replied training-plan-status request
+        non_replied_nodes = list(set(node_ids) - set(replies.keys()))
+        if non_replied_nodes:
+            logger.warning(f"Request for checking training plan status hasn't been replied \
+                             by the nodes: {non_replied_nodes}. You might get error \
+                                 while running your experiment. ")
+
+        return replies
 
     @exp_exceptions
     def training_plan_approve(self,
@@ -852,17 +913,16 @@ class FederatedWorkflow(ABC):
 
         """
         node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
-        if before_training:
-            self._node_state_agent.update_node_states(node_ids)
-        else:
-            # extract last node state
-            # FIXME: for now we are only considering the case where we need last Round update,
-            # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
-            # previous Node replies)
-            try:
-                last_tr_entry = list(self._training_replies.keys())[-1]
-            except IndexError as ie:
-                raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
-                                                   "replies form Node(s) has(ve) been recieved!") from ie
+        self._node_state_agent.update_node_states(node_ids)
 
-            self._node_state_agent.update_node_states(node_ids, self._training_replies[last_tr_entry])
+    @abstractmethod
+    def save_state_breakpoint(self) -> Dict:
+        """"""
+    
+    @abstractmethod
+    def load_state_breakpoint(self):
+        """"""
+
+    @abstractmethod
+    def run_once(self) -> int:
+        """"""

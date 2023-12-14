@@ -10,17 +10,15 @@ import time
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
-from fedbiomed.common.exceptions import FedbiomedRepositoryError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply, TrainRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
 from fedbiomed.researcher.requests import Requests, MessagesByNode
-from fedbiomed.researcher.responses import Responses
+
 from fedbiomed.researcher.federated_workflows._job import Job
 
 
@@ -75,16 +73,15 @@ class TrainingJob(Job):
                                           training_args: TrainingArgs,
                                           model_args: Optional[dict],
                                           ):
-        skeleton_training_plan = self.get_default_constructed_workflow_instance(training_plan_path,
-                                                                                training_plan_class)
+        skeleton_training_plan = self.get_default_constructed_workflow_instance(training_plan_class)
         self._save_workflow_code_to_file(skeleton_training_plan)
-        training_plan = skeleton_training_plan.load_training_plan_from_file(
-            self._keep_files_dir,
-            self._training_plan_module,
-            skeleton_training_plan.__class__.__name__)
-        training_plan.post_init(model_args={} if model_args is None else model_args,
+        # training_plan = skeleton_training_plan.load_training_plan_from_file(
+        #     self._keep_files_dir,
+        #     self._training_plan_module,
+        #     skeleton_training_plan.__class__.__name__)
+        skeleton_training_plan.post_init(model_args={} if model_args is None else model_args,
                                 training_args=training_args)
-        return training_plan
+        return skeleton_training_plan
 
     def upload_aggregator_args(self,
                                args_thr_msg: Union[Dict[str, Dict[str, Any]], dict],
@@ -122,7 +119,12 @@ class TrainingJob(Job):
 
         return args_thr_msg
 
-    def _get_training_testing_results(self, replies, errors, round_, timer: Dict) -> None:
+
+    def upload_parameters(self, training_plan):
+        # method coule be deleted cause with grpc there is no need to upload download parameters
+        pass
+
+    def _get_training_testing_results(self, training_replies, replies, errors, round_, timer: Dict) -> None:
         """"Waits for training replies
 
         Args:
@@ -130,7 +132,7 @@ class TrainingJob(Job):
             timer: Stores time elapsed on the researcher side
         """
 
-        self._training_replies[round_] = {}
+        training_replies[round_] = {}
 
         # Loops over errors
         for node_id, error in errors.items():
@@ -155,7 +157,7 @@ class TrainingJob(Job):
             timing = reply.timing
             timing['rtime_total'] = rtime_total
 
-            self._training_replies[round_].update({
+            training_replies[round_].update({
                 node_id: {
                     **reply.get_dict(),
                     'params_path': params_path,
@@ -171,11 +173,13 @@ class TrainingJob(Job):
         training_args: TrainingArgs,
         model_args: Optional[dict],
         data: FederatedDataSet,
+        nodes_state_ids: Dict[str, str],
+        training_replies: Dict,
         aggregator_args: Dict[str, Dict[str, Any]],
         secagg_arguments: Union[Dict, None] = None,
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
-    ) -> Tuple[Responses, dict]:
+    ) -> List[str]:
         """ Sends training request to nodes and waits for the responses
 
         Args:
@@ -199,7 +203,7 @@ class TrainingJob(Job):
         if secagg_arguments is None:
             secagg_arguments = {}
 
-        headers = {
+        msg = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
             'training_args': training_args.dict(),
@@ -208,14 +212,13 @@ class TrainingJob(Job):
             'round': round_,
             'training_plan': training_plan.source(),
             'training_plan_class': training_plan_class.__name__,
-            'params': self._get_model_params(),
+            'params': training_plan.get_model_params(),
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': secagg_arguments.get('secagg_random'),
             'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
             'command': 'train',
             'aggregator_args': {},
-            'aux_var_urls': None,
         }
         
         timer = {}
@@ -225,9 +228,9 @@ class TrainingJob(Job):
         
         # FIXME: should be part of a method called from Experiment
         # (behaviour can be defined by user / changed by strategy)
-        nodes_state_ids = self._node_state_agent.get_last_node_states()
+        #nodes_state_ids = self._node_state_agent.get_last_node_states()
 
-        msg = {**headers, **self._repository_args}
+        #msg = {**headers, **self._repository_args}
 
         # Upload optimizer auxiliary variables, when there are.
         if do_training and optim_aux_var:
@@ -243,7 +246,7 @@ class TrainingJob(Job):
 
         for node in self._nodes:
             msg['dataset_id'] = data.data()[node]['dataset_id']
-            msg['aux_var'] = [aux_shared, aux_bynode.get(node, None)]
+            msg['aux_vars'] = [aux_shared, aux_bynode.get(node, None)]
             msg['state_id'] = nodes_state_ids.get(node)
 
             # add aggregator parameters to message header
@@ -259,7 +262,11 @@ class TrainingJob(Job):
         with self._reqs.send(messages, self._nodes) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
-            self._get_training_testing_results(replies=replies, errors=errors, round_=round_, timer=timer)
+            self._get_training_testing_results(training_replies=training_replies,
+                                               replies=replies,
+                                               errors=errors,
+                                               round_=round_,
+                                               timer=timer)
 
         # if do_training:
         #     # update node states with node answers + when used node list has changed during the round
@@ -475,6 +482,7 @@ class TrainingJob(Job):
             format `{mod_name: {node_id: node_dict}}`.
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
+        print("ERROR", training_replies)
         for reply in training_replies[round_id]:
             node_id = reply["node_id"]
             node_av = reply.get("optim_aux_var", {})

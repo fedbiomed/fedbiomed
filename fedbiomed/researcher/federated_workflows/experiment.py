@@ -8,6 +8,7 @@ import json
 import inspect
 import uuid
 from re import findall
+from tabulate import tabulate
 from typing import Any, Dict, Optional, List, Tuple, Type, TypeVar, Union
 
 import numpy as np
@@ -16,7 +17,8 @@ from declearn.model.api import Vector
 
 from fedbiomed.common.constants import ErrorNumbers, __breakpoints_version__
 from fedbiomed.common.exceptions import (
-    FedbiomedExperimentError
+    FedbiomedExperimentError,
+    FedbiomedNodeStateAgentError
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
@@ -423,6 +425,7 @@ class Experiment(FederatedWorkflow):
             ]
         }
         )
+        print(tabulate(info, headers='keys'))
         return info
 
     @exp_exceptions
@@ -859,8 +862,8 @@ class Experiment(FederatedWorkflow):
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
                                       training_plan=self._training_plan)
 
-        aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
-                                                                                        training_nodes)
+        aggregator_args =  self._aggregator.create_aggregator_args(self._global_model,
+                                                                   training_nodes)
 
         # Collect auxiliary variables from the aggregates optimizer, if any.
         optim_aux_var = self._collect_optim_aux_var()
@@ -869,25 +872,30 @@ class Experiment(FederatedWorkflow):
 
         # update node states when used node list has changed from one round to another
         self._update_nodes_states_agent(before_training=True)
+        nodes_state_ids = self._node_state_agent.get_last_node_states()
 
-        replies, _ = job.start_nodes_training_round(
+        replies = job.start_nodes_training_round(
             round_=self._round_current,
+            training_plan=self._training_plan,
+            training_plan_class=self._training_plan_class,
             training_args=self._training_args,
             model_args=self._model_args,
             data=self._fds,
-            aggregator_args_thr_msg=aggr_args_thr_msg,
-            aggregator_args_thr_files=aggr_args_thr_file,
+            nodes_state_ids=nodes_state_ids,
+            training_replies=self._training_replies,
+            aggregator_args=aggregator_args,
             do_training=True,
             secagg_arguments=secagg_arguments,
             optim_aux_var=optim_aux_var,
         )
-        
-        
+
+        # NOTA: wondering if we could name aggregator_args aggr_args (created only for testing)
+        # leaving aggreagtor_args and aggr_args to avoid side effects
 
         # update node states with node answers + when used node list has changed during the round
         self._update_nodes_states_agent(before_training=False)
         
-        self._training_replies[self._round_current] = replies
+        #self._training_replies[self._round_current] = replies
 
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
@@ -942,8 +950,8 @@ class Experiment(FederatedWorkflow):
         # not saved in breakpoint for current round, but more simple
         if test_after:
             # FIXME: should we sample nodes here too?
-            aggr_args_thr_msg, aggr_args_thr_file = self._aggregator.create_aggregator_args(self._global_model,
-                                                                                            training_nodes)
+            aggr_args = self._aggregator.create_aggregator_args(self._global_model,
+                                                                training_nodes)
             
             job.start_nodes_training_round(round_=self._round_current,
                                            training_plan=self._training_plan,
@@ -951,8 +959,9 @@ class Experiment(FederatedWorkflow):
                                            training_args=self._training_args,
                                            model_args=self._model_args,
                                            data=self._fds,
-                                           aggregator_args_thr_msg=aggr_args_thr_msg,
-                                           aggregator_args_thr_files=aggr_args_thr_file,
+                                           nodes_state_ids=nodes_state_ids,
+                                           training_replies=self._training_replies,
+                                           aggregator_args=aggr_args,
                                            do_training=False)
 
         return 1
@@ -1494,6 +1503,39 @@ class Experiment(FederatedWorkflow):
         state = Serializer.load(state_path)
         return Optimizer.load_state(state)
 
+    def _update_nodes_states_agent(self, before_training: bool = True):
+        """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
+        state_id coming from `Nodes` contained among all `Nodes` within
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
+
+        Args:
+            before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
+                - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
+                - if after, updates `NodeStateAgent` wrt latest reply
+
+        Raises:
+            FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
+
+        """
+        node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
+        self._node_state_agent.update_node_states(node_ids)
+        if before_training:
+            self._node_state_agent.update_node_states(node_ids)
+        else:
+            # extract last node state
+            # FIXME: for now we are only considering the case where we need last Round update,
+            # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
+            # previous Node replies)
+            try:
+                last_tr_entry = list(self._training_replies.keys())[-1]
+                
+
+            except IndexError as ie:
+                raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
+                                                   "replies form Node(s) has(ve) been recieved!") from ie
+
+            self._node_state_agent.update_node_states(node_ids, self._training_replies[last_tr_entry])
+
     @staticmethod
     @exp_exceptions
     def _create_object(args: Dict[str, Any], training_plan: Optional['FederatedPlan'] = None,
@@ -1576,3 +1618,9 @@ class Experiment(FederatedWorkflow):
         # note: exceptions for `load_state` should be handled in training plan
 
         return object_instance
+    
+    def load_state_breakpoint(self):
+        return super().load_state_breakpoint()
+
+    def save_state_breakpoint(self) -> Dict:
+        return super().save_state_breakpoint()

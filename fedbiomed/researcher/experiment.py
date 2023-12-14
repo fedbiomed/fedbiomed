@@ -125,7 +125,7 @@ def exp_exceptions(function):
 
 # Experiment
 
-class Experiment:
+class OtherExperiment:
     """
     This class represents the orchestrator managing the federated training
     """

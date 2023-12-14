@@ -34,7 +34,7 @@ class NodeStateAgent:
         """
         return self._collection_state_ids
 
-    def update_node_states(self, all_node_ids: List[str], last_round_node_ids: List[str] = None, last_round_state_ids: List[str] = None):#resp: Optional[Dict] = None):
+    def update_node_states(self, all_node_ids: List[str], resp: Optional[Dict] = None):#resp: Optional[Dict] = None):
         """Updates the state_id collection with respect to current nodes and latest Nodes replies.
 
         Adds node IDs contained in node_ids argument that was not part of the previous Round, and discards node_ids that
@@ -48,7 +48,7 @@ class NodeStateAgent:
             FedbiomedNodeStateAgentError: raised if Nodes replies have a missing entry that needs to be collected.
         """
         # first, we update _collection_state_id wrt new FederatedDataset (if it has been modified)
-        self._update_collection_state_ids(node_ids)
+        self._update_collection_state_ids(all_node_ids)
         if resp is not None:
             for node_reply in resp.values():
                 # adds Node replies
