@@ -221,6 +221,9 @@ class _GrpcAsyncServer:
                 ("grpc.keepalive_permit_without_calls", 1),
                 #
                 ("grpc.http2.max_ping_strikes", 100),
+                #
+                # Prevent multiple servers on same port
+                ('grpc.so_reuseport', 0),
             ])
 
         self._loop = asyncio.get_running_loop()
