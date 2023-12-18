@@ -151,13 +151,13 @@ class Channels:
         channel_options = [
             ("grpc.max_send_message_length", 100 * 1024 * 1024),
             ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-            ("grpc.keepalive_time_ms", 1000 * 2),
+            #("grpc.keepalive_time_ms", 1000 * 2),
             ("grpc.initial_reconnect_backoff_ms", 1000),
             ("grpc.min_reconnect_backoff_ms", 500),
             ("grpc.max_reconnect_backoff_ms", 2000),
             # ('grpc.ssl_target_name_override', 'localhost') # ...
             ("grpc.enable_retries", 1),
-            ("grpc.service_config", service_config)
+            #("grpc.service_config", service_config)
 
         ]
 

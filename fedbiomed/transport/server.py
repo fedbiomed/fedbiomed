@@ -3,7 +3,6 @@ import time
 import os
 from typing import Callable, Iterable, Any, Coroutine, Dict, Optional, List
 import threading
-import json
 
 import asyncio
 import grpc
@@ -28,22 +27,6 @@ server_setup_timeout = int(os.getenv('GRPC_SERVER_SETUP_TIMEOUT', 1))
 
 GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + server_setup_timeout
 MAX_GRPC_SERVER_SETUP_TIMEOUT = 20 * server_setup_timeout
-
-# See details https://fuchsia.googlesource.com/third_party/grpc/+/HEAD/doc/service_config.md
-# And see client retry policies https://github.com/grpc/proposal/blob/master/A6-client-retries.md#retry-policy
-service_config = json.dumps(
-    { "methodConfig": [{
-        "name": [{"service": "researcher.ResearcherService"}],
-        "retryPolicy": {
-            "maxAttempts": 5,  # max is 5
-            "initialBackoff": '0.1s',
-            "maxBackoff": "2s",
-            "backoffMultiplier": 2,
-            "retryableStatusCodes": ["UNAVAILABLE"],
-        },
-    }]
-    }
-)
 
 
 class SSLCredentials:
@@ -218,13 +201,6 @@ class _GrpcAsyncServer:
             options=[
                 ("grpc.max_send_message_length", 100 * 1024 * 1024),
                 ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-                ("grpc.keepalive_time_ms", 1000 * 2),
-                ("grpc.initial_reconnect_backoff_ms", 1000),
-                ("grpc.min_reconnect_backoff_ms", 500),
-                ("grpc.max_reconnect_backoff_ms", 2000),
-                # ('grpc.ssl_target_name_override', 'localhost') # ...
-                ("grpc.enable_retries", 1),
-                ("grpc.service_config", service_config)
             ])
 
         self._loop = asyncio.get_running_loop()
