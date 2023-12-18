@@ -66,22 +66,6 @@ def is_server_alive(host: str, port: str):
             s.close()
             return True
 
-# See details https://fuchsia.googlesource.com/third_party/grpc/+/HEAD/doc/service_config.md
-# And see client retry policies https://github.com/grpc/proposal/blob/master/A6-client-retries.md#retry-policy
-service_config = json.dumps(
-    { "methodConfig": [{
-        "name": [{"service": "researcher.ResearcherService"}],
-        "retryPolicy": {
-                "maxAttempts": 5, # max is 5
-                "initialBackoff": '0.1s',
-                "maxBackoff": "2s",
-                "backoffMultiplier": 2,
-                "retryableStatusCodes": ["UNAVAILABLE"],
-            },
-        }]
-    }
-)
-
 
 class Channels:
     """Keeps gRPC server channels"""
@@ -151,7 +135,11 @@ class Channels:
         channel_options = [
             ("grpc.max_send_message_length", 100 * 1024 * 1024),
             ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-            #("grpc.keepalive_time_ms", 1000 * 2),
+            ("grpc.keepalive_time_ms", GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
+            ("grpc.keepalive_timeout_ms", 1000),
+            ("grpc.http2.max_pings_without_data", 0),
+            ("grpc.keepalive_permit_without_calls", 1),
+            #
             ("grpc.initial_reconnect_backoff_ms", 1000),
             ("grpc.min_reconnect_backoff_ms", 500),
             ("grpc.max_reconnect_backoff_ms", 2000),
@@ -266,6 +254,8 @@ class GrpcClient:
                     bytes(ssl.get_server_certificate(
                         (self._researcher.host, self._researcher.port)),
                         'utf-8')
+                logger.info("Retrieved server certificate, ready to communicate with server.")
+
                 # Connect to channels and create stubs
                 await self._channels.connect()
 
