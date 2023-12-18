@@ -167,6 +167,7 @@ class TrainingJob(Job):
 
     def start_nodes_training_round(
         self,
+        job_id: str, 
         round_: int,
         training_plan,
         training_plan_class,
@@ -205,7 +206,7 @@ class TrainingJob(Job):
 
         msg = {
             'researcher_id': self._researcher_id,
-            'job_id': self._id,
+            'job_id': job_id,
             'training_args': training_args.dict(),
             'training': do_training,
             'model_args': model_args if model_args is not None else {},
@@ -470,7 +471,7 @@ class TrainingJob(Job):
     def extract_received_optimizer_aux_var_from_round(
         self,
         round_id: int,
-        training_replies: dict,
+        training_replies: Dict[int, Dict[str, Any]],
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Restructure the received auxiliary variables (if any) from a round.
 
@@ -482,9 +483,8 @@ class TrainingJob(Job):
             format `{mod_name: {node_id: node_dict}}`.
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
-        print("ERROR", training_replies)
-        for reply in training_replies[round_id]:
-            node_id = reply["node_id"]
+
+        for node_id, reply in training_replies[round_id].items():
             node_av = reply.get("optim_aux_var", {})
             for module, params in node_av.items():
                 aux_var.setdefault(module, {})[node_id] = params
@@ -564,7 +564,7 @@ class TrainingJob(Job):
 
         return filename
 
-    def save_state_breakpoint(self, breakpoint_path: str) -> dict:
+    def save_state_breakpoint(self, job_id: str, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.
 
         Includes creating links to files included in the job state.
@@ -580,7 +580,7 @@ class TrainingJob(Job):
         # as job state but as experiment state in current version
         state = {
             'researcher_id': self._researcher_id,
-            'job_id': self._id,
+            'job_id': job_id,
             'model_params_path': self._model_params_file,
             'training_replies': self._save_training_replies(self._training_replies),
             'node_state': self._node_state_agent.save_state_breakpoint()
@@ -609,7 +609,7 @@ class TrainingJob(Job):
             saved_state: breakpoint content
         """
         # Reload the job and researched ids.
-        self._id = saved_state.get('job_id')
+        #id = saved_state.get('job_id')
         self._researcher_id = saved_state.get('researcher_id')
         self._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
         # Upload the latest model parameters. This records the filename and url.

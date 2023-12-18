@@ -875,6 +875,7 @@ class Experiment(FederatedWorkflow):
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
         replies = job.start_nodes_training_round(
+            job_id=self._id,
             round_=self._round_current,
             training_plan=self._training_plan,
             training_plan_class=self._training_plan_class,
@@ -953,7 +954,8 @@ class Experiment(FederatedWorkflow):
             aggr_args = self._aggregator.create_aggregator_args(self._global_model,
                                                                 training_nodes)
             
-            job.start_nodes_training_round(round_=self._round_current,
+            job.start_nodes_training_round(job_id=self._id,
+                                           round_=self._round_current,
                                            training_plan=self._training_plan,
                                            training_plan_class=self._training_plan_class,
                                            training_args=self._training_args,

@@ -64,7 +64,7 @@ class Job:
 
         """
 
-        self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id
+        #self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
         #self._repository_args = {}
 
@@ -206,10 +206,7 @@ class Job:
     #         if 'url' in f:
     #             assert validators.url(obj[f]), f'Url not valid: {f}'
 
-    @property
-    def id(self):
-        return self._id
-
+    
     @property
     def training_plan_file(self):
         return self._training_plan_file
@@ -227,6 +224,8 @@ class Job:
         self._nodes = nodes
 
     def check_training_plan_is_approved_by_nodes(self,
+                                                 training_plan, 
+                                                 job_id: str,
                                                  data: FederatedDataSet = None,
                                                  ) -> List:
 
@@ -239,8 +238,8 @@ class Job:
 
         message = TrainingPlanStatusRequest(**{
             'researcher_id': self._researcher_id,
-            'job_id': self._id,
-            'training_plan_url': self._repository_args['training_plan_url'],
+            'job_id': job_id,
+            'training_plan': training_plan.source(),
             'command': 'training-plan-status'
         })
 
@@ -293,7 +292,7 @@ class Job:
 
     #     return not nodes_done == set(self._nodes)
 
-    def save_state_breakpoint(self, breakpoint_path: str) -> dict:
+    def save_state_breakpoint(self, job_id: str, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.
 
         Includes creating links to files included in the job state.
@@ -309,7 +308,7 @@ class Job:
         # as job state but as experiment state in current version
         state = {
             'researcher_id': self._researcher_id,
-            'job_id': self._id,
+            'job_id': job_id,
             'training_replies': self._save_training_replies(self._training_replies)
         }
 
@@ -327,7 +326,7 @@ class Job:
             saved_state: breakpoint content
         """
         # Reload the job and researched ids.
-        self._id = saved_state.get('job_id')
+        #self._id = saved_state.get('job_id')
         self._researcher_id = saved_state.get('researcher_id')
         # Reload the latest training replies.
         self._training_replies = self._load_training_replies(

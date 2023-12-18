@@ -12,14 +12,15 @@ import traceback
 from copy import deepcopy
 from re import findall
 from typing import Any, Dict, List, Type, TypeVar, Union, Optional
+import uuid
 from fedbiomed.common.message import TrainingPlanStatusRequest
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 
 from pathvalidate import sanitize_filename, sanitize_filepath
 
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus, JOB_PREFIX
 from fedbiomed.common.exceptions import (
-    FedbiomedExperimentError, FedbiomedError, FedbiomedJobError, FedbiomedNodeStateAgentError, FedbiomedSilentTerminationError
+    FedbiomedExperimentError, FedbiomedError, FedbiomedJobError, FedbiomedSilentTerminationError
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_args import TrainingArgs
@@ -212,7 +213,9 @@ class FederatedWorkflow(ABC):
         self._experimentation_folder = None
         self._secagg = None
         self._training_plan_file: Optional[str] = None
-        self._node_state_agent: NodeStateAgent = None 
+        self._node_state_agent: NodeStateAgent = None
+        self._researcher_id = environ['RESEARCHER_ID']
+        self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id # TO BE RENAMED
 
         # set self._secagg
         self.set_secagg(secagg)
@@ -375,6 +378,11 @@ class FederatedWorkflow(ABC):
         Returns plan object which is an instance one of [training_plans][fedbiomed.common.training_plans].
         """
         return self._training_plan
+    
+    @property
+    def id(self):
+        return self._id
+
 
     # a specific getter-like
     @exp_exceptions
@@ -792,7 +800,8 @@ class FederatedWorkflow(ABC):
             raise FedbiomedExperimentError(msg)
 
         # always returns a `Responses()` object
-        responses = self.check_training_plan_is_approved_by_nodes(self._fds)
+        responses = self._job.check_training_plan_is_approved_by_nodes(self.training_plan(),
+                                                                  self._id, self._fds)
 
         return responses
 
@@ -880,7 +889,7 @@ class FederatedWorkflow(ABC):
         secagg_arguments = {}
         if self._secagg.active:
             self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
-                               job_id=self._job.id)
+                               job_id=self._id)
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
 
