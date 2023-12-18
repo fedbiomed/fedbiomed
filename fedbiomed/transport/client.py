@@ -135,6 +135,16 @@ class Channels:
         channel_options = [
             ("grpc.max_send_message_length", 100 * 1024 * 1024),
             ("grpc.max_receive_message_length", 100 * 1024 * 1024),
+            #
+            # Some references for configuring gRPC keepalive:
+            # https://github.com/grpc/proposal/blob/master/A8-client-side-keepalive.md
+            # https://github.com/grpc/proposal/blob/master/A9-server-side-conn-mgt.md
+            # https://github.com/grpc/grpc/blob/master/doc/keepalive.md
+            # https://github.com/grpc/grpc/blob/master/examples/python/keep_alive/greeter_client.py
+            # https://github.com/grpc/grpc/blob/master/examples/python/keep_alive/greeter_server.py
+            # https://www.evanjones.ca/grpc-is-tricky.html
+            # https://www.evanjones.ca/tcp-connection-timeouts.html
+            # Be sure to keep client-server configuration coherent
             ("grpc.keepalive_time_ms", GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
             ("grpc.keepalive_timeout_ms", 1000),
             ("grpc.http2.max_pings_without_data", 0),

@@ -209,6 +209,7 @@ class _GrpcAsyncServer:
                 # https://github.com/grpc/grpc/blob/master/examples/python/keep_alive/greeter_client.py
                 # https://github.com/grpc/grpc/blob/master/examples/python/keep_alive/greeter_server.py
                 # https://www.evanjones.ca/grpc-is-tricky.html
+                # https://www.evanjones.ca/tcp-connection-timeouts.html
                 # Be sure to keep client-server configuration coherent
                 ("grpc.keepalive_time_ms", GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
                 ("grpc.keepalive_timeout_ms", 1000),
