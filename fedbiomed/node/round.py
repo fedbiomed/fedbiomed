@@ -113,7 +113,7 @@ class Round:
         self._round = round_number
         self._biprime = None
         self._servkey = None
-        self._node_state_manager: NodeStateManager = NodeStateManager(environ['DB_PATH'])
+        self._node_state_manager: NodeStateManager = NodeStatManager(environ['DB_PATH'])
 
         self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
         atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
@@ -543,8 +543,7 @@ class Round:
         Returns:
             True
         """
-        from remote_pdb import RemotePdb
-        RemotePdb('127.0.0.1', 4444).set_trace()
+
         # define here all the object that should be reloaded from the node state database
         state = self._node_state_manager.get(self.job_id, state_id)
 
@@ -584,8 +583,6 @@ class Round:
         Returns:
             `Round` state that will be saved in the database.
         """
-        from remote_pdb import RemotePdb
-        RemotePdb('127.0.0.1', 4444).set_trace()
         state: Dict[str, Any] = {}
         _success: bool = True
 

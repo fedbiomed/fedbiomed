@@ -924,13 +924,16 @@ class FederatedWorkflow(ABC):
         node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
         self._node_state_agent.update_node_states(node_ids)
 
-    @abstractmethod
+    
     def save_state_breakpoint(self) -> Dict:
         """"""
-    
-    @abstractmethod
-    def load_state_breakpoint(self):
+        state = {}
+        state['node_state'] =  self._node_state_agent.save_state_breakpoint()
+        return state
+
+    def load_state_breakpoint(self, saved_state: Dict):
         """"""
+        self._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
 
     @abstractmethod
     def run_once(self) -> int:

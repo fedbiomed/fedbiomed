@@ -583,7 +583,7 @@ class TrainingJob(Job):
             'job_id': job_id,
             'model_params_path': self._model_params_file,
             'training_replies': self._save_training_replies(self._training_replies),
-            'node_state': self._node_state_agent.save_state_breakpoint()
+            
         }
 
         state.update({'model_params_path': self._model_params_file})
@@ -611,7 +611,7 @@ class TrainingJob(Job):
         # Reload the job and researched ids.
         #id = saved_state.get('job_id')
         self._researcher_id = saved_state.get('researcher_id')
-        self._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
+
         # Upload the latest model parameters. This records the filename and url.
         params = Serializer.load(saved_state.get("model_params_path"))
         self.update_parameters(params)

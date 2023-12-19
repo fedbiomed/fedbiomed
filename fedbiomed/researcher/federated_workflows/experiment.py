@@ -1241,7 +1241,7 @@ class Experiment(FederatedWorkflow):
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
             'job': self._job.save_state(breakpoint_path),  # job state
-            'secagg': self._secagg.save_state()
+            'secagg': self._secagg.save_state(),
         }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
