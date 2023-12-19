@@ -347,7 +347,7 @@ class CommonCLI:
             config.generate(force=True)
         elif config.is_config_existing() and not args.force:
             if not args.use_current:
-                print(f"Configration file {config.path} is alreay exsiting for name {config.name}."
+                print(f"Configuration file {config.path} is alreay existing for name {config.name}."
                       "Please use --force option to overwrite")
                 exit(101)
             config.generate()

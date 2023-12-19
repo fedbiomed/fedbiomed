@@ -10,7 +10,7 @@ from google.protobuf.message import Message as ProtoBufMessage
 
 from fedbiomed.transport.protocols.researcher_pb2 import Empty
 import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
-from fedbiomed.transport.client import GRPC_CLIENT_CONN_RETRY_TIMEOUT
+from fedbiomed.transport.client import GRPC_CLIENT_CONN_RETRY_TIMEOUT, GRPC_CLIENT_TASK_REQUEST_TIMEOUT
 from fedbiomed.transport.node_agent import AgentStore, NodeAgent
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -201,6 +201,29 @@ class _GrpcAsyncServer:
             options=[
                 ("grpc.max_send_message_length", 100 * 1024 * 1024),
                 ("grpc.max_receive_message_length", 100 * 1024 * 1024),
+                #
+                # Some references for configuring gRPC keepalive:
+                # https://github.com/grpc/proposal/blob/master/A8-client-side-keepalive.md
+                # https://github.com/grpc/proposal/blob/master/A9-server-side-conn-mgt.md
+                # https://github.com/grpc/grpc/blob/master/doc/keepalive.md
+                # https://github.com/grpc/grpc/blob/master/examples/python/keep_alive/greeter_client.py
+                # https://github.com/grpc/grpc/blob/master/examples/python/keep_alive/greeter_server.py
+                # https://www.evanjones.ca/grpc-is-tricky.html
+                # https://www.evanjones.ca/tcp-connection-timeouts.html
+                # Be sure to keep client-server configuration coherent
+                ("grpc.keepalive_time_ms", GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
+                ("grpc.keepalive_timeout_ms", 1000),
+                ("grpc.http2.min_ping_interval_without_data_ms", 0.9 * GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
+                ("grpc.max_connection_idle_ms", (GRPC_CLIENT_TASK_REQUEST_TIMEOUT + 1) * 1000),
+                ("grpc.max_connection_age_ms", (GRPC_CLIENT_TASK_REQUEST_TIMEOUT + 5) * 1000),
+                ("grpc.max_connection_age_grace_ms", 2 * 1000),
+                ("grpc.http2.max_pings_without_data", 0),
+                ("grpc.keepalive_permit_without_calls", 1),
+                #
+                ("grpc.http2.max_ping_strikes", 100),
+                #
+                # Prevent multiple servers on same port
+                ('grpc.so_reuseport', 0),
             ])
 
         self._loop = asyncio.get_running_loop()
@@ -328,7 +351,7 @@ class GrpcServer(_GrpcAsyncServer):
 
             if sleep_ == 0:
                 logger.info(f"No nodes found, server will wait "
-                            "{MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} "
+                            f"{MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} "
                             "more seconds until a node creates connection.")
 
             if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:

@@ -101,6 +101,7 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         self.update_id = MagicMock()
         self.callback = MagicMock()
         self.channels = MagicMock()
+        self.channels.connect = AsyncMock()
         self.task_listener = TaskListener(
             channels=self.channels,
             node_id=self.node_id,
@@ -226,6 +227,7 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
         self.serializer_patch = patch('fedbiomed.transport.client.Serializer')
         self.serializer_mock = self.serializer_patch.start()
         self.channels = MagicMock()
+        self.channels.connect = AsyncMock()
         self.channels.feedback_stub.Feedback = MagicMock(spec=grpc.aio.UnaryUnaryMultiCallable)
         self.channels.task_stub.ReplyTask = MagicMock(spec=grpc.aio.StreamUnaryMultiCallable)
         self._task_stub = MagicMock()
@@ -339,7 +341,7 @@ class TestChannels(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
 
-        self.create_channel_patch = patch("fedbiomed.transport.client.create_channel", autospec=True)
+        self.create_channel_patch = patch("fedbiomed.transport.client.Channels._create_channel", autospec=True)
         self.stub_patch = patch("fedbiomed.transport.client.ResearcherServiceStub", autospec=True)
 
         self.create_channel_mock = self.create_channel_patch.start()
