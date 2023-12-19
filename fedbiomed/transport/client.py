@@ -382,6 +382,7 @@ class TaskListener(Listener):
                             "Researcher server is not available, will retry connect in "
                             f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                        await self._channels.connect()
 
                     case grpc.StatusCode.UNKNOWN:
                         self._on_status_change(ClientStatus.FAILED)
@@ -389,11 +390,13 @@ class TaskListener(Listener):
                                      f"bug on the researcher side: {exp}. Will retry connect in "
                                      f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                        await self._channels.connect()
                     case _:
                         self._on_status_change(ClientStatus.FAILED)
                         logger.error("Unhandled gRPC call status {exp.code()}. Exception: {exp}. Will retry connect in "
                                      f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                        await self._channels.connect()
 
             except Exception as exp:
                 self._on_status_change(ClientStatus.FAILED)
@@ -482,6 +485,7 @@ class Sender(Listener):
                             "Researcher server is not available, will retry connect in "
                             f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                        await self._channels.connect()
                         self._retry_count += 1
                     case grpc.StatusCode.UNKNOWN:
                         self._on_status_change(ClientStatus.FAILED)
