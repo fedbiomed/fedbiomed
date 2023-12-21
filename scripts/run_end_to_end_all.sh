@@ -16,7 +16,7 @@ else
 fi
 ${CONDA} env update -f ./envs/ci/conda/fedbiomed-researcher-end-to-end.yaml
 
-rmdir ./data
+rm -fr ./data
 ln -s ~/Data/fedbiomed ./data
 
 #list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
