@@ -30,14 +30,6 @@ eval "$(conda shell.bash hook)"
 
 kpids= # PIDs to be killed
 
-# launch network
-echo "INFO: launching fedbiomed network"
-# this is done by `fedbiomed_run network`
-#source $basedir/scripts/fedbiomed_environment network
-$basedir/scripts/fedbiomed_run network
-conda deactivate
-sleep 3
-
 # populate node
 echo "INFO: populating fedbiomed node"
 source $basedir/scripts/fedbiomed_environment node
@@ -56,9 +48,12 @@ apids_root="$apids_root $!"
 conda deactivate
 sleep 10
 
+PSTREE_OPT=
+[ $(uname -s) != 'Darwin' ] && PSTREE_OPT=-p
+
 apids=
 for pid in $apids_root ; do
-    apids="${apids:+$apids}$(pstree -p $pid | grep -o '([0-9]\+)' | grep -o '[0-9]\+' | tr '\n' ' ')"
+    apids="${apids:+$apids}$(pstree $PSTREE_OPT $pid | egrep -Eo '\([0-9]+\)|[=-] ([0-9]+)' | grep -o '[0-9]\+' | tr '\n' ' ')"
 done
 echo "INFO : apids=$apids"
 kpids="${kpids:+$kpids }$apids"
@@ -79,8 +74,6 @@ conda deactivate
 ##clean running processes and datasets
 echo "INFO: killing kpids=$kpids"
 kill -9 $kpids
-( cd $basedir/envs/development/docker ; source $basedir/scripts/choose_docker_compose ; \
-    docker_compose ; $DOCKER_COMPOSE down )
 source $basedir/scripts/fedbiomed_environment node
 $basedir/scripts/fedbiomed_run node --delete-mnist
 $basedir/scripts/fedbiomed_run node config config-n1.ini --delete-mnist

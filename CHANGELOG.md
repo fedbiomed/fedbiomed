@@ -1,5 +1,15 @@
 # Fed-BioMed changelog
 
+## 2023-12-21 version 5.0.0
+
+- introduce new communication architecture based on gRPC
+- introduce communication TLS encryption for automatic protection from passive MITM 
+- redesign researcher side's `Requests` for better performance and robustness
+- add support for weighted average with secure aggregation
+- fix secure aggregation bug when using more than 2 nodes
+- fix tune DecLearn sample notebook parameters for demonstrating high accuracy
+- fix misc error in checking coherence of node side validation parameters
+- fix misc errors in notebooks
 
 ## 2023-11-09 version 4.5.0
 

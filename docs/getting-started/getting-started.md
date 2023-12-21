@@ -2,18 +2,9 @@
 
 ![Fed-BioMed intro](../../assets/img/intro_fedbiomed.jpg#img-centered-md)
 
-## `Network`
-`Network` is the Fed-BioMed component that allows communication between the other components (`Researcher` and `Node`s). To launch a `Network`, open in a terminal (from the `Fed-BioMed` repository):
-
-```shell
-./scripts/fedbiomed_run network start
-```
-<br>
-
 
 ## `Node`
-In Federated Learning, a `Node` is a component on which sensitive data are stored.  
-To run a node, nothing simpler! From `Fed-BioMed` repository, enter the following command on a terminal:
+In Collaborative Learning, a `Node` is a component on which sensitive data are stored. To run a node, nothing simpler! From `Fed-BioMed` repository, enter the following command on a terminal:
 
 
 ```shell

@@ -10,27 +10,17 @@
 .vscode
 
 
-### Django ###
+### Generic ###
 *.log
 *.pot
 *.pyc
 __pycache__/
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-static
-
 
 
 # MP-SDPZ
 bin/*.x
 MP-SPDZ_build
 
-# If your build process includes running collectstatic, then you probably don't need or want to include staticfiles/
-# in your Git repository. Update and uncomment the following line accordingly.
-# <django-project-name>/staticfiles/
-
-/static
 
 ### Django.Python Stack ###
 # Byte-compiled / optimized / DLL files
@@ -398,7 +388,7 @@ fabric.properties
 
 # temporary files
 uploads
-my_model.p*
+model.p*
 etc/
 runs/
 var/
@@ -414,6 +404,7 @@ cover/
 mylog.log
 sgd.sav
 data/*
+!data/.gitkeep
 
 # vpn configurations - now in run_mounts for containers
 #**/config/config_peers
@@ -428,3 +419,4 @@ build
 public
 build-tmp
 !envs/build
+report.tap

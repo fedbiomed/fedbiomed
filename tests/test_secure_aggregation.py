@@ -2,14 +2,14 @@ import unittest
 from unittest.mock import patch
 
 from testsupport.base_case import ResearcherTestCase
-from testsupport.base_mocks import MockRequestMessaging
+from testsupport.base_mocks import MockRequestGrpc
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError, FedbiomedSecaggError
 
 
-class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
+class TestSecureAggregation(ResearcherTestCase):
 
     def setUp(self) -> None:
 
@@ -27,9 +27,6 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
 
     def test_secure_aggregation_01_init_raises(self):
         """Tests invalid argument for __init__"""
-
-        with self.assertRaises(FedbiomedSecureAggregationError):
-            SecureAggregation(timeout="111")
 
         with self.assertRaises(FedbiomedSecureAggregationError):
             SecureAggregation(active="111")
@@ -180,8 +177,8 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         self.assertTrue(len(agg_params) == 5)
 
         # IMPORTANT: this value has been set for biprime 1234 and servkey 1234
-        # aggregation of [1], [1] will be closer to -2.8131
-        self.secagg._secagg_random = -2.8131
+        # aggregation of [1], [1] will be closer to -2.9988
+        self.secagg._secagg_random = -2.9988
 
         agg_params = self.secagg.aggregate(round_=1,
                                            total_sample_size=100,
@@ -192,7 +189,7 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
 
         # Will fail since secagg random is not correctly decrypted
         with self.assertRaises(FedbiomedSecureAggregationError):
-            self.secagg._secagg_random = 2.8131
+            self.secagg._secagg_random = 2.9988
             self.secagg.aggregate(round_=1,
                                   total_sample_size=100,
                                   model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
@@ -211,7 +208,7 @@ class TestSecureAggregation(MockRequestMessaging, ResearcherTestCase):
         self.assertEqual(state["class"], "SecureAggregation")
         self.assertEqual(state["module"], "fedbiomed.researcher.secagg._secure_aggregation")
         self.assertEqual(list(state["attributes"].keys()), ['_biprime', '_servkey', '_job_id', '_parties'])
-        self.assertEqual(list(state["arguments"].keys()), ['active', 'timeout', 'clipping_range'])
+        self.assertEqual(list(state["arguments"].keys()), ['active', 'clipping_range'])
 
         pass
 

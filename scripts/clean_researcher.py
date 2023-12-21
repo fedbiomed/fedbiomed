@@ -9,7 +9,7 @@ from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP
 
 mp_spdz = os.path.join(ROOT_DIR, 'modules', 'MP-SPDZ')
 for entry in [CONFIG_DIR, CACHE_DIR, TMP_DIR, os.path.join(ROOT_DIR, TENSORBOARD_FOLDER_NAME), VAR_DIR] + \
-           [os.path.join(mp_spdz, f) for f in os.listdir(mp_spdz)]:
+        [os.path.join(mp_spdz, f) for f in os.listdir(mp_spdz)]:
     if os.path.isdir(entry):
         print("[INFO] Removing directory ", entry)
         shutil.rmtree(entry)

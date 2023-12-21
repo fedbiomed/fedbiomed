@@ -4,7 +4,7 @@
 """MsgPack serialization utils, wrapped into a namespace class."""
 
 from math import ceil
-from typing import Any
+from typing import Any, Optional
 
 import msgpack
 import numpy as np
@@ -13,7 +13,7 @@ from declearn.model.api import Vector
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
-
+from fedbiomed.common.metrics import MetricTypes
 
 __all__ = [
     "Serializer",
@@ -35,7 +35,7 @@ class Serializer:
     """
 
     @classmethod
-    def dumps(cls, obj: Any) -> bytes:
+    def dumps(cls, obj: Any, write_to: Optional[str] = None) -> bytes:
         """Serialize data into MsgPack-encoded bytes.
 
         Args:
@@ -44,7 +44,14 @@ class Serializer:
         Returns:
             MsgPack-encoded bytes that contains the input data.
         """
-        return msgpack.packb(obj, default=cls._default, strict_types=True)
+        ser = msgpack.packb(obj, default=cls._default, strict_types=True)
+
+        if write_to:
+            with open(write_to, "wb") as file:
+                file.write(ser)
+                file.close()
+        
+        return ser
 
     @classmethod
     def dump(cls, obj: Any, path: str) -> None:
@@ -112,6 +119,10 @@ class Serializer:
             return {"__type__": "torch.Tensor", "value": spec}
         if isinstance(obj, Vector):
             return {"__type__": "Vector", "value": obj.coefs}
+        
+        if isinstance(obj, MetricTypes):
+            return {"__type__": "MetricTypes", "value": obj.name}
+
         # Raise on unsupported types.
         raise FedbiomedTypeError(
             f"Cannot serialize object of type '{type(obj)}'."
@@ -139,6 +150,10 @@ class Serializer:
             return torch.from_numpy(array)
         if objtype == "Vector":
             return Vector.build(obj["value"])
+        if objtype == "MetricTypes":
+            return MetricTypes.get_metric_type_by_name(obj["value"])
+        
+
         logger.warning(
             "Encountered an object that cannot be properly deserialized."
         )

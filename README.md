@@ -12,7 +12,7 @@
 
 Fed-BioMed is an open source project focused on empowering biomedical research using non-centralized approaches for statistical analysis and machine learning.
 
-The project is currently based on Python, PyTorch and Scikit-learn, and enables developing and deploying federated learning analysis in real-world machine learning applications.
+The project is currently based on Python, PyTorch and Scikit-learn, and enables developing and deploying collaborative learning analysis in real-world machine learning applications, including federated learning and federated analytics.
 
 The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.org
 
@@ -23,7 +23,7 @@ According to our coding rules, the develop branch is usable, tests and tutorials
 ## Install and run in development environment
 
 Fed-BioMed is developped under Linux Fedora & Ubuntu, should be easily ported to other Linux distributions.
-It runs also smoothly on macOSX (mostly tested on macOSX 12: Monterey).
+It runs also smoothly on macOSX, and in Windows WSL2.
 
 This README.md file provide a quick start/installation guide for Linux.
 
@@ -36,9 +36,10 @@ An installation guide is also provided for Windows11, which relies on WSL2: http
 
 To ensure fedbiomed will work fine, you need to install before :
 
-* docker
-* docker compose v2 (aka docker compose plugin)
 * conda
+* git
+
+`docker` is not needed anymore for using development environment, unless you use secure aggregation with MP-SPDZ for multi party computation and plan to [rebuild the Shamir protocol binary](./MP-SPDZ/README.md)
 
 ### clone repo
 
@@ -66,7 +67,6 @@ $ ./scripts/configure_conda
 
 * there is one specific environment for each component:
 
-  * fedbiomed-network.yaml    : environment for HTTP upload/download server and MQTT daemon (network component)
   * fedbiomed-node.yaml       : environment for the node part
   * fedbiomed-researcher.yaml : environment for the researcher part
   * fedbiomed-gui.yaml        : environment for the data management gui on the node
@@ -85,7 +85,7 @@ Install/update conda environments for fedbiomed. If several ENV
 are provided, only these components will be updated. If no ENV is
 provided, all components will be updated.
 
-ENV can be network, node, researcher, gui (or a combination of them)
+ENV can be node, researcher, gui (or a combination of them)
 
  -h, --help            this help
  -n, --dry-run         do nothing, just print what the script would do
@@ -107,23 +107,11 @@ source ./scripts/fedbiomed_environment ENV
 
 where ENV chosen from:
 
-* network
 * node
 * researcher
+* gui
 
 ### run the software
-
-#### run the network part
-
-* prerequesite: **docker** must be installed and running before running the network part !!!!
-
-* in a new terminal:
-
-```
-$ ./scripts/fedbiomed_run network
-```
-
-* this will start the necessary docker container (file repository and mqtt)
 
 #### run the node part
 
@@ -147,7 +135,7 @@ $ ./scripts/fedbiomed_run node add
 $ ./scripts/fedbiomed_run node config another_config.ini start
 ```
 
-* if you want to change the default IP address used to join the fedbiomed network component (localhost), you can provide it at launch time:
+* if you want to change the default IP address used to join the fedbiomed researcher component (localhost), you can provide it at launch time:
 
 ```
 $ ./scripts/fedbiomed_run node ip_address 192.168.0.100 start
@@ -186,13 +174,12 @@ $ source ./scripts/fedbiomed_environment researcher
 $ python ./notebooks/101_getting-started.py
 ```
 
-### change IP address for network in the current bash
+### change IP address for researcher in the current bash
 
-By default, fedbiomed-{node,researcher} contact fedbiomed-network on `localhost`.
-To configure your current shell to use another IP address for joining fedbiomed-network (e.g. 192.168.0.100):
+By default, fedbiomed-node contacts fedbiomed-researcher on `localhost`.
+To configure your current shell to use another IP address for joining fedbiomed-researcher (e.g. 192.168.0.100):
 
 ```bash
-source ./scripts/fedbiomed_environment network
 source ./scripts/fedbiomed_environment node 192.168.0.100
 source ./scripts/fedbiomed_environment researcher 192.168.0.100
 ```
@@ -200,9 +187,6 @@ source ./scripts/fedbiomed_environment researcher 192.168.0.100
 Then launch the components with usual commands while you are in the current shell.
 
 Warning: this option does not modify the existing configuration file (.ini file).
-
-
-This currently doesn't support scenario where node and researcher do not use the same IP address to contact the network (eg: NAT for one component).
 
 
 ### clean state (restore environments back to new)
@@ -215,6 +199,13 @@ source ./scripts/fedbiomed_environment clean
 
 ## Install and run in vpn+development environment
 
+### Prerequisites
+
+To use the docker + VPN mode you need to install:
+
+* docker
+* docker compose v2 (aka docker compose plugin)
+
 ### Files
 
 The **envs/vpn** directory contains all material for VPN support.
@@ -224,8 +215,6 @@ The **./scripts/fedbiomed_vpn** script is provided to ease the deployment of
 a set of docker container(s) with VPN support. The provided containers are:
 
 - fedbiomed/vpn-vpnserver: WireGuard server
-- fedbiomed/vpn-restful: HTTP REST communication server
-- fedbiomed/vpn-mqtt: MQTT message broker server
 - fedbiomed/vpn-researcher: a researcher jupyter notebooks
 - fedbiomed/vpn-node: a node component
 - fedbiomed/vpn-gui: a GUI for managing node component data
@@ -277,7 +266,7 @@ To setup **all** these components, you should:
 - connect to the researcher jupyter at http://127.0.0.1:8888
 (Remark: the *researcher** docker automatically starts a jupyter notebook inside the container)
 
-- manage data inside the node at http://127.0.0.1:8484
+- manage data inside the node with the node GUI at http://127.0.0.1:8484
 
 - stop the containers:
 
@@ -306,8 +295,6 @@ This will stop and build the node container.
 The list of the container names is:
 
 - vpnserver
-- mqtt
-- restful
 - researcher
 - node
 - gui
@@ -315,10 +302,9 @@ The list of the container names is:
 **Remarks**:
 - the configuration files are keeped then rebuilding individual containers
 - to remove the old config files, you should do a **clean**
-- restarting only network component (vpnserver, restful, mqtt) then others are running
-may lead to unpredictable behavior. In this case, it is adviced to restart from scratch
+- restarting only vpnserver when others are running
+  may lead to unpredictable behavior. In this case, it is adviced to restart from scratch
 (clean/build/configure/start)
-
 
 
 ## Misc developer tools to help debugging
@@ -332,13 +318,12 @@ usage:  lqueue directory
         lqueue dir1 dir2 dir3 ...
 
 
-### scripts/run\_integration\_test
+### scripts/run\_end\_to\_end\_test
 
-Run a full (integration) test by launching:
+Run a full (end to end) test by launching:
 
 - a researcher (running a python script or a notebook script)
 - several nodes, providing data
-- the network component.
 
 Usefully for continuous integration tests and notebook debugging.
 Full documentation in tests/README.md file.
@@ -446,9 +431,6 @@ Enabling training plan approval mode, allowing default Fed-BioMed training plans
 
 ```
 [default]
-# ....
-
-[mqtt]
 # ....
 
 [security]

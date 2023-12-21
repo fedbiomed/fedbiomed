@@ -8,6 +8,7 @@ This module includes common CLI methods and parser extension
 """
 
 import argparse
+import importlib
 import os
 import sys
 from fedbiomed.common.exceptions import FedbiomedError
@@ -19,6 +20,8 @@ from fedbiomed.common.utils import get_existing_component_db_names, \
     get_method_spec, \
     ROOT_DIR
 from fedbiomed.common.secagg_manager import SecaggBiprimeManager
+from fedbiomed.common.config import Config
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME
 
 RED = '\033[1;31m'  # red
 YLW = '\033[1;33m'  # yellow
@@ -134,6 +137,47 @@ class CommonCLI:
             help="Creates configuration file for the specified component if it does not exist. "
                  "If the configuration file exists, leave it unchanged"
         )
+
+        create.add_argument(
+            '-c',
+            '--component',
+            metavar='COMPONENT_TYPE[ NODE|RESEARCHER ]',
+            type=str,
+            nargs='?',
+            required=True,
+            help='Component type NODE or RESEARCHER')
+
+        create.add_argument(
+            '-r',
+            '--root',
+            metavar='ROOT_PATH_FEDBIOMED',
+            type=str,
+            nargs='?',
+            default=None,
+            help='Root directory for configuration and Fed-BioMed setup')
+
+        # Add arguments
+        create.add_argument(
+            '-n',
+            '--name',
+            metavar='CONFIGURATION_FILE_NAME',
+            type=str,
+            nargs='?',
+            required=False,
+            help='Name of configuration file')
+
+        create.add_argument(
+            '-uc',
+            '--use-current',
+            action="store_true",
+            help="Creates configuration only if there isn't an existing one"
+        )
+
+        create.add_argument(
+            '-f',
+            '--force',
+            action="store_true",
+            help='Force configuration create')
 
         create.set_defaults(func=self._create_component)
 
@@ -285,17 +329,49 @@ class CommonCLI:
             files.
         """
 
+        # TODO: this implementation is a temporary hack as it introduces a dependency of
+        # fedbiomed.common to fedbiomed.node or fedbiomed.researcher
+        # To be suppressed when redesigning the imports
+        if args.component.lower() == "node":
+            NodeConfig = importlib.import_module('fedbiomed.node.config').NodeConfig
+            config = NodeConfig(root=args.root, name=args.name, auto_generate=False)
+        elif args.component.lower() == "researcher":
+            ResearcherConfig = importlib.import_module('fedbiomed.researcher.config').ResearcherConfig
+            config = ResearcherConfig(root=args.root, name=args.name, auto_generate=False)
+        else: 
+            print(f"Undefined component type {args.component}")
+            return
+
+        if config.is_config_existing() and args.force:
+            print("Overwriting existing configuration file")
+            config.generate(force=True)
+        elif config.is_config_existing() and not args.force:
+            if not args.use_current:
+                print(f"Configuration file {config.path} is alreay existing for name {config.name}."
+                      "Please use --force option to overwrite")
+                exit(101)
+            config.generate()
+        else:
+            logger.info(f"Generation new configuration file {config.name}")
+            config.generate()
+
+        df_biprimes = config.get('mpspdz', 'allow_default_biprimes')
+        biprimes_dir = os.path.normpath(
+            os.path.join(config.root, CONFIG_FOLDER_NAME , config.get('mpspdz', 'default_biprimes_dir'))
+        )
         # Update secure aggregation biprimes in component database
         print(
             "Updating secure aggregation default biprimes with:\n" 
-            f"ALLOW_DEFAULT_BIPRIMES : {self._environ['ALLOW_DEFAULT_BIPRIMES']}\n"
-            f"DEFAULT_BIPRIMES_DIR   : {self._environ['DEFAULT_BIPRIMES_DIR']}\n"
+            f"ALLOW_DEFAULT_BIPRIMES : {df_biprimes}\n"
+            f"DEFAULT_BIPRIMES_DIR   : {biprimes_dir}\n"
         )
-        BPrimeManager = SecaggBiprimeManager(self._environ['DB_PATH'])
-        BPrimeManager.update_default_biprimes(
-            self._environ['ALLOW_DEFAULT_BIPRIMES'], self._environ['DEFAULT_BIPRIMES_DIR'])
 
-        print(f"\n{GRN}Configuration already existed or was created for component {self._environ['ID']}{NC}")
+        db_path = os.path.normpath(
+            os.path.join(config.root, CONFIG_FOLDER_NAME, config.get('default', 'db'))
+        )
+        BPrimeManager = SecaggBiprimeManager(db_path)
+        BPrimeManager.update_default_biprimes(df_biprimes, biprimes_dir)
+
 
     def _generate_certificate(self, args: argparse.Namespace):
         """Generates certificate using Certificate Manager
@@ -429,4 +505,5 @@ if __name__ == '__main__':
     cli = CommonCLI()
     # Initialize only development magic parser
     cli.initialize_magic_dev_environment_parsers()
+    cli.initialize_create_configuration()
     cli.parse_args()

@@ -6,9 +6,13 @@ Definition of messages exchanged by the researcher and the nodes
 '''
 
 import functools
-
 from dataclasses import dataclass
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional, get_args, Union, List
+
+from google.protobuf.message import Message as ProtobufMessage
+from google.protobuf.descriptor import FieldDescriptor
+
+import fedbiomed.transport.protocols.researcher_pb2 as r_pb2
 
 from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
@@ -57,13 +61,13 @@ def catch_dataclass_exception(cls: Callable):
 
     return wrap(cls)
 
-
 class Message(object):
     """Base class for all fedbiomed messages providing all methods
     to access the messages
 
     The subclasses of this class will be pure data containers (no provided functions)
     """
+
 
     def __post_init__(self):
         """ Post init of dataclass
@@ -76,7 +80,7 @@ class Message(object):
         """
 
         if not self.__validate(self.__dataclass_fields__.items()):
-            _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()
+            _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()[0:1000] + "..."
             logger.critical(_msg)
             raise FedbiomedMessageError(_msg)
 
@@ -113,26 +117,134 @@ class Message(object):
                 ret = False
         return ret
 
+    @classmethod
+    def fields(cls):
+        """Get dataclass fields"""
+        return list(cls.__dataclass_fields__.keys())
+
+
+    def to_proto(self):
+        """Converts recursively python dataclass to gRPC proto"""
+
+        proto_dict = {}
+        for key, _ in self.__dataclass_fields__.items():
+            param = self.get_param(key)
+            if hasattr(param, '__PROTO_TYPE__'):
+                proto_dict.update({key: self.get_param(key).to_proto()})
+            else:
+                proto_dict.update({key: self.get_param(key)})
+
+        return self.__PROTO_TYPE__(**proto_dict)
+
+
+    @classmethod
+    def from_proto(
+        cls,
+        proto: ProtobufMessage
+    ) -> Dict[str, Any]:
+        """Converts given protobuf to python Dict"""
+
+        dict_ = {}
+        one_ofs = proto.DESCRIPTOR.oneofs_by_name
+        for field in proto.DESCRIPTOR.fields:
+
+            one_of_field = False
+            for one_of, _ in one_ofs.items():
+                if field.name == proto.WhichOneof(one_of):
+                    one_of_field = True
+
+
+            # If the field is oneof and options are in message type
+            if one_of_field and field.type == FieldDescriptor.TYPE_MESSAGE:
+
+                field_ = cls.__dataclass_fields__[field.name]
+                args = get_args(field_.type)
+
+                # Make sure oneof message is typed as Optional
+                if not args:
+                    raise FedbiomedMessageError(
+                        f"Please make sure the field '{field_.name}' in dataclass '{cls.__name__}' "
+                        "is typed as Optional[<dataclass>]. The field that are typed as `oneof` "
+                        "in proto file should be typed as Optional in python dataclass"
+                    )
+
+                if not hasattr(args[0], "__PROTO_TYPE__"):
+                    raise FedbiomedMessageError(f"Dataclass {args[0]} should have attribute '__PROTO_TYPE__'")
+
+                dict_.update(
+                    {field.name: args[0].from_proto(getattr(proto, field.name))}
+                )
+
+            # Detects the types that are declared as `optional`
+            # NOTE: In proto3 all fields are labeled as `LABEL_OPTIONAL` by default.
+            # However, if the field is labeled as `optional` explicitly, it will have
+            # presence, otherwise, `has_presence` returns False
+            elif field.has_presence and field.label == FieldDescriptor.LABEL_OPTIONAL:
+
+                # If proto has the field it means that the value is not None
+                if proto.HasField(field.name):
+                    dict_.update({field.name: getattr(proto, field.name)})
+
+            elif field.label == FieldDescriptor.LABEL_REPEATED:
+
+                if field.type == FieldDescriptor.TYPE_MESSAGE:
+                    dict_.update({field.name: dict(getattr(proto, field.name))})
+                else:
+                    dict_.update({field.name: list(getattr(proto, field.name))})
+
+            else:
+                dict_.update({field.name: getattr(proto, field.name)})
+
+        return cls(**dict_)
+
 
 #
 # messages definition, sorted by
 # - alphabetic order
-# - Request/Reply regroupemnt
+# - Request/Reply regrouping
 #
 
-# AddScalar message
 @dataclass
+class ProtoSerializableMessage(Message):
+    pass
+
+
+
+@dataclass(kw_only=True)
+class RequestReply(Message):
+    """Common attribute for Request and Reply Message"""
+    request_id: Optional[str] = None
+
+
+@dataclass(kw_only=True)
 class RequiresProtocolVersion:
     """Mixin class for messages that must be endowed with a version field.
 
     Attributes:
         protocol_version: version of the messaging protocol used
     """
-    protocol_version: str
+
+    # Adds default protocol version thanks to `kw_oly  True`
+    protocol_version: str = str(__messaging_protocol_version__)
+
+
+
+# --- gRPC messages --------------------------------------------------------------------------------
+
+
+@dataclass
+class Log(ProtoSerializableMessage):
+    """Describes the message type for log coming from node to researcher """
+    __PROTO_TYPE__ = r_pb2.FeedbackMessage.Log
+
+    node_id: str
+    level: str
+    msg: str
+
 
 @catch_dataclass_exception
 @dataclass
-class AddScalarReply(Message, RequiresProtocolVersion):
+class Scalar(ProtoSerializableMessage):
     """Describes a add_scalar message sent by the node.
 
     Attributes:
@@ -148,13 +260,13 @@ class AddScalarReply(Message, RequiresProtocolVersion):
         batch_samples: Number of samples in batch
         num_batches: Number of batches in single epoch
         iteration: Scalar is received at
-        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
 
     """
-    researcher_id: str
+    __PROTO_TYPE__ = r_pb2.FeedbackMessage.Scalar
+
     node_id: str
     job_id: str
     train: bool
@@ -162,27 +274,62 @@ class AddScalarReply(Message, RequiresProtocolVersion):
     test_on_local_updates: bool
     test_on_global_updates: bool
     metric: dict
-    epoch: (int, type(None))
     total_samples: int
     batch_samples: int
     num_batches: int
-    num_samples_trained: (int, type(None))
     iteration: int
-    command: str
+    epoch: Optional[int] = None
+    num_samples_trained: Optional[int] = None
+
+
+@dataclass
+class TaskRequest(ProtoSerializableMessage, RequiresProtocolVersion):
+    """Task request message from node to researcher"""
+    __PROTO_TYPE__ = r_pb2.TaskRequest
+    node: str
+
+
+@dataclass
+class TaskResponse(ProtoSerializableMessage):
+    """Response for task request"""
+    __PROTO_TYPE__ = r_pb2.TaskResponse
+
+    size: int
+    iteration: int
+    bytes_: bytes
+
+
+@dataclass
+class TaskResult(ProtoSerializableMessage):
+    """Response for task request"""
+    __PROTO_TYPE__ = r_pb2.TaskResult
+
+    size: int
+    iteration: int
+    bytes_: bytes
+
+
+@dataclass
+class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
+    __PROTO_TYPE__ = r_pb2.FeedbackMessage
+
+    researcher_id: Optional[str] = None
+    log: Optional[Log] = None
+    scalar: Optional[Scalar] = None
+
+
+# ---------------------------------------------------------------------------
 
 
 # Approval messages
-
-
 @catch_dataclass_exception
 @dataclass
-class ApprovalRequest(Message, RequiresProtocolVersion):
+class ApprovalRequest(RequestReply, RequiresProtocolVersion):
     """Describes the TrainingPlan approval request from researcher to node.
 
     Attributes:
         researcher_id: id of the researcher that sends the request
         description: description of the training plan
-        sequence: (unique) sequence number which identifies the message
         training_plan_url: URL where TrainingPlan is available
         command: request command string
 
@@ -191,20 +338,18 @@ class ApprovalRequest(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     description: str
-    sequence: int
-    training_plan_url: str
+    training_plan: str
     command: str
 
 
 @catch_dataclass_exception
 @dataclass
-class ApprovalReply(Message, RequiresProtocolVersion):
+class ApprovalReply(RequestReply, RequiresProtocolVersion):
     """Describes the TrainingPlan approval reply (acknoledge) from node to researcher.
 
     Attributes:
         researcher_id: Id of the researcher that will receive the reply
         node_id: Node id that replys the request
-        sequence: sequence number of the corresponding request
         status: status code received after uploading the training plan (usually HTTP status)
         command: Reply command string
 
@@ -212,8 +357,8 @@ class ApprovalReply(Message, RequiresProtocolVersion):
         FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
+    message: str
     node_id: str
-    sequence: int
     status: int
     command: str
     success: bool
@@ -223,7 +368,7 @@ class ApprovalReply(Message, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class ErrorMessage(Message, RequiresProtocolVersion):
+class ErrorMessage(RequestReply, RequiresProtocolVersion):
     """Describes an error message sent by the node.
 
     Attributes:
@@ -238,7 +383,7 @@ class ErrorMessage(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     node_id: str
-    errnum: ErrorNumbers
+    errnum: str
     extra_msg: str
     command: str
 
@@ -247,7 +392,7 @@ class ErrorMessage(Message, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class ListRequest(Message, RequiresProtocolVersion):
+class ListRequest(RequestReply, RequiresProtocolVersion):
     """Describes a list request message sent by the researcher to nodes in order to list datasets belonging to
     each node.
 
@@ -265,7 +410,7 @@ class ListRequest(Message, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class ListReply(Message, RequiresProtocolVersion):
+class ListReply(RequestReply, RequiresProtocolVersion):
     """This class describes a list reply message sent by the node that includes list of datasets. It is a
     reply for ListRequest message from the researcher.
 
@@ -289,35 +434,11 @@ class ListReply(Message, RequiresProtocolVersion):
     command: str
 
 
-# Log message
-
-@catch_dataclass_exception
-@dataclass
-class LogMessage(Message, RequiresProtocolVersion):
-    """Describes a log message sent by the node.
-
-    Attributes:
-        researcher_id: ID of the researcher that will receive the log message
-        node_id: ID of the node that sends log message
-        level: Log level
-        msg: Log message
-        command: Reply command string
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-    """
-    researcher_id: str
-    node_id: str
-    level: str
-    msg: str
-    command: str
-
-
 # TrainingPlanStatus messages
 
 @catch_dataclass_exception
 @dataclass
-class TrainingPlanStatusRequest(Message, RequiresProtocolVersion):
+class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
     """Describes a training plan approve status check message sent by the researcher.
 
     Attributes:
@@ -332,21 +453,21 @@ class TrainingPlanStatusRequest(Message, RequiresProtocolVersion):
 
     researcher_id: str
     job_id: str
-    training_plan_url: str
+    training_plan: str
     command: str
 
 
 @catch_dataclass_exception
 @dataclass
-class TrainingPlanStatusReply(Message, RequiresProtocolVersion):
+class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
     """Describes a training plan approve status check message sent by the node
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        node_id: Node id that replys the request
+        node_id: Node id that replies the request
         job_id: job id related to the experiment
-        succes: True if the node process the request as expected, false
-            if any execption occurs
+        success: True if the node process the request as expected, false
+            if any exception occurs
         approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
             in the node for training.
         is_approved: True, if the requested training plan is one of the approved training plan by the node
@@ -366,7 +487,7 @@ class TrainingPlanStatusReply(Message, RequiresProtocolVersion):
     approval_obligation: bool
     status: str
     msg: str
-    training_plan_url: str
+    training_plan: str
     command: str
 
 
@@ -374,33 +495,30 @@ class TrainingPlanStatusReply(Message, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class PingRequest(Message, RequiresProtocolVersion):
+class PingRequest(RequestReply, RequiresProtocolVersion):
     """Describes a ping message sent by the researcher
 
     Attributes:
-        researcher_id: Id of the researcher that send ping reqeust
-        sequence: Ping sequence
+        researcher_id: Id of the researcher that send ping request
         command: Request command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
-    sequence: int
     command: str
 
 
 
 @catch_dataclass_exception
 @dataclass
-class PingReply(Message, RequiresProtocolVersion):
+class PingReply(RequestReply, RequiresProtocolVersion):
     """This class describes a ping message sent by the node.
 
     Attributes:
         researcher_id: Id of the researcher that will receive the reply
         node_id: Node id that replys the request
         succes: True if the node process the request as expected, false if any exception occurs
-        sequence: Ping sequence
         command: Reply command string
 
     Raises:
@@ -409,7 +527,6 @@ class PingReply(Message, RequiresProtocolVersion):
     researcher_id: str
     node_id: str
     success: bool
-    sequence: int
     command: str
 
 
@@ -417,7 +534,7 @@ class PingReply(Message, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class SearchRequest(Message, RequiresProtocolVersion):
+class SearchRequest(RequestReply, RequiresProtocolVersion):
     """Describes a search message sent by the researcher.
 
     Attributes:
@@ -435,7 +552,7 @@ class SearchRequest(Message, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class SearchReply(Message, RequiresProtocolVersion):
+class SearchReply(RequestReply, RequiresProtocolVersion):
     """Describes a search message sent by the node
 
     Attributes:
@@ -461,13 +578,12 @@ class SearchReply(Message, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class SecaggDeleteRequest(Message, RequiresProtocolVersion):
+class SecaggDeleteRequest(RequestReply, RequiresProtocolVersion):
     """Describes a secagg context element delete request message sent by the researcher
 
     Attributes:
         researcher_id: ID of the researcher that requests deletion
         secagg_id: ID of secagg context element that is sent by researcher
-        sequence: (unique) sequence number which identifies the message
         element: Type of secagg context element
         job_id: Id of the Job to which this secagg context element is attached
         command: Request command string
@@ -477,20 +593,19 @@ class SecaggDeleteRequest(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     secagg_id: str
-    sequence: int
     element: int
-    job_id: (str, type(None))
+    job_id: Optional[str]
     command: str
+
 
 @catch_dataclass_exception
 @dataclass
-class SecaggDeleteReply(Message, RequiresProtocolVersion):
+class SecaggDeleteReply(RequestReply, RequiresProtocolVersion):
     """Describes a secagg context element delete reply message sent by the node
 
     Attributes:
         researcher_id: ID of the researcher that requests deletion
         secagg_id: ID of secagg context element that is sent by researcher
-        sequence: (unique) sequence number which identifies the message
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies to the request
         msg: Custom message
@@ -501,21 +616,20 @@ class SecaggDeleteReply(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     secagg_id: str
-    sequence: int
     success: bool
     node_id: str
     msg: str
     command: str
 
+
 @catch_dataclass_exception
 @dataclass
-class SecaggRequest(Message, RequiresProtocolVersion):
+class SecaggRequest(RequestReply, RequiresProtocolVersion):
     """Describes a secagg context element setup request message sent by the researcher
 
     Attributes:
         researcher_id: ID of the researcher that requests setup
         secagg_id: ID of secagg context element that is sent by researcher
-        sequence: (unique) sequence number which identifies the message
         element: Type of secagg context element
         job_id: Id of the Job to which this secagg context element is attached
         parties: List of parties participating to the secagg context element setup
@@ -526,21 +640,20 @@ class SecaggRequest(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     secagg_id: str
-    sequence: int
     element: int
-    job_id: (str, type(None))
+    job_id: Optional[str]
     parties: list
     command: str
 
+
 @catch_dataclass_exception
 @dataclass
-class SecaggReply(Message, RequiresProtocolVersion):
+class SecaggReply(RequestReply, RequiresProtocolVersion):
     """Describes a secagg context element setup reply message sent by the node
 
     Attributes:
         researcher_id: ID of the researcher that requests setup
         secagg_id: ID of secagg context element that is sent by researcher
-        sequence: (unique) sequence number which identifies the message
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies to the request
         msg: Custom message
@@ -551,23 +664,22 @@ class SecaggReply(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     secagg_id: str
-    sequence: int
     success: bool
     node_id: str
     msg: str
     command: str
 
+
 # Train messages
 
 @catch_dataclass_exception
 @dataclass
-class TrainRequest(Message, RequiresProtocolVersion):
+class TrainRequest(RequestReply, RequiresProtocolVersion):
     """Describes a train message sent by the researcher
 
     Attributes:
         researcher_id: ID of the researcher that requests training
         job_id: Id of the Job that is sent by researcher
-        params_url: URL where model parameters are uploaded
         training_args: Arguments for training routine
         dataset_id: id of the dataset that is used for training
         training: Declares whether training will be performed
@@ -584,34 +696,34 @@ class TrainRequest(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     job_id: str
-    state_id: (str, type(None))
-    params_url: str
+    state_id: Optional[str]
     training_args: dict
     dataset_id: str
     training: bool
     model_args: dict
-    training_plan_url: str
+    params: dict
+    training_plan: str
     training_plan_class: str
     command: str
-    secagg_servkey_id: (str, type(None))
-    secagg_biprime_id: (str, type(None))
-    secagg_random: (float, type(None))
-    secagg_clipping_range: (int, type(None))
     round: int
-    aggregator_args: dict
-    aux_var_urls: (list, type(None))
+    aggregator_args: Dict
+    aux_vars: Optional[list] = None
+    secagg_servkey_id: Optional[str] = None
+    secagg_biprime_id: Optional[str] = None
+    secagg_random: Optional[float] = None
+    secagg_clipping_range: Optional[int] = None
 
 
 @catch_dataclass_exception
 @dataclass
-class TrainReply(Message, RequiresProtocolVersion):
+class TrainReply(RequestReply, RequiresProtocolVersion):
     """Describes a train message sent by the node.
 
     Attributes:
         researcher_id: Id of the researcher that receives the reply
         job_id: Id of the Job that is sent by researcher
         success: True if the node process the request as expected, false if any exception occurs
-        node_id: Node id that replys the request
+        node_id: Node id that replies the request
         dataset_id: id of the dataset that is used for training
         params_url: URL of parameters uploaded by node
         timing: Timing statistics
@@ -623,15 +735,19 @@ class TrainReply(Message, RequiresProtocolVersion):
     """
     researcher_id: str
     job_id: str
-    state_id: (str, type(None))
     success: bool
     node_id: str
     dataset_id: str
-    params_url: str
     timing: dict
-    sample_size: (int, type(None))
     msg: str
     command: str
+    state_id: Optional[str] = None
+    sample_size: Optional[int] = None
+    encrypted: bool = False
+    params: Optional[Union[Dict, List]] = None  # None for testing only
+    optimizer_args: Optional[Dict] = None  # None for testing only
+    optim_aux_var: Optional[Dict] = None  # None for testing only
+    encryption_factor: Optional[List] = None  # None for testing only
 
 
 class MessageFactory:
@@ -715,10 +831,9 @@ class ResearcherMessages(MessageFactory):
     INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
                                           'search': SearchReply,
                                           'pong': PingReply,
-                                          'log': LogMessage,
                                           'error': ErrorMessage,
                                           'list': ListReply,
-                                          'add_scalar': AddScalarReply,
+                                          'add_scalar': Scalar,
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
@@ -754,9 +869,8 @@ class NodeMessages(MessageFactory):
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
                                           'search': SearchReply,
                                           'pong': PingReply,
-                                          'log': LogMessage,
                                           'error': ErrorMessage,
-                                          'add_scalar': AddScalarReply,
+                                          'add_scalar': Scalar,
                                           'list': ListReply,
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,

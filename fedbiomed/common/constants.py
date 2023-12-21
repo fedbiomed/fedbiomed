@@ -2,9 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Fed-BioMed constants/enums"""
+import sys
+import os 
 
 from packaging.version import Version as FBM_Component_Version
+from fedbiomed.common.exceptions import FedbiomedError
 from enum import Enum
+
 
 CONFIG_FOLDER_NAME = "etc"
 """Directory/folder name where configurations are saved"""
@@ -36,15 +40,36 @@ NODE_STATE_PREFIX = 'node_state_'
 JOB_PREFIX = 'job_'
 """Prefix for job ID"""
 
-MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
+CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
+"""FOLDER name for Certs directory"""
 
-__version__ = FBM_Component_Version('4.5.0')  # Fed-BioMed software version
-__researcher_config_version__ = FBM_Component_Version('1')  # researcher config file version
-__node_config_version__ = FBM_Component_Version('1')  # node config file version
+
+MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
+SERVER_certificate_prefix = "server_certificate"
+
+# !!! info "Instructions for developers"
+# If you make a change that changes the format / metadata / structure of one of the components below,
+# you ** must update ** the version.
+#
+# Instructions for updating the version
+#
+# 1. check [versions page](https://fedbiomed.org/latest/user-guide/deployment/versions)
+# for background information
+# 2. bump the version below: if your change breaks backward compatibility you must increase the
+# major version, else the minor version. Micro versions are supported but their use is currently discouraged.
+
+__version__ = FBM_Component_Version('5.0.0')  # Fed-BioMed software version
+__researcher_config_version__ = FBM_Component_Version('2')  # researcher config file version
+__node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('1')  # node state version
-__breakpoints_version__ = FBM_Component_Version('1')  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version('1')  # format of MQTT messages.
+__breakpoints_version__ = FBM_Component_Version('2')  # breakpoints format version
+__messaging_protocol_version__ = FBM_Component_Version('2')  # format of gRPC messages.
 # Nota: for messaging protocol version, all changes should be a major version upgrade
+
+
+
+# Max message length as bytes
+MAX_MESSAGE_BYTES_LENGTH = 4000000 - sys.getsizeof(bytes("", encoding="UTF-8")) # 4MB 
 
 
 
@@ -56,6 +81,27 @@ class _BaseEnum(Enum):
     @classmethod
     def list(cls):
         return list(map(lambda c: c.value, cls))
+
+
+class MessageType(_BaseEnum):
+    """Types of messages received by researcher
+
+    Attributes:
+        REPLY: reply messages (TrainReply, SearchReply, etc.)
+        LOG: 'log' message (LogMessage)
+        SCALAR: 'add_scalar' message (Scalar)
+    """
+    REPLY = "REPLY"
+    LOG = "LOG"
+    SCALAR = "SCALAR"
+
+    @classmethod
+    def convert(cls, type_):
+        """Converts given text message to to MessageType instance"""
+        try:
+            return getattr(cls, type_.upper())
+        except AttributeError as exp:
+            raise FedbiomedError(f"There is no MessageType as {type_}")
 
 
 class ComponentType(_BaseEnum):
@@ -204,26 +250,16 @@ class SecaggElementTypes(_BaseEnum):
 
 class VEParameters:
     CLIPPING_RANGE: int = 3
-    TARGET_RANGE: int = 10000
+    TARGET_RANGE: int = 2**15
+    WEIGHT_RANGE: int = 2**17 # TODO: this has to be provided by the researcher, find the max range among all the nodes' weights
     KEY_SIZE: int = 2048
 
 
 class ErrorNumbers(_BaseEnum):
     """List of all error messages types"""
 
-    # MQTT errors
+    # GRPC errors
     FB100 = "FB100: undetermined messaging server error"
-    FB101 = "FB101: cannot connect to the messaging server"
-    FB102 = "FB102: messaging server does not answer in dedicated time"
-    FB103 = "FB103: messaging call error"
-    FB104 = "FB104: message exchange error"
-
-    # HTTP errors
-
-    FB200 = "FB200: undetermined repository server error"
-    FB201 = "FB201: server not reachable"
-    FB202 = "FB202: server returns 404 error"
-    FB203 = "FB203: server returns other 4xx or 500 error"
 
     # application error on node
 
@@ -232,13 +268,8 @@ class ErrorNumbers(_BaseEnum):
     FB302 = "FB302: TrainingPlan class does not load"
     FB303 = "FB303: TrainingPlan class does not contain expected methods"
     FB304 = "FB304: TrainingPlan method crashes"
-    FB305 = "FB305: TrainingPlan loops indefinitely"
-    FB306 = "FB306: bad URL for TrainingPlan (.py)"
-    FB307 = "FB307: bad URL for training params (.mpk)"
-    FB308 = "FB308: bad training request (.json)"
     FB309 = "FB309: bad model params (.mpk)"
     FB310 = "FB310: bad data format"
-    FB311 = "FB311: receiving a new computation request during a running computation"
     FB312 = "FB312: Node stopped in SIGTERM signal handler"
     FB313 = "FB313: no dataset matching request"
     FB314 = "FB314: Node round error"
@@ -257,10 +288,6 @@ class ErrorNumbers(_BaseEnum):
     FB400 = "FB400: undetermined application error"
     FB401 = "FB401: aggregation crashes or returns an error"
     FB402 = "FB402: strategy method crashes or sends an error"
-    FB403 = "FB403: bad URL (.pt) for model param"
-    FB404 = "FB404: bad model param (.pt) format for TrainingPlan"
-    FB405 = "FB405: received delayed answer for previous computation round"
-    FB406 = "FB406: list of nodes is empty at data lookup phase"
     FB407 = "FB407: list of nodes became empty when training (all nodes failed training or did not answer)"
     FB408 = "FB408: training failed on node or node did not answer during training"
     FB409 = "FB409: node sent Status=Error during training"
@@ -271,21 +298,15 @@ class ErrorNumbers(_BaseEnum):
     FB414 = "FB414: bad type or value for training arguments"
     FB415 = "FB415: secure aggregation handling error"
     FB416 = "FB416: federated dataset error"
-    FB417 = "FB417: Secure aggregation error"
-    FB418 = "FB418: Node state agent error"
-
-    # node problem detected by researcher
-
-    FB500 = "FB500: undetermined node error, detected by server"
-    FB501 = "FB501: node not reachable"
+    FB417 = "FB417: secure aggregation error"
+    FB418 = "FB418: error in experiment's `Job`"
+    FB419 = "FB419: node state agent error"
 
     # general application errors (common to node/researcher/..)
 
     FB600 = "FB600: environ error"
     FB601 = "FB601: message error"
-    FB602 = "FB602: logger error"
     FB603 = "FB603: task queue error"
-    FB604 = "FB604: repository error"
     FB605 = "FB605: training plan error"
     FB606 = "FB606: model manager error"
     FB607 = "FB607: data manager error"
@@ -308,7 +329,8 @@ class ErrorNumbers(_BaseEnum):
     FB624 = "FB624: Secure aggregation crypter error"
     FB625 = "FB625: Component version error"
     FB626 = "FB626: Fed-BioMed optimizer error"
-
+    FB627 = "FB627: Utility function error"
+    FB628 = "FB628: Communication error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

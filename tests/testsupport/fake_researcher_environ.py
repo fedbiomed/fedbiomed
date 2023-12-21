@@ -36,9 +36,8 @@ class ResearcherEnviron:
         self._values['VAR_DIR'] = f"/tmp/{res}/var"
         self._values['CACHE_DIR'] = f"/tmp/{res}/var/cache"
         self._values['TMP_DIR'] = f"/tmp/{res}/var/tmp"
-        self._values['MQTT_BROKER'] = "localhost"
-        self._values['MQTT_BROKER_PORT'] = 1883
-        self._values['UPLOADS_URL'] = "http://localhost:8888/upload/"
+        self._values['SERVER_HOST'] = "localhost"
+        self._values['SERVER_PORT'] = '50051'
         self._values['TIMEOUT'] = 10
         self._values['DEFAULT_TRAINING_PLANS_DIR'] = f'/tmp/{res}/default_training_plans'
 
@@ -69,6 +68,9 @@ class ResearcherEnviron:
 
         self._values['MPSPDZ_CERTIFICATE_KEY'] = 'dummy/path'
         self._values['MPSPDZ_CERTIFICATE_PEM'] = 'dummy/path'
+
+        self._values['SERVER_SSL_KEY'] = b'key'
+        self._values['SERVER_SSL_CERT'] = b'cert'
 
         os.makedirs(self._values['EXPERIMENTS_DIR'], exist_ok=True)
         os.makedirs(self._values['TENSORBOARD_RESULTS_DIR'], exist_ok=True)

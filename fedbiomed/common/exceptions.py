@@ -24,6 +24,20 @@ class FedbiomedAggregatorError(FedbiomedError):
     pass
 
 
+class FedbiomedCertificateError(FedbiomedError):
+    """
+    Certificate error
+    """
+    pass
+
+
+class FedbiomedCommunicationError(FedbiomedError):
+    """
+    Fedbiomed errors related to gRPC communication
+    """
+    pass
+
+
 class FedbiomedDataLoadingPlanError(FedbiomedError):
     """
     Exceptions specific for the class fedbiomed.common.data.DataLoadingPlan.
@@ -94,6 +108,13 @@ class FedbiomedFederatedDataSetError(FedbiomedError):
     pass
 
 
+class FedbiomedJobError(FedbiomedError):
+    """
+    Error in the Job/localJob classes.
+    """
+    pass
+
+
 class FedbiomedLoadingBlockError(FedbiomedError):
     """
     Exception specific to the DataLoadingBlock classes/subclasses.
@@ -138,31 +159,30 @@ class FedbiomedMetricError(FedbiomedError):
     pass
 
 
+class FedbiomedMPCControllerError(FedbiomedError):
+    """
+    Certificate error
+    """
+    pass
+
+
+class FedbiomedNodeStateAgentError(FedbiomedError):
+    """
+    Error in Node State Agent
+    """
+    pass
+
+
+class FedbiomedNodeStateManagerError(FedbiomedError):
+    """
+    Error in Node State Manager
+    """
+    pass
+
+
 class FedbiomedOptimizerError(FedbiomedError):
     """
     Exception raised when an error is encountered within `Optimizer` code.
-    """
-
-
-class FedbiomedTrainingPlanSecurityManagerError(FedbiomedError):
-    """
-    Exception specific to the TrainingPlanSecurityManager.
-
-    (from fedbiomed.common.model_manager)
-    """
-    pass
-
-
-class FedbiomedRepositoryError(FedbiomedError):
-    """
-    Exception of the `Repository` class.
-    """
-    pass
-
-
-class FedbiomedResponsesError(FedbiomedError):
-    """
-    Exception specific to Responses class.
     """
     pass
 
@@ -184,6 +204,19 @@ class FedbiomedModelError(FedbiomedError):
 class FedbiomedSecaggError(FedbiomedError):
     """
     Exceptions specific for the researcher secure aggregation class.
+    """
+    pass
+
+
+class FedbiomedSecaggCrypterError(FedbiomedError):
+    """
+    Secure aggregation encryption error
+    """
+
+
+class FedbiomedSecureAggregationError(FedbiomedError):
+    """
+    Secure aggregation error
     """
     pass
 
@@ -238,9 +271,11 @@ class FedbiomedTrainingPlanError(FedbiomedError):
     pass
 
 
-class FedbiomedDataQualityCheckError(FedbiomedError):
+class FedbiomedTrainingPlanSecurityManagerError(FedbiomedError):
     """
-    Exception raised when facing uncompatibles datatypes accross nodes
+    Exception specific to the TrainingPlanSecurityManager.
+
+    (from fedbiomed.common.model_manager)
     """
     pass
 
@@ -266,45 +301,7 @@ class FedbiomedValueError(FedbiomedError, ValueError):
     pass
 
 
-class FedbiomedCertificateError(FedbiomedError):
-    """
-    Certificate error
-    """
-    pass
-
-
-class FedbiomedMPCControllerError(FedbiomedError):
-    """
-    Certificate error
-    """
-    pass
-
-
-class FedbiomedSecaggCrypterError(FedbiomedError):
-    """
-    Secure aggregation encryption error
-    """
-
-
-class FedbiomedSecureAggregationError(FedbiomedError):
-    """
-    Secure aggregation error
-    """
-
-
 class FedbiomedVersionError(FedbiomedError):
     """
     Error in the versions of one of Fed-BioMed's components
-    """
-
-
-class FedbiomedNodeStateManagerError(FedbiomedError):
-    """
-    Error in Node State Manager
-    """
-
-
-class FedbiomedNodeStateAgentError(FedbiomedError):
-    """
-    Error in Node State Agent 
     """

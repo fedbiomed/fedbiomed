@@ -22,8 +22,6 @@ class SecureAggregation:
     - Applying secure aggregation after receiving encrypted model parameters from nodes
 
     Attributes:
-        timeout: Maximum time waiting for answers from other nodes for each secagg context
-            element (server key and biprime).
         clipping_range: Clipping range that will be used for quantization of model
             parameters on the node side.
 
@@ -40,7 +38,6 @@ class SecureAggregation:
     def __init__(
             self,
             active: bool = True,
-            timeout: int = 10,
             clipping_range: Union[None, int] = None,
     ) -> None:
         """Class constructor
@@ -49,11 +46,6 @@ class SecureAggregation:
 
         Args:
             active: True if secure aggregation is activated for the experiment
-            timeout: Maximum time waiting for answers from other nodes for each
-                secagg context element (server key and biprime). Thus total secagg
-                setup is at most twice the `timeout`, plus the local setup payload
-                execution time for server key and biprime. Defaults to `environ['TIMEOUT']`
-                if unset or equals 0.
             clipping_range: Clipping range that will be used for quantization of model
                 parameters on the node side. The default will be
                 [`VEParameters.CLIPPING_RANGE`][fedbiomed.common.constants.VEParameters].
@@ -69,12 +61,6 @@ class SecureAggregation:
                 f"but got {type(active)} "
             )
 
-        if not isinstance(timeout, int):
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: The argument `timeout` should be  an integer, "
-                f"but got {type(active)} "
-            )
-
         if clipping_range is not None and \
                 (not isinstance(clipping_range, int) or isinstance(clipping_range, bool)):
             raise FedbiomedSecureAggregationError(
@@ -82,7 +68,6 @@ class SecureAggregation:
                 f"but got not {type(clipping_range)}"
             )
 
-        self.timeout: int = timeout
         self.clipping_range: Optional[int] = clipping_range
 
         self._active: bool = active
@@ -207,10 +192,10 @@ class SecureAggregation:
             )
 
         if not self._biprime.status or force:
-            self._biprime.setup(timeout=self.timeout)
+            self._biprime.setup()
 
         if not self._servkey.status or force:
-            self._servkey.setup(timeout=self.timeout)
+            self._servkey.setup()
 
         return True
 
@@ -356,7 +341,6 @@ class SecureAggregation:
             "module": self.__module__,
             "arguments": {
                 'active': self._active,
-                'timeout': self.timeout,
                 'clipping_range': self.clipping_range,
             },
             "attributes": {
