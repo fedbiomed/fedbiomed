@@ -11,6 +11,7 @@ on:
     branches:
       - 'develop'
       - 'master'
+      - 'feature/931-end-to-end-tests-partial-failure'
 
 jobs:
   e2e-test:
