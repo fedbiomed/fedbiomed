@@ -62,6 +62,12 @@ kpids="${kpids:+$kpids }$apids"
 echo "INFO: launching fedbiomed researcher"
 source $basedir/scripts/fedbiomed_environment researcher
 EXEC_TEST=$basedir/notebooks/101_getting-started.py
+if [ ! -f "$EXEC_TEST" ]
+then
+    EXEC_TEST_NB=${EXEC_TEST%.py}.ipynb
+    echo "converting ${EXEC_TEST_NB} to ${EXEC_TEST}"
+    jupyter nbconvert --to script "${EXEC_TEST_NB}"
+fi
 if [ -x "$EXEC_TEST" ]
 then
     timeout --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT $EXEC_TEST
