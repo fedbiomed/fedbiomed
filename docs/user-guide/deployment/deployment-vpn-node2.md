@@ -101,7 +101,7 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 * do initial node configuration
 
     ```bash
-    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14002 && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run configuration create --component NODE --use-current'
+    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14002 && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run environ-node configuration create --component NODE --use-current'
     ```
 
 Optionally launch the node GUI :
