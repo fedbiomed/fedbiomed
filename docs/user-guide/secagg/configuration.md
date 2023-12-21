@@ -51,7 +51,7 @@ a database file and certificates.
 The command below creates a component with a configuration file named `config-n1.ini`.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create --component node --name config-n1.ini 
+${FEDBIOMED_DIR}/scripts/fedbiomed_run environ-node configuration create --component node --name config-n1.ini
 ```
 
 Other node components can be created by replacing `config-n1.in`i` with any desired unique name.

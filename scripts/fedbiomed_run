@@ -432,13 +432,20 @@ case $1 in
         ;;
 
     *)
-      PARAMS=${@}
       if [ -z "$1" ]; then
         echo "Please specify a command/option with fedbiomed_run. Please see fedbiomed_run --help"
         exit 1
       fi
 
-      source "$basedir"/scripts/fedbiomed_environment researcher $IP_ADDRESS
+      # Hack to fix temporarly issue 929
+      CONDA_ENVIRON=researcher
+      if [ "$1" = 'environ-node' ] ; then
+        CONDA_ENVIRON=node
+        shift
+      fi
+
+      PARAMS=${@}
+      source "$basedir"/scripts/fedbiomed_environment $CONDA_ENVIRON $IP_ADDRESS
       python -m fedbiomed.common.cli $PARAMS
       ;;
 esac
