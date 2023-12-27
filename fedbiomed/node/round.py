@@ -242,9 +242,13 @@ class Round:
             #     secagg_biprime_id=secagg_arguments.get('secagg_biprime_id'),
             #     secagg_random=secagg_arguments.get('secagg_random'),
             # )
+
+            secagg_id = secagg_arguments.get('secagg_id')
+
             self._use_secagg = secagg_arguments.get('secagg_scheme') is not None
             if self._use_secagg:
-                if secagg_arguments.get('secagg_scheme') == 'jls': 
+                if secagg_arguments.get('secagg_scheme') == 'jls':
+
                     self._secagg_crypter = JLSCrypter()
                 elif secagg_arguments.get('secagg_scheme') == 'flamingo':
                     self._secagg_crypter = FlamingoCrypter()

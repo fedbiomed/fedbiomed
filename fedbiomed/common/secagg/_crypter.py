@@ -37,7 +37,7 @@ class Crypter:
         vector: List[int],
         parties: List[str],
         clipping_range: int = VEParameters.CLIPPING_RANGE,
-
+        weight: int = None
     ) -> List[int]:
         """Encrypts/protects given vector with secure aggregation algorithm
 

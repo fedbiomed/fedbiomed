@@ -391,3 +391,16 @@ class SecureAggregation:
             setattr(secagg, name, val)
 
         return secagg
+
+
+class SecureAggregator:
+    pass
+
+
+class JLSAggregator:
+    pass
+
+
+
+class FalmingoAggregator:
+    pass

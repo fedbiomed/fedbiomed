@@ -3,12 +3,14 @@
 
 import numpy as np
 
+from dataclass import dataclass
 from math import ceil
 from Crypto.Cipher import ChaCha20
 from typing import List, Optional, Dict
 
 from fedbiomed.common.logger import logger
 from ._base import EncrypterBase
+
 
 
 class PRF(object):
