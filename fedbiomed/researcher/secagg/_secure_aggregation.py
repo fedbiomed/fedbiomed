@@ -72,17 +72,21 @@ class SecureAggregation:
                 f"but got not {type(clipping_range)}"
             )
 
-        self.clipping_range: Optional[int] = clipping_range
+        self._parties = None
+        self._job_id = None
         self._active: bool = active
-        self._parties: Optional[List[str]] = None
-        self._job_id: Optional[str] = None
-        self._secagg_random: Optional[float] = None
+
         self.scheme = scheme
+        self.clipping_range: Optional[int] = clipping_range
 
         if scheme == 'jls':
             self.aggregator = JLSAggregator()
-        if scheme == 'flamingo':
+        elif scheme == 'flamingo':
             self.aggregator = FlamingoAggregator()
+        else:
+            raise FedbiomedSecureAggregationError(
+                f"Undefined secure aggragation scheme {scheme}"
+            )
 
     @property
     def parties(self) -> Union[List[str], None]:
@@ -110,24 +114,6 @@ class SecureAggregation:
             bool, True if secagg is activated
         """
         return self._active
-
-    @property
-    def biprime(self) -> Union[None, SecaggBiprimeContext]:
-        """Gets biprime object
-
-        Returns:
-            Biprime object, None if biprime is not setup
-        """
-        return self._biprime
-
-    @property
-    def servkey(self) -> Union[None, SecaggServkeyContext]:
-        """Gets servkey object
-
-        Returns:
-            Servkey object, None if servkey is not setup
-        """
-        return self._servkey
 
     def activate(self, status) -> bool:
         """Set activate status of secure aggregation
@@ -181,100 +167,21 @@ class SecureAggregation:
             FedbiomedSecureAggregationError: Invalid argument type
         """
 
-        if not isinstance(parties, list):
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Expected argument `parties` list but got {type(parties)}"
-            )
+        return self.aggtegator.setup(parties, job_id, force)
 
-        if not isinstance(job_id, str):
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Expected argument `job_id` string but got {type(parties)}"
-            )
-
-        self._configure_round(parties, job_id)
-
-        if self._biprime is None or self._servkey is None:
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: server key or biprime contexts is not fully configured."
-            )
-
-        if not self._biprime.status or force:
-            self._biprime.setup()
-
-        if not self._servkey.status or force:
-            self._servkey.setup()
-
-        return True
-
-    def _set_secagg_contexts(self, parties: List[str], job_id: Union[str, None] = None) -> None:
-        """Creates secure aggregation context classes.
-
-        This function should be called after `job_id` and `parties` are set
-
-        Args:
-            parties: Parties that participates secure aggregation
-            job_id: The id of the job of experiment
-        """
-
-        self._parties = parties
-
-        # Updates job id if it is provided
-        if job_id is not None:
-            self._job_id = job_id
-
-        # TODO: support other options than using `default_biprime0`
-        self._biprime = SecaggBiprimeContext(
-            parties=self._parties,
-            secagg_id='default_biprime0'
-        )
-
-        self._servkey = SecaggServkeyContext(
-            parties=self._parties,
-            job_id=self._job_id
-        )
-
-    def _configure_round(
-            self,
-            parties: List[str],
-            job_id: str
-    ) -> None:
-        """Configures secure aggregation for each round.
-
-        This method checks the round state and creates secagg context element if
-        not existing or re-instantiates if the state of the round has changes in cases of
-        adding new nodes to the FL training
-
-        Args:
-            parties: Nodes that participates federated training
-            job_id: The id of the job of experiment
-        """
-
-        # For each round it generates new secagg random float
-        self._secagg_random = round(random.uniform(0, 1), 3)
-
-        if self._parties is None or self._job_id != job_id:
-            self._set_secagg_contexts(parties, job_id)
-
-        elif set(self._parties) != set(parties):
-            logger.info(f"Parties of the experiment has changed. Re-creating secure "
-                        f"aggregation context creation for the experiment {self._job_id}")
-            self._set_secagg_contexts(parties)
 
     def aggregate(
             self,
             round_: int,
             total_sample_size: int,
-            model_params: Dict[str, List[int]],
-            encryption_factors: Union[Dict[str, List[int]], None] = None,
+            params: Dict[str, List[int]]
     ) -> List[float]:
         """Aggregates given model parameters
 
         Args:
             round_: current training round number
             total_sample_size: sum of number of samples used by all nodes
-            model_params: model parameters from the participating nodes
-            encryption_factors: encryption factors from the participating nodes
-
+            params: model parameters from the participating nodes
         Returns:
             Aggregated parameters
 
@@ -282,63 +189,10 @@ class SecureAggregation:
             FedbiomedSecureAggregationError: secure aggregation context not properly configured
             FedbiomedSecureAggregationError: secure aggregation computation error
         """
-        if isinstance(self._secagg_crypter, JLSCrypter):
-            if self._biprime is None or self._servkey is None:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
-                    f"not configured. Please setup secure aggregation before the aggregation.")
 
-            if not self._biprime.status or not self._servkey.status:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
-                    f"not set properly")
-
-            biprime = self._biprime.context["context"]["biprime"]
-            key = self._servkey.context["context"]["server_key"]
-
-        num_nodes = len(model_params)
-        if isinstance(self._secagg_crypter, JLSCrypter):
-            aggregate = functools.partial(self._secagg_crypter.aggregate,
-                                        current_round=round_,
-                                        num_nodes=num_nodes,
-                                        key=key,
-                                        total_sample_size=total_sample_size,
-                                        biprime=biprime,
-                                        clipping_range=self.clipping_range)
-        if isinstance(self._secagg_crypter, FlamingoCrypter):
-            aggregate = functools.partial(self._secagg_crypter.aggregate,
-                                        num_nodes=num_nodes,
-                                        total_sample_size=total_sample_size,
-                                        clipping_range=self.clipping_range)
-        # Validate secure aggregation
-        if self._secagg_random is not None:
-
-            if encryption_factors is None:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}: Secure aggregation random validation has been set but the encryption "
-                    f"factors are not provided. Please provide encrypted `secagg_random` values in different parties. "
-                    f"Or to not set/get `secagg_random()` before the aggregation.")
-
-            logger.info("Validating secure aggregation results...")
-            encryption_factors = [f for k, f in encryption_factors.items()]
-            validation: List[float] = aggregate(list_params=encryption_factors)
-
-            if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.03):
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}: Aggregation is failed due to incorrect decryption."
-                )
-            logger.info("Validation is completed.")
-
-        elif encryption_factors is not None:
-            logger.warning("Encryption factors are provided while secagg random is None. Please make sure secure "
-                           "aggregation steps are applied correctly.")
-
-        logger.info("Aggregating encrypted parameters. This process may take some time depending on model size.")
-        # Aggregate parameters
-        params = [p for _, p in model_params.items()]
-        aggregated_params = aggregate(list_params=params)
-
-        return aggregated_params
+        return self.aggregator.aggregate(
+            round_, total_sample_size, params
+        )
 
     def save_state_breakpoint(self) -> Dict[str, Any]:
         """Saves state of the secagg
@@ -353,10 +207,10 @@ class SecureAggregation:
             "arguments": {
                 'active': self._active,
                 'clipping_range': self.clipping_range,
+                'scheme': self.scheme
             },
             "attributes": {
-                "_biprime": self._biprime.save_state_breakpoint() if self._biprime is not None else None,
-                "_servkey": self._servkey.save_state_breakpoint() if self._servkey is not None else None,
+                "aggregator": self.aggregator.save_state(),
                 "_job_id": self._job_id,
                 "_parties": self._parties
             }
@@ -380,13 +234,9 @@ class SecureAggregation:
 
         secagg = cls(**state["arguments"])
 
-        if state["attributes"]["_biprime"] is not None:
-            state["attributes"]["_biprime"] = SecaggBiprimeContext. \
-                load_state_breakpoint(state=state["attributes"]["_biprime"])
-
-        if state["attributes"]["_servkey"] is not None:
-            state["attributes"]["_servkey"] = SecaggServkeyContext. \
-                load_state_breakpoint(state=state["attributes"]["_servkey"])
+        # Load aggregator state
+        state["attributes"]["aggregator"] = secagg.aggregator.load_state(
+            state=state["attributes"]["aggregator"])
 
         # Set attributes
         for name, val in state["attributes"].items():
@@ -501,7 +351,17 @@ class SecureAggregator(metaclass=ABCMeta):
     ) -> List[float]:
         """Aggregates"""
 
+    @abstractmethod
+    def save_state(self):
+        """Saves secure aggregator state"""
 
+    @abstractmethod
+    def load_state(self):
+        """Creates secure aggregator instance from given state
+
+        Args:
+            state: Dict contains aggregator state
+        """
 
 
 class JLSAggregator(SecureAggregator):
@@ -615,9 +475,49 @@ class JLSAggregator(SecureAggregator):
 
         return aggregated_params
 
+    def save_state(self):
+        """Saves states of the JLS aggregator"""
 
+        state = {
+            "class": type(self).__name__,
+            "module": self.__module__,
+            "arguments": {
+                'clipping_range': self.clipping_range,
+            },
+            "attributes": {
+                "_biprime": self._biprime.save_state_breakpoint() if self._biprime is not None else None,
+                "_servkey": self._servkey.save_state_breakpoint() if self._servkey is not None else None,
+            }
+        }
+
+        return state
+
+    @classmethod
+    def load_state(
+        cls,
+        state: Dict
+    ) -> 'JLSAggregator':
+        """Load self class from given state object """
+
+        secagg = cls(**state["arguments"])
+
+        if state["attributes"]["_biprime"] is not None:
+            state["attributes"]["_biprime"] = SecaggBiprimeContext. \
+                load_state_breakpoint(state=state["attributes"]["_biprime"])
+
+        if state["attributes"]["_servkey"] is not None:
+            state["attributes"]["_servkey"] = SecaggServkeyContext. \
+                load_state_breakpoint(state=state["attributes"]["_servkey"])
+
+        # Set attributes
+        for name, val in state["attributes"].items():
+            setattr(secagg, name, val)
+
+        return secagg
+
+
+# TODO: IMplement flamingo based on SecureAggregator
 class FlamingoAggregator(SecureAggregator):
 
     def __init__(self):
         pass
-
