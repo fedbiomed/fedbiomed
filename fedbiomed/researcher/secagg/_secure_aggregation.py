@@ -4,7 +4,10 @@
 import functools
 import math
 import random
+
+from abc import ABCMeta, abstractmethod
 from typing import List, Union, Dict, Any, Optional
+
 
 from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext
 from fedbiomed.common.constants import ErrorNumbers
@@ -73,14 +76,13 @@ class SecureAggregation:
         self._active: bool = active
         self._parties: Optional[List[str]] = None
         self._job_id: Optional[str] = None
-        self._servkey: Optional[SecaggServkeyContext] = None
-        self._biprime: Optional[SecaggBiprimeContext] = None
         self._secagg_random: Optional[float] = None
         self.scheme = scheme
+
         if scheme == 'jls':
-            self._secagg_crypter: JLSCrypter = JLSCrypter()
+            self.aggregator = JLSAggregator()
         if scheme == 'flamingo':
-            self._secagg_crypter: FlamingoCrypter = FlamingoCrypter()
+            self.aggregator = FlamingoAggregator()
 
     @property
     def parties(self) -> Union[List[str], None]:
@@ -393,14 +395,229 @@ class SecureAggregation:
         return secagg
 
 
-class SecureAggregator:
-    pass
+class SecureAggregator(metaclass=ABCMeta):
+
+    def __init__(
+        self,
+        clipping_range: Optional[int] = None
+    ) -> None:
+        """Constructs abstract-base aggregator class
+
+        Args:
+          clipping_range: Clipping range used for quantization
+        """
+        self._crypter = None
+        self.clipping_range = clipping_range
+
+    @abstractmethod
+    def setup(
+        self,
+        parties: List[str],
+        job_id: str,
+        force: bool = False
+    ):
+        """Setup secure aggregation instruments.
+
+        Requires setting `parties` and `job_id` if they are not set in previous secagg
+        setups. It is possible to execute without any argument if SecureAggregation
+        has already `parties` and `job_id` defined. This feature provides researcher
+        execute `secagg.setup()` if any connection issue
+
+        Args:
+            parties: Parties that participates secure aggregation
+            job_id: The id of the job of experiment
+            force: Forces secagg setup even context is already existing
+
+        Returns:
+            Status of setup
+
+        Raises
+            FedbiomedSecureAggregationError: Invalid argument type
+        """
+        if not isinstance(parties, list):
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Expected argument `parties` list but got {type(parties)}"
+            )
+
+        if not isinstance(job_id, str):
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Expected argument `job_id` string but got {type(parties)}"
+            )
+
+        self._configure_round(parties, job_id)
 
 
-class JLSAggregator:
-    pass
+    @abstractmethod
+    def _configure_round(
+        self,
+        parties,
+        job_id
+    ) -> bool:
+        """Configuries secure aggregation elements for the round
+
+        This method checks the round state and creates secagg context element if
+        not existing or re-instantiates if the state of the round has changes in cases of
+        adding new nodes to the FL training
+
+        Args:
+            parties: Nodes that participates federated training
+            job_id: The id of the job of experiment
+        """
+        if self._parties is None or self._job_id != job_id:
+            self._set_secagg_contexts(parties, job_id)
+
+        elif set(self._parties) != set(parties):
+            logger.info(f"Parties of the experiment has changed. Re-creating secure "
+                        f"aggregation context creation for the experiment {self._job_id}")
+            self._set_secagg_contexts(parties)
+
+    @abstractmethod
+    def _set_secagg_contexts(
+        self,
+        parties: List[str],
+        job_id: Union[str, None] = None
+    ) -> None:
+        """Creates secure aggregation context classes.
+
+        This function should be called after `job_id` and `parties` are set
+
+        Args:
+            parties: Parties that participates secure aggregation
+            job_id: The id of the job of experiment
+        """
+
+        self._parties = parties
+
+        # Updates job id if it is provided
+        if job_id is not None:
+            self._job_id = job_id
+
+    @abstractmethod
+    def aggregate(
+            self,
+            round_: int,
+            total_sample_size: int,
+            params: Dict[str, List[int]],
+    ) -> List[float]:
+        """Aggregates"""
 
 
 
-class FalmingoAggregator:
-    pass
+
+class JLSAggregator(SecureAggregator):
+    """Aggregator class that uses Joye-Libert algorithm"""
+
+    def __init__(
+        self,
+        clipping_range: int
+    ) -> None:
+        """Constructs Joye-Libert aggregator"""
+
+        super().__init__(clipping_range)
+
+        self._crypter = None
+        self._birpime = None
+        self._servkey = None
+
+    def _set_secagg_contexts(
+        self,
+        parties: List[str],
+        job_id: Union[str, None] = None
+    ) -> None:
+        """Sets secure aggregation contexts"""
+        # Call base class
+        super()._set_secagg_contexts()
+
+        self._biprime = SecaggBiprimeContext(
+            parties=self._parties,
+            secagg_id='default_biprime0'
+        )
+
+        self._servkey = SecaggServkeyContext(
+            parties=self._parties,
+            job_id=self._job_id
+        )
+
+    @property
+    def biprime(self) -> Union[None, SecaggBiprimeContext]:
+        """Gets biprime object
+
+        Returns:
+            Biprime object, None if biprime is not setup
+        """
+        return self._biprime
+
+    @property
+    def servkey(self) -> Union[None, SecaggServkeyContext]:
+        """Gets servkey object
+
+        Returns:
+            Servkey object, None if servkey is not setup
+        """
+        return self._servkey
+
+    def setup(
+        self,
+        parties: List[str],
+        job_id: str,
+        force: bool = False
+    ) -> bool:
+        """Sets up Joye-Libert secure aggregation context"""
+
+        # Apply common actions
+        super().setup(parties, job_id, force)
+
+        if self._biprime is None or self._servkey is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: server key or biprime contexts is not fully configured."
+            )
+
+        if not self._biprime.status or force:
+            self._biprime.setup()
+
+        if not self._servkey.status or force:
+            self._servkey.setup()
+
+        # Set crypter class
+        self._crypter = JLSCrypter(
+            n_parties=len(parties),
+            biprime=self._biprime.context["context"]["biprime"],
+            key=self._servkey.context["context"]["server_key"]
+        )
+
+        return True
+
+    def aggregate(
+            self,
+            round_: int,
+            total_sample_size: int,
+            params: Dict[str, List[int]],
+    ) -> List[float]:
+        """Aggregates"""
+
+        if self._biprime is None or self._servkey is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
+                f"not configured. Please setup secure aggregation before the aggregation.")
+
+        if not self._biprime.status or not self._servkey.status:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
+                f"not set properly")
+
+        vectors = [p for _, p in params.items()]
+        aggregated_params = self._crypter.aggregate(
+            round_=round_,
+            vectors=vectors,
+            weight_deminator=total_sample_size,
+            clipping_range=self.clipping_range
+        )
+
+        return aggregated_params
+
+
+class FlamingoAggregator(SecureAggregator):
+
+    def __init__(self):
+        pass
+
