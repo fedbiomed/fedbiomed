@@ -16,6 +16,12 @@ from fedbiomed.common.secagg import JLSCrypter, FlamingoCrypter
 from fedbiomed.common.logger import logger
 
 
+class SecureAggregationSchemes:
+    """Secure aggregation schemes"""
+    JOYE_LIBERT = 'JOYELIBERT'
+    FLAMINGO = "FLAMINGO"
+
+
 class SecureAggregation:
     """Secure aggregation controller of researcher component.
 
@@ -138,11 +144,7 @@ class SecureAggregation:
         Returns:
             Arguments that is going tobe attached to the experiment.
         """
-        return {'secagg_servkey_id': self._servkey.secagg_id if self._servkey is not None else None,
-                'secagg_biprime_id': self._biprime.secagg_id if self._biprime is not None else None,
-                'secagg_random': self._secagg_random,
-                'secagg_clipping_range': self.clipping_range, 
-                'secagg_scheme': self.scheme}
+        return self.aggregator.arguments()
 
     def setup(self,
               parties: List[str],
@@ -416,6 +418,18 @@ class JLSAggregator(SecureAggregator):
         """
         return self._servkey
 
+
+    def arguments(self) -> Dict:
+        """Gets train arguments for secagg train request
+
+        Returns:
+            Arguments that is going tobe attached to the experiment.
+        """
+        return {'secagg_servkey_id': self._servkey.secagg_id if self._servkey is not None else None,
+                'secagg_biprime_id': self._biprime.secagg_id if self._biprime is not None else None,
+                'secagg_clipping_range': self.clipping_range,
+                'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT}
+
     def setup(
         self,
         parties: List[str],
@@ -516,8 +530,67 @@ class JLSAggregator(SecureAggregator):
         return secagg
 
 
-# TODO: IMplement flamingo based on SecureAggregator
 class FlamingoAggregator(SecureAggregator):
 
     def __init__(self):
+        pass
+
+    def setup(
+        self,
+        parties: List[str],
+        job_id: str,
+        force: bool = False
+    ) -> bool:
+        """Sets up secure aggregation context for Flamingo
+
+        TODO: Implement DH key exhange request among the node here
+        """
+
+        # TODO: After setup instantiate FlamingoCrypter
+        pass
+
+    def _configure_round(self, parties, job_id):
+        """Method to execute at each round training"""
+        # TODO: This method is already provided by base class SecureAggregator
+        # it checks whether parties has changed after the previous round
+        # please see SecureAggregator._configure_round and extend if necessary
+        pass
+
+    def _set_secagg_contexts(self, parties, job_id):
+        """Sets contexts for Flamingo"""
+
+        # TODO: Here the context for FLamingo should be setup
+        # different than Joye-Libert, no need to keep servkey or biprime
+        # Only creating secagg_id and lunching DH key exhange will be enough
+
+    def arguments(self) -> Dict:
+        """Returns arguments for secure aggregation request
+
+        # IMPORTANT: Renamed from train_arguments to arguments since
+          secure aggregation is not only used for training
+        """
+        return {'secagg_scheme': SecureAggregationSchemes.FLAMINGO}
+
+
+
+    def aggregate(
+        self,
+        round_: int,
+        total_sample_size: int,
+        params: Dict[str, List[int]],
+    ):
+        """Aggregator given params/vectors
+
+        TODO: params can be renamed as vectors to be more generic
+        """
+        pass
+
+
+    def save_state(self) -> Dict:
+        """Saves state of the FlamingoAggregator"""
+        pass
+
+
+    def load_state(self) -> 'FlamingoAggregator':
+        """Instantiates a new FlamingoAggregator from given state"""
         pass
