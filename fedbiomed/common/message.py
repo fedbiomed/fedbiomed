@@ -62,6 +62,7 @@ def catch_dataclass_exception(cls: Callable):
 
     return wrap(cls)
 
+
 class Message(object):
     """Base class for all fedbiomed messages providing all methods
     to access the messages
@@ -117,12 +118,6 @@ class Message(object):
                 logger.critical(f"{field_name}: '{value}' instead of '{field_def.type}'")
                 ret = False
         return ret
-
-    @classmethod
-    def fields(cls):
-        """Get dataclass fields"""
-        return list(cls.__dataclass_fields__.keys())
-
 
     def to_proto(self):
         """Converts recursively python dataclass to gRPC proto"""
