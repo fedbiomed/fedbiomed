@@ -5,12 +5,10 @@ import abc
 import ssl
 import socket
 import time
-
-import json
-
 from dataclasses import dataclass
 
 import grpc
+from cryptography import x509
 
 from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
 
@@ -95,13 +93,12 @@ class Channels:
     async def connect(self):
         """Connects gRPC server and instatiates stubs"""
 
-        # Closes fi channels are open
+        # Closes if channels are open
         if self._feedback_channel:
             await self._feedback_channel.close()
 
         if self._task_channel:
             await self._task_channel.close()
-
 
         self._feedback_channel = self._create()
         self._feedback_stub = ResearcherServiceStub(channel=self._feedback_channel)
@@ -265,6 +262,15 @@ class GrpcClient:
                         (self._researcher.host, self._researcher.port)),
                         'utf-8')
                 logger.info("Retrieved server certificate, ready to communicate with server.")
+
+                if self._id is None:
+                    # early auto-detect researcher_id from peer certificate if not set yet
+                    try:
+                        self._id = x509.load_pem_x509_certificate(self._researcher.certificate)\
+                            .subject.get_attributes_for_oid(x509.oid.NameOID.ORGANIZATION_NAME)[0].value
+                    except AttributeError:
+                        # handle case of certificate without a researcher_id in subject O=... field
+                        pass
 
                 # Connect to channels and create stubs
                 await self._channels.connect()
