@@ -154,59 +154,6 @@ class Job:
 
         return training_plan
 
-    def _save_workflow_code_to_file(self,
-                                    training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow'
-                                    ) -> None:
-        try:
-            training_plan.save_code(self._training_plan_file)
-        except Exception as e:
-            msg = f"Cannot save the training plan to a local tmp dir : {str(e)}"
-            raise FedbiomedTrainingPlanError(msg)
-
-    def upload_workflow_code(self,
-                             training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow'
-                             ) -> str:
-
-        self._save_workflow_code_to_file(training_plan)
-
-        # # upload my_model_xxx.py on repository server (contains model definition)
-        # repo_response = self.repo.upload_file(self._training_plan_file)
-
-        # self._repository_args['training_plan_url'] = repo_response['file']
-
-        # training_plan_name = training_plan.__class__.__name__
-        # # (below) regex: matches a character not present among "^", "\", "."
-        # # characters at the end of string.
-        # self._repository_args['training_plan_class'] = training_plan_name
-
-        # # Validate fields in each argument
-        # self.validate_minimal_arguments(self._repository_args,
-        #                                 ['training_plan_url', 'training_plan_class'])
-
-        return self._training_plan_file
-
-    # def _get_model_params(self) -> Dict[str, Any]:
-    #     """Gets model parameters form the training plan.
-
-    #     Returns:
-    #         Model weights, as a dictionary mapping parameters' names to their value.
-    #     """
-    #     return self._training_plan.get_model_params()
-
-    # @staticmethod
-    # def validate_minimal_arguments(obj: dict, fields: Union[tuple, list]):
-    #     """ Validates a given dictionary by given mandatory fields.
-
-    #     Args:
-    #         obj: Object to be validated
-    #         fields: List of fields that should be present on the obj
-    #     """
-    #     for f in fields:
-    #         assert f in obj.keys(), f'Field {f} is required in object {obj}. Was not found.'
-    #         if 'url' in f:
-    #             assert validators.url(obj[f]), f'Url not valid: {f}'
-
-    
     @property
     def training_plan_file(self):
         return self._training_plan_file
@@ -222,6 +169,15 @@ class Job:
     @nodes.setter
     def nodes(self, nodes: dict):
         self._nodes = nodes
+
+    def _save_workflow_code_to_file(self,
+                                    training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow'
+    ) -> None:
+        try:
+           training_plan.save_code(self._training_plan_file)
+        except Exception as e:
+            msg = f"Cannot save the training plan to a local tmp dir : {str(e)}"
+            raise FedbiomedTrainingPlanError(msg)
 
     def check_training_plan_is_approved_by_nodes(self,
                                                  training_plan, 

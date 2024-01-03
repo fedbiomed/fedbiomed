@@ -68,17 +68,12 @@ class TrainingJob(Job):
         return self._aggregator_args
 
     def get_initialized_workflow_instance(self,
-                                          training_plan_path: str,
                                           training_plan_class: Union[Type[Callable], str],
                                           training_args: TrainingArgs,
                                           model_args: Optional[dict],
                                           ):
         skeleton_training_plan = self.get_default_constructed_workflow_instance(training_plan_class)
         self._save_workflow_code_to_file(skeleton_training_plan)
-        # training_plan = skeleton_training_plan.load_training_plan_from_file(
-        #     self._keep_files_dir,
-        #     self._training_plan_module,
-        #     skeleton_training_plan.__class__.__name__)
         skeleton_training_plan.post_init(model_args={} if model_args is None else model_args,
                                 training_args=training_args)
         return skeleton_training_plan

@@ -846,11 +846,6 @@ class Experiment(FederatedWorkflow):
         training_nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
         self._raise_for_missing_job_prerequities()
-        job = TrainingJob(reqs=self._reqs,
-                          nodes=training_nodes,
-                          keep_files_dir=self.experimentation_path())
-        job.upload_workflow_code(self._training_plan)
-        job.upload_parameters(self._training_plan)
         self._global_model = self._training_plan.get_model_params()
 
         self._aggregator.set_training_plan_type(self._training_plan.type())
@@ -873,6 +868,10 @@ class Experiment(FederatedWorkflow):
         # update node states when used node list has changed from one round to another
         self._update_nodes_states_agent(before_training=True)
         nodes_state_ids = self._node_state_agent.get_last_node_states()
+
+        job = TrainingJob(reqs=self._reqs,
+                          nodes=training_nodes,
+                          keep_files_dir=self.experimentation_path())
 
         replies = job.start_nodes_training_round(
             job_id=self._id,
