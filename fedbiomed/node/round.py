@@ -113,7 +113,7 @@ class Round:
         self._round = round_number
         self._biprime = None
         self._servkey = None
-        self._node_state_manager: NodeStateManager = NodeStatManager(environ['DB_PATH'])
+        self._node_state_manager: NodeStateManager = NodeStateManager(environ['DB_PATH'])
 
         self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
         atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
@@ -218,7 +218,7 @@ class Round:
     def run_model_training(
             self,
             secagg_arguments: Union[Dict, None] = None,
-    ) -> Dict[str, Any]:
+    ) -> Optional[Dict[str, Any]]:
         """Runs one round of model training
 
         Args:
