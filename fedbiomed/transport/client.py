@@ -4,6 +4,9 @@ import asyncio
 import abc
 import ssl
 import socket
+import time
+
+import json
 
 from dataclasses import dataclass
 
@@ -39,39 +42,6 @@ GRPC_CLIENT_CONN_RETRY_TIMEOUT = 2
 GRPC_CLIENT_TASK_REQUEST_TIMEOUT = 60
 
 
-def create_channel(
-    port: str,
-    host: str,
-    certificate: Optional[str] = None
-) -> grpc.Channel :
-    """ Create gRPC channel
-
-    Args:
-        ip: IP address of the channel
-        port: TCP port of the channel
-        certificate: certificate for secure channel, or None for unsecure channel
-
-    Returns:
-        gRPC connection channel
-    """
-    channel_options = [
-        ("grpc.max_send_message_length", 100 * 1024 * 1024),
-        ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-        ("grpc.keepalive_time_ms", 1000 * 2),
-        ("grpc.initial_reconnect_backoff_ms", 1000),
-        ("grpc.min_reconnect_backoff_ms", 500),
-        ("grpc.max_reconnect_backoff_ms", 2000),
-        # ('grpc.ssl_target_name_override', 'localhost') # ...
-    ]
-
-    if certificate is None:
-        channel = grpc.aio.insecure_channel(f"{host}:{port}", options=channel_options)
-    else:
-        channel = grpc.aio.secure_channel(f"{host}:{port}", certificate, options=channel_options)
-
-    return channel
-
-
 def is_server_alive(host: str, port: str):
     """Checks if the server is alive
 
@@ -84,6 +54,10 @@ def is_server_alive(host: str, port: str):
     address_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
     for family, socktype, protocol, _ , address in address_info:
         s = socket.socket(family, socktype, protocol)
+        # Need this timeout for the case where the server does not answer
+        # If not present, socket timeout increases and this function takes more
+        # than GRPC_CLIENT_CONN_RETRY_TIMEOUT to execute
+        s.settimeout(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
         try:
             s.connect(address)
         except socket.error:
@@ -161,11 +135,28 @@ class Channels:
         channel_options = [
             ("grpc.max_send_message_length", 100 * 1024 * 1024),
             ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-            ("grpc.keepalive_time_ms", 1000 * 2),
+            #
+            # Some references for configuring gRPC keepalive:
+            # https://github.com/grpc/proposal/blob/master/A8-client-side-keepalive.md
+            # https://github.com/grpc/proposal/blob/master/A9-server-side-conn-mgt.md
+            # https://github.com/grpc/grpc/blob/master/doc/keepalive.md
+            # https://github.com/grpc/grpc/blob/master/examples/python/keep_alive/greeter_client.py
+            # https://github.com/grpc/grpc/blob/master/examples/python/keep_alive/greeter_server.py
+            # https://www.evanjones.ca/grpc-is-tricky.html
+            # https://www.evanjones.ca/tcp-connection-timeouts.html
+            # Be sure to keep client-server configuration coherent
+            ("grpc.keepalive_time_ms", GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
+            ("grpc.keepalive_timeout_ms", 1000),
+            ("grpc.http2.max_pings_without_data", 0),
+            ("grpc.keepalive_permit_without_calls", 1),
+            #
             ("grpc.initial_reconnect_backoff_ms", 1000),
             ("grpc.min_reconnect_backoff_ms", 500),
             ("grpc.max_reconnect_backoff_ms", 2000),
             # ('grpc.ssl_target_name_override', 'localhost') # ...
+            ("grpc.enable_retries", 1),
+            #("grpc.service_config", service_config)
+
         ]
 
         if certificate is None:
@@ -259,6 +250,7 @@ class GrpcClient:
         """
 
         while True:
+            time_before = time.perf_counter()
             if is_server_alive(self._researcher.host, self._researcher.port):
                 # Gets server certificate before creating the channel
                 # This implementation assumes that the provided IP and PORT trusted
@@ -272,6 +264,8 @@ class GrpcClient:
                     bytes(ssl.get_server_certificate(
                         (self._researcher.host, self._researcher.port)),
                         'utf-8')
+                logger.info("Retrieved server certificate, ready to communicate with server.")
+
                 # Connect to channels and create stubs
                 await self._channels.connect()
 
@@ -280,7 +274,7 @@ class GrpcClient:
                 logger.info(
                     "Researcher server is not available, will retry connect in "
                     f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
-                await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                await asyncio.sleep(max(0, GRPC_CLIENT_CONN_RETRY_TIMEOUT - time.perf_counter() + time_before))
 
 
     def _on_status_change(self, status: ClientStatus) -> None:
@@ -388,6 +382,7 @@ class TaskListener(Listener):
                             "Researcher server is not available, will retry connect in "
                             f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                        await self._channels.connect()
 
                     case grpc.StatusCode.UNKNOWN:
                         self._on_status_change(ClientStatus.FAILED)
@@ -395,11 +390,13 @@ class TaskListener(Listener):
                                      f"bug on the researcher side: {exp}. Will retry connect in "
                                      f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                        await self._channels.connect()
                     case _:
                         self._on_status_change(ClientStatus.FAILED)
                         logger.error("Unhandled gRPC call status {exp.code()}. Exception: {exp}. Will retry connect in "
                                      f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                        await self._channels.connect()
 
             except Exception as exp:
                 self._on_status_change(ClientStatus.FAILED)
@@ -488,6 +485,7 @@ class Sender(Listener):
                             "Researcher server is not available, will retry connect in "
                             f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                        await self._channels.connect()
                         self._retry_count += 1
                     case grpc.StatusCode.UNKNOWN:
                         self._on_status_change(ClientStatus.FAILED)

@@ -4,6 +4,7 @@
 import copy
 import os
 import random
+import ipaddress
 
 from OpenSSL import crypto
 from typing import List, Union, Tuple, Optional, Dict
@@ -421,6 +422,19 @@ class CertificateManager:
         subject.commonName = cn
         subject.organizationName = on
         x509.set_issuer(subject)
+
+        extensions = []
+        try:
+            if ipaddress.ip_address(cn):
+                extensions.append(crypto.X509Extension(
+                    type_name=b'subjectAltName',
+                    critical=False,
+                    value=f'IP:{cn}'.encode('ASCII')))
+        except ValueError:
+            pass
+        if extensions:
+            x509.add_extensions(extensions)
+
         x509.gmtime_adj_notBefore(0)
         x509.gmtime_adj_notAfter(5 * 365 * 24 * 60 * 60)
         x509.set_pubkey(pkey)
