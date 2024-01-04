@@ -1459,7 +1459,7 @@ class Experiment(FederatedWorkflow):
             raise FedbiomedExperimentError(msg)
 
         for aggreg in aggregated_params.values():
-            aggreg['params'] = Serializer.load(aggreg['params_path'])
+            aggreg['params'] = Serializer.load(aggreg['params_path'])["model_weights"]
 
         return aggregated_params
 
