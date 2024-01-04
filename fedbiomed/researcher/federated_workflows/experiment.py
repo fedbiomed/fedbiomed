@@ -1214,6 +1214,11 @@ class Experiment(FederatedWorkflow):
         breakpoint_path, breakpoint_file_name = \
             choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
 
+        # save latest training plan to file
+        training_plan_module = 'model_' + str(uuid.uuid4())
+        self._training_plan_file = os.path.join(self.experimentation_path(), training_plan_module + '.py')
+        self.training_plan().save_code(self._training_plan_file)
+
         state = {
             'breakpoint_version': str(__breakpoints_version__),
             'training_data': self._fds.data(),
