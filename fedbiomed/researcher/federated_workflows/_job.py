@@ -157,7 +157,6 @@ class Job:
             'command': 'training-plan-status'
         })
 
-
         replied_nodes = []
         node_ids = data.node_ids()
 
@@ -186,69 +185,3 @@ class Job:
                                  while running your experiment. ")
 
         return replies
-
-    def save_state_breakpoint(self, job_id: str, breakpoint_path: str) -> dict:
-        """Creates current state of the job to be included in a breakpoint.
-
-        Includes creating links to files included in the job state.
-
-        Args:
-            breakpoint_path: path to the existing breakpoint directory
-
-        Returns:
-            Job's current state for breakpoint
-        """
-
-        # Note: some state is passed to __init__() thus is not managed
-        # as job state but as experiment state in current version
-        state = {
-            'researcher_id': self._researcher_id,
-            'job_id': job_id,
-            'training_replies': self._save_training_replies(self._training_replies)
-        }
-
-        state['model_params_path'] = create_unique_link(
-            breakpoint_path, 'aggregated_params_current', '.mpk',
-            os.path.join('../..', os.path.basename(state["model_params_path"]))
-        )
-
-        return state
-
-    def load_state_breakpoint(self, saved_state: Dict[str, Any]) -> None:
-        """Load breakpoints state for a Job from a saved state
-
-        Args:
-            saved_state: breakpoint content
-        """
-        # Reload the job and researched ids.
-        #self._id = saved_state.get('job_id')
-        self._researcher_id = saved_state.get('researcher_id')
-        # Reload the latest training replies.
-        self._training_replies = self._load_training_replies(
-            saved_state.get('training_replies', [])
-        )
-
-    @abstractmethod
-    def _save_training_replies(training_replies: Dict[int, Any]) -> List[List[Dict[str, Any]]]:
-        """Extracts a copy of `training_replies` and prepares it for saving in breakpoint
-
-        - strip unwanted fields
-        - structure as list/dict, so it can be saved with JSON
-
-        Args:
-            training_replies: training replies of already executed rounds of the job
-
-        Returns:
-            Extract from `training_replies` formatted for breakpoint
-        """
-
-    @abstractmethod
-    def _load_training_replies(bkpt_training_replies: List[List[dict]]) -> Dict[int, Any]:
-        """Reads training replies from a formatted breakpoint file, and build a job training replies data structure .
-
-        Args:
-            bkpt_training_replies: Extract from training replies saved in breakpoint
-
-        Returns:
-            Training replies of already executed rounds of the job
-        """

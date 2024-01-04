@@ -3,10 +3,7 @@
 
 """Code of the researcher. Implements the experiment orchestration"""
 
-import os
-import json
-import inspect
-import uuid
+import copy, inspect, json, os, uuid
 from re import findall
 from tabulate import tabulate
 from typing import Any, Dict, Optional, List, Tuple, Type, TypeVar, Union
@@ -1236,6 +1233,7 @@ class Experiment(FederatedWorkflow):
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
             'secagg': self._secagg.save_state_breakpoint(),
+            'training_replies': self.save_training_replies(),
         }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
@@ -1376,6 +1374,9 @@ class Experiment(FederatedWorkflow):
 
         bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan=training_plan)
         loaded_exp.set_aggregator(bkpt_aggregator)
+
+        # load training replies
+        loaded_exp.load_training_replies(saved_state.get("training_replies"))
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
@@ -1616,3 +1617,46 @@ class Experiment(FederatedWorkflow):
         # note: exceptions for `load_state_breakpoint` should be handled in training plan
 
         return object_instance
+
+    def save_training_replies(self) -> Dict[int, Dict[str, Any]]:
+        """Extracts a copy of `training_replies` and prepares it for saving in breakpoint
+
+        - strip unwanted fields
+        - structure as list/dict, so it can be saved with JSON
+
+        Args:
+            training_replies: training replies of already executed rounds of the job
+
+        Returns:
+            Extract from `training_replies` formatted for breakpoint
+        """
+        converted_training_replies = copy.deepcopy(self.training_replies())
+        for training_reply in converted_training_replies.values():
+            # we want to strip some fields for the breakpoint
+            for reply in training_reply.values():
+                reply.pop('params', None)
+        return converted_training_replies
+
+    def load_training_replies(self,
+                              bkpt_training_replies: Dict[int, Dict[str, Any]]) -> None:
+        """Reads training replies from a formatted breakpoint file, and build a job training replies data structure .
+
+        Args:
+            bkpt_training_replies: Extract from training replies saved in breakpoint
+
+        Returns:
+            Training replies of already executed rounds of the job
+        """
+        if not bkpt_training_replies:
+            logger.warning("No Replies has been found in this breakpoint")
+
+        rounds = set(bkpt_training_replies.keys())
+        for round_ in rounds:
+            # reload parameters from file params_path
+            for node in bkpt_training_replies[round_].values():
+                node["params"] = Serializer.load(node["params_path"])
+
+            bkpt_training_replies[int(round_)] = bkpt_training_replies[round_]
+            del bkpt_training_replies[round_]
+
+        self._training_replies = bkpt_training_replies
