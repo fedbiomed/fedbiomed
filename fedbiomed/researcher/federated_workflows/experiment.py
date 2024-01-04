@@ -39,7 +39,7 @@ from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions, \
     FederatedWorkflow, Type_TrainingPlan
-from fedbiomed.researcher.federated_workflows._training_job import TrainingJob
+from fedbiomed.researcher.federated_workflows.jobs._training_job import TrainingJob
 
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
 T = TypeVar("T")
@@ -129,9 +129,8 @@ class Experiment(FederatedWorkflow):
             secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
         """
-
-        # predefine all class variables, so no need to write try/except
-        # block each time we use it
+        # Set model args immediately, otherwise initialization of training plan fails in base constructor
+        self.set_model_args(model_args)
         super().__init__(
             tags,
             nodes,
@@ -155,9 +154,6 @@ class Experiment(FederatedWorkflow):
         self._server_state = None
         self._save_breakpoints = None
         self._training_replies: Dict = {}
-
-        # set self._model_args and self._training_args to dict
-        self.set_model_args(model_args)
 
         # set self._aggregator : type Aggregator
         self.set_aggregator(aggregator)
@@ -387,6 +383,12 @@ class Experiment(FederatedWorkflow):
         """
 
         return self._save_breakpoints
+
+    @exp_exceptions
+    def set_training_plan_class(self, training_plan_class: Union[Type_TrainingPlan, str, None]) -> \
+            Union[Type_TrainingPlan, str, None]:
+        super().set_training_plan_class(training_plan_class)
+        self.reset_model_parameters()
 
     # a specific getter-like
     @exp_exceptions

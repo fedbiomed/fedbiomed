@@ -3,7 +3,6 @@
 
 """Manage the training part of the experiment."""
 
-import copy
 import os
 import sys
 import time
@@ -16,10 +15,9 @@ from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
 from fedbiomed.researcher.requests import Requests, MessagesByNode
 
-from fedbiomed.researcher.federated_workflows._job import Job
+from fedbiomed.researcher.federated_workflows.jobs._job import Job
 
 
 class TrainingJob(Job):

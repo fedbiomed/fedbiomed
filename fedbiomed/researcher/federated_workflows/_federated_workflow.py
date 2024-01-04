@@ -13,12 +13,11 @@ from copy import deepcopy
 from re import findall
 from typing import Any, Dict, List, Type, TypeVar, Union, Optional
 import uuid
-from fedbiomed.common.message import TrainingPlanStatusRequest
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 
 from pathvalidate import sanitize_filename, sanitize_filepath
 
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus, JOB_PREFIX
+from fedbiomed.common.constants import ErrorNumbers, JOB_PREFIX
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError, FedbiomedError, FedbiomedJobError, FedbiomedSilentTerminationError
 )
@@ -32,8 +31,8 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import (
     create_exp_folder
 )
-from fedbiomed.researcher.federated_workflows._training_job import TrainingJob
-from fedbiomed.researcher.requests import Requests, DiscardOnTimeout
+from fedbiomed.researcher.federated_workflows.jobs import Job, TrainingPlanApprovalJob
+from fedbiomed.researcher.requests import Requests
 
 from fedbiomed.researcher.secagg import SecureAggregation
 
@@ -235,21 +234,22 @@ class FederatedWorkflow(ABC):
 
         # set self._experimentation_folder: type str
         self.set_experimentation_folder(experimentation_folder)
-        # Note: currently keep this parameter as it cannot be updated in Job()
-        # without refactoring Job() first
 
-        # sets self._training_plan_is_defined: bool == is the training plan properly defined ?
-        # with current version of jobs, a correctly defined model requires:
-        # - either training_plan_path to None + training_plan_class is the class a training plan
-        # - or training_plan_path not None + training_plan_class is a name (str) of a training plan
-        #
-        # note: no need to set self._training_plan_is_defined before calling `set_training_plan_class`
         self.set_training_plan_class(training_plan_class)
         self.set_training_plan_path(training_plan_path)
-        
+        self.reset_training_plan()
+
         # at this point self._fds is FederatedDataset or None (not a dict anymore)
         self._node_state_agent = NodeStateAgent(list(self._fds.data().keys())
                                                 if self._fds and self._fds.data() else [])
+
+    def reset_training_plan(self):
+        if self._training_plan_class is None:
+            self._training_plan = None
+        else:
+            job = Job(reqs=self._reqs,
+                      keep_files_dir=self.experimentation_path())
+            self._training_plan = job.get_default_constructed_tp_instance(self._training_plan_class)
 
     @property
     def secagg(self) -> SecureAggregation:
@@ -647,6 +647,8 @@ class FederatedWorkflow(ABC):
                          f'training_plan_class={self._training_plan_class} '
                          f'training_plan_class_path={self._training_plan_path}')
 
+        self.reset_training_plan()
+
         return self._training_plan_class
 
     @exp_exceptions
@@ -779,76 +781,20 @@ class FederatedWorkflow(ABC):
 
         return self._training_plan_file
 
-    # TODO: change format of returned data (during experiment results refactor ?)
-    # a properly defined structure/class instead of the generic responses
     @exp_exceptions
     def check_training_plan_status(self) -> Dict:
         """ Method for checking training plan status, ie whether it is approved or not by the nodes
 
         Returns:
             Training plan status for answering nodes
-
-        Raises:
-            FedbiomedExperimentError: bad argument type
         """
-        # at this point, self._job exists (initialized in constructor)
-        if self._job is None:
-            # cannot check training plan status if job not defined
-            msg = ErrorNumbers.FB412.value + \
-                  ', in method `check_training_plan_status` : no `job` defined for experiment'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        # always returns a `Responses()` object
-        responses = self._job.check_training_plan_is_approved_by_nodes(self.training_plan(),
-                                                                  self._id, self._fds)
-
+        job = TrainingPlanApprovalJob(reqs=self._reqs,
+                                      nodes=self.training_data().node_ids(),
+                                      keep_files_dir=self.experimentation_path())
+        responses = job.check_training_plan_is_approved_by_nodes(job_id=self._id,
+                                                                 training_plan=self.training_plan()
+                                                                 )
         return responses
-
-    def check_training_plan_is_approved_by_nodes(self) -> Dict:
-        """ Checks whether model is approved or not.
-
-        This method sends `training-plan-status` request to the nodes. It should be run before running experiment.
-        So, researchers can find out if their model has been approved
-
-        Returns:
-            A dict of `Message` objects indexed by node ID, one for each job's nodes
-        """
-
-        message = TrainingPlanStatusRequest(**{
-            'researcher_id': self._researcher_id,
-            'job_id': self._id,
-            'training_plan': self._training_plan.source(),
-            'command': 'training-plan-status'
-        })
-
-        node_ids = self._data.node_ids()
-
-        # Send message to each node that has been found after dataset search request
-        with self._reqs.send(message, node_ids, policies=[DiscardOnTimeout(5)]) as federated_req:
-            replies = federated_req.replies()
-
-            for node_id, reply in replies.items():
-                if reply.success is True:
-                    if reply.approval_obligation is True:
-                        if reply.status == TrainingPlanApprovalStatus.APPROVED.value:
-                            logger.info(f'Training plan has been approved by the node: {node_id}')
-                        else:
-                            logger.warning(f'Training plan has NOT been approved by the node: {node_id}.' +
-                                           f'Training plan status : {node_id}')
-                    else:
-                        logger.info(f'Training plan approval is not required by the node: {node_id}')
-                else:
-                    logger.warning(f"Node : {node_id} : {reply.msg}")
-
-        # Get the nodes that haven't replied training-plan-status request
-        non_replied_nodes = list(set(node_ids) - set(replies.keys()))
-        if non_replied_nodes:
-            logger.warning(f"Request for checking training plan status hasn't been replied \
-                             by the nodes: {non_replied_nodes}. You might get error \
-                                 while running your experiment. ")
-
-        return replies
 
     @exp_exceptions
     def training_plan_approve(self,
