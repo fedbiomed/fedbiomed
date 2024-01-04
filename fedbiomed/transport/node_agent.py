@@ -1,12 +1,13 @@
 from enum import Enum
-from typing import Optional, Dict, Callable, List
+from typing import Optional, Dict, Callable, Awaitable
+from datetime import datetime
 import copy
 import time
 
 import asyncio
 import grpc
 
-from fedbiomed.common.message import Message, ResearcherMessages
+from fedbiomed.common.message import Message, ResearcherMessages, OverlayMessage
 from fedbiomed.common.logger import logger
 
 # timeout in seconds for server to wait for a new task request from node before assuming node is disconnected
@@ -37,14 +38,18 @@ class NodeAgentAsync:
             self,
             id: str,
             loop: asyncio.AbstractEventLoop,
+            on_forward: Optional[Awaitable[None]],
     ) -> None:
         """Represent the client that connects to gRPC server
 
         Args:
             id: node unique ID
             loop: event loop
+            on_forward: Coroutine for handling overlay messages to forward unchanged to a node
         """
         self._id: str = id
+        self._on_forward = on_forward
+        self._last_request: Optional[datetime] = None
         self._replies = Replies()
         self._stopped_request_ids = []
         # Node should be active when it is first instantiated
@@ -92,7 +97,7 @@ class NodeAgentAsync:
 
             self._replies.pop(request_id, None)
 
-    def get_task(self) -> asyncio.coroutine:
+    def get_task(self) -> Awaitable[Message]:
         """Get tasks assigned by the main thread
 
         !!! note "Returns coroutine"
@@ -109,6 +114,16 @@ class NodeAgentAsync:
 
         message = ResearcherMessages.format_incoming_message(message)
 
+        # Handle overlay messages to relay to a node
+        if isinstance(message, OverlayMessage):
+            if asyncio.iscoroutinefunction(self._on_forward):
+                await self._on_forward(message)
+            else:
+                logger.warning(f"No function defined for handling overlay message received from {self._id}. "
+                               "Discard message.")
+            return
+
+        # Handle RequestReply messages for the researcher
         if not message.request_id:
             logger.error(f"Server received a reply from the client {self._id} that does " 
                          "not contains request id.")
@@ -161,7 +176,7 @@ class NodeAgentAsync:
         async with self._replies_lock:
             # update replies only for (1) request-response messages
             # (2) that are not yet registered as pending request
-            if message.request_id and message.request_id not in self._replies:
+            if hasattr(message, 'request_id') and message.request_id and message.request_id not in self._replies:
                 self._replies.update({
                     message.request_id: {'callback': on_reply, 'reply': None}
                 })
@@ -220,7 +235,6 @@ class NodeAgentAsync:
                 # TODO: empty the queue when becoming disconnected ?
 
 
-
 class NodeAgent(NodeAgentAsync):
 
     @property
@@ -263,16 +277,20 @@ class NodeAgent(NodeAgentAsync):
 class AgentStore:
     """Stores node agents"""
 
-    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(self,
+                 loop: asyncio.AbstractEventLoop,
+                 on_forward: Optional[Awaitable[None]]) -> None:
         """Constructor of the agent store
 
         Args:
             loop: asyncio event loop that research server runs. Agent store should use
                 same event loop for async operations
+            on_forward: Coroutine for handling overlay messages to forward unchanged to a node
         """
         self._node_agents: NodeAgent = {}
 
         self._loop = loop
+        self._on_forward = on_forward
 
         # protect read/write operations on self._node_agents
         self._store_lock = asyncio.Lock()
@@ -296,7 +314,7 @@ class AgentStore:
         async with self._store_lock:
             node = self._node_agents.get(node_id)
             if not node:
-                node = NodeAgent(id=node_id, loop=self._loop)
+                node = NodeAgent(id=node_id, loop=self._loop, on_forward=self._on_forward)
                 self._node_agents.update({node_id: node})
 
         return node
