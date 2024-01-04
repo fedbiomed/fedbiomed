@@ -862,8 +862,6 @@ class Experiment(FederatedWorkflow):
         # Collect auxiliary variables from the aggregates optimizer, if any.
         optim_aux_var = self._collect_optim_aux_var()
 
-        logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
-
         # update node states when used node list has changed from one round to another
         self._update_nodes_states_agent(before_training=True)
         nodes_state_ids = self._node_state_agent.get_last_node_states()
@@ -871,6 +869,8 @@ class Experiment(FederatedWorkflow):
         job = TrainingJob(reqs=self._reqs,
                           nodes=training_nodes,
                           keep_files_dir=self.experimentation_path())
+
+        logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
         self._training_replies[self._round_current] = job.start_nodes_training_round(
             job_id=self._id,
