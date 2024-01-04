@@ -33,7 +33,6 @@ from fedbiomed.researcher.filetools import create_unique_link, create_unique_fil
 from fedbiomed.researcher.requests import Requests, DiscardOnTimeout
 
 
-
 class Job:
     """
     Represents the entity that manage the training part at  the nodes level
@@ -64,24 +63,19 @@ class Job:
 
         """
 
-        #self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id
         self._researcher_id = environ['RESEARCHER_ID']
-        #self._repository_args = {}
-
 
         # List of node ID of the nodes used in the current round
         # - initially None (no current round yet)
         # - then updated during the round with the list of nodes to be used in the round, then the nodes
         #   that actually replied during the round
-        self._nodes : Optional[List[str]] = nodes
+        self._nodes: Optional[List[str]] = nodes
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
         else:
             self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
             atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
-            # executed when script ends running (replace
-            # `with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as self._keep_files_dir: `)
 
         if reqs is None:
             self._reqs = Requests()
@@ -94,14 +88,14 @@ class Job:
         self._training_plan_file = os.path.join(self._keep_files_dir, self._training_plan_module + '.py')
 
     def get_default_constructed_tp_instance(self,
-                                          training_plan_class: Type[Callable],
-                                          ) -> 'fedbiomed.common.training_plans.BaseTrainingPlan':
+                                            training_plan_class: Type[Callable],
+                                            ) -> 'fedbiomed.common.training_plans.BaseTrainingPlan':
 
         # create TrainingPlan instance
         training_plan = training_plan_class()  # contains TrainingPlan
 
         # save and load training plan to a file to be sure
-        # 1. a file is associated to training plan so we can read its source, etc.
+        # 1. a file is associated to training plan, so we can read its source, etc.
         # 2. all dependencies are applied
         training_plan_module = 'model_' + str(uuid.uuid4())
         training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
@@ -138,7 +132,7 @@ class Job:
                               training_plan: 'fedbiomed.common.training_plans.BaseTrainingPlan'
                               ) -> None:
         try:
-           training_plan.save_code(self._training_plan_file)
+            training_plan.save_code(self._training_plan_file)
         except Exception as e:
             msg = f"Cannot save the training plan to a local tmp dir : {str(e)}"
             raise FedbiomedTrainingPlanError(msg)
