@@ -1226,7 +1226,7 @@ class Experiment(FederatedWorkflow):
             'model_args': self._model_args,
             'training_plan_path': self._training_plan_file,  # only in Job we always model saved to a file
             # with current version
-            'training_plan_class': self._training_plan_class.__name__,
+            'training_plan_class_name': self._training_plan_class.__name__,
             # formatted in Experiment with current version
             'round_current': self._round_current,
             'round_limit': self._round_limit,
@@ -1339,8 +1339,8 @@ class Experiment(FederatedWorkflow):
 
         # Import TP class
         _, tp_class = import_class_from_file(
-            module_path = saved_state.get("training_plan_path"),
-            class_name = saved_state.get("training_plan_class_name")
+            module_path=saved_state.get("training_plan_path"),
+            class_name=saved_state.get("training_plan_class_name")
         )
 
         # initializing experiment
