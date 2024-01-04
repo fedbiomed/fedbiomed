@@ -25,7 +25,11 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
+from fedbiomed.common.utils import (
+    raise_for_version_compatibility,
+    __default_version__,
+    import_class_from_file
+)
 
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -1205,11 +1209,6 @@ class Experiment(FederatedWorkflow):
                 ' - need to define `strategy` for saving a breakpoint'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        elif self._job is None:
-            msg = ErrorNumbers.FB413.value + \
-                ' - need to define `job` for saving a breakpoint'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
 
             # conditions are met, save breakpoint
         breakpoint_path, breakpoint_file_name = \
@@ -1220,22 +1219,21 @@ class Experiment(FederatedWorkflow):
             'training_data': self._fds.data(),
             'training_args': self._training_args.dict(),
             'model_args': self._model_args,
-            'training_plan_path': self._job.training_plan_file,  # only in Job we always model saved to a file
+            'training_plan_path': self._training_plan_file,  # only in Job we always model saved to a file
             # with current version
-            'training_plan_class': self._job.training_plan_name,  # not always available properly
+            'training_plan_class': self._training_plan_class.__name__,
             # formatted in Experiment with current version
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
-            'aggregator': self._aggregator.save_state(breakpoint_path, global_model=self._global_model),  # aggregator state
+            'aggregator': self._aggregator.save_state_breakpoint(breakpoint_path, global_model=self._global_model),
             'agg_optimizer': self._save_optimizer(breakpoint_path),
-            'node_selection_strategy': self._node_selection_strategy.save_state(),
+            'node_selection_strategy': self._node_selection_strategy.save_state_breakpoint(),
             # strategy state
             'tags': self._tags,
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
-            'job': self._job.save_state(breakpoint_path),  # job state
-            'secagg': self._secagg.save_state(),
+            'secagg': self._secagg.save_state_breakpoint(),
         }
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
@@ -1245,7 +1243,7 @@ class Experiment(FederatedWorkflow):
             'model_' + str("{:04d}".format(self._round_current - 1)), '.py',
             # - Prefer relative path, eg for using experiment result after
             # experiment in a different tree
-            os.path.join('../..', os.path.basename(state["training_plan_path"]))
+            os.path.join('..', os.path.basename(state["training_plan_path"]))
         )
 
         # save state into a json file.
@@ -1334,6 +1332,12 @@ class Experiment(FederatedWorkflow):
         # retrieve breakpoint researcher optimizer
         bkpt_optim = cls._load_optimizer(saved_state.get("agg_optimizer"))
 
+        # Import TP class
+        _, tp_class = import_class_from_file(
+            module_path = saved_state.get("training_plan_path"),
+            class_name = saved_state.get("training_plan_class_name")
+        )
+
         # initializing experiment
         loaded_exp = cls(tags=saved_state.get('tags'),
                          nodes=None,  # list of previous nodes is contained in training_data
@@ -1341,13 +1345,12 @@ class Experiment(FederatedWorkflow):
                          agg_optimizer=bkpt_optim,
                          node_selection_strategy=bkpt_sampling_strategy,
                          round_limit=saved_state.get("round_limit"),
-                         training_plan_class=saved_state.get("training_plan_class"),
-                         training_plan_path=saved_state.get("training_plan_path"),
+                         training_plan_class=tp_class,
                          model_args=saved_state.get("model_args"),
                          training_args=saved_state.get("training_args"),
                          save_breakpoints=True,
                          experimentation_folder=saved_state.get('experimentation_folder'),
-                         secagg=SecureAggregation.load_state(saved_state.get('secagg')))
+                         secagg=SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
 
         # nota: we are initializing experiment with no aggregator: hence, by default,
         # `loaded_exp` will be loaded with FedAverage.
@@ -1372,9 +1375,6 @@ class Experiment(FederatedWorkflow):
 
         bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan=training_plan)
         loaded_exp.set_aggregator(bkpt_aggregator)
-
-        # changing `Job` attributes
-        loaded_exp._job.load_state(saved_state.get('job'))
 
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
         return loaded_exp
@@ -1534,7 +1534,8 @@ class Experiment(FederatedWorkflow):
 
     @staticmethod
     @exp_exceptions
-    def _create_object(args: Dict[str, Any], training_plan: Optional['FederatedPlan'] = None,
+    def _create_object(args: Dict[str, Any],
+                       training_plan: Optional['fedbiomed.common.training_plans.BaseTrainingPlan'] = None,
                        **object_kwargs: dict) -> Any:
         """
         Instantiate a class object from breakpoint arguments.
@@ -1607,16 +1608,10 @@ class Experiment(FederatedWorkflow):
             raise FedbiomedExperimentError(msg)
 
         # load breakpoint state for object
-        if "training_plan" in inspect.signature(object_instance.load_state).parameters:
-            object_instance.load_state(args, training_plan=training_plan)
+        if "training_plan" in inspect.signature(object_instance.load_state_breakpoint).parameters:
+            object_instance.load_state_breakpoint(args, training_plan=training_plan)
         else:
-            object_instance.load_state(args)
-        # note: exceptions for `load_state` should be handled in training plan
+            object_instance.load_state_breakpoint(args)
+        # note: exceptions for `load_state_breakpoint` should be handled in training plan
 
         return object_instance
-    
-    def load_state_breakpoint(self):
-        return super().load_state_breakpoint()
-
-    def save_state_breakpoint(self) -> Dict:
-        return super().save_state_breakpoint()
