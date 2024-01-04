@@ -116,42 +116,6 @@ class Job:
         _, training_plan = utils.import_class_object_from_file(
             training_plan_file, training_plan_class.__name__)
 
-        # # handle case when model is in a file
-        # if training_plan_path is not None:
-        #     try:
-        #         # import model from python file
-
-        #         model_module = os.path.basename(training_plan_path)
-        #         model_module = re.search("(.*)\.py$", model_module).group(1)
-        #         sys.path.insert(0, os.path.dirname(training_plan_path))
-
-        #         module = importlib.import_module(model_module)
-        #         tr_class = getattr(module, training_plan_class)
-        #         training_plan_class = tr_class
-        #         sys.path.pop(0)
-
-        #     except Exception as e:
-        #         e = sys.exc_info()
-        #         logger.critical(f"Cannot import class {training_plan_class} from "
-        #                         f"path {training_plan_path} - Error: {str(e)}")
-        #         sys.exit(-1)
-
-        # # check class is defined
-        # try:
-        #     _ = inspect.isclass(training_plan_class)
-        # except NameError:
-        #     mess = f"Cannot find training plan for Job, training plan class {training_plan_class} is not defined"
-        #     logger.critical(mess)
-        #     raise NameError(mess)
-
-        # # create/save TrainingPlan instance
-        # if inspect.isclass(training_plan_class):
-        #     training_plan = training_plan_class()  # contains TrainingPlan
-
-        # else:
-        #     training_plan = training_plan_class
-        # training_plan.configure_dependencies()
-
         return training_plan
 
     @property
