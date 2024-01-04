@@ -451,7 +451,7 @@ class Requests(metaclass=SingletonMeta):
             to the "approval queue" on the node side.
         """
 
-        training_plan_instance = training_plan()
+        training_plan_instance = training_plan
         training_plan_module = 'model_' + str(uuid.uuid4())
         with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmp_dir:
             training_plan_file = os.path.join(tmp_dir, training_plan_module + '.py')
@@ -463,7 +463,7 @@ class Requests(metaclass=SingletonMeta):
 
             try:
                 _, training_plan_instance = import_class_object_from_file(
-                    training_plan_file, training_plan.__name__)
+                    training_plan_file, training_plan.__class__.__name__)
                 tp_source = training_plan_instance.source()
             except Exception as e:
                 logger.error(f"Cannot instantiate the training plan: {e}")

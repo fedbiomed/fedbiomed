@@ -798,10 +798,7 @@ class FederatedWorkflow(ABC):
 
     @exp_exceptions
     def training_plan_approve(self,
-                              training_plan: 'BaseTrainingPlan',
-                              description: str = "no description provided",
-                              nodes: list = [],
-                              timeout: int = 5) -> dict:
+                              description: str = "no description provided") -> dict:
         """Send a training plan and a ApprovalRequest message to node(s).
 
         This is a simple redirect to the Requests.training_plan_approve() method.
@@ -826,10 +823,13 @@ class FederatedWorkflow(ABC):
             Warning: status does not mean that the training plan is approved, only that it has been added
             to the "approval queue" on the node side.
         """
-        return self._reqs.training_plan_approve(training_plan,
-                                                description,
-                                                nodes,
-                                                timeout)
+        job = TrainingPlanApprovalJob(reqs=self._reqs,
+                                      nodes=self.training_data().node_ids(),
+                                      keep_files_dir=self.experimentation_path())
+        responses = job.training_plan_approve(training_plan=self.training_plan(),
+                                              description=description,
+                                              )
+        return responses
 
     def secagg_setup(self):
         secagg_arguments = {}

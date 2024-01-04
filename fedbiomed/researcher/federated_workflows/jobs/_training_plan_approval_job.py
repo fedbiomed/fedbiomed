@@ -80,3 +80,9 @@ class TrainingPlanApprovalJob(Job):
 
         return replies
 
+    def training_plan_approve(self,
+                              training_plan: 'fedbiomed.common.training_plans.BaseTrainingPlan',
+                              description: str):
+        return self._reqs.training_plan_approve(training_plan,
+                                                description,
+                                                self.nodes)
