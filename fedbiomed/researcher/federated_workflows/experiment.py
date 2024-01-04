@@ -183,8 +183,7 @@ class Experiment(FederatedWorkflow):
         self._raise_for_missing_job_prerequities()
         job = TrainingJob(reqs=self._reqs,
                           keep_files_dir=self.experimentation_path())
-        self._training_plan = job.get_initialized_workflow_instance(self._training_plan_path,
-                                                                    self._training_plan_class,
+        self._training_plan = job.get_initialized_workflow_instance(self._training_plan_class,
                                                                     self._training_args,
                                                                     self._model_args)
         self._global_model = self._training_plan.after_training_params()
@@ -873,7 +872,7 @@ class Experiment(FederatedWorkflow):
                           nodes=training_nodes,
                           keep_files_dir=self.experimentation_path())
 
-        replies = job.start_nodes_training_round(
+        self._training_replies[self._round_current] = job.start_nodes_training_round(
             job_id=self._id,
             round_=self._round_current,
             training_plan=self._training_plan,
@@ -882,7 +881,6 @@ class Experiment(FederatedWorkflow):
             model_args=self._model_args,
             data=self._fds,
             nodes_state_ids=nodes_state_ids,
-            training_replies=self._training_replies,
             aggregator_args=aggregator_args,
             do_training=True,
             secagg_arguments=secagg_arguments,
@@ -895,8 +893,6 @@ class Experiment(FederatedWorkflow):
         # update node states with node answers + when used node list has changed during the round
         self._update_nodes_states_agent(before_training=False)
         
-        #self._training_replies[self._round_current] = replies
-
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
             self._training_replies[self._round_current], self._round_current)
@@ -961,7 +957,6 @@ class Experiment(FederatedWorkflow):
                                            model_args=self._model_args,
                                            data=self._fds,
                                            nodes_state_ids=nodes_state_ids,
-                                           training_replies=self._training_replies,
                                            aggregator_args=aggr_args,
                                            do_training=False)
 

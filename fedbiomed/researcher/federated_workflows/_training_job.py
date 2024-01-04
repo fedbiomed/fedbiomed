@@ -119,15 +119,14 @@ class TrainingJob(Job):
         # method coule be deleted cause with grpc there is no need to upload download parameters
         pass
 
-    def _get_training_testing_results(self, training_replies, replies, errors, round_, timer: Dict) -> None:
+    def _get_training_testing_results(self, replies, errors, timer: Dict) -> Dict:
         """"Waits for training replies
 
         Args:
-            round_: Training round
             timer: Stores time elapsed on the researcher side
         """
 
-        training_replies[round_] = {}
+        training_replies = {}
 
         # Loops over errors
         for node_id, error in errors.items():
@@ -152,13 +151,15 @@ class TrainingJob(Job):
             timing = reply.timing
             timing['rtime_total'] = rtime_total
 
-            training_replies[round_].update({
+            training_replies.update({
                 node_id: {
                     **reply.get_dict(),
                     'params_path': params_path,
                     'timing': timing,
                 }
             })
+
+        return training_replies
 
     def start_nodes_training_round(
         self,
@@ -170,12 +171,11 @@ class TrainingJob(Job):
         model_args: Optional[dict],
         data: FederatedDataSet,
         nodes_state_ids: Dict[str, str],
-        training_replies: Dict,
         aggregator_args: Dict[str, Dict[str, Any]],
         secagg_arguments: Union[Dict, None] = None,
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
-    ) -> List[str]:
+    ) -> Dict:
         """ Sends training request to nodes and waits for the responses
 
         Args:
@@ -219,15 +219,6 @@ class TrainingJob(Job):
         
         timer = {}
 
-        # update node states when used node list has changed from one round to another
-        #self._update_nodes_states_agent()
-        
-        # FIXME: should be part of a method called from Experiment
-        # (behaviour can be defined by user / changed by strategy)
-        #nodes_state_ids = self._node_state_agent.get_last_node_states()
-
-        #msg = {**headers, **self._repository_args}
-
         # Upload optimizer auxiliary variables, when there are.
         if do_training and optim_aux_var:
             aux_shared, aux_bynode = (
@@ -258,18 +249,12 @@ class TrainingJob(Job):
         with self._reqs.send(messages, self._nodes) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
-            self._get_training_testing_results(training_replies=training_replies,
-                                               replies=replies,
-                                               errors=errors,
-                                               round_=round_,
-                                               timer=timer)
-
-        # if do_training:
-        #     # update node states with node answers + when used node list has changed during the round
-        #     self._update_nodes_states_agent(before_training=False)
+            formatted_training_replies = self._get_training_testing_results(replies=replies,
+                                                                            errors=errors,
+                                                                            timer=timer)
 
         # return the list of nodes which answered because nodes in error have been removed
-        return self._nodes
+        return formatted_training_replies
     
     
     def _log_round_info(self, node: str, training: True) -> None:
