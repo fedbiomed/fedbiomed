@@ -193,25 +193,6 @@ class Job:
 
         return replies
 
-    # TODO: This method should change in the future or as soon as we implement other of strategies different
-    #   than DefaultStrategy
-
-    # def waiting_for_nodes(self, responses: Responses) -> bool:
-    #     """ Verifies if all nodes involved in the job are present and Responding
-
-    #     Args:
-    #         responses: contains message answers
-
-    #     Returns:
-    #         False if all nodes are present in the Responses object. True if waiting for at least one node.
-    #     """
-    #     try:
-    #         nodes_done = set(responses.dataframe()['node_id'])
-    #     except KeyError:
-    #         nodes_done = set()
-
-    #     return not nodes_done == set(self._nodes)
-
     def save_state_breakpoint(self, job_id: str, breakpoint_path: str) -> dict:
         """Creates current state of the job to be included in a breakpoint.
 
@@ -253,37 +234,6 @@ class Job:
             saved_state.get('training_replies', [])
         )
 
-    # def _update_nodes_states_agent(self, before_training: bool = True):
-    #     """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
-    #     state_id coming from `Nodes` contained among all `Nodes` within
-    #     [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
-
-    #     Args:
-    #         before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
-    #             - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
-    #             - if after, updates `NodeStateAgent` wrt latest [`Responses`][fedbiomed.researcher.responses.Responses]
-
-    #     Raises:
-    #         FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
-
-    #     """
-    #     # TODO: find a way to access to data
-        
-    #     if before_training:
-    #         self._node_state_agent.update_node_states(self._nodes)
-    #     else:
-    #         # extract last node state
-    #         # FIXME: for now we are only considering the case where we need last Round update,
-    #         # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
-    #         # previous Node replies)
-    #         try:
-    #             last_tr_entry = list(self.training_replies.keys())[-1]
-    #         except IndexError as ie:
-    #             raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
-    #                                                "replies form Node(s) has(ve) been recieved!") from ie
-
-    #         self._node_state_agent.update_node_states(node_ids, self.training_replies[last_tr_entry])
-            
     @abstractmethod
     def _save_training_replies(training_replies: Dict[int, Any]) -> List[List[Dict[str, Any]]]:
         """Extracts a copy of `training_replies` and prepares it for saving in breakpoint
