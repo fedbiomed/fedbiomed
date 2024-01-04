@@ -95,7 +95,7 @@ class Job:
 
       def get_default_constructed_tp_instance(self,
                                               training_plan_class: Type[Callable],
-                                              ) -> 'BaseTrainingPlan':
+                                              ) -> 'fedbiomed.common.training_plans.BaseTrainingPlan':
 
         # create TrainingPlan instance
         training_plan = training_plan_class()  # contains TrainingPlan
@@ -134,9 +134,9 @@ class Job:
     def nodes(self, nodes: dict):
         self._nodes = nodes
 
-    def _save_workflow_code_to_file(self,
-                                    training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow'
-    ) -> None:
+    def _save_tp_code_to_file(self,
+                              training_plan: 'fedbiomed.common.training_plans.BaseTrainingPlan'
+                              ) -> None:
         try:
            training_plan.save_code(self._training_plan_file)
         except Exception as e:
