@@ -1224,17 +1224,14 @@ class Experiment(FederatedWorkflow):
             'training_data': self._fds.data(),
             'training_args': self._training_args.dict(),
             'model_args': self._model_args,
-            'training_plan_path': self._training_plan_file,  # only in Job we always model saved to a file
-            # with current version
+            'training_plan_path': self._training_plan_file,
             'training_plan_class_name': self._training_plan_class.__name__,
-            # formatted in Experiment with current version
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'experimentation_folder': self._experimentation_folder,
             'aggregator': self._aggregator.save_state_breakpoint(breakpoint_path, global_model=self._global_model),
             'agg_optimizer': self._save_optimizer(breakpoint_path),
             'node_selection_strategy': self._node_selection_strategy.save_state_breakpoint(),
-            # strategy state
             'tags': self._tags,
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
@@ -1251,8 +1248,7 @@ class Experiment(FederatedWorkflow):
             os.path.join('..', os.path.basename(state["training_plan_path"]))
         )
 
-        # save state into a json file.
-
+        # save state into a json file
         breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
         try:
             with open(breakpoint_file_path, 'w') as bkpt:
