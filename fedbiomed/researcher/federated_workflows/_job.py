@@ -93,9 +93,9 @@ class Job:
         self._training_plan_module = 'my_model_' + str(uuid.uuid4())
         self._training_plan_file = os.path.join(self._keep_files_dir, self._training_plan_module + '.py')
 
-      def get_default_constructed_tp_instance(self,
-                                              training_plan_class: Type[Callable],
-                                              ) -> 'fedbiomed.common.training_plans.BaseTrainingPlan':
+    def get_default_constructed_tp_instance(self,
+                                          training_plan_class: Type[Callable],
+                                          ) -> 'fedbiomed.common.training_plans.BaseTrainingPlan':
 
         # create TrainingPlan instance
         training_plan = training_plan_class()  # contains TrainingPlan
