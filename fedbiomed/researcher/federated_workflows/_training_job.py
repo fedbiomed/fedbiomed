@@ -72,7 +72,7 @@ class TrainingJob(Job):
                                           training_args: TrainingArgs,
                                           model_args: Optional[dict],
                                           ):
-        skeleton_training_plan = self.get_default_constructed_workflow_instance(training_plan_class)
+        skeleton_training_plan = self.get_default_constructed_tp_instance(training_plan_class)
         self._save_workflow_code_to_file(skeleton_training_plan)
         skeleton_training_plan.post_init(model_args={} if model_args is None else model_args,
                                 training_args=training_args)
