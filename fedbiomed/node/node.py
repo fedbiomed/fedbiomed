@@ -98,6 +98,11 @@ class Node:
                 self.add_task(request)
             elif command == 'secagg-delete':
                 self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
+            elif command == 'overlay-forward':
+                # TODO: implement payload for overlay
+                #
+                logger.info(f"RECEIVED OVERLAY MESSAGE {msg}")
+                #
             elif command == 'ping':
                 self._grpc_client.send(
                     NodeMessages.format_outgoing_message(
@@ -121,6 +126,21 @@ class Node:
                      'researcher_id': msg['researcher_id'],
                      'databases': databases,
                      'count': len(databases)}))
+
+                # TODO: remove, temporary test
+                #
+                for tag in msg['tags']:
+                    m = NodeMessages.format_outgoing_message(
+                        {
+                            'researcher_id': msg['researcher_id'],
+                            'node_id': environ['NODE_ID'],
+                            'dest_node_id': tag,
+                            'overlay': f"DUMMY OVERLAY from {environ['NODE_ID']}",
+                            'command': 'overlay-send'
+                        })
+                    print(f"SENDING OVERLAY message to {tag}: {m}")
+                    self._grpc_client.send(m)
+                #
 
             elif command == 'list':
                 # Get list of all datasets
