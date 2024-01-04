@@ -17,7 +17,8 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage
+from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage, \
+    OverlayMessage, OverlaySend, ResearcherMessages
 from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 
@@ -126,7 +127,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                 # Deserialize message
                 message = Serializer.loads(reply)
 
-                # Replies are handles by node agent callbacks
+                # Replies are handled by node agent callbacks
                 node = await self._agent_store.get(message["node_id"])
                 await node.on_reply(message)
 
@@ -227,7 +228,7 @@ class _GrpcAsyncServer:
             ])
 
         self._loop = asyncio.get_running_loop()
-        self._agent_store = AgentStore(loop=self._loop)
+        self._agent_store = AgentStore(loop=self._loop, on_forward=self._on_forward)
 
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(
@@ -258,13 +259,38 @@ class _GrpcAsyncServer:
             if self._debug:
                 logger.debug("Done starting the server")
 
+    async def _on_forward(self, message: OverlayMessage) -> None:
+        """Handle overlay messages received by the server by forwarding them to the destination node.
 
-    async def send(self, message: Message, node_id: str) -> None:
+        Args:
+            message: Message to forward
+        """
+        logger.info(f"RECEIVED OVERLAY MESSAGE {self} {self.send} {message}")
+        if not isinstance(message, OverlaySend):
+            logger.warning(f"Unexpected overlay message received by researcher. Discard message.")
+            return
+
+        # Prepare overlay forward message
+        m = message.get_dict()
+        message_forward = ResearcherMessages.format_outgoing_message({
+            'researcher_id': m['researcher_id'],
+            'dest_node_id': m['dest_node_id'],
+            'overlay': m['overlay'],
+            'command': 'overlay-forward',
+        })
+
+        # caveat: if using `self.send()` it uses `GrpcServer.send()`
+        await _GrpcAsyncServer.send(self, message_forward, m['dest_node_id'], True)
+
+
+    async def send(self, message: Message, node_id: str, is_forward: bool = False) -> None:
         """Send given message to a given client
 
         Args:
             message: Message to broadcast
             node_id: unique ID of node
+            is_forward: False for a message originating from the researcher,
+                True for an overlay message only forwarded by the researcher
         """
 
         agent = await self._agent_store.get(node_id)
@@ -273,7 +299,7 @@ class _GrpcAsyncServer:
             logger.info(f"Node {node_id} is not registered on server. Discard message.")
             return
 
-        await agent.send_async(message)
+        await agent.send_async(message, is_forward=is_forward)
 
 
     async def broadcast(self, message: Message) -> None:

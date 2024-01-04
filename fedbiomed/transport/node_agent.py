@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional, Dict, Callable
+from typing import Optional, Dict, Callable, Awaitable
 from datetime import datetime
 import copy
 from threading import Event
@@ -7,7 +7,7 @@ from threading import Event
 import asyncio
 import grpc
 
-from fedbiomed.common.message import Message, ResearcherMessages
+from fedbiomed.common.message import Message, ResearcherMessages, OverlayMessage
 from fedbiomed.common.logger import logger
 
 # timeout in seconds for server to wait for a new task request from node before assuming node is disconnected
@@ -38,14 +38,17 @@ class NodeAgentAsync:
             self,
             id: str,
             loop: asyncio.AbstractEventLoop,
+            on_forward: Optional[Awaitable[None]],
     ) -> None:
         """Represent the client that connects to gRPC server
 
         Args:
             id: node unique ID
             loop: event loop
+            on_forward: Coroutine for handling overlay messages to forward unchanged to a node
         """
         self._id: str = id
+        self._on_forward = on_forward
         self._last_request: Optional[datetime] = None
         self._replies = Replies()
         self._stopped_request_ids = []
@@ -98,7 +101,7 @@ class NodeAgentAsync:
 
             self._replies.pop(request_id, None)
 
-    def get_task(self) -> asyncio.coroutine:
+    def get_task(self) -> Awaitable[Message]:
         """Get tasks assigned by the main thread
 
         !!! note "Returns coroutine"
@@ -114,6 +117,16 @@ class NodeAgentAsync:
 
         message = ResearcherMessages.format_incoming_message(message)
 
+        # Handle overlay messages to relay to a node
+        if isinstance(message, OverlayMessage):
+            if asyncio.iscoroutinefunction(self._on_forward):
+                await self._on_forward(message)
+            else:
+                logger.warning(f"No function defined for handling overlay message received from {self._id}. "
+                               "Discard message.")
+            return
+
+        # Handle RequestReply messages for the researcher
         if not message.request_id:
             logger.error(f"Server received a reply from the client {self._id} that does " 
                          "not contains request id.")
@@ -138,7 +151,7 @@ class NodeAgentAsync:
                         logger.warning(f"Received a reply from an unexpected request: {message.request_id}")
 
 
-    async def send_async(self, message: Message, on_reply: Optional[Callable] = None) -> None:
+    async def send_async(self, message: Message, on_reply: Optional[Callable] = None, is_forward: bool = False) -> None:
         """Async function send message to researcher.
 
         Args:
@@ -157,12 +170,16 @@ class NodeAgentAsync:
                             "this node to convert it as ACTIVE. Node will be updated "
                             "as DISCONNECTED soon if no request received.")
 
-        # Updates replies
-        async with self._replies_lock:
-            if message.request_id:
-                self._replies.update({
-                    message.request_id: {'callback': on_reply, 'reply': None}
-                })
+        # Updates replies (not for forwarded messages)
+        #
+        # Note: as forwarded messages don't have a `request_id` currently we could omit this test
+        # but this is less future proof as it make an assumption on the OverlaySend message content
+        if is_forward is False:
+            async with self._replies_lock:
+                if message.request_id:
+                    self._replies.update({
+                        message.request_id: {'callback': on_reply, 'reply': None}
+                    })
 
         await self._queue.put(message)
 
@@ -245,7 +262,6 @@ class NodeAgentAsync:
                 # TODO: empty the queue when becoming disconnected ?
 
 
-
 class NodeAgent(NodeAgentAsync):
 
     @property
@@ -288,16 +304,20 @@ class NodeAgent(NodeAgentAsync):
 class AgentStore:
     """Stores node agents"""
 
-    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+    def __init__(self,
+                 loop: asyncio.AbstractEventLoop,
+                 on_forward: Optional[Awaitable[None]]) -> None:
         """Constructor of the agent store
 
         Args:
             loop: asyncio event loop that research server runs. Agent store should use
                 same event loop for async operations
+            on_forward: Coroutine for handling overlay messages to forward unchanged to a node
         """
         self._node_agents: NodeAgent = {}
 
         self._loop = loop
+        self._on_forward = on_forward
 
         # protect read/write operations on self._node_agents
         self._store_lock = asyncio.Lock()
@@ -323,7 +343,7 @@ class AgentStore:
         async with self._store_lock:
             node = self._node_agents.get(node_id)
             if not node:
-                node = NodeAgent(id=node_id, loop=self._loop)
+                node = NodeAgent(id=node_id, loop=self._loop, on_forward=self._on_forward)
                 self._node_agents.update({node_id: node})
 
         node.set_context(context)

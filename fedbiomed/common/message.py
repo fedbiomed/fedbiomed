@@ -204,11 +204,18 @@ class ProtoSerializableMessage(Message):
     pass
 
 
-
 @dataclass(kw_only=True)
 class RequestReply(Message):
     """Common attribute for Request and Reply Message"""
     request_id: Optional[str] = None
+
+
+@dataclass(kw_only=True)
+class OverlayMessage(Message):
+    """Parent class of messages for handling overlay trafic"""
+
+    # Note: we could declare here common parameters to OverLaySend OverlayForward
+    # but it's nice to keep them as separate messages
 
 
 @dataclass(kw_only=True)
@@ -221,7 +228,6 @@ class RequiresProtocolVersion:
 
     # Adds default protocol version thanks to `kw_oly  True`
     protocol_version: str = str(__messaging_protocol_version__)
-
 
 
 # --- gRPC messages --------------------------------------------------------------------------------
@@ -483,6 +489,52 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
     status: str
     msg: str
     training_plan: str
+    command: str
+
+# Overlay messages
+
+
+@catch_dataclass_exception
+@dataclass
+class OverlaySend(OverlayMessage, RequiresProtocolVersion):
+    """Describes an overlay message sent by a node to the relay researcher
+
+    Attributes:
+        dest_node_id: Id of the destination node of the overlay message
+        overlay: payload of the message to be forwarded unchanged to the destination node
+        command: Command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str  # Needed for node side message handling
+    node_id: str        # Needed for server side message handling
+    dest_node_id: str
+    overlay: str
+    # TODO: change to a byte sequence of encrypted
+    # consider sign-encrypt-sign or other see https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
+    command: str
+
+
+@catch_dataclass_exception
+@dataclass
+class OverlayForward(OverlayMessage, RequiresProtocolVersion):
+    """Describes an overlay message forwarded by a researcher to the destination node
+
+    Attributes:
+        dest_node_id: Id of the destination node of the overlay message
+        overlay: payload of the message to be forwarded unchanged to the destination node
+        command: Command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str  # Needed for node side message handling
+    # source node_id is not needed on node, should use the node_id from encapsulated message
+    dest_node_id: str
+    overlay: str
+    # TODO: change to a byte sequence of encrypted
+    # consider sign-encrypt-sign or other see https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
     command: str
 
 
@@ -832,7 +884,8 @@ class ResearcherMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
-                                          'secagg-delete': SecaggDeleteReply
+                                          'secagg-delete': SecaggDeleteReply,
+                                          'overlay-send': OverlaySend,
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
@@ -842,7 +895,8 @@ class ResearcherMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusRequest,
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
-                                          'secagg-delete': SecaggDeleteRequest
+                                          'secagg-delete': SecaggDeleteRequest,
+                                          'overlay-forward': OverlayForward,
                                           }
 
 
@@ -858,7 +912,8 @@ class NodeMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusRequest,
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
-                                          'secagg-delete': SecaggDeleteRequest
+                                          'secagg-delete': SecaggDeleteRequest,
+                                          'overlay-forward': OverlayForward,
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
@@ -870,5 +925,6 @@ class NodeMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
-                                          'secagg-delete': SecaggDeleteReply
+                                          'secagg-delete': SecaggDeleteReply,
+                                          'overlay-send': OverlaySend,
                                           }
