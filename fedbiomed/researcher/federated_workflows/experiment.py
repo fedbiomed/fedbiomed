@@ -375,6 +375,7 @@ class Experiment(TrainingPlanWorkflow):
             Union[Type_TrainingPlan, str, None]:
         super().set_training_plan_class(training_plan_class)
         self.reset_model_parameters()
+        return self._training_plan_class
 
     # a specific getter-like
     @exp_exceptions
