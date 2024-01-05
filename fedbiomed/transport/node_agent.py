@@ -109,7 +109,7 @@ class NodeAgentAsync:
         """
         return self._queue.get()
 
-    async def on_reply(self, message: Dict):
+    async def on_reply(self, message: Dict) -> None:
         """Callback to execute each time new reply received from the node"""
 
         message = ResearcherMessages.format_incoming_message(message)

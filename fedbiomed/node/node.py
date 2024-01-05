@@ -99,7 +99,7 @@ class Node:
             elif command == 'secagg-delete':
                 self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
             elif command == 'overlay-forward':
-                # TODO: implement payload for overlay
+                # TODO: implement payload for overlay in sub-function
                 #
                 logger.info(f"RECEIVED OVERLAY MESSAGE {msg}")
                 #
@@ -139,6 +139,7 @@ class Node:
                             'command': 'overlay-send'
                         })
                     print(f"SENDING OVERLAY message to {tag}: {m}")
+                    # consider encrypt-sign([message,node_id]) or other see https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
                     self._grpc_client.send(m)
                 #
 
