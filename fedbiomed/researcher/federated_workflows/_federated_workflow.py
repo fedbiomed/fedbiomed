@@ -1,49 +1,27 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Code of the researcher. Implements the experiment orchestration"""
-
+import functools, os, sys, traceback, uuid
 from abc import ABC, abstractmethod
-import functools
-import os
-import sys
-import inspect
-import traceback
 from copy import deepcopy
+from pathvalidate import sanitize_filename
 from re import findall
-from typing import Any, Dict, List, Type, TypeVar, Union, Optional
-import uuid
-from fedbiomed.researcher.node_state_agent import NodeStateAgent
-
-from pathvalidate import sanitize_filename, sanitize_filepath
+from typing import Any, Dict, List, TypeVar, Union
 
 from fedbiomed.common.constants import ErrorNumbers, JOB_PREFIX
-from fedbiomed.common.exceptions import (
-    FedbiomedExperimentError, FedbiomedError, FedbiomedJobError, FedbiomedSilentTerminationError
-)
+from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.common.utils import is_ipython
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.filetools import (
-    create_exp_folder
-)
-from fedbiomed.researcher.federated_workflows.jobs import Job, TrainingPlanApprovalJob
+from fedbiomed.researcher.filetools import create_exp_folder
+from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.requests import Requests
-
 from fedbiomed.researcher.secagg import SecureAggregation
 
 TFederatedWorkflow = TypeVar("TFederatedWorkflow", bound='FederatedWorkflow')  # only for typing
-
-# for checking class passed to experiment
-# TODO : should we move this to common/constants.py ?
-training_plans_types = (TorchTrainingPlan, SKLearnTrainingPlan)
-# for typing only
-TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
-Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
 
 
 # Exception handling at top lever for researcher
@@ -119,8 +97,6 @@ class FederatedWorkflow(ABC):
             tags: Union[List[str], str, None] = None,
             nodes: Union[List[str], None] = None,
             training_data: Union[FederatedDataSet, dict, None] = None,
-            training_plan_class: Union[Type_TrainingPlan, str, None] = None,
-            training_plan_path: Union[str, None] = None,
             training_args: Union[TrainingArgs, dict, None] = None,
             experimentation_folder: Union[str, None] = None,
             secagg: Union[bool, SecureAggregation] = False,
@@ -190,28 +166,14 @@ class FederatedWorkflow(ABC):
             FedbiomedJobError: cannot save training plan to file
         
         """
-        
-        # Check arguments
-        if not inspect.isclass(training_plan_class):
-            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` {type(training_plan_class)}"
-            raise FedbiomedJobError(msg)
-
-        if not issubclass(training_plan_class, training_plans_types):
-            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
-                  f" supported training plans {training_plans_types}"
-            raise FedbiomedJobError(msg)
-
         # predefine all class variables, so no need to write try/except
         # block each time we use it
         self._fds = None
-        self._training_plan_path = None
-        self._training_plan = None
         self._reqs = None
         self._training_args = None
         self._tags = None
         self._experimentation_folder = None
         self._secagg = None
-        self._training_plan_file: Optional[str] = None
         self._node_state_agent: NodeStateAgent = None
         self._researcher_id = environ['RESEARCHER_ID']
         self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id # TO BE RENAMED
@@ -235,21 +197,9 @@ class FederatedWorkflow(ABC):
         # set self._experimentation_folder: type str
         self.set_experimentation_folder(experimentation_folder)
 
-        self.set_training_plan_class(training_plan_class)
-        self.set_training_plan_path(training_plan_path)
-        self.reset_training_plan()
-
         # at this point self._fds is FederatedDataset or None (not a dict anymore)
         self._node_state_agent = NodeStateAgent(list(self._fds.data().keys())
                                                 if self._fds and self._fds.data() else [])
-
-    def reset_training_plan(self):
-        if self._training_plan_class is None:
-            self._training_plan = None
-        else:
-            job = Job(reqs=self._reqs,
-                      keep_files_dir=self.experimentation_path())
-            self._training_plan = job.get_default_constructed_tp_instance(self._training_plan_class)
 
     @property
     def secagg(self) -> SecureAggregation:
@@ -320,34 +270,6 @@ class FederatedWorkflow(ABC):
         return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
 
     @exp_exceptions
-    def training_plan_class(self) -> Union[Type_TrainingPlan, str, None]:
-        """Retrieves the training plan (training plan class) that is created for training.
-
-        Please see also [`set_training_plan_class`][fedbiomed.researcher.experiment.Experiment.set_training_plan_class].
-
-        Returns:
-            Training plan class as one of [`Type_TrainingPlan`][fedbiomed.researcher.experiment.Type_TrainingPlan]. None
-                if it isn't declared yet. [`str`][str] if [`training_plan_path`]
-                [fedbiomed.researcher.experiment.Experiment.training_plan_path]that represents training plan class
-                created externally is provided.
-        """
-
-        return self._training_plan_class
-
-    @exp_exceptions
-    def training_plan_path(self) -> Union[str, None]:
-        """Retrieves training plan path where training plan class is saved as python script externally.
-
-        Please see also [`set_training_plan_path`][fedbiomed.researcher.experiment.Experiment.set_training_plan_path].
-
-        Returns:
-            Path to python script (`.py`) where training plan class (training plan) is created. None if it isn't
-                declared yet.
-        """
-
-        return self._training_plan_path
-
-    @exp_exceptions
     def training_args(self) -> dict:
         """Retrieves training arguments.
 
@@ -362,23 +284,6 @@ class FederatedWorkflow(ABC):
 
         return self._training_args.dict()
 
-    @exp_exceptions
-    def training_plan(self) -> Union[TrainingPlan, None]:
-        """ Retrieves training plan instance that has been built and send the nodes through HTTP restfull service
-        for each round of training.
-
-        !!! info "Loading aggregated parameters"
-            After retrieving the training plan instance aggregated parameters should be loaded.
-            Example:
-            ```python
-            training_plan = exp.training_plan()
-            training_plan.model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
-            ```
-
-        Returns plan object which is an instance one of [training_plans][fedbiomed.common.training_plans].
-        """
-        return self._training_plan
-    
     @property
     def id(self):
         return self._id
@@ -588,122 +493,6 @@ class FederatedWorkflow(ABC):
         return self._experimentation_folder
 
     @exp_exceptions
-    def set_training_plan_class(self, training_plan_class: Union[Type_TrainingPlan, str, None]) -> \
-            Union[Type_TrainingPlan, str, None]:
-        """Sets  `training_plan` + verification on arguments type
-
-        Args:
-            training_plan_class: name of the training plan class (`str`) or training plan class as one
-                of [`TrainingPlans`] [fedbiomed.common.training_plans] to use for training.
-                For experiment to be properly and fully defined `training_plan_class` needs to be:
-                    - a `str` when `training_plan_path` is not None (training plan class comes from a file).
-                    - a `Type_TrainingPlan` when `training_plan_path` is None (training plan class passed
-                    as argument).
-
-        Returns:
-            `training_plan_class` that is set for experiment
-
-        Raises:
-            FedbiomedExperimentError : bad training_plan_class type
-        """
-        if training_plan_class is None:
-            self._training_plan_class = None
-            self._training_plan_is_defined = False
-        elif isinstance(training_plan_class, str):
-            if str.isidentifier(training_plan_class):
-                # correct python identifier
-                self._training_plan_class = training_plan_class
-                # training_plan_class_path may not be defined at this point
-
-                self._training_plan_is_defined = isinstance(self._training_plan_path, str)
-
-            else:
-                # bad identifier
-                msg = ErrorNumbers.FB410.value + f' `training_plan_class` : {training_plan_class} bad identifier'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-        elif inspect.isclass(training_plan_class):
-            # training_plan_class must be a subclass of a valid training plan
-            if issubclass(training_plan_class, training_plans_types):
-                # valid class
-                self._training_plan_class = training_plan_class
-                # training_plan_class_path may not be defined at this point
-
-                self._training_plan_is_defined = self._training_plan_path is None
-            else:
-                # bad class
-                msg = ErrorNumbers.FB410.value + f' `training_plan_class` : {training_plan_class} class'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-        else:
-            # bad type
-            msg = ErrorNumbers.FB410.value + f' `training_plan_class` of type: {type(training_plan_class)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-            # self._training_plan_is_defined and self._training_plan_class always exist at this point
-        if not self._training_plan_is_defined:
-            logger.debug(f'Experiment not fully configured yet: no valid training plan, '
-                         f'training_plan_class={self._training_plan_class} '
-                         f'training_plan_class_path={self._training_plan_path}')
-
-        self.reset_training_plan()
-
-        return self._training_plan_class
-
-    @exp_exceptions
-    def set_training_plan_path(self, training_plan_path: Union[str, None]) -> Union[str, None]:
-        """Sets `training_plan_path` + verification on arguments type.
-
-        Training plan path is the path where training plan class is saved as python script/module externally.
-
-        Args:
-            training_plan_path (Union[str, None]) : path to a file containing  training plan code (`str`) or None
-                (no file containing training plan code, `training_plan` needs to be a class matching one
-                of [`training_plans`][fedbiomed.common.training_plans]
-
-        Returns:
-            The path that is set for retrieving module where training plan class is defined
-
-        Raises:
-            FedbiomedExperimentError : bad training_plan_path type
-        """
-        # self._training_plan and self._training_plan_is_defined already exist when entering this function
-
-        if training_plan_path is None:
-            self._training_plan_path = None
-            # .. so training plan is defined if it is a class (+ then, it has been tested as valid)
-            self._training_plan_is_defined = inspect.isclass(self._training_plan_class)
-        elif isinstance(training_plan_path, str):
-            if sanitize_filepath(training_plan_path, platform='auto') == training_plan_path \
-                    and os.path.isfile(training_plan_path):
-                # provided training plan path is a sane path to an existing file
-                self._training_plan_path = training_plan_path
-                # if providing a training plan path, we expect a training plan class name (not a class)
-                self._training_plan_is_defined = isinstance(self._training_plan_class, str)
-            else:
-                # bad filepath
-                msg = ErrorNumbers.FB410.value + \
-                      f' `training_plan_path` : {training_plan_path} is not a path to an existing file'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-        else:
-            # bad type
-            msg = ErrorNumbers.FB410.value + ' `training_plan_path` must be string, ' \
-                                             f'but got type: {type(training_plan_path)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        # self._training_plan_path is also defined at this point
-        if not self._training_plan_is_defined:
-            logger.debug(f'Experiment not fully configured yet: no valid training plan, '
-                         f'training_plan={self._training_plan_class} training_plan_path={self._training_plan_path}')
-
-        return self._training_plan_path
-
-    # TODO: training_args need checking of dict items, to be done by Job and node
-    # (using a training plan method ? changing `training_routine` prototype ?)
-    @exp_exceptions
     def set_training_args(self, training_args: dict, reset: bool = True) -> dict:
         """ Sets `training_args` + verification on arguments type
 
@@ -742,94 +531,6 @@ class FederatedWorkflow(ABC):
             raise FedbiomedExperimentError(msg)
 
         return self._secagg
-
-    # Training plan checking functions
-    @exp_exceptions
-    def training_plan_file(self, display: bool = True) -> str:
-        """ This method displays saved final training plan for the experiment
-            that will be sent to the nodes for training.
-
-        Args:
-            display: If `True`, prints content of the training plan file. Default is `True`
-
-        Returns:
-            Path to training plan file
-
-        Raises:
-            FedbiomedExperimentError: bad argument type, or cannot read training plan file content
-        """
-        if not isinstance(display, bool):
-            # bad type
-            msg = ErrorNumbers.FB410.value + \
-                  f', in method `training_plan_file` param `display` : type {type(display)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        # Display content so researcher can copy
-        try:
-            if display:
-                with open(self._training_plan_file) as file:
-                    content = file.read()
-                    file.close()
-                    print(content)
-        except OSError as e:
-            # cannot read training plan file content
-            msg = ErrorNumbers.FB412.value + \
-                  f', in method `training_plan_file` : error when reading training plan file - {e}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        return self._training_plan_file
-
-    @exp_exceptions
-    def check_training_plan_status(self) -> Dict:
-        """ Method for checking training plan status, ie whether it is approved or not by the nodes
-
-        Returns:
-            Training plan status for answering nodes
-        """
-        job = TrainingPlanApprovalJob(reqs=self._reqs,
-                                      nodes=self.training_data().node_ids(),
-                                      keep_files_dir=self.experimentation_path())
-        responses = job.check_training_plan_is_approved_by_nodes(job_id=self._id,
-                                                                 training_plan=self.training_plan()
-                                                                 )
-        return responses
-
-    @exp_exceptions
-    def training_plan_approve(self,
-                              description: str = "no description provided") -> dict:
-        """Send a training plan and a ApprovalRequest message to node(s).
-
-        This is a simple redirect to the Requests.training_plan_approve() method.
-
-        If a list of node id(s) is provided, the message will be individually sent
-        to all nodes of the list.
-        If the node id(s) list is None (default), the message is broadcast to all nodes.
-
-        Args:
-            training_plan: the training plan to upload and send to the nodes for approval.
-                   It can be:
-                   - a path_name (str)
-                   - a training_plan (class)
-                   - an instance of a training plan
-            nodes: list of nodes (specified by their UUID)
-            description: Description for training plan approve request
-            timeout: maximum waiting time for the answers
-
-        Returns:
-            a dictionary of pairs (node_id: status), where status indicates to the researcher
-            that the training plan has been correctly downloaded on the node side.
-            Warning: status does not mean that the training plan is approved, only that it has been added
-            to the "approval queue" on the node side.
-        """
-        job = TrainingPlanApprovalJob(reqs=self._reqs,
-                                      nodes=self.training_data().node_ids(),
-                                      keep_files_dir=self.experimentation_path())
-        responses = job.training_plan_approve(training_plan=self.training_plan(),
-                                              description=description,
-                                              )
-        return responses
 
     def secagg_setup(self):
         secagg_arguments = {}
