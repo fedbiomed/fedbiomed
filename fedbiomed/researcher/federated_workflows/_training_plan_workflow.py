@@ -40,7 +40,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             nodes: Union[List[str], None] = None,
             training_data: Union[FederatedDataSet, dict, None] = None,
             training_plan_class: Union[Type_TrainingPlan, str, None] = None,
-            training_plan_path: Union[str, None] = None,
             training_args: Union[TrainingArgs, dict, None] = None,
             experimentation_folder: Union[str, None] = None,
             secagg: Union[bool, SecureAggregation] = False,
@@ -84,8 +83,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                     as argument).
                 Defaults to None (no training plan class defined yet)
 
-            training_plan_path: path to a file containing training plan code [`str`][str] or None (no file containing
-                training plan code, `training_plan` needs to be a class matching `Type_TrainingPlan`) Defaults to None.
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
                 output and input feature dimension, etc.
             training_args: contains training arguments passed to the `training_routine` of the training plan when
@@ -133,16 +130,13 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         # predefine all class variables, so no need to write try/except
         # block each time we use it
-        self._training_plan_path = None
         self._training_plan = None
-        self._training_plan_file: Optional[str] = None
         # __training_plan_class is the source of truth for all training plan members of this class
         # if __training_plan_class is None, then all other members are undefined
         # whenever __training_plan_class is changed, all other members should be immediately updated accordingly
         self.__training_plan_class = None
 
         self.set_training_plan_class(training_plan_class)
-        self.set_training_plan_path(training_plan_path)
         self.reset_training_plan()
 
     @exp_exceptions
@@ -188,19 +182,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         return self.__training_plan_class
 
     @exp_exceptions
-    def training_plan_path(self) -> Union[str, None]:
-        """Retrieves training plan path where training plan class is saved as python script externally.
-
-        Please see also [`set_training_plan_path`][fedbiomed.researcher.experiment.Experiment.set_training_plan_path].
-
-        Returns:
-            Path to python script (`.py`) where training plan class (training plan) is created. None if it isn't
-                declared yet.
-        """
-
-        return self._training_plan_path
-
-    @exp_exceptions
     def training_plan(self) -> Union[TrainingPlan, None]:
         """ Retrieves training plan instance that has been built and send the nodes through HTTP restfull service
         for each round of training.
@@ -234,12 +215,10 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 'Values': []
             }
         info['Arguments'].extend([
-                'Training Plan Path',
                 'Training Plan Class',
             ])
         info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
-                           self._training_plan_path,
                            self.__training_plan_class,
                        ]])
         info = super().info(info)
@@ -295,83 +274,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         self.reset_training_plan()
 
         return self.__training_plan_class
-
-    @exp_exceptions
-    def set_training_plan_path(self, training_plan_path: Union[str, None]) -> Union[str, None]:
-        """Sets `training_plan_path` + verification on arguments type.
-
-        Training plan path is the path where training plan class is saved as python script/module externally.
-
-        Args:
-            training_plan_path (Union[str, None]) : path to a file containing  training plan code (`str`) or None
-                (no file containing training plan code, `training_plan` needs to be a class matching one
-                of [`training_plans`][fedbiomed.common.training_plans]
-
-        Returns:
-            The path that is set for retrieving module where training plan class is defined
-
-        Raises:
-            FedbiomedExperimentError : bad training_plan_path type
-        """
-        if training_plan_path is None:
-            self._training_plan_path = None
-        elif isinstance(training_plan_path, str):
-            if sanitize_filepath(training_plan_path, platform='auto') == training_plan_path \
-                    and os.path.isfile(training_plan_path):
-                # provided training plan path is a sane path to an existing file
-                self._training_plan_path = training_plan_path
-            else:
-                # bad filepath
-                msg = ErrorNumbers.FB410.value + \
-                      f' `training_plan_path` : {training_plan_path} is not a path to an existing file'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-        else:
-            # bad type
-            msg = ErrorNumbers.FB410.value + ' `training_plan_path` must be string, ' \
-                                             f'but got type: {type(training_plan_path)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        return self._training_plan_path
-
-    # Training plan checking functions
-    @exp_exceptions
-    def training_plan_file(self, display: bool = True) -> str:
-        """ This method displays saved final training plan for the experiment
-            that will be sent to the nodes for training.
-
-        Args:
-            display: If `True`, prints content of the training plan file. Default is `True`
-
-        Returns:
-            Path to training plan file
-
-        Raises:
-            FedbiomedExperimentError: bad argument type, or cannot read training plan file content
-        """
-        if not isinstance(display, bool):
-            # bad type
-            msg = ErrorNumbers.FB410.value + \
-                  f', in method `training_plan_file` param `display` : type {type(display)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        # Display content so researcher can copy
-        try:
-            if display:
-                with open(self._training_plan_file) as file:
-                    content = file.read()
-                    file.close()
-                    print(content)
-        except OSError as e:
-            # cannot read training plan file content
-            msg = ErrorNumbers.FB412.value + \
-                  f', in method `training_plan_file` : error when reading training plan file - {e}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        return self._training_plan_file
 
     @exp_exceptions
     def check_training_plan_status(self) -> Dict:
@@ -439,7 +341,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
           - training_data
           - training_args
           - model_args
-          - training_plan_path
           - training_plan_class
           - aggregated_params
           - job (attributes returned by the Job, aka job state)
@@ -451,11 +352,11 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
         # save training plan to file
         training_plan_module = 'model_' + str(uuid.uuid4())
-        self._training_plan_file = os.path.join(self.experimentation_path(), training_plan_module + '.py')
-        self.training_plan().save_code(self._training_plan_file)
+        training_plan_file = os.path.join(self.experimentation_path(), training_plan_module + '.py')
+        self.training_plan().save_code(training_plan_file)
 
         state.update({
-            'training_plan_path': self._training_plan_file,
+            'training_plan_path': training_plan_file,
             'training_plan_class_name': self.__training_plan_class.__name__,
         })
 

@@ -55,8 +55,7 @@ class Experiment(TrainingPlanWorkflow):
         node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
         round_limit: Union[int, None] = None,
         training_plan_class: Union[Type_TrainingPlan, str, None] = None,
-        training_plan_path: Union[str, None] = None,
-        model_args: dict = {},
+        model_args: Optional[Dict] = None,
         training_args: Union[TrainingArgs, dict, None] = None,
         tensorboard: bool = False,
         experimentation_folder: Union[str, None] = None,
@@ -101,8 +100,6 @@ class Experiment(TrainingPlanWorkflow):
                     as argument).
                 Defaults to None (no training plan class defined yet)
 
-            training_plan_path: path to a file containing training plan code [`str`][str] or None (no file containing
-                training plan code, `training_plan` needs to be a class matching `Type_TrainingPlan`) Defaults to None.
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
                 output and input feature dimension, etc.
             training_args: contains training arguments passed to the `training_routine` of the training plan when
@@ -130,7 +127,6 @@ class Experiment(TrainingPlanWorkflow):
             nodes,
             training_data,
             training_plan_class,
-            training_plan_path,
             training_args,
             experimentation_folder,
             secagg,
@@ -1126,7 +1122,6 @@ class Experiment(TrainingPlanWorkflow):
           - training_data
           - training_args
           - model_args
-          - training_plan_path
           - training_plan_class
           - aggregated_params
           - job (attributes returned by the Job, aka job state)
