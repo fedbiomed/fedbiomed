@@ -1,6 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 import inspect, os
+import uuid
 from abc import ABC
 from re import findall
 from pathvalidate import sanitize_filepath
@@ -11,10 +12,12 @@ from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedJobEr
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
+from fedbiomed.common.utils import import_class_from_file
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions, FederatedWorkflow
 from fedbiomed.researcher.federated_workflows.jobs import Job, TrainingPlanApprovalJob
+from fedbiomed.researcher.filetools import create_unique_link, choose_bkpt_file
 from fedbiomed.researcher.secagg import SecureAggregation
 
 # for checking class passed to experiment
@@ -119,11 +122,11 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         )
 
         # Check arguments
-        if not inspect.isclass(training_plan_class):
+        if training_plan_class is not None and not inspect.isclass(training_plan_class):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` {type(training_plan_class)}"
             raise FedbiomedJobError(msg)
 
-        if not issubclass(training_plan_class, training_plans_types):
+        if training_plan_class is not None and not issubclass(training_plan_class, training_plans_types):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
                   f" supported training plans {training_plans_types}"
             raise FedbiomedJobError(msg)
@@ -143,9 +146,27 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         if self._training_plan_class is None:
             self._training_plan = None
         else:
+            self._raise_for_missing_job_prerequities()
             job = Job(reqs=self._reqs,
                       keep_files_dir=self.experimentation_path())
             self._training_plan = job.get_default_constructed_tp_instance(self._training_plan_class)
+
+    def _raise_for_missing_job_prerequities(self) -> None:
+        """Setter for job, it verifies pre-requisites are met for creating a job
+        attached to this experiment. If yes, instantiate a job ; if no, return None.
+
+        """
+        super()._raise_for_missing_job_prerequities()
+        # Check arguments
+        if self._training_plan_class is not None and not inspect.isclass(self._training_plan_class):
+            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` " \
+                  f"{type(self._training_plan_class)}"
+            raise FedbiomedJobError(msg)
+
+        if self._training_plan_class is not None and not issubclass(self._training_plan_class, training_plans_types):
+            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
+                  f" supported training plans {training_plans_types}"
+            raise FedbiomedJobError(msg)
 
     @exp_exceptions
     def training_plan_class(self) -> Union[Type_TrainingPlan, str, None]:
@@ -421,3 +442,96 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                                               description=description,
                                               )
         return responses
+    @exp_exceptions
+    def breakpoint(self,
+                   state,
+                   bkpt_number) -> None:
+        """
+        Saves breakpoint with the state of the training at a current round. The following Experiment attributes will
+        be saved:
+          - round_current
+          - round_limit
+          - tags
+          - experimentation_folder
+          - aggregator
+          - agg_optimizer
+          - node_selection_strategy
+          - training_data
+          - training_args
+          - model_args
+          - training_plan_path
+          - training_plan_class
+          - aggregated_params
+          - job (attributes returned by the Job, aka job state)
+          - secagg
+
+        Raises:
+            FedbiomedExperimentError: experiment not fully defined, experiment did not run any round yet, or error when
+                saving breakpoint
+        """
+        # save training plan to file
+        training_plan_module = 'model_' + str(uuid.uuid4())
+        self._training_plan_file = os.path.join(self.experimentation_path(), training_plan_module + '.py')
+        self.training_plan().save_code(self._training_plan_file)
+
+        state.update({
+            'training_plan_path': self._training_plan_file,
+            'training_plan_class_name': self._training_plan_class.__name__,
+        })
+
+        breakpoint_path, breakpoint_file_name = \
+            choose_bkpt_file(self._experimentation_folder, bkpt_number - 1)
+
+        # rewrite paths in breakpoint : use the links in breakpoint directory
+        state['training_plan_path'] = create_unique_link(
+            breakpoint_path,
+            # - Need a file with a restricted characters set in name to be able to import as module
+            'model_' + str("{:04d}".format(bkpt_number - 1)), '.py',
+            # - Prefer relative path, eg for using experiment result after
+            # experiment in a different tree
+            os.path.join('..', os.path.basename(state["training_plan_path"]))
+        )
+
+        super().breakpoint(state, bkpt_number)
+
+
+    @classmethod
+    @exp_exceptions
+    def load_breakpoint(cls,
+                        breakpoint_folder_path: Union[str, None] = None) -> 'TExperiment':
+        """
+        Loads breakpoint (provided a breakpoint has been saved)
+        so experience can be resumed. Usefull if training has crashed
+        researcher side or if user wants to resume experiment.
+
+        Args:
+          cls: Experiment class
+          breakpoint_folder_path: path of the breakpoint folder. Path can be absolute or relative eg:
+            "var/experiments/Experiment_xxxx/breakpoints_xxxx". If None, loads latest breakpoint of the latest
+            experiment. Defaults to None.
+
+        Returns:
+            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()`
+                method to pursue model training.
+
+        Raises:
+            FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
+                content (corrupted)
+        """
+        loaded_exp, saved_state = super().load_breakpoint()
+
+        # Import TP class
+        _, tp_class = import_class_from_file(
+            module_path=saved_state.get("training_plan_path"),
+            class_name=saved_state.get("training_plan_class_name")
+        )
+
+        loaded_exp.set_training_plan_class(tp_class)
+        training_plan = loaded_exp.training_plan()
+        if training_plan is None:
+            msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
+                  'breakpoint file seems corrupted, `training_plan` is None'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        return loaded_exp, saved_state

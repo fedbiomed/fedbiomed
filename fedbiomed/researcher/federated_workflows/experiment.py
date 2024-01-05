@@ -175,13 +175,17 @@ class Experiment(TrainingPlanWorkflow):
         self.reset_model_parameters()
 
     def reset_model_parameters(self):
-        self._raise_for_missing_job_prerequities()
-        job = TrainingJob(reqs=self._reqs,
-                          keep_files_dir=self.experimentation_path())
-        self._training_plan = job.get_initialized_workflow_instance(self._training_plan_class,
-                                                                    self._training_args,
-                                                                    self._model_args)
-        self._global_model = self._training_plan.after_training_params()
+        if self._training_plan_class is None:
+            self._training_plan = None
+            self._global_model = None
+        else:
+            self._raise_for_missing_job_prerequities()
+            job = TrainingJob(reqs=self._reqs,
+                              keep_files_dir=self.experimentation_path())
+            self._training_plan = job.get_initialized_workflow_instance(self._training_plan_class,
+                                                                        self._training_args,
+                                                                        self._model_args)
+            self._global_model = self._training_plan.after_training_params()
 
     # destructor
     @exp_exceptions
@@ -1171,58 +1175,23 @@ class Experiment(TrainingPlanWorkflow):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-            # conditions are met, save breakpoint
+        # conditions are met, save breakpoint
         breakpoint_path, breakpoint_file_name = \
             choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
 
-        # save latest training plan to file
-        training_plan_module = 'model_' + str(uuid.uuid4())
-        self._training_plan_file = os.path.join(self.experimentation_path(), training_plan_module + '.py')
-        self.training_plan().save_code(self._training_plan_file)
-
         state = {
-            'breakpoint_version': str(__breakpoints_version__),
-            'training_data': self._fds.data(),
-            'training_args': self._training_args.dict(),
             'model_args': self._model_args,
-            'training_plan_path': self._training_plan_file,
-            'training_plan_class_name': self._training_plan_class.__name__,
             'round_current': self._round_current,
             'round_limit': self._round_limit,
-            'experimentation_folder': self._experimentation_folder,
             'aggregator': self._aggregator.save_state_breakpoint(breakpoint_path, global_model=self._global_model),
             'agg_optimizer': self._save_optimizer(breakpoint_path),
             'node_selection_strategy': self._node_selection_strategy.save_state_breakpoint(),
-            'tags': self._tags,
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
-            'secagg': self._secagg.save_state_breakpoint(),
             'training_replies': self.save_training_replies(),
         }
 
-        # rewrite paths in breakpoint : use the links in breakpoint directory
-        state['training_plan_path'] = create_unique_link(
-            breakpoint_path,
-            # - Need a file with a restricted characters set in name to be able to import as module
-            'model_' + str("{:04d}".format(self._round_current - 1)), '.py',
-            # - Prefer relative path, eg for using experiment result after
-            # experiment in a different tree
-            os.path.join('..', os.path.basename(state["training_plan_path"]))
-        )
-
-        # save state into a json file
-        breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
-        try:
-            with open(breakpoint_file_path, 'w') as bkpt:
-                json.dump(state, bkpt)
-            logger.info(f"breakpoint for round {self._round_current - 1} saved at " +
-                        os.path.dirname(breakpoint_file_path))
-        except (OSError, ValueError, TypeError, RecursionError) as e:
-            # - OSError: heuristic for catching open() and write() errors
-            # - see json.dump() documentation for documented errors for this call
-            msg = ErrorNumbers.FB413.value + f' - save failed with message {str(e)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+        super().breakpoint(state, self._round_current)
 
     @classmethod
     @exp_exceptions
@@ -1247,102 +1216,27 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
                 content (corrupted)
         """
-        # check parameters type
-        if not isinstance(breakpoint_folder_path, str) and breakpoint_folder_path is not None:
-            msg = (
-                f"{ErrorNumbers.FB413.value}: load failed, `breakpoint_folder_path`"
-                f" has bad type {type(breakpoint_folder_path)}"
-            )
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        # get breakpoint folder path (if it is None) and state file
-        breakpoint_folder_path, state_file = find_breakpoint_path(breakpoint_folder_path)
-        breakpoint_folder_path = os.path.abspath(breakpoint_folder_path)
-
-        try:
-            path = os.path.join(breakpoint_folder_path, state_file)
-            with open(path, "r", encoding="utf-8") as file:
-                saved_state = json.load(file)
-        except (json.JSONDecodeError, OSError) as exc:
-            # OSError: heuristic for catching file access issues
-            msg = (
-                f"{ErrorNumbers.FB413.value}: load failed,"
-                f" reading breakpoint file failed with message {exc}"
-            )
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg) from exc
-        if not isinstance(saved_state, dict):
-            msg = (
-                f"{ErrorNumbers.FB413.value}: load failed, breakpoint file seems"
-                f" corrupted. Type should be `dict` not {type(saved_state)}"
-            )
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        # First, check version of breakpoints
-        bkpt_version = saved_state.get('breakpoint_version', __default_version__)
-        raise_for_version_compatibility(bkpt_version, __breakpoints_version__,
-                                        f"{ErrorNumbers.FB413.value}: Breakpoint file was generated with version %s "
-                                        f"which is incompatible with the current version %s.")
-
-        # retrieve breakpoint training data
-        bkpt_fds = saved_state.get('training_data')
-        bkpt_fds = FederatedDataSet(bkpt_fds)
+        loaded_exp, saved_state = super().load_breakpoint()
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
-        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=bkpt_fds)
+        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=loaded_exp.training_data())
+        loaded_exp.set_strategy(bkpt_sampling_strategy)
         # retrieve breakpoint researcher optimizer
         bkpt_optim = cls._load_optimizer(saved_state.get("agg_optimizer"))
-
-        # Import TP class
-        _, tp_class = import_class_from_file(
-            module_path=saved_state.get("training_plan_path"),
-            class_name=saved_state.get("training_plan_class_name")
-        )
-
-        # initializing experiment
-        loaded_exp = cls(tags=saved_state.get('tags'),
-                         nodes=None,  # list of previous nodes is contained in training_data
-                         training_data=bkpt_fds,
-                         agg_optimizer=bkpt_optim,
-                         node_selection_strategy=bkpt_sampling_strategy,
-                         round_limit=saved_state.get("round_limit"),
-                         training_plan_class=tp_class,
-                         model_args=saved_state.get("model_args"),
-                         training_args=saved_state.get("training_args"),
-                         save_breakpoints=True,
-                         experimentation_folder=saved_state.get('experimentation_folder'),
-                         secagg=SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
-
-        # nota: we are initializing experiment with no aggregator: hence, by default,
-        # `loaded_exp` will be loaded with FedAverage.
-
+        loaded_exp.set_agg_optimizer(bkpt_optim)
         # changing `Experiment` attributes
         loaded_exp._set_round_current(saved_state.get('round_current'))
-
-        # TODO: checks when loading parameters
-        training_plan = loaded_exp.training_plan()
-        if training_plan is None:
-            msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
-                'breakpoint file seems corrupted, `training_plan` is None'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-        else:
-            loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
-                saved_state.get('aggregated_params')
-            )
-
-        # retrieve and change federator
+        loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(
+            saved_state.get('aggregated_params')
+        )
+        # retrieve and change aggregator
         bkpt_aggregator_args = saved_state.get("aggregator")
-
-        bkpt_aggregator = loaded_exp._create_object(bkpt_aggregator_args, training_plan=training_plan)
+        bkpt_aggregator = cls._create_object(bkpt_aggregator_args, training_plan=loaded_exp.training_plan())
         loaded_exp.set_aggregator(bkpt_aggregator)
-
         # load training replies
         loaded_exp.load_training_replies(saved_state.get("training_replies"))
-
         logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
+
         return loaded_exp
 
     @staticmethod

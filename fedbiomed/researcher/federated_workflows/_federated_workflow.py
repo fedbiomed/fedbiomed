@@ -1,22 +1,22 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import functools, os, sys, tabulate, traceback, uuid
+import functools, json, os, sys, tabulate, traceback, uuid
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathvalidate import sanitize_filename
 from re import findall
 from typing import Any, Dict, List, TypeVar, Union
 
-from fedbiomed.common.constants import ErrorNumbers, JOB_PREFIX
+from fedbiomed.common.constants import ErrorNumbers, JOB_PREFIX, __breakpoints_version__
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.utils import is_ipython
+from fedbiomed.common.utils import is_ipython, raise_for_version_compatibility, __default_version__
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.filetools import create_exp_folder
+from fedbiomed.researcher.filetools import create_exp_folder, find_breakpoint_path, choose_bkpt_file
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.secagg import SecureAggregation
@@ -180,29 +180,15 @@ class FederatedWorkflow(ABC):
         self._researcher_id = environ['RESEARCHER_ID']
         self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id # TO BE RENAMED
 
-        # set self._secagg
+        # set internal members from constructor arguments
         self.set_secagg(secagg)
-
-        # set self._tags and self._nodes
         self.set_tags(tags)
         self.set_nodes(nodes)
-
         self.set_save_breakpoints(save_breakpoints)
-
-
-        # set self._model_args and self._training_args to dict
         self.set_training_args(training_args)
-
-        # Useless to add a param and setter/getter for Requests() as it is a singleton ?
         self._reqs = Requests()
-
-        # set self._fds: type Union[FederatedDataSet, None]
         self.set_training_data(training_data, True)
-
-        # set self._experimentation_folder: type str
         self.set_experimentation_folder(experimentation_folder)
-
-        # at this point self._fds is FederatedDataset or None (not a dict anymore)
         self._node_state_agent = NodeStateAgent(list(self._fds.data().keys())
                                                 if self._fds and self._fds.data() else [])
 
@@ -579,12 +565,7 @@ class FederatedWorkflow(ABC):
         attached to this experiment. If yes, instantiate a job ; if no, return None.
 
         """
-        if self._training_plan_is_defined is not True:
-            # training plan not properly defined yet
-            msg = f'Experiment not fully configured yet: no job. Missing proper training plan definition ' \
-                  f'(training_plan={self._training_plan_class} training_plan_path={self._training_plan_path})'
-            raise FedbiomedExperimentError(msg)
-        elif self._fds is None:
+        if self._fds is None:
             msg='Experiment not fully configured yet: no job. Missing training data'
             raise FedbiomedExperimentError(msg)
 
@@ -605,7 +586,135 @@ class FederatedWorkflow(ABC):
         node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
         self._node_state_agent.update_node_states(node_ids)
 
-    
+    @exp_exceptions
+    def breakpoint(self,
+                   state,
+                   bkpt_number) -> None:
+        """
+        Saves breakpoint with the state of the training at a current round. The following Experiment attributes will
+        be saved:
+          - round_current
+          - round_limit
+          - tags
+          - experimentation_folder
+          - aggregator
+          - agg_optimizer
+          - node_selection_strategy
+          - training_data
+          - training_args
+          - model_args
+          - training_plan_path
+          - training_plan_class
+          - aggregated_params
+          - job (attributes returned by the Job, aka job state)
+          - secagg
+
+        Raises:
+            FedbiomedExperimentError: experiment not fully defined, experiment did not run any round yet, or error when
+                saving breakpoint
+        """
+        state.update({
+            'breakpoint_version': str(__breakpoints_version__),
+            'training_data': self._fds.data(),
+            'training_args': self._training_args.dict(),
+            'experimentation_folder': self._experimentation_folder,
+            'tags': self._tags,
+            'secagg': self._secagg.save_state_breakpoint(),
+        })
+
+        # save state into a json file
+        breakpoint_path, breakpoint_file_name = \
+            choose_bkpt_file(self._experimentation_folder, bkpt_number - 1)
+        breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
+        try:
+            with open(breakpoint_file_path, 'w') as bkpt:
+                json.dump(state, bkpt)
+            logger.info(f"breakpoint number {bkpt_number - 1} saved at " +
+                        os.path.dirname(breakpoint_file_path))
+        except (OSError, ValueError, TypeError, RecursionError) as e:
+            # - OSError: heuristic for catching open() and write() errors
+            # - see json.dump() documentation for documented errors for this call
+            msg = ErrorNumbers.FB413.value + f' - save failed with message {str(e)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+    @classmethod
+    @exp_exceptions
+    def load_breakpoint(cls,
+                        breakpoint_folder_path: Union[str, None] = None) -> 'TExperiment':
+        """
+        Loads breakpoint (provided a breakpoint has been saved)
+        so experience can be resumed. Usefull if training has crashed
+        researcher side or if user wants to resume experiment.
+
+        Args:
+          cls: Experiment class
+          breakpoint_folder_path: path of the breakpoint folder. Path can be absolute or relative eg:
+            "var/experiments/Experiment_xxxx/breakpoints_xxxx". If None, loads latest breakpoint of the latest
+            experiment. Defaults to None.
+
+        Returns:
+            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()`
+                method to pursue model training.
+
+        Raises:
+            FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
+                content (corrupted)
+        """
+        # check parameters type
+        if not isinstance(breakpoint_folder_path, str) and breakpoint_folder_path is not None:
+            msg = (
+                f"{ErrorNumbers.FB413.value}: load failed, `breakpoint_folder_path`"
+                f" has bad type {type(breakpoint_folder_path)}"
+            )
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        # get breakpoint folder path (if it is None) and state file
+        breakpoint_folder_path, state_file = find_breakpoint_path(breakpoint_folder_path)
+        breakpoint_folder_path = os.path.abspath(breakpoint_folder_path)
+
+        try:
+            path = os.path.join(breakpoint_folder_path, state_file)
+            with open(path, "r", encoding="utf-8") as file:
+                saved_state = json.load(file)
+        except (json.JSONDecodeError, OSError) as exc:
+            # OSError: heuristic for catching file access issues
+            msg = (
+                f"{ErrorNumbers.FB413.value}: load failed,"
+                f" reading breakpoint file failed with message {exc}"
+            )
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg) from exc
+        if not isinstance(saved_state, dict):
+            msg = (
+                f"{ErrorNumbers.FB413.value}: load failed, breakpoint file seems"
+                f" corrupted. Type should be `dict` not {type(saved_state)}"
+            )
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        # First, check version of breakpoints
+        bkpt_version = saved_state.get('breakpoint_version', __default_version__)
+        raise_for_version_compatibility(bkpt_version, __breakpoints_version__,
+                                        f"{ErrorNumbers.FB413.value}: Breakpoint file was generated with version %s "
+                                        f"which is incompatible with the current version %s.")
+
+        # retrieve breakpoint training data
+        bkpt_fds = saved_state.get('training_data')
+        bkpt_fds = FederatedDataSet(bkpt_fds)
+
+        # initializing experiment
+        loaded_exp = cls(tags=saved_state.get('tags'),
+                         nodes=None,  # list of previous nodes is contained in training_data
+                         training_data=bkpt_fds,
+                         training_args=saved_state.get("training_args"),
+                         save_breakpoints=True,
+                         experimentation_folder=saved_state.get('experimentation_folder'),
+                         secagg=SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
+
+        return loaded_exp, saved_state
+
     def save_state_breakpoint(self) -> Dict:
         """"""
         state = {}
