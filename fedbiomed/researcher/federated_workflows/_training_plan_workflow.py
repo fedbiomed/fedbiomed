@@ -136,6 +136,10 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         self._training_plan_path = None
         self._training_plan = None
         self._training_plan_file: Optional[str] = None
+        # __training_plan_class is the source of truth for all training plan members of this class
+        # if __training_plan_class is None, then all other members are undefined
+        # whenever __training_plan_class is changed, all other members should be immediately updated accordingly
+        self.__training_plan_class = None
 
         self.set_training_plan_class(training_plan_class)
         self.set_training_plan_path(training_plan_path)
@@ -143,13 +147,13 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
     @exp_exceptions
     def reset_training_plan(self):
-        if self._training_plan_class is None:
+        if self.__training_plan_class is None:
             self._training_plan = None
         else:
             self._raise_for_missing_job_prerequities()
             job = Job(reqs=self._reqs,
                       keep_files_dir=self.experimentation_path())
-            self._training_plan = job.get_default_constructed_tp_instance(self._training_plan_class)
+            self._training_plan = job.get_default_constructed_tp_instance(self.__training_plan_class)
 
     def _raise_for_missing_job_prerequities(self) -> None:
         """Setter for job, it verifies pre-requisites are met for creating a job
@@ -158,12 +162,12 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
         super()._raise_for_missing_job_prerequities()
         # Check arguments
-        if self._training_plan_class is not None and not inspect.isclass(self._training_plan_class):
+        if self.__training_plan_class is not None and not inspect.isclass(self.__training_plan_class):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` " \
-                  f"{type(self._training_plan_class)}"
+                  f"{type(self.__training_plan_class)}"
             raise FedbiomedJobError(msg)
 
-        if self._training_plan_class is not None and not issubclass(self._training_plan_class, training_plans_types):
+        if self.__training_plan_class is not None and not issubclass(self.__training_plan_class, training_plans_types):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
                   f" supported training plans {training_plans_types}"
             raise FedbiomedJobError(msg)
@@ -181,7 +185,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 created externally is provided.
         """
 
-        return self._training_plan_class
+        return self.__training_plan_class
 
     @exp_exceptions
     def training_plan_path(self) -> Union[str, None]:
@@ -236,7 +240,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
                            self._training_plan_path,
-                           self._training_plan_class,
+                           self.__training_plan_class,
                        ]])
         info = super().info(info)
         return info
@@ -261,12 +265,12 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             FedbiomedExperimentError : bad training_plan_class type
         """
         if training_plan_class is None:
-            self._training_plan_class = None
+            self.__training_plan_class = None
             self._training_plan_is_defined = False
         elif isinstance(training_plan_class, str):
             if str.isidentifier(training_plan_class):
                 # correct python identifier
-                self._training_plan_class = training_plan_class
+                self.__training_plan_class = training_plan_class
                 # training_plan_class_path may not be defined at this point
 
                 self._training_plan_is_defined = isinstance(self._training_plan_path, str)
@@ -280,7 +284,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             # training_plan_class must be a subclass of a valid training plan
             if issubclass(training_plan_class, training_plans_types):
                 # valid class
-                self._training_plan_class = training_plan_class
+                self.__training_plan_class = training_plan_class
                 # training_plan_class_path may not be defined at this point
 
                 self._training_plan_is_defined = self._training_plan_path is None
@@ -295,15 +299,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-            # self._training_plan_is_defined and self._training_plan_class always exist at this point
+            # self._training_plan_is_defined and self.__training_plan_class always exist at this point
         if not self._training_plan_is_defined:
             logger.debug(f'Experiment not fully configured yet: no valid training plan, '
-                         f'training_plan_class={self._training_plan_class} '
+                         f'training_plan_class={self.__training_plan_class} '
                          f'training_plan_class_path={self._training_plan_path}')
 
         self.reset_training_plan()
 
-        return self._training_plan_class
+        return self.__training_plan_class
 
     @exp_exceptions
     def set_training_plan_path(self, training_plan_path: Union[str, None]) -> Union[str, None]:
@@ -327,14 +331,14 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         if training_plan_path is None:
             self._training_plan_path = None
             # .. so training plan is defined if it is a class (+ then, it has been tested as valid)
-            self._training_plan_is_defined = inspect.isclass(self._training_plan_class)
+            self._training_plan_is_defined = inspect.isclass(self.__training_plan_class)
         elif isinstance(training_plan_path, str):
             if sanitize_filepath(training_plan_path, platform='auto') == training_plan_path \
                     and os.path.isfile(training_plan_path):
                 # provided training plan path is a sane path to an existing file
                 self._training_plan_path = training_plan_path
                 # if providing a training plan path, we expect a training plan class name (not a class)
-                self._training_plan_is_defined = isinstance(self._training_plan_class, str)
+                self._training_plan_is_defined = isinstance(self.__training_plan_class, str)
             else:
                 # bad filepath
                 msg = ErrorNumbers.FB410.value + \
@@ -351,7 +355,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         # self._training_plan_path is also defined at this point
         if not self._training_plan_is_defined:
             logger.debug(f'Experiment not fully configured yet: no valid training plan, '
-                         f'training_plan={self._training_plan_class} training_plan_path={self._training_plan_path}')
+                         f'training_plan={self.__training_plan_class} training_plan_path={self._training_plan_path}')
 
         return self._training_plan_path
 
@@ -476,7 +480,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         state.update({
             'training_plan_path': self._training_plan_file,
-            'training_plan_class_name': self._training_plan_class.__name__,
+            'training_plan_class_name': self.__training_plan_class.__name__,
         })
 
         breakpoint_path, breakpoint_file_name = \

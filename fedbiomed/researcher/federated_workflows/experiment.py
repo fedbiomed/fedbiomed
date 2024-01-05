@@ -169,14 +169,14 @@ class Experiment(TrainingPlanWorkflow):
         self.reset_model_parameters()
 
     def reset_model_parameters(self):
-        if self._training_plan_class is None:
+        if self.training_plan_class() is None:
             self._training_plan = None
             self._global_model = None
         else:
             self._raise_for_missing_job_prerequities()
             job = TrainingJob(reqs=self._reqs,
                               keep_files_dir=self.experimentation_path())
-            self._training_plan = job.get_initialized_workflow_instance(self._training_plan_class,
+            self._training_plan = job.get_initialized_workflow_instance(self.training_plan_class(),
                                                                         self._training_args,
                                                                         self._model_args)
             self._global_model = self._training_plan.after_training_params()
@@ -375,7 +375,7 @@ class Experiment(TrainingPlanWorkflow):
             Union[Type_TrainingPlan, str, None]:
         super().set_training_plan_class(training_plan_class)
         self.reset_model_parameters()
-        return self._training_plan_class
+        return self.training_plan_class()
 
     # a specific getter-like
     @exp_exceptions
@@ -827,7 +827,7 @@ class Experiment(TrainingPlanWorkflow):
             job_id=self._id,
             round_=self._round_current,
             training_plan=self._training_plan,
-            training_plan_class=self._training_plan_class,
+            training_plan_class=self.training_plan_class(),
             training_args=self._training_args,
             model_args=self._model_args,
             data=self._fds,
@@ -903,7 +903,7 @@ class Experiment(TrainingPlanWorkflow):
             job.start_nodes_training_round(job_id=self._id,
                                            round_=self._round_current,
                                            training_plan=self._training_plan,
-                                           training_plan_class=self._training_plan_class,
+                                           training_plan_class=self.training_plan_class(),
                                            training_args=self._training_args,
                                            model_args=self._model_args,
                                            data=self._fds,
