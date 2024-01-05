@@ -9,7 +9,8 @@ from typing import Optional, Union, Callable
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest, ErrorMessage
+from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, \
+    TrainRequest, ErrorMessage, NodeToNodeMessages
 from fedbiomed.common.tasks_queue import TasksQueue
 
 from fedbiomed.transport.controller import GrpcController
@@ -22,6 +23,7 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
+from fedbiomed.node.overlay import format_outgoing_overlay, format_incoming_overlay
 
 
 class Node:
@@ -102,6 +104,7 @@ class Node:
                 # TODO: implement payload for overlay in sub-function
                 #
                 logger.info(f"RECEIVED OVERLAY MESSAGE {msg}")
+                logger.info(f"RECEIVED INNER MESSAGE {format_incoming_overlay(msg['overlay'])}")
                 #
             elif command == 'ping':
                 self._grpc_client.send(
@@ -130,17 +133,25 @@ class Node:
                 # TODO: remove, temporary test
                 #
                 for tag in msg['tags']:
-                    m = NodeMessages.format_outgoing_message(
+                    # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
+                    message_inner = NodeToNodeMessages.format_outgoing_message(
+                        {
+                            'node_id': environ['NODE_ID'],
+                            'dest_node_id': tag,
+                            'dummy': f"DUMMY INNER from {environ['NODE_ID']}",
+                            'command': 'key-request'
+                        })
+
+                    message_overlay = NodeMessages.format_outgoing_message(
                         {
                             'researcher_id': msg['researcher_id'],
                             'node_id': environ['NODE_ID'],
                             'dest_node_id': tag,
-                            'overlay': f"DUMMY OVERLAY from {environ['NODE_ID']}",
+                            'overlay': format_outgoing_overlay(message_inner),
                             'command': 'overlay-send'
                         })
-                    print(f"SENDING OVERLAY message to {tag}: {m}")
-                    # consider encrypt-sign([message,node_id]) or other see https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
-                    self._grpc_client.send(m)
+                    print(f"SENDING OVERLAY message to {tag}: {message_overlay}")
+                    self._grpc_client.send(message_overlay)
                 #
 
             elif command == 'list':
