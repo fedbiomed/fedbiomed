@@ -112,7 +112,7 @@ class NodeAgentAsync:
         """
         return self._queue.get()
 
-    async def on_reply(self, message: Dict):
+    async def on_reply(self, message: Dict) -> None:
         """Callback to execute each time new reply received from the node"""
 
         message = ResearcherMessages.format_incoming_message(message)
@@ -151,7 +151,7 @@ class NodeAgentAsync:
                         logger.warning(f"Received a reply from an unexpected request: {message.request_id}")
 
 
-    async def send_async(self, message: Message, on_reply: Optional[Callable] = None, is_forward: bool = False) -> None:
+    async def send_async(self, message: Message, on_reply: Optional[Callable] = None) -> None:
         """Async function send message to researcher.
 
         Args:
@@ -170,16 +170,15 @@ class NodeAgentAsync:
                             "this node to convert it as ACTIVE. Node will be updated "
                             "as DISCONNECTED soon if no request received.")
 
-        # Updates replies (not for forwarded messages)
+        # Updates replies
         #
-        # Note: as forwarded messages don't have a `request_id` currently we could omit this test
-        # but this is less future proof as it make an assumption on the OverlaySend message content
-        if is_forward is False:
-            async with self._replies_lock:
-                if message.request_id:
-                    self._replies.update({
-                        message.request_id: {'callback': on_reply, 'reply': None}
-                    })
+        # Note: as forwarded messages don't have a `request_id` field we don't have to test
+        # if this is an OverlayMessage but check whether the field exists
+        async with self._replies_lock:
+            if hasattr(message, 'request_id') and message.request_id:
+                self._replies.update({
+                    message.request_id: {'callback': on_reply, 'reply': None}
+                })
 
         await self._queue.put(message)
 
