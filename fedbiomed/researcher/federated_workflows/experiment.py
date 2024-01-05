@@ -3,16 +3,15 @@
 
 """Code of the researcher. Implements the experiment orchestration"""
 
-import copy, inspect, json, os, uuid
+import copy, inspect, os, uuid
 from re import findall
-from tabulate import tabulate
 from typing import Any, Dict, Optional, List, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch
 from declearn.model.api import Vector
 
-from fedbiomed.common.constants import ErrorNumbers, __breakpoints_version__
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError,
     FedbiomedNodeStateAgentError
@@ -22,16 +21,11 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.utils import (
-    raise_for_version_compatibility,
-    __default_version__,
-    import_class_from_file
-)
 
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.filetools import (
-    choose_bkpt_file, create_unique_link, create_unique_file_link, find_breakpoint_path
+    choose_bkpt_file, create_unique_file_link
 )
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.secagg import SecureAggregation
@@ -39,7 +33,7 @@ from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
 from fedbiomed.researcher.federated_workflows._training_plan_workflow import Type_TrainingPlan, TrainingPlanWorkflow
-from fedbiomed.researcher.federated_workflows.jobs._training_job import TrainingJob
+from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
 T = TypeVar("T")
