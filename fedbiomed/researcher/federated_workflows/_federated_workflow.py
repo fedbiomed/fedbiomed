@@ -100,6 +100,7 @@ class FederatedWorkflow(ABC):
             training_args: Union[TrainingArgs, dict, None] = None,
             experimentation_folder: Union[str, None] = None,
             secagg: Union[bool, SecureAggregation] = False,
+            save_breakpoints: bool = False,
     ) -> None:
         """Constructor of the class.
 
@@ -174,6 +175,7 @@ class FederatedWorkflow(ABC):
         self._tags = None
         self._experimentation_folder = None
         self._secagg = None
+        self._save_breakpoints = None
         self._node_state_agent: NodeStateAgent = None
         self._researcher_id = environ['RESEARCHER_ID']
         self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id # TO BE RENAMED
@@ -184,6 +186,9 @@ class FederatedWorkflow(ABC):
         # set self._tags and self._nodes
         self.set_tags(tags)
         self.set_nodes(nodes)
+
+        self.set_save_breakpoints(save_breakpoints)
+
 
         # set self._model_args and self._training_args to dict
         self.set_training_args(training_args)
@@ -287,6 +292,16 @@ class FederatedWorkflow(ABC):
     @property
     def id(self):
         return self._id
+
+    @exp_exceptions
+    def save_breakpoints(self) -> bool:
+        """Retrieves the status of saving breakpoint after each round of training.
+
+        Returns:
+            `True`, If saving breakpoint is active. `False`, vice versa.
+        """
+
+        return self._save_breakpoints
 
     @exp_exceptions
     def info(self, info=None) -> Dict[str, Any]:
@@ -524,6 +539,32 @@ class FederatedWorkflow(ABC):
             raise FedbiomedExperimentError(msg)
 
         return self._secagg
+
+    @exp_exceptions
+    def set_save_breakpoints(self, save_breakpoints: bool) -> bool:
+        """ Setter for save_breakpoints + verification on arguments type
+
+        Args:
+            save_breakpoints (bool): whether to save breakpoints or
+                not after each training round. Breakpoints can be used for resuming
+                a crashed experiment.
+
+        Returns:
+            Status of saving breakpoints
+
+        Raises:
+            FedbiomedExperimentError: bad save_breakpoints type
+        """
+        if isinstance(save_breakpoints, bool):
+            self._save_breakpoints = save_breakpoints
+            # no warning if done during experiment, we may change breakpoint policy at any time
+        else:
+            msg = ErrorNumbers.FB410.value + f' `save_breakpoints` : {type(save_breakpoints)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        return self._save_breakpoints
+
 
     def secagg_setup(self):
         secagg_arguments = {}

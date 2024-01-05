@@ -41,6 +41,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             training_args: Union[TrainingArgs, dict, None] = None,
             experimentation_folder: Union[str, None] = None,
             secagg: Union[bool, SecureAggregation] = False,
+            save_breakpoints: bool = False,
     ) -> None:
         """Constructor of the class.
 
@@ -113,7 +114,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             training_data=training_data,
             training_args=training_args,
             experimentation_folder=experimentation_folder,
-            secagg=secagg
+            secagg=secagg,
+            save_breakpoints=save_breakpoints
         )
 
         # Check arguments

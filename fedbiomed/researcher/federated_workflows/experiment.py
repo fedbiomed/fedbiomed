@@ -139,7 +139,8 @@ class Experiment(TrainingPlanWorkflow):
             training_plan_path,
             training_args,
             experimentation_folder,
-            secagg
+            secagg,
+            save_breakpoints=save_breakpoints
         )
         self._node_selection_strategy = None
         self._round_limit = None
@@ -152,7 +153,6 @@ class Experiment(TrainingPlanWorkflow):
         self._client_correction_states_dict = {}
         self._client_states_dict = {}
         self._server_state = None
-        self._save_breakpoints = None
         self._training_replies: Dict = {}
 
         # set self._aggregator : type Aggregator
@@ -167,8 +167,6 @@ class Experiment(TrainingPlanWorkflow):
         # "current" means number of rounds already trained
         self._set_round_current(0)
         self.set_round_limit(round_limit)
-
-        self.set_save_breakpoints(save_breakpoints)
 
         # always create a monitoring process
         self._monitor = Monitor()
@@ -373,16 +371,6 @@ class Experiment(TrainingPlanWorkflow):
         """
 
         return self._training_replies
-
-    @exp_exceptions
-    def save_breakpoints(self) -> bool:
-        """Retrieves the status of saving breakpoint after each round of training.
-
-        Returns:
-            `True`, If saving breakpoint is active. `False`, vice versa.
-        """
-
-        return self._save_breakpoints
 
     @exp_exceptions
     def set_training_plan_class(self, training_plan_class: Union[Type_TrainingPlan, str, None]) -> \
@@ -772,31 +760,6 @@ class Experiment(TrainingPlanWorkflow):
             raise FedbiomedExperimentError(msg)
 
         return self._tensorboard
-
-    @exp_exceptions
-    def set_save_breakpoints(self, save_breakpoints: bool) -> bool:
-        """ Setter for save_breakpoints + verification on arguments type
-
-        Args:
-            save_breakpoints (bool): whether to save breakpoints or
-                not after each training round. Breakpoints can be used for resuming
-                a crashed experiment.
-
-        Returns:
-            Status of saving breakpoints
-
-        Raises:
-            FedbiomedExperimentError: bad save_breakpoints type
-        """
-        if isinstance(save_breakpoints, bool):
-            self._save_breakpoints = save_breakpoints
-            # no warning if done during experiment, we may change breakpoint policy at any time
-        else:
-            msg = ErrorNumbers.FB410.value + f' `save_breakpoints` : {type(save_breakpoints)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        return self._save_breakpoints
 
     @exp_exceptions
     def run_once(self, increase: bool = False, test_after: bool = False) -> int:
