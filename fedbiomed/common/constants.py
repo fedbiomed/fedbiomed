@@ -282,6 +282,7 @@ class ErrorNumbers(_BaseEnum):
     FB321 = "FB321: Secure aggregation delete error"
     FB322 = "FB322: Dataset registration error"
     FB323 = "FB323: Node State error"
+    FB324 = "FB324: Node to node overlay error"
 
     # application error on researcher
 

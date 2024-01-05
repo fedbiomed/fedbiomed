@@ -180,6 +180,13 @@ class FedbiomedNodeStateManagerError(FedbiomedError):
     pass
 
 
+class FedbiomedNodeToNodeError(FedbiomedError):
+    """
+    Error in Node to Node communications
+    """
+    pass
+
+
 class FedbiomedOptimizerError(FedbiomedError):
     """
     Exception raised when an error is encountered within `Optimizer` code.
