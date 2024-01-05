@@ -576,17 +576,6 @@ class Experiment(TrainingPlanWorkflow):
         # at this point self._round_limit is a Union[int, None]
         return self._round_limit
 
-    # no setter for self._round_current eg
-    # def set_round_current(self, round_current: int) -> int:
-    # ...
-    #
-    # - does not make sense to increase `self._round_current` == padding with "non existing" rounds,
-    #   would need to invent some dummy data for strategy, experiment results, etc.
-    # - erasing rounds is complicated: not only decreasing `self._round_current)`, need
-    #   to clean some experiment results (aggregated_params, job.training_replies, ...),
-    #   change state of aggregator, strategy, etc... == the proper way of doing it is to
-    #   load a breakpoint
-
     # private 'setter' needed when loading experiment - should not be made public
     @exp_exceptions
     def _set_round_current(self, round_current: int) -> int:
@@ -629,8 +618,6 @@ class Experiment(TrainingPlanWorkflow):
         # at this point self._round_current is an int
         return self._round_current
 
-    # TODO: model_args need checking of dict items, to be done by Job and node
-    # (using a training plan method ?)
     @exp_exceptions
     def set_model_args(self, model_args: dict) -> dict:
         """Sets `model_args` + verification on arguments type
