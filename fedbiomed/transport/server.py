@@ -305,7 +305,6 @@ class _GrpcAsyncServer:
         Args:
             message: Message to forward
         """
-        logger.info(f"RECEIVED OVERLAY MESSAGE {self} {self.send} {message}")
         if not isinstance(message, OverlaySend):
             logger.warning(f"Unexpected overlay message received by researcher. Discard message.")
             return
@@ -319,18 +318,16 @@ class _GrpcAsyncServer:
             'command': 'overlay-forward',
         })
 
-        # caveat: if using `self.send()` it uses `GrpcServer.send()`
-        await _GrpcAsyncServer.send(self, message_forward, m['dest_node_id'], True)
+        # caveat: if using `self.send()` it uses `GrpcServer.send()`, if using `super().send()` it's less generic
+        await _GrpcAsyncServer.send(self, message_forward, m['dest_node_id'])
 
 
-    async def send(self, message: Message, node_id: str, is_forward: bool = False) -> None:
+    async def send(self, message: Message, node_id: str) -> None:
         """Send given message to a given client
 
         Args:
             message: Message to broadcast
             node_id: unique ID of node
-            is_forward: False for a message originating from the researcher,
-                True for an overlay message only forwarded by the researcher
         """
 
         agent = await self._agent_store.get(node_id)
@@ -339,7 +336,7 @@ class _GrpcAsyncServer:
             logger.info(f"Node {node_id} is not registered on server. Discard message.")
             return
 
-        await agent.send_async(message, is_forward=is_forward)
+        await agent.send_async(message)
 
 
     async def broadcast(self, message: Message) -> None:

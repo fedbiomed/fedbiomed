@@ -107,7 +107,7 @@ class NodeAgentAsync:
         """
         return self._queue.get()
 
-    async def on_reply(self, message: Dict):
+    async def on_reply(self, message: Dict) -> None:
         """Callback to execute each time new reply received from the node"""
 
         message = ResearcherMessages.format_incoming_message(message)
@@ -171,10 +171,11 @@ class NodeAgentAsync:
                             "as DISCONNECTED soon if no request received.")
 
         # Updates replies
+        #
+        # Note: as forwarded messages don't have a `request_id` field we don't have to test
+        # if this is an OverlayMessage but check whether the field exists
         async with self._replies_lock:
-            # update replies only for (1) request-response messages
-            # (2) that are not yet registered as pending request
-            if message.request_id and message.request_id not in self._replies:
+            if hasattr(message, 'request_id') and message.request_id:
                 self._replies.update({
                     message.request_id: {'callback': on_reply, 'reply': None}
                 })

@@ -213,10 +213,18 @@ class RequestReply(Message):
 
 @dataclass(kw_only=True)
 class OverlayMessage(Message):
-    """Parent class of messages for handling overlay trafic"""
+    """Parent class of messages for handling overlay trafic
 
-    # Note: we could declare here common parameters to OverLaySend OverlayForward
-    # but it's nice to keep them as separate messages
+    Attributes:
+        researcher_id: Id of the researcher relaying the overlay message
+        dest_node_id: Id of the destination node of the overlay message
+        overlay: payload of the message to be forwarded unchanged to the destination node
+        command: Command string
+    """
+    researcher_id: str  # Needed for node side message handling
+    dest_node_id: str
+    overlay: str
+    # TODO: change to a byte sequence of encrypted
 
 
 @dataclass(kw_only=True)
@@ -508,19 +516,13 @@ class OverlaySend(OverlayMessage, RequiresProtocolVersion):
     """Describes an overlay message sent by a node to the relay researcher
 
     Attributes:
-        dest_node_id: Id of the destination node of the overlay message
-        overlay: payload of the message to be forwarded unchanged to the destination node
+        node_id: Id of the source node of the overlay message
         command: Command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
-    researcher_id: str  # Needed for node side message handling
     node_id: str        # Needed for server side message handling
-    dest_node_id: str
-    overlay: str
-    # TODO: change to a byte sequence of encrypted
-    # consider sign-encrypt-sign or other see https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
     command: str
 
 
@@ -530,19 +532,11 @@ class OverlayForward(OverlayMessage, RequiresProtocolVersion):
     """Describes an overlay message forwarded by a researcher to the destination node
 
     Attributes:
-        dest_node_id: Id of the destination node of the overlay message
-        overlay: payload of the message to be forwarded unchanged to the destination node
         command: Command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
-    researcher_id: str  # Needed for node side message handling
-    # source node_id is not needed on node, should use the node_id from encapsulated message
-    dest_node_id: str
-    overlay: str
-    # TODO: change to a byte sequence of encrypted
-    # consider sign-encrypt-sign or other see https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
     command: str
 
 
@@ -722,6 +716,63 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
     success: bool
     node_id: str
     msg: str
+    command: str
+
+
+# TrainingPlanStatus messages
+
+@catch_dataclass_exception
+@dataclass
+class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
+    """Describes a training plan approve status check message sent by the researcher.
+
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        job_id: Job id related to the experiment.
+        training_plan_url: The training plan that is going to be checked for approval
+        command: Request command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+   """
+
+    researcher_id: str
+    job_id: str
+    training_plan: str
+    command: str
+
+
+@catch_dataclass_exception
+@dataclass
+class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
+    """Describes a training plan approve status check message sent by the node
+
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        node_id: Node id that replies the request
+        job_id: job id related to the experiment
+        success: True if the node process the request as expected, false
+            if any exception occurs
+        approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
+            in the node for training.
+        is_approved: True, if the requested training plan is one of the approved training plan by the node
+        msg: Message from node based on state of the reply
+        training_plan_url: The training plan that has been checked for approval
+        command: Reply command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+
+    """
+
+    researcher_id: str
+    node_id: str
+    job_id: str
+    success: bool
+    approval_obligation: bool
+    status: str
+    msg: str
+    training_plan: str
     command: str
 
 
