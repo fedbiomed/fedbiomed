@@ -219,12 +219,27 @@ class OverlayMessage(Message):
         researcher_id: Id of the researcher relaying the overlay message
         dest_node_id: Id of the destination node of the overlay message
         overlay: payload of the message to be forwarded unchanged to the destination node
-        command: Command string
     """
     researcher_id: str  # Needed for node side message handling
     dest_node_id: str
-    overlay: str
-    # TODO: change to a byte sequence of encrypted
+    overlay: bytes
+
+
+@dataclass(kw_only=True)
+class InnerMessage(Message):
+    """Parent class of messages sent from node to node.
+
+    Node to node messages are sent as inner message (payload) of an overlay message
+
+    Attributes:
+        node_id: Id of the source node sending the mess
+        dest_node_id: Id of the destination node of the overlay message
+    """
+    # Needed by destination node for easily identifying source node.
+    # Not needed for security if message is signed by source node.
+    node_id: str
+    # Needed for security if we `encrypt(sign(message))` to link signed message to identity of destination node
+    dest_node_id: str
 
 
 @dataclass(kw_only=True)
@@ -328,7 +343,29 @@ class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
     scalar: Optional[Scalar] = None
 
 
-# ---------------------------------------------------------------------------
+# --- Node <=> Node messages ----------------------------------------------------
+
+
+@catch_dataclass_exception
+@dataclass
+class KeyRequest(InnerMessage, RequiresProtocolVersion):
+    """Message for starting a new exchange for creating crypto key material.
+
+    Currently only Diffie-Hellman key exchange is supported
+
+    Attributes:
+        node_id: Id of the source node of the overlay message
+        command: Command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    # TODO: add request_id
+    dummy: str     # Temporary dummy payload
+    command: str
+
+
+# --- Node <=> Researcher messages ----------------------------------------------
 
 
 # Approval messages
@@ -964,7 +1001,7 @@ class ResearcherMessages(MessageFactory):
 
 
 class NodeMessages(MessageFactory):
-    """Specializes MessageFactory for Node.
+    """Specializes MessageFactory for Node side messages Node <=> Researcher
 
     Node send replies and receive requests.
     """
@@ -991,3 +1028,12 @@ class NodeMessages(MessageFactory):
                                           'secagg-delete': SecaggDeleteReply,
                                           'overlay-send': OverlaySend,
                                           }
+
+
+class NodeToNodeMessages(MessageFactory):
+    """Specializes MessageFactory for message from Node to Node
+    """
+    INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'key-request': KeyRequest,
+                                          }
+
+    OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = INCOMING_MESSAGE_TYPE_TO_CLASS_MAP
