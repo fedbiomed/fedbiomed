@@ -266,15 +266,10 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
         if training_plan_class is None:
             self.__training_plan_class = None
-            self._training_plan_is_defined = False
         elif isinstance(training_plan_class, str):
             if str.isidentifier(training_plan_class):
                 # correct python identifier
                 self.__training_plan_class = training_plan_class
-                # training_plan_class_path may not be defined at this point
-
-                self._training_plan_is_defined = isinstance(self._training_plan_path, str)
-
             else:
                 # bad identifier
                 msg = ErrorNumbers.FB410.value + f' `training_plan_class` : {training_plan_class} bad identifier'
@@ -286,8 +281,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 # valid class
                 self.__training_plan_class = training_plan_class
                 # training_plan_class_path may not be defined at this point
-
-                self._training_plan_is_defined = self._training_plan_path is None
             else:
                 # bad class
                 msg = ErrorNumbers.FB410.value + f' `training_plan_class` : {training_plan_class} class'
@@ -298,12 +291,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             msg = ErrorNumbers.FB410.value + f' `training_plan_class` of type: {type(training_plan_class)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-
-            # self._training_plan_is_defined and self.__training_plan_class always exist at this point
-        if not self._training_plan_is_defined:
-            logger.debug(f'Experiment not fully configured yet: no valid training plan, '
-                         f'training_plan_class={self.__training_plan_class} '
-                         f'training_plan_class_path={self._training_plan_path}')
 
         self.reset_training_plan()
 
@@ -326,19 +313,13 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         Raises:
             FedbiomedExperimentError : bad training_plan_path type
         """
-        # self._training_plan and self._training_plan_is_defined already exist when entering this function
-
         if training_plan_path is None:
             self._training_plan_path = None
-            # .. so training plan is defined if it is a class (+ then, it has been tested as valid)
-            self._training_plan_is_defined = inspect.isclass(self.__training_plan_class)
         elif isinstance(training_plan_path, str):
             if sanitize_filepath(training_plan_path, platform='auto') == training_plan_path \
                     and os.path.isfile(training_plan_path):
                 # provided training plan path is a sane path to an existing file
                 self._training_plan_path = training_plan_path
-                # if providing a training plan path, we expect a training plan class name (not a class)
-                self._training_plan_is_defined = isinstance(self.__training_plan_class, str)
             else:
                 # bad filepath
                 msg = ErrorNumbers.FB410.value + \
@@ -351,11 +332,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                                              f'but got type: {type(training_plan_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-
-        # self._training_plan_path is also defined at this point
-        if not self._training_plan_is_defined:
-            logger.debug(f'Experiment not fully configured yet: no valid training plan, '
-                         f'training_plan={self.__training_plan_class} training_plan_path={self._training_plan_path}')
 
         return self._training_plan_path
 
