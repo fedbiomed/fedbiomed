@@ -37,15 +37,15 @@ from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions, \
-    FederatedWorkflow, Type_TrainingPlan
+from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
+from fedbiomed.researcher.federated_workflows._training_plan_workflow import Type_TrainingPlan, TrainingPlanWorkflow
 from fedbiomed.researcher.federated_workflows.jobs._training_job import TrainingJob
 
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
 T = TypeVar("T")
 
 
-class Experiment(FederatedWorkflow):
+class Experiment(TrainingPlanWorkflow):
     """
     This class represents the orchestrator managing the federated training
     """
@@ -392,7 +392,7 @@ class Experiment(FederatedWorkflow):
 
     # a specific getter-like
     @exp_exceptions
-    def info(self) -> Dict[str, Any]:
+    def info(self, info=None) -> Dict[str, Any]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
@@ -402,9 +402,12 @@ class Experiment(FederatedWorkflow):
         """
 
         # at this point all attributes are initialized (in constructor)
-        info = super().info()
-        info.update({
-            'Arguments': [
+        if info is None:
+            info = {
+                'Arguments': [],
+                'Values': []
+            }
+        info['Arguments'].extend([
                 'Aggregator',
                 'Strategy',
                 'Aggregator Optimizer',
@@ -412,9 +415,8 @@ class Experiment(FederatedWorkflow):
                 'Rounds already run',
                 'Rounds total',
                 'Breakpoint State',
-            ],
-            # max 60 characters per column for values - can we do that with tabulate() ?
-            'Values': ['\n'.join(findall('.{1,60}',
+            ])
+        info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
                 self._aggregator.aggregator_name if self._aggregator is not None else None,
                 self._node_selection_strategy,
@@ -423,11 +425,8 @@ class Experiment(FederatedWorkflow):
                 self._round_current,
                 self._round_limit,
                 self._save_breakpoints,
-            ]
-            ]
-        }
-        )
-        print(tabulate(info, headers='keys'))
+            ]])
+        info = super().info(info)
         return info
 
     @exp_exceptions

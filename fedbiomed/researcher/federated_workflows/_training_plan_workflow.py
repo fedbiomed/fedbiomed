@@ -1,6 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 import inspect, os
+from abc import ABC
 from re import findall
 from pathvalidate import sanitize_filepath
 from typing import Any, Dict, List, Type, TypeVar, Union, Optional
@@ -24,7 +25,7 @@ TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
 
 
-class TrainingPlanWorkflow(FederatedWorkflow):
+class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     """
     This class represents the orchestrator managing the federated training
     """
@@ -191,7 +192,7 @@ class TrainingPlanWorkflow(FederatedWorkflow):
 
     # a specific getter-like
     @exp_exceptions
-    def info(self) -> Dict[str, Any]:
+    def info(self, info=None) -> Dict[str, Any]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
@@ -199,21 +200,22 @@ class TrainingPlanWorkflow(FederatedWorkflow):
         Raises:
             FedbiomedExperimentError: Inconsistent experiment due to missing variables
         """
-        info = super().info()
         # at this point all attributes are initialized (in constructor)
-        info.update = {
-            'Arguments': [
+        if info is None:
+            info = {
+                'Arguments': [],
+                'Values': []
+            }
+        info['Arguments'].extend([
                 'Training Plan Path',
                 'Training Plan Class',
-            ],
-            # max 60 characters per column for values - can we do that with tabulate() ?
-            'Values': ['\n'.join(findall('.{1,60}',
+            ])
+        info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
                            self._training_plan_path,
                            self._training_plan_class,
-                       ]
-                       ]
-        }
+                       ]])
+        info = super().info(info)
         return info
 
     @exp_exceptions

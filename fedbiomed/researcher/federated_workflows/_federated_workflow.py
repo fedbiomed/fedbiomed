@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import functools, os, sys, traceback, uuid
+import functools, os, sys, tabulate, traceback, uuid
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathvalidate import sanitize_filename
@@ -288,10 +288,8 @@ class FederatedWorkflow(ABC):
     def id(self):
         return self._id
 
-
-    # a specific getter-like
     @exp_exceptions
-    def info(self) -> Dict[str, Any]:
+    def info(self, info=None) -> Dict[str, Any]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
@@ -299,35 +297,30 @@ class FederatedWorkflow(ABC):
         Raises:
             FedbiomedExperimentError: Inconsistent experiment due to missing variables
         """
-
-        # at this point all attributes are initialized (in constructor)
-        info = {
-            'Arguments': [
+        if info is None:
+            info = {
+                'Arguments': [],
+                'Values': []
+            }
+        info['Arguments'].extend([
                 'Tags',
                 'Nodes filter',
                 'Training Data',
-                'Training Plan Path',
-                'Training Plan Class',
                 'Training Arguments',
                 'Experiment folder',
                 'Experiment Path',
                 'Secure Aggregation'
-            ],
-            # max 60 characters per column for values - can we do that with tabulate() ?
-            'Values': ['\n'.join(findall('.{1,60}',
-                                         str(e))) for e in [
+            ])
+        info['Values'].extend(['\n'.join(findall('.{1,60}', str(e))) for e in [
                            self._tags,
                            self._nodes,
                            self._fds,
-                           self._training_plan_path,
-                           self._training_plan_class,
                            self._training_args,
                            self._experimentation_folder,
                            self.experimentation_path(),
                            f'- Using: {self._secagg}\n- Active: {self._secagg.active}'
-                       ]
-                       ]
-        }
+                       ]])
+        print(tabulate.tabulate(info, headers='keys'))
         return info
 
     # Setters
