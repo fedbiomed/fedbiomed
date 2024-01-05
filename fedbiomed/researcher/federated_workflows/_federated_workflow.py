@@ -1,6 +1,9 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+""" This file defines the FederatedWorkflow class and some additional generic utility functions that can be used by
+    all other workflows."""
+
 import functools, json, os, sys, tabulate, traceback, uuid
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -24,7 +27,7 @@ from fedbiomed.researcher.secagg import SecureAggregation
 TFederatedWorkflow = TypeVar("TFederatedWorkflow", bound='FederatedWorkflow')  # only for typing
 
 
-# Exception handling at top lever for researcher
+# Exception handling at top level for researcher
 def exp_exceptions(function):
     """
     Decorator for handling all exceptions in the Experiment class() :
@@ -88,7 +91,19 @@ def exp_exceptions(function):
 
 class FederatedWorkflow(ABC):
     """
-    This class represents the orchestrator managing the federated training
+    A FederatedWorkflow is the main entry point for the researcher to orchestrate both local and remote operations.
+
+    The FederatedWorkflow is an abstract base class from which the actual classes used by the researcher must inherit.
+    It manages the life-cycle of:
+
+    - the federated data (i.e. the [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDaset] class
+    - the training arguments
+    - secure aggregation
+    - the node state agent
+
+    Additionally, it provides the basis for the breakpoint functionality, and manages some backend functionalities such
+    as the temporary directory, the experiment ID, etc...
+
     """
 
     @exp_exceptions
