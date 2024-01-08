@@ -15,7 +15,7 @@ from typing import Any, Dict, Callable, Union, List, Optional
 import tabulate
 from python_minifier import minify
 
-from fedbiomed.common.constants import MessageType
+from fedbiomed.common.constants import MessageType, REQUEST_PREFIX
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ResearcherMessages, ErrorMessage, Message
 from fedbiomed.common.singleton import SingletonMeta
@@ -141,7 +141,7 @@ class FederatedRequest:
         self._message = message
         self._nodes = nodes
         self._requests = []
-        self._request_id = str(uuid.uuid4())
+        self._request_id = REQUEST_PREFIX + str(uuid.uuid4())
         self._nodes_status = {}
 
         self._pending_replies = threading.Semaphore(value=0)

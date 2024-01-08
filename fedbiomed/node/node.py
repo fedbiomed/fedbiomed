@@ -5,12 +5,13 @@
 Core code of the node component.
 '''
 from typing import Optional, Union, Callable
+import uuid
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, REQUEST_PREFIX
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, \
-    TrainRequest, ErrorMessage, NodeToNodeMessages
+    TrainRequest, ErrorMessage, NodeToNodeMessages, OverlayMessage
 from fedbiomed.common.tasks_queue import TasksQueue
 
 from fedbiomed.transport.controller import GrpcController
@@ -101,11 +102,7 @@ class Node:
             elif command == 'secagg-delete':
                 self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
             elif command == 'overlay-forward':
-                # TODO: implement payload for overlay in sub-function
-                #
-                logger.info(f"RECEIVED OVERLAY MESSAGE {msg}")
-                logger.info(f"RECEIVED INNER MESSAGE {format_incoming_overlay(msg['overlay'])}")
-                #
+                self._task_overlay_forward(msg)
             elif command == 'ping':
                 self._grpc_client.send(
                     NodeMessages.format_outgoing_message(
@@ -136,6 +133,7 @@ class Node:
                     # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
                     message_inner = NodeToNodeMessages.format_outgoing_message(
                         {
+                            'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
                             'node_id': environ['NODE_ID'],
                             'dest_node_id': tag,
                             'dummy': f"DUMMY INNER from {environ['NODE_ID']}",
@@ -200,6 +198,25 @@ class Node:
             self.send_error(ErrorNumbers.FB301,
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
+
+    def _task_overlay_forward(self, overlay_msg: dict) -> None:
+        """Handle overlay message.
+
+        Args:
+            msg: Dict of an overlay forward message
+        """
+        if overlay_msg['dest_node_id'] != environ['NODE_ID']:
+            logger.error(
+                f"{ErrorNumbers.FB324}: node {environ['NODE_ID']} received an overlay message "
+                f"sent to {overlay_msg['dest_node_id']}"
+            )
+            return
+
+        # TODO: implement payload for overlay in sub-function
+        #
+        logger.info(f"RECEIVED OVERLAY MESSAGE {overlay_msg}")
+        logger.info(f"RECEIVED INNER MESSAGE {format_incoming_overlay(overlay_msg['overlay'])}")
+        #
 
     def _task_secagg_delete(self, msg: SecaggDeleteRequest) -> None:
         """Parse a given secagg delete task message and execute secagg delete task.
