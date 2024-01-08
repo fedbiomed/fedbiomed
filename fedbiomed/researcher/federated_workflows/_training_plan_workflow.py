@@ -120,7 +120,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         self.__training_plan = None
 
         self.set_training_plan_class(training_plan_class)
-        self._reset_training_plan()
 
     @exp_exceptions
     def _reset_training_plan(self) -> None:
