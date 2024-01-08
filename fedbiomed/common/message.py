@@ -232,9 +232,11 @@ class InnerMessage(Message):
     Node to node messages are sent as inner message (payload) of an overlay message
 
     Attributes:
+        request_id: unique identifier of this request
         node_id: Id of the source node sending the mess
         dest_node_id: Id of the destination node of the overlay message
     """
+    request_id: str
     # Needed by destination node for easily identifying source node.
     # Not needed for security if message is signed by source node.
     node_id: str
@@ -354,7 +356,23 @@ class KeyRequest(InnerMessage, RequiresProtocolVersion):
     Currently only Diffie-Hellman key exchange is supported
 
     Attributes:
-        node_id: Id of the source node of the overlay message
+        command: Command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    dummy: str     # Temporary dummy payload
+    command: str
+
+
+@catch_dataclass_exception
+@dataclass
+class KeyReply(InnerMessage, RequiresProtocolVersion):
+    """Message for continuing an exchange for creating crypto key material.
+
+    Currently only Diffie-Hellman key exchange is supported
+
+    Attributes:
         command: Command string
 
     Raises:
@@ -1034,6 +1052,7 @@ class NodeToNodeMessages(MessageFactory):
     """Specializes MessageFactory for message from Node to Node
     """
     INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'key-request': KeyRequest,
+                                          'key-reply': KeyReply,
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = INCOMING_MESSAGE_TYPE_TO_CLASS_MAP
