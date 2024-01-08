@@ -44,11 +44,11 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     @exp_exceptions
     def __init__(
             self,
-            tags: Optional[List[str], str] = None,
+            tags: Optional[Union[List[str], str]] = None,
             nodes: Optional[List[str]] = None,
-            training_data: Optional[FederatedDataSet, dict] = None,
+            training_data: Optional[Union[FederatedDataSet, dict]] = None,
             training_plan_class: Optional[Type_TrainingPlan] = None,
-            training_args: Optional[TrainingArgs, dict] = None,
+            training_args: Optional[Union[TrainingArgs, dict]] = None,
             model_args: Optional[Dict] = None,
             experimentation_folder: Optional[str] = None,
             secagg: Union[bool, SecureAggregation] = False,
@@ -162,7 +162,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedJobError(msg)
 
     @exp_exceptions
-    def training_plan_class(self) -> Optional[Type_TrainingPlan, str]:
+    def training_plan_class(self) -> Optional[Type_TrainingPlan]:
         """Retrieves the type of the training plan that is created for training.
 
         Please see also [`set_training_plan_class`][fedbiomed.researcher.experiment.Experiment.set_training_plan_class].
@@ -378,10 +378,10 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     @classmethod
     @exp_exceptions
     def load_breakpoint(cls,
-                        breakpoint_folder_path: Union[str, None] = None) -> 'TExperiment':
+                        breakpoint_folder_path: Union[str, None] = None) -> 'TTrainingPlanWorkflow':
         """
         Loads breakpoint (provided a breakpoint has been saved)
-        so experience can be resumed. Usefull if training has crashed
+        so experience can be resumed. Useful if training has crashed
         researcher side or if user wants to resume experiment.
 
         Args:
