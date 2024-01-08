@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, Optional
+from typing import Dict, List, Union, Optional
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.logger import logger
@@ -13,7 +13,7 @@ from fedbiomed.researcher.requests import Requests, DiscardOnTimeout
 class TrainingPlanApprovalJob(Job):
     def __init__(self,
                  reqs: Requests = None,
-                 nodes: Optional[dict] = None,
+                 nodes: Optional[Union[dict, List[str]]] = None,
                  keep_files_dir: str = None):
 
         """ Constructor of the class

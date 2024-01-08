@@ -4,7 +4,6 @@ import inspect, os
 import uuid
 from abc import ABC
 from re import findall
-from pathvalidate import sanitize_filepath
 from typing import Any, Dict, List, Type, TypeVar, Union, Optional
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -21,27 +20,36 @@ from fedbiomed.researcher.filetools import create_unique_link, choose_bkpt_file
 from fedbiomed.researcher.secagg import SecureAggregation
 
 # for checking class passed to experiment
-# TODO : should we move this to common/constants.py ?
 training_plans_types = (TorchTrainingPlan, SKLearnTrainingPlan)
-# for typing only
+# typing information
 TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
+TTrainingPlanWorkflow = TypeVar("TTrainingPlanWorkflow", bound='TrainingPlanWorkflow')  # only for typing
 
 
 class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     """
-    This class represents the orchestrator managing the federated training
+    A `TrainingPlanWorkflow` is an abstract entry point to orchestrate an experiment which uses a training plan.
+
+    In addition to the functionalities provided by
+    [`FederatedWorkflow`][fedbiomed.researcher.federated_workflows.FederatedWorkflow], the `TrainingPlanWorkflow` also
+    manages the life-cycle of the training plan.
+
+    !!! warning "Use `set_training_plan_class` to manage the training plan"
+        Please only ever use the [`set_training_plan_class`][fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingPlanWorkflow.set_training_plan_class]
+        function to manage the training plan. Do not set the training plan or training plan class directly!
+
     """
 
     @exp_exceptions
     def __init__(
             self,
-            tags: Union[List[str], str, None] = None,
-            nodes: Union[List[str], None] = None,
-            training_data: Union[FederatedDataSet, dict, None] = None,
-            training_plan_class: Union[Type_TrainingPlan, str, None] = None,
-            training_args: Union[TrainingArgs, dict, None] = None,
-            experimentation_folder: Union[str, None] = None,
+            tags: Optional[List[str], str] = None,
+            nodes: Optional[List[str]] = None,
+            training_data: Optional[FederatedDataSet, dict] = None,
+            training_plan_class: Optional[Type_TrainingPlan] = None,
+            training_args: Optional[TrainingArgs, dict] = None,
+            experimentation_folder: Optional[str] = None,
             secagg: Union[bool, SecureAggregation] = False,
             save_breakpoints: bool = False,
     ) -> None:
@@ -64,35 +72,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                     experiment is not fully initialized and cannot be launched)
                 Defaults to None (query nodes for dataset if `tags` is not None, set training_data
                 to None else)
-            aggregator: object or class defining the method for aggregating local updates. Default to None (use
-                [`FedAverage`][fedbiomed.researcher.aggregators.FedAverage] for aggregation)
-            agg_optimizer: [`Optimizer`][fedbiomed.common.optimizers.Optimizer] instance, to refine aggregated
-                model updates prior to their application. If None, merely apply the aggregated updates.
-            node_selection_strategy:object or class defining how nodes are sampled at each round for training, and how
-                non-responding nodes are managed.  Defaults to None:
-                - use [`DefaultStrategy`][fedbiomed.researcher.strategies.DefaultStrategy] if training_data is
-                    initialized
-                - else strategy is None (cannot be initialized), experiment cannot be launched yet
-            round_limit: the maximum number of training rounds (nodes <-> central server) that should be executed for
-                the experiment. `None` means that no limit is defined. Defaults to None.
-            training_plan_class: name of the training plan class [`str`][str] or training plan class
-                (`Type_TrainingPlan`) to use for training.
-                For experiment to be properly and fully defined `training_plan_class` needs to be:
-                - a [`str`][str] when `training_plan_class_path` is not None (training plan class comes from a file).
-                - a `Type_TrainingPlan` when `training_plan_class_path` is None (training plan class passed
-                    as argument).
+            training_plan_class: training plan class to be used for training.
+                For experiment to be properly and fully defined `training_plan_class` needs to be a `Type_TrainingPlan`
                 Defaults to None (no training plan class defined yet)
-
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
                 output and input feature dimension, etc.
             training_args: contains training arguments passed to the `training_routine` of the training plan when
                 launching it: lr, epochs, batch_size...
             save_breakpoints: whether to save breakpoints or not after each training round. Breakpoints can be used for
                 resuming a crashed experiment.
-            tensorboard: whether to save scalar values  for displaying in Tensorboard during training for each node.
-                Currently, it is only used for loss values.
-                - If it is true, monitor instantiates a `Monitor` object that write scalar logs into `./runs` directory.
-                - If it is False, it stops monitoring if it was active.
             experimentation_folder: choose a specific name for the folder where experimentation result files and
                 breakpoints are stored. This should just contain the name for the folder not a path. The name is used
                 as a subdirectory of `environ[EXPERIMENTS_DIR])`. Defaults to None (auto-choose a folder name)
@@ -102,11 +90,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 confuse the last experimentation detection heuristic by `load_breakpoint`.
             secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
-
-        Raises:
-            FedbiomedJobError: bad argument type or value
-            FedbiomedJobError: cannot save training plan to file
-
         """
         super().__init__(
             tags=tags,
@@ -128,26 +111,31 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                   f" supported training plans {training_plans_types}"
             raise FedbiomedJobError(msg)
 
-        # predefine all class variables, so no need to write try/except
-        # block each time we use it
-        self._training_plan = None
         # __training_plan_class is the source of truth for all training plan members of this class
         # if __training_plan_class is None, then all other members are undefined
         # whenever __training_plan_class is changed, all other members should be immediately updated accordingly
         self.__training_plan_class = None
+        # The __training_plan attribute represents the *actual instance* of a __training_plan_class that is currently
+        # being used in the workflow
+        self.__training_plan = None
 
         self.set_training_plan_class(training_plan_class)
-        self.reset_training_plan()
+        self._reset_training_plan()
 
     @exp_exceptions
-    def reset_training_plan(self):
+    def _reset_training_plan(self) -> None:
+        """Private utility function that resets the training plan according to the value of training plan class.
+
+        If training plan class is None, then sets the training plan to None.
+        Otherwise, it sets the training plan to a new, default-constructed instance of training plan class.
+        """
         if self.__training_plan_class is None:
-            self._training_plan = None
+            self.__training_plan = None
         else:
             self._raise_for_missing_job_prerequities()
             job = Job(reqs=self._reqs,
                       keep_files_dir=self.experimentation_path())
-            self._training_plan = job.get_default_constructed_tp_instance(self.__training_plan_class)
+            self.__training_plan = job.get_default_constructed_tp_instance(self.__training_plan_class)
 
     def _raise_for_missing_job_prerequities(self) -> None:
         """Setter for job, it verifies pre-requisites are met for creating a job
@@ -167,38 +155,26 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedJobError(msg)
 
     @exp_exceptions
-    def training_plan_class(self) -> Union[Type_TrainingPlan, str, None]:
-        """Retrieves the training plan (training plan class) that is created for training.
+    def training_plan_class(self) -> Optional[Type_TrainingPlan, str]:
+        """Retrieves the type of the training plan that is created for training.
 
         Please see also [`set_training_plan_class`][fedbiomed.researcher.experiment.Experiment.set_training_plan_class].
 
         Returns:
-            Training plan class as one of [`Type_TrainingPlan`][fedbiomed.researcher.experiment.Type_TrainingPlan]. None
-                if it isn't declared yet. [`str`][str] if [`training_plan_path`]
-                [fedbiomed.researcher.experiment.Experiment.training_plan_path]that represents training plan class
-                created externally is provided.
+            training_plan_class: the class type of the training plan.
         """
 
         return self.__training_plan_class
 
     @exp_exceptions
-    def training_plan(self) -> Union[TrainingPlan, None]:
-        """ Retrieves training plan instance that has been built and send the nodes through HTTP restfull service
-        for each round of training.
+    def training_plan(self) -> Optional[TrainingPlan]:
+        """Retrieves the training plan instance currently being used in the federated workflow.
 
-        !!! info "Loading aggregated parameters"
-            After retrieving the training plan instance aggregated parameters should be loaded.
-            Example:
-            ```python
-            training_plan = exp.training_plan()
-            training_plan.model.load_state_dict(exp.aggregated_params()[rounds - 1]['params'])
-            ```
-
-        Returns plan object which is an instance one of [training_plans][fedbiomed.common.training_plans].
+        Returns:
+            training plan: an instance of one of [training_plans][fedbiomed.common.training_plans].
         """
-        return self._training_plan
+        return self.__training_plan
 
-    # a specific getter-like
     @exp_exceptions
     def info(self, info=None) -> Dict[str, Any]:
         """Prints out the information about the current status of the experiment.
@@ -225,17 +201,18 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         return info
 
     @exp_exceptions
-    def set_training_plan_class(self, training_plan_class: Union[Type_TrainingPlan, str, None]) -> \
-            Union[Type_TrainingPlan, str, None]:
-        """Sets  `training_plan` + verification on arguments type
+    def set_training_plan_class(self, training_plan_class: Union[Type_TrainingPlan, None]) -> \
+            Union[Type_TrainingPlan, None]:
+        """Sets  the training plan type + verification on arguments type
+
+        !!! warning "Resets the training plan"
+            This function has an important (and intended!) side-effect: it resets the `training_plan` attribute
+            to a default-constructed instance.
 
         Args:
-            training_plan_class: name of the training plan class (`str`) or training plan class as one
-                of [`TrainingPlans`] [fedbiomed.common.training_plans] to use for training.
-                For experiment to be properly and fully defined `training_plan_class` needs to be:
-                    - a `str` when `training_plan_path` is not None (training plan class comes from a file).
-                    - a `Type_TrainingPlan` when `training_plan_path` is None (training plan class passed
-                    as argument).
+            training_plan_class: training plan class to be used for training.
+                For experiment to be properly and fully defined `training_plan_class` needs to be a `Type_TrainingPlan`
+                Defaults to None (no training plan class defined yet)
 
         Returns:
             `training_plan_class` that is set for experiment
@@ -245,21 +222,11 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
         if training_plan_class is None:
             self.__training_plan_class = None
-        elif isinstance(training_plan_class, str):
-            if str.isidentifier(training_plan_class):
-                # correct python identifier
-                self.__training_plan_class = training_plan_class
-            else:
-                # bad identifier
-                msg = ErrorNumbers.FB410.value + f' `training_plan_class` : {training_plan_class} bad identifier'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
         elif inspect.isclass(training_plan_class):
             # training_plan_class must be a subclass of a valid training plan
             if issubclass(training_plan_class, training_plans_types):
                 # valid class
                 self.__training_plan_class = training_plan_class
-                # training_plan_class_path may not be defined at this point
             else:
                 # bad class
                 msg = ErrorNumbers.FB410.value + f' `training_plan_class` : {training_plan_class} class'
@@ -271,7 +238,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        self.reset_training_plan()
+        self._reset_training_plan()  # resets the training plan attribute
 
         return self.__training_plan_class
 
@@ -331,24 +298,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
         Saves breakpoint with the state of the training at a current round. The following Experiment attributes will
         be saved:
-          - round_current
-          - round_limit
-          - tags
-          - experimentation_folder
-          - aggregator
-          - agg_optimizer
-          - node_selection_strategy
-          - training_data
-          - training_args
-          - model_args
           - training_plan_class
-          - aggregated_params
-          - job (attributes returned by the Job, aka job state)
-          - secagg
-
-        Raises:
-            FedbiomedExperimentError: experiment not fully defined, experiment did not run any round yet, or error when
-                saving breakpoint
         """
         # save training plan to file
         training_plan_module = 'model_' + str(uuid.uuid4())
