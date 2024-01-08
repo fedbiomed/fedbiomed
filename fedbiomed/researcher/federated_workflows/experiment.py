@@ -136,7 +136,6 @@ class Experiment(TrainingPlanWorkflow):
         self._round_limit = None
         self._monitor = None
         self._aggregator = None
-        self._global_model = None
         self._agg_optimizer = None
         self.aggregator_args = {}
         self._aggregated_params = {}
@@ -164,17 +163,9 @@ class Experiment(TrainingPlanWorkflow):
         self.set_tensorboard(tensorboard)
 
 
-    # destructor
     @exp_exceptions
     def __del__(self):
-        # This part has been commented, self._reqs.remove_monitor_callback() removes monitor
-        # callback when initializing an experiment for the second time with same name.
-        # While recreating a class with same variable name python first calls __init__ and then __del__.
-
-        # if self._reqs is not None:
-        #     # TODO: confirm placement for finishing monitoring - should be at the end of the experiment
-        #     self._reqs.remove_monitor_callback()
-
+        """Handles destruction of the Monitor when Experiment is destroyed."""
         if isinstance(self._monitor, Monitor):
             self._monitor.close_writer()
 
@@ -362,7 +353,6 @@ class Experiment(TrainingPlanWorkflow):
                 'Aggregator',
                 'Strategy',
                 'Aggregator Optimizer',
-                'Model Arguments',
                 'Rounds already run',
                 'Rounds total',
                 'Breakpoint State',
@@ -372,7 +362,6 @@ class Experiment(TrainingPlanWorkflow):
                 self._aggregator.aggregator_name if self._aggregator is not None else None,
                 self._node_selection_strategy,
                 self._agg_optimizer,
-                self._model_args,
                 self._round_current,
                 self._round_limit,
                 self._save_breakpoints,
@@ -776,7 +765,7 @@ class Experiment(TrainingPlanWorkflow):
         )
 
         # NOTA: wondering if we could name aggregator_args aggr_args (created only for testing)
-        # leaving aggreagtor_args and aggr_args to avoid side effects
+        # leaving aggregator_args and aggr_args to avoid side effects
 
         # update node states with node answers + when used node list has changed during the round
         self._update_nodes_states_agent(before_training=False)
