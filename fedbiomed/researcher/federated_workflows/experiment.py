@@ -55,8 +55,8 @@ class Experiment(TrainingPlanWorkflow):
         node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
         round_limit: Union[int, None] = None,
         training_plan_class: Union[Type_TrainingPlan, str, None] = None,
-        model_args: Optional[Dict] = None,
         training_args: Union[TrainingArgs, dict, None] = None,
+        model_args: Optional[Dict] = None,
         tensorboard: bool = False,
         experimentation_folder: Union[str, None] = None,
         secagg: Union[bool, SecureAggregation] = False,
@@ -121,15 +121,15 @@ class Experiment(TrainingPlanWorkflow):
                 to send encrypted updates from nodes to researcher. Defaults to `False`
         """
         # Set model args immediately, otherwise initialization of training plan fails in base constructor
-        self.set_model_args(model_args)
         super().__init__(
-            tags,
-            nodes,
-            training_data,
-            training_plan_class,
-            training_args,
-            experimentation_folder,
-            secagg,
+            tags=tags,
+            nodes=nodes,
+            training_data=training_data,
+            training_plan_class=training_plan_class,
+            training_args=training_args,
+            model_args=model_args,
+            experimentation_folder=experimentation_folder,
+            secagg=secagg,
             save_breakpoints=save_breakpoints
         )
         self._node_selection_strategy = None
@@ -137,7 +137,7 @@ class Experiment(TrainingPlanWorkflow):
         self._monitor = None
         self._aggregator = None
         self._global_model = None
-        self._agg_optimizer = None  # type: Optional[Optimizer]
+        self._agg_optimizer = None
         self.aggregator_args = {}
         self._aggregated_params = {}
         self._client_correction_states_dict = {}
@@ -162,20 +162,7 @@ class Experiment(TrainingPlanWorkflow):
         self._monitor = Monitor()
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
-        self.reset_model_parameters()
 
-    def reset_model_parameters(self):
-        if self.training_plan_class() is None:
-            self._training_plan = None
-            self._global_model = None
-        else:
-            self._raise_for_missing_job_prerequities()
-            job = TrainingJob(reqs=self._reqs,
-                              keep_files_dir=self.experimentation_path())
-            self._training_plan = job.get_initialized_workflow_instance(self.training_plan_class(),
-                                                                        self._training_args,
-                                                                        self._model_args)
-            self._global_model = self._training_plan.after_training_params()
 
     # destructor
     @exp_exceptions
@@ -250,18 +237,6 @@ class Experiment(TrainingPlanWorkflow):
             Indicates the round number that the experiment will perform next.
         """
         return self._round_current
-
-    @exp_exceptions
-    def model_args(self) -> dict:
-        """Retrieves model arguments.
-
-        Please see also [`set_model_args`][fedbiomed.researcher.experiment.Experiment.set_model_args]
-
-        Returns:
-            The arguments that are going to be passed to [`training_plans`][fedbiomed.common.training_plans]
-                classes in built time on the node side.
-        """
-        return self._model_args
 
     @exp_exceptions
     def test_ratio(self) -> float:
@@ -365,13 +340,6 @@ class Experiment(TrainingPlanWorkflow):
         """
 
         return self._training_replies
-
-    @exp_exceptions
-    def set_training_plan_class(self, training_plan_class: Union[Type_TrainingPlan, str, None]) -> \
-            Union[Type_TrainingPlan, str, None]:
-        super().set_training_plan_class(training_plan_class)
-        self.reset_model_parameters()
-        return self.training_plan_class()
 
     # a specific getter-like
     @exp_exceptions
@@ -615,32 +583,6 @@ class Experiment(TrainingPlanWorkflow):
         return self._round_current
 
     @exp_exceptions
-    def set_model_args(self, model_args: dict) -> dict:
-        """Sets `model_args` + verification on arguments type
-
-        Args:
-            model_args (dict): contains model arguments passed to the constructor
-                of the training plan when instantiating it : output and input feature
-                dimension, etc.
-
-        Returns:
-            Model arguments that have been set.
-
-        Raises:
-            FedbiomedExperimentError : bad model_args type
-        """
-        if isinstance(model_args, dict):
-            self._model_args = model_args
-        else:
-            # bad type
-            msg = ErrorNumbers.FB410.value + f' `model_args` : {type(model_args)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-        # self._model_args always exist at this point
-
-        return self._model_args
-
-    @exp_exceptions
     def set_test_ratio(self, ratio: float) -> float:
         """ Sets validation ratio for model validation.
 
@@ -792,16 +734,15 @@ class Experiment(TrainingPlanWorkflow):
         training_nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
         self._raise_for_missing_job_prerequities()
-        self._global_model = self._training_plan.get_model_params()
 
-        self._aggregator.set_training_plan_type(self._training_plan.type())
+        self._aggregator.set_training_plan_type(self.training_plan().type())
 
         # Setup Secure Aggregation (it's a noop if not active)
         secagg_arguments = self.secagg_setup()
 
         # Check aggregator parameter(s) before starting a round
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
-                                      training_plan=self._training_plan)
+                                      training_plan=self.training_plan())
 
         aggregator_args =  self._aggregator.create_aggregator_args(self._global_model,
                                                                    training_nodes)
@@ -822,10 +763,10 @@ class Experiment(TrainingPlanWorkflow):
         self._training_replies[self._round_current] = job.start_nodes_training_round(
             job_id=self._id,
             round_=self._round_current,
-            training_plan=self._training_plan,
+            training_plan=self.training_plan(),
             training_plan_class=self.training_plan_class(),
             training_args=self._training_args,
-            model_args=self._model_args,
+            model_args=self.model_args(),
             data=self._fds,
             nodes_state_ids=nodes_state_ids,
             aggregator_args=aggregator_args,
@@ -855,7 +796,7 @@ class Experiment(TrainingPlanWorkflow):
             )
             # FIXME: Access TorchModel through non-private getter once it is implemented
             aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
-                self._training_plan._model.unflatten(flatten_params)
+                self.training_plan()._model.unflatten(flatten_params)
             )
 
         else:
@@ -863,7 +804,7 @@ class Experiment(TrainingPlanWorkflow):
             aggregated_params = self._aggregator.aggregate(model_params,
                                                            weights,
                                                            global_model=self._global_model,
-                                                           training_plan=self._training_plan,
+                                                           training_plan=self.training_plan(),
                                                            training_replies=self._training_replies,
                                                            node_ids=job.nodes,
                                                            n_updates=self._training_args.get('num_updates'),
@@ -871,11 +812,11 @@ class Experiment(TrainingPlanWorkflow):
 
         # Optionally refine the aggregated updates using an Optimizer.
         self._process_optim_aux_var(job)
-        aggregated_params = self._run_agg_optimizer(self._training_plan,
+        aggregated_params = self._run_agg_optimizer(self.training_plan(),
                                                     aggregated_params)
 
-        self._training_plan.set_model_params(aggregated_params)
-        aggregated_params_path = job.save_params_to_file(self._training_plan)
+        self.training_plan().set_model_params(aggregated_params)
+        aggregated_params_path = job.save_params_to_file(self.training_plan())
         logger.info(f'Saved aggregated params for round {self._round_current} '
                     f'in {aggregated_params_path}')
         self._aggregated_params[self._round_current] = {'params': aggregated_params,
@@ -898,10 +839,10 @@ class Experiment(TrainingPlanWorkflow):
             
             job.start_nodes_training_round(job_id=self._id,
                                            round_=self._round_current,
-                                           training_plan=self._training_plan,
+                                           training_plan=self.training_plan(),
                                            training_plan_class=self.training_plan_class(),
                                            training_args=self._training_args,
-                                           model_args=self._model_args,
+                                           model_args=self.model_args(),
                                            data=self._fds,
                                            nodes_state_ids=nodes_state_ids,
                                            aggregator_args=aggr_args,
@@ -1114,27 +1055,11 @@ class Experiment(TrainingPlanWorkflow):
         be saved:
           - round_current
           - round_limit
-          - tags
-          - experimentation_folder
           - aggregator
           - agg_optimizer
           - node_selection_strategy
-          - training_data
-          - training_args
-          - model_args
-          - training_plan_class
           - aggregated_params
-          - job (attributes returned by the Job, aka job state)
-          - secagg
-
-        Raises:
-            FedbiomedExperimentError: experiment not fully defined, experiment did not run any round yet, or error when
-                saving breakpoint
         """
-        # at this point, we run the constructor so all object variables are defined
-
-        # check pre-requisistes for saving a breakpoint
-        #
         # need to have run at least 1 round to save a breakpoint
         if self._round_current < 1:
             msg = ErrorNumbers.FB413.value + \
@@ -1157,7 +1082,6 @@ class Experiment(TrainingPlanWorkflow):
             choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
 
         state = {
-            'model_args': self._model_args,
             'round_current': self._round_current,
             'round_limit': self._round_limit,
             'aggregator': self._aggregator.save_state_breakpoint(breakpoint_path, global_model=self._global_model),

@@ -15,7 +15,7 @@ from fedbiomed.common.utils import import_class_from_file
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions, FederatedWorkflow
-from fedbiomed.researcher.federated_workflows.jobs import Job, TrainingPlanApprovalJob
+from fedbiomed.researcher.federated_workflows.jobs import TrainingJob, TrainingPlanApprovalJob
 from fedbiomed.researcher.filetools import create_unique_link, choose_bkpt_file
 from fedbiomed.researcher.secagg import SecureAggregation
 
@@ -49,6 +49,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             training_data: Optional[FederatedDataSet, dict] = None,
             training_plan_class: Optional[Type_TrainingPlan] = None,
             training_args: Optional[TrainingArgs, dict] = None,
+            model_args: Optional[Dict] = None,
             experimentation_folder: Optional[str] = None,
             secagg: Union[bool, SecureAggregation] = False,
             save_breakpoints: bool = False,
@@ -118,7 +119,10 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         # The __training_plan attribute represents the *actual instance* of a __training_plan_class that is currently
         # being used in the workflow
         self.__training_plan = None
+        self._model_args = None
+        self._global_model = None
 
+        self.set_model_args(model_args)
         self.set_training_plan_class(training_plan_class)
 
     @exp_exceptions
@@ -130,11 +134,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
         if self.__training_plan_class is None:
             self.__training_plan = None
+            self._global_model = None
         else:
             self._raise_for_missing_job_prerequities()
-            job = Job(reqs=self._reqs,
-                      keep_files_dir=self.experimentation_path())
-            self.__training_plan = job.get_default_constructed_tp_instance(self.__training_plan_class)
+            job = TrainingJob(reqs=self._reqs,
+                              keep_files_dir=self.experimentation_path())
+            self.__training_plan = job.get_initialized_tp_instance(self.training_plan_class(),
+                                                                   self._training_args,
+                                                                   self._model_args)
+            self._global_model = self.__training_plan.after_training_params()
 
     def _raise_for_missing_job_prerequities(self) -> None:
         """Setter for job, it verifies pre-requisites are met for creating a job
@@ -173,6 +181,18 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             training plan: an instance of one of [training_plans][fedbiomed.common.training_plans].
         """
         return self.__training_plan
+
+    @exp_exceptions
+    def model_args(self) -> dict:
+        """Retrieves model arguments.
+
+        Please see also [`set_model_args`][fedbiomed.researcher.experiment.Experiment.set_model_args]
+
+        Returns:
+            The arguments that are going to be passed to [`training_plans`][fedbiomed.common.training_plans]
+                classes in built time on the node side.
+        """
+        return self._model_args
 
     @exp_exceptions
     def info(self, info=None) -> Dict[str, Any]:
@@ -242,6 +262,32 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         return self.__training_plan_class
 
     @exp_exceptions
+    def set_model_args(self, model_args: dict) -> dict:
+        """Sets `model_args` + verification on arguments type
+
+        Args:
+            model_args (dict): contains model arguments passed to the constructor
+                of the training plan when instantiating it : output and input feature
+                dimension, etc.
+
+        Returns:
+            Model arguments that have been set.
+
+        Raises:
+            FedbiomedExperimentError : bad model_args type
+        """
+        if isinstance(model_args, dict):
+            self._model_args = model_args
+        else:
+            # bad type
+            msg = ErrorNumbers.FB410.value + f' `model_args` : {type(model_args)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+        # self._model_args always exist at this point
+
+        return self._model_args
+
+    @exp_exceptions
     def check_training_plan_status(self) -> Dict:
         """ Method for checking training plan status, ie whether it is approved or not by the nodes
 
@@ -298,6 +344,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         Saves breakpoint with the state of the training at a current round. The following Experiment attributes will
         be saved:
           - training_plan_class
+          - model_args
         """
         # save training plan to file
         training_plan_module = 'model_' + str(uuid.uuid4())
@@ -305,6 +352,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         self.training_plan().save_code(training_plan_file)
 
         state.update({
+            'model_args': self._model_args,
             'training_plan_path': training_plan_file,
             'training_plan_class_name': self.__training_plan_class.__name__,
         })
@@ -356,6 +404,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             class_name=saved_state.get("training_plan_class_name")
         )
 
+        loaded_exp.set_model_args(saved_state["model_args"])
         loaded_exp.set_training_plan_class(tp_class)
         training_plan = loaded_exp.training_plan()
         if training_plan is None:
