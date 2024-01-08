@@ -278,7 +278,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         Raises:
             FedbiomedExperimentError : bad model_args type
         """
-        if isinstance(model_args, dict):
+        if model_args is None or isinstance(model_args, dict):
             self._model_args = model_args
         else:
             # bad type
