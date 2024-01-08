@@ -306,7 +306,7 @@ class _GrpcAsyncServer:
             message: Message to forward
         """
         if not isinstance(message, OverlaySend):
-            logger.warning(f"Unexpected overlay message received by researcher. Discard message.")
+            logger.warning("Unexpected overlay message received by researcher. Discard message.")
             return
 
         # Prepare overlay forward message
