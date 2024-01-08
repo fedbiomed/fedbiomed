@@ -40,6 +40,9 @@ NODE_STATE_PREFIX = 'node_state_'
 EXPERIMENT_PREFIX = 'exper_'
 """Prefix for experiment ID"""
 
+REQUEST_PREFIX = 'request_'
+"""Prefix for request ID"""
+
 CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 """FOLDER name for Certs directory"""
 
