@@ -211,10 +211,12 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             }
         info['Arguments'].extend([
                 'Training Plan Class',
+                'Model Arguments',
             ])
         info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
                            self.__training_plan_class,
+                           self._model_args,
                        ]])
         info = super().info(info)
         return info
