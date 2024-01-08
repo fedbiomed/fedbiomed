@@ -154,6 +154,7 @@ class FederatedWorkflow(ABC):
         # block each time we use it
         self._fds = None
         self._reqs = None
+        self._nodes = None
         self._training_args = None
         self._tags = None
         self._experimentation_folder = None
@@ -470,7 +471,7 @@ class FederatedWorkflow(ABC):
         return self._experimentation_folder
 
     @exp_exceptions
-    def set_training_args(self, training_args: dict, reset: bool = True) -> dict:
+    def set_training_args(self, training_args: dict) -> dict:
         """ Sets `training_args` + verification on arguments type
 
         Args:
