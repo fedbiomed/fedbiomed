@@ -91,12 +91,12 @@ def exp_exceptions(function):
 
 class FederatedWorkflow(ABC):
     """
-    A FederatedWorkflow is the main entry point for the researcher to orchestrate both local and remote operations.
+    A FederatedWorkflow is the abstract entry point for the researcher to orchestrate both local and remote operations.
 
     The FederatedWorkflow is an abstract base class from which the actual classes used by the researcher must inherit.
     It manages the life-cycle of:
 
-    - the federated data (i.e. the [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDaset] class
+    - the federated data (i.e. the [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDaset]) class
     - the training arguments
     - secure aggregation
     - the node state agent
@@ -136,37 +136,10 @@ class FederatedWorkflow(ABC):
                     experiment is not fully initialized and cannot be launched)
                 Defaults to None (query nodes for dataset if `tags` is not None, set training_data
                 to None else)
-            aggregator: object or class defining the method for aggregating local updates. Default to None (use
-                [`FedAverage`][fedbiomed.researcher.aggregators.FedAverage] for aggregation)
-            agg_optimizer: [`Optimizer`][fedbiomed.common.optimizers.Optimizer] instance, to refine aggregated
-                model updates prior to their application. If None, merely apply the aggregated updates.
-            node_selection_strategy:object or class defining how nodes are sampled at each round for training, and how
-                non-responding nodes are managed.  Defaults to None:
-                - use [`DefaultStrategy`][fedbiomed.researcher.strategies.DefaultStrategy] if training_data is
-                    initialized
-                - else strategy is None (cannot be initialized), experiment cannot be launched yet
-            round_limit: the maximum number of training rounds (nodes <-> central server) that should be executed for
-                the experiment. `None` means that no limit is defined. Defaults to None.
-            training_plan_class: name of the training plan class [`str`][str] or training plan class
-                (`Type_TrainingPlan`) to use for training.
-                For experiment to be properly and fully defined `training_plan_class` needs to be:
-                - a [`str`][str] when `training_plan_class_path` is not None (training plan class comes from a file).
-                - a `Type_TrainingPlan` when `training_plan_class_path` is None (training plan class passed
-                    as argument).
-                Defaults to None (no training plan class defined yet)
-
-            training_plan_path: path to a file containing training plan code [`str`][str] or None (no file containing
-                training plan code, `training_plan` needs to be a class matching `Type_TrainingPlan`) Defaults to None.
-            model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
-                output and input feature dimension, etc.
             training_args: contains training arguments passed to the `training_routine` of the training plan when
                 launching it: lr, epochs, batch_size...
             save_breakpoints: whether to save breakpoints or not after each training round. Breakpoints can be used for
                 resuming a crashed experiment.
-            tensorboard: whether to save scalar values  for displaying in Tensorboard during training for each node.
-                Currently, it is only used for loss values.
-                - If it is true, monitor instantiates a `Monitor` object that write scalar logs into `./runs` directory.
-                - If it is False, it stops monitoring if it was active.
             experimentation_folder: choose a specific name for the folder where experimentation result files and
                 breakpoints are stored. This should just contain the name for the folder not a path. The name is used
                 as a subdirectory of `environ[EXPERIMENTS_DIR])`. Defaults to None (auto-choose a folder name)
@@ -176,11 +149,6 @@ class FederatedWorkflow(ABC):
                 confuse the last experimentation detection heuristic by `load_breakpoint`.
             secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
-        
-        Raises:
-            FedbiomedJobError: bad argument type or value
-            FedbiomedJobError: cannot save training plan to file
-        
         """
         # predefine all class variables, so no need to write try/except
         # block each time we use it
@@ -264,7 +232,6 @@ class FederatedWorkflow(ABC):
 
         return self._experimentation_folder
 
-    # derivative from experimentation_folder
     @exp_exceptions
     def experimentation_path(self) -> str:
         """Retrieves the file path where experimentation folder is located and experiment related files are saved.
@@ -292,6 +259,7 @@ class FederatedWorkflow(ABC):
 
     @property
     def id(self):
+        """Retrieves the unique experiment identifier."""
         return self._id
 
     @exp_exceptions
@@ -566,19 +534,22 @@ class FederatedWorkflow(ABC):
 
         return self._save_breakpoints
 
-
-    def secagg_setup(self):
+    def secagg_setup(self) -> Dict:
+        """Retrieves the secagg arguments for setup."""
         secagg_arguments = {}
         if self._secagg.active:
-            self._secagg.setup(parties=[environ["ID"]] + self._job.nodes,
+            self._secagg.setup(parties=[environ["ID"]] + self.nodes(),
                                job_id=self._id)
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
 
     def _raise_for_missing_job_prerequities(self) -> None:
-        """Setter for job, it verifies pre-requisites are met for creating a job
-        attached to this experiment. If yes, instantiate a job ; if no, return None.
+        """Verifies that all preconditions are met before instantiating a Job.
 
+        Checks that the training data (i.e. the self._fds attribute) is correctly set and initialized.
+
+        Raises:
+            FedbiomedExperimentError if training data has not been correctly initialized
         """
         if self._fds is None:
             msg='Experiment not fully configured yet: no job. Missing training data'
@@ -593,10 +564,6 @@ class FederatedWorkflow(ABC):
             before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
                 - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
                 - if after, updates `NodeStateAgent` wrt latest reply
-
-        Raises:
-            FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
-
         """
         node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
         self._node_state_agent.update_node_states(node_ids)
@@ -608,21 +575,12 @@ class FederatedWorkflow(ABC):
         """
         Saves breakpoint with the state of the training at a current round. The following Experiment attributes will
         be saved:
-          - round_current
-          - round_limit
           - tags
           - experimentation_folder
-          - aggregator
-          - agg_optimizer
-          - node_selection_strategy
           - training_data
           - training_args
-          - model_args
-          - training_plan_path
-          - training_plan_class
-          - aggregated_params
-          - job (attributes returned by the Job, aka job state)
           - secagg
+          - node_state
 
         Raises:
             FedbiomedExperimentError: experiment not fully defined, experiment did not run any round yet, or error when
@@ -635,6 +593,7 @@ class FederatedWorkflow(ABC):
             'experimentation_folder': self._experimentation_folder,
             'tags': self._tags,
             'secagg': self._secagg.save_state_breakpoint(),
+            'node_state':  self._node_state_agent.save_state_breakpoint()
         })
 
         # save state into a json file
@@ -659,13 +618,12 @@ class FederatedWorkflow(ABC):
                         breakpoint_folder_path: Union[str, None] = None) -> 'TExperiment':
         """
         Loads breakpoint (provided a breakpoint has been saved)
-        so experience can be resumed. Usefull if training has crashed
+        so experiment can be resumed. Useful if training has crashed
         researcher side or if user wants to resume experiment.
 
         Args:
-          cls: Experiment class
           breakpoint_folder_path: path of the breakpoint folder. Path can be absolute or relative eg:
-            "var/experiments/Experiment_xxxx/breakpoints_xxxx". If None, loads latest breakpoint of the latest
+            "var/experiments/Experiment_xxxx/breakpoints_xxxx". If None, loads the latest breakpoint of the latest
             experiment. Defaults to None.
 
         Returns:
@@ -728,18 +686,10 @@ class FederatedWorkflow(ABC):
                          experimentation_folder=saved_state.get('experimentation_folder'),
                          secagg=SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
 
+        loaded_exp._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
+
         return loaded_exp, saved_state
 
-    def save_state_breakpoint(self) -> Dict:
-        """"""
-        state = {}
-        state['node_state'] =  self._node_state_agent.save_state_breakpoint()
-        return state
-
-    def load_state_breakpoint(self, saved_state: Dict):
-        """"""
-        self._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
-
     @abstractmethod
-    def run_once(self) -> int:
-        """"""
+    def run(self) -> int:
+        """Run the experiment"""
