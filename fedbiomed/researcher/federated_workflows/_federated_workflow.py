@@ -588,6 +588,7 @@ class FederatedWorkflow(ABC):
                 saving breakpoint
         """
         state.update({
+            'id': self._id,
             'breakpoint_version': str(__breakpoints_version__),
             'training_data': self._fds.data(),
             'training_args': self._training_args.dict(),
@@ -687,6 +688,7 @@ class FederatedWorkflow(ABC):
                          experimentation_folder=saved_state.get('experimentation_folder'),
                          secagg=SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
 
+        loaded_exp._id = saved_state.get('id')
         loaded_exp._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
 
         return loaded_exp, saved_state
