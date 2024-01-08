@@ -724,6 +724,7 @@ class Experiment(TrainingPlanWorkflow):
 
         self._raise_for_missing_job_prerequities()
 
+        model_params_before_round = self.training_plan().after_training_params()
         self._aggregator.set_training_plan_type(self.training_plan().type())
 
         # Setup Secure Aggregation (it's a noop if not active)
@@ -733,7 +734,7 @@ class Experiment(TrainingPlanWorkflow):
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
                                       training_plan=self.training_plan())
 
-        aggregator_args =  self._aggregator.create_aggregator_args(self._global_model,
+        aggregator_args =  self._aggregator.create_aggregator_args(model_params_before_round,
                                                                    training_nodes)
 
         # Collect auxiliary variables from the aggregates optimizer, if any.
@@ -792,7 +793,7 @@ class Experiment(TrainingPlanWorkflow):
             # aggregate models from nodes to a global model
             aggregated_params = self._aggregator.aggregate(model_params,
                                                            weights,
-                                                           global_model=self._global_model,
+                                                           global_model=model_params_before_round,
                                                            training_plan=self.training_plan(),
                                                            training_replies=self._training_replies,
                                                            node_ids=job.nodes,
@@ -819,7 +820,7 @@ class Experiment(TrainingPlanWorkflow):
         # not saved in breakpoint for current round, but more simple
         if test_after:
             # FIXME: should we sample nodes here too?
-            aggr_args = self._aggregator.create_aggregator_args(self._global_model,
+            aggr_args = self._aggregator.create_aggregator_args(self.training_plan().after_training_params(),
                                                                 training_nodes)
             
             job.start_nodes_training_round(job_id=self._id,

@@ -120,7 +120,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         # being used in the workflow
         self.__training_plan = None
         self._model_args = None
-        self._global_model = None
 
         self.set_model_args(model_args)
         self.set_training_plan_class(training_plan_class)
@@ -134,7 +133,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
         if self.__training_plan_class is None:
             self.__training_plan = None
-            self._global_model = None
         else:
             self._raise_for_missing_job_prerequities()
             job = TrainingJob(reqs=self._reqs,
@@ -142,7 +140,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             self.__training_plan = job.get_initialized_tp_instance(self.training_plan_class(),
                                                                    self._training_args,
                                                                    self._model_args)
-            self._global_model = self.__training_plan.after_training_params()
 
     def _raise_for_missing_job_prerequities(self) -> None:
         """Setter for job, it verifies pre-requisites are met for creating a job
