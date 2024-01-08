@@ -1070,7 +1070,8 @@ class Experiment(TrainingPlanWorkflow):
         state = {
             'round_current': self._round_current,
             'round_limit': self._round_limit,
-            'aggregator': self._aggregator.save_state_breakpoint(breakpoint_path, global_model=self._global_model),
+            'aggregator': self._aggregator.save_state_breakpoint(breakpoint_path,
+                                                                 global_model=self.training_plan().after_training_params()),
             'agg_optimizer': self._save_optimizer(breakpoint_path),
             'node_selection_strategy': self._node_selection_strategy.save_state_breakpoint(),
             'aggregated_params': self._save_aggregated_params(
@@ -1146,27 +1147,27 @@ class Experiment(TrainingPlanWorkflow):
         # check arguments type, though is should have been done before
         if not isinstance(aggregated_params_init, dict):
             msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
+                  f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         if not isinstance(breakpoint_path, str):
             msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
+                  f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
         aggregated_params = {}
-        for key, value in aggregated_params_init.items():
-            if not isinstance(value, dict):
-                msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                    f'Bad type for aggregated params item {str(key)}, ' + \
-                    f'should be `dict` not {type(value)}'
+        for round_, params_dict in aggregated_params_init.items():
+            if not isinstance(params_dict, dict):
+                msg = ErrorNumbers.FB413.value+ ' - save failed. ' + \
+                      f'Bad type for aggregated params item {str(round_)}, ' + \
+                      f'should be `dict` not {type(params_dict)}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
 
-            params_path = create_unique_file_link(breakpoint_path,
-                                                  value.get('params_path'))
-            aggregated_params[key] = {'params_path': params_path}
+            params_path = os.path.join(breakpoint_path, f"aggregated_params_{uuid.uuid4()}.mpk")
+            Serializer.dump(params_dict['params'], params_path)
+            aggregated_params[round_] = {'params_path': params_path}
 
         return aggregated_params
 
@@ -1204,7 +1205,7 @@ class Experiment(TrainingPlanWorkflow):
             raise FedbiomedExperimentError(msg)
 
         for aggreg in aggregated_params.values():
-            aggreg['params'] = Serializer.load(aggreg['params_path'])["model_weights"]
+            aggreg['params'] = Serializer.load(aggreg['params_path'])
 
         return aggregated_params
 
