@@ -4,7 +4,6 @@
 """Manage the training part of the experiment."""
 
 import os
-import sys
 import time
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
@@ -71,51 +70,9 @@ class TrainingJob(Job):
                                     model_args: Optional[dict],
                                     ):
         skeleton_training_plan = self.get_default_constructed_tp_instance(training_plan_class)
-        self._save_tp_code_to_file(skeleton_training_plan)
         skeleton_training_plan.post_init(model_args={} if model_args is None else model_args,
                                          training_args=training_args)
         return skeleton_training_plan
-
-    def upload_aggregator_args(self,
-                               args_thr_msg: Union[Dict[str, Dict[str, Any]], dict],
-                               args_thr_files: Union[Dict[str, Dict[str, Any]], dict]) -> Dict[str, Dict[str, Any]]:
-        """Uploads aggregator metadata to the Repository and updates the mqtt message accordingly.
-
-        Args:
-            args_thr_msg: dictionary containing metadata about the aggregation
-                strategy, useful to transfer some data when it's required by am aggregator. First key should be the
-                node_id, and sub-dictionary should be parameters to be sent through MQTT messaging system. This
-                dictionary may be modified by this function with additional metadata about other metadata
-                transferred via the Repository.
-            args_thr_files: dictionary containing metadata about aggregation strategy, to be transferred
-                via the Repository's HTTP API, as opposed to the mqtt system. Format is the same as
-                aggregator_args_thr_msg .
-
-        Returns:
-            The updated dictionary with metadata to be introduced in the mqtt message.
-        """
-        for node_id, aggr_params in args_thr_files.items():
-            for arg_name, aggr_param in aggr_params.items():
-                if arg_name == 'aggregator_name':
-                    continue
-                args_thr_msg[node_id][arg_name] = {}
-                args_thr_msg[node_id][arg_name]['arg_name'] = arg_name  # name of the argument to look at
-                try:
-                    filename = os.path.join(self._keep_files_dir, f"{arg_name}_{uuid.uuid4()}.mpk")
-                    Serializer.dump(aggr_param, filename)
-                    url = self.repo.upload_file(filename)["file"]
-                except Exception as exc:
-                    logger.critical("Failed to export %s to local file and upload it: %s", arg_name, exc)
-                    sys.exit(-1)
-                args_thr_msg[node_id][arg_name]['filename'] = filename  # path to the file with the parameters
-                args_thr_msg[node_id][arg_name]['url'] = url
-
-        return args_thr_msg
-
-
-    def upload_parameters(self, training_plan):
-        # method coule be deleted cause with grpc there is no need to upload download parameters
-        pass
 
     def _get_training_testing_results(self, replies, errors, timer: Dict) -> Dict:
         """"Waits for training replies
@@ -253,8 +210,7 @@ class TrainingJob(Job):
 
         # return the list of nodes which answered because nodes in error have been removed
         return formatted_training_replies
-    
-    
+
     def _log_round_info(self, node: str, training: True) -> None:
         """Logs round details
 
@@ -273,146 +229,14 @@ class TrainingJob(Job):
                         f'\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n'
                         f'\t\t\t\t\t\033[1m Request: \033[0m: TRAIN'
                         f'\n {5 * "-------------"}')
-        # # Recollect models trained
-        # training_replies = Responses([])
-        # while self.waiting_for_nodes(training_replies):
-        #     # collect nodes responses from researcher request 'train'
-        #     # (wait for all nodes with a ` while true` loop)
-        #     # models_done = self._reqs.get_responses(look_for_commands=['train'])
-        #     models_done = self._reqs.get_responses(look_for_commands=['train', 'error'], only_successful=False)
-        #     for m in models_done.data():  # retrieve all models
-        #         # (there should have as many models done as nodes)
-
-        #         # manage error messages during training
-        #         if m['command'] == 'error':
-        #             if m['extra_msg']:
-        #                 logger.info(f"Error message received during training: {str(m['errnum'].value)} "
-        #                             f"- {str(m['extra_msg'])}")
-        #             else:
-        #                 logger.info(f"Error message received during training: {str(m['errnum'].value)}")
-
-        #             faulty_node = m['node_id']  # remove the faulty node from the list
-
-        #             if faulty_node not in list(self._nodes):
-        #                 logger.warning(f"Error message from {faulty_node} ignored, since this node is not part ot "
-        #                                f"the training any mode")
-        #                 continue
-
-        #             self._nodes.remove(faulty_node)
-        #             continue
-
-        #         # only consider replies for our request
-        #         if m['researcher_id'] != environ['RESEARCHER_ID'] or \
-        #                 m['job_id'] != self._id or m['node_id'] not in list(self._nodes):
-        #             continue
-
-        #         # manage training failure for this job
-        #         if not m['success']:
-        #             logger.error(f"Training failed for node {m['node_id']}: {m['msg']}")
-        #             self._nodes.remove(m['node_id'])  # remove the faulty node from the list
-        #             continue
-
-        #         rtime_total = time.perf_counter() - time_start[m['node_id']]
-
-        #         if do_training:
-        #             logger.info(f"Downloading model params after training on {m['node_id']} - from {m['params_url']}")
-        #             try:
-        #                 _, params_path = self.repo.download_file(m["params_url"], f"node_params_{uuid.uuid4()}.mpk")
-        #             except FedbiomedRepositoryError as err:
-        #                 logger.error(f"Cannot download model parameter from node {m['node_id']}, probably because Node"
-        #                              f" stops working (details: {err})")
-        #                 return
-        #             results = Serializer.load(params_path)
-        #             params = results["model_weights"]
-        #             optimizer_args = results.get("optimizer_args")
-        #             optim_aux_var = results.get("optim_aux_var", {})
-        #             encryption_factor = results.get('encryption_factor', None)
-        #         else:
-        #             params_path = None
-        #             params = None
-        #             optimizer_args = None                'Job',
-        #             encryption_factor = None
-
-        #         # TODO: could choose completely different name/structure for
-        #         timing = m['timing']
-        #         timing['rtime_total'] = rtime_total
-
-        #         response = Responses({
-        #             'success': m['success'],
-        #             'msg': m['msg'],
-        #             'dataset_id': m['dataset_id'],
-        #             'node_id': m['node_id'],
-        #             'params_path': params_path,
-        #             'params': params,
-        #             'optimizer_args': optimizer_args,
-        #             'optim_aux_var': optim_aux_var,
-        #             'sample_size': m["sample_size"],
-        #             'encryption_factor': encryption_factor,
-        #             'timing': timing,
-        #         })
-        #         training_replies.append(response)
-
-        # # return the list of nodes which answered because nodes in error have been removed
-        # return training_replies, self._nodes
-
-    # def upload_agg_optimizer_aux_var(
-    #     self,
-    #     aux_var: Dict[str, Dict[str, Any]],
-    # ) -> Tuple[Optional[str], Dict[uuid.UUID, str]]:
-    #     """Upload auxiliary variables emitted by a researcher-side Optimizer.
-
-    #     Args:
-    #         aux_var: Dict of auxiliary variables emitted by an Optimizer held
-    #             by the researcher, that are to be uploaded after having been
-    #             structured into multiple files, to avoid information leakage
-    #             as well as content redundancy.
-
-    #     Returns:
-    #         url_shared: url of a file containing auxiliary variables shared
-    #             across all nodes, or None (in the absence of such information).
-    #         url_bynode: dict mapping urls of files containing node-specific
-    #             auxiliary variables to the nodes' id (a missing `nodes` key
-    #             indicates that this node has no such information to receive).
-
-    #     !!!info "Note":
-    #         The use of both a shared URL and node-specific one is merely a
-    #         way to reduce communication costs by uploading only once the
-    #         information that is to be downloaded by each and every node.
-    #     """
-    #     # Split the information between shared and node-wise dictionaries.
-    #     aux_shared, aux_bynode = self._prepare_agg_optimizer_aux_var(
-    #         aux_var=aux_var, nodes=list(self._nodes)
-    #     )
-    #     # Upload the shared information that all nodes will download.
-    #     if aux_shared:
-    #         path = os.path.join(
-    #             self._keep_files_dir, f"aux_var_shared_{uuid.uuid4()}.mpk"
-    #         )
-    #         Serializer.dump(aux_shared, path)
-    #         url_shared = self.repo.upload_file(path)["file"]
-    #     else:
-    #         url_shared = None
-    #     # Upload the node-specific information, with node-specific urls.
-    #     url_bynode = {}  # type: Dict[uuid.UUID, str]
-    #     for node_id, node_aux in aux_bynode.items():
-    #         if not node_aux:
-    #             continue
-    #         path = os.path.join(
-    #             self._keep_files_dir,
-    #             f"aux_var_node_{node_id}_{uuid.uuid4()}.mpk"
-    #         )
-    #         Serializer.dump(node_aux, path)
-    #         url_bynode[node_id] = self.repo.upload_file(path)["file"]
-    #     # Return the urls of the uploaded files.
-    #     return url_shared, url_bynode
 
     @staticmethod
     def _prepare_agg_optimizer_aux_var(
         aux_var: Dict[str, Dict[str, Any]],
-        nodes: List[uuid.UUID],
+        nodes: List[str],
     ) -> Tuple[
         Dict[str, Dict[str, Any]],
-        Dict[uuid.UUID, Dict[str, Dict[str, Any]]],
+        Dict[str, Dict[str, Dict[str, Any]]],
     ]:
         """Collect and structure researcher-side Optimizer auxiliary variables.
 
@@ -432,7 +256,7 @@ class TrainingJob(Job):
                 format.
         """
         aux_shared = {}  # type: Dict[str, Dict[str, Any]]
-        aux_bynode = {}  # type: Dict[uuid.UUID, Dict[str, Dict[str, Any]]]
+        aux_bynode = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
         # Iterate over nodes and plug-in-module-wise auxiliary variables.
         for node_id in nodes:
             aux_bynode[node_id] = {}
@@ -467,77 +291,3 @@ class TrainingJob(Job):
             for module, params in node_av.items():
                 aux_var.setdefault(module, {})[node_id] = params
         return aux_var
-
-    def set_params_from_file(self,
-                             training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
-                             filename: str,
-                             ):
-        params = Serializer.load(filename)["model_weights"]
-        training_plan.set_model_params(params)
-
-    def save_params_to_file(self,
-                            training_plan: 'fedbiomed.researcher.federated_workflows.FederatedWorkflow',
-                            params: Optional[Dict[str, Any]] = None,
-                            ) -> str:
-        if params is None:
-            params = training_plan.get_model_params()
-        # Case when uploading a new set of parameters: assign them.
-        else:
-            training_plan.set_model_params(params)
-        # At any rate, create a local dump file.
-        filename = os.path.join(self._keep_files_dir, f"aggregated_params_{uuid.uuid4()}.mpk")
-        params_dump = {
-            "researcher_id": self._researcher_id,
-            "model_weights": params,
-        }
-        Serializer.dump(params_dump, filename)
-        return filename
-
-    def update_parameters(self,
-                          training_plan,
-                          params: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """Save and upload global model parameters, optionally after updating them.
-
-        This method is designed to save and upload the parameters of the wrapped
-        training plan instance. It may also be used to update these parameters
-        prior to their upload, whether based on provided in-memory values or on
-        a pre-exported dump file.
-
-        Args:
-            params: data structure containing the new version of the aggregated parameters for this job,
-            defaults to empty dictionary {}
-            filename: path to the file containing the new version of the aggregated parameters for this job,
-            defaults to None.
-            is_model_params: whether params are models parameters or another value that must be sent
-            through file exchange system. Defaults to True (argument are model parameters).
-            variable_name:  name the filename with variable_name. Defaults to 'aggregated_prams'.
-
-            params: Optional dict storing new aggregated parameters that are to
-                be assigned to this job's training plan's model.
-                If None, export and upload the current model parameters.
-            filename: Optional path to a pre-existing file containing the
-                aggregated parameters to load an upload.
-                If `params` is not None, `filename` has to be None.
-
-        Returns:
-            filename: path to the local parameters file
-
-        Raises:
-            ValueError: if both `params` and `filename` are provoided: these parameters are mutually-exclusive.
-
-        !!! info "Notes":
-            * The path to the created and/or uploaded file is stored under the `_model_params_file` attribute,
-              that is updated by this method.
-            * The url of the uploaded file is stored under the `_repository_args["params_url"]` attribute,
-              that is also updated by this method.
-
-        !!! warning "Warning":
-            * The `params` and `filename` parameters are mutually-exclusive.
-        """
-        filename = self.save_params_to_file(training_plan)  # TODO: remove this method
-        training_plan.set_model_params(params)
-        # Upload the file and record its local and remote locations.
-        self._model_params_file = filename
-
-        return filename

@@ -805,11 +805,7 @@ class Experiment(TrainingPlanWorkflow):
                                                     aggregated_params)
 
         self.training_plan().set_model_params(aggregated_params)
-        aggregated_params_path = job.save_params_to_file(self.training_plan())
-        logger.info(f'Saved aggregated params for round {self._round_current} '
-                    f'in {aggregated_params_path}')
-        self._aggregated_params[self._round_current] = {'params': aggregated_params,
-                                                        'params_path': aggregated_params_path}
+        self._aggregated_params[self._round_current] = {'params': aggregated_params}
 
         self._round_current += 1
 

@@ -3,49 +3,30 @@
 
 """Manage the training part of the experiment."""
 
-from abc import abstractmethod
 import atexit
-import importlib
-import inspect
 import os
-import re
-import sys
 import shutil
 import tempfile
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Callable, List, Optional, Type
+
 from fedbiomed.common import utils
-from fedbiomed.common.message import TrainingPlanStatusRequest
-from fedbiomed.researcher.node_state_agent import NodeStateAgent
-
-import validators
-
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus, JOB_PREFIX
-from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedNodeStateAgentError, FedbiomedTrainingPlanError
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import BaseTrainingPlan
 
-from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.filetools import create_unique_link, create_unique_file_link
-from fedbiomed.researcher.requests import Requests, DiscardOnTimeout
+from fedbiomed.researcher.requests import Requests
 
 
 class Job:
     """
-    Represents the entity that manage the training part at  the nodes level
-
-    Starts a message queue, loads python model file created by researcher (through
-    [`training_plans`][fedbiomed.common.training_plans]) and saves the loaded model in a temporary file
-    (under the filename '<TEMP_DIR>/my_model_<random_id>.py').
-
+    Job represents a task to be executed on the node.
     """
 
     def __init__(self,
                  reqs: Requests = None,
-                 nodes: Optional[dict] = None,
+                 nodes: Optional[List[str]] = None,
                  keep_files_dir: str = None):
 
         """ Constructor of the class
@@ -53,11 +34,6 @@ class Job:
         Args:
             reqs: Researcher's requests assigned to nodes. Defaults to None.
             nodes: A dict of node_id containing the nodes used for training
-            training_plan_class: instance or class of the TrainingPlan.
-            training_plan_path: Path to file containing model class code
-            training_args: Contains training parameters; lr, epochs, batch_size.
-            model_args: Contains output and input feature dimension
-            data: Federated datasets
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
                 of the job. Defaults to None, files are not kept after the end of the job.
 
@@ -65,10 +41,7 @@ class Job:
 
         self._researcher_id = environ['RESEARCHER_ID']
 
-        # List of node ID of the nodes used in the current round
-        # - initially None (no current round yet)
-        # - then updated during the round with the list of nodes to be used in the round, then the nodes
-        #   that actually replied during the round
+        # List of node ids participating in this task
         self._nodes: Optional[List[str]] = nodes
 
         if keep_files_dir:
@@ -127,12 +100,3 @@ class Job:
     @nodes.setter
     def nodes(self, nodes: dict):
         self._nodes = nodes
-
-    def _save_tp_code_to_file(self,
-                              training_plan: 'fedbiomed.common.training_plans.BaseTrainingPlan'
-                              ) -> None:
-        try:
-            training_plan.save_code(self._training_plan_file)
-        except Exception as e:
-            msg = f"Cannot save the training plan to a local tmp dir : {str(e)}"
-            raise FedbiomedTrainingPlanError(msg)
