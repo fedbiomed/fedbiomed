@@ -826,7 +826,6 @@ class Experiment(TrainingPlanWorkflow):
             job.start_nodes_training_round(job_id=self._id,
                                            round_=self._round_current,
                                            training_plan=self.training_plan(),
-                                           training_plan_class=self.training_plan_class(),
                                            training_args=self._training_args,
                                            model_args=self.model_args(),
                                            data=self._fds,

@@ -1,17 +1,19 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Manage the training part of the experiment."""
-
 import os
 import time
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
-from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply, TrainRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.common import utils
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedJobError
+from fedbiomed.common.logger import logger
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.requests import Requests, MessagesByNode
@@ -21,12 +23,7 @@ from fedbiomed.researcher.federated_workflows.jobs._job import Job
 
 class TrainingJob(Job):
     """
-    Represents the entity that manage the training part at  the nodes level
-
-    Starts a message queue, loads python model file created by researcher (through
-    [`training_plans`][fedbiomed.common.training_plans]) and saves the loaded model in a temporary file
-    (under the filename '<TEMP_DIR>/my_model_<random_id>.py').
-
+    TrainingJob is a task for training an ML model on the nodes by executing a [TrainingPlan][fedbiomed.common.training_plans.BaseTrainingPlan].
     """
 
     def __init__(self,
@@ -39,16 +36,8 @@ class TrainingJob(Job):
         Args:
             reqs: Researcher's requests assigned to nodes. Defaults to None.
             nodes: A dict of node_id containing the nodes used for training
-            training_plan_class: instance or class of the TrainingPlan.
-            training_plan_path: Path to file containing model class code
-            training_args: Contains training parameters; lr, epochs, batch_size.
-            model_args: Contains output and input feature dimension
-            data: Federated datasets
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
                 of the job. Defaults to None, files are not kept after the end of the job.
-
-        Raises:
-            NameError: If model is not defined or if the class can not to be inspected
         """
 
         super().__init__(
@@ -56,20 +45,58 @@ class TrainingJob(Job):
             nodes,
             keep_files_dir
         )
-        self._model_file = None  # path to local file containing model code
-        self._model_params_file = ""  # path to local file containing current version of aggregated params
-        self._aggregator_args = None
 
-    @property
-    def aggregator_args(self):
-        return self._aggregator_args
+    def _get_default_constructed_tp_instance(self,
+                                             training_plan_class: Type[Callable],
+                                             ) -> BaseTrainingPlan:
+        """Returns a default-constructed instance of the training plan class.
+
+        !!! note "Saves to temporary file"
+            This function saves the code of the training plan to a temporary file.
+
+        Assumptions:
+
+        - the `training_plan_class` is a class, inheriting from
+            [`BaseTrainingPlan`][fedbiomed.common.training_plan.BaseTrainingPlan] that can be default-constructed
+
+        Returns:
+            Default-constructed object of type `training_plan_class`
+        """
+
+        # create TrainingPlan instance
+        training_plan = training_plan_class()  # contains TrainingPlan
+
+        # save and load training plan to a file to be sure
+        # 1. a file is associated to training plan, so we can read its source, etc.
+        # 2. all dependencies are applied
+        training_plan_module = 'model_' + str(uuid.uuid4())
+        training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
+        try:
+            training_plan.save_code(training_plan_file)
+        except Exception as e:
+            msg = f"{ErrorNumbers.FB418}: cannot save training plan to file: {e}"
+            logger.critical(msg)
+            raise FedbiomedJobError(msg)
+        del training_plan
+
+        _, training_plan = utils.import_class_object_from_file(
+            training_plan_file, training_plan_class.__name__)
+
+        return training_plan
 
     def get_initialized_tp_instance(self,
                                     training_plan_class: Type[Callable],
-                                    training_args: TrainingArgs,
+                                    training_args: Union[dict, TrainingArgs],
                                     model_args: Optional[dict],
                                     ):
-        skeleton_training_plan = self.get_default_constructed_tp_instance(training_plan_class)
+        """Returns an initialized instance of the TrainingPlan.
+
+        Creates a default-constructed instance of `training_plan_class`, then calls its `post_init` method.
+
+        Returns:
+            Object of type `training_plan_class` with properly initialized model and optimizer
+        """
+        skeleton_training_plan = self._get_default_constructed_tp_instance(training_plan_class)
         skeleton_training_plan.post_init(model_args={} if model_args is None else model_args,
                                          training_args=training_args)
         return skeleton_training_plan
@@ -102,7 +129,6 @@ class TrainingJob(Job):
 
             rtime_total = time.perf_counter() - timer[node_id]
 
-            # TODO: could choose completely different name/structure for
             timing = reply.timing
             timing['rtime_total'] = rtime_total
 
@@ -121,8 +147,7 @@ class TrainingJob(Job):
         job_id: str, 
         round_: int,
         training_plan,
-        training_plan_class,
-        training_args: TrainingArgs,
+        training_args: Union[dict, TrainingArgs],
         model_args: Optional[dict],
         data: FederatedDataSet,
         nodes_state_ids: Dict[str, str],
@@ -136,24 +161,24 @@ class TrainingJob(Job):
         Args:
             round_: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
-            aggregator_args_thr_msg: dictionary containing some metadata about the aggregation
-                strategy, useful to transfer some data when it's required by am aggregator. First key should be the
-                node_id, and sub-dictionary sould be parameters to be sent through MQTT messaging system
-            aggregator_args_thr_files: dictionary containing metadata about aggregation strategy, to be transferred
-                via the Repository's HTTP API, as opposed to the mqtt system. Format is the same as
-                aggregator_args_thr_msg .
             secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
             optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
                 Note that such variables may only be used if both the Experiment and node-side training plan
                 hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
                 are coherent with each other as to expected information exchange.
+            job_id: unique ID of this job
+            training_plan: TrainingPlan with properly initialized model and optimizer
+            training_args: arguments for training
+            model_args: arguments for the model
+            data: metadata of the federated data set
+            nodes_state_ids: unique IDs of the node states saved remotely
+            aggregator_args: aggregator arguments required for remote execution
         """
-
         # Assign empty dict to secagg arguments if it is None
         if secagg_arguments is None:
             secagg_arguments = {}
-
+        # Populate request message
         msg = {
             'researcher_id': self._researcher_id,
             'job_id': job_id,
@@ -162,7 +187,7 @@ class TrainingJob(Job):
             'model_args': model_args if model_args is not None else {},
             'round': round_,
             'training_plan': training_plan.source(),
-            'training_plan_class': training_plan_class.__name__,
+            'training_plan_class': training_plan.__class__.__name__,
             'params': training_plan.get_model_params(),
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
@@ -174,7 +199,7 @@ class TrainingJob(Job):
         
         timer = {}
 
-        # Upload optimizer auxiliary variables, when there are.
+        # Prepare optimizer auxiliary variables, when there are.
         if do_training and optim_aux_var:
             aux_shared, aux_bynode = (
                 self._prepare_agg_optimizer_aux_var(optim_aux_var, nodes=list(self._nodes))
@@ -192,7 +217,6 @@ class TrainingJob(Job):
             msg['state_id'] = nodes_state_ids.get(node)
 
             # add aggregator parameters to message header
-            # FIXME: There might be another node join recently
             msg['aggregator_args'] = aggregator_args.get(node, {}) if aggregator_args else {}
 
             self._log_round_info(node=node, training=do_training)
@@ -200,7 +224,7 @@ class TrainingJob(Job):
             timer[node] = time.perf_counter()
             messages.update({node: TrainRequest(**msg)})  # send request to node
 
-        # Sends training request    
+        # Send training request
         with self._reqs.send(messages, self._nodes) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
@@ -279,6 +303,7 @@ class TrainingJob(Job):
 
         Args:
             round_id: Index of the round, replies from which to parse through.
+            training_replies: the replies of each node received after training for this round
 
         Returns:
             Dict of auxiliary variables, collating node-wise information, with

@@ -4,16 +4,9 @@
 """Manage the training part of the experiment."""
 
 import atexit
-import os
 import shutil
 import tempfile
-import uuid
-from typing import Callable, List, Optional, Type
-
-from fedbiomed.common import utils
-from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedJobError
-from fedbiomed.common.logger import logger
+from typing import List, Optional
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
@@ -22,6 +15,18 @@ from fedbiomed.researcher.requests import Requests
 class Job:
     """
     Job represents a task to be executed on the node.
+
+    This is a base class that provides the basic functionality necessary to establish communication with the remote
+    nodes. Actual tasks should inherit from `Job` to implement their own domain logic.
+
+    !!! info "Functional life-cycle"
+        Jobs must follow a "functional" life-cycle, meaning that they should be created just before the execution of
+        the task, and destroyed shortly after. Jobs should not persist outside the scope of the function that requested
+        the execution of the task.
+
+    Attributes:
+        requests: read-only [`Requests`][fedbiomed.researcher.Requests] object handling communication with remote nodes
+        nodes: node IDs participating in the task
     """
 
     def __init__(self,
@@ -57,31 +62,6 @@ class Job:
 
         self.last_msg = None
 
-    def get_default_constructed_tp_instance(self,
-                                            training_plan_class: Type[Callable],
-                                            ) -> 'fedbiomed.common.training_plans.BaseTrainingPlan':
-
-        # create TrainingPlan instance
-        training_plan = training_plan_class()  # contains TrainingPlan
-
-        # save and load training plan to a file to be sure
-        # 1. a file is associated to training plan, so we can read its source, etc.
-        # 2. all dependencies are applied
-        training_plan_module = 'model_' + str(uuid.uuid4())
-        training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
-        try:
-            training_plan.save_code(training_plan_file)
-        except Exception as e:
-            msg = f"{ErrorNumbers.FB418}: cannot save training plan to file: {e}"
-            logger.critical(msg)
-            raise FedbiomedJobError(msg)
-        del training_plan
-
-        _, training_plan = utils.import_class_object_from_file(
-            training_plan_file, training_plan_class.__name__)
-
-        return training_plan
-
     @property
     def requests(self):
         return self._reqs
@@ -91,5 +71,5 @@ class Job:
         return self._nodes
 
     @nodes.setter
-    def nodes(self, nodes: dict):
+    def nodes(self, nodes: List[str]):
         self._nodes = nodes
