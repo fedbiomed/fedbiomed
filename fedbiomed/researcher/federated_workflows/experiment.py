@@ -724,6 +724,7 @@ class Experiment(TrainingPlanWorkflow):
 
         self._raise_for_missing_job_prerequities()
 
+        model_params_before_round = self.training_plan().after_training_params()
         self._aggregator.set_training_plan_type(self.training_plan().type())
 
         # Setup Secure Aggregation (it's a noop if not active)
@@ -733,7 +734,7 @@ class Experiment(TrainingPlanWorkflow):
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
                                       training_plan=self.training_plan())
 
-        aggregator_args =  self._aggregator.create_aggregator_args(self._global_model,
+        aggregator_args =  self._aggregator.create_aggregator_args(model_params_before_round,
                                                                    training_nodes)
 
         # Collect auxiliary variables from the aggregates optimizer, if any.
@@ -794,7 +795,7 @@ class Experiment(TrainingPlanWorkflow):
             # aggregate models from nodes to a global model
             aggregated_params = self._aggregator.aggregate(model_params,
                                                            weights,
-                                                           global_model=self._global_model,
+                                                           global_model=model_params_before_round,
                                                            training_plan=self.training_plan(),
                                                            training_replies=self._training_replies,
                                                            node_ids=job.nodes,
@@ -807,11 +808,7 @@ class Experiment(TrainingPlanWorkflow):
                                                     aggregated_params)
 
         self.training_plan().set_model_params(aggregated_params)
-        aggregated_params_path = job.save_params_to_file(self.training_plan())
-        logger.info(f'Saved aggregated params for round {self._round_current} '
-                    f'in {aggregated_params_path}')
-        self._aggregated_params[self._round_current] = {'params': aggregated_params,
-                                                        'params_path': aggregated_params_path}
+        self._aggregated_params[self._round_current] = {'params': aggregated_params}
 
         self._round_current += 1
 
@@ -825,7 +822,7 @@ class Experiment(TrainingPlanWorkflow):
         # not saved in breakpoint for current round, but more simple
         if test_after:
             # FIXME: should we sample nodes here too?
-            aggr_args = self._aggregator.create_aggregator_args(self._global_model,
+            aggr_args = self._aggregator.create_aggregator_args(self.training_plan().after_training_params(),
                                                                 training_nodes)
             
             job.start_nodes_training_round(job_id=self._id,
@@ -1075,7 +1072,8 @@ class Experiment(TrainingPlanWorkflow):
         state = {
             'round_current': self._round_current,
             'round_limit': self._round_limit,
-            'aggregator': self._aggregator.save_state_breakpoint(breakpoint_path, global_model=self._global_model),
+            'aggregator': self._aggregator.save_state_breakpoint(breakpoint_path,
+                                                                 global_model=self.training_plan().after_training_params()),
             'agg_optimizer': self._save_optimizer(breakpoint_path),
             'node_selection_strategy': self._node_selection_strategy.save_state_breakpoint(),
             'aggregated_params': self._save_aggregated_params(
@@ -1151,27 +1149,27 @@ class Experiment(TrainingPlanWorkflow):
         # check arguments type, though is should have been done before
         if not isinstance(aggregated_params_init, dict):
             msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
+                  f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         if not isinstance(breakpoint_path, str):
             msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
+                  f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
         aggregated_params = {}
-        for key, value in aggregated_params_init.items():
-            if not isinstance(value, dict):
-                msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                    f'Bad type for aggregated params item {str(key)}, ' + \
-                    f'should be `dict` not {type(value)}'
+        for round_, params_dict in aggregated_params_init.items():
+            if not isinstance(params_dict, dict):
+                msg = ErrorNumbers.FB413.value+ ' - save failed. ' + \
+                      f'Bad type for aggregated params item {str(round_)}, ' + \
+                      f'should be `dict` not {type(params_dict)}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
 
-            params_path = create_unique_file_link(breakpoint_path,
-                                                  value.get('params_path'))
-            aggregated_params[key] = {'params_path': params_path}
+            params_path = os.path.join(breakpoint_path, f"aggregated_params_{uuid.uuid4()}.mpk")
+            Serializer.dump(params_dict['params'], params_path)
+            aggregated_params[round_] = {'params_path': params_path}
 
         return aggregated_params
 
@@ -1209,7 +1207,7 @@ class Experiment(TrainingPlanWorkflow):
             raise FedbiomedExperimentError(msg)
 
         for aggreg in aggregated_params.values():
-            aggreg['params'] = Serializer.load(aggreg['params_path'])["model_weights"]
+            aggreg['params'] = Serializer.load(aggreg['params_path'])
 
         return aggregated_params
 
