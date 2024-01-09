@@ -728,14 +728,14 @@ class Experiment(TrainingPlanWorkflow):
         self._aggregator.set_training_plan_type(self.training_plan().type())
 
         # Setup Secure Aggregation (it's a noop if not active)
-        secagg_arguments = self.secagg_setup()
+        secagg_arguments = self.secagg_setup(training_nodes)
 
         # Check aggregator parameter(s) before starting a round
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
                                       training_plan=self.training_plan())
 
-        aggregator_args =  self._aggregator.create_aggregator_args(model_params_before_round,
-                                                                   training_nodes)
+        aggregator_args = self._aggregator.create_aggregator_args(model_params_before_round,
+                                                                  training_nodes)
 
         # Collect auxiliary variables from the aggregates optimizer, if any.
         optim_aux_var = self._collect_optim_aux_var()
@@ -750,8 +750,7 @@ class Experiment(TrainingPlanWorkflow):
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
-        # from remote_pdb import RemotePdb
-        # RemotePdb('127.0.0.1', 4444).set_trace()
+
         self._training_replies[self._round_current] = job.start_nodes_training_round(
             job_id=self._id,
             round_=self._round_current,

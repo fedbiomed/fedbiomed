@@ -155,6 +155,7 @@ class FederatedWorkflow(ABC):
         self._fds = None
         self._reqs = None
         self._nodes = None
+        self._sampled_nodes: List = None
         self._training_args = None
         self._tags = None
         self._experimentation_folder = None
@@ -535,11 +536,11 @@ class FederatedWorkflow(ABC):
 
         return self._save_breakpoints
 
-    def secagg_setup(self) -> Dict:
+    def secagg_setup(self, sampled_nodes: List[str]) -> Dict:
         """Retrieves the secagg arguments for setup."""
         secagg_arguments = {}
         if self._secagg.active:
-            self._secagg.setup(parties=[environ["ID"]] + self.nodes(),
+            self._secagg.setup(parties=[environ["ID"]] + sampled_nodes,
                                job_id=self._id)
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
@@ -571,8 +572,8 @@ class FederatedWorkflow(ABC):
 
     @exp_exceptions
     def breakpoint(self,
-                   state,
-                   bkpt_number) -> None:
+                   state: Dict,
+                   bkpt_number: int) -> None:
         """
         Saves breakpoint with the state of the training at a current round. The following Experiment attributes will
         be saved:
