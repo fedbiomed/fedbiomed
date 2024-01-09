@@ -155,7 +155,6 @@ class FederatedWorkflow(ABC):
         self._fds = None
         self._reqs = Requests()
         self._nodes = None
-        self._sampled_nodes: List = None
         self._training_args = None
         self._tags = None
         self._experimentation_folder = None
