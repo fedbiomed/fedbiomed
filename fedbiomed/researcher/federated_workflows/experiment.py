@@ -39,7 +39,21 @@ T = TypeVar("T")
 
 class Experiment(TrainingPlanWorkflow):
     """
-    This class represents the orchestrator managing the federated training
+    A Federated Learning Experiment based on a Training Plan.
+
+    This class provides a comprehensive entry point for the management and orchestration of a FL experiment, including
+    definition, execution, and interpretation of results.
+
+    !!! note "Managing model parameters"
+        The model parameters should be managed through the corresponding methods in the training_plan by accessing
+        the experiment's `training_plan()` attribute, e.g.
+        ```python
+        exp.training_plan().set_model_params(params_dict)
+        ```
+
+    !!! warning "Do not set the training plan attribute directly"
+        Setting the `training_plan` attribute directly is not allowed. Instead, use the `set_training_plan_class`
+        method to set the training plan type, and the underlying model will be correctly constructed and initialized.
     """
 
     @exp_exceptions
