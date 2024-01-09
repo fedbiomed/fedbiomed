@@ -12,7 +12,7 @@ from typing import Callable, List, Optional, Type
 
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedTrainingPlanError
+from fedbiomed.common.exceptions import FedbiomedJobError
 from fedbiomed.common.logger import logger
 
 from fedbiomed.researcher.environ import environ
@@ -57,9 +57,6 @@ class Job:
 
         self.last_msg = None
 
-        self._training_plan_module = 'my_model_' + str(uuid.uuid4())
-        self._training_plan_file = os.path.join(self._keep_files_dir, self._training_plan_module + '.py')
-
     def get_default_constructed_tp_instance(self,
                                             training_plan_class: Type[Callable],
                                             ) -> 'fedbiomed.common.training_plans.BaseTrainingPlan':
@@ -84,10 +81,6 @@ class Job:
             training_plan_file, training_plan_class.__name__)
 
         return training_plan
-
-    @property
-    def training_plan_file(self):
-        return self._training_plan_file
 
     @property
     def requests(self):
