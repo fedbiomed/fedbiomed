@@ -15,9 +15,11 @@ else
   ${CONDA} env update -f ./envs/development/conda/fedbiomed-node.yaml
 fi
 ${CONDA} env update -f ./envs/ci/conda/fedbiomed-researcher-end-to-end.yaml
-
-rm -fr ./data
-ln -s ~/Data/fedbiomed ./data
+DATA_DIR=./data
+if [ -d ${DATA_DIR} ] && [ ! -L ${DATA_DIR} ]; then # test if it is the ${DATA_DIR} directory obtained from checkout
+  rm -fr ${DATA_DIR}
+  ln -s ~/Data/fedbiomed ${DATA_DIR}
+fi
 
 #list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
 
