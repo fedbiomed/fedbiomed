@@ -141,6 +141,11 @@ nav:
 
 extra:
   NewsPosts:
+      'Release-12-2023':
+          name: 'A new release of Fed-BioMed (v5.0) is out!'
+          desc: 'A new release of Fed-BioMed is now available, introducing gRPC communication layer !'
+          link: '/news/Release-12-2023'
+          image: 'assets/img/v5.0.png'
       'VivaTech-2023':
           name: 'Fed-BioMed @ Viva Technology 2023'
           desc: 'Fed-BioMed at Viva Technology 2023 on June 16'
