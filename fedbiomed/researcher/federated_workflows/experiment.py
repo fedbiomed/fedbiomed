@@ -24,9 +24,7 @@ from fedbiomed.common.training_args import TrainingArgs
 
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.filetools import (
-    choose_bkpt_file, create_unique_file_link
-)
+from fedbiomed.researcher.filetools import choose_bkpt_file
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
@@ -212,7 +210,7 @@ class Experiment(TrainingPlanWorkflow):
     def round_limit(self) -> Union[int, None]:
         """Retrieves the round limit from the experiment object.
 
-        Please see  also [`set_round_limit`][fedbiomed.researcher.experiment.Experiment.set_training_data] to change
+        Please see  also [`set_round_limit`][fedbiomed.researcher.experiment.Experiment.set_round_limit] to change
         or set round limit.
 
         Returns:
@@ -326,8 +324,7 @@ class Experiment(TrainingPlanWorkflow):
         Training replies contains timing statistics and the files parth/URLs that has been received after each round.
 
         Returns:
-            Dictionary of training replies keys stand for each round of training. None, if
-                [Job][fedbiomed.researcher.job] isn't declared or empty dict if there is no training round has been run.
+            Dictionary of training replies with format {round (int) : replies (dict)}
         """
 
         return self._training_replies
@@ -744,8 +741,7 @@ class Experiment(TrainingPlanWorkflow):
         self._update_nodes_states_agent(before_training=True)
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
-        job = TrainingJob(reqs=self._reqs,
-                          nodes=training_nodes,
+        job = TrainingJob(nodes=training_nodes,
                           keep_files_dir=self.experimentation_path())
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
@@ -754,7 +750,6 @@ class Experiment(TrainingPlanWorkflow):
             job_id=self._id,
             round_=self._round_current,
             training_plan=self.training_plan(),
-            training_plan_class=self.training_plan_class(),
             training_args=self._training_args,
             model_args=self.model_args(),
             data=self._fds,

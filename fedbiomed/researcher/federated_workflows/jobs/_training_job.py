@@ -27,21 +27,18 @@ class TrainingJob(Job):
     """
 
     def __init__(self,
-                 reqs: Requests = None,
                  nodes: Optional[dict] = None,
                  keep_files_dir: str = None):
 
         """ Constructor of the class
 
         Args:
-            reqs: Researcher's requests assigned to nodes. Defaults to None.
             nodes: A dict of node_id containing the nodes used for training
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
                 of the job. Defaults to None, files are not kept after the end of the job.
         """
 
         super().__init__(
-            reqs,
             nodes,
             keep_files_dir
         )

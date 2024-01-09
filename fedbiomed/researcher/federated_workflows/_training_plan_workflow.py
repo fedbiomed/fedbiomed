@@ -135,8 +135,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             self.__training_plan = None
         else:
             self._raise_for_missing_job_prerequities()
-            job = TrainingJob(reqs=self._reqs,
-                              keep_files_dir=self.experimentation_path())
+            job = TrainingJob(keep_files_dir=self.experimentation_path())
             self.__training_plan = job.get_initialized_tp_instance(self.training_plan_class(),
                                                                    self._training_args,
                                                                    self._model_args)
@@ -293,8 +292,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         Returns:
             Training plan status for answering nodes
         """
-        job = TrainingPlanApprovalJob(reqs=self._reqs,
-                                      nodes=self.training_data().node_ids(),
+        job = TrainingPlanApprovalJob(nodes=self.training_data().node_ids(),
                                       keep_files_dir=self.experimentation_path())
         responses = job.check_training_plan_is_approved_by_nodes(job_id=self._id,
                                                                  training_plan=self.training_plan()
@@ -328,8 +326,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             Warning: status does not mean that the training plan is approved, only that it has been added
             to the "approval queue" on the node side.
         """
-        job = TrainingPlanApprovalJob(reqs=self._reqs,
-                                      nodes=self.training_data().node_ids(),
+        job = TrainingPlanApprovalJob(nodes=self.training_data().node_ids(),
                                       keep_files_dir=self.experimentation_path())
         responses = job.training_plan_approve(training_plan=self.training_plan(),
                                               description=description,

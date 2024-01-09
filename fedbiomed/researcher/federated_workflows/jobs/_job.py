@@ -25,19 +25,17 @@ class Job:
         the execution of the task.
 
     Attributes:
-        requests: read-only [`Requests`][fedbiomed.researcher.Requests] object handling communication with remote nodes
+        requests: read-only [`Requests`][fedbiomed.researcher.requests.Requests] object handling communication with remote nodes
         nodes: node IDs participating in the task
     """
 
     def __init__(self,
-                 reqs: Requests = None,
                  nodes: Optional[List[str]] = None,
                  keep_files_dir: str = None):
 
         """ Constructor of the class
 
         Args:
-            reqs: Researcher's requests assigned to nodes. Defaults to None.
             nodes: A dict of node_id containing the nodes used for training
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
                 of the job. Defaults to None, files are not kept after the end of the job.
@@ -45,22 +43,15 @@ class Job:
         """
 
         self._researcher_id = environ['RESEARCHER_ID']
-
-        # List of node ids participating in this task
-        self._nodes: Optional[List[str]] = nodes
+        self._reqs = Requests()
+        self.last_msg = None
+        self._nodes: Optional[List[str]] = nodes  # List of node ids participating in this task
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
         else:
             self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
             atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
-
-        if reqs is None:
-            self._reqs = Requests()
-        else:
-            self._reqs = reqs
-
-        self.last_msg = None
 
     @property
     def requests(self):

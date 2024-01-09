@@ -153,7 +153,7 @@ class FederatedWorkflow(ABC):
         # predefine all class variables, so no need to write try/except
         # block each time we use it
         self._fds = None
-        self._reqs = None
+        self._reqs = Requests()
         self._nodes = None
         self._training_args = None
         self._tags = None
@@ -170,7 +170,6 @@ class FederatedWorkflow(ABC):
         self.set_nodes(nodes)
         self.set_save_breakpoints(save_breakpoints)
         self.set_training_args(training_args)
-        self._reqs = Requests()
         self.set_training_data(training_data, True)
         self.set_experimentation_folder(experimentation_folder)
         self._node_state_agent = NodeStateAgent(list(self._fds.data().keys())
