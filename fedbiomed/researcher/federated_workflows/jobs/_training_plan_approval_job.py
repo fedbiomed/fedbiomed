@@ -1,47 +1,31 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, List, Union, Optional
+from typing import Dict
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainingPlanStatusRequest
+from fedbiomed.common.training_plans import BaseTrainingPlan
+
 from fedbiomed.researcher.federated_workflows.jobs._job import Job
-from fedbiomed.researcher.requests import Requests, DiscardOnTimeout
+from fedbiomed.researcher.requests import DiscardOnTimeout
 
 
 class TrainingPlanApprovalJob(Job):
-    def __init__(self,
-                 reqs: Requests = None,
-                 nodes: Optional[Union[dict, List[str]]] = None,
-                 keep_files_dir: str = None):
-
-        """ Constructor of the class
-
-        Args:
-            reqs: Researcher's requests assigned to nodes. Defaults to None.
-            nodes: A dict of node_id containing the nodes used for training
-            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
-                of the job. Defaults to None, files are not kept after the end of the job.
-
-        Raises:
-            NameError: If model is not defined or if the class can not to be inspected
-        """
-
-        super().__init__(
-            reqs,
-            nodes,
-            keep_files_dir
-        )
 
     def check_training_plan_is_approved_by_nodes(self,
                                                  job_id: str,
-                                                 training_plan,
+                                                 training_plan: BaseTrainingPlan,
                                                  ) -> Dict:
         """ Checks whether model is approved or not.
 
         This method sends `training-plan-status` request to the nodes. It should be run before running experiment.
         So, researchers can find out if their model has been approved
+
+        Parameters:
+            job_id: unique ID of this task
+            training_plan: an instance of a TrainingPlan object
 
         Returns:
             A dict of `Message` objects indexed by node ID, one for each job's nodes
@@ -81,8 +65,14 @@ class TrainingPlanApprovalJob(Job):
         return replies
 
     def training_plan_approve(self,
-                              training_plan: 'fedbiomed.common.training_plans.BaseTrainingPlan',
-                              description: str):
+                              training_plan: BaseTrainingPlan,
+                              description: str) -> Dict:
+        """Requests the approval of the provided TrainingPlan.
+
+        Parameters:
+            training_plan: an instance of a TrainingPlan object
+            description: human-readable description of the TrainingPlan for the reviewer on the node
+        """
         return self._reqs.training_plan_approve(training_plan,
                                                 description,
                                                 self.nodes)

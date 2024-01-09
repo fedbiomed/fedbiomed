@@ -146,7 +146,7 @@ class TrainingJob(Job):
         self,
         job_id: str, 
         round_: int,
-        training_plan,
+        training_plan: BaseTrainingPlan,
         training_args: Union[dict, TrainingArgs],
         model_args: Optional[dict],
         data: FederatedDataSet,
