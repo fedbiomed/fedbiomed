@@ -760,7 +760,6 @@ class Experiment(TrainingPlanWorkflow):
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
-
         self._training_replies[self._round_current] = job.start_nodes_training_round(
             job_id=self._id,
             round_=self._round_current,
