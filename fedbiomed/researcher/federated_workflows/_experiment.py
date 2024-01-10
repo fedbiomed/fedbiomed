@@ -46,13 +46,19 @@ class Experiment(TrainingPlanWorkflow):
 
     !!! note "Managing model parameters"
         The model parameters should be managed through the corresponding methods in the training_plan by accessing
-        the experiment's `training_plan()` attribute, e.g.
+        the experiment's
+        [`training_plan()`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.training_plan] attribute and
+        using the
+        [`set_model_params`][fedbiomed.common.training_plans._base_training_plan.BaseTrainingPlan.set_model_params] and
+        [`get_model_params`][fedbiomed.common.training_plans._base_training_plan.BaseTrainingPlan.get_model_params]
+        functions, e.g.
         ```python
         exp.training_plan().set_model_params(params_dict)
         ```
 
     !!! warning "Do not set the training plan attribute directly"
-        Setting the `training_plan` attribute directly is not allowed. Instead, use the `set_training_plan_class`
+        Setting the `training_plan` attribute directly is not allowed. Instead, use the
+        [`set_training_plan_class`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.set_training_plan_class]
         method to set the training plan type, and the underlying model will be correctly constructed and initialized.
     """
 
@@ -185,7 +191,7 @@ class Experiment(TrainingPlanWorkflow):
     def aggregator(self) -> Aggregator:
         """Retrieves aggregator class that will be used for aggregating model parameters.
 
-        To set or update aggregator: [`set_aggregator`][fedbiomed.researcher.experiment.Experiment.set_aggregator].
+        To set or update aggregator: [`set_aggregator`][fedbiomed.researcher.federated_workflows.Experiment.set_aggregator].
 
         Returns:
             A class or an object that is an instance of [Aggregator][fedbiomed.researcher.aggregators.Aggregator]
@@ -198,7 +204,7 @@ class Experiment(TrainingPlanWorkflow):
         """Retrieves the optional Optimizer used to refine aggregated model updates.
 
         To set or update that optimizer:
-        [`set_agg_optimizer`][fedbiomed.researcher.experiment.Experiment.set_agg_optimizer].
+        [`set_agg_optimizer`][fedbiomed.researcher.federated_workflows.Experiment.set_agg_optimizer].
 
         Returns:
             An [Optimizer][fedbiomed.common.optimizers.Optimizer] instance,
@@ -210,7 +216,7 @@ class Experiment(TrainingPlanWorkflow):
     def strategy(self) -> Union[Strategy, None]:
         """Retrieves the class that represents the node selection strategy.
 
-        Please see also [`set_strategy`][fedbiomed.researcher.experiment.Experiment.set_strategy] to set or update
+        Please see also [`set_strategy`][fedbiomed.researcher.federated_workflows.Experiment.set_strategy] to set or update
         node selection strategy.
 
         Returns:
@@ -224,7 +230,7 @@ class Experiment(TrainingPlanWorkflow):
     def round_limit(self) -> Union[int, None]:
         """Retrieves the round limit from the experiment object.
 
-        Please see  also [`set_round_limit`][fedbiomed.researcher.experiment.Experiment.set_round_limit] to change
+        Please see  also [`set_round_limit`][fedbiomed.researcher.federated_workflows.Experiment.set_round_limit] to change
         or set round limit.
 
         Returns:
@@ -245,7 +251,7 @@ class Experiment(TrainingPlanWorkflow):
     def test_ratio(self) -> float:
         """Retrieves the ratio for validation partition of entire dataset.
 
-        Please see also [`set_test_ratio`][fedbiomed.researcher.experiment.Experiment.set_test_ratio] to
+        Please see also [`set_test_ratio`][fedbiomed.researcher.federated_workflows.Experiment.set_test_ratio] to
             change/set `test_ratio`
 
         Returns:
@@ -258,7 +264,7 @@ class Experiment(TrainingPlanWorkflow):
     def test_metric(self) -> Union[MetricTypes, str, None]:
         """Retrieves the metric for validation routine.
 
-        Please see also [`set_test_metric`][fedbiomed.researcher.experiment.Experiment.set_test_metric]
+        Please see also [`set_test_metric`][fedbiomed.researcher.federated_workflows.Experiment.set_test_metric]
             to change/set `test_metric`
 
         Returns:
@@ -273,12 +279,12 @@ class Experiment(TrainingPlanWorkflow):
     def test_metric_args(self) -> Dict[str, Any]:
         """Retrieves the metric argument for the metric function that is going to be used.
 
-        Please see also [`set_test_metric`][fedbiomed.researcher.experiment.Experiment.set_test_metric] to change/set
+        Please see also [`set_test_metric`][fedbiomed.researcher.federated_workflows.Experiment.set_test_metric] to change/set
         `test_metric` and get more information on the arguments can be used.
 
         Returns:
             A dictionary that contains arguments for metric function. See [`set_test_metric`]
-                [fedbiomed.researcher.experiment.Experiment.set_test_metric]
+                [fedbiomed.researcher.federated_workflows.Experiment.set_test_metric]
         """
         return self._training_args['test_metric_args']
 
@@ -288,7 +294,7 @@ class Experiment(TrainingPlanWorkflow):
         the nodes at the end of each round.
 
         Please see also
-            [`set_test_on_local_updates`][fedbiomed.researcher.experiment.Experiment.set_test_on_local_updates].
+            [`set_test_on_local_updates`][fedbiomed.researcher.federated_workflows.Experiment.set_test_on_local_updates].
 
         Returns:
             True, if validation is active on locally updated parameters. False for vice versa.
@@ -302,7 +308,7 @@ class Experiment(TrainingPlanWorkflow):
         parameters by the nodes at the beginning of each round.
 
         Please see also [`set_test_on_global_updates`]
-        [fedbiomed.researcher.experiment.Experiment.set_test_on_global_updates].
+        [fedbiomed.researcher.federated_workflows.Experiment.set_test_on_global_updates].
 
         Returns:
             True, if validation is active on globally updated (aggregated) parameters. False for vice versa.
@@ -1258,12 +1264,12 @@ class Experiment(TrainingPlanWorkflow):
     def _update_nodes_states_agent(self, before_training: bool = True):
         """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
         state_id coming from `Nodes` contained among all `Nodes` within
-        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet].
 
         Args:
             before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
                 - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
-                - if after, updates `NodeStateAgent` wrt latest reply
+                - if after, updates `NodeStateAgent` wrt the latest reply
 
         Raises:
             FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
@@ -1377,9 +1383,6 @@ class Experiment(TrainingPlanWorkflow):
 
         - strip unwanted fields
         - structure as list/dict, so it can be saved with JSON
-
-        Args:
-            training_replies: training replies of already executed rounds of the job
 
         Returns:
             Extract from `training_replies` formatted for breakpoint
