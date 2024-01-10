@@ -112,14 +112,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                   f" supported training plans {training_plans_types}"
             raise FedbiomedJobError(msg)
 
-        # __training_plan_class is the source of truth for all training plan members of this class
-        # if __training_plan_class is None, then all other members are undefined
-        # whenever __training_plan_class is changed, all other members should be immediately updated accordingly
+        # __training_plan_class determines the life-cycle of the training plan: if training_plass_class changes, then
+        # the training plan must be reinitialized
         self.__training_plan_class = None
-        # The __training_plan attribute represents the *actual instance* of a __training_plan_class that is currently
-        # being used in the workflow
-        self.__training_plan = None
+        # model args is also tied to the life-cycle of training plan: if model_args changes, the training plan must be
+        # reinitialized
         self._model_args = None
+        # The __training_plan attribute represents the *actual instance* of a __training_plan_class that is currently
+        # being used in the workflow. The training plan cannot be modified by the user.
+        self.__training_plan = None
 
         self.set_model_args(model_args)
         self.set_training_plan_class(training_plan_class)
@@ -263,6 +264,10 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     def set_model_args(self, model_args: dict) -> dict:
         """Sets `model_args` + verification on arguments type
 
+        !!! warning "Resets the training plan"
+            This function has an important (and intended!) side-effect: it resets the `training_plan` attribute
+            to a default-constructed instance.
+
         Args:
             model_args (dict): contains model arguments passed to the constructor
                 of the training plan when instantiating it : output and input feature
@@ -282,6 +287,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         # self._model_args always exist at this point
+
+        self._reset_training_plan()  # resets the training plan attribute
 
         return self._model_args
 
