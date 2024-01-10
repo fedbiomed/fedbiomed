@@ -161,7 +161,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     def training_plan_class(self) -> Optional[Type_TrainingPlan]:
         """Retrieves the type of the training plan that is created for training.
 
-        Please see also [`set_training_plan_class`][fedbiomed.researcher.experiment.Experiment.set_training_plan_class].
+        Please see also [`set_training_plan_class`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.set_training_plan_class].
 
         Returns:
             training_plan_class: the class type of the training plan.
@@ -174,7 +174,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """Retrieves the training plan instance currently being used in the federated workflow.
 
         Returns:
-            training plan: an instance of one of [training_plans][fedbiomed.common.training_plans].
+            training plan: the training plan instance
         """
         return self.__training_plan
 
@@ -182,11 +182,11 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     def model_args(self) -> dict:
         """Retrieves model arguments.
 
-        Please see also [`set_model_args`][fedbiomed.researcher.experiment.Experiment.set_model_args]
+        Please see also [`set_model_args`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.set_model_args]
 
         Returns:
-            The arguments that are going to be passed to [`training_plans`][fedbiomed.common.training_plans]
-                classes in built time on the node side.
+            The arguments that are going to be passed to the `init_model` function of the training plan during
+            initialization of the model instance
         """
         return self._model_args
 
@@ -311,14 +311,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         If the node id(s) list is None (default), the message is broadcast to all nodes.
 
         Args:
-            training_plan: the training plan to upload and send to the nodes for approval.
-                   It can be:
-                   - a path_name (str)
-                   - a training_plan (class)
-                   - an instance of a training plan
-            nodes: list of nodes (specified by their UUID)
             description: Description for training plan approve request
-            timeout: maximum waiting time for the answers
 
         Returns:
             a dictionary of pairs (node_id: status), where status indicates to the researcher
@@ -379,7 +372,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         researcher side or if user wants to resume experiment.
 
         Args:
-          cls: Experiment class
           breakpoint_folder_path: path of the breakpoint folder. Path can be absolute or relative eg:
             "var/experiments/Experiment_xxxx/breakpoints_xxxx". If None, loads latest breakpoint of the latest
             experiment. Defaults to None.

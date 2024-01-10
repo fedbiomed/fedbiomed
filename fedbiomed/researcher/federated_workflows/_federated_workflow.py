@@ -96,7 +96,7 @@ class FederatedWorkflow(ABC):
     The FederatedWorkflow is an abstract base class from which the actual classes used by the researcher must inherit.
     It manages the life-cycle of:
 
-    - the federated data (i.e. the [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDaset]) class
+    - the federated data (i.e. the [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet]) class
     - the training arguments
     - secure aggregation
     - the node state agent
@@ -188,7 +188,7 @@ class FederatedWorkflow(ABC):
     def tags(self) -> Union[List[str], None]:
         """Retrieves the tags from the experiment object.
 
-        Please see [`set_tags`][fedbiomed.researcher.experiment.Experiment.set_tags] to set tags.
+        Please see [`set_tags`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_tags] to set tags.
 
         Returns:
             List of tags that has been set. `None` if it isn't declare yet.
@@ -199,7 +199,7 @@ class FederatedWorkflow(ABC):
     def nodes(self) -> Union[List[str], None]:
         """Retrieves the `nodes` that are chosen for federated training.
 
-        Please see [`set_nodes`][fedbiomed.researcher.experiment.Experiment.set_nodes] to set `nodes`.
+        Please see [`set_nodes`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_nodes] to set `nodes`.
 
         Returns:
             Object that contains meta-data for the datasets of each node. `None` if nodes are not set.
@@ -208,11 +208,11 @@ class FederatedWorkflow(ABC):
 
     @exp_exceptions
     def training_data(self) -> Union[FederatedDataSet, None]:
-        """Retrieves the training data which is an instance of [`FederatedDataset`]
-        [fedbiomed.researcher.datasets.FederatedDataSet]
+        """Retrieves the training data which is an instance of
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet]
 
-        Please see [`set_training_data`][fedbiomed.researcher.experiment.Experiment.set_training_data] to set or
-        update training data.
+        Please see [`set_training_data`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_data]
+        to set or update training data.
 
         Returns:
             Object that contains meta-data for the datasets of each node. `None` if it isn't set yet.
@@ -224,7 +224,7 @@ class FederatedWorkflow(ABC):
         """Retrieves the folder name where experiment data/result are saved.
 
         Please see also[`set_experimentation_folder`]
-        [fedbiomed.researcher.experiment.Experiment.set_experimentation_folder]
+        [fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_experimentation_folder]
 
         Returns:
             File name where experiment related files are saved
@@ -246,12 +246,11 @@ class FederatedWorkflow(ABC):
     def training_args(self) -> dict:
         """Retrieves training arguments.
 
-        Please see also [`set_training_args`][fedbiomed.researcher.experiment.Experiment.set_training_args]
+        Please see also [`set_training_args`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_args]
 
         Returns:
-            The arguments that are going to be passed to `training_routine` of [`training_plans`]
-                [fedbiomed.common.training_plans] classes to perfom training on the node side.
-                An example training routine: [`TorchTrainingPlan.training_routine`]
+            The arguments that are going to be passed to the training plan's `training_routine` to perfom training on
+                the node side. An example training routine: [`TorchTrainingPlan.training_routine`]
                 [fedbiomed.common.training_plans.TorchTrainingPlan.training_routine]
         """
 
@@ -474,11 +473,8 @@ class FederatedWorkflow(ABC):
         """ Sets `training_args` + verification on arguments type
 
         Args:
-            training_args (dict): contains training arguments passed to the `training_routine` of the
-                [`fedbiomed.common.training_plans`][fedbiomed.common.training_plans] when launching it:
+            training_args (dict): contains training arguments passed to the training plan's `training_routine` such as
                 lr, epochs, batch_size...
-            reset (bool, optional): whether to reset the training_args (if previous training_args has already been
-                set), or to update them with training_args. Defaults to True.
 
         Returns:
             Training arguments
@@ -558,12 +554,12 @@ class FederatedWorkflow(ABC):
     def _update_nodes_states_agent(self, before_training: bool = True):
         """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
         state_id coming from `Nodes` contained among all `Nodes` within
-        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet].
 
         Args:
             before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
                 - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
-                - if after, updates `NodeStateAgent` wrt latest reply
+                - if after, updates `NodeStateAgent` wrt the latest reply
         """
         node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
         self._node_state_agent.update_node_states(node_ids)
