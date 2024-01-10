@@ -538,7 +538,7 @@ class FederatedWorkflow(ABC):
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
 
-    def _raise_for_missing_job_prerequities(self) -> None:
+    def _raise_for_missing_job_prerequisites(self) -> None:
         """Verifies that all preconditions are met before instantiating a Job.
 
         Checks that the training data (i.e. the self._fds attribute) is correctly set and initialized.

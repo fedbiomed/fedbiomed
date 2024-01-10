@@ -137,19 +137,19 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         if self.__training_plan_class is None:
             self.__training_plan = None
         else:
-            self._raise_for_missing_job_prerequities()
+            self._raise_for_missing_job_prerequisites()
             job = TrainingJob(keep_files_dir=self.experimentation_path())
             with self._keep_weights(keep_weights):
                 self.__training_plan = job.get_initialized_tp_instance(self.training_plan_class(),
                                                                        self._training_args,
                                                                        self._model_args)
 
-    def _raise_for_missing_job_prerequities(self) -> None:
+    def _raise_for_missing_job_prerequisites(self) -> None:
         """Setter for job, it verifies pre-requisites are met for creating a job
         attached to this experiment. If yes, instantiate a job ; if no, return None.
 
         """
-        super()._raise_for_missing_job_prerequities()
+        super()._raise_for_missing_job_prerequisites()
         # Check arguments
         if self.__training_plan_class is not None and not inspect.isclass(self.__training_plan_class):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` " \
@@ -418,6 +418,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
 
         return loaded_exp, saved_state
+
     @contextmanager
     def _keep_weights(self, keep_weights: bool):
         """Context manager for trying to keep the same weights as the current training plan after modifying it"""
@@ -428,7 +429,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 self.__training_plan.set_model_params(weights)
             except Exception as e:
                 msg = f"{ErrorNumbers.FB410.value}. Attempting to keep same weights even though model has changed " \
-                      f"failed with error message {e}. Your model is now in an inconsistent state. " \
+                      f"failed with the following error message \n{e}\n Your model is now in an inconsistent state. " \
                       f"Try re-running the intended method by also setting `keep_weights=False` as parameter to " \
                       f"force resetting the model."
                 raise FedbiomedExperimentError(msg)
