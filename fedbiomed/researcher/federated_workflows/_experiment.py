@@ -1051,8 +1051,10 @@ class Experiment(TrainingPlanWorkflow):
     @exp_exceptions
     def breakpoint(self) -> None:
         """
-        Saves breakpoint with the state of the training at a current round. The following Experiment attributes will
-        be saved:
+        Saves breakpoint with the state of the training at a current round.
+
+        The following Experiment attributes will be saved:
+
           - round_current
           - round_limit
           - aggregator
@@ -1101,7 +1103,7 @@ class Experiment(TrainingPlanWorkflow):
                         breakpoint_folder_path: Union[str, None] = None) -> TExperiment:
         """
         Loads breakpoint (provided a breakpoint has been saved)
-        so experience can be resumed. Usefull if training has crashed
+        so experience can be resumed. Useful if training has crashed
         researcher side or if user wants to resume experiment.
 
         Args:
@@ -1111,7 +1113,7 @@ class Experiment(TrainingPlanWorkflow):
             experiment. Defaults to None.
 
         Returns:
-            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()`
+            Reinitialized experiment object. With given object, user can then use `.run()`
                 method to pursue model training.
 
         Raises:

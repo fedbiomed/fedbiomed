@@ -96,7 +96,6 @@ class FederatedWorkflow(ABC):
     The FederatedWorkflow is an abstract base class from which the actual classes used by the researcher must inherit.
     It manages the life-cycle of:
 
-    - the federated data (i.e. the [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet]) class
     - the training arguments
     - secure aggregation
     - the node state agent
@@ -569,8 +568,10 @@ class FederatedWorkflow(ABC):
                    state: Dict,
                    bkpt_number: int) -> None:
         """
-        Saves breakpoint with the state of the training at a current round. The following Experiment attributes will
-        be saved:
+        Saves breakpoint with the state of the workflow.
+
+        The following attributes will be saved:
+
           - tags
           - experimentation_folder
           - training_data
@@ -612,20 +613,18 @@ class FederatedWorkflow(ABC):
     @classmethod
     @exp_exceptions
     def load_breakpoint(cls,
-                        breakpoint_folder_path: Union[str, None] = None) -> 'TExperiment':
+                        breakpoint_folder_path: Union[str, None] = None) -> TFederatedWorkflow:
         """
         Loads breakpoint (provided a breakpoint has been saved)
-        so experiment can be resumed. Useful if training has crashed
-        researcher side or if user wants to resume experiment.
+        so the workflow can be resumed.
 
         Args:
           breakpoint_folder_path: path of the breakpoint folder. Path can be absolute or relative eg:
             "var/experiments/Experiment_xxxx/breakpoints_xxxx". If None, loads the latest breakpoint of the latest
-            experiment. Defaults to None.
+            workflow. Defaults to None.
 
         Returns:
-            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()`
-                method to pursue model training.
+            Reinitialized workflow object.
 
         Raises:
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint

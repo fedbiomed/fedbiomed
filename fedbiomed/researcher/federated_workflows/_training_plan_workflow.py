@@ -330,8 +330,10 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                    state,
                    bkpt_number) -> None:
         """
-        Saves breakpoint with the state of the training at a current round. The following Experiment attributes will
-        be saved:
+        Saves breakpoint with the state of the workflow.
+
+        The following attributes will be saved:
+
           - training_plan_class
           - model_args
         """
@@ -365,20 +367,18 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     @classmethod
     @exp_exceptions
     def load_breakpoint(cls,
-                        breakpoint_folder_path: Union[str, None] = None) -> 'TTrainingPlanWorkflow':
+                        breakpoint_folder_path: Union[str, None] = None) -> TTrainingPlanWorkflow:
         """
         Loads breakpoint (provided a breakpoint has been saved)
-        so experience can be resumed. Useful if training has crashed
-        researcher side or if user wants to resume experiment.
+        so the workflow can be resumed.
 
         Args:
           breakpoint_folder_path: path of the breakpoint folder. Path can be absolute or relative eg:
-            "var/experiments/Experiment_xxxx/breakpoints_xxxx". If None, loads latest breakpoint of the latest
-            experiment. Defaults to None.
+            "var/experiments/Experiment_xxxx/breakpoints_xxxx". If None, loads the latest breakpoint of the latest
+            workflow. Defaults to None.
 
         Returns:
-            Reinitialized experiment object. With given object-0.2119,  0.0796, -0.0759, user can then use `.run()`
-                method to pursue model training.
+            Reinitialized workflow object.
 
         Raises:
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
