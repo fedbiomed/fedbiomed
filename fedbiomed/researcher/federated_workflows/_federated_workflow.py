@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathvalidate import sanitize_filename
 from re import findall
-from typing import Any, Dict, List, TypeVar, Union
+from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers, JOB_PREFIX, __breakpoints_version__
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
@@ -613,7 +613,7 @@ class FederatedWorkflow(ABC):
     @classmethod
     @exp_exceptions
     def load_breakpoint(cls,
-                        breakpoint_folder_path: Union[str, None] = None) -> TFederatedWorkflow:
+                        breakpoint_folder_path: Optional[str] = None) -> Tuple[TFederatedWorkflow, dict]:
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so the workflow can be resumed.

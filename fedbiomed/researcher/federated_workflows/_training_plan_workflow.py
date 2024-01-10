@@ -5,7 +5,7 @@ import uuid
 from abc import ABC
 from contextlib import contextmanager
 from re import findall
-from typing import Any, Dict, List, Type, TypeVar, Union, Optional
+from typing import Any, Dict, List, Type, TypeVar, Union, Optional, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedJobError
@@ -383,7 +383,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     @classmethod
     @exp_exceptions
     def load_breakpoint(cls,
-                        breakpoint_folder_path: Union[str, None] = None) -> TTrainingPlanWorkflow:
+                        breakpoint_folder_path: Optional[str] = None) -> Tuple[TTrainingPlanWorkflow, dict]:
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so the workflow can be resumed.
