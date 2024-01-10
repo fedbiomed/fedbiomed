@@ -7,23 +7,24 @@ keywords: fedbiomed configuration,node configuration
 # Node Configuration
 
 Fed-BioMed framework has 2 main components: `node` and `researcher`. A `node` stores private datasets and 
-perform training in response to researcher's train requests. It communicates directly with the `researcher` component using RPC protocol.
+performs training in response to researcher's train requests. It communicates directly with the `researcher` component using RPC protocol.
 
 
-A basic node configuration contains following settings;
+A basic node configuration contains the following settings:
 
 - providing a python environment
 - assigning a unique node id 
-- setting security parameters such as training plan approval mode, hashing algorithms 
-- providing the connection credentials for the researcher component
+- security parameters such as training plan approval mode, hashing algorithms 
+- connection credentials for the researcher component
 
 !!! note "Note"
-    These basic configurations are done automatically using default values by the scripts provided in Fed-FedBioMed. 
-    However, it is possible to modify the configuration manually through configuration file. 
-
+    These basic configurations are created automatically using default values by the scripts provided in Fed-BioMed.
+    While it is possible to modify the configuration manually through configuration file, some parameters may become incompatible upon doing so; such as [server]/host and [server]/pem for the latter depends on the former.
+    It is therefore strongly adviced to rely on the dedicated script for configuration creation, namely : `fedbiomed_run configuration create`; whose options are described above.
+    
 ## Environment for Nodes 
 
-A `node` requires a conda environment to be able to run. This environment provides necessary python modules for both the task management part and the model training part.  Thanks to Fed-BioMed Node CLI, this conda environment can be created easily. 
+A `node` requires a conda environment to be able to run. This environment provides necessary python modules for both the task management part and the model training part. Thanks to Fed-BioMed Node CLI, this conda environment can be created easily. 
 
 ```
 $ ${FEDBIOMED_DIR}/scripts/configure_conda
@@ -120,3 +121,19 @@ $ ./scripts/fedbiomed_run node config config-n1.ini add
     This is the process for the local development environment. Please see 
     [deployment instructions with VPN](../deployment/deployment-vpn.md) for production.  
 
+
+## Creating configuration files for nodes
+The script `${FEDBIOMEDROOT_DIR}/scripts/fedbiomed_run configuration create -c NODE -n <configuration_filename>` will create or optionally update (`-f`) a configuration file for a node with `configuration_filename` name in the `${FEDBIOMED_ROOT_DIR}/etc` folder.
+More options are available and described through the help menu: `${FEDBIOMED_ROOT_DIR}/scripts/fedbiomed_run configuration create -h`
+The parametrization of this script with regard to the various fields stored in the configuration happens through the usage of environment variables.
+The fields that can be controlled, their associated evironment variable and default value are described as follow:
+
+[security]:
+- allow\_default\_training\_plans: ALLOW\_DEFAULT\_TRAINING\_PLANS, True
+- training\_plan\_approval: ENABLE\_TRAINING\_PLAN\_APPROVAL, False
+- secure\_aggregation: SECURE\_AGGREGATION, True
+- force\_secure\_aggregation: FORCE\_SECURE\_AGGREGATION, False
+
+[researcher]:
+- ip: RESEARCHER\_SERVER\_HOST, ${IP\_ADDRESS}, localhost
+- port: RESEARCHER\_SERVER_PORT, 50051
