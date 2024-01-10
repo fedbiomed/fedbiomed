@@ -3,6 +3,7 @@
 import inspect, os
 import uuid
 from abc import ABC
+from contextlib import contextmanager
 from re import findall
 from typing import Any, Dict, List, Type, TypeVar, Union, Optional
 
@@ -126,7 +127,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         self.set_training_plan_class(training_plan_class)
 
     @exp_exceptions
-    def _reset_training_plan(self) -> None:
+    def _reset_training_plan(self,
+                             keep_weights: bool = True) -> None:
         """Private utility function that resets the training plan according to the value of training plan class.
 
         If training plan class is None, then sets the training plan to None.
@@ -137,9 +139,10 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         else:
             self._raise_for_missing_job_prerequities()
             job = TrainingJob(keep_files_dir=self.experimentation_path())
-            self.__training_plan = job.get_initialized_tp_instance(self.training_plan_class(),
-                                                                   self._training_args,
-                                                                   self._model_args)
+            with self._keep_weights(keep_weights):
+                self.__training_plan = job.get_initialized_tp_instance(self.training_plan_class(),
+                                                                       self._training_args,
+                                                                       self._model_args)
 
     def _raise_for_missing_job_prerequities(self) -> None:
         """Setter for job, it verifies pre-requisites are met for creating a job
@@ -219,18 +222,21 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         return info
 
     @exp_exceptions
-    def set_training_plan_class(self, training_plan_class: Union[Type_TrainingPlan, None]) -> \
-            Union[Type_TrainingPlan, None]:
+    def set_training_plan_class(self,
+                                training_plan_class: Union[Type_TrainingPlan, None],
+                                keep_weights: bool = True
+                                ) -> Union[Type_TrainingPlan, None]:
         """Sets  the training plan type + verification on arguments type
 
         !!! warning "Resets the training plan"
-            This function has an important (and intended!) side-effect: it resets the `training_plan` attribute
-            to a default-constructed instance.
+            This function has an important (and intended!) side-effect: it resets the `training_plan` attribute.
+            By default, it tries to keep the same weights as the current training plan, if available.
 
         Args:
             training_plan_class: training plan class to be used for training.
                 For experiment to be properly and fully defined `training_plan_class` needs to be a `Type_TrainingPlan`
                 Defaults to None (no training plan class defined yet)
+            keep_weights: try to keep the same weights as the current training plan
 
         Returns:
             `training_plan_class` that is set for experiment
@@ -256,22 +262,25 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        self._reset_training_plan()  # resets the training plan attribute
+        self._reset_training_plan(keep_weights)  # resets the training plan attribute
 
         return self.__training_plan_class
 
     @exp_exceptions
-    def set_model_args(self, model_args: dict) -> dict:
+    def set_model_args(self,
+                       model_args: dict,
+                       keep_weights: bool = True) -> dict:
         """Sets `model_args` + verification on arguments type
 
         !!! warning "Resets the training plan"
-            This function has an important (and intended!) side-effect: it resets the `training_plan` attribute
-            to a default-constructed instance.
+            This function has an important (and intended!) side-effect: it resets the `training_plan` attribute.
+            By default, it tries to keep the same weights as the current training plan, if available.
 
         Args:
             model_args (dict): contains model arguments passed to the constructor
                 of the training plan when instantiating it : output and input feature
                 dimension, etc.
+            keep_weights: try to keep the same weights as the current training plan
 
         Returns:
             Model arguments that have been set.
@@ -288,7 +297,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
         # self._model_args always exist at this point
 
-        self._reset_training_plan()  # resets the training plan attribute
+        self._reset_training_plan(keep_weights)  # resets the training plan attribute
 
         return self._model_args
 
@@ -409,3 +418,20 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
 
         return loaded_exp, saved_state
+    @contextmanager
+    def _keep_weights(self, keep_weights: bool):
+        """Context manager for trying to keep the same weights as the current training plan after modifying it"""
+        if keep_weights and self.__training_plan is not None:
+            weights = self.__training_plan.get_model_params()
+            yield
+            try:
+                self.__training_plan.set_model_params(weights)
+            except Exception as e:
+                msg = f"{ErrorNumbers.FB410.value}. Attempting to keep same weights even though model has changed " \
+                      f"failed with error message {e}. Your model is now in an inconsistent state. " \
+                      f"Try re-running the intended method by also setting `keep_weights=False` as parameter to " \
+                      f"force resetting the model."
+                raise FedbiomedExperimentError(msg)
+        else:
+            yield
+
