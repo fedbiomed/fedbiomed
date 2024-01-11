@@ -188,5 +188,5 @@ class Config(metaclass=ABCMeta):
         self._cfg.read(self.path)
         id = self._cfg["default"]['id']
 
+        # Generate by keeping the component ID
         self.generate(force=True, id=id)
-
