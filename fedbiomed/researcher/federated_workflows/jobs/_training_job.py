@@ -26,23 +26,6 @@ class TrainingJob(Job):
     TrainingJob is a task for training an ML model on the nodes by executing a [TrainingPlan][fedbiomed.common.training_plans.BaseTrainingPlan].
     """
 
-    def __init__(self,
-                 nodes: Optional[dict] = None,
-                 keep_files_dir: str = None):
-
-        """ Constructor of the class
-
-        Args:
-            nodes: A dict of node_id containing the nodes used for training
-            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
-                of the job. Defaults to None, files are not kept after the end of the job.
-        """
-
-        super().__init__(
-            nodes,
-            keep_files_dir
-        )
-
     def _get_default_constructed_tp_instance(self,
                                              training_plan_class: Type[Callable],
                                              ) -> BaseTrainingPlan:
