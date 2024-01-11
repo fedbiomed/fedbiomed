@@ -340,7 +340,8 @@ class FederatedWorkflow(ABC):
         # self._tags always exist at this point
 
         if self._fds is not None:
-            logger.debug('Experimentation tags changed, you may need to update `training_data`')
+            logger.debug('Experimentation tags changed, you may need to update `training_data`'
+                         'by calling exp.set_training_data(None, from_tags=True)')
 
         return self._tags
 
