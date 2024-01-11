@@ -16,7 +16,7 @@ from fedbiomed.common.exceptions import FedbiomedJobError
 from fedbiomed.common.logger import logger
 
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.requests import Requests, MessagesByNode
+from fedbiomed.researcher.requests import MessagesByNode
 
 from fedbiomed.researcher.federated_workflows.jobs._job import Job
 
