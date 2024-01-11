@@ -45,7 +45,7 @@ class Job:
         self._researcher_id = environ['RESEARCHER_ID']
         self._reqs = Requests()
         self.last_msg = None
-        self._nodes: Optional[List[str]] = nodes  # List of node ids participating in this task
+        self._nodes: List[str] = nodes or []  # List of node ids participating in this task
 
         if keep_files_dir:
             self._keep_files_dir = keep_files_dir
