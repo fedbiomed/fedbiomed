@@ -51,7 +51,6 @@ class Job:
             self._keep_files_dir = keep_files_dir
         else:
             self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
-            atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
 
     @property
     def requests(self):
