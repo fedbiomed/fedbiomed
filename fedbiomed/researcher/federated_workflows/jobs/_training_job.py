@@ -67,7 +67,7 @@ class TrainingJob(Job):
     def get_initialized_tp_instance(self,
                                     training_plan_class: Type[Callable],
                                     training_args: Union[dict, TrainingArgs],
-                                    model_args: Optional[dict],
+                                    model_args: Optional[dict] = None,
                                     ):
         """Returns an initialized instance of the TrainingPlan.
 
