@@ -404,7 +404,7 @@ exp.job().update_parameters(exp.training_plan().get_model_params())
 !!! warning "Security notice"
     Only use `import_model()` with a trusted model file (trained by a trusted source, transmitted via secure channel).
 
-    In both PyTorch and scikit-learn, the model saving and loading facility are based on pickle. A malicious pickle model can executre arbitrary code on your machine when loaded.
+    In both PyTorch and scikit-learn, the model saving and loading facility are based on pickle. A malicious pickle model can execute arbitrary code on your machine when loaded.
 
 
 
