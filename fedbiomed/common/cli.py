@@ -168,13 +168,13 @@ class ConfigurationParser(CLIArgumentParser):
         # Use exisintg one (do nothing)
         elif config.is_config_existing() and not args.force:
             if not args.use_current:
-                print(f"Configuration file {config.path} is alreay existing for name {config.name}."
+                print(f"Configuration file \"{config.path}\" is alreay existing for name \"{config.name}\". "
                       "Please use --force option to overwrite")
                 exit(101)
             # Generate wont do anything
             config.generate()
         else:
-            logger.info(f"Generation new configuration file {config.name}")
+            logger.info(f"Generation new configuration file \"{config.name}\"")
             config.generate()
 
         self._update_register_default_biprimes(config)
@@ -183,8 +183,8 @@ class ConfigurationParser(CLIArgumentParser):
         """Refreshes configuration file """
 
         config = self._create_config_instance(args.component, args.root, args.name)
-        print("Refresing configuration file. This operation will overwrite existing configuration file"
-              "without changing component id.")
+        print("Refreshing configuration file using current environment variables. This operation will overwrite"
+              "existing configuration file without changing component id.")
 
         # Refresh
         config.refresh()
