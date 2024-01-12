@@ -470,7 +470,7 @@ class FederatedWorkflow(ABC):
         return self._experimentation_folder
 
     @exp_exceptions
-    def set_training_args(self, training_args: dict) -> dict:
+    def set_training_args(self, training_args: Union[dict, TrainingArgs]) -> dict:
         """ Sets `training_args` + verification on arguments type
 
         Args:
