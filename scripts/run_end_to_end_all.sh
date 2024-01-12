@@ -28,21 +28,22 @@ if [ -d './fedbiomed/common' ] && [ -d ${DATA_DIR} ] && [ ! -L ${DATA_DIR} ]; th
 fi
 
 #list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
-list_notebooks=( notebooks/101_getting-started.ipynb )
-#list_notebooks=( notebooks/{\
-#101_getting-started,\
-#general-breakpoint-save-resume,\
-#general-list-datasets-select-node,\
-#general-tensorboard,\
-#general-training-plan-approval,\
-#general-use-gpu,\
-#pytorch-MNIST-FedProx,\
-#pytorch-celeba-dataset,\
-#pytorch-csv-data,\
-#pytorch-local-training,\
-#pytorch-opacus-MNIST,\
-#pytorch-variational-autoencoder\
-#}.ipynb)
+
+list_notebooks=( notebooks/{\
+101_getting-started,\
+general-breakpoint-save-resume,\
+general-list-datasets-select-node,\
+general-tensorboard,\
+general-training-plan-approval,\
+general-use-gpu,\
+pytorch-MNIST-FedProx,\
+pytorch-celeba-dataset,\
+pytorch-csv-data,\
+pytorch-local-training,\
+pytorch-opacus-MNIST,\
+pytorch-variational-autoencoder\
+}.ipynb)
+
 #list_notebooks=( notebooks/{\
 #101_getting-started,\
 #general-breakpoint-save-resume,\
