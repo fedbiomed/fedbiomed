@@ -14,7 +14,7 @@ dependencies:
   - pip >= 23.0
   # TODO: consider migrating for classical notebooks to notebook7 or jupyterlab
   # https://jupyter-notebook.readthedocs.io/en/latest/migrate_to_notebook7.html
-  - notebook =6.*.*
+  - notebook ~=6.5.0
   - jupyter ~=1.0.0
   - ipython ~=8.13.2
   # tests
