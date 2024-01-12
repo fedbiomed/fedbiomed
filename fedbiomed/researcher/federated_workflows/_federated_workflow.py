@@ -169,7 +169,8 @@ class FederatedWorkflow(ABC):
         self.set_nodes(nodes)
         self.set_save_breakpoints(save_breakpoints)
         self.set_training_args(training_args)
-        self.set_training_data(training_data, True)
+        if self.tags() is not None:
+            self.set_training_data(training_data, True)
         self.set_experimentation_folder(experimentation_folder)
         self._node_state_agent = NodeStateAgent(list(self._fds.data().keys())
                                                 if self._fds and self._fds.data() else [])
