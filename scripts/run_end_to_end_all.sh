@@ -7,6 +7,8 @@ echo "${bats_file}"
 exec 5>"$bats_file" # associating a file descriptor with the temp file, so that is removed whatever the reason the script ends.
 
 : ${CONDA:=conda}
+for env_name in researcher node researcher-end-to-end
+  ${CONDA} env remove --name ${env_name}
 if [ "$(uname)" == "Darwin" ]; then
   ${CONDA} env update -f ./envs/development/conda/fedbiomed-researcher-macosx.yaml
   ${CONDA} env update -f ./envs/development/conda/fedbiomed-node-macosx.yaml
