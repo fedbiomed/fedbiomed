@@ -6,7 +6,7 @@ import os
 import uuid 
 
 from abc import ABCMeta, abstractmethod
-from typing import Optional
+from typing import Optional, Dict
 
 from fedbiomed.common.constants import (
     ErrorNumbers,
@@ -22,7 +22,7 @@ from fedbiomed.common.utils import (
     ROOT_DIR
 )
 from fedbiomed.common.certificate_manager import retrieve_ip_and_port, generate_certificate
-
+from fedbiomed.common.exceptions import FedbiomedError
 
 class Config(metaclass=ABCMeta):
     """Base Config class"""
@@ -102,18 +102,38 @@ class Config(metaclass=ABCMeta):
             raise IOError(ErrorNumbers.FB600.value + ": cannot save config file: " + self.path)
 
 
-    def generate(self, force: bool = False) -> bool:
+    def _default(
+        self,
+        id: Optional[str] = None
+    ) -> Dict:
+        """Genereates default section of configuration
+
+        Args:
+          id: Component ID
+        """
+
+
+        return self._cfg['default']
+
+    def generate(
+        self,
+        force: bool = False,
+        id: Optional[str] = None
+    ) -> bool:
         """"Generate configuration file
 
         Args:
-        force: Overwrites existing configration file
+            force: Overwrites existing configration file
+            id: Component ID
         """
 
         # Check if configuration is already existing
         if self.is_config_existing() and not force:
             return self.read()
 
-        component_id = f"{self._COMPONENT_TYPE}_{uuid.uuid4()}"
+
+        # Create default section
+        component_id = id if id else f"{self._COMPONENT_TYPE}_{uuid.uuid4()}"
 
         self._cfg['default'] = {
             'id': component_id,
@@ -121,9 +141,9 @@ class Config(metaclass=ABCMeta):
             'version': str(self._CONFIG_VERSION)
         }
 
-        # DB PATH RELATIVE
         db_path  = os.path.join(self.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{component_id}.json")
         self._cfg['default']['db'] = os.path.relpath(db_path, os.path.join(self.root, CONFIG_FOLDER_NAME))
+
 
         ip, port = retrieve_ip_and_port(self.root)
         allow_default_biprimes = os.getenv('ALLOW_DEFAULT_BIPRIMES', True)
@@ -155,3 +175,18 @@ class Config(metaclass=ABCMeta):
     @abstractmethod
     def add_parameters(self):
         """"Component specific argument creation"""
+
+    def refresh(self):
+        """Refreshes config file by recreating all the fields without
+          chaning component ID.
+        """
+
+        if not self.is_config_existing():
+            raise FedbiomedError("Can not refresh config file that is not existing")
+
+        # Read the config
+        self._cfg.read(self.path)
+        id = self._cfg["default"]['id']
+
+        # Generate by keeping the component ID
+        self.generate(force=True, id=id)
