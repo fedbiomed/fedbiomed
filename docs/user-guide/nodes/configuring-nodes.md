@@ -121,10 +121,9 @@ $ ./scripts/fedbiomed_run node config config-n1.ini add
     This is the process for the local development environment. Please see 
     [deployment instructions with VPN](../deployment/deployment-vpn.md) for production.  
 
-
 ## Creating configuration files for nodes
-The script `${FEDBIOMEDROOT_DIR}/scripts/fedbiomed_run configuration create -c NODE -n <configuration_filename>` will create or optionally update (`-f`) a configuration file for a node with `configuration_filename` name in the `${FEDBIOMED_ROOT_DIR}/etc` folder.
-More options are available and described through the help menu: `${FEDBIOMED_ROOT_DIR}/scripts/fedbiomed_run configuration create -h`
+The script `${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -c NODE -n <configuration_filename>` will create or optionally update (`-f`) a configuration file for a node with `configuration_filename` name in the `${FEDBIOMED_DIR}/etc` folder.
+More options are available and described through the help menu: `${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -h`
 The parametrization of this script with regard to the various fields stored in the configuration happens through the usage of environment variables.
 The fields that can be controlled, their associated evironment variable and default value are described as follow:
 
@@ -135,5 +134,5 @@ The fields that can be controlled, their associated evironment variable and defa
 - force\_secure\_aggregation: FORCE\_SECURE\_AGGREGATION, False
 
 [researcher]:
-- ip: RESEARCHER\_SERVER\_HOST, ${IP\_ADDRESS}, localhost
+- ip: RESEARCHER\_SERVER\_HOST, ${IP\_ADDRESS}, if not set: localhost
 - port: RESEARCHER\_SERVER_PORT, 50051
