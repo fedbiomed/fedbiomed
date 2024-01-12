@@ -285,6 +285,7 @@ Issues are used to describe smaller goals of the project (tasks, functional requ
 An open issue has exactly one type amongst:
 
 * *needs-triage* for new user issues
+* *user support*
 * a *candidate* 
 * a *product backlog* entry
 * a *sprint backlog* entry
@@ -293,7 +294,7 @@ An issue:
 
 * can be created by a user. It must then be labelled as *needs-triage*
 * can be created by an individual developer. It must then label as a *candidate*.
-* can be moved from *needs-triage* to *candidate* by a team developer. The team developer ensures it contains necessary information and is explicit enough. Team developer can also add *misc* labels.
+* can be moved from *needs-triage* to *user support* or *candidate* by a team developer. The team developer ensures it contains necessary information and is explicit enough. Team developer can also add *misc* labels.
 * can be moved to the *product backlog* by the product owner or with explicit validation of the product owner
 * can be moved to the *sprint backlog* during sprint planning by the team developers
 * is closed and marked *done* when it is completed. If it belongs to the *sprint backlog*, it should keep this label until the end of the current sprint.
@@ -304,7 +305,7 @@ A closed issue has exactly one type amongst:
 * *attic*
 
 An issue can be labelled as *attic* and closed when it is considered obsolete or not relevant.
-It then loses its open issue type label (*needs-triage*, *candidate*, *product backlog*, *sprint backlog*).
+It then loses its open issue type label (*needs-triage*, *candidate*, *product backlog*, *sprint backlog*) except for *user support* issues (make it easy to browse past user support issues).
 
 
 ### Labels
@@ -315,7 +316,8 @@ We sort labels in several categories:
 #### *type* labels:
 
   - **needs-triage** : a user submits a work request to the team (extension proposal, bug, other request)
-  - **candidate** : an individual developer submits a work request to the team (extension proposal, bug, other request)
+  - **user support** : a developer validates a user-submitted issue to be a request for support or for information (if it is a bug report or a work request, then it should rather be a labelled as *candidate*)
+  - **candidate** : an individual developer submits a work request to the team (extension proposal, bug, other request) or validates a user-submitted issue
   - **product backlog** : the product owner adds an entry to the product backlog
   - **sprint backlog** : the development team adds an entry to the sprint backlog
   - **attic** : the entry is not completed, but is now considered obsolete and closed
