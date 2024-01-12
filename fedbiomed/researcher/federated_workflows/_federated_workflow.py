@@ -439,7 +439,7 @@ class FederatedWorkflow(ABC):
         return self._fds
 
     @exp_exceptions
-    def set_experimentation_folder(self, experimentation_folder: Union[str, None]) -> str:
+    def set_experimentation_folder(self, experimentation_folder: Optional[str] = None) -> str:
         """Sets `experimentation_folder`, the folder name where experiment data/result are saved.
 
         Args:
@@ -467,7 +467,6 @@ class FederatedWorkflow(ABC):
 
             # at this point self._experimentation_folder is a str valid for a foldername
 
-        # _job doesn't always exist at this point
         return self._experimentation_folder
 
     @exp_exceptions
