@@ -140,15 +140,8 @@ The fields that can be controlled, their associated evironment variable and defa
 
 ### Examples:
 ```
-$ RESEARCHER_SERVER_HOST=121.203.21.147 RESEARCHER_SERVER_PORT=8909 ./scripts/fedbiomed_run configuration create -c RESEARCHER -n researcher.ini
-```
-```
-$ RESEARCHER_SERVER_HOST=121.203.21.147 RESEARCHER_SERVER_PORT=8909 SECURE_AGGREGATION=0 ./scripts/fedbiomed_run configuration create -c NODE -n node_1.ini 
+$ RESEARCHER_SERVER_HOST=121.203.21.147 RESEARCHER_SERVER_PORT=8909 SECURE_AGGREGATION=0 ${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -c NODE -n node_1.ini -f
 ```
 
-Note that recreating (`-f`) a configuration file will override the whole file including the node id. 
-To preserve the node id across updates of the configuration file, refer to the [Refreshing configuration files for components](## Refreshing configuration files for components) section.
-
-## Refreshing configuration files for components
-
-This section is still under construction and awaits a merge of the functionality in the main branch.
+Note that recreating (`-f`) a configuration file will override the whole file including the node id.
+To preserve the node id across updates of the configuration file, prefer using `${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration refresh -c NODE -n node_1.ini`.
