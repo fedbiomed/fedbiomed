@@ -417,9 +417,12 @@ class FederatedWorkflow(ABC):
         # case where no training data are passed
         if training_data is None and from_tags is True:
             # cannot search for training_data if tags not initialized;
+            if self._tags is None:
+                msg = f"{ErrorNumbers.FB410.value}: attempting to set training data from tags, but tags are undefined."
+                logger.critical(msg)
+                raise FedbiomedExperimentError(msg)
             # nodes can be None (no filtering on nodes by default)
-            if self._tags is not None:
-                training_data = self._reqs.search(self._tags, self._nodes)
+            training_data = self._reqs.search(self._tags, self._nodes)
 
         if isinstance(training_data, FederatedDataSet):
             self._fds = training_data
@@ -431,7 +434,6 @@ class FederatedWorkflow(ABC):
             raise FedbiomedExperimentError(msg)
         else:
             self._fds = None
-            logger.debug('Experiment not fully configured yet: no training data')
         # at this point, self._fds is either None or a FederatedDataSet object
 
         return self._fds
