@@ -470,7 +470,7 @@ class FederatedWorkflow(ABC):
         return self._experimentation_folder
 
     @exp_exceptions
-    def set_training_args(self, training_args: Union[dict, TrainingArgs]) -> dict:
+    def set_training_args(self, training_args: Union[dict, TrainingArgs, None]) -> Union[dict, None]:
         """ Sets `training_args` + verification on arguments type
 
         Args:
@@ -486,11 +486,11 @@ class FederatedWorkflow(ABC):
 
         if isinstance(training_args, TrainingArgs):
             self._training_args = deepcopy(training_args)
-        elif isinstance(training_args, dict):
+        elif isinstance(training_args, dict) or training_args is None:
             self._training_args = TrainingArgs(training_args, only_required=False)
         else:
-            msg = f"{ErrorNumbers.FB410.value} in function `set_training_args`. Expected type TrainingArgs or dict, " \
-                  f"got {type(training_args)} instead."
+            msg = f"{ErrorNumbers.FB410.value} in function `set_training_args`. Expected type TrainingArgs, dict, or " \
+                  f"None, got {type(training_args)} instead."
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
