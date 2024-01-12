@@ -22,8 +22,8 @@ else
 fi
 ${CONDA} env update -f ./envs/ci/conda/fedbiomed-researcher-end-to-end.yaml
 DATA_DIR=./data
-if [ -d ${DATA_DIR} ] && [ ! -L ${DATA_DIR} ]; then # test if it is the ${DATA_DIR} directory obtained from checkout
-  rm -fr ${DATA_DIR}
+if [ -d './fedbiomed/common' ] && [ -d ${DATA_DIR} ] && [ ! -L ${DATA_DIR} ]; then # test if it is the ${DATA_DIR} directory obtained from checkout
+  mv -f ${DATA_DIR} ${DATA_DIR}.SAVE
   ln -s ~/Data/fedbiomed ${DATA_DIR}
 fi
 
