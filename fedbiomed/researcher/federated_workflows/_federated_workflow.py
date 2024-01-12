@@ -486,8 +486,14 @@ class FederatedWorkflow(ABC):
 
         if isinstance(training_args, TrainingArgs):
             self._training_args = deepcopy(training_args)
-        else:
+        elif isinstance(training_args, dict):
             self._training_args = TrainingArgs(training_args, only_required=False)
+        else:
+            msg = f"{ErrorNumbers.FB410.value} in function `set_training_args`. Expected type TrainingArgs or dict, " \
+                  f"got {type(training_args)} instead."
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
         # Propagate training arguments to job
         return self._training_args.dict()
 
