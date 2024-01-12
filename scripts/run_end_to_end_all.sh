@@ -7,8 +7,12 @@ echo "${bats_file}"
 exec 5>"$bats_file" # associating a file descriptor with the temp file, so that is removed whatever the reason the script ends.
 
 : ${CONDA:=conda}
+
 for env_name in researcher node researcher-end-to-end
+do
   ${CONDA} env remove --name ${env_name}
+done
+
 if [ "$(uname)" == "Darwin" ]; then
   ${CONDA} env update -f ./envs/development/conda/fedbiomed-researcher-macosx.yaml
   ${CONDA} env update -f ./envs/development/conda/fedbiomed-node-macosx.yaml
@@ -24,21 +28,21 @@ if [ -d ${DATA_DIR} ] && [ ! -L ${DATA_DIR} ]; then # test if it is the ${DATA_D
 fi
 
 #list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
-
-list_notebooks=( notebooks/{\
-101_getting-started,\
-general-breakpoint-save-resume,\
-general-list-datasets-select-node,\
-general-tensorboard,\
-general-training-plan-approval,\
-general-use-gpu,\
-pytorch-MNIST-FedProx,\
-pytorch-celeba-dataset,\
-pytorch-csv-data,\
-pytorch-local-training,\
-pytorch-opacus-MNIST,\
-pytorch-variational-autoencoder\
-}.ipynb)
+list_notebooks=( notebooks/101_getting-started.py )
+#list_notebooks=( notebooks/{\
+#101_getting-started,\
+#general-breakpoint-save-resume,\
+#general-list-datasets-select-node,\
+#general-tensorboard,\
+#general-training-plan-approval,\
+#general-use-gpu,\
+#pytorch-MNIST-FedProx,\
+#pytorch-celeba-dataset,\
+#pytorch-csv-data,\
+#pytorch-local-training,\
+#pytorch-opacus-MNIST,\
+#pytorch-variational-autoencoder\
+#}.ipynb)
 #list_notebooks=( notebooks/{\
 #101_getting-started,\
 #general-breakpoint-save-resume,\
