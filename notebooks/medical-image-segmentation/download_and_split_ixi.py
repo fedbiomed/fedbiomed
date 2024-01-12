@@ -94,19 +94,13 @@ if __name__ == '__main__':
         cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
 
         print(f'Creating node at: {cfg_file}')
-        config = NodeConfig(root=environ["ROOT_DIR"], name=f'{center_name.lower()}.ini')
+        config = NodeConfig(root=environ["ROOT_DIR"], name=f'{center_name.lower()}.ini', auto_generate=False)
         if config.is_config_existing() and not args.force:
             print(f"**Warning: config file {cfg_file} already exists. To overwrite, please specify `--force` option")
-        
-        config.generate(force=args.force)
-        config.set('default', 'id', center_name)
-        config.write()
-        
-        #config.write()
-        #with open(cfg_file, 'w') as f:
-            
-            
-        #    f.write(config_file.replace('CENTER_ID', center_name))
+        else:
+            config.generate(force=args.force)
+            config.set('default', 'id', center_name)
+            config.write()
 
         df = allcenters[allcenters.SITE_NAME == center_name]
         center_dfs.append(df)
@@ -142,7 +136,7 @@ if __name__ == '__main__':
     print(f'Federated dataset located at: {federated_data_folder}')
 
     print()
-    print('Please add the data to your nodes executing and using the `bids-train` tag:')
+    print('Please add the data to your nodes executing and using the `ixi-train` tag:')
     for center_name in center_names:
         print(f'\t./scripts/fedbiomed_run node config {center_name.lower()}.ini add')
 
