@@ -327,6 +327,13 @@ class FederatedWorkflow(ABC):
     def set_tags(self, tags: Union[List[str], str, None]) -> Union[List[str], None]:
         """Sets tags + verifications on argument type
 
+        This function has the following behaviour:
+
+        - if input is None, then it sets tags attribute to None and immediately exits
+        - in input is the same as current tags, then immediately exits
+        - otherwise, sets the tags to the inputted value
+        - if new tags are inconsistent with training data, it resets the training data and nodes attributes
+
         Args:
             tags: List of string with data tags or string with one data tag. Empty list
                 of tags ([]) means any dataset is accepted, it is different from None (tags not set, cannot search
@@ -338,24 +345,32 @@ class FederatedWorkflow(ABC):
         Raises:
             FedbiomedExperimentError : Bad tags type
         """
-
+        # preprocess the tags argument to correct typing
         if isinstance(tags, list):
             for tag in tags:
                 if not isinstance(tag, str):
                     msg = ErrorNumbers.FB410.value + f' `tags` : list of {type(tag)}'
                     logger.critical(msg)
                     raise FedbiomedExperimentError(msg)
-            self._tags = tags
+            tags_to_set = tags
         elif isinstance(tags, str):
-            self._tags = [tags]
+            tags_to_set = [tags]
         elif tags is None:
-            self._tags = tags
+            # when setting to None, exit immediately after
+            self._tags = None
+            return self._tags
         else:
             msg = ErrorNumbers.FB410.value + f' `tags` : {type(tags)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-
-        if self.tags() is not None and not self._nodes_fds_tags_consistent():
+        # do nothing if attempting to set the same value as current tags
+        if self._tags is not None and set(tags) == set(self._tags):
+            return self._tags
+        # set the tags
+        self._tags = tags_to_set
+        # check for consistency
+        if not self._nodes_fds_tags_consistent():
+            # if inconsistent, reset the training data and nodes
             try:
                 self.set_training_data(None, from_tags=True)
             except FedbiomedExperimentError as e:
@@ -364,12 +379,21 @@ class FederatedWorkflow(ABC):
                       f"attempting to modify them again."
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
-
         return self._tags
 
     @exp_exceptions
     def set_nodes(self, nodes: Union[List[str], None]) -> Union[List[str], None]:
         """Sets for nodes + verifications on argument type
+
+        This function has the following behaviour:
+
+        - if input is None, then sets the nodes attribute to None and immediately exits
+        - in input is the same as current nodes, then immediately exits
+        - otherwise, sets the nodes to the input value
+        - if new nodes are inconsistent with training data and tags are not None, it resets the training data based on
+            the current tags
+        - if new nodes are inconsistent with training data and tags are None, filter the training data based on the new
+            nodes
 
         Args:
             nodes: List of node_ids to filter the nodes to be involved in the experiment.
@@ -380,7 +404,14 @@ class FederatedWorkflow(ABC):
         Raises:
             FedbiomedExperimentError : Bad nodes type
         """
-
+        # immediately exit if setting nodes to None
+        if nodes is None:
+            self._nodes = nodes
+            return self._nodes
+        # do nothing if attempting to set the same set of nodes. Allows to skip resetting the training data
+        if self._nodes is not None and set(nodes) == set(self._nodes):
+            return self._nodes
+        # set nodes
         if isinstance(nodes, list):
             for node in nodes:
                 if not isinstance(node, str):
@@ -388,24 +419,23 @@ class FederatedWorkflow(ABC):
                     logger.critical(msg)
                     raise FedbiomedExperimentError(msg)
             self._nodes = nodes
-        elif nodes is None:
-            self._nodes = nodes
         else:
             msg = ErrorNumbers.FB410.value + f' `nodes` : {type(nodes)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         # self._nodes always exist at this point
-
-        if self.nodes() is not None and not self._nodes_fds_tags_consistent():
-            try:
-                self.set_training_data(None, from_tags=True)
-            except FedbiomedExperimentError as e:
-                msg = f"{ErrorNumbers.FB410.value} in `set_nodes`. Automatic attempt to fix inconsistency between " \
-                      f"nodes and training data failed. Please reset nodes, tags and training data to None before " \
-                      f"attempting to modify them again."
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-
+        if not self._nodes_fds_tags_consistent():
+            if self.tags() is not None:
+                try:
+                    self.set_training_data(None, from_tags=True)
+                except FedbiomedExperimentError as e:
+                    msg = f"{ErrorNumbers.FB410.value} in `set_nodes`. Automatic attempt to fix inconsistency between " \
+                          f"nodes and training data failed. Please reset nodes, tags and training data to None before " \
+                          f"attempting to modify them again."
+                    logger.critical(msg)
+                    raise FedbiomedExperimentError(msg)
+            else:
+                self._fds.filter_nodes(self._nodes)
         return self._nodes
 
     @exp_exceptions
@@ -729,6 +759,14 @@ class FederatedWorkflow(ABC):
         return loaded_exp, saved_state
 
     def _nodes_fds_tags_consistent(self) -> bool:
+        """Checks whether the nodes, tags, and training data are consistent.
+
+        Note: a value of None is always consistent with the others. This is necessary to allow default construction as
+        well as resetting of these attributes.
+
+        Returns:
+            Bool indicating whether the three attributes are considered consistent
+        """
         if self.training_data() is not None and self.nodes() is not None:
             if len(self.training_data().data()) != len(self.nodes()):
                 return False
