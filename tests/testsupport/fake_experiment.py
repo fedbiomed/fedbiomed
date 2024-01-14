@@ -4,7 +4,7 @@
 from typing import List, Optional, Type, TypeVar, Union
 
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.researcher.experiment import SecureAggregation
+from fedbiomed.researcher.federated_workflows._experiment import SecureAggregation
 
 # need those types defined
 FederatedDataSet = TypeVar("FederatedDataSet")
