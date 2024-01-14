@@ -644,7 +644,7 @@ class FederatedWorkflow(ABC):
                 json.dump(state, bkpt)
             logger.info(f"breakpoint number {bkpt_number - 1} saved at " +
                         os.path.dirname(breakpoint_file_path))
-        except (OSError, ValueError, TypeError, RecursionError) as e:
+        except (OSError, PermissionError, ValueError, TypeError, RecursionError) as e:
             # - OSError: heuristic for catching open() and write() errors
             # - see json.dump() documentation for documented errors for this call
             msg = ErrorNumbers.FB413.value + f' - save failed with message {str(e)}'
