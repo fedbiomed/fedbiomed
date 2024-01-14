@@ -103,6 +103,17 @@ class FederatedWorkflow(ABC):
     Additionally, it provides the basis for the breakpoint functionality, and manages some backend functionalities such
     as the temporary directory, the experiment ID, etc...
 
+    The attributes `training_data`, `tags` and `nodes` are co-dependent. Attempting to modify one of those may result
+    in side effects modifying the other, according to the following rules:
+    - setting any of those to None leaves the others untouched, potentially leaving the class in an inconsistent state
+    - modifying tags or nodes when training data is None will simply set the intended value
+    - modifying tags if training data is not None will reset the training data based on the
+        current nodes and the new tags, and afterwards the nodes will be updated according to the new training data
+    - modifying nodes if training data is not None will reset the training data based on the
+        current tags and the new nodes, and then the nodes will be updated again according to the new training data
+    - modifying the training data from tags will update the nodes, while modifying the training data from an object
+        resets the tags to None and updates the nodes
+
     """
 
     @exp_exceptions
@@ -338,11 +349,16 @@ class FederatedWorkflow(ABC):
             msg = ErrorNumbers.FB410.value + f' `tags` : {type(tags)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        # self._tags always exist at this point
 
-        if self._fds is not None:
-            logger.debug('Experimentation tags changed, you may need to update `training_data`'
-                         'by calling exp.set_training_data(None, from_tags=True)')
+        if self.tags() is not None and not self._nodes_fds_tags_consistent():
+            try:
+                self.set_training_data(None, from_tags=True)
+            except FedbiomedExperimentError as e:
+                msg = f"{ErrorNumbers.FB410.value} in `set_nodes`. Automatic attempt to fix inconsistency between " \
+                      f"tags and training data failed. Please reset nodes, tags and training data to None before " \
+                      f"attempting to modify them again."
+                logger.critical(msg)
+                raise FedbiomedExperimentError(msg)
 
         return self._tags
 
@@ -375,8 +391,15 @@ class FederatedWorkflow(ABC):
             raise FedbiomedExperimentError(msg)
         # self._nodes always exist at this point
 
-        if self._fds is not None:
-            logger.debug('Experimentation nodes filter changed, you may need to update `training_data`')
+        if self.nodes() is not None and not self._nodes_fds_tags_consistent():
+            try:
+                self.set_training_data(None, from_tags=True)
+            except FedbiomedExperimentError as e:
+                msg = f"{ErrorNumbers.FB410.value} in `set_nodes`. Automatic attempt to fix inconsistency between " \
+                      f"nodes and training data failed. Please reset nodes, tags and training data to None before " \
+                      f"attempting to modify them again."
+                logger.critical(msg)
+                raise FedbiomedExperimentError(msg)
 
         return self._nodes
 
@@ -436,6 +459,10 @@ class FederatedWorkflow(ABC):
         else:
             self._fds = None
         # at this point, self._fds is either None or a FederatedDataSet object
+
+        if self.training_data() is not None and not self._nodes_fds_tags_consistent():
+            self._nodes = self.training_data().node_ids() or None  # set to None in case of empty list
+            self._tags = self._tags if from_tags else None  # reset tags to None unless we used them to fetch the data
 
         return self._fds
 
@@ -695,6 +722,22 @@ class FederatedWorkflow(ABC):
         loaded_exp._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
 
         return loaded_exp, saved_state
+
+    def _nodes_fds_tags_consistent(self) -> bool:
+        if self.training_data() is not None and self.nodes() is not None:
+            if len(self.training_data().data()) != len(self.nodes()):
+                return False
+            training_data_nodes = set(self.training_data().node_ids())
+            workflow_nodes = set(self.nodes())
+            if training_data_nodes != workflow_nodes:
+                return False
+        if self.training_data() is not None and self.tags() is not None:
+            if len(self.training_data().data()) == 0:
+                return False
+            tags_from_training_data = [x['tags'] for x in self.training_data().data().values()]
+            if not all(all(t in x for t in self.tags()) for x in tags_from_training_data):
+                return False
+        return True
 
     @abstractmethod
     def run(self) -> int:
