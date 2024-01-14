@@ -661,6 +661,7 @@ class FederatedWorkflow(ABC):
             'training_args': self._training_args.dict(),
             'experimentation_folder': self._experimentation_folder,
             'tags': self._tags,
+            'nodes': self._nodes,
             'secagg': self._secagg.save_state_breakpoint(),
             'node_state':  self._node_state_agent.save_state_breakpoint()
         })
@@ -745,24 +746,30 @@ class FederatedWorkflow(ABC):
         bkpt_fds = FederatedDataSet(bkpt_fds)
 
         # initializing experiment
-        loaded_exp = cls(tags=saved_state.get('tags'),
-                         nodes=None,  # list of previous nodes is contained in training_data
-                         training_data=bkpt_fds,
-                         training_args=saved_state.get("training_args"),
-                         save_breakpoints=True,
-                         experimentation_folder=saved_state.get('experimentation_folder'),
-                         secagg=SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
-
+        loaded_exp = cls()
         loaded_exp._id = saved_state.get('id')
+        loaded_exp.set_training_data(bkpt_fds)
+        loaded_exp.set_tags(saved_state.get('tags'))
+        loaded_exp.set_nodes(saved_state.get('nodes'))
+        loaded_exp.set_training_args(saved_state.get('training_args'))
+        loaded_exp.set_experimentation_folder(saved_state.get('experimentation_folder'))
+        loaded_exp.set_secagg(SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
         loaded_exp._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
+        loaded_exp.set_save_breakpoints(True)
 
         return loaded_exp, saved_state
 
     def _nodes_fds_tags_consistent(self) -> bool:
         """Checks whether the nodes, tags, and training data are consistent.
 
-        Note: a value of None is always consistent with the others. This is necessary to allow default construction as
-        well as resetting of these attributes.
+        Consistency is defined as follows:
+        - if training data is None, then the attributes are consistent
+        - if training data is not None and nodes is not None, check that the list of nodes from the training data is
+            the same as the self._nodes attribute
+        - if training data is not None and tags is not None, check that the tags from the training data all contain
+            the tags declared in the self._tags attribute
+        - if training data is not None and either tags or nodes is None, then only check for consistency with the
+            non-None attribute
 
         Returns:
             Bool indicating whether the three attributes are considered consistent
