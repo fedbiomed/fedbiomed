@@ -137,29 +137,11 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         if self.__training_plan_class is None:
             self.__training_plan = None
         else:
-            self._raise_for_missing_job_prerequisites()
             job = TrainingJob(keep_files_dir=self.experimentation_path())
             with self._keep_weights(keep_weights):
                 self.__training_plan = job.get_initialized_tp_instance(self.training_plan_class(),
                                                                        self._training_args,
                                                                        self._model_args)
-
-    def _raise_for_missing_job_prerequisites(self) -> None:
-        """Setter for job, it verifies pre-requisites are met for creating a job
-        attached to this experiment. If yes, instantiate a job ; if no, return None.
-
-        """
-        super()._raise_for_missing_job_prerequisites()
-        # Check arguments
-        if self.__training_plan_class is not None and not inspect.isclass(self.__training_plan_class):
-            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` " \
-                  f"{type(self.__training_plan_class)}"
-            raise FedbiomedJobError(msg)
-
-        if self.__training_plan_class is not None and not issubclass(self.__training_plan_class, training_plans_types):
-            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
-                  f" supported training plans {training_plans_types}"
-            raise FedbiomedJobError(msg)
 
     @exp_exceptions
     def training_plan_class(self) -> Optional[Type_TrainingPlan]:

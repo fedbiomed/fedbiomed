@@ -609,18 +609,6 @@ class FederatedWorkflow(ABC):
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
 
-    def _raise_for_missing_job_prerequisites(self) -> None:
-        """Verifies that all preconditions are met before instantiating a Job.
-
-        Checks that the training data (i.e. the self._fds attribute) is correctly set and initialized.
-
-        Raises:
-            FedbiomedExperimentError if training data has not been correctly initialized
-        """
-        if self._fds is None:
-            msg='Experiment not fully configured yet: no job. Missing training data'
-            raise FedbiomedExperimentError(msg)
-
     def _update_nodes_states_agent(self, before_training: bool = True):
         """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
         state_id coming from `Nodes` contained among all `Nodes` within

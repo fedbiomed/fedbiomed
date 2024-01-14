@@ -739,8 +739,6 @@ class Experiment(TrainingPlanWorkflow):
         # Sample nodes for training
         training_nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
-        self._raise_for_missing_job_prerequisites()
-
         model_params_before_round = self.training_plan().after_training_params()
         self._aggregator.set_training_plan_type(self.training_plan().type())
 
