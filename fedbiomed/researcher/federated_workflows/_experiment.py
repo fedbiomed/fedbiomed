@@ -429,6 +429,38 @@ class Experiment(TrainingPlanWorkflow):
 
         return self._aggregator
 
+    def set_training_data(
+            self,
+            training_data: Union[FederatedDataSet, dict, None],
+            from_tags: bool = False) -> \
+            Union[FederatedDataSet, None]:
+        """Sets training data for federated training + verification on arguments type
+
+        Ensures consistency with the tags, nodes, and aggregator attributes.
+
+        Args:
+            training_data:
+                * If it is a FederatedDataSet object, use this value as training_data.
+                * else if it is a dict, create and use a FederatedDataSet object from the dict
+                  and use this value as training_data. The dict should use node ids as keys,
+                  values being list of dicts (each dict representing a dataset on a node).
+                * else if it is None (no training data provided)
+                  - if `from_tags` is True and `tags` is not None, set training_data by
+                    searching for datasets with a query to the nodes using `tags` and `nodes`
+                  - if `from_tags` is False or `tags` is None, set training_data to None (no training_data set yet,
+                    experiment is not fully initialized and cannot be launched)
+            from_tags: If True, query nodes for datasets when no `training_data` is provided.
+                Not used when `training_data` is provided.
+
+        Returns:
+            Nodes and dataset with meta-data
+
+        Raises:
+            FedbiomedExperimentError : bad training_data type
+        """
+        super().set_training_data(training_data, from_tags)
+        self._aggregator.set_fds(self._fds)
+
     @exp_exceptions
     def set_agg_optimizer(
         self,
