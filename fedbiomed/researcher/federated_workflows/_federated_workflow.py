@@ -446,6 +446,8 @@ class FederatedWorkflow(ABC):
             Union[FederatedDataSet, None]:
         """Sets training data for federated training + verification on arguments type
 
+        Ensures consistency with the tags and nodes attributes.
+
         Args:
             training_data:
                 * If it is a FederatedDataSet object, use this value as training_data.
@@ -461,41 +463,39 @@ class FederatedWorkflow(ABC):
                 Not used when `training_data` is provided.
 
         Returns:
-            Nodes and dataset with meta-data
+            FederatedDataSet metadata
 
         Raises:
             FedbiomedExperimentError : bad training_data type
         """
-        # we can trust _reqs _tags _nodes are existing and properly typed/formatted
-
         if not isinstance(from_tags, bool):
             msg = ErrorNumbers.FB410.value + f' `from_tags` : got {type(from_tags)} but expected a boolean'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-
         # case where no training data are passed
-        if training_data is None and from_tags is True:
-            # cannot search for training_data if tags not initialized;
-            if self._tags is None:
-                msg = f"{ErrorNumbers.FB410.value}: attempting to set training data from tags, but tags are undefined."
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-            # nodes can be None (no filtering on nodes by default)
-            training_data = self._reqs.search(self._tags, self._nodes)
-
+        if training_data is None:
+            if from_tags is True:
+                # cannot search for training_data if tags not initialized;
+                if self._tags is None:
+                    msg = f"{ErrorNumbers.FB410.value}: attempting to set training data from tags, but tags are undefined."
+                    logger.critical(msg)
+                    raise FedbiomedExperimentError(msg)
+                # nodes can be None (no filtering on nodes by default)
+                training_data = self._reqs.search(self._tags, self._nodes)
+            else:
+                self._fds = None
+                return None  # quick exit
+        # from here, training_data is not None
         if isinstance(training_data, FederatedDataSet):
             self._fds = training_data
         elif isinstance(training_data, dict):
             self._fds = FederatedDataSet(training_data)
-        elif training_data is not None:
+        else:
             msg = ErrorNumbers.FB410.value + f' `training_data` has incorrect type: {type(training_data)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        else:
-            self._fds = None
-        # at this point, self._fds is either None or a FederatedDataSet object
-
-        if self.training_data() is not None and not self._nodes_fds_tags_consistent():
+        # check and ensure consistency
+        if not self._nodes_fds_tags_consistent():
             self._nodes = self.training_data().node_ids() or None  # set to None in case of empty list
             self._tags = self._tags if from_tags else None  # reset tags to None unless we used them to fetch the data
 
