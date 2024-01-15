@@ -64,7 +64,7 @@ source $basedir/scripts/fedbiomed_environment researcher
 EXEC_TEST=$basedir/notebooks/101_getting-started.py
 EXEC_TEST_NB=${EXEC_TEST%.py}.ipynb
 echo "converting ${EXEC_TEST_NB} to ${EXEC_TEST}"
-jupyter nbconvert --to script "${EXEC_TEST_NB}"
+jupyter nbconvert --output=${EXEC_TEST%.py} --to script "${EXEC_TEST_NB}"
 
 if [ -x "$EXEC_TEST" ]
 then

@@ -398,12 +398,12 @@ Optionally use the researcher container's command line instead of the Jupyter no
     [user@server $] docker compose exec -u $(id -u) researcher bash -ci 'export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-researcher && bash'
     ```
 
-* launch a command, for example a training:
+* launch a script, for example a training:
 
     ```bash
     [user@server-container $] ./notebooks/101_getting-started.py
     ```
-
+Note: the .py script can be created from the notebooks by a command such as `jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb`.
 
 ## Misc server management commands
 

@@ -327,8 +327,7 @@ We provide some example datasets in **tests/datasets**, you may need to adjust t
 #### MNIST tutorial
 
 ```
-$ jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb
-$ ./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
+$ ./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.ipynb \
                                  -d ./tests/datasets/mnist.json
 ```
 
