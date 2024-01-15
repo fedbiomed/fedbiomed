@@ -11,6 +11,7 @@ import argparse
 import importlib
 import os
 import sys
+from typing import Optional
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import DB_FOLDER_NAME, MPSPDZ_certificate_prefix
@@ -29,11 +30,13 @@ GRN = '\033[1;32m'  # green
 NC = '\033[0m'  # no color
 BOLD = '\033[1m'
 
+
 class CLIArgumentParser:
 
-    def __init__(self, subparser):
+    def __init__(self, subparser, parser: Optional[argparse.ArgumentParser] = None):
 
         self._subparser = subparser
+        self._parser = parser
 
 
 class ConfigurationParser(CLIArgumentParser):
@@ -208,7 +211,6 @@ class CommonCLI:
 
         # Initialize configuration parser
         self.configuration_parser = ConfigurationParser(self._subparsers)
-        self.configuration_parser.initialize()
 
     @property
     def parser(self) -> argparse.ArgumentParser:
@@ -218,6 +220,15 @@ class CommonCLI:
             Main argument parser object
         """
         return self._parser
+
+    @property
+    def subparsers(self):
+        """Gets subparsers of common cli
+
+        Returns:
+          Subparsers of CLI parser
+        """
+        return self._subparsers
 
     @property
     def description(self) -> str:
@@ -277,6 +288,17 @@ class CommonCLI:
         """
         print(f"{GRN}Operation successful! {NC}")
         print(f"{BOLD}{message}{NC}")
+
+    def initialize_optional(self):
+        """Initializes optional subparser
+
+        Optional subparsers are not going to be visible for the CLI that are
+        inherited from CommonCLI class as long as `intialize_optional` method
+        is not executed.
+        """
+
+        self.configuration_parser.initialize()
+
 
     def initialize_magic_dev_environment_parsers(self) -> None:
         """Initializes argument parser for the option to create development environment."""
@@ -541,25 +563,36 @@ class CommonCLI:
                   f"-pi {self._environ['ID']} --ip {self._environ['MPSPDZ_IP']} --port {self._environ['MPSPDZ_PORT']}")
         pass
 
-    def parse_args(self):
+    def parse_args(self, args_ = None):
         """Parse arguments after adding the arguments
 
         !!! warning "Attention"
                 Please make sure this method is called after all necessary arguments are set
 
         """
-        self._args = self._parser.parse_args()
-
-        if hasattr(self._args, 'func'):
-            specs = get_method_spec(self._args.func)
+        args, unknown_args = self._parser.parse_known_args(args_)
+        if hasattr(args, 'func'):
+            specs = get_method_spec(args.func)
             if specs:
-                self._args.func(self._args)
+                # If default function has 2 arguments
+                if len(specs) > 1:
+                    return args.func(args, unknown_args)
+                else:
+                    # Run parser_args to raise error for unrecognized arguments
+                    if unknown_args:
+                        args = self._parser.parse_args(args_)
+                    args.func(args)
             else:
-                self._args.func()
+                # Raise for unrecognized arguments
+                if unknown_args:
+                    self._parser.parse_args(args_)
+                args.func()
+
 
 
 if __name__ == '__main__':
     cli = CommonCLI()
     # Initialize only development magic parser
     cli.initialize_magic_dev_environment_parsers()
+    cli.initialize_optional()
     cli.parse_args()

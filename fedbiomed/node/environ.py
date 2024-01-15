@@ -29,19 +29,27 @@ from fedbiomed.node.config import NodeConfig
 
 class NodeEnviron(Environ):
 
-    def __init__(self, root_dir: str = None):
+    def __init__(
+        self,
+        root_dir: str = None,
+        autoset: bool = True
+    ):
         """Constructs NodeEnviron object """
         super().__init__(root_dir=root_dir)
 
-        self._config = NodeConfig(root_dir)
+        self._root_dir = root_dir
 
         logger.setLevel("INFO")
         self._values["COMPONENT_TYPE"] = ComponentType.NODE
-        self.set_environment()
+
+        if autoset:
+            self.set_environment()
 
 
     def set_environment(self):
         """Initializes environment variables """
+
+        self._config = NodeConfig(self._root_dir)
 
         # Sets common variable
         super().set_environment()
@@ -128,4 +136,4 @@ sys.tracebacklimit = 3
 
 
 # # global dictionary which contains all environment for the NODE
-environ = NodeEnviron()
+environ = NodeEnviron(autoset=True)

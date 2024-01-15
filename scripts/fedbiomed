@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+
+import argparse
+import importlib
+import os
+from fedbiomed.common.cli import CommonCLI
+
+
+class ConfigNameAction(argparse.Action):
+    """Action for the argument config"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        print(f'Executing CLI for configraution {values}')
+        os.environ["CONFIG_FILE"] = values
+
+
+cli = CommonCLI()
+
+# Add node and researcher options
+node_p = cli.subparsers.add_parser("node", add_help=False)
+researcher_p = cli.subparsers.add_parser("researcher", add_help=False)
+
+
+cli.parser.add_argument("--config", action=ConfigNameAction)
+
+
+def node(args):
+    """Forwards node CLI"""
+    NodeCLI = importlib.import_module('fedbiomed.node.cli').NodeCLI
+    cli = NodeCLI()
+    cli.parse_args(args)
+
+
+def researcher(args):
+    """Forwards researcher CLI"""
+    ResearcherCLI = importlib.import_module('fedbiomed.researhcer.cli').ResearcherCLI
+    cli = ResearcherCLI()
+    cli.parse_args(args)
+
+
+node_p.set_defaults(func=node)
+researcher_p.set_defaults(func=researcher)
+
+
+
+if __name__ == "__main__":
+    args, extra = cli.parser.parse_known_args()
+    args.func(extra)

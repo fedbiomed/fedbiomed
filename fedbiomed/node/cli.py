@@ -5,26 +5,32 @@
 Command line user interface for the node component
 """
 
+import argparse
 import json
 import os
 import signal
 import sys
 import time
 from multiprocessing import Process
-from typing import Union
+from typing import Union, List, Dict
 from types import FrameType
 import readline
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
+
+# Don't import config evnrion
 from fedbiomed.node.environ import environ
+
 from fedbiomed.node.node import Node
 from fedbiomed.common.logger import logger
-from fedbiomed.common.cli import CommonCLI
+from fedbiomed.common.cli import CommonCLI, CLIArgumentParser
+
 from fedbiomed.node.cli_utils import dataset_manager, add_database, delete_database, delete_all_database, \
     tp_security_manager, register_training_plan, update_training_plan, approve_training_plan, reject_training_plan, \
     delete_training_plan, view_training_plan
 from fedbiomed.node.config import NodeConfig
+
 #
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
 #
@@ -39,6 +45,203 @@ __intro__ = """
 
 
 """
+
+
+class ConfigNameAction(argparse.Action):
+    """Action for the argument config"""
+    def __call__(self, parser, namespace, values, option_string=None):
+        print(f'Executing CLI for configraution {values}')
+        os.environ["CONFIG_FILE"] = values
+        environ.set_environment()
+
+
+class DatasetArgumentParser(CLIArgumentParser):
+    """Initializes CLI options for dataset actions"""
+
+    def initialize(self):
+        """Initializes dataset options for the node CLI"""
+
+        dataset = self._subparser.add_parser(
+            "dataset",
+            help="Dataset operations"
+        )
+
+        # Creates subparser of dataset option
+        dataset_subparsers = dataset.add_subparsers()
+
+        # Add option
+        add = dataset_subparsers.add_parser(
+            "add",
+            help="Adds dataset"
+        )
+
+        # List option
+        list = dataset_subparsers.add_parser(
+            "list",
+            help="List datasets that are deployed in the node.")
+
+        # Delete option
+        delete = dataset_subparsers.add_parser(
+            "delete",
+            help="Deletes dataset that are deployed in the node.")
+
+
+        add.add_argument(
+            "--mnist",
+            "-am",
+            metavar="MNIST_DATA_PATH",
+            help="Deployes MNIST dataset by downloading form default source to given path.",
+            required=False
+        )
+
+        add.add_argument(
+            "--file",
+            "-fl",
+            required=False,
+            metavar="File that describes the dataset",
+            help="File path the dataset file desciptro. This option adds dataset by given file which is has"
+                 "cutom format that describes the dataset.")
+
+        delete.add_argument(
+            "--all",
+            '-a',
+            required=False,
+            action="store_true",
+            help="Removes entire dataset database.")
+
+        delete.add_argument(
+            "--only-mnist",
+            '-om',
+            required=False,
+            action="store_true",
+            help="Removes only MNIST dataset.")
+
+        add.set_defaults(func=self.add)
+        list.set_defaults(func=self.list)
+        delete.set_defaults(func=self.delete)
+
+
+    def add(self, args):
+        """Adds datasets"""
+
+        if args.mnist:
+            return add_database(interactive=False, path=args.add_mnist)
+
+        if args.file:
+            return self._add_dataset_from_file(path=args.file)
+
+        # All operation is handled by CLI utils add_database
+        add_database()
+
+    def list(self, unused_args):
+        """List datasets
+
+        Args:
+          unused_args: Empty arguments since `list` command no positional args.
+        """
+
+        print('Listing your data available')
+        data = dataset_manager.list_my_data(verbose=True)
+        if len(data) == 0:
+            print('No data has been set up.')
+
+    def delete(self, args):
+        """Deletes datasets"""
+
+        if args.all:
+            return delete_all_database()
+
+        if args.delete_mnist:
+            return delete_database(interactive=False)
+
+        return delete_database()
+
+    def _add_dataset_from_file(self, path):
+
+        print("Dataset description file provided: adding these data")
+        try:
+            with open(path) as json_file:
+                data = json.load(json_file)
+        except:
+            print(f"Cannot read dataset json file: {path}")
+            sys.exit(-1)
+
+        # verify that json file is complete
+        for k in ["path", "data_type", "description", "tags", "name"]:
+            if k not in data:
+                print(f"Dataset json file corrupted: {path}")
+
+        # dataset path can be defined:
+        # - as an absolute path -> take it as it is
+        # - as a relative path  -> add the ROOT_DIR in front of it
+        # - using an OS environment variable -> transform it
+        #
+        elements = data["path"].split(os.path.sep)
+        if elements[0].startswith("$"):
+            # expand OS environment variable
+            var = elements[0][1:]
+            if var in os.environ:
+                var = os.environ[var]
+                elements[0] = var
+            else:
+                logger.info("Unknown env var: " + var)
+                elements[0] = ""
+        elif elements[0]:
+            # p is relative (does not start with /)
+            # prepend with topdir
+            elements = [environ["ROOT_DIR"]] + elements
+
+        # rebuild the path with these (eventually) new elements
+        data["path"] = os.path.join(os.path.sep, *elements)
+
+        # add the dataset to local database (not interactive)
+        add_database(interactive=False,
+                     path=data["path"],
+                     data_type=data["data_type"],
+                     description=data["description"],
+                     tags=data["tags"],
+                     name=data["name"],
+                     dataset_parameters=data.get("dataset_parameters"))
+
+
+class TrainingPlanArgumentParser(CLIArgumentParser):
+
+    def initialize(self):
+        pass
+
+
+    def execute(self, args):
+        pass
+
+
+class NodeCLI(CommonCLI):
+
+
+    _arg_parsers_classes: List[type] = [DatasetArgumentParser]
+    _arg_parsers: Dict[str, CLIArgumentParser] = {}
+
+    def __init__(self):
+        super().__init__()
+
+        # Parent parser for parameters that are common for Node CLI actions
+
+        self.initialize()
+
+    def initialize(self):
+        """"""
+
+        self._parser.add_argument(
+            "--config",
+            "-cf",
+            nargs="?",
+            action=ConfigNameAction,
+            default="node_config.ini",
+            help="Name of the config file that the CLI will be activated for. Default is 'node_config.ini'.")
+
+        for arg_parser in self._arg_parsers_classes:
+            p = arg_parser(self._subparsers)
+            p.initialize()
+            self._arg_parsers.update({arg_parser.__name__ : p})
 
 
 
