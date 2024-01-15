@@ -387,9 +387,10 @@ class Experiment(TrainingPlanWorkflow):
         return info
 
     @exp_exceptions
-    def set_aggregator(self, aggregator: Union[Aggregator, Type[Aggregator], None]) -> \
-            Aggregator:
+    def set_aggregator(self, aggregator: Union[Aggregator, Type[Aggregator], None]) -> Aggregator:
         """Sets aggregator + verification on arguments type
+
+        Ensures consistency with the training data.
 
         Args:
             aggregator: Object or class defining the method for aggregating local updates. Default to None
@@ -424,8 +425,8 @@ class Experiment(TrainingPlanWorkflow):
             raise FedbiomedExperimentError(msg)
         # at this point self._aggregator is (non-None) aggregator object
         self.aggregator_args["aggregator_name"] = self._aggregator.aggregator_name
-        if self._fds is not None:
-            self._aggregator.set_fds(self._fds)
+        # ensure consistency with federated dataset
+        self._aggregator.set_fds(self._fds)
 
         return self._aggregator
 
