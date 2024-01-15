@@ -287,9 +287,18 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     def check_training_plan_status(self) -> Dict:
         """ Method for checking training plan status, ie whether it is approved or not by the nodes
 
+        Raises:
+            FedbiomedExperimentError: if the training data is not defined.
+
         Returns:
             Training plan status for answering nodes
         """
+        if self.training_data is None:
+            msg = f"{ErrorNumbers.FB410.value}. Cannot check training plan status: training data is not defined." \
+                  f"Please either use the `set_tags` or `set_training_data` method to fix this."
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
         job = TrainingPlanApprovalJob(nodes=self.training_data().node_ids(),
                                       keep_files_dir=self.experimentation_path())
         responses = job.check_training_plan_is_approved_by_nodes(job_id=self._id,
