@@ -84,7 +84,6 @@ import fedbiomed.researcher.datasets
 import fedbiomed.researcher.environ
 import fedbiomed.researcher.experiment
 import fedbiomed.researcher.filetools
-import fedbiomed.researcher.job
 import fedbiomed.researcher.monitor
 import fedbiomed.researcher.requests
 import fedbiomed.researcher.secagg.__init__

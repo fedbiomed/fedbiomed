@@ -6,9 +6,9 @@ from unittest.mock import patch
 from testsupport.base_case import ResearcherTestCase
 #############################################################
 
-import fedbiomed.researcher.experiment
+import fedbiomed.researcher.federated_workflows._federated_workflow
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError, FedbiomedError
-from fedbiomed.researcher.experiment import exp_exceptions
+from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
 
 
 class TestExpExceptions(ResearcherTestCase):
@@ -59,7 +59,7 @@ class TestExpExceptions(ResearcherTestCase):
             raise FedbiomedError
 
         # on notebook
-        with patch.object(fedbiomed.researcher.experiment, 'is_ipython', create=True) as m:
+        with patch.object(fedbiomed.researcher.federated_workflows._federated_workflow, 'is_ipython', create=True) as m:
             m.return_value = True
             with self.assertRaises(FedbiomedSilentTerminationError):
                 decFunction()
@@ -86,7 +86,7 @@ class TestExpExceptions(ResearcherTestCase):
             raise FedbiomedError
 
         # SystemExit on python shell
-        with patch.object(fedbiomed.researcher.experiment, 'is_ipython', create=True) as m:
+        with patch.object(fedbiomed.researcher.federated_workflows._federated_workflow, 'is_ipython', create=True) as m:
             m.return_value = False
             with self.assertRaises(SystemExit):
                 decFunction()
