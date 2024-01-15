@@ -7,6 +7,12 @@ echo "${bats_file}"
 exec 5>"$bats_file" # associating a file descriptor with the temp file, so that is removed whatever the reason the script ends.
 
 : ${CONDA:=conda}
+
+for env_name in researcher node researcher-end-to-end
+do
+  ${CONDA} env remove --name ${env_name}
+done
+
 if [ "$(uname)" == "Darwin" ]; then
   ${CONDA} env update -f ./envs/development/conda/fedbiomed-researcher-macosx.yaml
   ${CONDA} env update -f ./envs/development/conda/fedbiomed-node-macosx.yaml
@@ -15,9 +21,11 @@ else
   ${CONDA} env update -f ./envs/development/conda/fedbiomed-node.yaml
 fi
 ${CONDA} env update -f ./envs/ci/conda/fedbiomed-researcher-end-to-end.yaml
-
-rmdir ./data
-ln -s ~/Data/fedbiomed ./data
+DATA_DIR=./data
+if [ -d './fedbiomed/common' ] && [ -d ${DATA_DIR} ] && [ ! -L ${DATA_DIR} ]; then # test if it is the ${DATA_DIR} directory obtained from checkout
+  mv -f ${DATA_DIR} ${DATA_DIR}.SAVE
+  ln -s ~/Data/fedbiomed ${DATA_DIR}
+fi
 
 #list_notebooks=( notebooks/101_getting-started.py notebooks/general-breakpoint-save-resume.py notebooks/general-tensorboard.py notebooks/general-use-gpu.py notebooks/pytorch-celeba-dataset.py notebooks/pytorch-csv-data.py notebooks/pytorch-local-training.py notebooks/pytorch-variational-autoencoder.py notebooks/test_nbconvert.py )
 
@@ -35,6 +43,7 @@ pytorch-local-training,\
 pytorch-opacus-MNIST,\
 pytorch-variational-autoencoder\
 }.ipynb)
+
 #list_notebooks=( notebooks/{\
 #101_getting-started,\
 #general-breakpoint-save-resume,\
