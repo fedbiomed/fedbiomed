@@ -168,7 +168,7 @@ $ source ./scripts/fedbiomed_environment researcher
 ```
 2. convert the notebook to a python script
 ```bash
-jupyter nbconvert --output=./notebooks/101_getting-started.py --to script ./notebooks/101_getting-started.ipynb
+jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb
 ```
 3. then you can use any researcher script
 
