@@ -351,7 +351,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         state.update({
             'model_args': self._model_args,
-            'training_plan_path': training_plan_file,
             'training_plan_class_name': self.__training_plan_class.__name__,
         })
 
@@ -365,7 +364,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             'model_' + str("{:04d}".format(bkpt_number - 1)), '.py',
             # - Prefer relative path, eg for using experiment result after
             # experiment in a different tree
-            os.path.join('..', os.path.basename(state["training_plan_path"]))
+            os.path.join('..', os.path.basename(training_plan_file))
         )
 
         super().breakpoint(state, bkpt_number)
