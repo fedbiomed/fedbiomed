@@ -375,14 +375,14 @@ Each training plan provides export and import functionality.
 To save model to file `/path/to/file` use:
 
 ```
-training_plan().export_model('/path/to_file')
+MyTrainingPlan().export_model('/path/to_file')
 ```
 
 
 To load model from file `/path/to/file` use:
 
 ```
-training_plan().import_model('/path/to_file')
+MyTrainingPlan().import_model('/path/to_file')
 ```
 
 Of course, loaded model needs to be identical to the training plan's model.
@@ -404,7 +404,7 @@ exp.job().update_parameters(exp.training_plan().get_model_params())
 !!! warning "Security notice"
     Only use `import_model()` with a trusted model file (trained by a trusted source, transmitted via secure channel).
 
-    In both PyTorch and scikit-learn, the model saving and loading facility are based on pickle. A malicious pickle model can execute arbitrary code on your machine when loaded.
+    In both PyTorch and scikit-learn, the model saving and loading facility are based on [pickle](https://docs.python.org/3/library/pickle.html). While it is the recommended way of saving models in these frameworks, a malicious pickle model can execute arbitrary code on your machine when loaded. Thus make sure you are loading a model from a reliable source.
 
 
 
