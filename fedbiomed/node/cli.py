@@ -11,25 +11,23 @@ import os
 import signal
 import sys
 import time
+import importlib
+import functools
+import readline
+
 from multiprocessing import Process
 from typing import Union, List, Dict
 from types import FrameType
-import readline
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
-
-# Don't import config evnrion
-from fedbiomed.node.environ import environ
-
-from fedbiomed.node.node import Node
 from fedbiomed.common.logger import logger
 from fedbiomed.common.cli import CommonCLI, CLIArgumentParser
 
-from fedbiomed.node.cli_utils import dataset_manager, add_database, delete_database, delete_all_database, \
-    tp_security_manager, register_training_plan, update_training_plan, approve_training_plan, reject_training_plan, \
-    delete_training_plan, view_training_plan
-from fedbiomed.node.config import NodeConfig
+
+
+imp_cli_utils = functools.partial(importlib.import_module, "fedbiomed.node.cli_utils")
+
 
 #
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -47,12 +45,49 @@ __intro__ = """
 """
 
 
-class ConfigNameAction(argparse.Action):
-    """Action for the argument config"""
-    def __call__(self, parser, namespace, values, option_string=None):
-        print(f'Executing CLI for configraution {values}')
-        os.environ["CONFIG_FILE"] = values
-        environ.set_environment()
+def intro():
+    """Print intro for the CLI"""
+
+    print(__intro__)
+    print('\t- 🆔 Your node ID:', os.environ['FEDBIOMED_ACTIVE_NODE_ID'], '\n')
+
+
+def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
+    """Signal handler that terminates the process.
+
+    Args:
+        signum: Signal number received.
+        frame: Frame object received. Currently unused
+
+    Raises:
+       SystemExit: Always raised.
+    """
+
+    # get the (running) Node object
+    global _node
+
+    try:
+        if _node and _node.is_connected():
+            _node.send_error(ErrorNumbers.FB312,
+                             extra_msg = "Node is stopped",
+                             broadcast=True)
+            time.sleep(2)
+            logger.critical("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
+        else:
+            # take care of logger level used because message cannot be sent to node
+            logger.info("Cannot send error message to researcher (node not initialized yet)")
+            logger.info("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
+    finally:
+        # give some time to send messages to the researcher
+        time.sleep(0.5)
+        sys.exit(signum)
+
+
+def _node_signal_trigger_term() -> None:
+    """Triggers a TERM signal to the current process
+    """
+    os.kill(os.getpid(), signal.SIGTERM)
+
 
 
 class DatasetArgumentParser(CLIArgumentParser):
@@ -123,6 +158,9 @@ class DatasetArgumentParser(CLIArgumentParser):
 
     def add(self, args):
         """Adds datasets"""
+        global add_database
+
+        add_database = imp_cli_utils().add_database
 
         if args.mnist:
             return add_database(interactive=False, path=args.add_mnist)
@@ -139,6 +177,7 @@ class DatasetArgumentParser(CLIArgumentParser):
         Args:
           unused_args: Empty arguments since `list` command no positional args.
         """
+        dataset_manager = imp_cli_utils().dataset_manager
 
         print('Listing your data available')
         data = dataset_manager.list_my_data(verbose=True)
@@ -148,13 +187,15 @@ class DatasetArgumentParser(CLIArgumentParser):
     def delete(self, args):
         """Deletes datasets"""
 
+        cli_utils = imp_cli_utils()
+
         if args.all:
-            return delete_all_database()
+            return cli_utils.delete_all_database()
 
         if args.delete_mnist:
-            return delete_database(interactive=False)
+            return cli_utils.delete_database(interactive=False)
 
-        return delete_database()
+        return cli_utils.delete_database()
 
     def _add_dataset_from_file(self, path):
 
@@ -207,34 +248,226 @@ class DatasetArgumentParser(CLIArgumentParser):
 class TrainingPlanArgumentParser(CLIArgumentParser):
 
     def initialize(self):
-        pass
+
+        training_plan = self._subparser.add_parser(
+            "training-plan",
+            help="CLI operations for TrainingPlans register/list/delete/approve/reject etc."
+        )
+
+        training_plan_suparsers = training_plan.add_subparsers()
+
+        update = training_plan_suparsers.add_parser(
+            "update", help="Updates training plan"
+        )
+        update.set_defaults(func=self.update)
+
+        register = training_plan_suparsers.add_parser(
+            "register", help="Registers training plans manually by selected file thorugh interactive browser."
+        )
+        register.set_defaults(func=self.register)
+
+        list = training_plan_suparsers.add_parser(
+            "list", help="Lists all saved/registered training plans with their status.")
+        list.set_defaults(func=self.list)
+
+        delete = training_plan_suparsers.add_parser(
+            "delete", help="Deletes interactively selected training plan from the database.")
+        delete.set_defaults(func=self.delete)
+
+        approve = training_plan_suparsers.add_parser(
+            "approve", help="Approves interactively selected training plans.")
+        approve.set_defaults(func=self.approve)
+
+        reject = training_plan_suparsers.add_parser(
+            "reject", help="Rejects interactively selected training plans.")
+        reject.set_defaults(func=self.list)
+
+        view = training_plan_suparsers.add_parser(
+            "view", help="View interactively selected training plans.")
+        view.set_defaults(func=self.view)
+
+    def delete(self):
+        """Deletes training plan"""
+        delete_training_plan = imp_cli_utils().delete_training_plan
+        delete_training_plan()
+
+    def register(self):
+        """Registers training plan"""
+        register_training_plan = imp_cli_utils().register_training_plan
+        register_training_plan()
+
+    def list(self):
+        """Lists training plans"""
+        tp_security_manager = imp_cli_utils().tp_security_manager
+        tp_security_manager.list_training_plans(verbose=True)
+
+    def view(self):
+        """Views training plan"""
+        view_training_plan = imp_cli_utils().view_training_plan
+        view_training_plan()
+
+    def approve(self):
+        """Approves training plan"""
+        approve_training_plan = imp_cli_utils().approve_training_plan
+        approve_training_plan()
+
+    def reject(self):
+        """Approves training plan"""
+        reject_training_plan = imp_cli_utils().reject_training_plan
+        reject_training_plan()
+
+    def update(self):
+        """Updates training plan"""
+        update_training_plan = imp_cli_utils().update_training_plan
+        update_training_plan()
 
 
-    def execute(self, args):
-        pass
+class NodeControl(CLIArgumentParser):
+
+    def initialize(self):
+        """Initializes missinon control argument parser"""
+        start = self._subparser.add_parser("start", help="Starts the node")
+        start.set_defaults(func=self.start)
+
+        start.add_argument(
+            "--gpu",
+            action="store_true",
+            help="Activate GPU usage if the flag is present")
+
+        start.add_argument(
+            "--gpu-num",
+            "-gn",
+            type=int,
+            nargs="?",
+            required=False,
+            default=1,
+            help="Number of GPU that is going to be used")
+
+        start.add_argument(
+            "--gpu-only",
+            "-go",
+            action="store_true",
+            help="Node performs training only using GPU resources."
+                 "This flag automatically activate GPU.")
+
+    def _start_node(self, node_args):
+        """Starts the node"""
+        cli_utils = imp_cli_utils()
+
+        tp_security_manager = cli_utils.tp_security_manager
+        dataset_manager = cli_utils.dataset_manager
+        Node = importlib.import_module("fedbiomed.node.node").Node
+        environ = importlib.import_module("fedbiomed.node.environ").environ
+
+        try:
+            signal.signal(signal.SIGTERM, _node_signal_handler)
+
+            logger.info('Launching node...')
+
+            # Register default training plans and update hashes
+            if environ["TRAINING_PLAN_APPROVAL"]:
+                # This methods updates hashes if hashing algorithm has changed
+                tp_security_manager.check_hashes_for_registered_training_plans()
+                if environ["ALLOW_DEFAULT_TRAINING_PLANS"]:
+                    logger.info('Loading default training plans')
+                    tp_security_manager.register_update_default_training_plans()
+            else:
+                logger.warning('Training plan approval for train request is not activated. ' +
+                               'This might cause security problems. Please, consider to enable training plan approval.')
+
+            logger.info('Starting communication channel with network')
+            _node = Node(dataset_manager=dataset_manager,
+                         tp_security_manager=tp_security_manager,
+                         node_args=node_args)
+            _node.start_messaging(_node_signal_trigger_term)
+
+            logger.info('Starting task manager')
+            _node.task_manager()  # handling training tasks in queue
+
+        except FedbiomedError:
+            logger.critical("Node stopped.")
+            # we may add extra information for the user depending on the error
+
+        except Exception as e:
+            # must send info to the researcher (no mqqt should be handled by the previous FedbiomedError)
+            _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(e))
+            logger.critical("Node stopped.")
+
+
+    def start(self, args):
+        """Starts the node"""
+
+        intro()
+
+        environ = importlib.import_module("fedbiomed.node.environ").environ
+
+        # Define arguments
+        node_args = {
+            "gpu": (args.gpu is True) or (args.gpu_only is True),
+            "gpu_num": args.gpu_num,
+            "gpu_only": True if args.gpu_only else False}
+
+        p = Process(target=self._start_node, name='node-' + environ['NODE_ID'], args=(node_args,))
+        p.deamon = True
+        p.start()
+
+        logger.info("Node started as process with pid = " + str(p.pid))
+        try:
+            print('To stop press Ctrl + C.')
+            p.join()
+        except KeyboardInterrupt:
+            p.terminate()
+            time.sleep(1)
+            while p.is_alive():
+                logger.info("Terminating process id =" + str(p.pid))
+                time.sleep(1)
+            logger.info('Exited with code ' + str(p.exitcode))
+            sys.exit(0)
+
+
+class GUIControl(CLIArgumentParser):
+    pass
 
 
 class NodeCLI(CommonCLI):
 
 
-    _arg_parsers_classes: List[type] = [DatasetArgumentParser]
+    _arg_parsers_classes: List[type] = [
+        NodeControl,
+        DatasetArgumentParser,
+        TrainingPlanArgumentParser
+    ]
     _arg_parsers: Dict[str, CLIArgumentParser] = {}
 
     def __init__(self):
         super().__init__()
 
         # Parent parser for parameters that are common for Node CLI actions
-
         self.initialize()
 
+    @staticmethod
+    def config_action(this):
+        """Returns CLI argument action for config file name"""
+        class ConfigNameAction(argparse.Action):
+            """Action for the argument config"""
+            def __call__(self, parser, namespace, values, option_string=None):
+                print(f'Executing CLI for configraution {values}')
+                os.environ["CONFIG_FILE"] = values
+                environ = importlib.import_module("fedbiomed.node.environ").environ
+                environ.set_environment()
+                os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = environ["ID"]
+                this.set_environ(environ)
+
+        return ConfigNameAction
+
     def initialize(self):
-        """"""
+        """Initializes node module"""
 
         self._parser.add_argument(
             "--config",
             "-cf",
             nargs="?",
-            action=ConfigNameAction,
+            action=self.config_action(self),
             default="node_config.ini",
             help="Name of the config file that the CLI will be activated for. Default is 'node_config.ini'.")
 
@@ -243,318 +476,13 @@ class NodeCLI(CommonCLI):
             p.initialize()
             self._arg_parsers.update({arg_parser.__name__ : p})
 
-
-
 # this may be changed on command line or in the config_node.ini
 logger.setLevel("DEBUG")
-
 readline.parse_and_bind("tab: complete")
-
 _node = None
 
 
-def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
-    """Signal handler that terminates the process.
 
-    Args:
-        signum: Signal number received.
-        frame: Frame object received. Currently unused
-
-    Raises:
-       SystemExit: Always raised.
-    """
-
-    # get the (running) Node object
-    global _node
-
-    try:
-        if _node and _node.is_connected():
-            _node.send_error(ErrorNumbers.FB312,
-                             extra_msg = "Node is stopped",
-                             broadcast=True)
-            time.sleep(2)
-            logger.critical("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
-        else:
-            # take care of logger level used because message cannot be sent to node
-            logger.info("Cannot send error message to researcher (node not initialized yet)")
-            logger.info("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
-    finally:
-        # give some time to send messages to the researcher
-        time.sleep(0.5)
-        sys.exit(signum)
-
-
-def _node_signal_trigger_term() -> None:
-    """Triggers a TERM signal to the current process
-    """
-    os.kill(os.getpid(), signal.SIGTERM)
-
-
-def _manage_node(node_args: Union[dict, None] = None):
-    """Runs the node component and blocks until the node terminates.
-
-    Intended to be launched by the node in a separate process/thread.
-
-    Instantiates `Node` and `DatasetManager` object, start exchaning
-    messages with the researcher via the `Node`, passes control to the `Node`.
-
-    Args:
-        node_args: command line arguments for node.
-            See `Round()` for details.
-    """
-
-    global _node
-
-    try:
-        signal.signal(signal.SIGTERM, _node_signal_handler)
-
-        logger.info('Launching node...')
-
-        # Register default training plans and update hashes
-        if environ["TRAINING_PLAN_APPROVAL"]:
-            # This methods updates hashes if hashing algorithm has changed
-            tp_security_manager.check_hashes_for_registered_training_plans()
-            if environ["ALLOW_DEFAULT_TRAINING_PLANS"]:
-                logger.info('Loading default training plans')
-                tp_security_manager.register_update_default_training_plans()
-        else:
-            logger.warning('Training plan approval for train request is not activated. ' +
-                           'This might cause security problems. Please, consider to enable training plan approval.')
-
-        logger.info('Starting communication channel with network')
-        _node = Node(dataset_manager=dataset_manager,
-                     tp_security_manager=tp_security_manager,
-                     node_args=node_args)
-        _node.start_messaging(_node_signal_trigger_term)
-
-        logger.info('Starting task manager')
-        _node.task_manager()  # handling training tasks in queue
-
-    except FedbiomedError:
-        logger.critical("Node stopped.")
-        # we may add extra information for the user depending on the error
-
-    except Exception as e:
-        # must send info to the researcher (no mqqt should be handled by the previous FedbiomedError)
-        _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(e))
-        logger.critical("Node stopped.")
-
-    finally:
-        # this is triggered by the signal.SIGTERM handler SystemExit(0)
-        #
-        # cleaning staff should be done here
-        pass
-
-    # finally:
-    #     # must send info to the researcher (as critical ?)
-    #     logger.critical("(CRIT)Node stopped, probably by user decision (Ctrl C)")
-    #     time.sleep(1)
-    #     logger.exception("Reason:")
-    #     time.sleep(1)
-
-
-def launch_node(node_args: Union[dict, None] = None):
-    """Launches a node in a separate process.
-
-    Process ends when user triggers a KeyboardInterrupt exception (CTRL+C).
-
-    Args:
-        node_args: Command line arguments for node
-            See `Round()` for details.
-    """
-
-    p = Process(target=_manage_node, name='node-' + environ['NODE_ID'], args=(node_args,))
-    p.daemon = True
-    p.start()
-
-    logger.info("Node started as process with pid = " + str(p.pid))
-    try:
-        print('To stop press Ctrl + C.')
-        p.join()
-    except KeyboardInterrupt:
-        p.terminate()
-
-        # give time to the node to send message
-        time.sleep(1)
-        while p.is_alive():
-            logger.info("Terminating process id =" + str(p.pid))
-            time.sleep(1)
-
-        # (above) p.exitcode returns None if not finished yet
-        logger.info('Exited with code ' + str(p.exitcode))
-
-        sys.exit(0)
-
-
-def launch_cli():
-    """Parses command line input for the node component and launches node accordingly.
-    """
-
-
-
-    cli = CommonCLI()
-    cli.set_environ(environ=environ)
-    cli.initialize_certificate_parser()
-    # cli.initialize_create_configuration(config_class=NodeConfig)
-
-
-    # Register description for CLI
-    cli.description = f'{__intro__}:A CLI app for fedbiomed researchers.'
-
-    cli.parser.add_argument('-a', '--add',
-                            help='Add and configure local dataset (interactive)',
-                            action='store_true')
-    cli.parser.add_argument('-am', '--add-mnist',
-                            help='Add MNIST local dataset (non-interactive)',
-                            type=str, nargs='?', const='', metavar='path_mnist',
-                            action='store')
-    # this option provides a json file describing the data to add
-    cli.parser.add_argument('-adff', '--add-dataset-from-file',
-                            help='Add a local dataset described by json file (non-interactive)',
-                            type=str,
-                            action='store')
-    cli.parser.add_argument('-d', '--delete',
-                            help='Delete existing local dataset (interactive)',
-                            action='store_true')
-    cli.parser.add_argument('-da', '--delete-all',
-                            help='Delete all existing local datasets (non interactive)',
-                            action='store_true')
-    cli.parser.add_argument('-dm', '--delete-mnist',
-                            help='Delete existing MNIST local dataset (non-interactive)',
-                            action='store_true')
-    cli.parser.add_argument('-l', '--list',
-                            help='List my shared_data',
-                            action='store_true')
-    cli.parser.add_argument('-s', '--start-node',
-                            help='Start fedbiomed node.',
-                            action='store_true')
-    cli.parser.add_argument('-rtp', '--register-training-plan',
-                            help='Register and approve a training plan from a local file.',
-                            action='store_true')
-    cli.parser.add_argument('-atp', '--approve-training-plan',
-                            help='Approve a training plan (requested, default or registered)',
-                            action='store_true')
-    cli.parser.add_argument('-rjtp', '--reject-training-plan',
-                            help='Reject a training plan (requested, default or registered)',
-                            action='store_true')
-    cli.parser.add_argument('-utp', '--update-training-plan',
-                            help='Update training plan file (for a training plan registered from a local file)',
-                            action='store_true')
-    cli.parser.add_argument('-dtp', '--delete-training-plan',
-                            help='Delete a training plan from database (not for default training plans)',
-                            action='store_true')
-    cli.parser.add_argument('-ltps', '--list-training-plans',
-                            help='List all training plans (requested, default or registered)',
-                            action='store_true')
-    cli.parser.add_argument('-vtp', '--view-training-plan',
-                            help='View a training plan source code (requested, default or registered)',
-                            action='store_true')
-    cli.parser.add_argument('-g', '--gpu',
-                            help='Use of a GPU device, if any available (default: dont use GPU)',
-                            action='store_true')
-    cli.parser.add_argument('-gn', '--gpu-num',
-                            help='Use GPU device with the specified number instead of default device, if available',
-                            type=int,
-                            action='store')
-    cli.parser.add_argument('-go', '--gpu-only',
-                            help='Force use of a GPU device, if any available, even if researcher doesnt ' +
-                                 'request it (default: dont use GPU)',
-                            action='store_true')
-
-
-
-    print(__intro__)
-    print('\t- 🆔 Your node ID:', environ['NODE_ID'], '\n')
-
-    # Parse CLI arguments after the arguments are ready
-    cli.parse_args()
-
-    if cli.arguments.add:
-        add_database()
-    elif cli.arguments.add_mnist is not None:
-        add_database(interactive=False, path=cli.arguments.add_mnist)
-    elif cli.arguments.add_dataset_from_file is not None:
-        print("Dataset description file provided: adding these data")
-        try:
-            with open(cli.arguments.add_dataset_from_file) as json_file:
-                data = json.load(json_file)
-        except:
-            logger.critical("cannot read dataset json file: " + cli.arguments.add_dataset_from_file)
-            sys.exit(-1)
-
-        # verify that json file is complete
-        for k in ["path", "data_type", "description", "tags", "name"]:
-            if k not in data:
-                logger.critical("dataset json file corrupted: " + cli.arguments.add_dataset_from_file)
-
-        # dataset path can be defined:
-        # - as an absolute path -> take it as it is
-        # - as a relative path  -> add the ROOT_DIR in front of it
-        # - using an OS environment variable -> transform it
-        #
-        elements = data["path"].split(os.path.sep)
-        if elements[0].startswith("$"):
-            # expand OS environment variable
-            var = elements[0][1:]
-            if var in os.environ:
-                var = os.environ[var]
-                elements[0] = var
-            else:
-                logger.info("Unknown env var: " + var)
-                elements[0] = ""
-        elif elements[0]:
-            # p is relative (does not start with /)
-            # prepend with topdir
-            elements = [environ["ROOT_DIR"]] + elements
-
-        # rebuild the path with these (eventually) new elements
-        data["path"] = os.path.join(os.path.sep, *elements)
-
-        # add the dataset to local database (not interactive)
-        add_database(interactive=False,
-                     path=data["path"],
-                     data_type=data["data_type"],
-                     description=data["description"],
-                     tags=data["tags"],
-                     name=data["name"],
-                     dataset_parameters=data.get("dataset_parameters")
-                     )
-
-    elif cli.arguments.list:
-        print('Listing your data available')
-        data = dataset_manager.list_my_data(verbose=True)
-        if len(data) == 0:
-            print('No data has been set up.')
-    elif cli.arguments.delete:
-        delete_database()
-    elif cli.arguments.delete_all:
-        delete_all_database()
-    elif cli.arguments.delete_mnist:
-        delete_database(interactive=False)
-    elif cli.arguments.register_training_plan:
-        register_training_plan()
-    elif cli.arguments.approve_training_plan:
-        approve_training_plan()
-    elif cli.arguments.reject_training_plan:
-        reject_training_plan()
-    elif cli.arguments.update_training_plan:
-        update_training_plan()
-    elif cli.arguments.delete_training_plan:
-        delete_training_plan()
-    elif cli.arguments.list_training_plans:
-        tp_security_manager.list_training_plans(verbose=True)
-    elif cli.arguments.view_training_plan:
-        view_training_plan()
-    elif cli.arguments.start_node:
-        # convert to node arguments structure format expected in Round()
-        node_args = {
-            'gpu': (cli.arguments.gpu_num is not None) or (cli.arguments.gpu is True) or
-                   (cli.arguments.gpu_only is True),
-            'gpu_num': cli.arguments.gpu_num,
-            'gpu_only': (cli.arguments.gpu_only is True)
-        }
-
-        launch_node(node_args)
 
 
 def main():
