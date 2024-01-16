@@ -31,6 +31,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
     def tearDown(self):
         super().tearDown()
         self.abstract_methods_patcher.stop()
+        self.patch_job.stop()
 
     def test_training_plan_workflow_01_initialization(self):
         """Test initialization of training plan workflow, only cases where correct parameters are provided"""
@@ -131,9 +132,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
 
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.FederatedWorkflow.breakpoint')
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
-#    @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.create_unique_link', return_value='link')
     def test_federated_workflow_04_breakpoint(self,
-#                                              mock_link,
                                               mock_uuid,
                                               mock_super_breakpoint,
                                               ):
