@@ -399,6 +399,32 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         with open(filename, "wb") as file:
             joblib.dump(self.model, file)
 
+    def reload(self, filename: str) -> None:
+        """Import and replace the wrapped model from a dump file.
+
+        Args:
+            filename: path to the file where the model has been exported.
+
+        !!! info "Notes":
+            This method is designed to load the model from a local dump
+            file, that might not be in a trustworthy format. It should
+            therefore only be used to re-load data exported locally and
+            not received from someone else, including other FL peers.
+
+        Raises:
+            FedbiomedModelError: if the reloaded instance is of unproper type.
+        """
+        model = self._reload(filename)
+        if not isinstance(model, self._model_type):
+            err_msg = (
+                f"{ErrorNumbers.FB622.value}: unproper type for imported model"
+                f": expected '{self._model_type}', but 'got {type(model)}'."
+            )
+            logger.critical(err_msg)
+            raise FedbiomedModelError(err_msg)
+        self.model = model
+
+
     def _reload(self, filename: str) -> None:
         """Model-class-specific backend to the `reload` method.
 
