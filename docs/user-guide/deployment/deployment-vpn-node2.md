@@ -101,7 +101,7 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 * do initial node configuration
 
     ```bash
-    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14002 && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run environ-node configuration create --component NODE --use-current'
+    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14002 && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run environ-node configuration create --component NODE --use-current'
     ```
 
 Optionally launch the node GUI :
@@ -144,7 +144,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
         ```bash
         [user@node $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-        [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
+        [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export PYTHONPATH=/fedbiomed && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
         ```
 
     * start the Fed-BioMed node, for example in background:

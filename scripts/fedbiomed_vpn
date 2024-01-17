@@ -512,7 +512,7 @@ run() {
     [[ -z "$RUN_ARGS" ]] && { usage "fedbiomed run $container needs extra arguments";  }
     cd "$basedir/envs/vpn/docker"
 
-    CMD="export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
+    CMD="export PYTHONPATH=/fedbiomed && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
 
     $DOCKER_COMPOSE exec -u ${CONTAINER_UID:-$(id -u)} $container bash -c "$CMD"
 
