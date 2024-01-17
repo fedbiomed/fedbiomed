@@ -152,6 +152,7 @@ class DatasetArgumentParser(CLIArgumentParser):
             action="store_true",
             help="Removes only MNIST dataset.")
 
+
         add.set_defaults(func=self.add)
         list.set_defaults(func=self.list)
         delete.set_defaults(func=self.delete)
@@ -164,7 +165,7 @@ class DatasetArgumentParser(CLIArgumentParser):
         add_database = imp_cli_utils().add_database
 
         if args.mnist:
-            return add_database(interactive=False, path=args.add_mnist)
+            return add_database(interactive=False, path=args.mnist)
 
         if args.file:
             return self._add_dataset_from_file(path=args.file)
@@ -193,7 +194,7 @@ class DatasetArgumentParser(CLIArgumentParser):
         if args.all:
             return cli_utils.delete_all_database()
 
-        if args.delete_mnist:
+        if args.only_mnist:
             return cli_utils.delete_database(interactive=False)
 
         return cli_utils.delete_database()
