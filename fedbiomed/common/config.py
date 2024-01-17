@@ -24,6 +24,9 @@ from fedbiomed.common.utils import (
 from fedbiomed.common.certificate_manager import retrieve_ip_and_port, generate_certificate
 from fedbiomed.common.exceptions import FedbiomedError
 
+CONFIGPARSER_ERROR = configparser.NoOptionError
+
+
 class Config(metaclass=ABCMeta):
     """Base Config class"""
 

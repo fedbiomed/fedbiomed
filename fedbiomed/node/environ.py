@@ -19,12 +19,22 @@ print(environ['NODE_ID'])
 
 import sys
 import os
+from typing import Union
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms
 from fedbiomed.common.environ import Environ
 from fedbiomed.node.config import NodeConfig
+from fedbiomed.common.config import CONFIGPARSER_ERROR
+
+
+_required_vpn_variables = ('VPN_IP',
+                           'VPN_SUBNET_PREFIX',
+                           'VPN_SERVER_ENDPOINT',
+                           'VPN_SERVER_ALLOWED_IPS',
+                           'VPN_SERVER_PUBLIC_KEY',
+                           'VPN_SERVER_PSK')
 
 
 class NodeEnviron(Environ):
@@ -74,6 +84,23 @@ class NodeEnviron(Environ):
 
         self._values['TRAINING_PLAN_APPROVAL'] = os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', tp_approval) \
             .lower() in ('true', '1', 't', True)
+            
+        # random seed & reproducbility permission
+        self.get_mode()
+        try:
+            allow_rand_seed = self._config.get('security', 'allow_random_seed')
+        except CONFIGPARSER_ERROR:
+            allow_rand_seed: Union[str, bool] = os.getenv('ALLOW_REPRODUCIBILITY')
+                
+            
+            if allow_rand_seed is None:
+                if self._values['MODE'] == "PRODUCTION":
+                    allow_rand_seed = False
+                elif self._values['MODE'] == "DEVELOPMENT":
+                    allow_rand_seed = True
+                else:
+                    allow_rand_seed.lower() in ('true', '1', 't', True)
+            self._values['ALLOW_REPRODUCIBILITY'] = allow_rand_seed
 
         hashing_algorithm = self._config.get('security', 'hashing_algorithm')
         if hashing_algorithm in HashingAlgorithms.list():
@@ -115,6 +142,7 @@ class NodeEnviron(Environ):
                     'ip': self._config.get(section, "ip"),
                     'certificate': None
                 })
+        # guess in which mode Fed-BioMed is running 
 
     def info(self):
         """Print useful information at environment creation"""
@@ -122,8 +150,29 @@ class NodeEnviron(Environ):
         logger.info("type                           = " + str(self._values['COMPONENT_TYPE']))
         logger.info("training_plan_approval         = " + str(self._values['TRAINING_PLAN_APPROVAL']))
         logger.info("allow_default_training_plans   = " + str(self._values['ALLOW_DEFAULT_TRAINING_PLANS']))
+        logger.info("Node mode                      = " + str(self._values['MODE']))
+        logger.info("allow_reproducibility          = " + str(self._values['ALLOW_REPRODUCIBILITY']))
 
+    def get_mode(self) -> str:
+        try:
+            mode = self._config.get('default', 'mode')
+        except CONFIGPARSER_ERROR:
+            mode = None
+        if mode is None:
+            
+            mode = os.getenv('MODE')
+            if mode is None:
+                for var in _required_vpn_variables:
+                    if os.getenv(var, False):
+                        mode = 'PRODUCTION'
+                        break
 
+                    mode = 'DEVELOPMENT'
+
+        self._values['MODE'] = mode
+        return mode
+                        
+        
 sys.tracebacklimit = 3
 
 
