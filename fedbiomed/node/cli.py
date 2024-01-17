@@ -14,6 +14,7 @@ import time
 import importlib
 import functools
 import readline
+import subprocess
 
 from multiprocessing import Process
 from typing import Union, List, Dict
@@ -22,14 +23,14 @@ from types import FrameType
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.cli import CommonCLI, CLIArgumentParser
+from fedbiomed.common.cli import CommonCLI, CLIArgumentParser, RED, YLW, GRN, NC, BOLD
 
 
-
+# Partial function to import CLI utils that frequently used in this module
 imp_cli_utils = functools.partial(importlib.import_module, "fedbiomed.node.cli_utils")
 
 
-#
+# Please use following code genereate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
 #
 __intro__ = """
@@ -46,7 +47,7 @@ __intro__ = """
 
 
 def intro():
-    """Print intro for the CLI"""
+    """Prints intro for the CLI"""
 
     print(__intro__)
     print('\t- 🆔 Your node ID:', os.environ['FEDBIOMED_ACTIVE_NODE_ID'], '\n')
@@ -230,6 +231,7 @@ class DatasetArgumentParser(CLIArgumentParser):
         elif elements[0]:
             # p is relative (does not start with /)
             # prepend with topdir
+            environ = importlib.import_module("fedbiomed.node.environ.environ")
             elements = [environ["ROOT_DIR"]] + elements
 
         # rebuild the path with these (eventually) new elements
@@ -426,16 +428,69 @@ class NodeControl(CLIArgumentParser):
 
 
 class GUIControl(CLIArgumentParser):
-    pass
+
+
+    def initialize(self):
+        """Initializes GUI commands"""
+        gui = self._subparser.add_parser("gui", add_help=False, help="Action to manage Node user interface")
+        gui.set_defaults(func=self.forward)
+
+
+        # TODO: Implement argument parsing and execution in python
+        # gui.add_argument(
+        #     "--data-folder",
+        #     "-df",
+        #     type=str,
+        #     nargs="?",
+        #     default="data",  # data folder in root directory
+        #     required=False)
+
+        # gui.add_argument(
+        #     "--cert-file",
+        #     "-cf",
+        #     type=str,
+        #     nargs="?",
+        #     required=False,
+        #     help="Name of the certificate to use in order to enable HTTPS. "
+        #          "If cert file doesn't exist script will raise an error.")
+
+        # gui.add_argument(
+        #     "--key-file",
+        #     "-cf",
+        #     type=str,
+        #     nargs="?",
+        #     required=False,
+        #     help="Name of the private key for the SSL certificate. "
+        #          "If the key file doesn't exist, the script will raise an error.")
+
+    def forward(self, args, extra_args):
+        """Forwards gui commands to ./script/fedbiomed_gui Extra arguments
+
+        TODO: Implement argument GUI parseing and execution
+        """
+
+        gui_script = os.path.abspath(os.path.join(__file__, '..', '..', '..', 'scripts', 'fedbiomed_gui'))
+        command = [gui_script, *extra_args]
+        process = subprocess.Popen(command)
+
+        try:
+            process.wait()
+        except KeyboardInterrupt:
+            try:
+                process.terminate()
+            except Exception:
+                pass
+            process.wait()
+
 
 
 class NodeCLI(CommonCLI):
 
-
     _arg_parsers_classes: List[type] = [
         NodeControl,
         DatasetArgumentParser,
-        TrainingPlanArgumentParser
+        TrainingPlanArgumentParser,
+        GUIControl
     ]
     _arg_parsers: Dict[str, CLIArgumentParser] = {}
 
@@ -449,14 +504,43 @@ class NodeCLI(CommonCLI):
     def config_action(this):
         """Returns CLI argument action for config file name"""
         class ConfigNameAction(argparse.Action):
-            """Action for the argument config"""
+            """Action for the argument config
+
+            This action class gets the config file name and set environ object before
+            executing any command.
+            """
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+
+                # Sets environ by default if option string for conifg is not present
+                if not set(self.option_strings).intersection(set(sys.argv)):
+                    self.set_environ(self.default)
+
             def __call__(self, parser, namespace, values, option_string=None):
-                print(f'Executing CLI for configraution {values}')
-                os.environ["CONFIG_FILE"] = values
+                """When argument is called"""
+                self.set_environ(values)
+
+            def set_environ(self, config_file: str):
+                """Sets environ
+
+                Args:
+                  config_file: Name of the config file that is activate
+                """
+
+                print(f'\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #')
+
+                os.environ["CONFIG_FILE"] = config_file
                 environ = importlib.import_module("fedbiomed.node.environ").environ
                 environ.set_environment()
                 os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = environ["ID"]
+
+                # Sets environ for the CLI. This implementation is required for
+                # the common CLI option that are present in fedbiomed.common.cli.CommonCLI
                 this.set_environ(environ)
+
+                # this may be changed on command line or in the config_node.ini
+                logger.setLevel("DEBUG")
+
 
         return ConfigNameAction
 
@@ -476,24 +560,4 @@ class NodeCLI(CommonCLI):
             p.initialize()
             self._arg_parsers.update({arg_parser.__name__ : p})
 
-# this may be changed on command line or in the config_node.ini
-logger.setLevel("DEBUG")
-readline.parse_and_bind("tab: complete")
-_node = None
-
-
-
-
-
-def main():
-    """Entry point for the node.
-    """
-    try:
-        launch_cli()
-    except KeyboardInterrupt:
-        # send error message to researcher via logger.error()
-        logger.critical('Operation cancelled by user.')
-
-
-if __name__ == '__main__':
-    main()
+        self.initialize_certificate_parser()
