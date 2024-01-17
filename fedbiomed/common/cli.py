@@ -405,7 +405,7 @@ class CommonCLI:
             '--path',
             type=str,
             nargs='?',
-            default=os.path.join(self._environ["CERT_DIR"], f"cert_{self._environ['ID']}"),
+            required=False,
             help="The path where certificates will be saved. By default it will overwrite existing certificate.")
 
         generate.add_argument(
@@ -414,9 +414,6 @@ class CommonCLI:
             action="store_true",
             help="Forces to overwrite certificate files"
         )
-
-        # Set db path that certificate manager will be using to store certificates
-        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
 
     def _create_magic_dev_environment(self):
         """Creates development environment for MPSDPZ"""
@@ -465,9 +462,11 @@ class CommonCLI:
             CommonCLI.error(f"Certificate is already existing in {MPSPDZ_certificate_prefix}. \n "
                             f"Please use -f | --force option to overwrite existing certificate.")
 
+        path = os.path.join(self._environ["CERT_DIR"], f"cert_{self._environ['ID']}") if not args.path else args.path
+
         try:
             CertificateManager.generate_self_signed_ssl_certificate(
-                certificate_folder=args.path,
+                certificate_folder=path,
                 certificate_name=MPSPDZ_certificate_prefix,
                 component_id=self._environ["ID"]
             )
@@ -493,6 +492,7 @@ class CommonCLI:
         Args:
             args: Parser arguments
         """
+        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
 
         try:
             self._certificate_manager.register_certificate(
@@ -511,11 +511,14 @@ class CommonCLI:
 
     def _list_certificates(self, args: argparse.Namespace):
         """ Lists saved certificates """
+        print(f"{GRN}Listing registered certificates...{NC}")
 
+        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
         self._certificate_manager.list(verbose=True)
 
     def _delete_certificate(self, args: argparse.Namespace):
 
+        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
         certificates = self._certificate_manager.list(verbose=False)
         options = [d['party_id'] for d in certificates]
         msg = "Select the certificate to delete:\n"
@@ -568,9 +571,9 @@ class CommonCLI:
 
         !!! warning "Attention"
                 Please make sure this method is called after all necessary arguments are set
-
         """
         args, unknown_args = self._parser.parse_known_args(args_)
+
         if hasattr(args, 'func'):
             specs = get_method_spec(args.func)
             if specs:
