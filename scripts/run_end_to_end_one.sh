@@ -144,7 +144,7 @@ script_executor() {
         *.ipynb)
             # converting notebook to script to run
             output="${script##*/}.$RANDOM"
-            convert=$(jupyter nbconvert --output-dir=/tmp --output=$output --to script $script 2> /dev/null)
+            convert=$(jupyter nbconvert --output-dir=/tmp --output=$output --to script $script )
             if [ $? == 0 ]
             then
                 # conversion did well
