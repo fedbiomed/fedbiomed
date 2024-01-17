@@ -164,7 +164,7 @@ class MiniBatchTrainingIterationsAccountant:
         # override number of batches per epoch if researcher specified batch_maxnum
         if self._training_plan.training_args()['batch_maxnum'] is not None and \
                 self._training_plan.training_args()['batch_maxnum'] > 0:
-            num_batches_per_epoch = self._training_plan.training_args()['batch_maxnum']
+            num_batches_per_epoch = min(num_batches_per_epoch, self._training_plan.training_args()['batch_maxnum'])
         # first scenario: researcher specified epochs
         if self._training_plan.training_args()['num_updates'] is None:
             if self._training_plan.training_args()['epochs'] is not None:

@@ -9,36 +9,14 @@ import shutil
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-config_file = """
-[default]
-id = CENTER_ID
-component = NODE
-version = 2
-
-[security]
-hashing_algorithm = SHA256
-allow_default_training_plans = True
-training_plan_approval = False
-secure_aggregation = False
-force_secure_aggregation = False
-
-[researcher]
-ip = localhost
-port = 50051
-
-[mpspdz]
-private_key = dummy_path
-public_key = dummy_path
-mpspdz_ip = localhost
-mpspdz_port = 14000
-allow_default_biprimes = True
-"""
+from fedbiomed.node.config import NodeConfig 
+from fedbiomed.node.environ import environ
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description='IXI Sample downloader and splitter')
     parser.add_argument('-f', '--root_folder', required=True, type=str)
-
+    parser.add_argument('-F', '--force',  action=argparse.BooleanOptionalAction, required=False, type=bool, default=False)
     return parser.parse_args()
 
 
@@ -116,8 +94,13 @@ if __name__ == '__main__':
         cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
 
         print(f'Creating node at: {cfg_file}')
-        with open(cfg_file, 'w') as f:
-            f.write(config_file.replace('CENTER_ID', center_name))
+        config = NodeConfig(root=environ["ROOT_DIR"], name=f'{center_name.lower()}.ini', auto_generate=False)
+        if config.is_config_existing() and not args.force:
+            print(f"**Warning: config file {cfg_file} already exists. To overwrite, please specify `--force` option")
+        else:
+            config.generate(force=args.force)
+            config.set('default', 'id', center_name)
+            config.write()
 
         df = allcenters[allcenters.SITE_NAME == center_name]
         center_dfs.append(df)
@@ -153,7 +136,7 @@ if __name__ == '__main__':
     print(f'Federated dataset located at: {federated_data_folder}')
 
     print()
-    print('Please add the data to your nodes executing and using the `bids-train` tag:')
+    print('Please add the data to your nodes executing and using the `ixi-train` tag:')
     for center_name in center_names:
         print(f'\t./scripts/fedbiomed_run node config {center_name.lower()}.ini add')
 
