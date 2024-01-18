@@ -126,20 +126,20 @@ $ ./scripts/fedbiomed_run node start
 * you may also upload new data on this node with:
 
 ```
-$ ./scripts/fedbiomed_run node add
+$ ./scripts/fedbiomed_run node dataset add
 ```
 
 * you may also specify a new config file for the node (usefull then running multiple test nodes on the same host)
 
 ```
-$ ./scripts/fedbiomed_run node config another_config.ini start
+$ ./scripts/fedbiomed_run node --config another_config.ini start
 ```
 
 * if you want to change the default IP address used to join the fedbiomed researcher component (localhost), you can provide it at launch time:
 
 ```
-$ ./scripts/fedbiomed_run node ip_address 192.168.0.100 start
-$ ./scripts/fedbiomed_run researcher ip_address 192.168 start
+$ RESEARCHER_SERVER_HOST=192.168.0.100 ./scripts/fedbiomed_run node start
+$ RESEARCHER_SERVER_HOST=192.168.0.100./scripts/fedbiomed_run researcher start
 ```
 
 (adjust the 192.168.0.100 IP address to your configuration)
@@ -457,7 +457,7 @@ Provided hashing algorithms are `SHA256`, `SHA384`, `SHA512`, `SHA3_256`, `SHA3_
 To enable `training_plan_approval` mode and `allow_default_training_plans` node, start the following command.
 
 ```shell
-./scripts/fedbiomed_run node config config-n1.ini --enable-training-plan-approval --allow-default-training-plans start
+ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node --config config-n1.ini start
 ```
 
 This command will start the node with training plan approval activated mode even the config file has been set as `training_plan_aproval = False`. However it doesn't change the config file. If there is no config file named `config-n1.ini` it creates a config file for the node with enabled training plan approval mode.
@@ -472,7 +472,7 @@ training_plan_approval = True
 For starting node with disabled training plan approval and default training plans;
 
 ```shell
-./scripts/fedbiomed_run node config config-n1.ini --disable-training-plan-approval --disable-default-training-plans start
+ENABLE_TRAINING_PLAN_APPROVAL=False DISABLE_DEFAULT_TRAINING_PLANS./scripts/fedbiomed_run node --config config-n1.ini start
 ```
 
 #### Default TrainingPlans
@@ -482,10 +482,10 @@ Default training plans are located in the `envs/common/default_training_plans/` 
 
 #### Registering New TrainingPlans
 
-New training plans can be registered using `fedbiomed_run` scripts with `register-training-plan` option.
+New training plans can be registered using `fedbiomed_run` scripts with `training-plan register` option.
 
 ```shell
-./scripts/fedbiomed_run node config config-n1.ini register-training-plan
+./scripts/fedbiomed_run node --config config-n1.ini training-plan register
 ```
 
 The CLI asks for the name of the training plan, description and the path where training plan file is stored. **Model files should be saved as txt in the file system for registration**. This is because these files are for only hashing purposes not for loading modules.
@@ -495,7 +495,7 @@ The CLI asks for the name of the training plan, description and the path where t
 Following command is used for deleting registered training plans.
 
 ```
-./scripts/fedbiomed_run node config config-n1.ini delete-training-plan
+./scripts/fedbiomed_run node --config config-n1.ini training-plan delete
 ```
 
 Output of this command will list registered training plans with their name and id. It will ask to select training plan file you would like to remove. For example, in the follwing example, typing `1`  will remove the `MyModel` from registered/approved list of training plans.
@@ -515,7 +515,7 @@ Following command is used for updating registered training plans. It updates cho
 can provide same training plan file to update its content.
 
 ```
-./scripts/fedbiomed_run node config config-n1.ini update-training-plan
+./scripts/fedbiomed_run node --config config-n1.ini training-plan update
 ```
 
 ## Fed-BioMed Node GUI
@@ -529,7 +529,7 @@ located on the `${FEDBIOMED_DIR}/gui` directory.
 Node GUI can be started using Fed-BioMed CLI.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder '<path-for-data-folder>' config '<name-of-the-config-file>' start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run node [--config [CONFIG_FILE_NAME]] gui --data-folder '<path-for-data-folder>' start
 ```
 
 Arguments:
@@ -537,7 +537,7 @@ Arguments:
 - ``data-folder``: Data folder represents the folder path where datasets have been stored. It can be absolute or relative path.
 If it is relative path, Fed-BioMed base directory is going to be used as reference. **If `datafolder` is not provided. Script will look for
 `data` folder in the Fed-BioMed root directory and if it doesn't exist it will raise an error.**
-- ``config``: Config file represents the name of the configuration file which is going to be used for GUI. If it is not
+- ``--config``: Config file represents the name of the configuration file which is going to be used for GUI. If it is not
 provided, default will be``config_node.ini``.
 
 It is also possible to start GUI on specific host and port, By default it is started `localhost` as host and `8484` as port.  To change
@@ -547,13 +547,13 @@ The GUI is based on HTTPS and by default, it will generate a self-signed certifi
 names you want to use for HTTPS support. **Please note that they must be in `${FEDBIOMED_DIR}/etc` folder.**  
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder '<path-for-data-folder>' config '<name-of-the-config-file>' cert '<name-of-certificate>' key '<name-of-private-key>' start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config '<name-of-the-config-file> gui --data-folder '<path-for-data-folder>' ' cert '<name-of-certificate>' key '<name-of-private-key>' start
 ```
 
 **IMPORTANT:** Please always consider providing `data-folder` argument while starting the GUI.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data config config-n1.ini --port 80 --host 0.0.0.0 start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini gui data-folder ../data  --port 80 --host 0.0.0.0 start
 
 ```
 
@@ -574,9 +574,9 @@ It is possible to start multiple Node GUIs for different nodes as long as the ht
 commands below starts three Node GUI for the nodes; config-n1.ini, config-n2.ini and config-n3.ini on the ports respectively, `8181`, `8282` and `8383`.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui config config-n1.ini port 8181 start
-${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui config config-n2.ini port 8282 start
-${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui config config-n3.ini port 8383 start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini gui --data-folder ../data --port 8181 start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n2.ini gui --data-folder ../data --port 8282 start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n2.ini gui --data-folder ../data --port 8383 start
 ```
 
 ### Development/Debugging for GUI
@@ -587,7 +587,7 @@ easily done with the previous start command. Currently, Flask server always get 
 flag to the start command.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data config config-n1.ini --debug start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini gui --data-folder ../data --debug start
 ```
 **Important:** Please do not change Flask port and host while starting it for development purposes. Because React (UI) will be calling
 ``localhost:8484/api`` endpoint in development mode.
