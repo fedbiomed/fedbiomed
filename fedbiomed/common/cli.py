@@ -11,10 +11,10 @@ import argparse
 import importlib
 import os
 import sys
-from typing import Optional
+from typing import Optional, List, Dict
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import DB_FOLDER_NAME, MPSPDZ_certificate_prefix
+from fedbiomed.common.constants import DB_FOLDER_NAME, MPSPDZ_certificate_prefix, ComponentType
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_existing_component_db_names, \
     get_all_existing_certificates, \
@@ -45,7 +45,10 @@ class ConfigurationParser(CLIArgumentParser):
     def initialize(self):
         """Initializes argument parser for creating configuration file."""
 
-        configuration = self._subparser.add_parser('configuration', help='Configuration')
+        configuration = self._subparser.add_parser(
+            'configuration',
+            help='The helper for generating or updating component configuration files, see `configuration -h`'
+                 ' for more details')
 
         # Common parser to register common arguments for create and refresh
         common_parser = argparse.ArgumentParser(add_help=False)
@@ -197,9 +200,12 @@ class ConfigurationParser(CLIArgumentParser):
 
 class CommonCLI:
 
+    _arg_parsers_classes: List[type] = []
+    _arg_parsers: Dict[str, CLIArgumentParser] = {}
+
     def __init__(self) -> None:
         self._parser: argparse.ArgumentParser = argparse.ArgumentParser(
-            prog='fedbiomed_run [ node | researcher | gui ] config [CONFIG_NAME] ',
+            prog='fedbiomed_run',
             formatter_class=argparse.RawTextHelpFormatter
         )
 
@@ -268,6 +274,57 @@ class CommonCLI:
         self._environ = environ
 
     @staticmethod
+    def config_action(this: 'CommonCLI', component: ComponentType):
+        """Returns CLI argument action for config file name"""
+
+        class ConfigNameAction(argparse.Action):
+            """Action for the argument config
+
+            This action class gets the config file name and set environ object before
+            executing any command.
+            """
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+
+                # Sets environ by default if option string for conifg is not present
+                if not set(self.option_strings).intersection(set(sys.argv)):
+                    self.set_environ(self.default, component)
+
+            def __call__(self, parser, namespace, values, option_string=None):
+                """When argument is called"""
+                self.set_environ(values, component)
+
+            def set_environ(self, config_file: str, component: ComponentType):
+                """Sets environ
+
+                Args:
+                  config_file: Name of the config file that is activate
+                """
+
+                print(f'\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #')
+                os.environ["CONFIG_FILE"] = config_file
+
+                match component:
+                    case ComponentType.NODE:
+                        environ = importlib.import_module("fedbiomed.node.environ").environ
+                    case ComponentType.RESEARCHER:
+                        environ = importlib.import_module("fedbiomed.researcher.environ").environ
+                    case _:
+                        raise FedbiomedError(f"unrecognized component type: {component}")
+
+                environ.set_environment()
+                os.environ[f"FEDBIOMED_ACTIVE_{component.name}_ID"] = environ["ID"]
+
+                # Sets environ for the CLI. This implementation is required for
+                # the common CLI option that are present in fedbiomed.common.cli.CommonCLI
+                this.set_environ(environ)
+
+                # this may be changed on command line or in the config_node.ini
+                logger.setLevel("DEBUG")
+
+        return ConfigNameAction
+
+    @staticmethod
     def error(message: str) -> None:
         """Prints given error message
 
@@ -298,7 +355,20 @@ class CommonCLI:
         """
 
         self.configuration_parser.initialize()
+        self.initialize_magic_dev_environment_parsers()
 
+    def initialize(self):
+        """Initializes parser classes and common parser for child clisses.
+
+        This parser classes will be added by child classes.
+        """
+
+        for arg_parser in self._arg_parsers_classes:
+            p = arg_parser(self._subparsers)
+            p.initialize()
+            self._arg_parsers.update({arg_parser.__name__ : p})
+
+        self.initialize_certificate_parser()
 
     def initialize_magic_dev_environment_parsers(self) -> None:
         """Initializes argument parser for the option to create development environment."""

@@ -20,7 +20,7 @@ from multiprocessing import Process
 from typing import Union, List, Dict
 from types import FrameType
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.cli import CommonCLI, CLIArgumentParser, RED, YLW, GRN, NC, BOLD
@@ -501,49 +501,6 @@ class NodeCLI(CommonCLI):
         # Parent parser for parameters that are common for Node CLI actions
         self.initialize()
 
-    @staticmethod
-    def config_action(this):
-        """Returns CLI argument action for config file name"""
-        class ConfigNameAction(argparse.Action):
-            """Action for the argument config
-
-            This action class gets the config file name and set environ object before
-            executing any command.
-            """
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-
-                # Sets environ by default if option string for conifg is not present
-                if not set(self.option_strings).intersection(set(sys.argv)):
-                    self.set_environ(self.default)
-
-            def __call__(self, parser, namespace, values, option_string=None):
-                """When argument is called"""
-                self.set_environ(values)
-
-            def set_environ(self, config_file: str):
-                """Sets environ
-
-                Args:
-                  config_file: Name of the config file that is activate
-                """
-
-                print(f'\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #')
-
-                os.environ["CONFIG_FILE"] = config_file
-                environ = importlib.import_module("fedbiomed.node.environ").environ
-                environ.set_environment()
-                os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = environ["ID"]
-
-                # Sets environ for the CLI. This implementation is required for
-                # the common CLI option that are present in fedbiomed.common.cli.CommonCLI
-                this.set_environ(environ)
-
-                # this may be changed on command line or in the config_node.ini
-                logger.setLevel("DEBUG")
-
-
-        return ConfigNameAction
 
     def initialize(self):
         """Initializes node module"""
@@ -552,13 +509,11 @@ class NodeCLI(CommonCLI):
             "--config",
             "-cf",
             nargs="?",
-            action=self.config_action(self),
+            action=self.config_action(self, ComponentType.NODE),
             default="node_config.ini",
             help="Name of the config file that the CLI will be activated for. Default is 'node_config.ini'.")
 
-        for arg_parser in self._arg_parsers_classes:
-            p = arg_parser(self._subparsers)
-            p.initialize()
-            self._arg_parsers.update({arg_parser.__name__ : p})
+        super().initialize()
 
+        # Initialize common
         self.initialize_certificate_parser()
