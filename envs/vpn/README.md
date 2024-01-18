@@ -428,6 +428,7 @@ Run this for all launches of the container :
 [user@researcher-container $] eval "$(conda shell.bash hook)"
 [user@researcher-container $] conda activate fedbiomed-researcher
 # ... or any other command
+[user@researcher-container $] jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb
 [user@researcher-container $] ./notebooks/101_getting-started.py
 ```
 
