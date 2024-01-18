@@ -13,7 +13,7 @@ class NodeConfig(Config):
     _CONFIG_VERSION: str = __node_config_version__
 
     def add_parameters(self):
-        """Generate researcher config"""
+        """Generate `Node` config"""
 
         # Security variables
         self._cfg['security'] = {
