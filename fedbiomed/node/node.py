@@ -4,7 +4,7 @@
 '''
 Core code of the node component.
 '''
-from typing import Optional, Union, Callable
+from typing import Any, Dict, Optional, Union, Callable
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
@@ -57,6 +57,15 @@ class Node:
         self.tp_security_manager = tp_security_manager
 
         self.node_args = node_args
+        self._random_seed_material: Dict[str, Any] = {
+            'activated': False, 
+            'authorized': False,
+            'random_seed': None
+        }
+
+    def _set_random_seed_material(self):
+        # TODO: set the random seed material given environment variable
+        pass
 
     def add_task(self, task: dict):
         """Adds a task to the pending tasks queue.
@@ -282,7 +291,8 @@ class Node:
                            aux_vars=msg.get_param('aux_vars'))
 
             # the round raises an error if it cannot initialize
-            err_msg = round_.initialize_arguments(msg.get_param('state_id'))
+            err_msg = round_.initialize_arguments(self._random_seed_material,
+                                                  msg.get_param('state_id'))
             if err_msg is not None:
                 self._grpc_client.send(
                     NodeMessages.format_outgoing_message(

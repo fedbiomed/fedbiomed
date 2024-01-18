@@ -72,6 +72,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._optimizer_args: Dict[str, Any] = None
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
+        self._is_rseed_authorized: bool = False
 
     @abstractmethod
     def model(self):
@@ -102,6 +103,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             model_args: Dict[str, Any],
             training_args: Dict[str, Any],
             aggregator_args: Optional[Dict[str, Any]] = None,
+            random_seed_material: Optional[Dict[str, Any]] = None,
         ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -124,8 +126,22 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         # Set random seed: the seed can be either None or an int provided by the researcher.
         # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
         rseed = training_args['random_seed']
-        random.seed(rseed)
-        np.random.seed(rseed)
+        
+        self._is_rseed_authorized = self._check_random_seed_authorized(rseed, random_seed_material)
+        if self._is_rseed_authorized:
+            random.seed(rseed)
+            np.random.seed(rseed)
+            random_seed_material['activated'] = True
+            random_seed_material['random_seed'] = rseed
+            
+    def _check_random_seed_authorized(self, rseed, random_seed_material) -> bool:
+        if random_seed_material is not None and rseed is not None:
+            previous_rseed = random_seed_material['random_seed']
+            _is_rseed_same = previous_rseed == rseed
+            return random_seed_material['authorized'] and \
+                (not random_seed_material['activated'] or _is_rseed_same)
+        else:
+            return False
 
     def _add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.

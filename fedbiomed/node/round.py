@@ -101,6 +101,7 @@ class Round:
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
         self.training_kwargs = training_kwargs
         self.model_arguments = model_kwargs
+        self._random_seed_material: Optional[Dict[str , Any]] = None
 
         # Class attributes
         self.tp_security_manager = TrainingPlanSecurityManager()
@@ -140,6 +141,7 @@ class Round:
         return None
 
     def initialize_arguments(self,
+                             random_seed_material: Dict[str, Any],
                              previous_state_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Initializes arguments for training and testing and the NodeStateManager, the latter handling
         Node state loading and saving.
@@ -152,8 +154,12 @@ class Round:
             arguments, None otherwise.
         """
         # initialize Node State Manager
+        
+        
         self._node_state_manager.initialize(previous_state_id=previous_state_id,
                                             testing=not self.training)
+        
+        self._random_seed_material = random_seed_material
         return self._initialize_validate_training_arguments()
 
 
@@ -292,7 +298,8 @@ class Round:
         try:
             self.training_plan.post_init(model_args=self.model_arguments,
                                          training_args=self.training_arguments,
-                                         aggregator_args=self.aggregator_args)
+                                         aggregator_args=self.aggregator_args,
+                                         random_seed_material=self._random_seed_material)
         except Exception as e:
             error_message = "Can't initialize training plan with the arguments."
             return self._send_round_reply(success=False, message=error_message)
