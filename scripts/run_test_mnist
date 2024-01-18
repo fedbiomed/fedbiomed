@@ -66,9 +66,9 @@ EXEC_TEST_NB=${EXEC_TEST%.py}.ipynb
 echo "converting ${EXEC_TEST_NB} to ${EXEC_TEST}"
 jupyter nbconvert --output=${EXEC_TEST%.py} --to script "${EXEC_TEST_NB}"
 
-if [ -x "$EXEC_TEST" ]
+if [ -f "$EXEC_TEST" ]
 then
-    timeout --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT $EXEC_TEST
+    timeout --preserve-status --signal=HUP --kill-after=10 $TEST_TIMEOUT python $EXEC_TEST
 else
     echo "INFO: no script $EXEC_TEST in this version, skipping"
 fi
