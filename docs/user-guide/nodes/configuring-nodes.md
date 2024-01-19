@@ -100,7 +100,7 @@ default values assigned in the `fedbiomed.node.environ`.  Starting nodes with sp
 configuration file. The following command creates specific config file with default settings and starts the node. 
 
 ```
-$ ./scripts/fedbiomed_run node config config-n1.ini start
+$ ./scripts/fedbiomed_run node --config config-n1.ini start
 ```
 
 If you run this command, you can see a new config file created in the `etc/` directory of the Fed-BioMed. 
@@ -112,8 +112,8 @@ Listing and adding datasets follows the same logic. If you want to list or add d
 from the default one, you need to specify the config file.
 
 ```
-$ ./scripts/fedbiomed_run node config config-n1.ini list
-$ ./scripts/fedbiomed_run node config config-n1.ini add
+$ ./scripts/fedbiomed_run node --config config-n1.ini dataset list
+$ ./scripts/fedbiomed_run node --config config-n1.ini add
 ```
 
 !!! info "Configurations for deployment"

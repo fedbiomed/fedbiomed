@@ -207,7 +207,7 @@ cleaning() {
     while [ $i -lt ${#ALL_CONFIG[@]} ]
     do
         config=${ALL_CONFIG[$i]}
-        $basedir/scripts/fedbiomed_run node config $config --delete-all
+        $basedir/scripts/fedbiomed_run node --config $config dataset delete --all
 
         # find node_id from config file
         # and delete corresponding message queue and dbfile
@@ -424,13 +424,13 @@ do
 
       # populate node
       echo "== INFO: populating fedbiomed node"
-      $basedir/scripts/fedbiomed_run node config ${config} -adff $dataset || true
+      $basedir/scripts/fedbiomed_run node --config ${config} dataset add --file $dataset || true
 
       ((i_dataset+=1))
   done
   # launch node
   echo "== INFO: launching fedbiomed node"
-  $basedir/scripts/fedbiomed_run node config ${config} start &
+  $basedir/scripts/fedbiomed_run node --config ${config} start &
   pid=$!
   sleep 10
 

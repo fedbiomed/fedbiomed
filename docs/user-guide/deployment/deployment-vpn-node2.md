@@ -157,7 +157,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
         ```bash
         [user@node2-container $] ./scripts/fedbiomed_run node -am /data
-        [user@node2-container $] ./scripts/fedbiomed_run node add
+        [user@node2-container $] ./scripts/fedbiomed_run node dataset add
         ```
 
 Example of a few more possible commands:
@@ -165,13 +165,13 @@ Example of a few more possible commands:
 * optionally list shared datasets:
 
     ```bash
-    [user@node2-container $] ./scripts/fedbiomed_run node list
+    [user@node2-container $] ./scripts/fedbiomed_run node dataset list
     ```        
 
 * optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node2/run_mounts/data/my_training_plan.txt`
 
     ```bash
-    [user@node2-container $] ./scripts/fedbiomed_run node --register-training-plan
+    [user@node2-container $] ./scripts/fedbiomed_run node training-plan register
     ```
     Indicate `/data/my_training_plan.txt` as path of the training plan file.
 
