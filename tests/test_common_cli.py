@@ -1,3 +1,4 @@
+import sys
 import unittest
 import tempfile
 import argparse
@@ -339,20 +340,18 @@ class TestCommonCLI(unittest.TestCase):
 
         self.cli.set_environ({"ID": "node-id", "CERT_DIR": "dummy/cert/dir", "DB_PATH": "dummy/db/path"})
         self.cli.initialize_certificate_parser()
-        args = self.cli.parser.parse_args(["certificate", "list"])
 
-        with patch("fedbiomed.common.cli.argparse.ArgumentParser.parse_args") as mock_parse_args:
-            mock_parse_args.return_value = args
-            self.cli.parse_args()
-            mock_list.assert_called_once_with(verbose=True)
+        args = self.cli.parser.parse_args(["certificate", "list"])
+        sys.argv = ["fedbiomed_run", "certificate", "list"]
+        self.cli.parse_args()
+        mock_list.assert_called_once_with(verbose=True)
 
         self.cli.initialize_magic_dev_environment_parsers()
         args = self.cli.parser.parse_args(["certificate-dev-setup"])
 
-        with patch("fedbiomed.common.cli.argparse.ArgumentParser.parse_args") as mock_parse_args:
-            mock_parse_args.return_value = args
-            self.cli.parse_args()
-            mock_dev_environment.assert_called_once_with(args)
+        sys.argv = ["fedbiomed_run", "certificate-dev-setup"]
+        self.cli.parse_args()
+        mock_dev_environment.assert_called_once_with(args, [])
 
 
 if __name__ == "__main__":
