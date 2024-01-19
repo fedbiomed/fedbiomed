@@ -26,6 +26,7 @@ CI pipeline currently contains :
     - update conda env for `node` (rely on unit tests for others)
     - activate conda and environments, launch network and node.
     - choose an existing git branch for running the test for each of the repos, by decreasing preference order : source branch of the PR, target branch of the PR, `develop`
+    - convert with `jupyter nbconvert` the notebook `./notebooks/101_getting-started.ipynb` to the python script `./notebooks/101_getting-started.py`
     - launch the `fedbiomed` script `./notebooks/101_getting-started.py`
     - succeed if the script completes without failure.
 
