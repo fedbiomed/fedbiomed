@@ -148,6 +148,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
             as part of the federated learning process.
         """
 
+    @abstractmethod
     def reload(self, filename: str) -> None:
         """Import and replace the wrapped model from a dump file.
 
@@ -162,27 +163,6 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
 
         Raises:
             FedbiomedModelError: if the reloaded instance is of unproper type.
-        """
-        model = self._reload(filename)
-        if not isinstance(model, self._model_type):
-            err_msg = (
-                f"{ErrorNumbers.FB622.value}: unproper type for imported model"
-                f": expected '{self._model_type}', but 'got {type(model)}'."
-            )
-            logger.critical(err_msg)
-            raise FedbiomedModelError(err_msg)
-        self.model = model
-
-    @abstractmethod
-    def _reload(self, filename: str) -> _MT:
-        """Model-class-specific backend to the `reload` method.
-
-        Args:
-            filename: path to the file where the model has been exported.
-
-        Returns:
-            model: reloaded model instance to be wrapped, that will be type-
-                checked as part of the calling `reload` method.
         """
 
     @staticmethod

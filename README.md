@@ -162,15 +162,17 @@ $ ./scripts/fedbiomed_run researcher start
 
 #### run a researcher script
 
-* in a new terminal:
-
-```
+1. in a new terminal:
+```bash
 $ source ./scripts/fedbiomed_environment researcher
 ```
-
-* then you can use any researcher script
-
+2. convert the notebook to a python script
+```bash
+jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb
 ```
+3. then you can use any researcher script
+
+```bash
 $ python ./notebooks/101_getting-started.py
 ```
 

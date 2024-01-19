@@ -19,7 +19,6 @@ configure_wireguard
 trap finish TERM INT QUIT
 
 ## TODO : make more general by including in the VPN configuration file and in user environment
-export FEDBIOMED_NO_RESET=1
 export RESEARCHER_SERVER_HOST=10.222.0.2
 export RESEARCHER_SERVER_PORT=50051
 export PYTHONPATH=/fedbiomed

@@ -6,7 +6,7 @@ import os
 import uuid 
 
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Dict
+from typing import Any, Optional, Dict
 
 from fedbiomed.common.constants import (
     ErrorNumbers,
@@ -87,6 +87,11 @@ class Config(metaclass=ABCMeta):
         """Returns value for given ket and section"""
 
         return self._cfg.get(section, key)
+    
+    
+    def set(self, section, key, value) -> Any:
+        self._cfg.set(section, key, value)
+        return value
 
     def sections(self) -> list:
         """Returns sections of the config"""
