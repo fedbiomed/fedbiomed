@@ -138,7 +138,7 @@ class _IpythonConsoleHandler(logging.Handler):
         """
 
         # `display` is defined in Ipython context
-        display(record.getMessage())
+        display({'text/plain': record.getMessage() }, raw=True)
 
 
 class FedLogger(metaclass=SingletonMeta):
