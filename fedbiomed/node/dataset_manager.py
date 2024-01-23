@@ -8,6 +8,9 @@ Interfaces with the node component database.
 
 import csv
 import os.path
+from pathlib import Path
+import random
+import shutil
 from typing import Iterable, Union, List, Any, Optional, Tuple
 import uuid
 
@@ -291,6 +294,21 @@ class DatasetManager:
                     + "from the MONAI repo:  " + str(e)
                 logger.error(_msg)
                 raise FedbiomedDatasetManagerError(_msg)
+            
+        ask_user = True
+        while ask_user:
+            val = input("How many samples do you want to load? (press enter for the full dataset)")
+            if val == '':
+                ask_user = False
+                
+            elif (int(val) < 58955 and int(val) > 5):
+                ask_user = False
+                download_path = self.sample_image_dataset(download_path,
+                                                          int(val), 
+                                                          6)
+                
+            else:
+                print("Number of samples exceed size of actual dataset")
 
         try:
             dataset = datasets.ImageFolder(download_path,
@@ -313,6 +331,63 @@ class DatasetManager:
         else:
             return self.get_torch_dataset_shape(dataset)
 
+
+    def sample_image_dataset(self, folder_path: str, n_samples: int, n_classes: int) -> str:
+        directories = os.listdir(path=folder_path)
+        
+        n_samples_per_class = n_samples // n_classes
+        rest = n_samples % n_classes
+        
+        new_image_folder_path = os.path.join(Path(folder_path).parent, "MedNIST_sampled")
+        _do_sampling = True
+        if os.path.exists(new_image_folder_path):
+            logger.warning(f"Dataset sampled already exists: {new_image_folder_path}")
+        
+            _do_sampling = input('Do you want to delete existing dataset (y/n)').lower() == 'y'
+            
+            if _do_sampling:
+                shutil.rmtree(new_image_folder_path)
+            else:
+                logger.info(f"Re-loading dataset {new_image_folder_path}")
+        
+        if _do_sampling:    
+            os.makedirs(new_image_folder_path, exist_ok=True)
+            dirs = directories.copy()
+            for directory in directories:
+                
+                label_img_path = os.path.join(folder_path, directory)
+                if not os.path.isdir(label_img_path):
+                    dirs.remove(directory)
+                    continue
+                images_path = os.listdir(label_img_path)
+                random.shuffle(images_path)
+
+                _new_dir_label_name = os.path.join(new_image_folder_path, directory)
+                os.makedirs(_new_dir_label_name, exist_ok=True)
+                _idx_max = min(n_samples_per_class, len(images_path))
+                for image_path in images_path[:_idx_max]:
+                    shutil.copy2(
+                        os.path.join(label_img_path, 
+                                    image_path), 
+                        os.path.join(_new_dir_label_name,  image_path)
+                        )
+
+            while rest > 0:
+
+                directory = dirs[rest]
+                images_path = os.listdir(os.path.join(folder_path, directory))
+                    
+                image_path = images_path[_idx_max]
+                shutil.copy2(
+                    os.path.join(folder_path,
+                                directory, 
+                                image_path),
+                    os.path.join(new_image_folder_path, directory,  image_path)
+                    )
+                rest -= 1
+                
+        return new_image_folder_path
+        
     def load_images_dataset(self,
                             folder_path: str,
                             as_dataset: bool = False) -> Union[List[int],
