@@ -213,7 +213,7 @@ exp = Experiment(tags=tags,
 exp.run()
 
 # model saving
-exp.training_plan().export_model('/tmp/my_trained_model')
+exp.training_plan().export_model('./my_trained_model')
 ```
 
 <p>&nbsp;</p>

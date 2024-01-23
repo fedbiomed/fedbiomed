@@ -1,5 +1,9 @@
 # Fed-BioMed changelog
 
+## 2024-01-18 version 5.0.1
+
+- fix `fedbiomed_vpn` failure due to time race under certain circumstance
+
 ## 2023-12-21 version 5.0.0
 
 - introduce new communication architecture based on gRPC
