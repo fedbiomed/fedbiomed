@@ -297,7 +297,7 @@ class DatasetManager:
             
         ask_user = True
         while ask_user:
-            val = input("How many samples do you want to load? (press enter for the full dataset)")
+            val = input("How many samples do you want to load? (press enter for the full dataset)\n")
             if val == '':
                 ask_user = False
                 
@@ -305,10 +305,11 @@ class DatasetManager:
                 ask_user = False
                 download_path = self.sample_image_dataset(download_path,
                                                           int(val), 
-                                                          6)
+                                                          n_classes=6,
+                                                          new_sampled_dataset_name="MedNIST_sampled")
                 
             else:
-                print("Number of samples exceed size of actual dataset")
+                logger.warning(f"Number of samples exceed size of dataset (asked {val}!)")
 
         try:
             dataset = datasets.ImageFolder(download_path,
@@ -329,16 +330,33 @@ class DatasetManager:
         if as_dataset:
             return dataset
         else:
-            return self.get_torch_dataset_shape(dataset)
+            return self.get_torch_dataset_shape(dataset), download_path
 
 
-    def sample_image_dataset(self, folder_path: str, n_samples: int, n_classes: int) -> str:
+    def sample_image_dataset(self,
+                             folder_path: str,
+                             n_samples: int,
+                             n_classes: int,
+                             new_sampled_dataset_name: str) -> str:
+        """Samples and creates a dataset from a image dataset.
+        Creates from an existing image datasets a sampled dataset that has almost the same amount of samples per classes
+
+        If the sampled dataset already exists, asks the user to delete dataset before sample it once again 
+        Args:
+            folder_path: folder path of the dataset
+            n_samples: number of images to sample
+            n_classes: number of classes the dataset holds
+            new_sampled_dataset_name: name of the new sampled dataset
+
+        Returns:
+            str: the path to the sampled dataset
+        """
         directories = os.listdir(path=folder_path)
         
         n_samples_per_class = n_samples // n_classes
         rest = n_samples % n_classes
         
-        new_image_folder_path = os.path.join(Path(folder_path).parent, "MedNIST_sampled")
+        new_image_folder_path = os.path.join(Path(folder_path).parent, new_sampled_dataset_name)
         _do_sampling = True
         if os.path.exists(new_image_folder_path):
             logger.warning(f"Dataset sampled already exists: {new_image_folder_path}")
@@ -346,11 +364,13 @@ class DatasetManager:
             _do_sampling = input('Do you want to delete existing dataset (y/n)').lower() == 'y'
             
             if _do_sampling:
+                # delete existing dataset
                 shutil.rmtree(new_image_folder_path)
             else:
+                # reload the existing sampled dataset
                 logger.info(f"Re-loading dataset {new_image_folder_path}")
         
-        if _do_sampling:    
+        if _do_sampling:
             os.makedirs(new_image_folder_path, exist_ok=True)
             dirs = directories.copy()
             for directory in directories:
@@ -506,8 +526,8 @@ class DatasetManager:
 
         elif data_type == 'mednist':
             assert os.path.isdir(path), f'Folder {path} for MedNIST Dataset does not exist.'
-            shape = self.load_mednist_database(path)
-            path = os.path.join(path, 'MedNIST')
+            shape, path = self.load_mednist_database(path)
+            #os.path.join(path, 'MedNIST')
 
         elif data_type == 'csv':
             assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
