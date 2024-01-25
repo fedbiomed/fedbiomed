@@ -20,8 +20,6 @@ class TestResearcherControl(unittest.TestCase):
     def test_01_researcher_control_initialize(self):
 
         self.control.initialize()
-
-        print(dir(self.subparsers.choices["start"]))
         self.assertTrue("start" in self.subparsers.choices)
         self.assertTrue("--directory" in self.subparsers.choices["start"]._option_string_actions)
 
@@ -39,7 +37,6 @@ class TestResearcherControl(unittest.TestCase):
 
         with self.assertRaises(KeyboardInterrupt):
             self.control.start(args)
-
 
 class TestResearcherCLI(ResearcherTestCase):
 

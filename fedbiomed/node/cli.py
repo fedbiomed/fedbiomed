@@ -112,7 +112,7 @@ class DatasetArgumentParser(CLIArgumentParser):
         )
 
         # List option
-        list = dataset_subparsers.add_parser(
+        list_ = dataset_subparsers.add_parser(
             "list",
             help="List datasets that are deployed in the node.")
 
@@ -154,12 +154,12 @@ class DatasetArgumentParser(CLIArgumentParser):
 
 
         add.set_defaults(func=self.add)
-        list.set_defaults(func=self.list)
+        list_.set_defaults(func=self.list)
         delete.set_defaults(func=self.delete)
-
 
     def add(self, args):
         """Adds datasets"""
+
         global add_database
 
         add_database = imp_cli_utils().add_database
@@ -171,7 +171,7 @@ class DatasetArgumentParser(CLIArgumentParser):
             return self._add_dataset_from_file(path=args.file)
 
         # All operation is handled by CLI utils add_database
-        add_database()
+        return add_database()
 
     def list(self, unused_args):
         """List datasets
@@ -249,6 +249,7 @@ class DatasetArgumentParser(CLIArgumentParser):
 
 
 class TrainingPlanArgumentParser(CLIArgumentParser):
+    """Argument parser for training-plan operations"""
 
     def initialize(self):
 
@@ -326,6 +327,7 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
 
 
 class NodeControl(CLIArgumentParser):
+    """CLI argument parser for starting the node"""
 
     def initialize(self):
         """Initializes missinon control argument parser"""
@@ -391,9 +393,10 @@ class NodeControl(CLIArgumentParser):
             logger.critical("Node stopped.")
             # we may add extra information for the user depending on the error
 
-        except Exception as e:
-            # must send info to the researcher (no mqqt should be handled by the previous FedbiomedError)
-            _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(e))
+        except Exception as exp:
+            # must send info to the researcher (no mqqt should be handled
+            # by the previous FedbiomedError)
+            _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
             logger.critical("Node stopped.")
 
 
