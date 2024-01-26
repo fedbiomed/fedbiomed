@@ -1,0 +1,228 @@
+import argparse
+from pathlib import Path
+import random
+import shutil
+import os
+from typing import Any, List, Optional, Tuple, Union
+from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
+
+from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.config import NodeConfig 
+from fedbiomed.node.environ import environ
+from torchvision import transforms, datasets
+
+
+
+def parse_args():
+    """Argument Parser"""
+    parser = argparse.ArgumentParser(description='MEDNIST sampler')
+    parser.add_argument('-f', '--root_folder', required=False, type=str, default=environ['ROOT_DIR'],
+                        help='')
+    parser.add_argument('-F', '--force',  action=argparse.BooleanOptionalAction, required=False, type=bool, default=False,
+                        help='forces overwriting a config file')
+    parser.add_argument('-n', '--number_nodes', required=False, type=int, default=1, help="number of nodes to create")
+    return parser.parse_args()
+
+
+def manage_config_file(args: argparse.ArgumentParser,
+                       mednist_center_name: str = "mednist",
+                       config_files: Optional[List[str]] = None):
+    """Creates config file for subsampled datasets
+
+    Args:
+        args (argparse.ArgumentParser): args parser
+        mednist_center_name (str, optional): name for the node id, as well as the config file and the databse json.
+            Defaults to "mednist".
+        config_files (Optional[List[str]], optional): list of config names. Calling method will append the name of the config file to the list.
+        Defaults to None.
+    """
+    mednist_center_name = "config_" + mednist_center_name
+    config = NodeConfig(root=environ["ROOT_DIR"], name=f"{mednist_center_name}.ini".lower(), auto_generate=False)
+    if config.is_config_existing() and not args.force:
+        print(f"**Warning: config file for {mednist_center_name.lower()} already exists. To overwrite, please specify `--force` option")
+    else:
+        config.generate(force=args.force)
+        config.set('default', 'id', mednist_center_name.lower())
+        db_path_old = environ['DB_PATH']
+
+        db_path = os.path.join(Path(db_path_old).parent, 'db_NODE_' + mednist_center_name.lower() + '.json')
+        config.set('default', 'db', db_path)
+        environ['DB_PATH'] = db_path
+        config.write()
+
+    if config_files is not None:
+        config_files.append(mednist_center_name.lower())
+
+
+def ask_nb_sample_for_mednist_dataset() -> str:
+    """Asks to the user the number of samples
+    
+    Returns:
+        the value inputed by the user
+    """
+    ask_user = True
+    while ask_user:
+        val = input("How many samples do you want to load? (press enter for the full dataset)\n")
+        if val == '':
+            ask_user = False
+
+        elif (int(val) < 58955 and int(val) > 5):
+            ask_user = False
+
+        else:
+            print(f"Number of samples exceed size of dataset (asked {val}!)")
+            
+    return val
+
+
+
+class MedNISTDataset(DatasetManager):
+    """"""
+    def load_mednist_database(self, path: str, as_dataset: bool = False) -> Tuple[List[int] | Any]:
+        # little hack that download MedNIST dataset if it is not located in directory and save in the database 
+        # the sampled values 
+        val, download_path = super().load_mednist_database(Path(path).parent, as_dataset)
+
+        
+        dataset = datasets.ImageFolder(path,
+                                       transform=transforms.ToTensor())
+        
+        val = self.get_torch_dataset_shape(dataset)
+        return val, path
+
+    def sample_image_dataset(self,
+                             folder_path: str,
+                             n_samples: int,
+                             n_classes: int,
+                             new_sampled_dataset_name: str) -> str:
+        """Samples and creates a dataset from a image dataset.
+        Creates from an existing image datasets a sampled dataset that has almost the same amount of samples per classes
+
+        If the sampled dataset already exists, asks the user to delete dataset before sample it once again 
+        Args:
+            folder_path: folder path of the dataset
+            n_samples: number of images to sample
+            n_classes: number of classes the dataset holds
+            new_sampled_dataset_name: name of the new sampled dataset
+
+        Returns:
+            str: the path to the sampled dataset
+        """
+        directories = os.listdir(path=folder_path)
+        
+        n_samples_per_class = n_samples // n_classes
+        rest = n_samples % n_classes
+        
+        new_image_folder_path = os.path.join(Path(folder_path).parent, new_sampled_dataset_name)
+        _do_sampling = True
+        if os.path.exists(new_image_folder_path):
+            print(f"Dataset sampled already exists: {new_image_folder_path}")
+        
+            _do_sampling = input('Do you want to delete existing dataset (y/n)').lower() == 'y'
+            
+            if _do_sampling:
+                # delete existing dataset
+                shutil.rmtree(new_image_folder_path)
+                print("Deletion completed!")
+            else:
+                # reload the existing sampled dataset
+                print(f"Re-loading dataset {new_image_folder_path}")
+        
+        if _do_sampling:
+            os.makedirs(new_image_folder_path, exist_ok=True)
+            dirs = directories.copy()
+            for directory in directories:
+                
+                label_img_path = os.path.join(folder_path, directory)
+                if not os.path.isdir(label_img_path):
+                    dirs.remove(directory)
+                    continue
+                images_path = os.listdir(label_img_path)
+                random.shuffle(images_path)
+
+                _new_dir_label_name = os.path.join(new_image_folder_path, directory)
+                os.makedirs(_new_dir_label_name, exist_ok=True)
+                _idx_max = min(n_samples_per_class, len(images_path))
+                for image_path in images_path[:_idx_max]:
+                    print("FIRST", os.path.join(label_img_path, 
+                                    image_path), 
+                        os.path.join(_new_dir_label_name,  image_path))
+                    shutil.copy2(
+                        os.path.join(label_img_path, 
+                                     image_path), 
+                        os.path.join(_new_dir_label_name,  image_path)
+                        )
+
+            while rest > 0:  # here rest < n_classes
+
+                directory = dirs[rest]
+                images_path = os.listdir(os.path.join(folder_path, directory))
+                    
+                image_path = images_path[_idx_max]
+                shutil.copy2(
+                    os.path.join(folder_path,
+                                 directory, 
+                                 image_path),
+                    os.path.join(new_image_folder_path, directory, image_path)
+                )
+                print("SECOND", os.path.join(folder_path,
+                                directory, 
+                                image_path),
+                    os.path.join(new_image_folder_path, directory, image_path))
+                rest -= 1
+                
+        return new_image_folder_path
+
+
+
+if __name__ == '__main__':
+    
+    args = parse_args()
+    root_folder = os.path.abspath(os.path.expanduser(args.root_folder))
+    assert os.path.isdir(root_folder), f'Folder does not exist: {root_folder}'
+    data_folder = os.path.join(root_folder, 'notebooks', 'data')
+
+    n_nodes = args.number_nodes
+    
+    config_files = []
+    for n in range(abs(n_nodes)):
+        db_path_old = environ['DB_PATH']
+        _name = f"MedNIST_{n+1}_sampled"
+        #import pdb; pdb.set_trace()
+        n_sample: Union[str, int] = ask_nb_sample_for_mednist_dataset()
+        
+        if n_sample != '':  # this means user has pressed `enter` -> load the whole MedNIST dataset
+            manage_config_file(args, _name, config_files)
+            dataset = MedNISTDataset()
+            d_path = dataset.sample_image_dataset(os.path.join(data_folder, 'MedNIST'),
+                                                  int(n_sample), 
+                                                  n_classes=6,
+                                                  new_sampled_dataset_name=_name)
+        else: 
+            _name = f"MedNIST_{n+1}"
+            manage_config_file(args, _name, config_files)
+            d_path = os.path.join(data_folder, 'MedNIST')
+            dataset = MedNISTDataset()
+        
+        try:
+            dataset.add_database(_name, 
+                                 'mednist',
+                                 ['#MEDNIST', "#dataset"],
+                                 description="MedNIST dataset for transfer learning",
+                                 path=d_path,
+                                 )
+        except FedbiomedDatasetManagerError as e:
+            print("Cannot generate dataset because a dataset has been peviously created.")
+            print(f"please run ./scripts/fedbiomed_run node config {config_files[n]}.ini --delete and remove the dataset tagged as {_name}")
+            raise e
+        print("NODE ID", environ['NODE_ID'])
+        environ['DB_PATH'] = db_path_old  # resetting db_path to its initial value
+    print("Done ! please find below your config files:")
+    for entry in config_files:
+        print("config file: ", entry + '.ini')
+        
+    print(f"to launch the node, please run in distinct terminal:")
+    for entry in config_files:
+        print(f"./scripts/fedbiomed_run node config {entry}.ini start")
+
+print("\nHINT: to start form fresh with new datasets, please run a source ./scripts/fedbiomed_environment clean")
