@@ -46,6 +46,7 @@ class DatasetManager:
         """Constructor of the class.
         """
         self._db = TinyDB(environ['DB_PATH'])
+        print("ENVRON", environ['DB_PATH'])
         self._database = Query()
 
         # don't use DB read cache to ensure coherence
@@ -251,8 +252,12 @@ class DatasetManager:
 
     def load_mednist_database(self,
                               path: str,
-                              as_dataset: bool = False) -> Union[List[int],
-                                                                 torch.utils.data.Dataset]:
+                              as_dataset: bool = False) -> Tuple[
+                                                              Union[
+                                                                  List[int],
+                                                                  torch.utils.data.Dataset],
+                                                              str
+                                                                ]:
         """Loads the MedNist dataset.
 
         Args:
@@ -296,20 +301,20 @@ class DatasetManager:
                 raise FedbiomedDatasetManagerError(_msg)
             
         ask_user = True
-        while ask_user:
-            val = input("How many samples do you want to load? (press enter for the full dataset)\n")
-            if val == '':
-                ask_user = False
+        # while ask_user:
+        #     val = input("How many samples do you want to load? (press enter for the full dataset)\n")
+        #     if val == '':
+        #         ask_user = False
                 
-            elif (int(val) < 58955 and int(val) > 5):
-                ask_user = False
-                download_path = self.sample_image_dataset(download_path,
-                                                          int(val), 
-                                                          n_classes=6,
-                                                          new_sampled_dataset_name="MedNIST_sampled")
+        #     elif (int(val) < 58955 and int(val) > 5):
+        #         ask_user = False
+        #         download_path = self.sample_image_dataset(download_path,
+        #                                                   int(val), 
+        #                                                   n_classes=6,
+        #                                                   new_sampled_dataset_name="MedNIST_sampled")
                 
-            else:
-                logger.warning(f"Number of samples exceed size of dataset (asked {val}!)")
+        #     else:
+        #         logger.warning(f"Number of samples exceed size of dataset (asked {val}!)")
 
         try:
             dataset = datasets.ImageFolder(download_path,
@@ -328,7 +333,7 @@ class DatasetManager:
             raise FedbiomedDatasetManagerError(_msg)
 
         if as_dataset:
-            return dataset
+            return dataset, download_path
         else:
             return self.get_torch_dataset_shape(dataset), download_path
 
@@ -527,7 +532,6 @@ class DatasetManager:
         elif data_type == 'mednist':
             assert os.path.isdir(path), f'Folder {path} for MedNIST Dataset does not exist.'
             shape, path = self.load_mednist_database(path)
-            #os.path.join(path, 'MedNIST')
 
         elif data_type == 'csv':
             assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
@@ -587,6 +591,9 @@ class DatasetManager:
             dlp_id = None
         if dlp_id is not None:
             new_database['dlp_id'] = dlp_id
+        
+        print("ADD TO DATABASE", new_database, environ['DB_PATH'])
+        print("CHEVKS",  self._dataset_table.get(self._database.dataset_id == dataset_id, ))
         self._dataset_table.insert(new_database)
 
         return dataset_id
