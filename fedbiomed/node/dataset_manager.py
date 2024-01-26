@@ -46,7 +46,6 @@ class DatasetManager:
         """Constructor of the class.
         """
         self._db = TinyDB(environ['DB_PATH'])
-        print("ENVRON", environ['DB_PATH'])
         self._database = Query()
 
         # don't use DB read cache to ensure coherence
@@ -276,10 +275,13 @@ class DatasetManager:
                 - one of the classes path is empty
 
         Returns:
-            Depends on the value of the parameter `as_dataset`: If
+            Tuple of 2 items:
+            First item Depends on the value of the parameter `as_dataset`: If
             set to True,  returns dataset (type: torch.utils.data.Dataset).
             If set to False, returns the size of the dataset stored inside
             a list (type: List[int])
+            Second item is the path used to download the MedNIST dataset, that needs to be saved as an
+            entry in the dataset
         """
         download_path = os.path.join(path, 'MedNIST')
         if not os.path.isdir(download_path):
@@ -299,22 +301,6 @@ class DatasetManager:
                     + "from the MONAI repo:  " + str(e)
                 logger.error(_msg)
                 raise FedbiomedDatasetManagerError(_msg)
-            
-        ask_user = True
-        # while ask_user:
-        #     val = input("How many samples do you want to load? (press enter for the full dataset)\n")
-        #     if val == '':
-        #         ask_user = False
-                
-        #     elif (int(val) < 58955 and int(val) > 5):
-        #         ask_user = False
-        #         download_path = self.sample_image_dataset(download_path,
-        #                                                   int(val), 
-        #                                                   n_classes=6,
-        #                                                   new_sampled_dataset_name="MedNIST_sampled")
-                
-        #     else:
-        #         logger.warning(f"Number of samples exceed size of dataset (asked {val}!)")
 
         try:
             dataset = datasets.ImageFolder(download_path,
@@ -337,82 +323,6 @@ class DatasetManager:
         else:
             return self.get_torch_dataset_shape(dataset), download_path
 
-
-    def sample_image_dataset(self,
-                             folder_path: str,
-                             n_samples: int,
-                             n_classes: int,
-                             new_sampled_dataset_name: str) -> str:
-        """Samples and creates a dataset from a image dataset.
-        Creates from an existing image datasets a sampled dataset that has almost the same amount of samples per classes
-
-        If the sampled dataset already exists, asks the user to delete dataset before sample it once again 
-        Args:
-            folder_path: folder path of the dataset
-            n_samples: number of images to sample
-            n_classes: number of classes the dataset holds
-            new_sampled_dataset_name: name of the new sampled dataset
-
-        Returns:
-            str: the path to the sampled dataset
-        """
-        directories = os.listdir(path=folder_path)
-        
-        n_samples_per_class = n_samples // n_classes
-        rest = n_samples % n_classes
-        
-        new_image_folder_path = os.path.join(Path(folder_path).parent, new_sampled_dataset_name)
-        _do_sampling = True
-        if os.path.exists(new_image_folder_path):
-            logger.warning(f"Dataset sampled already exists: {new_image_folder_path}")
-        
-            _do_sampling = input('Do you want to delete existing dataset (y/n)').lower() == 'y'
-            
-            if _do_sampling:
-                # delete existing dataset
-                shutil.rmtree(new_image_folder_path)
-            else:
-                # reload the existing sampled dataset
-                logger.info(f"Re-loading dataset {new_image_folder_path}")
-        
-        if _do_sampling:
-            os.makedirs(new_image_folder_path, exist_ok=True)
-            dirs = directories.copy()
-            for directory in directories:
-                
-                label_img_path = os.path.join(folder_path, directory)
-                if not os.path.isdir(label_img_path):
-                    dirs.remove(directory)
-                    continue
-                images_path = os.listdir(label_img_path)
-                random.shuffle(images_path)
-
-                _new_dir_label_name = os.path.join(new_image_folder_path, directory)
-                os.makedirs(_new_dir_label_name, exist_ok=True)
-                _idx_max = min(n_samples_per_class, len(images_path))
-                for image_path in images_path[:_idx_max]:
-                    shutil.copy2(
-                        os.path.join(label_img_path, 
-                                    image_path), 
-                        os.path.join(_new_dir_label_name,  image_path)
-                        )
-
-            while rest > 0:
-
-                directory = dirs[rest]
-                images_path = os.listdir(os.path.join(folder_path, directory))
-                    
-                image_path = images_path[_idx_max]
-                shutil.copy2(
-                    os.path.join(folder_path,
-                                directory, 
-                                image_path),
-                    os.path.join(new_image_folder_path, directory,  image_path)
-                    )
-                rest -= 1
-                
-        return new_image_folder_path
-        
     def load_images_dataset(self,
                             folder_path: str,
                             as_dataset: bool = False) -> Union[List[int],
