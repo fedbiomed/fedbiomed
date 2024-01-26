@@ -67,8 +67,8 @@ dependencies:
       - declearn[torch1] ~=2.3.2
       - gmpy2 >=2.1,< 2.2
       # grpc
-      - grpcio ~=1.57.0
-      - grpcio-tools ~=1.57.0
+      - grpcio ~=1.60.0
+      - grpcio-tools ~=1.60.0
 #### Notebook-specific packages ####
 # This section contains packages that are needed only to run specific notebooks
       - unet >=0.7.7,<0.8.0

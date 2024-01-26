@@ -49,6 +49,7 @@ import logging.handlers
 from typing import Callable, Any
 
 from fedbiomed.common.singleton import SingletonMeta
+from fedbiomed.common.ipython import is_ipython
 
 # default values
 DEFAULT_LOG_FILE = 'mylog.log'
@@ -123,6 +124,21 @@ class _GrpcHandler(logging.Handler):
             except Exception:
                 logging.error("Not able to send log message to remote party")
 
+
+class _IpythonConsoleHandler(logging.Handler):
+    """Logger handler for Ipython consoles.
+
+    Do not use in other contexts.
+    """
+    def emit(self, record: logging.LogRecord):
+        """Emits the logged record
+
+        Args:
+            record: message emitted by the logger
+        """
+
+        # `display` is defined in Ipython context
+        display({'text/plain': self.format(record)}, raw=True)
 
 
 class FedLogger(metaclass=SingletonMeta):
@@ -271,8 +287,10 @@ class FedLogger(metaclass=SingletonMeta):
             format: the format string of the logger
             level: initial level of the logger for this handler (optional) if not given, the default level is set
         """
-
-        handler = logging.StreamHandler()
+        if is_ipython():
+            handler = _IpythonConsoleHandler()
+        else:
+            handler = logging.StreamHandler()
 
         handler.setLevel(self._internal_level_translator(level))
 
