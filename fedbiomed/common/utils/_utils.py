@@ -17,6 +17,7 @@ import numpy as np
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.ipython import is_ipython
 
 
 def read_file(path):
@@ -70,24 +71,6 @@ def get_class_source(cls: Callable) -> str:
     else:
         return inspect.getsource(cls)
 
-
-def is_ipython() -> bool:
-    """
-    Function that checks whether the codes (function itself) is executed in ipython kernel or not
-
-    Returns:
-        True, if python interpreter is IPython
-    """
-
-    ipython_shells = ['ZMQInteractiveShell', 'TerminalInteractiveShell']
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell in ipython_shells:
-            return True
-        else:
-            return False
-    except NameError:
-        return False
 
 def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:
     """Import a module from a file and create an instance of a specified class of the module.
