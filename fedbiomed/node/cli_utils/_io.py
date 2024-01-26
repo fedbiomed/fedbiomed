@@ -66,7 +66,7 @@ def pick_with_tkinter(mode: str = 'file') -> str:
         else:
             return tkinter.filedialog.askdirectory()
 
-    except (ModuleNotFoundError, _tkinter.TclError):
+    except (ModuleNotFoundError, RuntimeError, _tkinter.TclError):
         # handling case where tkinter package cannot be found on system
         # or if tkinter crashes
         if mode == 'file' or mode == 'txt':
