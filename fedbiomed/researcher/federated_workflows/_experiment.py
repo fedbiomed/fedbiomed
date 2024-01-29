@@ -463,7 +463,12 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError : bad training_data type
         """
         super().set_training_data(training_data, from_tags)
-        self._aggregator.set_fds(self._fds)
+        if self._aggregator is not None and self._fds is not None:
+            # update the aggregator's training data
+            self._aggregator.set_fds(self._fds)
+        if self._node_selection_strategy is not None and self._fds is not None:
+            # update the node selection strategy's training data
+            self._node_selection_strategy.set_fds(self._fds)
 
     @exp_exceptions
     def set_agg_optimizer(
@@ -529,6 +534,7 @@ class Experiment(TrainingPlanWorkflow):
             elif isinstance(node_selection_strategy, Strategy):
                 # an object of a proper class is provided, nothing to do
                 self._node_selection_strategy = node_selection_strategy
+                self._node_selection_strategy.set_fds(self._fds)
             else:
                 # other bad type or object
                 msg = ErrorNumbers.FB410.value + \

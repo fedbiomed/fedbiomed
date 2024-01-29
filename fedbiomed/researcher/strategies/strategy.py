@@ -19,6 +19,10 @@ class Strategy:
     """
     Default Strategy as Parent class. Custom strategy classes must inherit from this parent class.
 
+    !!! warning "Inconsistent history"
+        The Strategy class keeps a history of sampled and successful nodes. No attempt is made to keep this history
+        consistent when the `_fds` member is modified.
+
     """
 
     def __init__(self, data: FederatedDataSet):
@@ -28,10 +32,16 @@ class Strategy:
             data: Object that includes all active nodes and the meta-data of the dataset that is going to be
                 used for federated training.
         """
-        self._fds = data
+        self._fds = None
         self._sampling_node_history = {}
         self._success_node_history = {}
         self._parameters = None
+
+        self.set_fds(data)
+
+    def set_fds(self, data: FederatedDataSet) -> FederatedDataSet:
+        self._fds = data
+        return self._fds
 
     def sample_nodes(self, round_i: int):
         """
