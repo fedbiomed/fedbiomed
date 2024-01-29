@@ -76,6 +76,7 @@ nav:
         - "Using GPU" : './user-guide/nodes/using-gpu.md'
         - "Node GUI" : './user-guide/nodes/node-gui.md'
       - Researcher:
+        - "Configuring Researcher": './user-guide/researcher/configuring-researcher.md'
         - "Training Plan": './user-guide/researcher/training-plan.md'
         - "Training Data": './user-guide/researcher/training-data.md'
         - Experiment: './user-guide/researcher/experiment.md'
