@@ -13,9 +13,10 @@ from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers, JOB_PREFIX, __breakpoints_version__
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
+from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.utils import is_ipython, raise_for_version_compatibility, __default_version__
+from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ

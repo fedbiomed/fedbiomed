@@ -3,7 +3,10 @@
 
 """Code of the researcher. Implements the experiment orchestration"""
 
-import copy, inspect, os, uuid
+import copy
+import inspect
+import os
+import uuid
 from re import findall
 from typing import Any, Dict, Optional, List, Tuple, Type, TypeVar, Union
 
