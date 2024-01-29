@@ -406,7 +406,7 @@ class Metrics(object):
                 if sum(y_true) != sum([round(i) for i in y_true]):
                     y_true = np.where(y_true > 0.5, 1, 0)
                     logger.warning(f"Target data seems to be a regression, metric {metric.name} might "
-                                   "not be appropriate")
+                                   "not be appropriate", broadcast=True)
 
             # If y_true is one 2D array and y_pred is 1D array
             # Example: y_true: [ [0,1], [1,0]] | y_pred : [0.1, 0.5]
@@ -483,8 +483,6 @@ class Metrics(object):
         # Check target variable is multi class or binary
         if len(np.unique(y_true)) > 2:
             average = parameters.get('average', 'weighted')
-            logger.info(f'Actual/True values (y_true) has more than two levels, using multiclass `{average}` '
-                        f'calculation for the metric {metric}')
 
             encoder = OneHotEncoder()
             y_true = np.expand_dims(y_true, axis=1)

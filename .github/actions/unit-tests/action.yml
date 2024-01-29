@@ -20,7 +20,6 @@ runs:
         source ~/.bashrc
         conda clean -i -y
         ./scripts/configure_conda researcher
-        ./scripts/fedbiomed_run network
       shell: bash -l {0}
 
     - name: Run unit tests 
@@ -37,9 +36,4 @@ runs:
         echo $COVERAGE 
         echo "coverage=$(echo $COVERAGE)" >> $GITHUB_OUTPUT
       shell: bash -l {0}
-    
-    - name: Stop network
-      if: always()
-      run: | 
-        ./scripts/fedbiomed_run network stop
-      shell: bash -l {0}
+

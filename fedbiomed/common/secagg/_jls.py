@@ -76,7 +76,6 @@ def quantize(
     if clipping_range is None:
         clipping_range = VEParameters.CLIPPING_RANGE
 
-    # Check clipping range
     _check_clipping_range(weights, clipping_range)
 
     f = np.vectorize(
@@ -90,6 +89,36 @@ def quantize(
     quantized_list = f(weights).astype(int)
 
     return quantized_list.tolist()
+
+
+def multiply(xs: List[int], k: int) -> List[int]:
+    """
+    Multiplies a list of integers by a constant
+
+    Args:
+        xs: List of integers
+        k: Constant to multiply by
+
+    Returns:
+        List of multiplied integers
+    """
+    xs = np.array(xs, dtype=np.uint32)
+    return (xs * k).tolist()
+
+
+def divide(xs: List[int], k: int) -> List[int]:
+    """
+    Divides a list of integers by a constant
+
+    Args:
+        xs: List of integers
+        k: Constant to divide by
+
+    Returns:
+        List of divided integers
+    """
+    xs = np.array(xs, dtype=np.uint32)
+    return (xs / k).tolist()
 
 
 def reverse_quantize(
@@ -111,8 +140,11 @@ def reverse_quantize(
     if clipping_range is None:
         clipping_range = VEParameters.CLIPPING_RANGE
 
+    max_range = clipping_range
+    min_range = -clipping_range
+    step_size = (max_range - min_range) / (target_range - 1)
     f = np.vectorize(
-        lambda x: x / target_range * (2 * clipping_range) - clipping_range
+        lambda x: (min_range + step_size * x)
     )
 
     weights = np.array(weights)
@@ -717,11 +749,14 @@ class JoyeLibert:
     """
 
     def __init__(self):
-        """Constructs the class"""
+        """Constructs the class
 
+        VEParameters.TARGET_RANGE + VEParameters.WEIGHT_RANGE should be
+        equal or less than 2**32
+        """
         self._vector_encoder = VES(
             ptsize=VEParameters.KEY_SIZE // 2,
-            valuesize=ceil(log2(VEParameters.TARGET_RANGE))
+            valuesize=ceil(log2(VEParameters.TARGET_RANGE) + log2(VEParameters.WEIGHT_RANGE))
         )
 
     def protect(self,

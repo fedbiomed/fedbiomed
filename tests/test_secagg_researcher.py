@@ -1,32 +1,38 @@
 import copy
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock, PropertyMock
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_case import ResearcherTestCase
+from testsupport.base_mocks import MockRequestModule
 #############################################################
 import fedbiomed.researcher.secagg._secagg_context
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.constants import SecaggElementTypes
+from fedbiomed.common.message import SecaggReply, SecaggDeleteReply
 from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
-from fedbiomed.researcher.responses import Responses
+from fedbiomed.researcher.requests import FederatedRequest
 
 
-class BaseTestCaseSecaggContext(ResearcherTestCase):
+
+class BaseTestCaseSecaggContext(ResearcherTestCase, MockRequestModule):
 
     def setUp(self) -> None:
+
+        MockRequestModule.setUp(self, "fedbiomed.researcher.secagg._secagg_context.Requests")
+
         self.patch_cm = patch.object(fedbiomed.researcher.secagg._secagg_context, "_CManager")
         self.patch_mpc = patch.object(fedbiomed.researcher.secagg._secagg_context, "MPCController")
-        self.patch_requests = patch("fedbiomed.researcher.secagg._secagg_context.Requests")
+        # self.patch_requests = patch("fedbiomed.researcher.secagg._secagg_context.Requests")
         self.patch_skmanager = patch.object(fedbiomed.researcher.secagg._secagg_context, "_SKManager")
         self.patch_bpmanager = patch.object(fedbiomed.researcher.secagg._secagg_context, "_BPrimeManager")
 
         self.mock_cm = self.patch_cm.start()
         self.mock_mpc = self.patch_mpc.start()
-        self.m_requests = self.patch_requests.start()
+        # self.m_requests = self.patch_requests.start()
         self.mock_skmanager = self.patch_skmanager.start()
         self.mock_bpmanager = self.patch_bpmanager.start()
 
@@ -40,12 +46,20 @@ class BaseTestCaseSecaggContext(ResearcherTestCase):
             return_value=environ["TMP_DIR"]
         )
 
+        # self.mock_federated_req = MagicMock(pec=FederatedRequest)
+        # self.mock_policy = MagicMock()
+        # self.m_requests.return_value.send.return_value = self.mock_federated_req
+        # type(self.mock_federated_req).policy = PropertyMock(return_value=self.mock_policy)
+        # self.mock_policy.has_stopped_any.return_value = False
+
+
     def tearDown(self) -> None:
         self.patch_cm.stop()
         self.patch_mpc.stop()
-        self.patch_requests.stop()
         self.patch_skmanager.stop()
         self.patch_bpmanager.stop()
+
+        super().tearDown()
 
 
 class TestBaseSecaggContext(BaseTestCaseSecaggContext):
@@ -111,55 +125,35 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
         with self.assertRaises(FedbiomedSecaggError):
             self.secagg_context.set_job_id(1111)
 
-    @patch('time.sleep')
-    def test_secagg_context_03_secagg_round(
-            self,
-            patch_time_sleep):
+
+    def test_secagg_context_03_secagg_round(self):
         """Setup then delete a secagg class"""
 
-        reply = {'researcher_id': environ["ID"],
-                 'secagg_id': self.secagg_context.secagg_id,
-                 'sequence': 123,
-                 'success': True,
-                 'node_id': "party2",
-                 'msg': 'Fake request',
-                 'command': 'secagg'}
+        replies = { 'node-1': SecaggReply(**{
+            'researcher_id': environ["ID"],
+            'secagg_id': self.secagg_context.secagg_id,
+            'success': True,
+            'node_id': "party2",
+            'msg': 'Fake request',
+            'command': 'secagg'})}
 
-        reply2 = copy.deepcopy(reply)
-        reply2["node_id"] = "party3"
+        replies.update({'node-2': copy.deepcopy(replies["node-1"])})
+        replies["node-2"].node_id = "party3"
 
         # Patch response
-        self.m_requests.return_value.get_responses.return_value = Responses([reply, reply2])
-        self.m_requests.return_value.send_message.return_value = 123
+       
+        self.mock_federated_request.replies.return_value = replies
+        self.mock_federated_request.errors.return_value = []
         self.secagg_context._element = SecaggElementTypes.SERVER_KEY
 
         with patch("fedbiomed.researcher.secagg.SecaggContext._payload") as mock_payload:
             mock_payload.return_value = ("KEY", True)
-            result = self.secagg_context.setup(timeout=1)
+            result = self.secagg_context.setup()
             self.assertTrue(result)
 
             with self.assertRaises(FedbiomedSecaggError):
-                reply2["node_id"] = "party5"
-                self.secagg_context.setup(timeout=1)
-
-            with self.assertRaises(FedbiomedSecaggError):
-                reply2["researcher_id"] = "party556"
-                self.secagg_context.setup(timeout=1)
-
-            with self.assertRaises(FedbiomedSecaggError):
-                reply2["researcher_id"] = "party556"
-                self.secagg_context.setup(timeout="!23")
-
-            with self.assertRaises(FedbiomedSecaggError):
-                reply2["researcher_id"] = environ["ID"]
-                reply2["node_id"] = "party3"
-                reply2["sequence"] = 000
-                self.secagg_context.setup(timeout=1)
-
-            with self.assertRaises(FedbiomedSecaggError):
-                reply2["secagg_id"] = "non-id"
-                reply2["sequence"] = 123
-                self.secagg_context.setup(timeout=1)
+                self.mock_policy.has_stopped_any.return_value = True
+                self.secagg_context.setup()
 
     def test_secagg_06_breakpoint(
             self):
@@ -307,36 +301,32 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
             patch_time_sleep):
         """Setup then delete a secagg class"""
 
-        reply = {'researcher_id': environ["ID"],
-                 'secagg_id': self.srvkey_context.secagg_id,
-                 'sequence': 123,
-                 'success': True,
-                 'node_id': "party2",
-                 'msg': 'Fake request',
-                 'command': 'secagg-delete'}
+        replies = { 'node-1': SecaggDeleteReply(**{
+                    'researcher_id': environ["ID"],
+                    'secagg_id': self.srvkey_context.secagg_id,
+                    'success': True,
+                    'node_id': "party2",
+                    'msg': 'Fake request',
+                    'command': 'secagg-delete'})}
 
-        reply2 = copy.deepcopy(reply)
-        reply2["node_id"] = "party3"
+        replies.update({'node-2': copy.deepcopy(replies["node-1"])})
+        replies["node-2"].node_id = "party3"
 
         # Patch response
-        self.m_requests.return_value.get_responses.return_value = Responses([reply, reply2])
-        self.m_requests.return_value.send_message.return_value = 123
+        self.mock_federated_request.replies.return_value = replies
         self.srvkey_context._element = SecaggElementTypes.SERVER_KEY
 
-        result = self.srvkey_context.delete(timeout=1)
+        result = self.srvkey_context.delete()
         self.assertTrue(result)
 
         with patch("fedbiomed.researcher.secagg.SecaggContext._delete_payload") as mock_payload:
             mock_payload.return_value = ("KEY", True)
-            result = self.srvkey_context.delete(timeout=1)
+            result = self.srvkey_context.delete()
             self.assertTrue(result)
 
             mock_payload.return_value = ("KEY", False)
-            result = self.srvkey_context.delete(timeout=1)
+            result = self.srvkey_context.delete()
             self.assertFalse(result)
-
-        with self.assertRaises(FedbiomedSecaggError):
-            self.srvkey_context.delete(timeout="oops")
 
     def test_servkey_context_05_delete_payload_fail(self):
         """Test when removing from the database fails"""
@@ -414,36 +404,33 @@ class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
             patch_time_sleep):
         """Setup then delete a secagg class"""
 
-        reply = {'researcher_id': environ["ID"],
-                 'secagg_id': self.biprime_context.secagg_id,
-                 'sequence': 123,
-                 'success': True,
-                 'node_id': "party2",
-                 'msg': 'Fake request',
-                 'command': 'secagg-delete'}
+        replies = { 'node-1': SecaggDeleteReply(**{
+                    'researcher_id': environ["ID"],
+                    'secagg_id': self.biprime_context.secagg_id,
+                    'success': True,
+                    'node_id': "party2",
+                    'msg': 'Fake request',
+                    'command': 'secagg-delete'})}
 
-        reply2 = copy.deepcopy(reply)
-        reply2["node_id"] = "party3"
+        replies.update({'node-2': copy.deepcopy(replies["node-1"])})
+        replies["node-2"].node_id = "party3"
+
 
         # Patch response
-        self.m_requests.return_value.get_responses.return_value = Responses([reply, reply2])
-        self.m_requests.return_value.send_message.return_value = 123
+        self.mock_federated_request.replies.return_value = replies
         self.biprime_context._element = SecaggElementTypes.SERVER_KEY
 
-        result = self.biprime_context.delete(timeout=1)
+        result = self.biprime_context.delete()
         self.assertTrue(result)
 
         with patch("fedbiomed.researcher.secagg.SecaggContext._delete_payload") as mock_payload:
             mock_payload.return_value = ("KEY", True)
-            result = self.biprime_context.delete(timeout=1)
+            result = self.biprime_context.delete()
             self.assertTrue(result)
 
             mock_payload.return_value = ("KEY", False)
-            result = self.biprime_context.delete(timeout=1)
+            result = self.biprime_context.delete()
             self.assertFalse(result)
-
-        with self.assertRaises(FedbiomedSecaggError):
-            self.biprime_context.delete(timeout="oops")
 
     def test_biprime_context_05_delete_payload_fail(self):
         """Test when removing from the database fails"""

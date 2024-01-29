@@ -3,5 +3,5 @@
     "description": "celeba DATASET",
     "tags": "#celeba,#dataset",
     "data_type": "images",
-    "path": "$HOME/Data/fedbiomed/celeba"
+    "path": "./data/Celeba/celeba_preprocessed/data_node_1"
 }

@@ -108,10 +108,11 @@ def approve_training_plan(sort_by_date: bool = True):
         sort_by = 'date_modified'
     else:
         sort_by = None
-    non_approved_training_plans = tp_security_manager.list_training_plans(sort_by=sort_by,
-                                                    select_status=[TrainingPlanApprovalStatus.PENDING,
-                                                                   TrainingPlanApprovalStatus.REJECTED],
-                                                    verbose=False)
+    non_approved_training_plans = tp_security_manager.list_training_plans(
+        sort_by=sort_by,
+        select_status=[TrainingPlanApprovalStatus.PENDING,
+                       TrainingPlanApprovalStatus.REJECTED],
+        verbose=False)
     if not non_approved_training_plans:
         logger.warning("All training_plans have been approved or no training plan has been registered... aborting")
         return
@@ -141,9 +142,10 @@ def approve_training_plan(sort_by_date: bool = True):
 def reject_training_plan():
     """Rejects a given training plan that has either Pending or Approved status
     """
-    approved_training_plans = tp_security_manager.list_training_plans(select_status=[TrainingPlanApprovalStatus.APPROVED,
-                                                               TrainingPlanApprovalStatus.PENDING],
-                                                verbose=False)
+    approved_training_plans = tp_security_manager.list_training_plans(
+        select_status=[TrainingPlanApprovalStatus.APPROVED,
+                       TrainingPlanApprovalStatus.PENDING],
+        verbose=False)
 
     if not approved_training_plans:
         logger.warning("All training plans have already been rejected or no training plan has been registered... aborting")
@@ -251,21 +253,11 @@ def view_training_plan():
         # - check after file copy though it should work
         # - etc.
         training_plan = tp_security_manager.get_training_plan_by_name(training_plan_name)
-        training_plan_tmpfile = os.path.join(environ['TMP_DIR'], 'training_plan_tmpfile_' + str(uuid.uuid4()))
-        shutil.copyfile(training_plan["training_plan_path"], training_plan_tmpfile)
 
-        # first try to view using system editor
-        editor = environ['EDITOR']
-        result = os.system(f'{editor} {training_plan_tmpfile} 2>/dev/null')
-        if result != 0:
-            logger.info(f'Cannot view training plan with editor "{editor}", display via logger')
-            # second try to print via logger (default output)
-            try:
-                with open(training_plan_tmpfile) as m:
-                    training_plan_source = highlight(''.join(m.readlines()), PythonLexer(), Terminal256Formatter())
-                    logger.info(f'\n\n{training_plan_source}\n\n')
-            except Exception as err:
-                logger.critical(f'Cannot display training plan via logger. Aborting. Error message is: {err}')
+        try:
+            training_plan_source = highlight(training_plan["training_plan"], PythonLexer(), Terminal256Formatter())
+            logger.info(f'\n\n{training_plan_source}\n\n')
+        except Exception as err:
+            logger.critical(f'Cannot display training plan via logger. Aborting. Error message is: {err}')
 
-        os.remove(training_plan_tmpfile)
         return

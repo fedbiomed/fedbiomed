@@ -72,7 +72,7 @@ const SingleTrainingPlan = (props) => {
                 </div>
                 <div className="frame-content">
                     <SyntaxHighlighter language="python" style={docco}>
-                        {single_training_plan?.content}
+                        {single_training_plan?.training_plan}
                     </SyntaxHighlighter>
                 </div>
                 <div className="frame-footer">

@@ -66,7 +66,7 @@ def pick_with_tkinter(mode: str = 'file') -> str:
         else:
             return tkinter.filedialog.askdirectory()
 
-    except (ModuleNotFoundError, _tkinter.TclError):
+    except (ModuleNotFoundError, RuntimeError, _tkinter.TclError):
         # handling case where tkinter package cannot be found on system
         # or if tkinter crashes
         if mode == 'file' or mode == 'txt':
@@ -90,7 +90,6 @@ def validated_path_input(type: str) -> str:
                 path = pick_with_tkinter(mode='file')
                 logger.debug(path)
                 if not path:
-                    # node is not in computation mode, MQTT message cannot be sent
                     logger.critical('No file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
@@ -99,7 +98,6 @@ def validated_path_input(type: str) -> str:
                 path = pick_with_tkinter(mode='txt')
                 logger.debug(path)
                 if not path:
-                    # node is not in computation mode, MQTT message cannot be sent
                     logger.critical('No python file was selected. Exiting')
                     exit(1)
                 assert os.path.isfile(path)
@@ -107,7 +105,6 @@ def validated_path_input(type: str) -> str:
                 path = pick_with_tkinter(mode='dir')
                 logger.debug(path)
                 if not path:
-                    # node is not in computation mode, MQTT message cannot be sent
                     logger.critical('No directory was selected. Exiting')
                     exit(1)
                 assert os.path.isdir(path)

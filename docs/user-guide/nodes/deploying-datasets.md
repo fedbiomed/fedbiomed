@@ -41,9 +41,6 @@ Please open a terminal and run one of the commands above. Afterward, you will se
 ```shell
 Conda   env: fedbiomed-node
 Python  env: /path/to/your/fedbiomed/
-MQTT   host: localhost
-MQTT   port: 1883
-UPLOADS url: http://localhost:8844/upload/
 
 
    __         _ _     _                          _                   _

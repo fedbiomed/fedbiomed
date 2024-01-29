@@ -48,4 +48,5 @@ per_file_ignores =
     fedbiomed/researcher/filetools.py: W605
 
 
-exclude = .git, __pycache__
+exclude = .git, __pycache__, researcher_pb2_grpc.py, researcher_pb2.py, researcher_pb2.pyi
+

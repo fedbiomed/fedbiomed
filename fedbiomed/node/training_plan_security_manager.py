@@ -17,12 +17,10 @@ import uuid
 
 from fedbiomed.common.constants import HashingAlgorithms, TrainingPlanApprovalStatus, TrainingPlanStatus, ErrorNumbers
 from fedbiomed.common.db import DBTable
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError, FedbiomedRepositoryError
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
-from fedbiomed.common.messaging import Messaging
-from fedbiomed.common.repository import Repository
-from fedbiomed.common.validator import SchemeValidator, ValidateError
+from fedbiomed.common.validator import ValidateError
 from fedbiomed.node.environ import environ
 
 # Collect provided hashing function into a dict
@@ -36,9 +34,6 @@ HASH_FUNCTIONS = {
     HashingAlgorithms.BLAKE2B.value: hashlib.blake2s,
     HashingAlgorithms.BLAKE2S.value: hashlib.blake2s,
 }
-
-trainingPlansSearchScheme = SchemeValidator({"by": {"rules": [str], "required": True},
-                                             "text": {"rules": [str], "required": True}})
 
 
 class TrainingPlanSecurityManager:
@@ -57,20 +52,18 @@ class TrainingPlanSecurityManager:
         # dont use DB read cache for coherence when updating from multiple sources (eg: GUI and CLI)
         self._db = self._tinydb.table(name="TrainingPlans", cache_size=0)
         self._database = Query()
-        self._repo = Repository(environ['UPLOADS_URL'], environ['TMP_DIR'], environ['CACHE_DIR'])
 
-        self._tags_to_remove = ['training_plan_path',
-                                'hash',
+        self._tags_to_remove = ['hash',
                                 'date_modified',
                                 'date_created']
 
     @staticmethod
-    def _create_hash(path: str):
-        """Creates hash with given training plan file
+    def _create_hash(source: str, from_string: str = False):
+        """Creates hash with given training plan
 
         Args:
-            path: Training plan file path
-
+            source: Training plan source code, or path to training plan file
+            from_string: if True read training plan from file, if False receive it as a string
         Raises:
             FedbiomedTrainingPlanSecurityManagerError: bad argument type
             FedbiomedTrainingPlanSecurityManagerError: file cannot be open
@@ -80,27 +73,29 @@ class TrainingPlanSecurityManager:
 
         hash_algo = environ['HASHING_ALGORITHM']
 
-        if not isinstance(path, str):
-            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value + f': {path} is not a path')
+        if not isinstance(source, str):
+            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value +
+                                                            f': {source} is not a path or string containing codes')
 
-        try:
-            with open(path, "r") as training_plan:
-                content = training_plan.read()
-        except FileNotFoundError:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f": training plan file {path} not found on system")
-        except PermissionError:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f": cannot open training plan file {path} due" +
-                " to unsatisfactory privilege")
-        except OSError:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f": cannot open training plan file {path} " +
-                "(file might have been corrupted)")
+        if not from_string:
+            try:
+                with open(source, "r") as training_plan:
+                    source = training_plan.read()
+            except FileNotFoundError:
+                raise FedbiomedTrainingPlanSecurityManagerError(
+                    ErrorNumbers.FB606.value + f": training plan file {source} not found on system")
+            except PermissionError:
+                raise FedbiomedTrainingPlanSecurityManagerError(
+                    ErrorNumbers.FB606.value + f": cannot open training plan file {source} due" +
+                    " to unsatisfactory privilege")
+            except OSError:
+                raise FedbiomedTrainingPlanSecurityManagerError(
+                    ErrorNumbers.FB606.value + f": cannot open training plan file {source} " +
+                    "(file might have been corrupted)")
 
         # Minify training plan file using python_minifier module
         try:
-            mini_content = minify(content,
+            mini_content = minify(source,
                                   remove_annotations=False,
                                   combine_imports=False,
                                   remove_pass=False,
@@ -109,7 +104,7 @@ class TrainingPlanSecurityManager:
                                   rename_locals=False)
         except Exception as err:
             # minify doesn't provide any specific exception
-            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value + f": cannot minify file {path}"
+            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value + f": cannot minify source code "
                                                                                        f"details: {err}")
         # Hash training plan content based on active hashing algorithm
         if hash_algo in HashingAlgorithms.list():
@@ -122,11 +117,10 @@ class TrainingPlanSecurityManager:
         # Create hash from training plan minified training plan content and encoded as `utf-8`
         hashing.update(mini_content.encode('utf-8'))
 
-        return hashing.hexdigest(), hash_algo
+        return hashing.hexdigest(), hash_algo, source
 
     def _check_training_plan_not_existing(self,
                                           name: Union[str, None] = None,
-                                          path: Union[str, None] = None,
                                           hash_: Union[str, None] = None,
                                           algorithm: Union[str, None] = None) -> None:
         """Check no training plan exists in database that matches specified criteria.
@@ -156,54 +150,28 @@ class TrainingPlanSecurityManager:
         """
 
         if name is not None:
-            try:
-                training_plans_name_get = self._db.get(self._database.name == name)
-            except Exception as err:
-                error = ErrorNumbers.FB606.value + ": search request on database failed." + \
-                        f" Details: {str(err)}"
-                logger.critical(error)
-                raise FedbiomedTrainingPlanSecurityManagerError(error)
+            training_plans_name_get = self._db.get(self._database.name == name)
+
             if training_plans_name_get:
-                error = ErrorNumbers.FB606.value + \
-                        f': there is already a existing training plan with same name: "{name}"' + \
-                        '. Please use different name'
-                logger.critical(error)
-                raise FedbiomedTrainingPlanSecurityManagerError(error)
+                raise FedbiomedTrainingPlanSecurityManagerError(
+                    f"{ErrorNumbers.FB606.value}:  there is already a existing training plan with "
+                    "same name: '{name}' Please use different name"
+                )
 
-        if path is not None:
-            try:
-                training_plans_path_get = self._db.get(self._database.training_plan_path == path)
-            except Exception as err:
-                error = ErrorNumbers.FB606.value + ": search request on database failed." + \
-                        f" Details: {str(err)}"
-                logger.critical(error)
-                raise FedbiomedTrainingPlanSecurityManagerError(error)
-            if training_plans_path_get:
-                error = ErrorNumbers.FB606.value + f': this training plan has been added already: {path}'
-                logger.critical(error)
-                raise FedbiomedTrainingPlanSecurityManagerError(error)
-
-        # TODO: to be more robust we should also check algorithm is the same
         if hash is not None or algorithm is not None:
-            try:
-                if algorithm is None:
-                    training_plans_hash_get = self._db.get(self._database.hash == hash_)
-                elif hash_ is None:
-                    training_plans_hash_get = self._db.get(self._database.algorithm == algorithm)
-                else:
-                    training_plans_hash_get = self._db.get((self._database.hash == hash_) &
-                                                           (self._database.algorithm == algorithm))
-            except Exception as err:
-                error = ErrorNumbers.FB606.value + ": search request on database failed." + \
-                        f" Details: {str(err)}"
-                logger.critical(error)
-                raise FedbiomedTrainingPlanSecurityManagerError(error)
+            if algorithm is None:
+                training_plans_hash_get = self._db.get(self._database.hash == hash_)
+            elif hash_ is None:
+                training_plans_hash_get = self._db.get(self._database.algorithm == algorithm)
+            else:
+                training_plans_hash_get = self._db.get((self._database.hash == hash_) &
+                                                       (self._database.algorithm == algorithm))
+
             if training_plans_hash_get:
-                error = ErrorNumbers.FB606.value + \
-                        ': there is already an existing training plan in database same code hash, ' + \
-                        f'training plan name is "{training_plans_hash_get["name"]}"'
-                logger.critical(error)
-                raise FedbiomedTrainingPlanSecurityManagerError(error)
+                raise FedbiomedTrainingPlanSecurityManagerError(
+                    f"{ErrorNumbers.FB606.value}:  there is already an existing training plan in database same code "
+                    f' hash, training plan name is "{training_plans_hash_get["name"]}"'
+                )
 
     def register_training_plan(self,
                                name: str,
@@ -212,7 +180,7 @@ class TrainingPlanSecurityManager:
                                training_plan_type: str = TrainingPlanStatus.REGISTERED.value,
                                training_plan_id: str = None,
                                researcher_id: str = None
-                               ) -> True:
+                               ) -> str:
         """Approves/registers training plan file through CLI.
 
         Args:
@@ -223,12 +191,12 @@ class TrainingPlanSecurityManager:
             training_plan_type: Default is `registered`. It means that training plan has been registered
                 by a user/hospital. Other value can be `default` which indicates
                 that training plan is default (training plans for tutorials/examples)
-            training_plan_id: Pre-defined id for training plan. Default is None. When it is Nonde method
+            training_plan_id: Pre-defined id for training plan. Default is None. When it is None method
                 creates unique id for the training plan.
             researcher_id: ID of the researcher who is owner/requester of the training plan file
 
         Returns:
-            Currently always returns True
+            The ID of registered training plan
 
         Raises:
             FedbiomedTrainingPlanSecurityManagerError: `training_plan_type` is not `registered` or `default`
@@ -244,10 +212,10 @@ class TrainingPlanSecurityManager:
 
         if not training_plan_id:
             training_plan_id = 'training_plan_' + str(uuid.uuid4())
-        training_plan_hash, algorithm = self._create_hash(path)
+        training_plan_hash, algorithm, source = self._create_hash(path)
 
         # Verify no such training plan is already registered
-        self._check_training_plan_not_existing(name, path, training_plan_hash, algorithm)
+        self._check_training_plan_not_existing(name, training_plan_hash, None)
 
         # Training plan file creation date
         ctime = datetime.fromtimestamp(os.path.getctime(path)).strftime("%d-%m-%Y %H:%M:%S.%f")
@@ -257,7 +225,8 @@ class TrainingPlanSecurityManager:
         rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
 
         training_plan_record = dict(name=name, description=description,
-                                    hash=training_plan_hash, training_plan_path=path,
+                                    hash=training_plan_hash,
+                                    training_plan=source,
                                     training_plan_id=training_plan_id, training_plan_type=training_plan_type,
                                     training_plan_status=TrainingPlanApprovalStatus.APPROVED.value,
                                     algorithm=algorithm,
@@ -274,7 +243,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + " : database insertion failed with"
                                            f" following error: {str(err)}")
-        return True
+        return training_plan_id
 
     def check_hashes_for_registered_training_plans(self):
         """Checks registered training plans (training plans either rejected or approved).
@@ -287,7 +256,9 @@ class TrainingPlanSecurityManager:
         """
 
         try:
-            training_plans, docs = self._db.search(self._database.training_plan_type.all(TrainingPlanStatus.REGISTERED.value), add_docs=True)
+            training_plans, docs = self._db.search(self._database.training_plan_type.all(
+                TrainingPlanStatus.REGISTERED.value), add_docs=True
+            )
         except Exception as e:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + f"database search operation failed, with following error: {str(e)}")
@@ -297,39 +268,28 @@ class TrainingPlanSecurityManager:
         else:
             for training_plan, doc in zip(training_plans, docs):
                 # If training plan file is exists
-                if os.path.isfile(training_plan['training_plan_path']):
-                    if training_plan['algorithm'] != environ['HASHING_ALGORITHM']:
-                        logger.info(
-                            f'Recreating hashing for : {training_plan["name"]} \t {training_plan["training_plan_id"]}')
-                        hashing, algorithm = self._create_hash(training_plan['training_plan_path'])
-
-                        # Verify no such training plan already exists in DB
-                        self._check_training_plan_not_existing(None, None, hashing, algorithm)
-
-                        rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
-                        try:
-                            self._db.update({'hash': hashing,
-                                             'algorithm': algorithm,
-                                             'date_last_action': rtime},
-                                            self._database.training_plan_id.all(training_plan["training_plan_id"]))
-                        except Exception as err:
-                            raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value +
-                                                                            ": database update failed, with error "
-                                                                            f" {str(err)}")
-                else:
-                    # Remove doc because training plan file is not existing anymore
+                if training_plan['algorithm'] != environ['HASHING_ALGORITHM']:
                     logger.info(
-                        f'Training plan : {training_plan["name"]} could not found in : '
-                        f'{training_plan["training_plan_path"]}, will be removed')
+                        f'Recreating hashing for : {training_plan["name"]} \t {training_plan["training_plan_id"]}')
+                    hashing, algorithm, _ = self._create_hash(training_plan['training_plan'], from_string=True)
+
+                    # Verify no such training plan already exists in DB
+                    self._check_training_plan_not_existing(None, hashing, None)
+
+                    rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
                     try:
-                        self._db.remove(doc_ids=[doc.doc_id])
+                        self._db.update({'hash': hashing,
+                                         'algorithm': algorithm,
+                                         'date_last_action': rtime},
+                                        self._database.training_plan_id.all(training_plan["training_plan_id"]))
                     except Exception as err:
-                        raise FedbiomedTrainingPlanSecurityManagerError(
-                            f"{ErrorNumbers.FB606.value}: database remove operation failed, with following error: ",
-                            f"{err}")
+                        raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value +
+                                                                        ": database update failed, with error "
+                                                                        f" {str(err)}")
+
 
     def check_training_plan_status(self,
-                                   training_plan_path: str,
+                                   training_plan_source: str,
                                    state: Union[TrainingPlanApprovalStatus, TrainingPlanStatus, None]) \
             -> Tuple[bool, Dict[str, Any]]:
         """Checks whether training plan exists in database and has the specified status.
@@ -340,8 +300,7 @@ class TrainingPlanSecurityManager:
         or training_plan_type {registered, requested, default}.
 
         Args:
-            training_plan_path: The path of requested training plan file by researcher after downloading
-                training plan file from file repository.
+            training_plan_source: The source code of requested training plan
             state: training plan status or training plan type, to check against training plan. `None` accepts
                 any training plan status or type.
 
@@ -360,7 +319,7 @@ class TrainingPlanSecurityManager:
         """
 
         # Create hash for requested training plan
-        req_training_plan_hash, _ = self._create_hash(training_plan_path)
+        req_training_plan_hash, *_ = self._create_hash(training_plan_source, from_string=True)
 
         # If node allows defaults training plans search hash for all training plan types
         # otherwise search only for `registered` training plans
@@ -378,27 +337,18 @@ class TrainingPlanSecurityManager:
             )
         _all_training_plans_which_have_req_hash = (self._database.hash == req_training_plan_hash)
 
-        # TODO: more robust implementation
-        # current implementation (with `get`) makes supposition that there is at most
-        # one training plan with a given hash in the database
-        try:
-            if _all_training_plans_with_status is None:
-                # check only against hash
-                training_plan = self._db.get(_all_training_plans_which_have_req_hash)
-            else:
-                # check against hash and status
-                training_plan = self._db.get(_all_training_plans_with_status & _all_training_plans_which_have_req_hash)
-        except Exception as e:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                f"{ErrorNumbers.FB606.value} database remove operation failed, with following error: {e}"
-            )
 
-        if training_plan:
-            is_status = True
+        if _all_training_plans_with_status is None:
+            # check only against hash
+            training_plan = self._db.get(_all_training_plans_which_have_req_hash)
         else:
-            is_status = False
+            # check against hash and status
+            training_plan = self._db.get(_all_training_plans_with_status & _all_training_plans_which_have_req_hash)
 
-        return is_status, training_plan
+        status = True if training_plan else False
+
+
+        return status, training_plan
 
     def get_training_plan_by_name(self, training_plan_name: str) -> Union[Dict[str, Any], None]:
         """Gets training plan from database, by its name
@@ -414,37 +364,22 @@ class TrainingPlanSecurityManager:
             FedbiomedTrainingPlanSecurityManagerError: cannot read database.
         """
 
-        if not isinstance(training_plan_name, str):
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                f"{ErrorNumbers.FB606.value} training plan name {training_plan_name} is not a string"
-            )
+        training_plan = self._db.get(self._database.name == training_plan_name)
 
-        # TODO: more robust implementation
-        # names in database should be unique, but we don't verify it
-        # (and do we properly enforce it ?)
-        try:
-            training_plan = self._db.get(self._database.name == training_plan_name)
-        except Exception as e:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + ': cannot search database for training plan '
-                                           f' "{training_plan_name}", error is "{e}"')
-
-        if not training_plan:
-            training_plan = None
         return training_plan
 
     def get_training_plan_from_database(self,
-                                        training_plan_path: str
+                                        training_plan: str
                                         ) -> Union[Dict[str, Any], None]:
         """Gets training plan from database, by its hash
 
         !!! info "Training plan file MUST be a *.txt file."
 
         Args:
-            training_plan_path: training plan path where the file is saved, in order to compute its hash.
+            training_plan: training plan source code, in order to compute its hash.
 
         Returns:
-            training_plan: training plan entry found in the dataset if query in database succeed. Otherwise, returns
+            Training plan entry found in the dataset if query in database succeed. Otherwise, returns
             None.
 
         Raises:
@@ -452,31 +387,22 @@ class TrainingPlanSecurityManager:
             FedbiomedTrainingPlanSecurityManagerError: database access problem
         """
 
-        if not isinstance(training_plan_path, str):
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + " : no training_plan_path specified")
-        req_training_plan_hash, _ = self._create_hash(training_plan_path)
 
+        req_training_plan_hash, *_ = self._create_hash(training_plan, from_string=True)
         _all_training_plans_which_have_req_hash = (self._database.hash == req_training_plan_hash)
 
-        # TODO: more robust implementation
-        # hashes in database should be unique, but we don't verify it
-        # (and do we properly enforce it ?)
-        try:
-            training_plan = self._db.get(_all_training_plans_which_have_req_hash)
-        except Exception as e:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f"database get operation failed, with following error: {str(e)}")
 
-        return training_plan
+        return self._db.get(_all_training_plans_which_have_req_hash)
+
 
     def get_training_plan_by_id(self,
                                 training_plan_id: str,
-                                secure: bool = True,
-                                content: bool = False) -> Union[Dict[str, Any], None]:
+                                secure: bool = True
+                                ) -> Union[Dict[str, Any], None]:
         """Get a training plan in database given his `training_plan_id`.
 
-        Also add a `content` key to the returned dictionary.
+        Also add a `content` key to the returned dictionary. This method is not used within the
+        library source code but it is used for Fed-BioMed GUI.
 
         Args:
             training_plan_id: id of the training plan to pick from the database
@@ -494,146 +420,93 @@ class TrainingPlanSecurityManager:
             FedbiomedTrainingPlanSecurityManagerError: database access problem
         """
 
-        if not isinstance(training_plan_id, str):
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f': training_plan_id {training_plan_id} is not a string')
+        training_plan = self._db.get(self._database.training_plan_id == training_plan_id)
 
-        try:
-            training_plan = self._db.get(self._database.training_plan_id == training_plan_id)
-        except Exception as e:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f"database get operation failed, with following error: {str(e)}")
-
-        if isinstance(training_plan, dict):
-            if content:
-                with open(training_plan["training_plan_path"], 'r') as file:
-                    training_plan_content = file.read()
-            else:
-                training_plan_content = None
-
-            if secure and training_plan is not None:
-                self._remove_sensible_keys_from_request(training_plan)
-
-            training_plan.update({"content": training_plan_content})
+        if training_plan and secure:
+            self._remove_sensible_keys_from_request(training_plan)
 
         return training_plan
 
-    @staticmethod
-    def create_txt_training_plan_from_py(training_plan_path: str) -> str:
-        """Creates a text training plan file (*.txt extension) from a python (*.py) training plan file,
-        in the directory where the python training plan file belongs to.
-
-        Args:
-            training_plan_path (str): path to the training plan file (with *.py) extension
-
-        Returns:
-            training_plan_path_txt (str): path to new training plan file (with *.txt extension)
-        """
-        # remove '*.py' extension of `training_plan_path` and rename it into `*.txt`
-        training_plan_path_txt, _ = os.path.splitext(training_plan_path)
-        training_plan_path_txt += '.txt'
-
-        # save the content of the training plan into a plain '*.txt' file
-        shutil.copyfile(training_plan_path, training_plan_path_txt)
-        return training_plan_path_txt
-
-    def reply_training_plan_approval_request(self, msg: dict, messaging: Messaging):
+    def reply_training_plan_approval_request(self, msg: dict) :
         """Submits a training plan file (TrainingPlan) for approval. Needs an action from Node
 
         Args:
             msg: approval request message, received from Researcher
-            messaging: MQTT client to send reply  to researcher
         """
 
         reply = {
             'researcher_id': msg['researcher_id'],
+            'request_id': msg['request_id'],
             'node_id': environ['NODE_ID'],
-            # 'training_plan_url': msg['training_plan_url'],
-            'sequence': msg['sequence'],
+            'message': '',
             'status': 0,  # HTTP status (set by default to 0, non-existing HTTP status code)
             'command': 'approval'
         }
 
         is_existant = False
-        downloadable_checkable = True
+        training_plan_name = "training_plan_" + str(uuid.uuid4())
+        training_plan = msg["training_plan"]
 
         try:
-            # training_plan_id = str(uuid.uuid4())
-            training_plan_name = "training_plan_" + str(uuid.uuid4())
-            status, tmp_file = self._repo.download_file(msg['training_plan_url'], training_plan_name + '.py')
-
-            reply['status'] = status
-
             # check if training plan has already been registered into database
-            training_plan_to_check = self.create_txt_training_plan_from_py(tmp_file)
-            is_existant, _ = self.check_training_plan_status(training_plan_to_check, None)
+            is_existant, _ = self.check_training_plan_status(training_plan, None)
 
-        except FedbiomedRepositoryError as fed_err:
-            logger.error(f"Cannot download training plan from server due to error: {fed_err}")
-            downloadable_checkable = False
-        except FedbiomedTrainingPlanSecurityManagerError as fed_err:
-            downloadable_checkable = False
-            logger.error(
-                f"Can not check whether training plan has already be registered or not due to error: {fed_err}")
+        except FedbiomedTrainingPlanSecurityManagerError as exp:
+            logger.error(f"Error while training plan approval request {exp}")
+            reply.update({'message': 'Can not check whether training plan has already be registered or not due to error',
+                          'success': False})
 
-        if not is_existant and downloadable_checkable:
+            return NodeMessages.format_outgoing_message(reply)
+
+
+        if not is_existant:
             # move training plan into corresponding directory (from TMP_DIR to TRAINING_PLANS_DIR)
             try:
-                logger.debug("Storing TrainingPlan into requested training plan directory")
-                training_plan_path = os.path.join(environ['TRAINING_PLANS_DIR'], training_plan_name + '.py')
-                shutil.move(tmp_file, training_plan_path)
+                training_plan_hash, hash_algo, _ = self._create_hash(training_plan, from_string=True)
+                ctime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
+                training_plan_object = dict(name=training_plan_name,
+                                            description=msg['description'],
+                                            hash=training_plan_hash,
+                                            training_plan=msg["training_plan"],
+                                            training_plan_id=training_plan_name,
+                                            training_plan_type=TrainingPlanStatus.REQUESTED.value,
+                                            training_plan_status=TrainingPlanApprovalStatus.PENDING.value,
+                                            algorithm=hash_algo,
+                                            date_created=ctime,
+                                            date_modified=ctime,
+                                            date_registered=ctime,
+                                            date_last_action=None,
+                                            researcher_id=msg['researcher_id'],
+                                            notes=None)
 
-                # Training plan file creation date
-                ctime = datetime.fromtimestamp(os.path.getctime(training_plan_path)).strftime("%d-%m-%Y %H:%M:%S.%f")
-            except (PermissionError, FileNotFoundError, OSError) as err:
-                reply['success'] = False
-                logger.error(f"Cannot save training plan '{msg['description']} 'into directory due to error : {err}")
-            else:
-                try:
-                    training_plan_hash, hash_algo = self._create_hash(training_plan_to_check)
-                    training_plan_object = dict(name=training_plan_name,
-                                                description=msg['description'],
-                                                hash=training_plan_hash,
-                                                training_plan_path=training_plan_path,
-                                                training_plan_id=training_plan_name,
-                                                training_plan_type=TrainingPlanStatus.REQUESTED.value,
-                                                training_plan_status=TrainingPlanApprovalStatus.PENDING.value,
-                                                algorithm=hash_algo,
-                                                date_created=ctime,
-                                                date_modified=ctime,
-                                                date_registered=ctime,
-                                                date_last_action=None,
-                                                researcher_id=msg['researcher_id'],
-                                                notes=None
-                                                )
-                    self._db.upsert(training_plan_object, self._database.hash == training_plan_hash)
-                    # `upsert` stands for update and insert in TinyDB. This prevents any duplicate, that can happen
-                    # if same training plan is sent twice to Node for approval
-                except Exception as err:
-                    reply['success'] = False
-                    logger.error(f"Cannot add training plan '{msg['description']} 'into database due to error : {err}")
-                else:
-                    reply['success'] = True
-                    logger.debug(f"Training plan '{msg['description']}' successfully received by Node for approval")
+                self._db.upsert(training_plan_object, self._database.hash == training_plan_hash)
+            except Exception as err:
 
-        elif is_existant and downloadable_checkable:
-            if self.check_training_plan_status(training_plan_to_check, TrainingPlanApprovalStatus.PENDING)[0]:
-                logger.info(f"Training plan '{msg['description']}' already sent for Approval (status Pending). "
-                            "Please wait for Node approval.")
-            elif self.check_training_plan_status(training_plan_to_check, TrainingPlanApprovalStatus.APPROVED)[0]:
-                logger.info(
-                    f"Training plan '{msg['description']}' is already Approved. Ready to train on this training plan.")
+                logger.error(f"Cannot add training plan into database due to error : {err}")
+                reply.update({'message': 'Cannot add training plan into database due to error',
+                              'success': False })
+                return NodeMessages.format_outgoing_message(reply)
+
             else:
-                logger.warning(f"Training plan '{msg['description']}' already exists in database. Aborting")
-            reply['success'] = True
+                reply['success'] = True
+                logger.debug("Training plan successfully received by Node for approval")
+
         else:
-            # case where training plan is non-downloadable or non-checkable
-            reply['success'] = False
+            if self.check_training_plan_status(training_plan, TrainingPlanApprovalStatus.PENDING)[0]:
+                reply.update({'message': "Training plan already sent for Approval (status Pending). "
+                                         "Please wait for Node approval."})
+            elif self.check_training_plan_status(training_plan, TrainingPlanApprovalStatus.APPROVED)[0]:
+                reply.update({'message': f"Training plan '{msg['description']}' is already Approved. Ready "
+                                         "to train on this training plan." })
+            else:
+                reply.update({'message': "Training plan already exists in database. Aborting" })
+
+            reply.update({'success': True})
 
         # Send training plan approval acknowledge answer to researcher
-        messaging.send_message(NodeMessages.format_outgoing_message(reply).get_dict())
+        return NodeMessages.format_outgoing_message(reply)
 
-    def reply_training_plan_status_request(self, msg: dict, messaging: Messaging):
+    def reply_training_plan_status_request(self, msg: dict):
         """Returns requested training plan file status {approved, rejected, pending}
         and sends TrainingPlanStatusReply to researcher.
 
@@ -642,84 +515,55 @@ class TrainingPlanSecurityManager:
         Args:
             msg: Message that is received from researcher.
                 Formatted as TrainingPlanStatusRequest
-            messaging: MQTT client to send reply  to researcher
         """
 
         # Main header for the training plan status request
-        header = {
+        reply = {
             'researcher_id': msg['researcher_id'],
+            'request_id': msg['request_id'],
             'node_id': environ['NODE_ID'],
             'job_id': msg['job_id'],
-            'training_plan_url': msg['training_plan_url'],
+            'approval_obligation': True,
+            'training_plan': msg['training_plan'],
             'command': 'training-plan-status'
         }
 
         try:
-            # Create training plan file with id and download
-            training_plan_name = 'my_training_plan_' + str(uuid.uuid4().hex)
-            status, training_plan_file = self._repo.download_file(msg['training_plan_url'], training_plan_name + '.py')
-            if status != 200:
-                # FIXME: should 'approval_obligation' be always false when training plan cannot be downloaded,
-                #  regardless of environment variable "TRAINING_PLAN_APPROVAL"?
-                reply = {**header,
-                         'success': False,
-                         'approval_obligation': False,
-                         'status': 'Error',
-                         'msg': f'Can not download training plan file. {msg["training_plan_url"]}'}
+            training_plan = self.get_training_plan_from_database(msg['training_plan'])
+            if training_plan is not None:
+                training_plan_status = training_plan.get('training_plan_status', 'Not Registered')
             else:
-                training_plan = self.get_training_plan_from_database(training_plan_file)
-                if training_plan is not None:
-                    training_plan_status = training_plan.get('training_plan_status', 'Not Registered')
+                training_plan_status = 'Not Registered'
+
+            reply.update({'success': True, 'status': training_plan_status})
+            if environ["TRAINING_PLAN_APPROVAL"]:
+                if training_plan_status == TrainingPlanApprovalStatus.APPROVED.value:
+                    msg = "Training plan has been approved by the node, training can start"
+                elif training_plan_status == TrainingPlanApprovalStatus.PENDING.value:
+                    msg = "Training plan is pending: waiting for a review"
+                elif training_plan_status == TrainingPlanApprovalStatus.REJECTED.value:
+                    msg = "Training plan has been rejected by the node, training is not possible"
                 else:
-                    training_plan_status = 'Not Registered'
+                    msg = f"Unknown training plan not in database (status {training_plan_status})"
+                reply.update({'msg': msg })
 
-                if environ["TRAINING_PLAN_APPROVAL"]:
-                    if training_plan_status == TrainingPlanApprovalStatus.APPROVED.value:
-                        msg = "Training plan has been approved by the node, training can start"
-                    elif training_plan_status == TrainingPlanApprovalStatus.PENDING.value:
-                        msg = "Training plan is pending: waiting for a review"
-                    elif training_plan_status == TrainingPlanApprovalStatus.REJECTED.value:
-                        msg = "Training plan has been rejected by the node, training is not possible"
-                    else:
-                        msg = f"Unknown training plan not in database (status {training_plan_status})"
-                    reply = {**header,
-                             'success': True,
-                             'approval_obligation': True,
-                             'status': training_plan_status,
-                             'msg': msg}
+            else:
+                reply.update({'approval_obligation': False,
+                              'msg': 'This node does not require training plan approval (maybe for debugging purposes).'})
 
-                else:
-                    reply = {**header,
-                             'success': True,
-                             'approval_obligation': False,
-                             'status': training_plan_status,
-                             'msg': 'This node does not require training plan approval (maybe for debugging purposes).'}
-        except FedbiomedTrainingPlanSecurityManagerError as fed_err:
-            reply = {**header,
-                     'success': False,
-                     'approval_obligation': False,
-                     'status': 'Error',
-                     'msg': ErrorNumbers.FB606.value +
-                            f': Cannot check if training plan has been registered. Details {fed_err}'}
-        except FedbiomedRepositoryError as fed_err:
-            reply = {**header,
-                     'success': False,
-                     'approval_obligation': False,
-                     'status': 'Error',
-                     'msg': f'{ErrorNumbers.FB604.value}: An error occurred when downloading training plan file. '
-                            f'{msg["training_plan_url"]} , {fed_err}'}
-        except Exception as e:
-            reply = {**header,
-                     'success': False,
-                     'approval_obligation': False,
-                     'status': 'Error',
-                     'msg': f'{ErrorNumbers.FB606.value}: An unknown error occurred when downloading training plan '
-                            f'file. {msg["training_plan_url"]} , {e}'}
-        # finally:
-        #     # Send check training plan status answer to researcher
-        messaging.send_message(NodeMessages.format_outgoing_message(reply).get_dict())
+        # Catch all exception to be able send reply back to researcher
+        except Exception as exp:
+            logger.error(exp)
+            reply.update({
+                'success': False,
+                'status': 'Error',
+                'msg': f"{ErrorNumbers.FB606.value}: Cannot check if training plan has been registered due "
+                       "to an internal error"
+            })
 
-        return
+
+        return NodeMessages.format_outgoing_message(reply)
+
 
     def register_update_default_training_plans(self):
         """Registers or updates default training plans.
@@ -745,10 +589,10 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + f"database search operation failed, with following error: {str(e)}")
 
-        # Get training plan names from list of training plans
-        training_plans_name_db = [training_plan.get('name') for training_plan in training_plans if
-                                  isinstance(training_plan, dict)]
 
+        # Get training plan names from list of training plans
+        training_plans_dict = {training_plan.get('name'): training_plan for training_plan in training_plans}
+        training_plans_name_db = list(training_plans_dict.keys())
         # Default training plans not in database
         training_plans_not_saved = list(set(training_plans_file) - set(training_plans_name_db))
         # Default training plans that have been deleted from file system but not in DB
@@ -782,36 +626,41 @@ class TrainingPlanSecurityManager:
             try:
                 training_plan_info = self._db.get(self._database.name == training_plan)
             except Exception as err:
-                raise FedbiomedTrainingPlanSecurityManagerError(ErrorNumbers.FB606.value +
-                                                                f": failed to get training_plan info for training plan {training_plan}"
-                                                                f"Details : {str(err)}")
+                raise FedbiomedTrainingPlanSecurityManagerError(
+                    ErrorNumbers.FB606.value +
+                    f": failed to get training_plan info for training plan {training_plan}"
+                f"Details : {str(err)}")
+
             # Check if hashing algorithm has changed
             try:
-                hash, algorithm = self._create_hash(os.path.join(environ['DEFAULT_TRAINING_PLANS_DIR'], training_plan))
+                hash, algorithm, _ = self._create_hash(os.path.join(environ['DEFAULT_TRAINING_PLANS_DIR'],
+                                                                    training_plan))
 
                 if training_plan_info['algorithm'] != environ['HASHING_ALGORITHM']:
                     # Verify no such training plan already exists in DB
-                    self._check_training_plan_not_existing(None, None, hash, algorithm)
-
+                    self._check_training_plan_not_existing(None, hash, algorithm)
                     logger.info(
-                        f'Recreating hashing for : {training_plan_info["name"]} \t {training_plan_info["training_plan_id"]}')
+                        f'Recreating hashing for : {training_plan_info["name"]} \t'
+                        '{training_plan_info["training_plan_id"]}')
+
                     self._db.update({'hash': hash, 'algorithm': algorithm,
                                      'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")},
-                                    self._database.training_plan_path == path)
+                                    self._database.training_plan_id == training_plan_info["training_plan_id"])
                 # If default training plan file is modified update hashing
                 elif mtime > datetime.strptime(training_plan_info['date_modified'], "%d-%m-%Y %H:%M:%S.%f"):
                     # only check when hash changes
                     # else we have error because this training plan exists in database with same hash
                     if hash != training_plan_info['hash']:
                         # Verify no such training plan already exists in DB
-                        self._check_training_plan_not_existing(None, None, hash, algorithm)
+                        self._check_training_plan_not_existing(None, hash, algorithm)
 
-                    logger.info(
-                        f"Modified default training plan file has been detected. Hashing will be updated for: {training_plan}")
+                    logger.info("Modified default training plan file has been detected. "
+                                f"Hashing will be updated for: {training_plan}")
+
                     self._db.update({'hash': hash, 'algorithm': algorithm,
                                      'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                                      'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")},
-                                    self._database.training_plan_path == path)
+                                    self._database.training_plan_id == training_plan_info["training_plan_id"])
             except Exception as err:
                 # triggered if database update failed (see `update` method in tinydb code)
                 raise FedbiomedTrainingPlanSecurityManagerError(
@@ -846,9 +695,9 @@ class TrainingPlanSecurityManager:
                 ErrorNumbers.FB606.value + ": get request on database failed."
                                            f" Details: {str(err)}")
         if training_plan['training_plan_type'] != TrainingPlanStatus.DEFAULT.value:
-            hash, algorithm = self._create_hash(path)
+            hash, algorithm, source = self._create_hash(path)
             # Verify no such training plan already exists in DB
-            self._check_training_plan_not_existing(None, path, hash, algorithm)
+            self._check_training_plan_not_existing(None, hash, algorithm)
 
             # Get modification date
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
@@ -860,7 +709,7 @@ class TrainingPlanSecurityManager:
                                  'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                                  'date_created': ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                                  'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f"),
-                                 'training_plan_path': path},
+                                 'training_plan': source},
                                 self._database.training_plan_id == training_plan_id)
             except Exception as err:
                 raise FedbiomedTrainingPlanSecurityManagerError(
@@ -893,49 +742,24 @@ class TrainingPlanSecurityManager:
             FedbiomedTrainingPlanSecurityManagerError: bad type for parameter
             FedbiomedTrainingPlanSecurityManagerError: database access error
         """
-        if not isinstance(training_plan_id, str):
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + ": parameter training_plan_id (str) has bad "
-                                           f"type {type(training_plan_id)}")
-        if not isinstance(training_plan_status, TrainingPlanApprovalStatus):
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + ": parameter training_plan_status (TrainingPlanApprovalStatus) has bad "
-                                           f"type {type(training_plan_status)}")
-        if notes is not None and not isinstance(notes, str):
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                f"{ErrorNumbers.FB606.value}: parameter note (Union[str, None]) has bad type {type(notes)}")
 
-        try:
-            training_plan = self._db.get(self._database.training_plan_id == training_plan_id)
-        except Exception as err:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                f"{ErrorNumbers.FB606.value}: get request on database failed. Details: {err}")
+        training_plan = self._db.get(self._database.training_plan_id == training_plan_id)
 
         if training_plan is None:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 f"{ErrorNumbers.FB606.value}: no training plan matches provided training_plan_id {training_plan_id}"
             )
+
         if training_plan.get('training_plan_status') == training_plan_status.value:
             logger.warning(f" training plan {training_plan_id} has already the following training plan status "
                            f"{training_plan_status.value}")
             return True
 
         else:
-            training_plan_path = training_plan['training_plan_path']
-            # Get modification date
-            mtime = datetime.fromtimestamp(os.path.getmtime(training_plan_path))
-            # Get creation date
-            ctime = datetime.fromtimestamp(os.path.getctime(training_plan_path))
-            try:
-                self._db.update({'training_plan_status': training_plan_status.value,
-                                 'date_modified': mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
-                                 'date_created': ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
-                                 'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f"),
-                                 'notes': notes},
-                                self._database.training_plan_id == training_plan_id)
-            except Exception as e:
-                raise FedbiomedTrainingPlanSecurityManagerError(
-                    ErrorNumbers.FB606.value + f"database update operation failed, with following error: {str(e)}")
+            self._db.update({'training_plan_status': training_plan_status.value,
+                             'date_last_action': datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f"),
+                             'notes': notes},
+                            self._database.training_plan_id == training_plan_id)
             logger.info(f"Training plan {training_plan_id} status changed to {training_plan_status.value} !")
 
         return True
@@ -990,11 +814,6 @@ class TrainingPlanSecurityManager:
                 (thus a `default` training plan)
         """
 
-        if not isinstance(training_plan_id, str):
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + ": parameter training_plan_id (str) has bad "
-                                           f"type {type(training_plan_id)}")
-
         try:
             training_plan, doc = self._db.get(self._database.training_plan_id == training_plan_id, add_docs=True)
         except Exception as err:
@@ -1020,10 +839,11 @@ class TrainingPlanSecurityManager:
 
         return True
 
+
     def list_training_plans(
             self,
             sort_by: Union[str, None] = None,
-            select_status: Union[None, TrainingPlanApprovalStatus, List[TrainingPlanApprovalStatus]] = None,
+            select_status: Union[None, List[TrainingPlanApprovalStatus]] = None,
             verbose: bool = True,
             search: Union[dict, None] = None
     ) -> List[Dict[str, Any]]:
@@ -1042,67 +862,38 @@ class TrainingPlanSecurityManager:
         Returns:
             A list of training plans that have
                 been found as `registered`. Each training plan is in fact a dictionary
-                containing fields (note that following fields are removed :'training_plan_path',
+                containing fields (note that following fields are removed :'training_plan',
                 'hash', dates due to privacy reasons).
 
         Raises:
             FedbiomedTrainingPlanSecurityManagerError: bad type for parameter
             FedbiomedTrainingPlanSecurityManagerError: database access error
         """
-        if sort_by is not None and not isinstance(sort_by, str):
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f": parameter sort_by has bad type {type(sort_by)}")
-        if not isinstance(verbose, bool):
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f": parameter verbose has bad type {type(verbose)}")
-            # in case select_status is a list, we filter later with elements are TrainingPlanApprovalStatus
-        if select_status is not None and not isinstance(select_status, TrainingPlanApprovalStatus) and \
-                not isinstance(select_status, list):
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f": parameter select_status has bad type {type(select_status)}")
-        if search is not None and not isinstance(search, dict):
-            raise FedbiomedTrainingPlanSecurityManagerError(f"{ErrorNumbers.FB606.value}: `search` argument should be "
-                                                            f"dictionary that contains `text` and `by` (that indicates "
-                                                            f"field to search on)")
 
-        if search:
-            try:
-                trainingPlansSearchScheme.validate(search)
-            except ValidateError as e:
-                raise FedbiomedTrainingPlanSecurityManagerError(
-                    f"{ErrorNumbers.FB606.value}: `search` argument is not valid. {e}")
+        # Selects all
+        query = self._database.training_plan_id.exists()
 
-        if isinstance(select_status, (TrainingPlanApprovalStatus, list)):
+        if select_status:
             # filtering training plan based on their status
             if not isinstance(select_status, list):
                 # convert everything into a list
                 select_status = [select_status]
-            select_status = [x.value for x in select_status if isinstance(x, TrainingPlanApprovalStatus)]
-            # extract value from TrainingPlanApprovalStatus
-            try:
-                if search:
-                    training_plans = self._db.search(self._database.training_plan_status.one_of(select_status) &
-                                                     self._database[search["by"]].matches(search["text"],
-                                                                                          flags=re.IGNORECASE))
-                else:
-                    training_plans = self._db.search(self._database.training_plan_status.one_of(select_status))
-            except Exception as err:
-                raise FedbiomedTrainingPlanSecurityManagerError(
-                    f"{ErrorNumbers.FB606.value}: request failed when looking for a training plan into database with "
-                    f"error: {err}"
-                )
 
-        else:
-            try:
-                if search:
-                    training_plans = self._db.search(
-                        self._database[search["by"]].matches(search["text"], flags=re.IGNORECASE))
-                else:
-                    training_plans = self._db.all()
-            except Exception as e:
-                raise FedbiomedTrainingPlanSecurityManagerError(
-                    f"{ErrorNumbers.FB606.value} database full read operation failed, with following error: {str(e)}"
-                )
+            select_status = [x.value for x in select_status if isinstance(x, TrainingPlanApprovalStatus)]
+            query = self._database.training_plan_status.one_of(select_status)
+            # extract value from TrainingPlanApprovalStatus
+
+        if search:
+            query = query & self._database[search["by"]].matches(search["text"], flags=re.IGNORECASE)
+
+
+        try:
+            training_plans = self._db.search(query)
+        except Exception as err:
+            raise FedbiomedTrainingPlanSecurityManagerError(
+                f"{ErrorNumbers.FB606.value}: request failed when looking for a training plan into database with "
+                f"error: {err}"
+            )
 
         # Drop some keys for security reasons
         for doc in training_plans:
@@ -1110,11 +901,7 @@ class TrainingPlanSecurityManager:
 
         if sort_by is not None:
             # sorting training plan fields by column attributes
-            try:
-                is_entry_exists = self._db.search(self._database[sort_by].exists())
-            except Exception as e:
-                raise FedbiomedTrainingPlanSecurityManagerError(
-                    ErrorNumbers.FB606.value + f"database search operation failed, with following error: {str(e)}")
+            is_entry_exists = self._db.search(self._database[sort_by].exists())
             if is_entry_exists and sort_by not in self._tags_to_remove:
                 training_plans = sorted(training_plans, key=lambda x: (x[sort_by] is None, x[sort_by]))
             else:
@@ -1129,7 +916,5 @@ class TrainingPlanSecurityManager:
         # Drop some keys for security reasons
 
         for tag_to_remove in self._tags_to_remove:
-            try:
+            if tag_to_remove in doc:
                 doc.pop(tag_to_remove)
-            except KeyError:
-                logger.warning(f"missing entry in database: {tag_to_remove} for training plan {doc}")

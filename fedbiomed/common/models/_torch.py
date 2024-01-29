@@ -239,6 +239,8 @@ class TorchModel(Model):
     def export(self, filename: str) -> None:
         """Export the wrapped model to a dump file.
 
+        For PyTorch only export the model weights.
+
         Args:
             filename: path to the file where the model will be saved.
 
@@ -253,7 +255,29 @@ class TorchModel(Model):
             This method uses `torch.save`, which relies on pickle and
             is therefore hard to trust by third-party loading methods.
         """
-        torch.save(self.model, filename)
+        torch.save(self.model.state_dict(), filename)
+
+    def reload(self, filename: str) -> None:
+        """Import and replace the wrapped model from a dump file.
+
+        For PyTorch, only import the model weights.
+
+        Args:
+            filename: path to the file where the model has been exported.
+
+        !!! info "Notes":
+            This method is designed to load the model from a local dump
+            file, that might not be in a trustworthy format. It should
+            therefore only be used to re-load data exported locally and
+            not received from someone else, including other FL peers.
+
+        Raises:
+            FedbiomedModelError: if the reloaded instance is of unproper type.
+        """
+        weights = torch.load(filename)
+        # check format of weights and apply them to the model
+        self.set_weights(weights)
+
 
     def _reload(self, filename: str) -> None:
         """Model-class-specific backend to the `reload` method.

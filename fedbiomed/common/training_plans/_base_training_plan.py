@@ -77,6 +77,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def model(self):
         """Gets model instance of the training plan"""
 
+    @property
+    def dependencies(self):
+            return self._dependencies
+
     def optimizer(self) -> Optional[BaseOptimizer]:
         """Get the BaseOptimizer wrapped by this training plan.
 
@@ -123,7 +127,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         random.seed(rseed)
         np.random.seed(rseed)
 
-    def add_dependency(self, dep: List[str]) -> None:
+    def _add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
 
         These dependencies are used while creating a python module.
@@ -168,7 +172,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return []
 
-    def configure_dependencies(self) -> None:
+    def _configure_dependencies(self) -> None:
         """ Configures dependencies """
         init_dep_spec = get_method_spec(self.init_dependencies)
         if len(init_dep_spec.keys()) > 0:
@@ -182,18 +186,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 f"{ErrorNumbers.FB605}: Expected dependencies are a list or "
                 "tuple of str, but got {type(dependencies)}"
             )
-        self.add_dependency(dependencies)
+        self._add_dependency(dependencies)
 
-    def save_code(self, filepath: str) -> None:
-        """Saves the class source/codes of the training plan class that is created byuser.
+    def source(self) -> str:
 
-        Args:
-            filepath: path to the destination file
-
-        Raises:
-            FedbiomedTrainingPlanError: raised when source of the model class cannot be assessed
-            FedbiomedTrainingPlanError: raised when model file cannot be created/opened/edited
-        """
         try:
             class_source = get_class_source(self.__class__)
         except FedbiomedError as exc:
@@ -205,6 +201,27 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         content = "\n".join(self._dependencies)
         content += "\n"
         content += class_source
+
+        return content
+
+    def save_code(self, filepath: str, from_code: Union[str, None] = None) -> None:
+        """Saves the class source/codes of the training plan class that is created byuser.
+
+        Args:
+            filepath: path to the destination file
+
+        Raises:
+            FedbiomedTrainingPlanError: raised when source of the model class cannot be assessed
+            FedbiomedTrainingPlanError: raised when model file cannot be created/opened/edited
+        """
+        if from_code is None:
+            content = self.source()
+        else:
+            if not isinstance(from_code, str):
+                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected type str for `from_code`, "
+                                                 "got: {type(from_code)}")
+            content = from_code
+
         try:
             # should we write it in binary (for the sake of space optimization)?
             with open(filepath, "w", encoding="utf-8") as file:
@@ -261,7 +278,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             params: model weights, as a dictionary mapping parameters' names
                 to their value.
         """
-        return self._model.set_weights(params)
+        self._model.set_weights(params)
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         raise FedbiomedTrainingPlanError("method not implemented and needed")

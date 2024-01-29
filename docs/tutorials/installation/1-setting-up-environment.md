@@ -8,47 +8,23 @@ keywords: Fed-BioMed, environment, setup
 
 ## A word on Fed-BioMed components
 
-A Fed-BioMed instance includes 3 types of components :
+A Fed-BioMed instance includes 2 types of components :
 
-* the `network` which handles the communication between the nodes and the researcher. It is composed of a MQTT messaging server and a HTTP/REST file exchange server for the models and parameters
 * one or more `nodes`, each one provides datasets for experiments and locally trains the models on these datasets
 * the `researcher` which defines and orchestrates a federated learning experiment. The experiment looks for nodes providing expected datasets, selects nodes, sends nodes a model and initial parameters, requests nodes to locally train the model on datasets, collects local training output, federates the output to update aggregated parameters.
-
-`nodes` and `researcher` compose the Fed-BioMed software, `network` are supporting services based on docker images.
 
 In this tutorial you learn how to launch Fed-BioMed components using the `fedbiomed_run` script.
 
 
 ## Launching Fed-BioMed components
 
-### Network
-
-Network is the first Fed-BioMed component to launch, as it enables other components to communicate.
-
-Launch the network with :
-```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run network
-```
-
-Check the mosquitto and fedbiomed-network containers are `Up` with :
-
-```shell
-$ docker container ps
-CONTAINER ID  IMAGE                 COMMAND                CREATED       STATUS       PORTS                                                                                NAMES
-954fda27350a  fedbiomed/dev-restful "/entrypoint.sh"       4 seconds ago Up 3 seconds 0.0.0.0:8844->8000/tcp, :::8844->8000/tcp                                            fedbiomed-dev-restful
-ff56256260b1  eclipse-mosquitto     "/usr/sbin/mosquitto…" 4 seconds ago Up 3 seconds 0.0.0.0:1883->1883/tcp, :::1883->1883/tcp, 0.0.0.0:9001->9001/tcp, :::9001->9001/tcp fedbiomed-dev-mqtt
-
-```
-
-
 ### Node
 
-Once the network is ready, one or more nodes shall be started and configured to provide datasets for the experiments.
+First, one or more nodes shall be started and configured to provide datasets for the experiments.
 
 By default, a Fed-BioMed node does not provide any dataset to experiments. By adding one or more datasets to a node, you indicate which data a Fed-BioMed node provides to experiments for training future model.
 
 When you stop and restart a node, data sharing configuration is retained : previously added datasets remain available for next experiments.
-
 
 #### Starting a first node
 
@@ -60,16 +36,7 @@ $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node start
 You should get the following output;
 
 ```
-** Activating fedbiomed-node environment
-Conda   env: fedbiomed-node
-Python  env: /path/to/python/env/
-MQTT   host: localhost
-MQTT   port: 1883
-UPLOADS url: http://localhost:8844/upload/
-2022-01-06 11:40:43,303 fedbiomed INFO - Component environment:
-2022-01-06 11:40:43,303 fedbiomed INFO - - type                             = ComponentType.NODE
-2022-01-06 11:40:43,303 fedbiomed INFO - - training_plan_approval           = False
-2022-01-06 11:40:43,303 fedbiomed INFO - - allow_default_training_plans     = True
+2023-10-20 10:20:09,889 fedbiomed DEBUG - Reading default biprime file "biprime0.json"
 
 
    __         _ _     _                          _                   _
@@ -81,26 +48,28 @@ UPLOADS url: http://localhost:8844/upload/
 
 
 
-	- 🆔 Your node ID: <generated_node_id>
+	- ID Your node ID: <node_id> 
 
-2022-01-06 11:40:43,852 fedbiomed INFO - Node started as process with pid = 822849
+2023-10-20 10:20:12,658 fedbiomed INFO - Node started as process with pid = <pid>
 To stop press Ctrl + C.
-2022-01-06 11:40:43,853 fedbiomed INFO - Launching node...
-2022-01-06 11:40:43,853 fedbiomed WARNING - Training plan approval for train request is not activated. This might cause security problems. Please, consider to enable training plan approval.
-2022-01-06 11:40:43,853 fedbiomed INFO - Starting communication channel with network
-2022-01-06 11:40:43,855 fedbiomed INFO - Messaging <generated_node_id> connected to the message broker, object = <fedbiomed.common.messaging.Messaging object at 0x7ff6b39f3070>
-2022-01-06 11:40:43,866 fedbiomed DEBUG -  adding handler: MQTT
-2022-01-06 11:40:43,866 fedbiomed INFO - Starting task manager
+2023-10-20 10:20:12,659 fedbiomed INFO - Launching node...
+2023-10-20 10:20:12,659 fedbiomed WARNING - Training plan approval for train request is not activated. This might cause security problems. Please, consider to enable training plan approval.
+2023-10-20 10:20:12,659 fedbiomed INFO - Starting communication channel with network
+2023-10-20 10:20:12,659 fedbiomed DEBUG -  adding handler for: GRPC
+2023-10-20 10:20:12,660 fedbiomed INFO - Starting task manager
+2023-10-20 10:20:12,660 - Not able to send log message to remote party
+2023-10-20 10:20:12,662 fedbiomed INFO - Starting task listeners
+2023-10-20 10:20:12,662 fedbiomed DEBUG - Sending new task request to researcher
+2023-10-20 10:20:12,664 fedbiomed INFO - Researcher server is not available, will retry connect in 2 seconds
+2023-10-20 10:20:14,666 fedbiomed DEBUG - Sending new task request to researcher
+2023-10-20 10:20:14,667 fedbiomed INFO - Researcher server is not available, will retry connect in 2 seconds
 ```
-
-  
 
 #### Adding data to node
 
 Starting a new node doesn't provide any data to Fed-BioMed experiments through the node.
 Adding a dataset is the process of indicating to a Fed-BioMed node which dataset you wish to make available for Fed-BioMed experiments through the node.
 Same datasets will be automatically provided at subsequent starts of the node.
-
 
 Begin adding a dataset to the node with this command :
 ```
@@ -116,11 +85,12 @@ Please select the data type that you're configuring:
        1) csv
        2) default
        3) images
+       ...
 select:
 
 ```
 
-Choose `2) default` to download the MNIST dataset and add it to the node. Other options allow you to add custom datasets formatted as CSV files or image banks.
+Choose `2) default` to download the MNIST dataset and add it to the node. Other options allow you to add custom datasets formatted as CSV files, image banks, BIDS-like medical-folder, etc.
 
 The command then asks for the tags that the node uses to advertise datasets to experiments :
 
@@ -165,14 +135,14 @@ $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node config config2.ini add
 
 ### Researcher
 
-Once the network and nodes are ready, you can start working with the researcher.
+Once the nodes are ready, you can start working with the researcher.
 
 Launch the researcher jupyter notebook console with :
 ```
 $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run researcher start
 ```
 
-For next tutorials, create a new notebook (`New` and `Python3` in the top right corner of the jupyter notebook), and cut/paste the tutorial code snippets in the notebook.
+For next tutorials, create a new notebook (`New > Notebook` and `Python3 kernel` in the top right corner of the jupyter notebook), and cut/paste the tutorial code snippets in the notebook.
 
 Several example notebooks are also provided with Fed-BioMed.
 
@@ -188,12 +158,6 @@ If at some point you want to work interactively in the same environment as a Fed
 (eg. for debugging), you can activate this environment from a console.
 
 **Warning :** this feature only works with **bash**, **ksh** and **zsh** shells (other shells like csh/tcsh are not yet suppported)
-
-To activate the **network** environment:
-
-```
-$ source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment network
-```
 
 To activate the **node** environment:
 
@@ -217,13 +181,13 @@ $ source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment reset
 
 A Fed-BioMed instance can handle successive operations like adding and then removing nodes or datasets, conducting sequential experiments.
 But after testing and tweeking, thing may get wrong. At this point, we provide you a script to clean all things.
-Afterwards, you will need to restart from scratch (start network, add datasets to nodes, start nodes, etc...)
+Afterwards, you will need to restart from scratch (add datasets to nodes, start nodes, etc...)
 
 To clean your Fed-BioMed instance :
 
 * stop the researcher : shutdown the notebook kernel (`Quit` in on the notebook interface or `ctrl-C` on the console)
 * stop the nodes : interrupt (`ctrl-C`) on the nodes console
-* stop the network and remove all configuration files, dataset sharing configuration, temporary files, caches for all Fed-BioMed components with :
+* remove all configuration files, dataset sharing configuration, temporary files, caches for all Fed-BioMed components with :
 
 ```
 $ source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
@@ -234,10 +198,9 @@ When you restart a node after cleaning the Fed-BioMed instance, the node doesn't
 
 ## Restart
 
-After cleaning your Fed-BioMed environment, restart the network, a node and the researcher to be ready for the next tutorial ... do you remember the commands ?
+After cleaning your Fed-BioMed environment, restart a node and the researcher to be ready for the next tutorial ... do you remember the commands ?
 
 ```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run network
 $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node add
 $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node start
 $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run researcher start
@@ -245,4 +208,4 @@ $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run researcher start
 
 ## What's Next?
 
-You now have a network and a node ready for an experiment. You also know how to stop an experiment, clean and restart your Fed-BioMed environment. In the following tutorial you will launch your first Fed-BioMed experiment.
+You now have a node and a researcher ready for an experiment. You also know how to stop an experiment, clean and restart your Fed-BioMed environment. In the following tutorial you will launch your first Fed-BioMed experiment.

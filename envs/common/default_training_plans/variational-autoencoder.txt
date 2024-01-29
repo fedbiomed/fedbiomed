@@ -6,13 +6,12 @@ from fedbiomed.common.data import DataManager
 from fedbiomed.common.constants import ProcessTypes
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-
 class VariationalAutoencoderPlan(TorchTrainingPlan):
     """ Declaration of two encoding layers and 2 decoding layers
     """
     def init_model(self):
         return self.Net()
-
+    
     class Net(nn.Module):
         def __init__(self):
             super().__init__()
@@ -37,7 +36,7 @@ class VariationalAutoencoderPlan(TorchTrainingPlan):
             std = torch.exp(0.5*logvar)
             eps = torch.randn_like(std)
             return mu + eps*std
-
+    
         """ Forward step in variational autoencoders is done in three steps, encoding
         reparametrizing and decoding.
         """
@@ -45,32 +44,32 @@ class VariationalAutoencoderPlan(TorchTrainingPlan):
             mu, logvar = self.encode(x.view(-1, 784))
             z = self.reparameterize(mu, logvar)
             return self.decode(z), mu, logvar
-
+    
     """ We will work on MNIST data. This is the pytorch wrapper of this data.
     """
-    def training_data(self,  batch_size = 48):
+    def training_data(self):
         # The training_data creates the Dataloader to be used for training in the general class Torchnn of fedbiomed
         mnist_transform = transforms.Compose([
                 transforms.ToTensor(),
         ])
         train_dataset = datasets.MNIST(self.dataset_path, transform=mnist_transform, train=True, download=True)
-        return DataManager(train_dataset,batch_size=batch_size,shuffle=True)
-
+        return DataManager(train_dataset,shuffle=True)
+    
     """ Computed loss for variational autoencoders.
     """
     def final_loss(self,bce_loss, mu, logvar):
-        BCE = bce_loss
+        BCE = bce_loss 
         KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         return BCE + KLD
-
+    
     """ At each federated learning round, this code will be executed
     in every node making part of the federation.
     """
     def training_step(self, data, target):
-
+       
         criterion = nn.BCELoss(reduction='sum')
         reconstruction, mu, logvar = self.model().forward(data)
-
+        
         bce_loss = criterion(reconstruction, data.view(48,-1))
         loss = self.final_loss(bce_loss, mu, logvar)
         return loss

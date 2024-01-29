@@ -8,15 +8,14 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torch.utils.data import Dataset
 import pandas as pd
-
 class MyTrainingPlan(TorchTrainingPlan):
-
-    # Model
-    def init_model(self, model_args):
+    
+    # Model 
+    def init_model(self, model_args):    
         model = self.Net(model_args)
-        return model
-
-
+        return model 
+    
+    
     # Dependencies
     def init_dependencies(self):
         # Here we define the custom dependencies that will be needed by our custom Dataloader
@@ -24,9 +23,9 @@ class MyTrainingPlan(TorchTrainingPlan):
         # We need pandas to read the local .csv file at the node side
         deps = ["from torch.utils.data import Dataset",
                 "import pandas as pd"]
-
+        
         return deps
-
+    
     class Net(nn.Module):
         def __init__(self, model_args):
             super().__init__()
@@ -46,13 +45,13 @@ class MyTrainingPlan(TorchTrainingPlan):
         loss   = criterion(output, target.unsqueeze(1))
         return loss
 
-    def training_data(self,  batch_size = 48):
+    def training_data(self):
         df = pd.read_csv(self.dataset_path, sep=';', index_col=False)
         x_dim = self.model_args()['in_features']
         x_train = df.iloc[:,:x_dim].values
         y_train = df.iloc[:,-1].values
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-
+        train_kwargs = {'shuffle': True}
+        
         data_manager = DataManager(dataset=x_train , target=y_train, **train_kwargs)
-
+        
         return data_manager

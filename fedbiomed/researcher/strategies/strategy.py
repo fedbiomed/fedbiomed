@@ -12,7 +12,6 @@ from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.common.logger     import logger
 
-from fedbiomed.researcher.responses import Responses
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 
@@ -46,7 +45,7 @@ class Strategy:
         logger.critical(msg)
         raise FedbiomedStrategyError(msg)
 
-    def refine(self, training_replies: Responses, round_i: int) -> tuple[list, list]:
+    def refine(self, training_replies: Dict, round_i: int) -> tuple[list, list]:
         """
         Abstract method that must be implemented by child class
 

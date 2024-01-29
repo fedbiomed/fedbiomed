@@ -7,3 +7,4 @@
 - [Listing datasets and selecting nodes](./listing-datasets-and-selecting-nodes.md)
 - [Training plan validation](./model-testing-during-federated-training.md)
 - [Tensorboard](./tensorboard.md)
+- [Researcher configuration](./configuring-researcher.md)

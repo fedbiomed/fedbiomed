@@ -165,7 +165,7 @@ class NodeStateManager:
         return res
 
     def _save_state(self, state_id: str, state_entry: Dict[str, Any]) -> None:
-        """Saves Node state in Database. Interfaces with Database request. Issues a 
+        """Saves Node state in Database. Interfaces with Database request. Issues a
         `upsert` request in Database.
 
         Args:
@@ -182,23 +182,25 @@ class NodeStateManager:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: failing to "
                                                  "save node state into DataBase") from e
 
-    def initialize(self, previous_state_id: Optional[str] = None) -> None:
-        """Initializes NodeStateManager, by cerating folder that will contains Node state folders.
+    def initialize(self, previous_state_id: Optional[str] = None, testing: Optional[bool] = False) -> None:
+        """Initializes NodeStateManager, by creating folder that will contains Node state folders.
 
         Args:
-            previous_state_id (optional): state_id from previous Round, from whch to reload a Node state
+            previous_state_id: state_id from previous Round, from whch to reload a Node state
+            testing: only doing testing, not training
         """
 
         self._previous_state_id = previous_state_id
-        self._generate_new_state_id()
+        if not testing:
+            self._generate_new_state_id()
 
-        self._node_state_base_dir = os.path.join(environ["VAR_DIR"], "node_state_%s" % environ["NODE_ID"])
-        # Always create the base folder for saving states for this node
-        try:
-            os.makedirs(self._node_state_base_dir, exist_ok=True)
-        except Exception as e:
-            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to create"
-                                                 f" directories {self._node_state_base_dir}") from e
+            self._node_state_base_dir = os.path.join(environ["VAR_DIR"], "node_state_%s" % environ["NODE_ID"])
+            # Always create the base folder for saving states for this node
+            try:
+                os.makedirs(self._node_state_base_dir, exist_ok=True)
+            except Exception as e:
+                raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to create"
+                                                     f" directories {self._node_state_base_dir}") from e
 
     def get_node_state_base_dir(self) -> Optional[str]:
         """Returns `Node` State base directory path, in which are saved Node state files and other contents

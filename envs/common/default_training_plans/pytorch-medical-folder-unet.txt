@@ -11,7 +11,6 @@ from fedbiomed.common.data import MedicalFolderDataset
 import numpy as np
 from torch.optim import AdamW
 from unet import UNet
-
 class UNetTrainingPlan(TorchTrainingPlan):
 
     def init_model(self, model_args):
@@ -67,7 +66,6 @@ class UNetTrainingPlan(TorchTrainingPlan):
 
     @staticmethod
     def get_dice_loss(output, target, epsilon=1e-9):
-        CHANNELS_DIMENSION = 1
         SPATIAL_DIMENSIONS = 2, 3, 4
         p0 = output
         g0 = target
@@ -82,8 +80,14 @@ class UNetTrainingPlan(TorchTrainingPlan):
         return 1. - dice_score
 
     @staticmethod
-    def demographics_transform(demographics):
+    def demographics_transform(demographics: dict):
         """Transforms dict of demographics into data type for ML.
+
+        This function is provided for demonstration purposes, but
+        note that if you intend to use demographics data as part
+        of your model's input, you **must** provide a
+        `demographics_transform` function which at the very least
+        converts the demographics dict into a torch.Tensor.
 
         Must return either a torch Tensor or something Tensor-like
         that can be easily converted through the torch.as_tensor()
@@ -113,7 +117,7 @@ class UNetTrainingPlan(TorchTrainingPlan):
         return np.concatenate((out, dummy_vars))
 
 
-    def training_data(self,  batch_size = 4):
+    def training_data(self):
     # The training_data creates the Dataloader to be used for training in the general class Torchnn of fedbiomed
         common_shape = (48, 60, 48)
         training_transform = Compose([AddChannel(), Resize(common_shape), NormalizeIntensity(),])
@@ -126,8 +130,8 @@ class UNetTrainingPlan(TorchTrainingPlan):
             transform=training_transform,
             target_transform=target_transform,
             demographics_transform=UNetTrainingPlan.demographics_transform)
-        train_kwargs = {'batch_size': batch_size, 'shuffle': True}
-        return DataManager(dataset, **train_kwargs)
+        loader_arguments = {'shuffle': True}
+        return DataManager(dataset, **loader_arguments)
 
 
     def training_step(self, data, target):

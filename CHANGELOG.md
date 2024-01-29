@@ -1,5 +1,33 @@
 # Fed-BioMed changelog
 
+## 2024-01-26 version 5.0.2
+
+- fix crash happening when the tkinter file selector is used in non-interactive mode
+ 
+## 2024-01-18 version 5.0.1
+
+- fix `fedbiomed_vpn` failure due to time race under certain circumstance
+
+## 2023-12-21 version 5.0.0
+
+- introduce new communication architecture based on gRPC
+- introduce communication TLS encryption for automatic protection from passive MITM 
+- redesign researcher side's `Requests` for better performance and robustness
+- add support for weighted average with secure aggregation
+- fix secure aggregation bug when using more than 2 nodes
+- fix tune DecLearn sample notebook parameters for demonstrating high accuracy
+- fix misc error in checking coherence of node side validation parameters
+- fix misc errors in notebooks
+
+## 2023-11-09 version 4.5.0
+
+- improve import interface for DecLearn optimizers
+- improve training plan dependencies import on researcher side
+- fix error when using global model node side testing due to node state bug
+- fix node GUI dependencies
+- fix `configure_conda` failing silently
+- fix misc issues in documentation and notebooks
+- fix web site download link for tutorial notebooks
 
 ## 2023-09-18 version 4.4.4
 

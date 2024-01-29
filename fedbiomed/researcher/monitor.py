@@ -251,18 +251,18 @@ class Monitor:
         """
 
         # For now monitor can only handle add_scalar messages
-        if msg['command'] == 'add_scalar':
+   
             # Save iteration value
-            cumulative_iter, *_ = self._metric_store.add_iteration(
-                node=msg['node_id'],
-                train=msg['train'],
-                test_on_global_updates=msg['test_on_global_updates'],
-                metric=msg['metric'],
-                round_=self._round,
-                iter_=msg['iteration'])
+        cumulative_iter, *_ = self._metric_store.add_iteration(
+            node=msg['node_id'],
+            train=msg['train'],
+            test_on_global_updates=msg['test_on_global_updates'],
+            metric=msg['metric'],
+            round_=self._round,
+            iter_=msg['iteration'])
 
-            # Log metric result
-            self._log_metric_result(message=msg, cum_iter=cumulative_iter)
+        # Log metric result
+        self._log_metric_result(message=msg, cum_iter=cumulative_iter)
 
     def set_tensorboard(self, tensorboard: bool):
         """ Sets tensorboard flag, which is used to decide the behavior of the writing scalar values into

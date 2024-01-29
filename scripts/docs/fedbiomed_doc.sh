@@ -197,7 +197,7 @@ create_version_json () {
     ON_V=$(find "$BUILD_DIR" -maxdepth 1 -type d -name 'v[0-9].[0-9]*' -printf " %f" | sed -s 's/ //') || { cleaning; exit 1; }
     E_VERSIONS=($(sort_versions  "$ON_V")) || { cleaning; exit 1; }
 
-    echo "Exsiting versions in documentation"
+    echo "Existing versions in documentation"
     echo ${E_VERSIONS[@]}
 
     LAST="${E_VERSIONS[${#E_VERSIONS[@]} - 1]}"

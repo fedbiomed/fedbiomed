@@ -1,25 +1,25 @@
 ---
 title: What is Fed-BioMed
-description: Fed-BioMed, an open-source federated learning framework
-keywords: Fed-BioMed, federated learning
+description: Fed-BioMed, an open-source collaborative learning framework
+keywords: Fed-BioMed, collaborative learning, federated learning, federated analytics
 ---
 
 
 ![fedbiomed-logo](../assets/img/fedbiomed-logo.png#img-sm)
 
-Fed-BioMed, an open-source federated learning framework
+Fed-BioMed, an open-source collaborative learning framework
 
 ## What is Fed-BioMed?
 
 Fed-BioMed is an open source project focused on empowering biomedical research using non-centralized approaches for statistical analysis. 
-The project is currently based on Python and PyTorch, and enables developing and deploying federated learning analysis in real-world machine learning application. 
+The project is currently based on Python and PyTorch, and enables developing and deploying federated learning and federated analytics in real-world machine learning application. 
 
 The goal of Fed-BioMed is to provide a simplified and secured environment to:
 
-- Easily deploy state-of-the art federated learning analysis frameworks, 
-- Provide a friendly user interface to share data for federated learning experiments,
+- Easily deploy state-of-the art collaborative learning frameworks, 
+- Provide a friendly user interface to share data for collaborative learning experiments,
 - Allow researchers to easily deploy their models and analysis methods,
-- Foster research and collaborations in federated learning.
+- Foster research and collaborations in collaborative learning.
 
 Fed-BioMed is an ongoing initiative, and the code is available on [GitHub](https://github.com/fedbiomed/fedbiomed).
 

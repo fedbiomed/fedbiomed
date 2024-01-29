@@ -17,41 +17,13 @@ class TestClass:
 
 
 class TestUtils(unittest.TestCase):
-    class ZMQInteractiveShell:
-        """ Fake ZMQInteractiveShell class to mock get_ipython function.
-            Function returns this class, so the exceptions can be raised
-            as they are running on IPython kernel
-        """
-
-        def __call__(self):
-            pass
-
-    class ZMQInteractiveShell:
-        """ Fake TerminalInteractiveShell class to mock get_ipython function.
-            Function returns this class, so the exceptions can be raised
-            as they are running on IPython kernel
-        """
-
-        def __call__(self):
-            pass
-
-    class ZMQInteractiveShellNone:
-        """ Fake ZMQInteractiveShellNone class to mock get_ipython function.
-            It return class name as `ZMQInteractiveShellNone` so tests
-            can get into condition where the functions get runs on IPython kernel
-            but not in ZMQInteractiveShell
-        """
-
-        def __call__(self):
-            pass
-
     def setUp(self):
         pass
 
     def tearDown(self) -> None:
         pass
 
-    @patch('fedbiomed.common.utils.is_ipython')
+    @patch('fedbiomed.common.utils._utils.is_ipython')
     @patch('fedbiomed.common.utils.get_ipython_class_file')
     @patch('inspect.linecache.getlines')
     def test_utils_01_get_class_source(self,
@@ -86,27 +58,7 @@ class TestUtils(unittest.TestCase):
         with self.assertRaises(FedbiomedError):
             fed_utils.get_class_source(obj)
 
-    def test_utils_02_is_ipython(self):
-        """ Test the function is_ipython """
-
-        with patch.object(fedbiomed.common.utils._utils, 'get_ipython', create=True) as mock_get_ipython:
-            mock_get_ipython.side_effect = TestUtils.ZMQInteractiveShell
-            result = fed_utils.is_ipython()
-            self.assertTrue(result, f'`is_python` has returned {result}, while the expected is `True`')
-
-            mock_get_ipython.side_effect = TestUtils.ZMQInteractiveShell
-            result = fed_utils.is_ipython()
-            self.assertTrue(result, f'`is_python` has returned {result}, while the expected is `True`')
-
-            mock_get_ipython.side_effect = TestUtils.ZMQInteractiveShellNone
-            result = fed_utils.is_ipython()
-            self.assertFalse(result, f'`is_python` has returned {result}, while the expected is `False`')
-
-            mock_get_ipython.side_effect = NameError
-            result = fed_utils.is_ipython()
-            self.assertFalse(result, f'`is_python` has returned {result}, while the expected is `False`')
-
-    def test_utils_03_get_ipython_class_file(self):
+    def test_utils_02_get_ipython_class_file(self):
         """ Testing function that gets class source from ipython kernel"""
 
         # Test normal case

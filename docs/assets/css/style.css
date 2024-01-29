@@ -291,6 +291,7 @@ a.fed-button.right {
 }
 
 
+
 /* ----------------------------------------------- Navigation Bar ----------------------------*/
 
 div.top-bar , .top-bar-mobile {
@@ -1593,7 +1594,7 @@ td img[title=":heavy_check_mark:"], td img[title=":x:"] {
     width: 16px;
 }
 
-.main-docs img { width: 100%; max-width: 720px; display:flex; margin: 15px 0px}
+.main-docs img { width: 100%; max-width: 720px; display:flex; margin: 15px 0px; height: auto;}
 .main img[src$="#img-centered"], .main-docs img[src$="#img-centered"] { display:flex; margin: 15px auto}
 .main img[src$="#img-centered-sm"], .main-docs img[src$="#img-centered-sm"] {display:flex; margin: 15px auto; max-width:240px}
 .main img[src$="#img-centered-md"], .main-docs img[src$="#img-centered-md"] {display:flex; margin: 15px auto; max-width:480px}
@@ -1604,3 +1605,19 @@ td img[title=":heavy_check_mark:"], td img[title=":x:"] {
 .main img[src$="#img-lr"], .main-docs img[src$="#img-lr"] { margin: 15px 0px; display:flex; max-width:720px}
 .main img[src$="#img-xlr"], .main-docs img[src$="#img-xlr"] { margin: 15px 0px; display:flex;max-width:960px}
 
+
+.main img[src$="#img-centered"] + em, 
+.main img[src$="#img-centered-sm"] + em, 
+.main img[src$="#img-centered-md"] + em, 
+.main img[src$="#img-centered-lr"] + em, 
+.main img[src$="#img-centered-xlr"] + em { 
+
+    display: block;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.main img[src$="#img-centered-sm"] + em {max-width: 240px;}
+.main img[src$="#img-centered-md"] + em {max-width: 480px;}
+.main img[src$="#img-centered-lr"] + em {max-width: 720px;}
+.main img[src$="#img-centered-xlr"] + em {max-width: 960px;}

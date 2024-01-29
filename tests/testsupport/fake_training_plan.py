@@ -8,8 +8,9 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers import BaseOptimizer
-from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan
 from fedbiomed.common.data import DataManager
+
 
 # Fakes TrainingPlan (either `fedbiomed.common.torchnn`` or `fedbiomed.common.fedbiosklearn`)
 class FakeModel(BaseTrainingPlan):
@@ -101,7 +102,7 @@ class FakeModel(BaseTrainingPlan):
             results of the training. Unused in this method.
         """
 
-    def save_code(self, path: str):
+    def save_code(self, path: str, from_code: Optional[str] = None):
         """
         Fakes `save_code` method of TrainingPlan classes, originally used for
         saving codes of model calss. Passed argument are unused.
@@ -109,7 +110,7 @@ class FakeModel(BaseTrainingPlan):
         Args:
             path (str): saving path
         """
-        super().save_code(path)
+        super().save_code(path, from_code=from_code)
 
     def set_dataset_path(self, path: str):
         """Fakes `set_dataset` method of TrainingPlan classes. Originally
@@ -130,6 +131,48 @@ class FakeModel(BaseTrainingPlan):
 
     def testing_routine(self, metric, history_monitor, before_train: bool):
         pass
+
+
+class FakeTorchTrainingPlan(FakeModel, TorchTrainingPlan):
+
+
+    def init_model(self):
+        pass 
+
+    def training_data(self):
+        pass 
+
+    def training_step(self):
+        pass
+
+
+class FakeTorchTrainingPlan2(TorchTrainingPlan):
+
+    def init_dependencies(self):
+        return ['from fedbiomed.common.training_plans import BaseTrainingPlan',
+                'from typing import Any, Dict, Optional',
+                'from unittest import mock',
+                'import time',
+                'from fedbiomed.common.constants import TrainingPlans',
+                'import torch',
+                'from torch.utils.data import Dataset, DataLoader',
+                'from fedbiomed.common.models import Model',
+                'from fedbiomed.common.optimizers import BaseOptimizer',
+                'from fedbiomed.common.data import DataManager',
+        ]
+
+    def init_optimizer(self):
+        pass 
+
+    def init_model(self):
+        pass 
+
+    def training_data(self):
+        pass 
+
+    def training_step(self):
+        pass
+
 
 
 class DeclearnAuxVarModel(FakeModel):

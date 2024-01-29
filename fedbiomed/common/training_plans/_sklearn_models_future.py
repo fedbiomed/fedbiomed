@@ -36,7 +36,7 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         super().__init__()
 
         self.is_classification = True
-        self.add_dependency([
+        self._add_dependency([
             "from sklearn.naive_bayes import BernoulliNB"
         ])
 
@@ -83,7 +83,7 @@ class FedGaussianNB(SKLearnTrainingPlan):
         super().__init__()
 
         self.is_classification = True
-        self.add_dependency([
+        self._add_dependency([
             "from sklearn.naive_bayes  import GaussianNB"
         ])
 

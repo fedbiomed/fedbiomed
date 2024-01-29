@@ -5,6 +5,7 @@
 
 from fedbiomed.common.cli import CommonCLI
 from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.config import ResearcherConfig
 
 __intro__ = """
    __         _ _     _                          _ 
@@ -30,7 +31,7 @@ class ResearcherCLI(CommonCLI):
     def launch_cli(self):
 
         self.initialize_certificate_parser()
-        self.initialize_create_configuration()
+        # self.initialize_create_configuration(config_class=ResearcherConfig)
 
         print(__intro__)
         print('\t- 🆔 Your researcher ID:', environ['RESEARCHER_ID'], '\n')

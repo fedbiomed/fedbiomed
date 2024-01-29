@@ -21,7 +21,6 @@ from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.functional import initialize
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.responses import Responses
 
 
 class Scaffold(Aggregator):
@@ -116,7 +115,7 @@ class Scaffold(Aggregator):
                   weights: Dict[str, float],
                   global_model: Dict[str, Union[torch.Tensor, np.ndarray]],
                   training_plan: BaseTrainingPlan,
-                  training_replies: Responses,
+                  training_replies: Dict,
                   n_updates: int = 1,
                   n_round: int = 0,
                   *args, **kwargs) -> Dict:
@@ -275,7 +274,7 @@ class Scaffold(Aggregator):
         self,
         global_model: Dict[str, Union[torch.Tensor, np.ndarray]],
         node_ids: Collection[str]
-    ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    ) -> Dict[str, Dict[str, Any]]:
         """Return correction states that are to be sent to the nodes.
 
         Args:
@@ -284,11 +283,7 @@ class Scaffold(Aggregator):
             node_ids: identifiers of the nodes that are to receive messages.
 
         Returns:
-            aggregator_msg: Dict associating MQTT-transmitted messages to node
-                identifiers.
-            aggregator_dat: Dict associating file-exchange-transmitted messages
-                to node identifiers. The Scaffold correction states are part of
-                this dict.
+            Aggregator arguments to share with the nodes for the next round
         """
         # Optionally initialize states, and verify that nodes are known.
         if not self.nodes_deltas:
@@ -298,8 +293,7 @@ class Scaffold(Aggregator):
                 "Scaffold cannot create aggregator args for nodes that are not"
                 "covered by its attached FederatedDataset."
             )
-        # Pack node-wise messages, for the MQTT and file exchange channels.
-        aggregator_msg = {}
+
         aggregator_dat = {}
         for node_id in node_ids:
             # If a node was late-added to the FederatedDataset, create states.
@@ -312,10 +306,8 @@ class Scaffold(Aggregator):
                 'aggregator_name': self.aggregator_name,
                 'aggregator_correction': self.nodes_deltas[node_id]
             }
-            aggregator_msg[node_id] = {
-                'aggregator_name': self.aggregator_name
-            }
-        return aggregator_msg, aggregator_dat
+ 
+        return aggregator_dat
 
     def check_values(self, n_updates: int, training_plan: BaseTrainingPlan) -> True:
         """Check if all values/parameters are correct and have been set before using aggregator.
@@ -360,16 +352,16 @@ class Scaffold(Aggregator):
     def set_nodes_learning_rate_after_training(
         self,
         training_plan: BaseTrainingPlan,
-        training_replies: Responses,
+        training_replies: Dict,
         n_round: int
     ) -> Dict[str, List[float]]:
         """Gets back learning rate of optimizer from Node (if learning rate scheduler is used)
 
         Args:
-            training_plan (BaseTrainingPlan): training plan instance
-            training_replies (List[Responses]): training replies that must contain am `optimizer_args`
+            training_plan: training plan instance
+            training_replies: training replies that must contain am `optimizer_args`
                 entry and a learning rate
-            n_round (int): number of rounds already performed
+            n_round: number of rounds already performed
 
         Raises:
             FedbiomedAggregatorError: raised when setting learning rate has been unsuccessful
@@ -383,12 +375,11 @@ class Scaffold(Aggregator):
         for node_id in self._fds.node_ids():
             lrs: Dict[str, float] = {}
 
-            # retrieve node learning rate from training replies
-            node_idx: int = training_replies[n_round].get_index_from_node_id(node_id)
-            if node_idx is not None:
-                # case where node provided lr information
-                lrs = training_replies[n_round][node_idx]['optimizer_args'].get('lr')
-            if node_idx is None or lrs is None:
+            node = training_replies[n_round].get(node_id, None)
+            if node is not None:
+                lrs = training_replies[n_round][node_id]["optimizer_args"].get('lr')
+
+            if node is None or lrs is None:
                 # fall back to default value if no lr information was provided
                 lrs = training_plan.optimizer().get_learning_rate()
 
@@ -434,6 +425,8 @@ class Scaffold(Aggregator):
         filename = os.path.join(breakpoint_path, f"global_state_{uuid.uuid4()}.mpk")
         Serializer.dump(self.global_state, filename)
         self._aggregator_args['global_state_filename'] = filename
+
+        self._aggregator_args["nodes"] = self._fds.node_ids()
         # adding aggregator parameters that will be sent to nodes afterwards
         return super().save_state_breakpoint(
             breakpoint_path, global_model=global_model, node_ids=self._fds.node_ids()
@@ -448,6 +441,5 @@ class Scaffold(Aggregator):
         global_state_filename = self._aggregator_args['global_state_filename']
         self.global_state = Serializer.load(global_state_filename)
 
-        for node_id in self._aggregator_args['aggregator_correction']:
-            arg_filename = self._aggregator_args['aggregator_correction'][node_id]
-            self.nodes_deltas[node_id] = Serializer.load(arg_filename)
+        for node_id in self._aggregator_args['nodes']:
+            self.nodes_deltas[node_id] = self._aggregator_args[node_id]['aggregator_correction']

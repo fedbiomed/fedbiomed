@@ -1,6 +1,5 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-
 import glob
 import os
 import configparser
@@ -10,6 +9,7 @@ from typing import List, Dict
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.constants import DB_PREFIX, VAR_FOLDER_NAME, \
     CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME
+
 
 
 def _get_fedbiomed_root() -> str:
@@ -139,3 +139,20 @@ def get_existing_component_db_names():
         db_names = {**db_names, component_id: db_name}
 
     return db_names
+
+
+def create_fedbiomed_setup_folders(root: str):
+    """Creates folders reequired by Fed-BioMed component setup
+
+    Args:
+        root: Root directory of Fed-BioMed component setup
+    """
+
+    etc_config_dir = os.path.join(root, CONFIG_FOLDER_NAME)
+    var_dir = os.path.join(root, VAR_FOLDER_NAME)
+    cache_dir = os.path.join(var_dir, CACHE_FOLDER_NAME)
+    tmp_dir  = os.path.join(var_dir, TMP_FOLDER_NAME)
+
+    for dir_ in [etc_config_dir, var_dir, cache_dir, tmp_dir]:
+        if not os.path.isdir(dir_):
+            os.makedirs(dir_)

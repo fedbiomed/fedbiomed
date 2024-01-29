@@ -6,8 +6,6 @@ from typing import Dict, Optional, List
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
 
-from fedbiomed.researcher.responses import Responses
-
 
 class NodeStateAgent:
     """
@@ -36,28 +34,28 @@ class NodeStateAgent:
         """
         return self._collection_state_ids
 
-    def update_node_states(self, node_ids: List[str], resp: Optional[Responses] = None):
-        """Updates the state_id collection with respect to current nodes and latest Nodes Responses.
+    def update_node_states(self, node_ids: List[str], resp: Optional[Dict] = None):
+        """Updates the state_id collection with respect to current nodes and latest Nodes replies.
 
-        Adds node IDs contained in node_ids argument that was not part of the previous Round, and discards node_ids that 
+        Adds node IDs contained in node_ids argument that was not part of the previous Round, and discards node_ids that
         do not belong to the current Round anymore.
 
         Args:
             node_ids: all possible nodes that can participate to the training.
-            resp (optional): latest Nodes Responses. Defaults to None.
+            resp (optional): latest Nodes replies. Defaults to None.
 
         Raises:
-            FedbiomedNodeStateAgentError: raised if `Responses` has a missing entry that needs to be collected.
+            FedbiomedNodeStateAgentError: raised if Nodes replies have a missing entry that needs to be collected.
         """
-        # first, we update _collection_state_id wrt new FedratedDataset (if it has been modified)
+        # first, we update _collection_state_id wrt new FederatedDataset (if it has been modified)
         self._update_collection_state_ids(node_ids)
         if resp is not None:
-            for node_reply in resp:
-                # adds Node responses
+            for node_reply in resp.values():
+                # adds Node replies
                 try:
                     node_id, state_id = node_reply['node_id'], node_reply['state_id']
                 except KeyError as ke:
-                    raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Missing entry in Response") from ke
+                    raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB419.value}: Missing entry in Response") from ke
                 if node_id in self._collection_state_ids:
                     self._collection_state_ids[node_id] = state_id
 
@@ -77,7 +75,7 @@ class NodeStateAgent:
                 self._collection_state_ids.pop(node_id)
 
     def save_state_breakpoint(self) -> Dict:
-        """NodeStateAgent's state, to be saved in a breakpoint. 
+        """NodeStateAgent's state, to be saved in a breakpoint.
 
         Returns:
             Node state for breakpoint

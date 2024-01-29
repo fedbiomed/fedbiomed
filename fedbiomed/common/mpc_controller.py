@@ -6,6 +6,8 @@ import os
 import subprocess
 from typing import Tuple
 
+import psutil
+
 from fedbiomed.common.exceptions import FedbiomedMPCControllerError
 from fedbiomed.common.utils import ROOT_DIR
 from fedbiomed.common.logger import logger
@@ -23,8 +25,8 @@ class MPCController:
         """Multi Party Computation for negotiating cryptographic material with other parties.
 
         Args:
-            tmp_dir: directory use as basedir for temporary files 
-            component_type: type of component (researcher or node) this 
+            tmp_dir: directory use as basedir for temporary files
+            component_type: type of component (researcher or node) this
             component_id: unique ID of this component
 
         Raises:
@@ -34,6 +36,7 @@ class MPCController:
         # Get root directory of fedbiomed
         self._root = ROOT_DIR
         self._component_type = component_type
+
         mpc_controller_id = str(uuid.uuid4())
 
         # Use tmp dir to write files
@@ -60,6 +63,8 @@ class MPCController:
                     f"{ErrorNumbers.FB620.value}: Cannot create directory for MPC config data : {e}"
                 )
 
+        self._process = None
+
     @property
     def mpc_data_dir(self) -> str:
         """Getter for MPC config data directory
@@ -77,6 +82,15 @@ class MPCController:
             directory for MPC temporary files directory
         """
         return self._tmp_dir
+
+    def kill(self):
+        """Kills running MP-SPDZ process"""
+
+        if self._process:
+            parent = psutil.Process(self._process.pid)
+            for child in parent.children(recursive=True):
+                child.kill()
+            parent.kill()
 
     def exec_shamir(
             self,
@@ -142,12 +156,15 @@ class MPCController:
         """
 
         try:
-            process = subprocess.Popen([self._mpc_script, *command],
-                                       stderr=subprocess.STDOUT,
-                                       stdout=subprocess.PIPE)
-            process.wait()
-            status = True if process.returncode == 0 else False
-            output, _ = process.communicate()
+            self._process = subprocess.Popen(
+                [self._mpc_script, *command],
+                stderr=subprocess.STDOUT,
+                stdout=subprocess.PIPE
+            )
+
+            self._process.wait()
+            status = True if self._process.returncode == 0 else False
+            output, _ = self._process.communicate()
             logger.debug("MPC protocol output: " + f"\n {output.decode('utf-8')}".replace('\n', '\n\t\t\t\t\t\t'))
         except Exception as e:
             logger.debug(f"{ErrorNumbers.FB620.value} MPC protocol error {e}")

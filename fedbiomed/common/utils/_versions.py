@@ -5,25 +5,8 @@
 
 This module contains functions that help managing the versions of different Fed-BioMed components.
 
-See https://fedbiomed.org/latest/user-guide/deployment/versions for more information
-
-!!! info "Instructions for developers"
-    If you make a change that changes the format/metadata/structure of one of the components below,
-    you **must update** the version.
-
-Components concerned by versioning:
-
-- config files (researcher and node)
-- messaging protocol (i.e. structure of Message classes)
-- breakpoints
-
-Instructions for updating the version
-
-1. bump the version in common/constants.py: if your change breaks backward compatibility you must increase the
-    major version, else the minor version. Micro versions are supported but their use is currently discouraged.
-2. Update the [Changelog page](https://fedbiomed.org/latest/user-guide/deployment/versions) with a short description
-    of your change, ideally including instructions on how to manually migrate from the previous version.
-
+See https://fedbiomed.org/latest/user-guide/deployment/versions or
+./doc/user-guide/deployment/versions.md for more information
 """
 
 from packaging.version import Version

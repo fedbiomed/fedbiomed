@@ -26,7 +26,7 @@ Celeba
 │       │   list_attr_celeba.txt
 │       │   img_align_celeba.zip
 │       └───img_align_celeba
-|           | lots of images 
+|           | lots of images
 ```
 
 Preprocess the Celeba data :
@@ -38,4 +38,31 @@ python create_node_data.py
 ```
 
 The dataset will be split into 3 nodes, each containing a csv linking the name of the file and its target and a folder containing the images
-The target is only to determine if the target is smiling, but it can be changed inside the `create_node_data.py`
+The target is only to determine if the target is smiling, but it can be changed inside the `create_node_data.py`.
+
+After running the `create_node_data.py`, the folder should look like:
+```
+Celeba
+│   README.md
+│   create_node_data.py    
+│   .gitignore
+├───Celeba_raw
+│   └───raw
+│       │   list_attr_celeba.txt
+│       │   img_align_celeba.zip
+│       └───img_align_celeba
+|           └ lots of images
+└── celeba_preprocessed
+          ├── data_node_1
+          │   ├── data
+          │   │   └ lots of images
+          │   └── target.csv
+          ├── data_node_2
+          │   ├── data
+          │   │   └ lots of images
+          │   └── target.csv
+          └── data_node_3
+              ├── data
+              │   └ lots of images
+              └── target.csv
+```

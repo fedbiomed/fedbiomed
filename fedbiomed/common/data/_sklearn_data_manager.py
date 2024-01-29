@@ -64,12 +64,10 @@ class NPDataLoader:
 
         # If the researcher gave a 1-dimensional dataset, we expand it to 2 dimensions
         if dataset.ndim == 1:
-            logger.info(f"NPDataLoader expanding 1-dimensional dataset to become 2-dimensional.")
             dataset = dataset[:, np.newaxis]
 
         # If the researcher gave a 1-dimensional target, we expand it to 2 dimensions
         if target.ndim == 1:
-            logger.info(f"NPDataLoader expanding 1-dimensional target to become 2-dimensional.")
             target = target[:, np.newaxis]
 
         if dataset.ndim != 2 or target.ndim != 2:

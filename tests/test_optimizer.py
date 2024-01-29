@@ -13,7 +13,8 @@ import numpy as np
 import torch
 from declearn.model.api import Vector
 from declearn.optimizer import Optimizer as DeclearnOptimizer
-from declearn.optimizer.modules import OptiModule, ScaffoldServerModule, YogiModule
+from declearn.optimizer.modules import OptiModule
+from fedbiomed.common.optimizers.declearn import ScaffoldServerModule, YogiModule
 from declearn.optimizer.regularizers import Regularizer
 
 from fedbiomed.common.exceptions import FedbiomedOptimizerError

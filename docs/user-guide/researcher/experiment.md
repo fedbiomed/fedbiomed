@@ -117,11 +117,11 @@ exp.set_nodes(nodes=None)
 
 
 
-### Load your Training Plan: Training Plan Class and Training Plan Path
+### Load your Training Plan: Training Plan Class
 
-The `training_plan_class` is  the class where the model, training data and training step are defined.
+The `training_plan_class` is the class where the model, training data and training step are defined.
 Although not required, optimizers and dependencies can also be defined in this class. The experiment will extract
-source of your training plan, save as a python module (script), and upload to the file repository during every round of
+source of your training plan, save as a python module (script), and send the source code to the nodes every round of
 training. Thanks to that, each node can construct the model and perform the training.
 
 
@@ -150,18 +150,6 @@ training_plan_class = exp.training_plan_class()
 
 ```
 
-There is also another optional argument called `training_plan_path`. This argument can be used when the training plan class is not created
-in current python workspace but in a different python script. In such scenarios, `training_plan_path` should indicate the path
-where your python script is saved, and the argument `training_plan_class` should be the name of the class that defined in the python
-script.
-
-
-```python
-exp.set_training_plan_path(training_plan_path='path/to/your/python/training-plan/script.py')
-# Let's assume that class name in `script.py` is `Net` as: `class Net:`
-exp.set_training_plan_class(training_plan_class='Net')
-```
-After setting your training plan path if you haven't set training plan class or name of the training plan class has been changed you need to update/set your training plan class;
 
 ### Model Arguments
 
@@ -270,8 +258,8 @@ Example of minimal loader arguments:
 ```python
 training_args = {
     'loader_args': {
-        'batch_size': 1
-    }
+        'batch_size': 1,
+    },
 }
 ```
 
@@ -335,7 +323,9 @@ of [differential privacy](../../tutorials/security/non-private-local-central-dp-
 
 ```python
 training_args = {
-    'batch_size': 20,
+    'loader_args': {
+        'batch_size': 20,
+    },
     'num_updates': 100,
     'optimizer_args': {
         'lr': 1e-3,
@@ -469,17 +459,16 @@ os.listdir(exp_path)
 
 ### `train_request` and `train_reply` messages
 
-Running an experiment means starting the training process by sending train request to nodes. It publishes training
-commands as JSON string on the MQTT topics (separate topics for each node) that are subscribed by each live node. After
-sending training commands it waits for the responses that will be sent by the nodes. The following code snippet represents
-an example of train request.
+Running an experiment means starting the training process by sending train request to nodes. It creates training request that are subscribed by each live node that has the dataset. After sending training commands it waits for the responses that will be sent by the nodes. The following code snippet represents an example of train request.
 
 ```json
 {
   "researcher_id": "researcher id that sends training command",
   "job_id": "created job id by experiment",
   "training_args": {
-    "batch_size": 32,
+    "loader_args": {
+      "batch_size": 32
+    },
     "optimizer_args": {
       "lr": 0.001
     },

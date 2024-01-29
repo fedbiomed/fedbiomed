@@ -3,7 +3,7 @@
 Welcome to the **Fed-BioMed Community** ! 
 Here is a brief summary of how it is structured:
 
-- **Fed-BioMed Users**: people using Fed-BioMed for research and/or deployment in federated learning applications, and reporting issues.
+- **Fed-BioMed Users**: people using Fed-BioMed for research and/or deployment in collaborative learning applications, and reporting issues.
 - **Fed-BioMed Contributors**: developers proposing their changes to the Fed-BioMed code and documentation via pull requests.
 - **Fed-BioMed Reviewers**: developers reviewing the pull requests.
     * Reviewers can be Contributors, Team Developers or Core Developers.

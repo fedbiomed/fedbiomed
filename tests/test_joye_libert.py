@@ -322,8 +322,8 @@ class TestJoyeLibert(unittest.TestCase):
                              x_u_tau=plaintext,
                              n_users=2)
 
-        # Expected length is 2 due to vector encoder
-        self.assertEqual(len(en), 2)
+        # Expected length is 3 due to vector encoder
+        self.assertEqual(len(en), 3)
 
         with self.assertRaises(TypeError):
             self.jl.protect(public_param=self.public_param,

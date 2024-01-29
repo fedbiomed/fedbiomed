@@ -1,0 +1,14 @@
+#
+# environment for fedbiomed-researcher-end-to-end
+#
+# packages to add in order to run end-to-end tests.
+# \todo must be evaluated
+#
+#
+name: fedbiomed-researcher-end-to-end
+
+channels:
+  - conda-forge
+
+dependencies:
+  - nibabel

@@ -193,6 +193,7 @@ class DeclearnOptimizer(BaseOptimizer):
         ```python
         >>> import torch.nn as nn
         >>> from fedbiomed.common.optimizers import Optimizer
+        >>> from fedbiomed.common.optimizers.declearn import MomentumModule, AdamModule
         >>> from fedbiomed.common.models import TorchModel
         >>> model = TorchModel(nn.Linear(4, 2))
         >>> optimizer = Optimizer(lr=.1, modules=[MomentumModule(), AdamModule()])
@@ -400,7 +401,10 @@ class NativeTorchOptimizer(BaseOptimizer):
             List[float]: list of single learning rate or multiple learning rates
                 (as many as the number of the layers contained in the model)
         """
-        logger.warning("`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases")
+        logger.warning(
+            "`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases",
+            broadcast=True)
+
         mapping_lr_layer_name: Dict[str, float] = {}
 
         for param_group in self.optimizer.param_groups:

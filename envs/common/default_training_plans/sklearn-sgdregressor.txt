@@ -5,25 +5,18 @@ from fedbiomed.common.training_plans import SKLearnTrainingPlan
 from fedbiomed.common.data import DataManager
 from sklearn.linear_model import SGDRegressor
 from fedbiomed.common.training_plans import FedSGDRegressor
-from sklearn.linear_model import SGDRegressor
-
 class SGDRegressorTrainingPlan(FedSGDRegressor):
-
-    def init_dependencies(self):
-        return ["from fedbiomed.common.training_plans import FedSGDRegressor",
-                             "from sklearn.linear_model import SGDRegressor"]
-
     def training_data(self):
-        dataset = pd.read_csv(self.dataset_path,delimiter=';')
+        dataset = pd.read_csv(self.dataset_path, delimiter=',')
         regressors_col = ['AGE', 'WholeBrain.bl',
                           'Ventricles.bl', 'Hippocampus.bl', 'MidTemp.bl', 'Entorhinal.bl']
         target_col = ['MMSE.bl']
-
+        
         # mean and standard deviation for normalizing dataset
         # it has been computed over the whole dataset
         scaling_mean = np.array([72.3, 0.7, 0.0, 0.0, 0.0, 0.0])
         scaling_sd = np.array([7.3e+00, 5.0e-02, 1.1e-02, 1.0e-03, 2.0e-03, 1.0e-03])
-
+        
         X = (dataset[regressors_col].values-scaling_mean)/scaling_sd
         y = dataset[target_col]
-        return DataManager(dataset=X, target=y.values.ravel())
+        return DataManager(dataset=X, target=y.values.ravel(),  shuffle=True)
