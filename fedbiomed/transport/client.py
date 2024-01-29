@@ -98,7 +98,7 @@ class Channels:
         # lock for accessing channels and stubs
         self._channels_stubs_lock = asyncio.Lock()
 
-    def stub(self, stub_type: _StubType) -> ResearcherServiceStub:
+    async def stub(self, stub_type: _StubType) -> ResearcherServiceStub:
         """Get stub for a given stub type.
 
         Args:
@@ -108,7 +108,7 @@ class Channels:
             the stub if it exists or None
         """
         if stub_type in self._stub_types:
-            with self._channels_stubs_lock:
+            async with self._channels_stubs_lock:
                 return self._stubs[stub_type]
         else:
             return None
@@ -120,7 +120,7 @@ class Channels:
             stub_type: only (re)connect for matching stub type(s)
         """
 
-        with self._channels_stubs_lock:
+        async with self._channels_stubs_lock:
             # Closes if channels are open
             for st, channel in self._channels.items():
                 if channel and (stub_type == _StubType.ANY_STUB or stub_type == st):
@@ -439,7 +439,8 @@ class TaskListener(Listener):
         while True:
             logger.debug("Sending new task request to researcher")
             await self._on_status_change(ClientStatus.CONNECTED)
-            iterator = self._channels.stub(_StubType.LISTENER_TASK_STUB).GetTaskUnary(
+            request_stub = await self._channels.stub(_StubType.LISTENER_TASK_STUB)
+            iterator = request_stub.GetTaskUnary(
                 TaskRequest(node=f"{self._node_id}").to_proto(), timeout=GRPC_CLIENT_TASK_REQUEST_TIMEOUT
             )
             # Prepare reply
@@ -602,12 +603,14 @@ class Sender(Listener):
         match message.__class__.__name__:
             case FeedbackMessage.__name__:
                 # Note: FeedbackMessage is designed as proto serializable message.
-                await self._queue.put({"stub": self._channels.stub(_StubType.SENDER_FEEDBACK_STUB).Feedback,
+                feedback_stub = await self._channels.stub(_StubType.SENDER_FEEDBACK_STUB)
+                await self._queue.put({"stub": feedback_stub.Feedback,
                                        "reconnect": _StubType.SENDER_FEEDBACK_STUB,
                                        "message": message.to_proto()})
 
             case _:
-                await self._queue.put({"stub": self._channels.stub(_StubType.SENDER_TASK_STUB).ReplyTask,
+                task_stub = await self._channels.stub(_StubType.SENDER_TASK_STUB)
+                await self._queue.put({"stub": task_stub.ReplyTask,
                                        # dont want to `close()` TASK_STUB from the sender task as it may be
                                        # used by listener task simultaneously
                                        "reconnect": _StubType.SENDER_TASK_STUB,
