@@ -95,6 +95,9 @@ class Channels:
             self._channels[st]: grpc.aio.Channel = None
             self._stubs[st]: ResearcherServiceStub = None
 
+        # lock for accessing channels and stubs
+        self._channels_stubs_lock = asyncio.Lock()
+
     def stub(self, stub_type: _StubType) -> ResearcherServiceStub:
         """Get stub for a given stub type.
 
@@ -105,7 +108,8 @@ class Channels:
             the stub if it exists or None
         """
         if stub_type in self._stub_types:
-            return self._stubs[stub_type]
+            with self._channels_stubs_lock:
+                return self._stubs[stub_type]
         else:
             return None
 
@@ -116,16 +120,17 @@ class Channels:
             stub_type: only (re)connect for matching stub type(s)
         """
 
-        # Closes if channels are open
-        for st, channel in self._channels.items():
-            if channel and (stub_type == _StubType.ANY_STUB or stub_type == st):
-                await channel.close()
+        with self._channels_stubs_lock:
+            # Closes if channels are open
+            for st, channel in self._channels.items():
+                if channel and (stub_type == _StubType.ANY_STUB or stub_type == st):
+                    await channel.close()
 
-        # Creates channels
-        for st in self._channels.keys():
-            if stub_type == _StubType.ANY_STUB or stub_type == st:
-                self._channels[st] = self._create()
-                self._stubs[st] = ResearcherServiceStub(channel=self._channels[st])
+            # Creates channels
+            for st in self._channels.keys():
+                if stub_type == _StubType.ANY_STUB or stub_type == st:
+                    self._channels[st] = self._create()
+                    self._stubs[st] = ResearcherServiceStub(channel=self._channels[st])
 
     def _create(self):
         """Creates new channel"""
