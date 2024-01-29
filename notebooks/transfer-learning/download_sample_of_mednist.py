@@ -163,7 +163,7 @@ class MedNISTDataset(DatasetManager):
 
                 _new_dir_label_name = os.path.join(new_image_folder_path, directory)
                 os.makedirs(_new_dir_label_name, exist_ok=True)
-                print("DEBUG", self.img_paths_collection)
+
                 images_path = self.img_paths_collection[directory]
                 _idx_max = min(n_samples_per_class, len(images_path))
                 for image_path in images_path[self._old_idx[i]:_idx_max]:
