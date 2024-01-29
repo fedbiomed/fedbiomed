@@ -33,7 +33,7 @@ class ClientStatus(Enum):
     FAILED = 2
 
 
-class StubType(Enum):
+class _StubType(Enum):
     NO_STUB = 0        # never matcher stub type
     ANY_STUB = 1       # always matches stub type
     LISTENER_TASK_STUB = 2
@@ -76,7 +76,6 @@ def is_server_alive(host: str, port: str):
 class Channels:
     """Keeps gRPC server channels"""
 
-
     def __init__(self, researcher: ResearcherCredentials):
         """Create channels and stubs
 
@@ -85,26 +84,32 @@ class Channels:
         """
         self._researcher = researcher
 
-        self._listener_task_channel: grpc.aio.Channel = None
-        self._sender_task_channel: grpc.aio.Channel = None
-        self._sender_feedback_channel: grpc.aio.Channel = None
-        self._listener_task_stub: ResearcherServiceStub = None
-        self._sender_task_stub: ResearcherServiceStub = None
-        self._sender_feedback_stub: ResearcherServiceStub = None
+        self._channels = {}
+        self._stubs = {}
+        self._stub_types = [
+            _StubType.LISTENER_TASK_STUB,
+            _StubType.SENDER_TASK_STUB,
+            _StubType.SENDER_FEEDBACK_STUB
+        ]
+        for st in self._stub_types:
+            self._channels[st]: grpc.aio.Channel = None
+            self._stubs[st]: ResearcherServiceStub = None
 
-    @property
-    def listener_task_stub(self):
-        return self._listener_task_stub
+    def stub(self, stub_type: _StubType) -> ResearcherServiceStub:
+        """Get stub for a given stub type.
 
-    @property
-    def sender_task_stub(self):
-        return self._sender_task_stub
+        Args:
+            stub_type: the stub type to get
 
-    @property
-    def sender_feedback_stub(self):
-        return self._sender_feedback_stub
+        Returns:
+            the stub if it exists or None
+        """
+        if stub_type in self._stub_types:
+            return self._stubs[stub_type]
+        else:
+            return None
 
-    async def connect(self, stub_type: StubType = StubType.ANY_STUB):
+    async def connect(self, stub_type: _StubType = _StubType.ANY_STUB):
         """Connects gRPC server and instatiates stubs.
 
         Args:
@@ -112,30 +117,15 @@ class Channels:
         """
 
         # Closes if channels are open
-        if self._sender_feedback_channel and \
-                (stub_type == StubType.ANY_STUB or stub_type == StubType.SENDER_FEEDBACK_STUB):
-            await self._sender_feedback_channel.close()
-
-        if self._sender_task_channel and \
-                (stub_type == StubType.ANY_STUB or stub_type == StubType.SENDER_TASK_STUB):
-            await self._sender_task_channel.close()
-
-        if self._listener_task_channel and \
-                (stub_type == StubType.ANY_STUB or stub_type == StubType.LISTENER_TASK_STUB):
-            await self._listener_task_channel.close()
+        for st, channel in self._channels.items():
+            if channel and (stub_type == _StubType.ANY_STUB or stub_type == st):
+                await channel.close()
 
         # Creates channels
-        if stub_type == StubType.ANY_STUB or stub_type == StubType.SENDER_FEEDBACK_STUB:
-            self._sender_feedback_channel = self._create()
-            self._sender_feedback_stub = ResearcherServiceStub(channel=self._sender_feedback_channel)
-
-        if stub_type == StubType.ANY_STUB or stub_type == StubType.SENDER_TASK_STUB:
-            self._sender_task_channel = self._create()
-            self._sender_task_stub = ResearcherServiceStub(channel=self._sender_task_channel)
-
-        if stub_type == StubType.ANY_STUB or stub_type == StubType.LISTENER_TASK_STUB:
-            self._listener_task_channel = self._create()
-            self._listener_task_stub = ResearcherServiceStub(channel=self._listener_task_channel)
+        for st in self._channels.keys():
+            if stub_type == _StubType.ANY_STUB or stub_type == st:
+                self._channels[st] = self._create()
+                self._stubs[st] = ResearcherServiceStub(channel=self._channels[st])
 
     def _create(self):
         """Creates new channel"""
@@ -413,7 +403,7 @@ class TaskListener(Listener):
                             "Researcher server is not available, will retry connect in "
                             f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-                        await self._channels.connect(StubType.LISTENER_TASK_STUB)
+                        await self._channels.connect(_StubType.LISTENER_TASK_STUB)
 
                     case grpc.StatusCode.UNKNOWN:
                         await self._on_status_change(ClientStatus.FAILED)
@@ -421,13 +411,13 @@ class TaskListener(Listener):
                                      f"bug on the researcher side: {exp}. Will retry connect in "
                                      f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-                        await self._channels.connect(StubType.LISTENER_TASK_STUB)
+                        await self._channels.connect(_StubType.LISTENER_TASK_STUB)
                     case _:
                         await self._on_status_change(ClientStatus.FAILED)
                         logger.error("Unhandled gRPC call status {exp.code()}. Exception: {exp}. Will retry connect in "
                                      f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-                        await self._channels.connect(StubType.LISTENER_TASK_STUB)
+                        await self._channels.connect(_StubType.LISTENER_TASK_STUB)
 
             except Exception as exp:
                 await self._on_status_change(ClientStatus.FAILED)
@@ -444,7 +434,7 @@ class TaskListener(Listener):
         while True:
             logger.debug("Sending new task request to researcher")
             await self._on_status_change(ClientStatus.CONNECTED)
-            iterator = self._channels.listener_task_stub.GetTaskUnary(
+            iterator = self._channels.stub(_StubType.LISTENER_TASK_STUB).GetTaskUnary(
                 TaskRequest(node=f"{self._node_id}").to_proto(), timeout=GRPC_CLIENT_TASK_REQUEST_TIMEOUT
             )
             # Prepare reply
@@ -487,7 +477,7 @@ class Sender(Listener):
         self._queue = asyncio.Queue()
         self._on_status_change = on_status_change
         self._retry_count = 0
-        self._stub_type = StubType.NO_STUB
+        self._stub_type = _StubType.NO_STUB
 
     async def _listen(self, callback: Optional[Callable] = None) -> None:
         """Listens for the messages that are going to be sent to researcher.
@@ -542,7 +532,7 @@ class Sender(Listener):
 
         while True:
             # initialize in case of early failure
-            self._stub_type = StubType.NO_STUB
+            self._stub_type = _StubType.NO_STUB
 
             if self._retry_count > 5:
                 logger.warning("Message can not be sent to researcher after 5 retries")
@@ -607,13 +597,13 @@ class Sender(Listener):
         match message.__class__.__name__:
             case FeedbackMessage.__name__:
                 # Note: FeedbackMessage is designed as proto serializable message.
-                await self._queue.put({"stub": self._channels.sender_feedback_stub.Feedback,
-                                       "reconnect": StubType.SENDER_FEEDBACK_STUB,
+                await self._queue.put({"stub": self._channels.stub(_StubType.SENDER_FEEDBACK_STUB).Feedback,
+                                       "reconnect": _StubType.SENDER_FEEDBACK_STUB,
                                        "message": message.to_proto()})
 
             case _:
-                await self._queue.put({"stub": self._channels.sender_task_stub.ReplyTask,
+                await self._queue.put({"stub": self._channels.stub(_StubType.SENDER_TASK_STUB).ReplyTask,
                                        # dont want to `close()` TASK_STUB from the sender task as it may be
                                        # used by listener task simultaneously
-                                       "reconnect": StubType.SENDER_TASK_STUB,
+                                       "reconnect": _StubType.SENDER_TASK_STUB,
                                        "message": message})
