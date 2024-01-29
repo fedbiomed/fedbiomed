@@ -31,14 +31,15 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         exp.set_aggregator(_aggregator)
         self.assertEqual(exp.aggregator(), _aggregator)
         _aggregator.set_fds.assert_called_once_with(exp.training_data())
-        _aggregator_class = type('mock_aggregator_class',
-                                 (fedbiomed.researcher.aggregators.Aggregator,),
-                                 {'aggregator_name': 'mock-aggregator-2'})
-        _aggregator_class_instance = MagicMock(spec=_aggregator_class)
-        _aggregator_class.__call__ = lambda: _aggregator_class_instance
-        exp.set_aggregator(_aggregator_class)
-        self.assertEqual(exp.aggregator(), _aggregator_class_instance)
-        _aggregator_class_instance.set_fds.assert_called_once_with(exp.training_data())
+
+        _aggregator.reset_mock()
+        _aggregator_class = MagicMock()
+        _aggregator_class.return_value = _aggregator
+        with patch('fedbiomed.researcher.federated_workflows._experiment.inspect.isclass', return_value=True), \
+                patch('fedbiomed.researcher.federated_workflows._experiment.issubclass', return_value=True):
+            exp.set_aggregator(_aggregator_class)
+        self.assertEqual(exp.aggregator(), _aggregator)
+        _aggregator.set_fds.assert_called_once_with(exp.training_data())
 
         # check that setting training data resets the aggregator's fds
         _aggregator.reset_mock()

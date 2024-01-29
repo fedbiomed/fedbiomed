@@ -390,7 +390,7 @@ class Experiment(TrainingPlanWorkflow):
         return info
 
     @exp_exceptions
-    def set_aggregator(self, aggregator: Union[Aggregator, Type[Aggregator], None]) -> Aggregator:
+    def set_aggregator(self, aggregator: Optional[Union[Aggregator, Type[Aggregator]]] = None) -> Aggregator:
         """Sets aggregator + verification on arguments type
 
         Ensures consistency with the training data.
@@ -495,7 +495,7 @@ class Experiment(TrainingPlanWorkflow):
         return self._agg_optimizer
 
     @exp_exceptions
-    def set_strategy(self, node_selection_strategy: Union[Strategy, Type[Strategy], None]) -> \
+    def set_strategy(self, node_selection_strategy: Optional[Union[Strategy, Type[Strategy]]] = None) -> \
             Union[Strategy, None]:
         """Sets for `node_selection_strategy` + verification on arguments type
 
