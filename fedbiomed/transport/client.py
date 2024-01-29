@@ -174,14 +174,14 @@ class GrpcClient:
         self,
         node_id: str,
         researcher: ResearcherCredentials,
-        update_id_map: Callable
+        update_id_map: Awaitable
     ) -> None:
         """Class constructor
 
         Args:
             node_id: unique ID of this node (connection client)
             researcher: the researcher to which the node connects (connection server)
-            update_id_map: function to call when updating the researcher ID, needs proper prototype
+            update_id_map: awaitable to call when updating the researcher ID, needs proper prototype
         """
         self._id = None
         self._researcher = researcher
@@ -524,14 +524,14 @@ class Sender(Listener):
             elif isinstance(msg["stub"], grpc.aio.StreamUnaryMultiCallable):
                 stream_call = msg["stub"]()
 
-                if isinstance(callback, Callable):
-                    # we could check the callback prototype
-                    callback(msg["message"])
-
                 for reply in self._stream_reply(msg["message"]):
                     await stream_call.write(reply)
 
                 await stream_call.done_writing()
+
+                if isinstance(callback, Callable):
+                    # we could check the callback prototype
+                    callback(msg["message"])
 
             else:
                 raise FedbiomedCommunicationError(

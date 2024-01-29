@@ -70,7 +70,7 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_grpc_client_03_on_status_change(self):
 
-        self.client._on_status_change(ClientStatus.CONNECTED)
+        await self.client._on_status_change(ClientStatus.CONNECTED)
         self.assertEqual(self.client._status, ClientStatus.CONNECTED)
 
     async def test_grpc_client_05__update_id(self):
