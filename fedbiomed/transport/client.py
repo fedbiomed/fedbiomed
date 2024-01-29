@@ -546,14 +546,24 @@ class Sender(Listener):
                 self._retry_count = 0
 
             msg = await self._queue.get()
-            self._stub_type = msg["reconnect"]
+            self._stub_type = msg["stub"]
+            if self._stub_type == _StubType.SENDER_FEEDBACK_STUB:
+                feedback_stub = await self._channels.stub(_StubType.SENDER_FEEDBACK_STUB)
+                stub_function = feedback_stub.Feedback
+            elif self._stub_type == _StubType.SENDER_TASK_STUB:
+                task_stub = await self._channels.stub(_StubType.SENDER_TASK_STUB)
+                stub_function = task_stub.ReplyTask
+            else:
+                raise FedbiomedCommunicationError(
+                    "Unknown type of stub in gRPC Sender listener {msg['stub']}"
+                )
 
             # If it is a Unary-Unary RPC call
-            if isinstance(msg["stub"], grpc.aio.UnaryUnaryMultiCallable):
-                await msg["stub"](msg["message"])
+            if isinstance(stub_function, grpc.aio.UnaryUnaryMultiCallable):
+                await stub_function(msg["message"])
 
-            elif isinstance(msg["stub"], grpc.aio.StreamUnaryMultiCallable):
-                stream_call = msg["stub"]()
+            elif isinstance(stub_function, grpc.aio.StreamUnaryMultiCallable):
+                stream_call = stub_function()
 
                 for reply in self._stream_reply(msg["message"]):
                     await stream_call.write(reply)
@@ -566,7 +576,7 @@ class Sender(Listener):
 
             else:
                 raise FedbiomedCommunicationError(
-                    "Unknown type of stub has been in gRPC Sender listener {msg['stub']}"
+                    "Unknown type of stub built from gRPC Sender listener {msg['stub']}"
                 )
 
             self._queue.task_done()
@@ -603,15 +613,9 @@ class Sender(Listener):
         match message.__class__.__name__:
             case FeedbackMessage.__name__:
                 # Note: FeedbackMessage is designed as proto serializable message.
-                feedback_stub = await self._channels.stub(_StubType.SENDER_FEEDBACK_STUB)
-                await self._queue.put({"stub": feedback_stub.Feedback,
-                                       "reconnect": _StubType.SENDER_FEEDBACK_STUB,
+                await self._queue.put({"stub": _StubType.SENDER_FEEDBACK_STUB,
                                        "message": message.to_proto()})
 
             case _:
-                task_stub = await self._channels.stub(_StubType.SENDER_TASK_STUB)
-                await self._queue.put({"stub": task_stub.ReplyTask,
-                                       # dont want to `close()` TASK_STUB from the sender task as it may be
-                                       # used by listener task simultaneously
-                                       "reconnect": _StubType.SENDER_TASK_STUB,
+                await self._queue.put({"stub": _StubType.SENDER_TASK_STUB,
                                        "message": message})
