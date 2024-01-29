@@ -93,16 +93,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
         """
-        super().__init__(
-            tags=tags,
-            nodes=nodes,
-            training_data=training_data,
-            training_args=training_args,
-            experimentation_folder=experimentation_folder,
-            secagg=secagg,
-            save_breakpoints=save_breakpoints
-        )
-
         # Check arguments
         if training_plan_class is not None and not inspect.isclass(training_plan_class):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` {type(training_plan_class)}"
@@ -122,6 +112,17 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         # The __training_plan attribute represents the *actual instance* of a __training_plan_class that is currently
         # being used in the workflow. The training plan cannot be modified by the user.
         self.__training_plan = None
+
+        # initialize object
+        super().__init__(
+            tags=tags,
+            nodes=nodes,
+            training_data=training_data,
+            training_args=training_args,
+            experimentation_folder=experimentation_folder,
+            secagg=secagg,
+            save_breakpoints=save_breakpoints
+        )
 
         self.set_model_args(model_args)
         self.set_training_plan_class(training_plan_class)

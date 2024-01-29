@@ -141,18 +141,7 @@ class Experiment(TrainingPlanWorkflow):
             secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
         """
-        # Set model args immediately, otherwise initialization of training plan fails in base constructor
-        super().__init__(
-            tags=tags,
-            nodes=nodes,
-            training_data=training_data,
-            training_plan_class=training_plan_class,
-            training_args=training_args,
-            model_args=model_args,
-            experimentation_folder=experimentation_folder,
-            secagg=secagg,
-            save_breakpoints=save_breakpoints
-        )
+        # define new members
         self._node_selection_strategy = None
         self._round_limit = None
         self._monitor = None
@@ -164,6 +153,19 @@ class Experiment(TrainingPlanWorkflow):
         self._client_states_dict = {}
         self._server_state = None
         self._training_replies: Dict = {}
+
+        # initialize object
+        super().__init__(
+            tags=tags,
+            nodes=nodes,
+            training_data=training_data,
+            training_plan_class=training_plan_class,
+            training_args=training_args,
+            model_args=model_args,
+            experimentation_folder=experimentation_folder,
+            secagg=secagg,
+            save_breakpoints=save_breakpoints
+        )
 
         # set self._aggregator : type Aggregator
         self.set_aggregator(aggregator)
