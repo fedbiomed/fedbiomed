@@ -36,8 +36,9 @@ class ClientStatus(Enum):
 class StubType(Enum):
     NO_STUB = 0        # never matcher stub type
     ANY_STUB = 1       # always matches stub type
-    TASK_STUB = 2
-    FEEDBACK_STUB = 3
+    LISTENER_TASK_STUB = 2
+    SENDER_TASK_STUB = 3
+    SENDER_FEEDBACK_STUB = 4
 
 
 # timeout in seconds for retrying connection to the server when it does not reply or returns an error
@@ -84,18 +85,24 @@ class Channels:
         """
         self._researcher = researcher
 
-        self._task_channel: grpc.aio.Channel = None
-        self._feedback_channel: grpc.aio.Channel = None
-        self._task_stub: ResearcherServiceStub = None
-        self._feedback_stub: ResearcherServiceStub = None
+        self._listener_task_channel: grpc.aio.Channel = None
+        self._sender_task_channel: grpc.aio.Channel = None
+        self._sender_feedback_channel: grpc.aio.Channel = None
+        self._listener_task_stub: ResearcherServiceStub = None
+        self._sender_task_stub: ResearcherServiceStub = None
+        self._sender_feedback_stub: ResearcherServiceStub = None
 
     @property
-    def task_stub(self):
-        return self._task_stub
+    def listener_task_stub(self):
+        return self._listener_task_stub
 
     @property
-    def feedback_stub(self):
-        return self._feedback_stub
+    def sender_task_stub(self):
+        return self._sender_task_stub
+
+    @property
+    def sender_feedback_stub(self):
+        return self._sender_feedback_stub
 
     async def connect(self, stub_type: StubType = StubType.ANY_STUB):
         """Connects gRPC server and instatiates stubs.
@@ -105,20 +112,30 @@ class Channels:
         """
 
         # Closes if channels are open
-        if self._feedback_channel and (stub_type == StubType.ANY_STUB or stub_type == StubType.FEEDBACK_STUB):
-            await self._feedback_channel.close()
+        if self._sender_feedback_channel and \
+                (stub_type == StubType.ANY_STUB or stub_type == StubType.SENDER_FEEDBACK_STUB):
+            await self._sender_feedback_channel.close()
 
-        if self._task_channel and (stub_type == StubType.ANY_STUB or stub_type == StubType.TASK_STUB):
-            await self._task_channel.close()
+        if self._sender_task_channel and \
+                (stub_type == StubType.ANY_STUB or stub_type == StubType.SENDER_TASK_STUB):
+            await self._sender_task_channel.close()
 
+        if self._listener_task_channel and \
+                (stub_type == StubType.ANY_STUB or stub_type == StubType.LISTENER_TASK_STUB):
+            await self._listener_task_channel.close()
 
-        if stub_type == StubType.ANY_STUB or stub_type == StubType.FEEDBACK_STUB:
-            self._feedback_channel = self._create()
-            self._feedback_stub = ResearcherServiceStub(channel=self._feedback_channel)
+        # Creates channels
+        if stub_type == StubType.ANY_STUB or stub_type == StubType.SENDER_FEEDBACK_STUB:
+            self._sender_feedback_channel = self._create()
+            self._sender_feedback_stub = ResearcherServiceStub(channel=self._sender_feedback_channel)
 
-        if stub_type == StubType.ANY_STUB or stub_type == StubType.TASK_STUB:
-            self._task_channel = self._create()
-            self._task_stub = ResearcherServiceStub(channel=self._task_channel)
+        if stub_type == StubType.ANY_STUB or stub_type == StubType.SENDER_TASK_STUB:
+            self._sender_task_channel = self._create()
+            self._sender_task_stub = ResearcherServiceStub(channel=self._sender_task_channel)
+
+        if stub_type == StubType.ANY_STUB or stub_type == StubType.LISTENER_TASK_STUB:
+            self._listener_task_channel = self._create()
+            self._listener_task_stub = ResearcherServiceStub(channel=self._listener_task_channel)
 
     def _create(self):
         """Creates new channel"""
@@ -396,7 +413,7 @@ class TaskListener(Listener):
                             "Researcher server is not available, will retry connect in "
                             f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-                        await self._channels.connect(StubType.TASK_STUB)
+                        await self._channels.connect(StubType.LISTENER_TASK_STUB)
 
                     case grpc.StatusCode.UNKNOWN:
                         await self._on_status_change(ClientStatus.FAILED)
@@ -404,13 +421,13 @@ class TaskListener(Listener):
                                      f"bug on the researcher side: {exp}. Will retry connect in "
                                      f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-                        await self._channels.connect(StubType.TASK_STUB)
+                        await self._channels.connect(StubType.LISTENER_TASK_STUB)
                     case _:
                         await self._on_status_change(ClientStatus.FAILED)
                         logger.error("Unhandled gRPC call status {exp.code()}. Exception: {exp}. Will retry connect in "
                                      f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-                        await self._channels.connect(StubType.TASK_STUB)
+                        await self._channels.connect(StubType.LISTENER_TASK_STUB)
 
             except Exception as exp:
                 await self._on_status_change(ClientStatus.FAILED)
@@ -427,7 +444,7 @@ class TaskListener(Listener):
         while True:
             logger.debug("Sending new task request to researcher")
             await self._on_status_change(ClientStatus.CONNECTED)
-            iterator = self._channels.task_stub.GetTaskUnary(
+            iterator = self._channels.listener_task_stub.GetTaskUnary(
                 TaskRequest(node=f"{self._node_id}").to_proto(), timeout=GRPC_CLIENT_TASK_REQUEST_TIMEOUT
             )
             # Prepare reply
@@ -590,13 +607,13 @@ class Sender(Listener):
         match message.__class__.__name__:
             case FeedbackMessage.__name__:
                 # Note: FeedbackMessage is designed as proto serializable message.
-                await self._queue.put({"stub": self._channels.feedback_stub.Feedback,
-                                       "reconnect": StubType.FEEDBACK_STUB,
+                await self._queue.put({"stub": self._channels.sender_feedback_stub.Feedback,
+                                       "reconnect": StubType.SENDER_FEEDBACK_STUB,
                                        "message": message.to_proto()})
 
             case _:
-                await self._queue.put({"stub": self._channels.task_stub.ReplyTask,
+                await self._queue.put({"stub": self._channels.sender_task_stub.ReplyTask,
                                        # dont want to `close()` TASK_STUB from the sender task as it may be
                                        # used by listener task simultaneously
-                                       "reconnect": StubType.NO_STUB,
+                                       "reconnect": StubType.SENDER_TASK_STUB,
                                        "message": message})
