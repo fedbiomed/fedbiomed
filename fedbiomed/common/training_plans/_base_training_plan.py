@@ -620,7 +620,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             filename: path to the file where the model will be saved.
         
         Raises:
-            TrainingPlanError: raised if model has not be initialized through the 
+            FedBiomedTrainingPlanError: raised if model has not be initialized through the 
             `post_init` method. If you need to export the model, you must do it through
             [`Experiment`][`fedbiomed.researcher.experiment.Experiment`]'s interface.
 
@@ -647,9 +647,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             filename: path to the file where the model has been exported.
 
         Raises:
-            TrainingPlanError: raised if model has not be initialized through the 
-            `post_init` method. If you need to export the model, you must do it through
-            [`Experiment`][`fedbiomed.researcher.experiment.Experiment`]'s interface.
+            FedBiomedTrainingPlanError: raised if model has not be initialized through the 
+            `post_init` method. If you need to export the model from the Training Plan, you
+            must do it through [`Experiment`][`fedbiomed.researcher.experiment.Experiment`]'s
+            interface.
+            FedbiomedModelError: raised if model cannot be reloaded with the pointed file.
 
 
         !!! info "Notes":
