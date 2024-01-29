@@ -514,6 +514,7 @@ class Sender(Listener):
             if self._retry_count > 5:
                 logger.warning("Message can not be sent to researcher after 5 retries")
                 self._queue.task_done()
+                self._retry_count = 0
 
             msg = await self._queue.get()
 
