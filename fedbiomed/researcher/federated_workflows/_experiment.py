@@ -783,20 +783,18 @@ class Experiment(TrainingPlanWorkflow):
         # Sample nodes for training
         training_nodes = self._node_selection_strategy.sample_nodes(self._round_current)
 
-        model_params_before_round = self.training_plan().after_training_params()
-        self._aggregator.set_training_plan_type(self.training_plan().type())
-
         # Setup Secure Aggregation (it's a noop if not active)
         secagg_arguments = self.secagg_setup(training_nodes)
 
-        # Check aggregator parameter(s) before starting a round
+        # Setup aggregator
+        self._aggregator.set_training_plan_type(self.training_plan().type())
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
                                       training_plan=self.training_plan())
-
+        model_params_before_round = self.training_plan().after_training_params()
         aggregator_args = self._aggregator.create_aggregator_args(model_params_before_round,
                                                                   training_nodes)
 
-        # Collect auxiliary variables from the aggregates optimizer, if any.
+        # Collect auxiliary variables from the aggregator optimizer, if any.
         optim_aux_var = self._collect_optim_aux_var()
 
         # update node states when used node list has changed from one round to another
@@ -831,8 +829,6 @@ class Experiment(TrainingPlanWorkflow):
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
             self._training_replies[self._round_current], self._round_current)
-
-        self._aggregator.set_fds(self._fds)
 
         if self._secagg.active:
             flatten_params = self._secagg.aggregate(

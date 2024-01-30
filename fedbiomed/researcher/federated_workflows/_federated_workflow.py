@@ -163,9 +163,9 @@ class FederatedWorkflow(ABC):
         """
         # predefine all class variables, so no need to write try/except
         # block each time we use it
-        self._fds = None
+        self._fds = None  # dataset metadata from the full federation
         self._reqs = Requests()
-        self._nodes = None
+        self._nodes = None  # researcher-defined nodes filter
         self._training_args = None
         self._tags = None
         self._experimentation_folder = None
@@ -228,11 +228,13 @@ class FederatedWorkflow(ABC):
         """Retrieves the training data which is an instance of
         [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet]
 
+        This represents the dataset metadata available for the full federation.
+
         Please see [`set_training_data`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_data]
         to set or update training data.
 
         Returns:
-            Object that contains meta-data for the datasets of each node. `None` if it isn't set yet.
+            Object that contains metadata for the datasets of each node. `None` if it isn't set yet.
         """
         return self._fds
 
