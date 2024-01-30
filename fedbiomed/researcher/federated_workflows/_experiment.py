@@ -798,7 +798,7 @@ class Experiment(TrainingPlanWorkflow):
         optim_aux_var = self._collect_optim_aux_var()
 
         # update node states when used node list has changed from one round to another
-        self._update_nodes_states_agent(training_nodes, before_training=True)
+        self._update_nodes_states_agent(before_training=True)
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
         job = TrainingJob(nodes=training_nodes,
@@ -820,10 +820,8 @@ class Experiment(TrainingPlanWorkflow):
             optim_aux_var=optim_aux_var,
         )
 
-        nodes_that_replied = list(self._training_replies[self._round_current].keys())
-
         # update node states with node answers + when used node list has changed during the round
-        self._update_nodes_states_agent(nodes_that_replied, before_training=False)
+        self._update_nodes_states_agent(before_training=False)
         
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
@@ -1301,13 +1299,12 @@ class Experiment(TrainingPlanWorkflow):
         state = Serializer.load(state_path)
         return Optimizer.load_state(state)
 
-    def _update_nodes_states_agent(self, node_ids: List[str], before_training: bool = True):
+    def _update_nodes_states_agent(self, before_training: bool = True):
         """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
         state_id coming from `Nodes` contained among all `Nodes` within
         [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet].
 
         Args:
-            node_ids: list of nodes participating in this Round
             before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
                 - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
                 - if after, updates `NodeStateAgent` wrt the latest reply
@@ -1316,6 +1313,7 @@ class Experiment(TrainingPlanWorkflow):
             FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
 
         """
+        node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
         self._node_state_agent.update_node_states(node_ids)
         if before_training:
             self._node_state_agent.update_node_states(node_ids)
@@ -1326,6 +1324,7 @@ class Experiment(TrainingPlanWorkflow):
             # previous Node replies)
             try:
                 last_tr_entry = list(self._training_replies.keys())[-1]
+                
 
             except IndexError as ie:
                 raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
