@@ -822,9 +822,6 @@ class Experiment(TrainingPlanWorkflow):
 
         nodes_that_replied = list(self._training_replies[self._round_current].keys())
 
-        # NOTA: wondering if we could name aggregator_args aggr_args (created only for testing)
-        # leaving aggregator_args and aggr_args to avoid side effects
-
         # update node states with node answers + when used node list has changed during the round
         self._update_nodes_states_agent(nodes_that_replied, before_training=False)
         
@@ -860,8 +857,9 @@ class Experiment(TrainingPlanWorkflow):
         aggregated_params = self._run_agg_optimizer(self.training_plan(),
                                                     aggregated_params)
 
+        # Update the training plan with the aggregated parameters
         self.training_plan().set_model_params(aggregated_params)
-        self._aggregated_params[self._round_current] = {'params': aggregated_params}
+        self._aggregated_params[self._round_current] = {'params': aggregated_params}  # store history
 
         self._round_current += 1
 
