@@ -91,6 +91,10 @@ class MedNISTDataset(DatasetManager):
         self._random_seed: int = random_seed
         
         self._folder_path: str = folder_path
+
+        if not os.path.exists(folder_path):
+            # download ednist dataset
+            self.load_mednist_database(path=folder_path)
         self.directories = os.listdir(path=folder_path)
         if random_seed is not None:
             # setting random seed
@@ -101,19 +105,6 @@ class MedNISTDataset(DatasetManager):
         
         for item in self.img_paths_collection.values():
             random.shuffle(item)
-
-
-    def add_database(self, name: str,
-                     data_type: str,
-                     tags: tuple | list,
-                     description: str,
-                     path: str | None = None,
-                     dataset_id: str | None = None,
-                     dataset_parameters: dict | None = None,
-                     data_loading_plan: DataLoadingPlan | None = None,
-                     save_dlp: bool = True):
-        return super().add_database(name, data_type, tags, description, path, dataset_id,
-                                    dataset_parameters, data_loading_plan, save_dlp)
 
     def load_mednist_database(self, path: str, as_dataset: bool = False) -> Tuple[List[int] | Any]:
         # little hack that download MedNIST dataset if it is not located in directory and save in the database 
@@ -260,7 +251,7 @@ if __name__ == '__main__':
         environ['DB_PATH'] = db_path_old  # resetting db_path to its initial value
     print("Done ! please find below your config files:")
     for entry in config_files:
-        print("config file: ", entry + '.ini')
+        print("config file: ", entry + '.ini\n')
         
     print("to launch the node, please run in distinct terminal:")
     for entry in config_files:
