@@ -25,7 +25,7 @@ from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 server_setup_timeout = int(os.getenv('GRPC_SERVER_SETUP_TIMEOUT', 1))
 
-GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + server_setup_timeout
+GRPC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + server_setup_timeout
 MAX_GRPC_SERVER_SETUP_TIMEOUT = 20 * server_setup_timeout
 
 
@@ -343,18 +343,18 @@ class GrpcServer(_GrpcAsyncServer):
         logger.info("Starting researcher service...")
 
 
-        logger.info(f'Waiting {GPRC_SERVER_SETUP_TIMEOUT}s for nodes to connect...')
-        time.sleep(GPRC_SERVER_SETUP_TIMEOUT)
+        logger.info(f'Waiting {GRPC_SERVER_SETUP_TIMEOUT}s for nodes to connect...')
+        time.sleep(GRPC_SERVER_SETUP_TIMEOUT)
 
         sleep_ = 0
         while len(self.get_all_nodes()) == 0:
 
             if sleep_ == 0:
                 logger.info(f"No nodes found, server will wait "
-                            f"{MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} "
+                            f"{MAX_GRPC_SERVER_SETUP_TIMEOUT - GRPC_SERVER_SETUP_TIMEOUT} "
                             "more seconds until a node creates connection.")
 
-            if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:
+            if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GRPC_SERVER_SETUP_TIMEOUT:
                 if len(self.get_all_nodes()) == 0:
                     logger.warning("Server has not received connection from any remote nodes in "
                                    f"MAX_GRPC_SERVER_SETUP_TIMEOUT: {MAX_GRPC_SERVER_SETUP_TIMEOUT} "
