@@ -4,6 +4,7 @@ import random
 import shutil
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
+from fedbiomed.common.data import DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
 
 from fedbiomed.node.dataset_manager import DatasetManager
@@ -100,6 +101,19 @@ class MedNISTDataset(DatasetManager):
         
         for item in self.img_paths_collection.values():
             random.shuffle(item)
+
+
+    def add_database(self, name: str,
+                     data_type: str,
+                     tags: tuple | list,
+                     description: str,
+                     path: str | None = None,
+                     dataset_id: str | None = None,
+                     dataset_parameters: dict | None = None,
+                     data_loading_plan: DataLoadingPlan | None = None,
+                     save_dlp: bool = True):
+        return super().add_database(name, data_type, tags, description, path, dataset_id,
+                                    dataset_parameters, data_loading_plan, save_dlp)
 
     def load_mednist_database(self, path: str, as_dataset: bool = False) -> Tuple[List[int] | Any]:
         # little hack that download MedNIST dataset if it is not located in directory and save in the database 
@@ -229,7 +243,7 @@ if __name__ == '__main__':
             _name = f"MedNIST_{n+1}"
             manage_config_file(args, _name, config_files)
             d_path = os.path.join(data_folder, 'MedNIST')
-            dataset = MedNISTDataset()
+            dataset = MedNISTDataset(d_path)
         
         try:
             dataset.add_database(_name, 
