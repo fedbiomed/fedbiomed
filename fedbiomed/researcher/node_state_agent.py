@@ -34,14 +34,14 @@ class NodeStateAgent:
         """
         return self._collection_state_ids
 
-    def update_node_states(self, all_node_ids: List[str], resp: Optional[Dict] = None):#resp: Optional[Dict] = None):
+    def update_node_states(self, all_node_ids: List[str], resp: Optional[Dict] = None):
         """Updates the state_id collection with respect to current nodes and latest Nodes replies.
 
         Adds node IDs contained in node_ids argument that was not part of the previous Round, and discards node_ids that
         do not belong to the current Round anymore.
 
         Args:
-            node_ids: all possible nodes that can participate to the training.
+            all_node_ids: all possible nodes that can participate to the training.
             resp (optional): latest Nodes replies. Defaults to None.
 
         Raises:
