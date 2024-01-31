@@ -1,6 +1,9 @@
 import unittest
+from itertools import product
 from unittest.mock import MagicMock, patch
 
+from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_case import ResearcherTestCase
@@ -32,6 +35,37 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         exp = Experiment()
         self.assertIsInstance(exp.monitor(), fedbiomed.researcher.monitor.Monitor)  # set by default
         self.assertIsInstance(exp.aggregator(), fedbiomed.researcher.aggregators.FedAverage)  # set by default
+
+        # Test all possible combinations of init arguments
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
+        _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
+        _aggregator.aggregator_name = 'mock aggregator'
+        _strategy = MagicMock(spec=fedbiomed.researcher.strategies.Strategy)
+        parameters_and_possible_values = {
+            'tags': ('one-tag', ['one-tag', 'another-tag'], None),
+            'nodes': (['one-node'], None),
+            'training_data': (_training_data, {'one-node': {'tags': ['one-tag']}}, None),
+            'training_args': (TrainingArgs({'epochs': 42}), {'num_updates': 1}, None),
+            'experimentation_folder': ('folder_name', None),
+            'secagg': (True, False, _secagg),
+            'save_breakpoints': (True, False),
+            'training_plan_class': (TorchTrainingPlan, SKLearnTrainingPlan, None),
+            'model_args': ({'model': 'args'}, None),
+            'aggregator': (_aggregator, None),
+            'node_selection_strategy': (_strategy, None),
+            'round_limit': (42, None),
+            'tensorboard': (True, False)
+        }
+        # Compute cartesian product of parameter values to obtain all possible combinations
+        keys, values = zip(*parameters_and_possible_values.items())
+        all_parameter_combinations = [dict(zip(keys, v)) for v in product(*values)]
+        for params in all_parameter_combinations:
+            try:
+                exp = Experiment(**params)
+            except SystemExit as e:
+                print(f'Exception {e} raised with the following parameters {params}')
+                raise e
 
     def test_experiment_02_set_aggregator(self):
         """Tests setting the Experiment's aggregator and related side effects"""
@@ -70,19 +104,15 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
     def test_experiment_03_set_strategy(self):
         """Tests setting the Experiment's node selection strategy and related side effects"""
         exp = Experiment()
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
-        exp.set_training_data(_training_data)
 
         # test default case
         exp.set_strategy()
         self.assertIsInstance(exp.strategy(), fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
-        self.assertEqual(exp.strategy()._fds, _training_data)  # ensure the strategy's fds is compatible with exp
 
         # setting through an object instance
         _strategy = MagicMock(spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
         exp.set_strategy(_strategy)
         self.assertEqual(exp.strategy(), _strategy)
-        _strategy.set_fds.assert_called_once_with(exp.training_data())  # same side effect as aggregator
 
         # setting through a class
         _strategy.reset_mock()
@@ -91,17 +121,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         with patch('fedbiomed.researcher.federated_workflows._experiment.inspect.isclass', return_value=True), \
                 patch('fedbiomed.researcher.federated_workflows._experiment.issubclass', return_value=True):
             exp.set_strategy(_strategy_class)
-        _strategy_class.assert_called_once_with(exp.training_data())
-
-        # check that setting training data resets the aggregator's fds
-        _strategy.reset_mock()
-        exp.set_training_data(_training_data)
-        _strategy.set_fds.assert_called_once_with(exp.training_data())
-
-        # check that it is not possible to set strategy when fds is not set
-        exp = Experiment()
-        exp.set_strategy(_strategy)
-        self.assertIsNone(exp.strategy())
+        _strategy_class.assert_called_once_with()
 
     @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
     def test_experiment_04_run_once_base_case(self,
@@ -113,7 +133,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
         _aggregator.aggregator_name = 'mock-aggregator'
         _strategy = MagicMock(spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
-        _strategy.refine.return_value = (1,2,3,4)
+        _strategy.refine.return_value = (1, 2, 3, 4)
         exp = Experiment(
             training_data=_training_data,
             aggregator=_aggregator,
