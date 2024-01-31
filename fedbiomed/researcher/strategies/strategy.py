@@ -6,7 +6,7 @@ Top class for strategy implementation
 """
 
 
-from typing import Dict, Any
+from typing import Any, Dict, List, Tuple
 
 from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
@@ -25,29 +25,23 @@ class Strategy:
 
     """
 
-    def __init__(self, data: FederatedDataSet):
+    def __init__(self):
         """
 
         Args:
             data: Object that includes all active nodes and the meta-data of the dataset that is going to be
                 used for federated training.
         """
-        self._fds = None
         self._sampling_node_history = {}
         self._success_node_history = {}
         self._parameters = None
 
-        self.set_fds(data)
-
-    def set_fds(self, data: FederatedDataSet) -> FederatedDataSet:
-        self._fds = data
-        return self._fds
-
-    def sample_nodes(self, round_i: int):
+    def sample_nodes(self, from_nodes: List[str], round_i: int):
         """
         Abstract method that must be implemented by child class
 
         Args:
+            from_nodes: the node ids which may be sampled
             round_i: Current round of experiment
         """
         msg = ErrorNumbers.FB402.value + \
@@ -55,7 +49,7 @@ class Strategy:
         logger.critical(msg)
         raise FedbiomedStrategyError(msg)
 
-    def refine(self, training_replies: Dict, round_i: int) -> tuple[list, list]:
+    def refine(self, training_replies: Dict, round_i: int) -> Tuple[list, list]:
         """
         Abstract method that must be implemented by child class
 
@@ -89,11 +83,10 @@ class Strategy:
             "class": type(self).__name__,
             "module": self.__module__,
             "parameters": self._parameters,
-            "fds": self._fds.data()
         }
         return state
 
-    def load_state_breakpoint(self, state: Dict[str, Any] = None, **kwargs):
+    def load_state_breakpoint(self, state: Dict[str, Any] = None):
         """
         Method for loading strategy state from breakpoint state
 
@@ -101,5 +94,4 @@ class Strategy:
             state: The state that will be loaded
         """
         # fds may be modified and diverge from Experiment
-        self._fds = FederatedDataSet(state.get('fds'))
         self._parameters = state['parameters']

@@ -17,7 +17,8 @@ from declearn.model.api import Vector
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError,
-    FedbiomedNodeStateAgentError
+    FedbiomedNodeStateAgentError,
+    FedbiomedTypeError
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
@@ -513,35 +514,28 @@ class Experiment(TrainingPlanWorkflow):
         Raises:
             FedbiomedExperimentError : bad strategy type
         """
-        if self._fds is not None:
-            if node_selection_strategy is None:
-                # default node_selection_strategy
-                self._node_selection_strategy = DefaultStrategy(self._fds)
-            elif inspect.isclass(node_selection_strategy):
-                # a class is provided, need to instantiate an object
-                if issubclass(node_selection_strategy, Strategy):
-                    self._node_selection_strategy = node_selection_strategy(self._fds)
-                else:
-                    # bad argument
-                    msg = ErrorNumbers.FB410.value + \
-                        f' `node_selection_strategy` : {node_selection_strategy} class'
-                    logger.critical(msg)
-                    raise FedbiomedExperimentError(msg)
-            elif isinstance(node_selection_strategy, Strategy):
-                # an object of a proper class is provided, nothing to do
-                self._node_selection_strategy = node_selection_strategy
-                self._node_selection_strategy.set_fds(self._fds)
+        if node_selection_strategy is None:
+            # default node_selection_strategy
+            self._node_selection_strategy = DefaultStrategy()
+        elif inspect.isclass(node_selection_strategy):
+            # a class is provided, need to instantiate an object
+            if issubclass(node_selection_strategy, Strategy):
+                self._node_selection_strategy = node_selection_strategy()
             else:
-                # other bad type or object
+                # bad argument
                 msg = ErrorNumbers.FB410.value + \
-                    f' `node_selection_strategy` : {type(node_selection_strategy)}'
+                    f' `node_selection_strategy` : {node_selection_strategy} class'
                 logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
+                raise FedbiomedTypeError(msg)
+        elif isinstance(node_selection_strategy, Strategy):
+            # an object of a proper class is provided, nothing to do
+            self._node_selection_strategy = node_selection_strategy
         else:
-            # cannot initialize strategy if not FederatedDataSet yet
-            self._node_selection_strategy = None
-            logger.debug('Experiment not fully configured yet: no node selection strategy')
-
+            # other bad type or object
+            msg = ErrorNumbers.FB410.value + \
+                f' `node_selection_strategy` : {type(node_selection_strategy)}'
+            logger.critical(msg)
+            raise FedbiomedTypeError(msg)
         # at this point self._node_selection_strategy is a Union[Strategy, None]
         return self._node_selection_strategy
 
@@ -775,7 +769,10 @@ class Experiment(TrainingPlanWorkflow):
             raise FedbiomedExperimentError(msg)
 
         # Sample nodes for training
-        training_nodes = self._node_selection_strategy.sample_nodes(self._round_current)
+        training_nodes = self._node_selection_strategy.sample_nodes(
+            from_nodes=self.filtered_federation_nodes(),
+            round_i=self._round_current
+        )
 
         # Setup Secure Aggregation (it's a noop if not active)
         secagg_arguments = self.secagg_setup(training_nodes)
