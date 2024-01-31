@@ -1,5 +1,7 @@
 import os, unittest
 from unittest.mock import MagicMock, patch
+from itertools import product
+
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -9,6 +11,7 @@ from testsupport.base_mocks import MockRequestModule
 
 import fedbiomed
 from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.federated_workflows import TrainingPlanWorkflow
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob, TrainingPlanApprovalJob
@@ -37,6 +40,59 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         """Test initialization of training plan workflow, only cases where correct parameters are provided"""
         self.mock_job.return_value.get_initialized_tp_instance.return_value = MagicMock(spec=FakeTorchTrainingPlan)
         exp = TrainingPlanWorkflow()
+        self.assertIsNone(exp.training_plan_class())
+        self.assertIsNone(exp.model_args())
+        self.assertIsNone(exp.training_plan())
+
+        # Test all possible combinations of init arguments
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
+        parameters_and_possible_values = {
+            'tags': ('one-tag', ['one-tag', 'another-tag'], None),
+            'nodes': (['one-node'], None),
+            'training_data': (_training_data, {'one-node': {'tags': ['one-tag']}}, None),
+            'training_args': (TrainingArgs({'epochs': 42}), {'num_updates': 1}, None),
+            'experimentation_folder': ('folder_name', None),
+            'secagg': (True, False, _secagg),
+            'save_breakpoints': (True, False),
+            'training_plan_class': (TorchTrainingPlan, SKLearnTrainingPlan, None),
+            'model_args': ({'model': 'args'}, None)
+        }
+        # Compute cartesian product of parameter values to obtain all possible combinations
+        keys, values = zip(*parameters_and_possible_values.items())
+        all_parameter_combinations = [dict(zip(keys, v)) for v in product(*values)]
+        for params in all_parameter_combinations:
+            try:
+                exp = TrainingPlanWorkflow(**params)
+            except Exception as e:
+                print(f'Exception {e} raised with the following parameters {params}')
+                raise e
+
+        # Special corner cases that deserve additional testing
+        # TrainingPlanWorkflow can also be constructed by providing parameters to the constructor
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data.node_ids.return_value = ['alice', 'bob']  # make sure that nodes can be correctly inferred
+        exp = TrainingPlanWorkflow(
+            nodes=['alice', 'bob'],
+            training_data=_training_data,
+            training_args={'num_updates': 1},
+            secagg=True,
+            save_breakpoints=True,
+            training_plan_class=FakeTorchTrainingPlan,
+            model_args={'model-args': 'from-constructor'}
+        )
+        self.assertDictEqual(exp.model_args(), {'model-args': 'from-constructor'})
+        self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
+        # arguments only relevant to TrainingPlanWorkflow
+        exp = TrainingPlanWorkflow(
+            training_plan_class=FakeTorchTrainingPlan,
+            model_args={'model-args': 'from-constructor'}
+        )
+        self.assertDictEqual(exp.model_args(), {'model-args': 'from-constructor'})
+        self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
+
+    def test_training_plan_workflow_02_set_training_plan_class(self):
+        exp = TrainingPlanWorkflow()
         exp.set_training_plan_class(FakeTorchTrainingPlan)
         self.mock_job.return_value.get_initialized_tp_instance.assert_called_once()
         self.assertEqual(self.mock_job.return_value.get_initialized_tp_instance.mock_calls[0].args[0],
@@ -61,7 +117,9 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         exp.set_training_plan_class(None)
         self.assertIsNone(exp.training_plan_class())
         self.assertIsNone(exp.training_plan())
-        # model arguments
+
+    def test_training_plan_workflow_03_set_model_args(self):
+        exp = TrainingPlanWorkflow()
         exp.set_training_plan_class(FakeTorchTrainingPlan)
         self.mock_job.return_value.reset_mock()
         exp.set_model_args({'model': 'args'}, keep_weights=False)
@@ -83,29 +141,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
             {'model': 'new-params'}
         )
 
-        # TrainingPlanWorkflow can also be constructed by providing parameters to the constructor
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
-        _training_data.node_ids.return_value = ['alice', 'bob']  # make sure that nodes can be correctly inferred
-        exp = TrainingPlanWorkflow(
-            nodes=['alice', 'bob'],
-            training_data=_training_data,
-            training_args={'num_updates': 1},
-            secagg=True,
-            save_breakpoints=True,
-            training_plan_class=FakeTorchTrainingPlan,
-            model_args={'model-args': 'from-constructor'}
-        )
-        self.assertDictEqual(exp.model_args(), {'model-args': 'from-constructor'})
-        self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
-        # arguments only relevant to TrainingPlanWorkflow
-        exp = TrainingPlanWorkflow(
-            training_plan_class=FakeTorchTrainingPlan,
-            model_args={'model-args': 'from-constructor'}
-        )
-        self.assertDictEqual(exp.model_args(), {'model-args': 'from-constructor'})
-        self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
-
-    def test_training_plan_workflow_02_approval_and_status(self):
+    def test_training_plan_workflow_04_approval_and_status(self):
         """"""
         patch_job = patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingPlanApprovalJob')
         mock_job = patch_job.start()
@@ -132,7 +168,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
 
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.FederatedWorkflow.breakpoint')
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
-    def test_federated_workflow_04_breakpoint(self,
+    def test_federated_workflow_05_breakpoint(self,
                                               mock_uuid,
                                               mock_super_breakpoint,
                                               ):
@@ -159,7 +195,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.import_class_from_file',
            return_value=(None, FakeTorchTrainingPlan))
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.FederatedWorkflow.load_breakpoint')
-    def test_federated_workflow_05_load_breakpoint(self,
+    def test_federated_workflow_06_load_breakpoint(self,
                                                    mock_super_load,
                                                    mock_import_class
                                                    ):
