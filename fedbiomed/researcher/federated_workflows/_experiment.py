@@ -442,35 +442,29 @@ class Experiment(TrainingPlanWorkflow):
             Union[FederatedDataSet, None]:
         """Sets training data for federated training + verification on arguments type
 
-        Ensures consistency with the tags, nodes, and aggregator attributes.
+        See [`FederatedWorkflow.set_training_data`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_data] for more information.
 
-        Args:
-            training_data:
-                * If it is a FederatedDataSet object, use this value as training_data.
-                * else if it is a dict, create and use a FederatedDataSet object from the dict
-                  and use this value as training_data. The dict should use node ids as keys,
-                  values being list of dicts (each dict representing a dataset on a node).
-                * else if it is None (no training data provided)
-                  - if `from_tags` is True and `tags` is not None, set training_data by
-                    searching for datasets with a query to the nodes using `tags` and `nodes`
-                  - if `from_tags` is False or `tags` is None, set training_data to None (no training_data set yet,
-                    experiment is not fully initialized and cannot be launched)
-            from_tags: If True, query nodes for datasets when no `training_data` is provided.
-                Not used when `training_data` is provided.
+        Ensures consistency also with the Experiment's aggregator, node selection strategy, and node state agent
+
+        !!! warning "Setting to None forfeits consistency checks"
+            Setting training_data to None does not trigger consistency checks, and may therefore leave the class in an
+            inconsistent state.
 
         Returns:
-            Nodes and dataset with meta-data
-
-        Raises:
-            FedbiomedExperimentError : bad training_data type
+            Dataset metadata
         """
         super().set_training_data(training_data, from_tags)
+        # Below: Experiment-specific operations for consistency
         if self._aggregator is not None and self._fds is not None:
             # update the aggregator's training data
             self._aggregator.set_fds(self._fds)
         if self._node_selection_strategy is not None and self._fds is not None:
             # update the node selection strategy's training data
             self._node_selection_strategy.set_fds(self._fds)
+        if self._node_state_agent is not None and self._fds is not None:
+            # update the node state agent (member of FederatedWorkflow)
+            self._node_state_agent.update_node_states(list(self._fds.data().keys()))
+        return self._fds
 
     @exp_exceptions
     def set_agg_optimizer(
