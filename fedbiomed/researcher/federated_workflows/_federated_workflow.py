@@ -12,7 +12,9 @@ from re import findall
 from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers, JOB_PREFIX, __breakpoints_version__
-from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError
+from fedbiomed.common.exceptions import (
+    FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError, FedbiomedTypeError, FedbiomedValueError
+)
 from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_args import TrainingArgs
@@ -163,17 +165,17 @@ class FederatedWorkflow(ABC):
         """
         # predefine all class variables, so no need to write try/except
         # block each time we use it
-        self._fds = None  # dataset metadata from the full federation
-        self._reqs = Requests()
-        self._nodes = None  # researcher-defined nodes filter
-        self._training_args = None
-        self._tags = None
-        self._experimentation_folder = None
-        self._secagg = None
-        self._save_breakpoints = None
-        self._node_state_agent: NodeStateAgent = None
-        self._researcher_id = environ['RESEARCHER_ID']
-        self._id = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id # TO BE RENAMED
+        self._fds: Optional[FederatedDataSet] = None  # dataset metadata from the full federation
+        self._reqs: Requests = Requests()
+        self._nodes_filter: Optional[List[str]] = None  # researcher-defined nodes filter
+        self._training_args: Optional[TrainingArgs] = None
+        self._tags: Optional[List[str]] = None
+        self._experimentation_folder: Optional[str] = None
+        self._secagg: Optional[SecureAggregation] = None
+        self._save_breakpoints: Optional[bool] = None
+        self._node_state_agent: Optional[NodeStateAgent] = None
+        self._researcher_id: str = environ['RESEARCHER_ID']
+        self._id: str = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id # TO BE RENAMED
 
         # set internal members from constructor arguments
         self.set_secagg(secagg)
@@ -214,14 +216,25 @@ class FederatedWorkflow(ABC):
 
     @exp_exceptions
     def nodes(self) -> Union[List[str], None]:
-        """Retrieves the `nodes` that are chosen for federated training.
+        """Retrieves the nodes filter for the execution of the workflow.
+
+        If nodes is None, then no filtering is applied, and all the nodes in the federation participate in the
+        execution of the workflow.
+        If nodes is not None, then the semantics of the nodes filter are as follows:
+
+        | node_id in nodes filter | node_id in training data | outcome |
+        | --- | --- | --- |
+        | yes | yes | this node is part of the federation, but will not be considered for executing the workflow |
+        | yes | no | ignored |
+        | no | yes | this node is part of the federation and will take part in the execution the workflow |
+        | no | no | ignored |
 
         Please see [`set_nodes`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_nodes] to set `nodes`.
 
         Returns:
-            Object that contains meta-data for the datasets of each node. `None` if nodes are not set.
+            The list of nodes to keep for workflow execution, or None if no filtering is applied
         """
-        return self._nodes
+        return self._nodes_filter
 
     @exp_exceptions
     def training_data(self) -> Union[FederatedDataSet, None]:
@@ -315,7 +328,7 @@ class FederatedWorkflow(ABC):
             ])
         info['Values'].extend(['\n'.join(findall('.{1,60}', str(e))) for e in [
                            self._tags,
-                           self._nodes,
+                           self._nodes_filter,
                            self._fds,
                            self._training_args,
                            self._experimentation_folder,
@@ -330,12 +343,24 @@ class FederatedWorkflow(ABC):
     def set_tags(self, tags: Union[List[str], str, None]) -> Union[List[str], None]:
         """Sets tags + verifications on argument type
 
+        Ensures consistency with the tags attribute following this definition:
+        - if training data is None, then the attributes are consistent
+        - if training data is not None and tags is not None, check that the tags from the training data all contain
+            the tags declared in the self._tags attribute
+
+        The state diagram below explains the flow of setters and consistency checks
+        ![state diagram](https://www.plantuml.com/plantuml/png/ZP91ZzCm48Nl_XLpHjf3usGFqIhQ0ul4XGEik22qCiviQz7OnPvK8CH_9rESAgdjqalhsFE-zsRinq3AqpZinRGWXAUV1_HcG4llhI7uBG2UlJBMsErRHUfbMb4B7vn5Fb7RiDpv8oBb4nAVFRlFQZzYIgbQE7Wy6ZS6E799XF41JVyP4Xka85a2oKoafR84l5ytTv_moy12htKB5BzV-cbZHjStezzvDx0aPJSNRFYc0lRWBBYHj1iGt2ju_35YeDctoVbUNFlTNNTnXwMAT09p4te33mzwvup6hWCXrZm6S4aBUeVwEsXdWmc4Ll_YpCJjAjl3Qn-4td1rSIej67kMKtGFv0uS06tVTP4GDrjOL9_JoZHjqbjCBMzABKfvcV5HcO1FtZlFyQFIXDFRMtHGdpjO2EPEwkiMMWgXvVeg6L-ULpMxHLtSpCvh-lMqWKbnMasQk9Cy7JOS0thuDzqLe4e0LHBucbucUfbxAbbEleRLNzvyNRdKYKkTS_b_kqq2Qgw_x3L9Y4Uq_JZi_m80)
+
         This function has the following behaviour:
 
         - if input is None, then it sets tags attribute to None and immediately exits
         - in input is the same as current tags, then immediately exits
         - otherwise, sets the tags to the inputted value
-        - if new tags are inconsistent with training data, it resets the training data and nodes attributes
+        - if new tags are inconsistent with training data, it resets the training data attributes
+
+        !!! warning "Setting to None forfeits consistency checks"
+            Setting tags to None does not trigger consistency checks, and may therefore leave the class in an
+            inconsistent state.
 
         Args:
             tags: List of string with data tags or string with one data tag. Empty list
@@ -346,15 +371,15 @@ class FederatedWorkflow(ABC):
             List of tags that are set. None, if the argument `tags` is None.
 
         Raises:
-            FedbiomedExperimentError : Bad tags type
+            FedbiomedTypeError : Bad tags type
+            FedbiomedValueError : Some issue prevented resetting the training data after an inconsistency was detected
         """
         # preprocess the tags argument to correct typing
         if isinstance(tags, list):
-            for tag in tags:
-                if not isinstance(tag, str):
-                    msg = ErrorNumbers.FB410.value + f' `tags` : list of {type(tag)}'
-                    logger.critical(msg)
-                    raise FedbiomedExperimentError(msg)
+            if not all(map(lambda tag: isinstance(tag, str), tags)):
+                msg = ErrorNumbers.FB410.value + f' `tags` must be a str, a list of str, or None'
+                logger.critical(msg)
+                raise FedbiomedTypeError(msg)
             tags_to_set = tags
         elif isinstance(tags, str):
             tags_to_set = [tags]
@@ -363,83 +388,55 @@ class FederatedWorkflow(ABC):
             self._tags = None
             return self._tags
         else:
-            msg = ErrorNumbers.FB410.value + f' `tags` : {type(tags)}'
+            msg = ErrorNumbers.FB410.value + f' `tags` must be a str, a list of str, or None'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-        # do nothing if attempting to set the same value as current tags
-        if self._tags is not None and set(tags) == set(self._tags):
+            raise FedbiomedTypeError(msg)
+        # do nothing if attempting to set the same value as current tags to avoid redundant network calls
+        if self._tags is not None and set(tags_to_set) == set(self._tags):
             return self._tags
         # set the tags
         self._tags = tags_to_set
         # check for consistency
-        if not self._nodes_fds_tags_consistent():
-            # if inconsistent, reset the training data and nodes
+        if not self._fds_tags_consistent():
+            # if inconsistent, reset the training data
             try:
                 self.set_training_data(None, from_tags=True)
-            except FedbiomedExperimentError as e:
-                msg = f"{ErrorNumbers.FB410.value} in `set_nodes`. Automatic attempt to fix inconsistency between " \
-                      f"tags and training data failed. Please reset nodes, tags and training data to None before " \
+            except FedbiomedError as e:
+                msg = f"{ErrorNumbers.FB410.value} in `set_tags`. Automatic attempt to fix inconsistency between " \
+                      f"tags and training data failed. Please reset tags and training data to None before " \
                       f"attempting to modify them again."
                 logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
+                raise FedbiomedValueError(msg) from e
         return self._tags
 
     @exp_exceptions
     def set_nodes(self, nodes: Union[List[str], None]) -> Union[List[str], None]:
-        """Sets for nodes + verifications on argument type
-
-        This function has the following behaviour:
-
-        - if input is None, then sets the nodes attribute to None and immediately exits
-        - in input is the same as current nodes, then immediately exits
-        - otherwise, sets the nodes to the input value
-        - if new nodes are inconsistent with training data and tags are not None, it resets the training data based on
-            the current tags
-        - if new nodes are inconsistent with training data and tags are None, filter the training data based on the new
-            nodes
+        """Sets the nodes filter + verifications on argument type
 
         Args:
             nodes: List of node_ids to filter the nodes to be involved in the experiment.
 
         Returns:
-            List of tags that are set. None, if the argument `nodes` is None.
+            List of nodes that are set. None, if the argument `nodes` is None.
 
         Raises:
-            FedbiomedExperimentError : Bad nodes type
+            FedbiomedTypeError : Bad nodes type
         """
         # immediately exit if setting nodes to None
         if nodes is None:
-            self._nodes = nodes
-            return self._nodes
-        # do nothing if attempting to set the same set of nodes. Allows to skip resetting the training data
-        if self._nodes is not None and set(nodes) == set(self._nodes):
-            return self._nodes
+            self._nodes_filter = None
         # set nodes
-        if isinstance(nodes, list):
-            for node in nodes:
-                if not isinstance(node, str):
-                    msg = ErrorNumbers.FB410.value + f' `nodes` : list of {type(node)}'
-                    logger.critical(msg)
-                    raise FedbiomedExperimentError(msg)
-            self._nodes = nodes
+        elif isinstance(nodes, list):
+            if not all(map(lambda node: isinstance(node, str), nodes)):
+                msg = ErrorNumbers.FB410.value + f' `nodes` argument must be a list of strings or None.'
+                logger.critical(msg)
+                raise FedbiomedTypeError(msg)
+            self._nodes_filter = nodes
         else:
-            msg = ErrorNumbers.FB410.value + f' `nodes` : {type(nodes)}'
+            msg = ErrorNumbers.FB410.value + f' `nodes` argument must be a list of strings or None.'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-        # self._nodes always exist at this point
-        if not self._nodes_fds_tags_consistent():
-            if self.tags() is not None:
-                try:
-                    self.set_training_data(None, from_tags=True)
-                except FedbiomedExperimentError as e:
-                    msg = f"{ErrorNumbers.FB410.value} in `set_nodes`. Automatic attempt to fix inconsistency between " \
-                          f"nodes and training data failed. Please reset nodes, tags and training data to None before " \
-                          f"attempting to modify them again."
-                    logger.critical(msg)
-                    raise FedbiomedExperimentError(msg)
-            else:
-                self._fds.filter_nodes(self._nodes)
-        return self._nodes
+            raise FedbiomedTypeError(msg)
+        return self._nodes_filter
 
     @exp_exceptions
     def set_training_data(
@@ -449,7 +446,26 @@ class FederatedWorkflow(ABC):
             Union[FederatedDataSet, None]:
         """Sets training data for federated training + verification on arguments type
 
-        Ensures consistency with the tags and nodes attributes.
+        Ensures consistency with the tags attribute following this definition:
+        - if training data is None, then the attributes are consistent
+        - if training data is not None and tags is not None, check that the tags from the training data all contain
+            the tags declared in the self._tags attribute
+
+        The state diagram below explains the flow of setters and consistency checks
+        ![state diagram](https://www.plantuml.com/plantuml/png/ZP91ZzCm48Nl_XLpHjf3usGFqIhQ0ul4XGEik22qCiviQz7OnPvK8CH_9rESAgdjqalhsFE-zsRinq3AqpZinRGWXAUV1_HcG4llhI7uBG2UlJBMsErRHUfbMb4B7vn5Fb7RiDpv8oBb4nAVFRlFQZzYIgbQE7Wy6ZS6E799XF41JVyP4Xka85a2oKoafR84l5ytTv_moy12htKB5BzV-cbZHjStezzvDx0aPJSNRFYc0lRWBBYHj1iGt2ju_35YeDctoVbUNFlTNNTnXwMAT09p4te33mzwvup6hWCXrZm6S4aBUeVwEsXdWmc4Ll_YpCJjAjl3Qn-4td1rSIej67kMKtGFv0uS06tVTP4GDrjOL9_JoZHjqbjCBMzABKfvcV5HcO1FtZlFyQFIXDFRMtHGdpjO2EPEwkiMMWgXvVeg6L-ULpMxHLtSpCvh-lMqWKbnMasQk9Cy7JOS0thuDzqLe4e0LHBucbucUfbxAbbEleRLNzvyNRdKYKkTS_b_kqq2Qgw_x3L9Y4Uq_JZi_m80)
+
+        The full expected behaviour when changing training data is given in the table below:
+        | New value of `training_data` | `from_tags` | Consistency with tags | Outcome |
+        | --- | --- | --- | --- |
+        | dict or FederatedDataset | True or False | consistent with new value | only set fds attribute |
+        | dict or FederatedDataset | True | any | fail because user is attempting to set from tags but also providing a training_data argument|
+        | dict or FederatedDataset | False | tags and nodes are not consistent with new value | set fds attribute, set tags to None |
+        | None | True | any | fail if tags is None, else set fds attribute based tags |
+        | None | False | any | set tags to None and keep same value and tags |
+
+        !!! warning "Setting to None forfeits consistency checks"
+            Setting training_data to None does not trigger consistency checks, and may therefore leave the class in an
+            inconsistent state.
 
         Args:
             training_data:
@@ -469,22 +485,26 @@ class FederatedWorkflow(ABC):
             FederatedDataSet metadata
 
         Raises:
-            FedbiomedExperimentError : bad training_data type
+            FedbiomedTypeError : bad training_data type
+            FedbiomedValueError : attempting to set training data from tags but self._tags is None
         """
         if not isinstance(from_tags, bool):
             msg = ErrorNumbers.FB410.value + f' `from_tags` : got {type(from_tags)} but expected a boolean'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedTypeError(msg)
+        if from_tags and training_data is not None:
+            msg = ErrorNumbers.FB410.value + f' set_training_data: cannot specify a training_data argument if ' \
+                                             f'from_tags is True'
+            logger.critical(msg)
+            raise FedbiomedValueError(msg)
         # case where no training data are passed
         if training_data is None:
             if from_tags is True:
-                # cannot search for training_data if tags not initialized;
                 if self._tags is None:
-                    msg = f"{ErrorNumbers.FB410.value}: attempting to set training data from tags, but tags are undefined."
+                    msg = f"{ErrorNumbers.FB410.value}: attempting to set training data from undefined tags"
                     logger.critical(msg)
-                    raise FedbiomedExperimentError(msg)
-                # nodes can be None (no filtering on nodes by default)
-                training_data = self._reqs.search(self._tags, self._nodes)
+                    raise FedbiomedValueError(msg)
+                training_data = self._reqs.search(self._tags, self._nodes_filter)
             else:
                 self._fds = None
                 return None  # quick exit
@@ -496,12 +516,11 @@ class FederatedWorkflow(ABC):
         else:
             msg = ErrorNumbers.FB410.value + f' `training_data` has incorrect type: {type(training_data)}'
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedTypeError(msg)
         # check and ensure consistency
-        if not self._nodes_fds_tags_consistent():
-            self._nodes = self.training_data().node_ids() or None  # set to None in case of empty list
+        if not self._fds_tags_consistent():
             self._tags = self._tags if from_tags else None  # reset tags to None unless we used them to fetch the data
-
+        # return the new value
         return self._fds
 
     @exp_exceptions
@@ -652,7 +671,7 @@ class FederatedWorkflow(ABC):
             'training_args': self._training_args.dict(),
             'experimentation_folder': self._experimentation_folder,
             'tags': self._tags,
-            'nodes': self._nodes,
+            'nodes': self._nodes_filter,
             'secagg': self._secagg.save_state_breakpoint(),
             'node_state':  self._node_state_agent.save_state_breakpoint()
         })
@@ -750,28 +769,17 @@ class FederatedWorkflow(ABC):
 
         return loaded_exp, saved_state
 
-    def _nodes_fds_tags_consistent(self) -> bool:
-        """Checks whether the nodes, tags, and training data are consistent.
+    def _fds_tags_consistent(self) -> bool:
+        """Checks whether the tags and training data are consistent.
 
         Consistency is defined as follows:
         - if training data is None, then the attributes are consistent
-        - if training data is not None and nodes is not None, check that the list of nodes from the training data is
-            the same as the self._nodes attribute
         - if training data is not None and tags is not None, check that the tags from the training data all contain
             the tags declared in the self._tags attribute
-        - if training data is not None and either tags or nodes is None, then only check for consistency with the
-            non-None attribute
 
         Returns:
             Bool indicating whether the three attributes are considered consistent
         """
-        if self.training_data() is not None and self.nodes() is not None:
-            if len(self.training_data().data()) != len(self.nodes()):
-                return False
-            training_data_nodes = set(self.training_data().node_ids())
-            workflow_nodes = set(self.nodes())
-            if training_data_nodes != workflow_nodes:
-                return False
         if self.training_data() is not None and self.tags() is not None:
             if len(self.training_data().data()) == 0:
                 return False
