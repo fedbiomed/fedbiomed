@@ -161,12 +161,5 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         exp.training_plan().set_model_params.assert_called_once()
 
 
-
-
-
-
-
-
-
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

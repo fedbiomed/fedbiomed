@@ -64,6 +64,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
             except Exception as e:
                 print(f'Exception {e} raised with the following parameters {params}')
                 raise e
+
         # Special corner cases that deserve additional testing
         # Test case where tags are None but we are setting training data
         _training_data.node_ids.return_value = ['alice', 'bob']  # make sure that nodes can be correctly inferred
