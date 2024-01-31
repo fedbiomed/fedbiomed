@@ -237,6 +237,19 @@ class FederatedWorkflow(ABC):
         return self._nodes_filter
 
     @exp_exceptions
+    def all_federation_nodes(self) -> List[str]:
+        """Returns all the node ids in the federation"""
+        return list(self._fds.data().keys()) if self._fds is not None else []
+
+    @exp_exceptions
+    def filtered_federation_nodes(self) -> List[str]:
+        """Returns the node ids in the federation after filtering with the nodes filter"""
+        if self._nodes_filter is not None:
+            return [node for node in self.all_federation_nodes() if node in self._nodes_filter]
+        else:
+            return self.all_federation_nodes()
+
+    @exp_exceptions
     def training_data(self) -> Union[FederatedDataSet, None]:
         """Retrieves the training data which is an instance of
         [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet]
