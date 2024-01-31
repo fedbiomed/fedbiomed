@@ -143,7 +143,7 @@ class Experiment(TrainingPlanWorkflow):
                 to send encrypted updates from nodes to researcher. Defaults to `False`
         """
         # define new members
-        self._node_selection_strategy = None
+        self._node_selection_strategy: Strategy = None
         self._round_limit = None
         self._monitor = None
         self._aggregator = None
@@ -445,7 +445,7 @@ class Experiment(TrainingPlanWorkflow):
 
         See [`FederatedWorkflow.set_training_data`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_data] for more information.
 
-        Ensures consistency also with the Experiment's aggregator, node selection strategy, and node state agent
+        Ensures consistency also with the Experiment's aggregator and node state agent
 
         !!! warning "Setting to None forfeits consistency checks"
             Setting training_data to None does not trigger consistency checks, and may therefore leave the class in an
@@ -459,9 +459,6 @@ class Experiment(TrainingPlanWorkflow):
         if self._aggregator is not None and self._fds is not None:
             # update the aggregator's training data
             self._aggregator.set_fds(self._fds)
-        if self._node_selection_strategy is not None and self._fds is not None:
-            # update the node selection strategy's training data
-            self._node_selection_strategy.set_fds(self._fds)
         if self._node_state_agent is not None and self._fds is not None:
             # update the node state agent (member of FederatedWorkflow)
             self._node_state_agent.update_node_states(list(self._fds.data().keys()))
