@@ -104,6 +104,8 @@ class Scaffold(Aggregator):
         self.server_lr: float = server_lr
         self.global_state: Dict[str, Union[torch.Tensor, np.ndarray]] = {}
         self.nodes_states: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]] = {}
+        # FIXME: `nodes_states` is mis-named, because can conflict with `node_state`s that are saved 
+        # whitin 2 Rounds
         self.nodes_deltas: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]] = {}
         self.nodes_lr: Dict[str, Dict[str, float]] = {}
         if fds is not None:
@@ -443,3 +445,5 @@ class Scaffold(Aggregator):
 
         for node_id in self._aggregator_args['nodes']:
             self.nodes_deltas[node_id] = self._aggregator_args[node_id]['aggregator_correction']
+
+        self.nodes_states = copy.deepcopy(self.nodes_deltas)
