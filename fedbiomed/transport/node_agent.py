@@ -137,7 +137,6 @@ class NodeAgentAsync:
                     else:
                         logger.warning(f"Received a reply from an unexpected request: {message.request_id}")
 
-
     async def send_async(self, message: Message, on_reply: Optional[Callable] = None) -> None:
         """Async function send message to researcher.
 
@@ -166,15 +165,6 @@ class NodeAgentAsync:
 
         await self._queue.put(message)
 
-
-    def set_context(self, context) -> None:
-        """Sets context for the current RPC call
-
-        Args:
-            context: RPC call context
-        """
-        context.add_done_callback(self._on_get_task_request_done)
-
     async def set_active(self) -> None:
         """Updates node status as active"""
 
@@ -200,30 +190,15 @@ class NodeAgentAsync:
         """
         self._queue.task_done()
 
-    def _on_get_task_request_done(self, context: grpc.aio.ServicerContext) -> None:
-        """Callback to execute each time RPC call is completed
-
-        The callback is executed when the RPC call is canceled, done or aborted, including
-        if the process on the node side stops.
-
-        Args:
-            context: ignored
-        """
-        # Avoid a (rare ?) race condition where new node task requests arrives before the coroutine
-        # elf._change_node_status_after_task() is executed ...
-        self._is_waiting.set()
-
-        asyncio.create_task(self._change_node_status_after_task())
-
-    async def _change_node_status_after_task(self) -> None:
+    async def change_node_status_after_task(self) -> None:
         """Coroutine to execute each time RPC call is completed
         """
         async with self._status_lock:
-            if self._is_waiting.is_set():
-                self._status = NodeActiveStatus.WAITING
+            self._is_waiting.set()
+            self._status = NodeActiveStatus.WAITING
 
-                if self._status_task is None:
-                    self._status_task = asyncio.create_task(self._change_node_status_disconnected())
+            if self._status_task is None:
+                self._status_task = asyncio.create_task(self._change_node_status_disconnected())
 
     async def _change_node_status_disconnected(self) -> None:
         """Task coroutine to change node status as `DISCONNECTED` after a delay
@@ -304,8 +279,7 @@ class AgentStore:
 
     async def retrieve(
             self,
-            node_id: str,
-            context: grpc.aio.ServicerContext
+            node_id: str
     ) -> NodeAgent:
         """Retrieves a node agent for a given node ID.
 
@@ -314,7 +288,6 @@ class AgentStore:
 
         Args:
             node_id: ID of receiving node
-            context: Request service context
 
         Return:
             The node agent to manage tasks that are assigned to it.
@@ -325,8 +298,6 @@ class AgentStore:
             if not node:
                 node = NodeAgent(id=node_id, loop=self._loop)
                 self._node_agents.update({node_id: node})
-
-        node.set_context(context)
 
         return node
 

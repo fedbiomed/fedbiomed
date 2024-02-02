@@ -75,14 +75,10 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             request: RPC request
             context: RPC peer context
         """
-
         task_request = TaskRequest.from_proto(request).get_dict()
         logger.debug(f"Node: {task_request.get('node')} polling for the tasks")
 
-        node_agent = await self._agent_store.retrieve(
-            node_id=task_request["node"],
-            context=context
-        )
+        node_agent = await self._agent_store.retrieve(node_id=task_request["node"])
 
         # Update node active status as active
         await node_agent.set_active()
@@ -102,6 +98,8 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
         # Choice: mark task as de-queued as soon only if really sent
         node_agent.task_done()
+
+        await node_agent.change_node_status_after_task()
 
 
 
