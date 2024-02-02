@@ -88,10 +88,6 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         await node_agent.set_active()
 
         task = await node_agent.get_task()
-
-        # Choice: be simple, mark task as de-queued as soon as retrieved
-        node_agent.task_done()
-
         task = Serializer.dumps(task.get_dict())
 
         chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
@@ -103,6 +99,10 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                 iteration=iter_,
                 bytes_=task[start:stop]
             ).to_proto()
+
+        # Choice: mark task as de-queued as soon only if really sent
+        node_agent.task_done()
+
 
 
     async def ReplyTask(
