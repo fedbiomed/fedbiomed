@@ -165,7 +165,6 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
             description='some description'
         )
 
-
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.FederatedWorkflow.breakpoint')
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
     def test_federated_workflow_05_breakpoint(self,

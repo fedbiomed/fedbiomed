@@ -174,7 +174,7 @@ class TestScaffold(ResearcherTestCase):
             weights=weights,
             global_model=copy.deepcopy(self.zero_model.state_dict()),
             training_plan=training_plan,
-            training_replies=self.replies,
+            training_replies=self.replies[0],
             n_round=n_round
         )
         aggregated_model_params_fedavg = FedAverage().aggregate(
@@ -299,61 +299,43 @@ class TestScaffold(ResearcherTestCase):
         self.assertEqual(load_patch.call_count, 2,
                          f"'Serializer.load' should be called 2, for global model and parameters")
 
-
     def test_10_set_nodes_learning_rate_after_training(self):
-
         n_rounds = 3
-
         # test case were learning rates change from one layer to another
         lr = {'layer-1': .1,
               'layer-2': .2,
               'layer-3': .3}
         n_model_layer = len(lr)  # number of layers model contains
-
-        training_replies = [
-            {node_id: {'node_id': node_id, 'optimizer_args': {'lr': lr}}
-                for node_id in self.node_ids }  for r in range(n_rounds)
-        ]
-        print(training_replies)
-        # assert n_model_layer == len(lr), "error in test: n_model_layer must be equal to the length of list of learning rate"
+        training_replies = {node_id: {'node_id': node_id, 'optimizer_args': {'lr': lr}} for node_id in self.node_ids}
         training_plan = MagicMock()
         get_model_params_mock = MagicMock()
-
         get_model_params_mock.__len__ = MagicMock(return_value=n_model_layer)
         training_plan.get_model_params.return_value = get_model_params_mock
-
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
         scaffold = Scaffold(fds=fds)
         for n_round in range(n_rounds):
             node_lr = scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan,
-                                                                      training_replies=training_replies,
-                                                                      n_round=n_round)
+                                                                      training_replies=training_replies)
             test_node_lr = {node_id: lr for node_id in self.node_ids}
-
             self.assertDictEqual(node_lr, test_node_lr)
 
-        # same test with a mix of nodes present in training_replies and non present
-
+        # same test with a mix of present and absent nodes in training_replies
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids + ['node_99']})
         optim_w = MagicMock(spec=NativeTorchOptimizer)
         optim_w.get_learning_rate = MagicMock(return_value=lr)
         training_plan.optimizer = MagicMock(return_value=optim_w)
-        # training_plan.get_learning_rate = MagicMock(return_value=lr)
         scaffold = Scaffold(fds=fds)
         for n_round in range(n_rounds):
             node_lr = scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan,
-                                                                      training_replies=training_replies,
-                                                                      n_round=n_round)
+                                                                      training_replies=training_replies)
 
         # test case where len(lr) != n_model_layer
         lr.update({'layer-4': .333})
         training_plan.get_learning_rate = MagicMock(return_value=lr)
-
         for n_round in range(n_rounds):
             with self.assertRaises(FedbiomedAggregatorError):
                 scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan,
-                                                                training_replies=training_replies,
-                                                                n_round=n_round)
+                                                                training_replies=training_replies)
                 
                 
 class TestIntegrationScaffold(unittest.TestCase):
