@@ -151,7 +151,9 @@ class NodeAgentAsync:
 
         # Updates replies
         async with self._replies_lock:
-            if message.request_id:
+            # update replies only for (1) request-response messages
+            # (2) that are not yet registered as pending request
+            if message.request_id and message.request_id not in self._replies:
                 self._replies.update({
                     message.request_id: {'callback': on_reply, 'reply': None}
                 })

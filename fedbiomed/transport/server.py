@@ -83,23 +83,34 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         # Update node active status as active
         await node_agent.set_active()
 
-        task = await node_agent.get_task()
-        task = Serializer.dumps(task.get_dict())
+        task = None
+        try:
+            task = await node_agent.get_task()
+            # Choice: mark task as de-queued as soon only if really sent
+            node_agent.task_done()
 
-        chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
-        for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
-            stop = start + MAX_MESSAGE_BYTES_LENGTH
+            task_bytes = Serializer.dumps(task.get_dict())
 
-            yield TaskResponse(
-                size=len(chunk_range),
-                iteration=iter_,
-                bytes_=task[start:stop]
-            ).to_proto()
+            chunk_range = range(0, len(task_bytes), MAX_MESSAGE_BYTES_LENGTH)
+            for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
+                stop = start + MAX_MESSAGE_BYTES_LENGTH
 
-        # Choice: mark task as de-queued as soon only if really sent
-        node_agent.task_done()
-
-        await node_agent.change_node_status_after_task()
+                try:
+                    yield TaskResponse(
+                        size=len(chunk_range),
+                        iteration=iter_,
+                        bytes_=task_bytes[start:stop]
+                    ).to_proto()
+                except GeneratorExit:
+                    # schedule resend if task sending could not be completed
+                    await node_agent.send_async(task)
+                    logger.debug(f"Re-schedule unfinished task response")
+        except asyncio.CancelledError:
+            if task is not None:
+                # schedule resend if task was pulled from queue
+                await node_agent.send_async(task)
+        finally:
+            await node_agent.change_node_status_after_task()
 
 
 
