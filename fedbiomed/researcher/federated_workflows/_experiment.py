@@ -83,6 +83,7 @@ class Experiment(TrainingPlanWorkflow):
         experimentation_folder: Union[str, None] = None,
         secagg: Union[bool, SecureAggregation] = False,
         save_breakpoints: bool = False,
+        retain_full_history: bool = True,
     ) -> None:
         """Constructor of the class.
 
@@ -121,7 +122,6 @@ class Experiment(TrainingPlanWorkflow):
                 - a `Type_TrainingPlan` when `training_plan_class_path` is None (training plan class passed
                     as argument).
                 Defaults to None (no training plan class defined yet)
-
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
                 output and input feature dimension, etc.
             training_args: contains training arguments passed to the `training_routine` of the training plan when
@@ -141,6 +141,9 @@ class Experiment(TrainingPlanWorkflow):
                 confuse the last experimentation detection heuristic by `load_breakpoint`.
             secagg: whether to setup a secure aggregation context for this experiment, and use it
                 to send encrypted updates from nodes to researcher. Defaults to `False`
+            retain_full_history: whether to retain in memory the full history of node replies and aggregated params
+                for the experiment. If False, only the last round's replies and aggregated params will be available.
+                Defaults to True.
         """
         # define new members
         self._node_selection_strategy: Strategy = None
@@ -154,6 +157,7 @@ class Experiment(TrainingPlanWorkflow):
         self._client_states_dict = {}
         self._server_state = None
         self._training_replies: Dict = {}
+        self._retain_full_history = None
 
         # initialize object
         super().__init__(
@@ -186,6 +190,8 @@ class Experiment(TrainingPlanWorkflow):
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
 
+        # whether to retain the full experiment history or not
+        self.set_retain_full_history(retain_full_history)
 
     @exp_exceptions
     def __del__(self):
@@ -354,6 +360,11 @@ class Experiment(TrainingPlanWorkflow):
         """
 
         return self._training_replies
+
+    @exp_exceptions
+    def retain_full_history(self):
+        """Retrieves the status of whether the full experiment history should be kept in memory."""
+        return self._retain_full_history
 
     # a specific getter-like
     @exp_exceptions
@@ -721,6 +732,26 @@ class Experiment(TrainingPlanWorkflow):
         return self._tensorboard
 
     @exp_exceptions
+    def set_retain_full_history(self, retain_full_history_: bool = True):
+        """Sets the status of whether the full experiment history should be kept in memory.
+
+        Args:
+            retain_full_history_: whether to retain in memory the full history of node replies and aggregated params
+                for the experiment. If False, only the last round's replies and aggregated params will be available.
+                Defaults to True.
+
+        Returns:
+            The status of whether the full experiment history should be kept in memory.
+        """
+        if not isinstance(retain_full_history_, bool):
+            msg = ErrorNumbers.FB410.value + f': retain_full_history should be a bool, instead got ' \
+                                             f'{type(retain_full_history_)} '
+            logger.critical(msg)
+            raise FedbiomedTypeError(msg)
+        self._retain_full_history = retain_full_history_
+        return self._retain_full_history
+
+    @exp_exceptions
     def run_once(self, increase: bool = False, test_after: bool = False) -> int:
         """Run at most one round of an experiment, continuing from the point the
         experiment had reached.
@@ -794,7 +825,7 @@ class Experiment(TrainingPlanWorkflow):
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
-        self._training_replies[self._round_current] = job.start_nodes_training_round(
+        training_replies = job.start_nodes_training_round(
             job_id=self._id,
             round_=self._round_current,
             training_plan=self.training_plan(),
@@ -809,11 +840,11 @@ class Experiment(TrainingPlanWorkflow):
         )
 
         # update node states with node answers + when used node list has changed during the round
-        self._update_nodes_states_agent(before_training=False)
+        self._update_nodes_states_agent(before_training=False, training_replies=training_replies)
         
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
-            self._training_replies[self._round_current], self._round_current)
+            training_replies, self._round_current)
 
         if self._secagg.active:
             flatten_params = self._secagg.aggregate(
@@ -833,7 +864,7 @@ class Experiment(TrainingPlanWorkflow):
                                                            weights,
                                                            global_model=model_params_before_round,
                                                            training_plan=self.training_plan(),
-                                                           training_replies=self._training_replies,
+                                                           training_replies=training_replies,
                                                            node_ids=job.nodes,
                                                            n_updates=self._training_args.get('num_updates'),
                                                            n_round=self._round_current)
@@ -845,8 +876,11 @@ class Experiment(TrainingPlanWorkflow):
 
         # Update the training plan with the aggregated parameters
         self.training_plan().set_model_params(aggregated_params)
-        self._aggregated_params[self._round_current] = {'params': aggregated_params}  # store history
 
+        # Update experiment's in-memory history
+        self.commit_experiment_history(training_replies, aggregated_params)
+
+        # Increase round number
         self._set_round_current(self._round_current + 1)
 
         if self._save_breakpoints:
@@ -1151,7 +1185,7 @@ class Experiment(TrainingPlanWorkflow):
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=loaded_exp.training_data())
         loaded_exp.set_strategy(bkpt_sampling_strategy)
         # retrieve breakpoint researcher optimizer
-        bkpt_optim = cls._load_optimizer(saved_state.get("agg_optimizer"))
+        bkpt_optim = Experiment._load_optimizer(saved_state.get("agg_optimizer"))
         loaded_exp.set_agg_optimizer(bkpt_optim)
         # changing `Experiment` attributes
         loaded_exp._set_round_current(saved_state.get('round_current'))
@@ -1288,7 +1322,9 @@ class Experiment(TrainingPlanWorkflow):
         state = Serializer.load(state_path)
         return Optimizer.load_state(state)
 
-    def _update_nodes_states_agent(self, before_training: bool = True):
+    def _update_nodes_states_agent(self,
+                                   before_training: bool = True,
+                                   training_replies: Optional[Dict] = None):
         """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
         state_id coming from `Nodes` contained among all `Nodes` within
         [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet].
@@ -1297,6 +1333,7 @@ class Experiment(TrainingPlanWorkflow):
             before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
                 - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
                 - if after, updates `NodeStateAgent` wrt the latest reply
+            training_replies: the node replies from the latest round. Required when before_training=False
 
         Raises:
             FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
@@ -1308,18 +1345,10 @@ class Experiment(TrainingPlanWorkflow):
             self._node_state_agent.update_node_states(node_ids)
         else:
             # extract last node state
-            # FIXME: for now we are only considering the case where we need last Round update,
-            # but we may want to generalize to other use cases (for some aggregators, we may want to retrieve even more
-            # previous Node replies)
-            try:
-                last_tr_entry = list(self._training_replies.keys())[-1]
-                
-
-            except IndexError as ie:
+            if training_replies is None:
                 raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
-                                                   "replies form Node(s) has(ve) been recieved!") from ie
-
-            self._node_state_agent.update_node_states(node_ids, self._training_replies[last_tr_entry])
+                                                   "replies form Node(s) has(ve) been recieved!")
+            self._node_state_agent.update_node_states(node_ids, training_replies)
 
     @staticmethod
     @exp_exceptions
@@ -1422,7 +1451,7 @@ class Experiment(TrainingPlanWorkflow):
         return converted_training_replies
 
     def load_training_replies(self,
-                              bkpt_training_replies: Dict[int, Dict[str, Any]]) -> None:
+                              bkpt_training_replies: Dict[int, Dict[str, Dict[str, Any]]]) -> None:
         """Reads training replies from a formatted breakpoint file, and build a job training replies data structure .
 
         Args:
@@ -1444,3 +1473,25 @@ class Experiment(TrainingPlanWorkflow):
             del bkpt_training_replies[round_]
 
         self._training_replies = bkpt_training_replies
+
+    def commit_experiment_history(self,
+                                  training_replies: Dict[str, Dict[str, Any]],
+                                  aggregated_params: Dict[str, Any]) -> None:
+        """Commits the experiment history to memory.
+
+        The experiment history is defined as:
+            - training replies
+            - aggregated parameters
+
+        This function checks the retain_full_history flag: if it is True, it simply adds (or overwrites) the current
+        round's entry for the training_replies and aggregated_params dictionary. If the flag is set to False, we
+        simply store the last round's values in the same dictionary format.
+        """
+        if self._retain_full_history:
+            # append to history
+            self._training_replies[self._round_current] = training_replies
+            self._aggregated_params[self._round_current] = {'params': aggregated_params}
+        else:
+            # only store the last round's values
+            self._training_replies= {self._round_current: training_replies}
+            self._aggregated_params = {self._round_current: {'params': aggregated_params}}
