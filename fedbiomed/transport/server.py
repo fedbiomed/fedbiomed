@@ -104,7 +104,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                 except GeneratorExit:
                     # schedule resend if task sending could not be completed
                     await node_agent.send_async(task)
-                    logger.debug(f"Re-schedule unfinished task response")
+                    await node_agent.change_node_status_after_task()
+                    # need return here to avoid RuntimeError
+                    return
         except asyncio.CancelledError:
             if task is not None:
                 # schedule resend if task was pulled from queue
