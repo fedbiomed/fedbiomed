@@ -1,8 +1,6 @@
 from enum import Enum
 from typing import Optional, Dict, Callable
-from datetime import datetime
 import copy
-from threading import Event
 
 import asyncio
 import grpc
@@ -46,7 +44,6 @@ class NodeAgentAsync:
             loop: event loop
         """
         self._id: str = id
-        self._last_request: Optional[datetime] = None
         self._replies = Replies()
         self._stopped_request_ids = []
         # Node should be active when it is first instantiated
@@ -56,7 +53,7 @@ class NodeAgentAsync:
         self._loop = loop
         self._status_task : Optional[asyncio.Task] = None
 
-        # protect read/write operations on self._status + self._status_task + self._last_request)
+        # protect read/write operations on self._status + self._status_task)
         self._status_lock = asyncio.Lock()
         self._replies_lock = asyncio.Lock()
         self._stopped_request_ids_lock = asyncio.Lock()
@@ -171,7 +168,6 @@ class NodeAgentAsync:
                 logger.info(f"Node {self._id} is back online!")
 
             self._status = NodeActiveStatus.ACTIVE
-            self._last_request = datetime.now()
 
             # Cancel status task if there is any running
             if self._status_task:
