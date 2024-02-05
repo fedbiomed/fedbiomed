@@ -342,7 +342,7 @@ class Scaffold(Aggregator):
             )
         if not isinstance(training_plan.optimizer(), NativeTorchOptimizer):
             raise FedbiomedAggregatorError(f"Cannot run Scaffold with {training_plan.optimizer()} optimizers. Please use declearn specific Optimizer"
-                                           " (ScaffoldServerModule and ScaffoldClientModule) or use a plain PyTorch Optimizer instead.")
+                                           " (ScaffoldServerModule and ScaffoldClientModule with `FedAverage` aggregator) or use a native PyTorch Optimizer instead.")
         if hasattr(training_plan, "_optimizer") and training_plan.type() is TrainingPlans.TorchTrainingPlan:
             if not isinstance(training_plan._optimizer.optimizer, torch.optim.SGD):
                 logger.warning(f"Found optimizer {training_plan._optimizer.optimizer}, but SCAFFOLD requieres SGD optimizer. Results may be inconsistants")
