@@ -30,8 +30,8 @@ from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
+from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.utils import (
-    is_ipython,
     raise_for_version_compatibility,
     __default_version__,
     import_class_from_file
