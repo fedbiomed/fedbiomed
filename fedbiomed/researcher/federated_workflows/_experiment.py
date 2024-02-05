@@ -942,7 +942,7 @@ class Experiment(TrainingPlanWorkflow):
             training_plan.get_model_params(only_trainable=True)
         )
         init_params = Vector.build(
-            {k: v for k, v in self._global_model.items() if k in names}
+            {k: v for k, v in training_plan.get_model_params().items() if k in names}
         )
         agg_gradients = init_params - Vector.build(
             {k: v for k, v in aggregated_params.items() if k in names}
