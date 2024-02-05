@@ -1408,7 +1408,7 @@ class Experiment(TrainingPlanWorkflow):
 
         return object_instance
 
-    def save_training_replies(self) -> Dict[int, Dict[str, Any]]:
+    def save_training_replies(self) -> Dict[int, Dict[str, Dict[str, Any]]]:
         """Extracts a copy of `training_replies` and prepares it for saving in breakpoint
 
         - strip unwanted fields
