@@ -61,10 +61,6 @@ class NodeAgentAsync:
         self._replies_lock = asyncio.Lock()
         self._stopped_request_ids_lock = asyncio.Lock()
 
-        # handle race condition when a task in finished/canceled between (1) receiving new task
-        # (2) executing coroutine for handling task end
-        self._is_waiting = Event()
-
     async def status_async(self) -> NodeActiveStatus:
         """Getter for node status.
 
@@ -182,9 +178,6 @@ class NodeAgentAsync:
                 self._status_task.cancel()
                 self._status_task = None
 
-            # we are not waiting for a task request from node
-            self._is_waiting.clear()
-
     def task_done(self) -> None:
         """Acknowledge completion of a de-queued task
         """
@@ -194,7 +187,6 @@ class NodeAgentAsync:
         """Coroutine to execute each time RPC call is completed
         """
         async with self._status_lock:
-            self._is_waiting.set()
             self._status = NodeActiveStatus.WAITING
 
             if self._status_task is None:
