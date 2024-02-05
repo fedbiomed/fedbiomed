@@ -250,11 +250,11 @@ class _GrpcAsyncServer:
         self._is_started.set()
         try:
             if self._debug:
-                logger.debug("Waiting for termination")
+                logger.debug("Waiting for gRPC server termination")
             await self._server.wait_for_termination()
         finally:
             if self._debug:
-                logger.debug("Done starting the server")
+                logger.debug("gRPC server has stopped")
 
 
     async def send(self, message: Message, node_id: str) -> None:
