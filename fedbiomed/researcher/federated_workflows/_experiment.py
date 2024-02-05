@@ -847,10 +847,7 @@ class Experiment(TrainingPlanWorkflow):
         self.training_plan().set_model_params(aggregated_params)
         self._aggregated_params[self._round_current] = {'params': aggregated_params}  # store history
 
-        self._round_current += 1
-
-        # Update round in monitor for the next round
-        self._monitor.set_round(round_=self._round_current + 1)
+        self._set_round_current(self._round_current + 1)
 
         if self._save_breakpoints:
             self.breakpoint()
