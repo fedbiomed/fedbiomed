@@ -1092,31 +1092,35 @@ class Experiment(TrainingPlanWorkflow):
                 ' - need to run at least 1 before saving a breakpoint'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
-        elif self._fds is None:
-            msg = ErrorNumbers.FB413.value + \
-                ' - need to define `training_data` for saving a breakpoint'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-        elif self._node_selection_strategy is None:
-            msg = ErrorNumbers.FB413.value + \
-                ' - need to define `strategy` for saving a breakpoint'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
 
         # conditions are met, save breakpoint
         breakpoint_path, breakpoint_file_name = \
             choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
 
+        # predefine several breakpoint states
+        agg_bkpt = None
+        agg_optim_bkpt = None
+        strategy_bkpt = None
+        training_replies_bkpt  = None
+        if self._aggregator is not None:
+            agg_bkpt = self._aggregator.save_state_breakpoint(breakpoint_path,
+                                                              global_model=self.training_plan().after_training_params())
+        if self._agg_optimizer is not None:
+            agg_optim_bkpt = self.save_optimizer(breakpoint_path)
+        if self._node_selection_strategy is not None:
+            strategy_bkpt = self._node_selection_strategy.save_state_breakpoint()
+        if self._training_replies is not None:
+            training_replies_bkpt = self.save_training_replies()
+
         state = {
             'round_current': self._round_current,
             'round_limit': self._round_limit,
-            'aggregator': self._aggregator.save_state_breakpoint(breakpoint_path,
-                                                                 global_model=self.training_plan().after_training_params()),
-            'agg_optimizer': self._save_optimizer(breakpoint_path),
-            'node_selection_strategy': self._node_selection_strategy.save_state_breakpoint(),
+            'aggregator': agg_bkpt,
+            'agg_optimizer': agg_optim_bkpt,
+            'node_selection_strategy': strategy_bkpt,
             'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
-            'training_replies': self.save_training_replies(),
+            'training_replies': training_replies_bkpt,
         }
 
         super().breakpoint(state, self._round_current)
