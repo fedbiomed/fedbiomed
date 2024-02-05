@@ -1254,7 +1254,7 @@ class Experiment(TrainingPlanWorkflow):
         return aggregated_params
 
     @exp_exceptions
-    def _save_optimizer(self, breakpoint_path: str) -> Optional[str]:
+    def save_optimizer(self, breakpoint_path: str) -> Optional[str]:
         """Save the researcher-side Optimizer attached to this Experiment.
 
         Args:
