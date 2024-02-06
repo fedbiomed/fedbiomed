@@ -103,6 +103,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                     ).to_proto()
                 except GeneratorExit:
                     # schedule resend if task sending could not be completed
+                    # => retry send as long as (1) send not successful (2) node is connected
+                    # (no max retries)
+                    # => discard if node is disconnected
                     await node_agent.send_async(task)
                     await node_agent.change_node_status_after_task()
                     # need return here to avoid RuntimeError
