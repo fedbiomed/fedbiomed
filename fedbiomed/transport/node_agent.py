@@ -9,7 +9,7 @@ from fedbiomed.common.message import Message, ResearcherMessages
 from fedbiomed.common.logger import logger
 
 # timeout in seconds for server to wait for a new task request from node before assuming node is disconnected
-GPRC_SERVER_TASK_WAIT_TIMEOUT = 10
+GRPC_SERVER_TASK_WAIT_TIMEOUT = 10
 
 
 class NodeActiveStatus(Enum):
@@ -193,12 +193,12 @@ class NodeAgentAsync:
     async def _change_node_status_disconnected(self) -> None:
         """Task coroutine to change node status as `DISCONNECTED` after a delay
 
-        Node becomes DISCONNECTED if it doesn't become ACTIVE in GPRC_SERVER_TASK_WAIT_TIMEOUT seconds,
+        Node becomes DISCONNECTED if it doesn't become ACTIVE in GRPC_SERVER_TASK_WAIT_TIMEOUT seconds,
         which cancels this task
         """
 
-        # Sleep at least GPRC_SERVER_TASK_WAIT_TIMEOUT seconds in WAITING
-        await asyncio.sleep(GPRC_SERVER_TASK_WAIT_TIMEOUT)
+        # Sleep at least GRPC_SERVER_TASK_WAIT_TIMEOUT seconds in WAITING
+        await asyncio.sleep(GRPC_SERVER_TASK_WAIT_TIMEOUT)
 
         # If the status still WAITING set status to DISCONNECTED
         async with self._status_lock:
