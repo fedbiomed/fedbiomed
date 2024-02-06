@@ -528,6 +528,11 @@ class Sender(Listener):
                 raise FedbiomedCommunicationError(
                     f"{ErrorNumbers.FB628}: Sender has stopped due to unknown reason: {exp}") from exp
 
+            except GeneratorExit as exp:
+                await self._on_status_change(ClientStatus.FAILED)
+                raise FedbiomedCommunicationError(
+                    f"{ErrorNumbers.FB628}: Sender has stopped due to unexpected gRPC abort: {exp}") from exp    
+
 
     async def _get(self, callback: Optional[Callable] = None) -> None:
         """Gets task result from the queue.
