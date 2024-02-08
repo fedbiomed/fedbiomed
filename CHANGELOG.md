@@ -1,5 +1,9 @@
 # Fed-BioMed changelog
 
+## 2024-01-26 version 5.0.2
+
+- fix crash happening when the tkinter file selector is used in non-interactive mode
+ 
 ## 2024-01-18 version 5.0.1
 
 - fix `fedbiomed_vpn` failure due to time race under certain circumstance
