@@ -251,12 +251,8 @@ class DatasetManager:
 
     def load_mednist_database(self,
                               path: str,
-                              as_dataset: bool = False) -> Tuple[
-                                                              Union[
-                                                                  List[int],
-                                                                  torch.utils.data.Dataset],
-                                                              str
-                                                                ]:
+                              as_dataset: bool = False) -> [Union[List[int],
+                                                            torch.utils.data.Dataset], str]:
         """Loads the MedNist dataset.
 
         Args:
@@ -501,9 +497,7 @@ class DatasetManager:
             dlp_id = None
         if dlp_id is not None:
             new_database['dlp_id'] = dlp_id
-        
-        print("ADD TO DATABASE", new_database, environ['DB_PATH'])
-        print("CHEVKS",  self._dataset_table.get(self._database.dataset_id == dataset_id, ))
+
         self._dataset_table.insert(new_database)
 
         return dataset_id
