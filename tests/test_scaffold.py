@@ -513,7 +513,6 @@ class TestIntegrationScaffold(unittest.TestCase):
                 global_params, 
             )
 
-            # FIXME: found 2 param saved, but only one has been loaded
             del scaffold, global_params, local_models
             
             # step 3: load scaffold from breakpoint
@@ -522,7 +521,7 @@ class TestIntegrationScaffold(unittest.TestCase):
             loaded_scaffold.set_fds(self.fds)
             loaded_scaffold.load_state_breakpoint(saved_state)
 
-        # simulate the execution of another round
+        # step 4: simulate the execution of another round 
         replies[1] = {}
         for node_id in self.node_ids:
             replies.update({
