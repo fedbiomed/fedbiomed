@@ -45,7 +45,7 @@ class _StubType(Enum):
 GRPC_CLIENT_CONN_RETRY_TIMEOUT = 2
 
 # timeout in seconds of a request to the server for a task (payload) to run on the node
-GRPC_CLIENT_TASK_REQUEST_TIMEOUT = 60
+GRPC_CLIENT_TASK_REQUEST_TIMEOUT = 3600
 
 
 def is_server_alive(host: str, port: str):
@@ -168,8 +168,8 @@ class Channels:
             # https://www.evanjones.ca/grpc-is-tricky.html
             # https://www.evanjones.ca/tcp-connection-timeouts.html
             # Be sure to keep client-server configuration coherent
-            ("grpc.keepalive_time_ms", GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
-            ("grpc.keepalive_timeout_ms", 1000),
+            ("grpc.keepalive_time_ms", 30 * GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
+            ("grpc.keepalive_timeout_ms", 2 * 1000),
             ("grpc.http2.max_pings_without_data", 0),
             ("grpc.keepalive_permit_without_calls", 1),
             #

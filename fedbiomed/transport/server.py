@@ -225,10 +225,10 @@ class _GrpcAsyncServer:
                 # https://www.evanjones.ca/grpc-is-tricky.html
                 # https://www.evanjones.ca/tcp-connection-timeouts.html
                 # Be sure to keep client-server configuration coherent
-                ("grpc.keepalive_time_ms", GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
-                ("grpc.keepalive_timeout_ms", 1000),
+                ("grpc.keepalive_time_ms", 30 * GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
+                ("grpc.keepalive_timeout_ms", 2 * 1000),
                 ("grpc.http2.min_ping_interval_without_data_ms", 0.9 * GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
-                ("grpc.max_connection_idle_ms", (GRPC_CLIENT_TASK_REQUEST_TIMEOUT + 1) * 1000),
+                ("grpc.max_connection_idle_ms", (GRPC_CLIENT_TASK_REQUEST_TIMEOUT + 2) * 1000),
                 ("grpc.max_connection_age_ms", (GRPC_CLIENT_TASK_REQUEST_TIMEOUT + 5) * 1000),
                 ("grpc.max_connection_age_grace_ms", 2 * 1000),
                 ("grpc.http2.max_pings_without_data", 0),
