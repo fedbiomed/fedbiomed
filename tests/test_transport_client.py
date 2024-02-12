@@ -97,8 +97,8 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         self.serializer_patch = patch('fedbiomed.transport.client.Serializer')
         self.serializer_mock = self.serializer_patch.start()
         self.node_id = "test-node-id"
-        self.on_status_change = MagicMock()
-        self.update_id = MagicMock()
+        self.on_status_change = AsyncMock()
+        self.update_id = AsyncMock()
         self.callback = MagicMock()
         self.channels = MagicMock()
         self.channels.connect = AsyncMock()
@@ -127,16 +127,21 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         # Run with cancel to be able to stop the loop ---------------------
         self.on_status_change.side_effect = [None, asyncio.CancelledError]
         task = self.task_listener.listen(self.callback)
-        self.channels.task_stub.GetTaskUnary.return_value = async_iterator([
+
+        request_stub = MagicMock()
+        request_stub.GetTaskUnary.return_value = async_iterator([
             TaskResponse(bytes_= b'test-1', iteration=0, size=1),
             TaskResponse(bytes_= b'test-2', iteration=1, size=1)
         ])
+        self.channels.stub = AsyncMock()
+        self.channels.stub.return_value = request_stub
+
         with self.assertRaises(asyncio.CancelledError):
             await task
 
         # self.callback.assert_called_once()
         self.serializer_mock.loads.assert_called_once()
-        self.channels.task_stub.GetTaskUnary.assert_called_once()
+        request_stub.GetTaskUnary.assert_called_once()
         self.update_id.assert_called_once()
 
         # Cancel the task for next test

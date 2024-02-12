@@ -1,6 +1,6 @@
 import unittest
 import asyncio 
-
+import time
 
 
 from unittest.mock import patch, MagicMock, AsyncMock, PropertyMock
@@ -60,7 +60,7 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
         node_agent = AsyncMock()
         node_agent.set_context = MagicMock()
         node_agent.task_done = MagicMock()
-        node_agent.get_task.return_value = example_task
+        node_agent.get_task.return_value = [example_task, 0 , time.time()]
 
         self.agent_store.retrieve.return_value = node_agent
         async for r in self.servicer.GetTaskUnary(request=self.request, context=self.context):
