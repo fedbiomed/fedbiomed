@@ -10,7 +10,8 @@ from fedbiomed.transport.client import GrpcClient, \
     ResearcherCredentials, \
     TaskListener, \
     Sender, \
-    Channels
+    Channels, \
+    _StubType
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import SearchReply, FeedbackMessage, Log
 from fedbiomed.transport.protocols.researcher_pb2 import TaskResponse
@@ -129,12 +130,12 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         task = self.task_listener.listen(self.callback)
 
         request_stub = MagicMock()
+        self.channels.stub = AsyncMock()
+        self.channels.stub.return_value = request_stub
         request_stub.GetTaskUnary.return_value = async_iterator([
             TaskResponse(bytes_= b'test-1', iteration=0, size=1),
             TaskResponse(bytes_= b'test-2', iteration=1, size=1)
         ])
-        self.channels.stub = AsyncMock()
-        self.channels.stub.return_value = request_stub
 
         with self.assertRaises(asyncio.CancelledError):
             await task
@@ -150,9 +151,13 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
 
     @patch('fedbiomed.transport.client.asyncio.sleep')
     async def test_task_listener_02_listen_exceptions(self, sleep):  
-        
+
+        request_stub = MagicMock()
+        self.channels.stub = AsyncMock()
+        self.channels.stub.return_value = request_stub
+
         # deadline exceeded
-        self.channels.task_stub.GetTaskUnary.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.DEADLINE_EXCEEDED,
+        request_stub.GetTaskUnary.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.DEADLINE_EXCEEDED,
                                                                    trailing_metadata=grpc.aio.Metadata(('test', 'test')),
                                                                    initial_metadata=grpc.aio.Metadata(('test', 'test'))), 
                                               asyncio.CancelledError]
@@ -164,7 +169,7 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         task.cancel()
 
         # unavailable
-        self.channels.task_stub.GetTaskUnary.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.UNAVAILABLE,
+        request_stub.GetTaskUnary.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.UNAVAILABLE,
                                                                    trailing_metadata=grpc.aio.Metadata(('test', 'test')),
                                                                    initial_metadata=grpc.aio.Metadata(('test', 'test'))), 
                                               asyncio.CancelledError]
@@ -177,7 +182,7 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         sleep.assert_called()
 
         # unknown
-        self.channels.task_stub.GetTaskUnary.side_effect = [
+        request_stub.GetTaskUnary.side_effect = [
             grpc.aio.AioRpcError(code=grpc.StatusCode.UNKNOWN,
                                  trailing_metadata=grpc.aio.Metadata(('test', 'test')),
                                  initial_metadata=grpc.aio.Metadata(('test', 'test'))),
@@ -191,7 +196,7 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         task.cancel()
 
         # For all others
-        self.channels.task_stub.GetTaskUnary.side_effect = [
+        request_stub.GetTaskUnary.side_effect = [
             grpc.aio.AioRpcError(
                 code=grpc.StatusCode.ABORTED,
                 trailing_metadata=grpc.aio.Metadata(('test', 'test')),
@@ -232,12 +237,11 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
         self.serializer_patch = patch('fedbiomed.transport.client.Serializer')
         self.serializer_mock = self.serializer_patch.start()
         self.channels = MagicMock()
+        self.channels.stub = AsyncMock()
         self.channels.connect = AsyncMock()
         self.channels.feedback_stub.Feedback = MagicMock(spec=grpc.aio.UnaryUnaryMultiCallable)
         self.channels.task_stub.ReplyTask = MagicMock(spec=grpc.aio.StreamUnaryMultiCallable)
-        self._task_stub = MagicMock()
-        self._task_stub.ReplyTask = MagicMock(spec=grpc.aio.StreamUnaryMultiCallable)
-        self.on_status_change = MagicMock()
+        self.on_status_change = AsyncMock()
         self.sender = Sender(
             channels=self.channels,
             on_status_change=self.on_status_change
@@ -252,12 +256,12 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
 
         await self.sender.send(message=self.message_search)
         item = await self.sender._queue.get()
-        self.assertEqual(item, {'stub': self.channels.task_stub.ReplyTask, 'message': self.message_search})
+        self.assertEqual(item, {'stub': _StubType.SENDER_TASK_STUB, 'message': self.message_search})
 
 
         await self.sender.send(message=self.message_log)
         item = await self.sender._queue.get()
-        self.assertEqual(item, {'stub': self.channels.feedback_stub.Feedback, 'message': self.message_log.to_proto()})
+        self.assertEqual(item, {'stub': _StubType.SENDER_FEEDBACK_STUB, 'message': self.message_log.to_proto()})
 
 
     async def test_sender_02_listen(self):
@@ -267,6 +271,7 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
         future.set_result('x')
 
         self.channels.feedback_stub.Feedback.side_effect = [future, asyncio.CancelledError]
+        self.channels.stub.return_value = self.channels.feedback_stub
         await self.sender.send(message=self.message_log)
         await self.sender.send(message=self.message_log)
 
@@ -277,6 +282,7 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
 
         stream_call = AsyncMock()
         self.channels.task_stub.ReplyTask.side_effect = [stream_call, asyncio.CancelledError]
+        self.channels.stub.return_value = self.channels.task_stub
         await self.sender.send(message=self.message_search)
         await self.sender.send(message=self.message_search)
 
@@ -292,6 +298,7 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
     async def test_sender_02_listen_exceptions(self, sleep):
 
         # Unknown error
+        self.channels.stub.return_value = self.channels.feedback_stub
         self.channels.feedback_stub.Feedback.side_effect = [
             grpc.aio.AioRpcError(code=grpc.StatusCode.UNKNOWN,
                                  trailing_metadata=grpc.aio.Metadata(('test', 'test')),
@@ -308,6 +315,7 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
 
         # Unavailable
         retry = self.sender._retry_count 
+        self.channels.stub.return_value = self.channels.feedback_stub
         self.channels.feedback_stub.Feedback.side_effect = [
             grpc.aio.AioRpcError(code=grpc.StatusCode.UNAVAILABLE,
                                  trailing_metadata=grpc.aio.Metadata(('test', 'test')),
@@ -327,6 +335,7 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
 
         # Deadline
         retry = self.sender._retry_count 
+        self.channels.stub.return_value = self.channels.feedback_stub
         self.channels.feedback_stub.Feedback.side_effect = [
             grpc.aio.AioRpcError(code=grpc.StatusCode.DEADLINE_EXCEEDED,
                                  trailing_metadata=grpc.aio.Metadata(('test', 'test')),
@@ -373,13 +382,19 @@ class TestChannels(unittest.IsolatedAsyncioTestCase):
     async def test_channels_02_connect(self):
 
         await self.channels.connect()
-        self.assertIsInstance(self.channels.feedback_stub, ResearcherServiceStub)
-        self.assertIsInstance(self.channels.task_stub, ResearcherServiceStub)
+        for stub in [
+                _StubType.LISTENER_TASK_STUB,
+                _StubType.SENDER_TASK_STUB,
+                _StubType.SENDER_FEEDBACK_STUB]:
+            self.assertIsInstance(await self.channels.stub(stub), ResearcherServiceStub)
 
         # Recall connect
         await self.channels.connect()
-        self.assertIsInstance(self.channels.feedback_stub, ResearcherServiceStub)
-        self.assertIsInstance(self.channels.task_stub, ResearcherServiceStub)
+        for stub in [
+                _StubType.LISTENER_TASK_STUB,
+                _StubType.SENDER_TASK_STUB,
+                _StubType.SENDER_FEEDBACK_STUB]:
+            self.assertIsInstance(await self.channels.stub(stub), ResearcherServiceStub)
 
 
 if __name__ == '__main__':  # pragma: no cover
