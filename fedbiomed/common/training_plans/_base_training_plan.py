@@ -651,8 +651,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             `post_init` method. If you need to export the model from the Training Plan, you
             must do it through [`Experiment`][`fedbiomed.researcher.experiment.Experiment`]'s
             interface.
-            FedbiomedModelError: raised if model cannot be reloaded with the pointed file.
-
 
         !!! info "Notes":
             This method is designed to load the model from a local dump

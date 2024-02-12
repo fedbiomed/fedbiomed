@@ -371,7 +371,7 @@ Each training plan provides export and import functionality.
 - Export facility is used for saving model parameters to a file after training the model in Fed-BioMed, so it can be used in another software (eg for inference).
 - Import facility is used for loading model parameters from a file, for example to specialize with Fed-BioMed a model pre-trained with another software (transfer learning) or a previous Fed-BioMed run.
 
-**Exports** and **imports** are handled through the [`Experiment`](../../researcher/experiment) interface. [`Experiment`](../../researcher/experiment) interface will initialize the model for you, by calling internally `Training Plan` methods `init_method` and `post_init`.
+**Exports** and **imports** are handled through the [`Experiment`](../../researcher/experiment) interface. [`Experiment`](../../researcher/experiment) interface will initialize the model for you, by calling internally `Training Plan` methods `init_method` and `post_init`. See example below for an instantiated `Experiment` object named `exp`.
 
 To save model to file `/path/to/file` use:
 
@@ -389,7 +389,7 @@ exp.training_plan().import_model('/path/to_file')
 Of course, loaded model needs to be identical to the training plan's model.
 
 
-After loading model in an [Experiment](../../researcher/experiment) it is needed to also update the model in `Job()` class. For example for an `Experiment` named `exp` use:
+After loading model in an [Experiment](../../researcher/experiment) it is needed to also update the model in `Job()` class:
 
 ```python
 exp.training_plan().import_model('/path/to/file')
