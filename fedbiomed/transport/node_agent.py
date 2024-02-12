@@ -1,6 +1,7 @@
 from enum import Enum
-from typing import Optional, Dict, Callable
+from typing import Optional, Dict, Callable, List
 import copy
+import time
 
 import asyncio
 import grpc
@@ -98,7 +99,8 @@ class NodeAgentAsync:
             This function return an asyncio coroutine. Please use `await` while calling.
 
         Returns:
-            Coroutine to await for retrieving a task
+            A coroutine to await for retrieving a list of: a task ; a number of send retries already done ;
+                the time of first sending attempt in seconds since epoch
         """
         return self._queue.get()
 
@@ -130,12 +132,18 @@ class NodeAgentAsync:
                     else:
                         logger.warning(f"Received a reply from an unexpected request: {message.request_id}")
 
-    async def send_async(self, message: Message, on_reply: Optional[Callable] = None) -> None:
+    async def send_async(
+            self, message: Message,
+            on_reply: Optional[Callable] = None,
+            retry_count: int = 0,
+            first_send_time: Optional[float] = None) -> None:
         """Async function send message to researcher.
 
         Args:
             message: Message to send to the researcher
             on_reply: optional callback to execute when receiving message reply
+            retry_count: number of retries already done for this message
+            first_send_time: time of first send attempt for this message
         """
 
         async with self._status_lock:
@@ -158,7 +166,9 @@ class NodeAgentAsync:
                     message.request_id: {'callback': on_reply, 'reply': None}
                 })
 
-        await self._queue.put(message)
+        if first_send_time is None:
+            first_send_time = time.time()
+        await self._queue.put([message, retry_count, first_send_time])
 
     async def set_active(self) -> None:
         """Updates node status as active"""

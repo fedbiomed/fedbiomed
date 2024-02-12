@@ -15,7 +15,7 @@ from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceS
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskRequest, TaskResult, FeedbackMessage
-from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH, ErrorNumbers
+from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH, MAX_SEND_RETRIES, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 
 
@@ -545,8 +545,9 @@ class Sender(Listener):
             # initialize in case of early failure
             self._stub_type = _StubType.NO_STUB
 
-            if self._retry_count > 5:
-                logger.warning("Message can not be sent to researcher after 5 retries")
+            if self._retry_count > MAX_SEND_RETRIES:
+                logger.warning(
+                    f"Message can not be sent to researcher after {MAX_SEND_RETRIES} retries. Discard message.")
                 self._queue.task_done()
                 self._retry_count = 0
 

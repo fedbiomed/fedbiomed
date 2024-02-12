@@ -13,13 +13,16 @@ import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
 from fedbiomed.transport.client import GRPC_CLIENT_CONN_RETRY_TIMEOUT, GRPC_CLIENT_TASK_REQUEST_TIMEOUT
 from fedbiomed.transport.node_agent import AgentStore, NodeAgent
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, MAX_SEND_RETRIES
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage
 from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
+
+# Maximum time in seconds for sending a message, before considering it should be discarded.
+MAX_SEND_DURATION = 10
 
 # timeout in seconds for server to establish connections with nodes and initialize
 
@@ -85,9 +88,17 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
         task = None
         try:
-            task = await node_agent.get_task()
-            # Choice: mark task as de-queued as soon only if really sent
-            node_agent.task_done()
+            while True:
+                task, retry_count, first_send_time = await node_agent.get_task()
+
+                # Choice: mark task as de-queued as soon only if really sent
+                node_agent.task_done()
+
+                # discard if message too old
+                if first_send_time + MAX_SEND_DURATION > time.time():
+                    break
+                else:
+                    logger.warning(f"Message to send is older than {MAX_SEND_DURATION} seconds. Discard message.")
 
             task_bytes = Serializer.dumps(task.get_dict())
 
@@ -103,20 +114,30 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                     ).to_proto()
                 except GeneratorExit:
                     # schedule resend if task sending could not be completed
-                    # => retry send as long as (1) send not successful (2) node is connected
-                    # (no max retries)
-                    # => discard if node is disconnected
-                    await node_agent.send_async(task)
+                    # => retry send as long as (1) send not successful
+                    # (2) max retries not reached
+                    # => else discard message
+                    #
+                    # Note: if node is disconnected then back online, message is retried after reconnection.
+                    # This is not fully coherent with upper layers (Requests) that may trigger an application
+                    # level failure in the while, but it is mitigated by the MAX_SEND_DURATION
+                    if retry_count < MAX_SEND_RETRIES:
+                        await node_agent.send_async([task, retry_count + 1, first_send_time])
+                    else:
+                        logger.warning(f"Message cannot be sent after {MAX_SEND_RETRIES} retries. Discard message.")
                     await node_agent.change_node_status_after_task()
                     # need return here to avoid RuntimeError
                     return
+
         except asyncio.CancelledError:
             if task is not None:
                 # schedule resend if task was pulled from queue
-                await node_agent.send_async(task)
+                if retry_count < MAX_SEND_RETRIES:
+                    await node_agent.send_async([task, retry_count + 1, first_send_time])
+                else:
+                    logger.warning(f"Message cannot be sent after {MAX_SEND_RETRIES} retries. Discard message.")
         finally:
             await node_agent.change_node_status_after_task()
-
 
 
     async def ReplyTask(
