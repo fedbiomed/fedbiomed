@@ -3,7 +3,7 @@ import asyncio
 import time
 
 
-from unittest.mock import patch, MagicMock, AsyncMock, PropertyMock
+from unittest.mock import patch, MagicMock, AsyncMock, PropertyMock, Mock
 
 
 from fedbiomed.transport.node_agent import AgentStore
@@ -98,6 +98,23 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
         result = await self.servicer.Feedback(request=request, unused_context=self.context)
         self.on_message.assert_called_once()
         self.assertEqual(result, Empty())
+
+
+    @patch('fedbiomed.transport.server.TaskResponse')
+    async def test_researcher_servicer_04_GetTaskUnary_exceptions(self, task_response):
+
+        for exception in [GeneratorExit, asyncio.CancelledError]:
+            node_agent = AsyncMock()
+            node_agent.task_done = MagicMock()
+            node_agent.send_async = AsyncMock()
+            self.agent_store.retrieve.return_value = node_agent
+
+            node_agent.get_task.return_value = [example_task, 0 , time.time()]
+            task_response.side_effect = exception
+
+            async for r in self.servicer.GetTaskUnary(request=self.request, context=self.context):
+                self.assertEqual(r, None)
+            node_agent.send_async.assert_called_once()
 
 
 class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
