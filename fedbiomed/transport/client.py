@@ -592,7 +592,6 @@ class Sender(Listener):
 
             self._queue.task_done()
             self._retry_count = 0
-            self._retry_msg = None
 
 
     def _stream_reply(self, message: Message) -> Iterable:
