@@ -15,11 +15,11 @@
 # the -d directive can be repeated to run more than one node
 #
 # Example:
-# ./scripts/run_end_to_end_one.sh -s ./notebooks/101_getting-started.py \
+# ./scripts/run_end_to_end_one.sh -s ./notebooks/101_getting-started.ipynb \
 #                                -d ./tests/datasets/mnist.json
 #
 # This will run 3 nodes:
-# ./scripts/run_end_to_end_one.sh -s ./notebooks/101_getting-started.py \
+# ./scripts/run_end_to_end_one.sh -s ./notebooks/101_getting-started.ipynb \
 #                                -d ./tests/datasets/mnist.json \
 #                                -d ./tests/datasets/mnist.json \
 #                                -d ./tests/datasets/mnist.json
@@ -61,11 +61,11 @@ provided script and dataset is not validated by this launcher
    - it runs a researcher
 
 Example:
-./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
+./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.ipynb \
                                -d ./tests/datasets/mnist.json
 
 This will run 3 nodes:
-./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.py \
+./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.ipynb \
                                -d ./tests/datasets/mnist.json \
                                -d ./tests/datasets/mnist.json \
                                -d ./tests/datasets/mnist.json
@@ -144,7 +144,7 @@ script_executor() {
         *.ipynb)
             # converting notebook to script to run
             output="${script##*/}.$RANDOM"
-            convert=$(jupyter nbconvert --output-dir=/tmp --output=$output --to script $script 2> /dev/null)
+            convert=$(jupyter nbconvert --output-dir=/tmp --output=$output --to script $script )
             if [ $? == 0 ]
             then
                 # conversion did well

@@ -721,15 +721,21 @@ class TestTorchModel(unittest.TestCase):
         """Test that 'TorchModel.export' works properly."""
         with patch("torch.save") as save_patch:
             self.model.export("filename")
-        save_patch.assert_called_once_with(self.torch_model, "filename")
+        save_patch.assert_called_once()
+        call_args = save_patch.call_args
+        self.assertEqual(call_args.args[1], "filename")
+        t1 = self.torch_model.state_dict()
+        t2 = call_args.args[0]
+        self.assertTrue(all([torch.allclose(t1[key], t2[key]) for key in list(t1.keys()) + list(t2.keys())]))
 
     def test_torchmodel_10_reload(self):
         """Test that 'TorchModel.reload' works properly."""
-        module = create_autospec(torch.nn.Module, instance=True)
-        with patch("torch.load", return_value=module) as load_patch:
+        d1 = self.model.model.state_dict()
+        with patch("torch.load", return_value=d1) as load_patch:
             self.model.reload("filename")
         load_patch.assert_called_once_with("filename")
-        self.assertIs(self.model.model, module)
+        d2 = self.model.model.state_dict()
+        self.assertTrue(all([torch.allclose(d1[key], d2[key]) for key in list(d1.keys()) + list(d2.keys())]))
 
     def test_torchmodel_11_reload_fails(self):
         """Test that 'TorchModel.reload' fails with a non-torch dump object."""

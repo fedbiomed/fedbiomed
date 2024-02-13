@@ -5,7 +5,7 @@ from unittest.mock import patch
 from fedbiomed.common.config import Config
 from fedbiomed.researcher.config import ResearcherConfig
 from fedbiomed.node.config import NodeConfig
-from fedbiomed.common.exceptions import FedbiomedVersionError
+from fedbiomed.common.exceptions import FedbiomedVersionError, FedbiomedError
 
 
 class BaseConfigTest(unittest.TestCase):
@@ -69,6 +69,25 @@ class TestConfig(BaseConfigTest):
         config = Config(auto_generate=False, root='test')
         r = config.is_config_existing()
         self.assertFalse(r)
+
+
+    @patch('fedbiomed.common.config.Config.generate')
+    @patch('fedbiomed.common.config.Config.is_config_existing')
+    @patch('fedbiomed.common.config.configparser.ConfigParser.read')
+    def test_04_refresh(self, read_, is_existing, generate):
+
+        is_existing.return_value = False
+        config = Config(auto_generate=False, root='test', name='test')
+        with self.assertRaises(FedbiomedError):
+            config.refresh()
+
+        def set_(path):
+            config._cfg = {"default" : {"id": "test"}}
+
+        read_.side_effect = set_
+        is_existing.return_value = True
+        config.refresh()
+        generate.assert_called_once()
 
 
 class TestNodeConfig(BaseConfigTest):

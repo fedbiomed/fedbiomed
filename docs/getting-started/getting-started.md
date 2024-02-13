@@ -211,6 +211,9 @@ exp = Experiment(tags=tags,
                  aggregator=FedAverage(),
                  node_selection_strategy=None)
 exp.run()
+
+# model saving
+exp.training_plan().export_model('./my_trained_model')
 ```
 
 <p>&nbsp;</p>
