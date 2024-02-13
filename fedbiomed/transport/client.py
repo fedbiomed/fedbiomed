@@ -483,6 +483,7 @@ class Sender(Listener):
         self._queue = asyncio.Queue()
         self._on_status_change = on_status_change
         self._retry_count = 0
+        self._retry_msg = None
         self._stub_type = _StubType.NO_STUB
 
     async def _listen(self, callback: Optional[Callable] = None) -> None:
@@ -551,7 +552,11 @@ class Sender(Listener):
                 self._queue.task_done()
                 self._retry_count = 0
 
-            msg = await self._queue.get()
+            if self._retry_count == 0:
+                # only pick a new message if not retrying to send
+                self._retry_msg = await self._queue.get()
+            msg = self._retry_msg
+
             self._stub_type = msg["stub"]
             if self._stub_type == _StubType.SENDER_FEEDBACK_STUB:
                 feedback_stub = await self._channels.stub(_StubType.SENDER_FEEDBACK_STUB)
@@ -561,7 +566,7 @@ class Sender(Listener):
                 stub_function = task_stub.ReplyTask
             else:
                 raise FedbiomedCommunicationError(
-                    "Unknown type of stub in gRPC Sender listener {msg['stub']}"
+                    f"Unknown type of stub in gRPC Sender listener {msg['stub']}"
                 )
 
             # If it is a Unary-Unary RPC call
@@ -587,6 +592,7 @@ class Sender(Listener):
 
             self._queue.task_done()
             self._retry_count = 0
+            self._retry_msg = None
 
 
     def _stream_reply(self, message: Message) -> Iterable:
