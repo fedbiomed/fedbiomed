@@ -298,20 +298,41 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
     async def test_sender_02_listen_exceptions(self, sleep):
 
         # Unknown error
-        self.channels.stub.return_value = self.channels.feedback_stub
-        self.channels.feedback_stub.Feedback.side_effect = [
+        codes = [
             grpc.aio.AioRpcError(code=grpc.StatusCode.UNKNOWN,
                                  trailing_metadata=grpc.aio.Metadata(('test', 'test')),
                                  initial_metadata=grpc.aio.Metadata(('test', 'test'))),
-            asyncio.CancelledError]
+            grpc.aio.AioRpcError(code=grpc.StatusCode.ABORTED,
+                                 trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                 initial_metadata=grpc.aio.Metadata(('test', 'test'))),       
+        ]
+        for code in codes:
+            self.channels.stub.return_value = self.channels.feedback_stub
+            self.channels.feedback_stub.Feedback.side_effect = [
+                code,
+                asyncio.CancelledError]
+            await self.sender.send(message=self.message_log)
+            await self.sender.send(message=self.message_log)
 
-        await self.sender.send(message=self.message_log)
-        await self.sender.send(message=self.message_log)
+            task = self.sender.listen()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            task.cancel()
 
-        task = self.sender.listen()
-        with self.assertRaises(asyncio.CancelledError):
-            await task
-        task.cancel()
+        # Other exceptions
+        codes = [
+            Exception,
+            GeneratorExit,
+        ]
+        for code in codes:
+            self.channels.stub.return_value = self.channels.feedback_stub
+            self.channels.feedback_stub.Feedback.side_effect = [code]
+            await self.sender.send(message=self.message_log)
+
+            task = self.sender.listen()
+            with self.assertRaises(FedbiomedCommunicationError):
+                await task
+            task.cancel()
 
         # Unavailable
         retry = self.sender._retry_count 
@@ -378,8 +399,7 @@ class TestChannels(unittest.IsolatedAsyncioTestCase):
         self.stub_patch.stop()
         pass
 
-
-    async def test_channels_02_connect(self):
+    async def test_channels_02_connect_and_stub(self):
 
         await self.channels.connect()
         for stub in [
@@ -396,6 +416,8 @@ class TestChannels(unittest.IsolatedAsyncioTestCase):
                 _StubType.SENDER_FEEDBACK_STUB]:
             self.assertIsInstance(await self.channels.stub(stub), ResearcherServiceStub)
 
+        # test non existing stub
+        self.assertEqual(await self.channels.stub('dummy'), None)
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
