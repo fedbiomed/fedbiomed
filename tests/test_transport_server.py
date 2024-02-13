@@ -58,7 +58,6 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
     async def test_researcher_servicer_01_GetTaskUnary(self):
 
         node_agent = AsyncMock()
-        node_agent.set_context = MagicMock()
         node_agent.task_done = MagicMock()
         node_agent.get_task.return_value = [example_task, 0 , time.time()]
 
