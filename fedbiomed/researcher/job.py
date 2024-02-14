@@ -227,7 +227,6 @@ class Job:
         """
 
         self._training_replies[round_] = {}
-        print("REPLY", replies)
 
         # Loops over errors
         for node_id, error in errors.items():
@@ -414,14 +413,13 @@ class Job:
             node_id = reply["node_id"]
             node_av = reply.get("optim_aux_var", {})
             for module, params in node_av.items():
-                print("PROCESS", module, params)
                 aux_var.setdefault(module, {})[node_id] = params
             # save optimizer auxiliary variables in a file
             # FIXME: should we keep them for advanced optimizer/strategies?
-            aux_vars_path = os.path.join(self._keep_files_dir, f"auxilary_var_replies_{node_id}.mpk")
+            aux_vars_path = os.path.join(self._keep_files_dir, f"auxilary_var_replies_{round_id}_{node_id}.mpk")
             Serializer.dump(reply["optim_aux_var"], aux_vars_path)
             reply["optim_aux_var"] = aux_vars_path
-            #reply.pop("optim_aux_var")
+
         return aux_var
 
     def _get_model_params(self) -> Dict[str, Any]:
@@ -595,7 +593,6 @@ class Job:
                 reply.pop('params', None)
 
             converted_training_replies.append(training_reply)
-        print("TP", converted_training_replies)
 
         return converted_training_replies
 
