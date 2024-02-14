@@ -3,6 +3,7 @@ import itertools
 import logging
 import os
 import re
+import tempfile
 import types
 import unittest
 import os
@@ -792,7 +793,27 @@ class TestTorchnn(unittest.TestCase):
         self.assertGreaterEqual(corrected_loss - loss, corrected_frozen_loss - frozen_loss)  # corrected loss should be greater than the frozen model loss, 
         # since it has less elements in the norm computation
 
-        # print("TEST", tp._TorchTrainingPlan__norm_l2())
+    def test_torch_nn_08_import_export_model_raise(self):
+        # check that model import and export when using only training plan fails
+        
+        class TestFakeTrainingPlan(BaseFakeTrainingPlan):
+            complex_model = nn.Sequential(nn.Conv1d(1, 1, 2),
+                                      nn.ReLU(),
+                                      nn.Linear(4, 5),
+                                      nn.utils.weight_norm(nn.Linear(5, 2)),
+                                      torch.nn.InstanceNorm1d(1),
+                                      nn.Softmax(dim=0))
+            def init_model(self):
+                return self.complex_model()
+
+        tp = TestFakeTrainingPlan()
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            tp.export_model("file.pt")
+
+        temp = tempfile.mkdtemp()  # creating file to load model from
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            tp.export_model(temp)
 
 
 class TestSendToDevice(unittest.TestCase):
