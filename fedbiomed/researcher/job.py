@@ -399,7 +399,9 @@ class Job:
         self,
         round_id: int,
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
-        """Restructure the received auxiliary variables (if any) from a round.
+        """Restructures the received auxiliary variables (if any) from a round, and
+        saved it in a file (for the given `round_id`). Modifies in-place the `training_replies`
+        "optim_aux_var" entries by the path of the file saved.
 
         Args:
             round_id: Index of the round, replies from which to parse through.
@@ -409,6 +411,9 @@ class Job:
             format `{mod_name: {node_id: node_dict}}`.
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
+        nodes_optim_aux_vars = {}  # keep here all the `optim_aux_var` parameters
+        aux_vars_path: str = None  # path to the file where optim_aux_var will be saved (if any)
+
         for reply in self.training_replies[round_id].values():
             node_id = reply["node_id"]
             node_av = reply.get("optim_aux_var", {})
@@ -417,10 +422,13 @@ class Job:
             # save optimizer auxiliary variables in a file
             # FIXME: should we keep them for advanced optimizer/strategies?
             if node_av:
-                aux_vars_path = os.path.join(self._keep_files_dir, f"auxilary_var_replies_{round_id}_{node_id}.mpk")
-                Serializer.dump(reply["optim_aux_var"], aux_vars_path)
+                nodes_optim_aux_vars.update({node_id: node_av})
+                if aux_vars_path is None:
+                    aux_vars_path = os.path.join(self._keep_files_dir, f"auxilary_var_replies_{round_id}.mpk")
+                
                 reply["optim_aux_var"] = aux_vars_path
-
+        if nodes_optim_aux_vars:
+            Serializer.dump(nodes_optim_aux_vars, aux_vars_path)
         return aux_var
 
     def _get_model_params(self) -> Dict[str, Any]:
