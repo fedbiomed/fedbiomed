@@ -416,9 +416,10 @@ class Job:
                 aux_var.setdefault(module, {})[node_id] = params
             # save optimizer auxiliary variables in a file
             # FIXME: should we keep them for advanced optimizer/strategies?
-            aux_vars_path = os.path.join(self._keep_files_dir, f"auxilary_var_replies_{round_id}_{node_id}.mpk")
-            Serializer.dump(reply["optim_aux_var"], aux_vars_path)
-            reply["optim_aux_var"] = aux_vars_path
+            if node_av:
+                aux_vars_path = os.path.join(self._keep_files_dir, f"auxilary_var_replies_{round_id}_{node_id}.mpk")
+                Serializer.dump(reply["optim_aux_var"], aux_vars_path)
+                reply["optim_aux_var"] = aux_vars_path
 
         return aux_var
 
