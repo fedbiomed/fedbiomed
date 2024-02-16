@@ -424,8 +424,9 @@ class Job:
             if node_av:
                 nodes_optim_aux_vars.update({node_id: node_av})
                 if aux_vars_path is None:
-                    aux_vars_path = os.path.join(self._keep_files_dir, f"auxilary_var_replies_{round_id}.mpk")
-                
+                    aux_vars_path = os.path.join(
+                        self._keep_files_dir, f"auxiliary_var_replies_{round_id}_{uuid.uuid4()}.mpk")
+
                 reply["optim_aux_var"] = aux_vars_path
         if nodes_optim_aux_vars:
             Serializer.dump(nodes_optim_aux_vars, aux_vars_path)
