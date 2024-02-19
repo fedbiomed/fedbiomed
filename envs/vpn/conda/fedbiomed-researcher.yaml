@@ -14,6 +14,7 @@ dependencies:
   - pip >= 23.0
   # TODO: consider migrating for classical notebooks to notebook7 or jupyterlab
   # https://jupyter-notebook.readthedocs.io/en/latest/migrate_to_notebook7.html
+  - notebook ~=6.5.0
   - jupyter ~=1.0.0
   - ipython ~=8.13.2
   # tests
@@ -67,8 +68,8 @@ dependencies:
 
       - gmpy2 >=2.1,< 2.2
       # grpc
-      - grpcio ~=1.57.0
-      - grpcio-tools ~=1.57.0
+      - grpcio ~=1.60.0
+      - grpcio-tools ~=1.60.0
 #### Notebook-specific packages ####
 # This section contains packages that are needed only to run specific notebooks
       - unet >=0.7.7,<0.8.0

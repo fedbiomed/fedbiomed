@@ -1,9 +1,74 @@
 import unittest
 import tempfile
+import argparse
 import shutil
 from unittest.mock import patch, MagicMock
-from fedbiomed.common.cli import CommonCLI
+from fedbiomed.common.cli import CommonCLI, ConfigurationParser
 from fedbiomed.common.exceptions import FedbiomedError
+
+
+class TestConfigurationParser(unittest.TestCase):
+
+    def setUp(self):
+
+        self.main_parser = argparse.ArgumentParser()
+        self.parser = self.main_parser.add_subparsers()
+        self.conf_parser = ConfigurationParser(subparser=self.parser)
+        self.conf_parser.initialize()
+        pass
+
+
+    def tearDown(self):
+        pass
+
+    def test_01_configuration_parser_initialize(self):
+        """Tests argument initialization"""
+        self.assertTrue('configuration' in self.conf_parser._subparser.choices)
+        self.assertTrue('create' in self.conf_parser._subparser.choices["configuration"]._subparsers._group_actions[0].choices)
+        self.assertEqual(self.conf_parser._subparser.choices["configuration"].
+                         _subparsers._group_actions[0].choices["create"]._defaults["func"].__func__.__name__,
+                         'create')
+
+    @patch('fedbiomed.common.cli.SecaggBiprimeManager')
+    @patch("builtins.print")
+    @patch('builtins.open')
+    @patch('fedbiomed.node.config.NodeConfig')
+    @patch('fedbiomed.researcher.config.ResearcherConfig')
+    def test_02_configuration_parser_create(
+        self,
+        rconfig,
+        nconfig,
+        mock_open,
+        mock_print,
+        mock_secagg_bp_manager
+    ):
+        mock_secagg_bp_manager = MagicMock(return_value=None)
+
+        args = self.main_parser.parse_args(["configuration", "create", "--component", "NODE", '-uc'])
+        self.conf_parser.create(args)
+        mock_print.assert_called()
+
+        mock_print.reset_mock()
+        args = self.main_parser.parse_args(["configuration", "create", "--component", "RESEARCHER", '-uc'])
+        self.conf_parser.create(args)
+        mock_print.assert_called()
+
+    @patch("builtins.print")
+    @patch('builtins.open')
+    @patch('fedbiomed.node.config.NodeConfig')
+    @patch('fedbiomed.researcher.config.ResearcherConfig')
+    def test_03_configuration_parser_refresh(
+        self,
+        rconfig,
+        nconfig,
+        mock_open,
+        mock_print,
+    ):
+
+        args = self.main_parser.parse_args(["configuration", "refresh", "--component", "NODE", "-n", "config"])
+        self.conf_parser.refresh(args)
+        nconfig.return_value.refresh.assert_called()
+
 
 
 class TestCommonCLI(unittest.TestCase):
@@ -48,15 +113,6 @@ class TestCommonCLI(unittest.TestCase):
         self.assertTrue('certificate-dev-setup' in self.cli._subparsers.choices)
         self.assertEqual(self.cli._subparsers.choices["certificate-dev-setup"]._defaults["func"].__func__.__name__,
                          '_create_magic_dev_environment')
-
-    def test_05_common_cli_initialize_create_configuration(self):
-        self.cli.initialize_create_configuration()
-        self.assertTrue('configuration' in self.cli._subparsers.choices)
-        self.assertTrue('create' in self.cli._subparsers.choices["configuration"]._subparsers._group_actions[0].choices)
-
-        self.assertEqual(self.cli._subparsers.choices["configuration"].
-                         _subparsers._group_actions[0].choices["create"]._defaults["func"].__func__.__name__,
-                         '_create_component')
 
     def test_06_common_cli_initialize_certificate_parser(self):
         self.cli.set_environ(
@@ -149,32 +205,6 @@ class TestCommonCLI(unittest.TestCase):
             with patch('builtins.print') as mock_print:
                 self.cli._create_magic_dev_environment()
                 self.assertEqual(mock_print.call_count, 2)
-
-    @patch('fedbiomed.common.cli.SecaggBiprimeManager')
-    @patch("builtins.print")
-    @patch('builtins.open')
-    @patch('fedbiomed.node.config.NodeConfig')
-    @patch('fedbiomed.researcher.config.ResearcherConfig')
-    def test_06_common_cli_create_component(self,rconfig, nconfig, mock_open, mock_print, mock_secagg_bp_manager):
-
-        mock_secagg_bp_manager = MagicMock(return_value=None)
-        self.cli.initialize_create_configuration()
-
-        self.cli.set_environ({
-            "ID": "test-id",
-            "DB_PATH": '/a/dummy/path',
-            "ALLOW_DEFAULT_BIPRIMES": True,
-            "DEFAULT_BIPRIMES_DIR": '/not/existing/dir'})
-
-        args = self.cli.parser.parse_args(["configuration", "create", "--component", "NODE", '-uc'])
-        self.cli._create_component(args)
-        mock_print.assert_called()
-
-        mock_print.reset_mock()
-        args = self.cli.parser.parse_args(["configuration", "create", "--component", "RESEARCHER", '-uc'])
-        self.cli._create_component(args)
-        mock_print.assert_called()
-
 
     @patch("builtins.open")
     @patch("builtins.print")
