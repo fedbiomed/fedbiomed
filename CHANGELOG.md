@@ -1,5 +1,16 @@
 # Fed-BioMed changelog
 
+## 2024-02-19 version 5.1.0
+
+- multiple fixes and improvements for gRPC communications stability
+- fix scaffold failure when reloading breakpoint and continue training
+- fix breakpoint save failure for DecLearn optimizers
+- fix import/export model check for explicit error when not instantiated
+
+## 2024-01-26 version 5.0.2
+
+- fix crash happening when the tkinter file selector is used in non-interactive mode
+ 
 ## 2024-01-18 version 5.0.1
 
 - fix `fedbiomed_vpn` failure due to time race under certain circumstance
