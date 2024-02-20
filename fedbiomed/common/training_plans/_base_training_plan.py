@@ -72,6 +72,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._optimizer_args: Dict[str, Any] = None
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
+        
+        self._error_msg_import_model: str = f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n" +\
+                                            "To %s a model, you should do it through `fedbiomed.researcher.experiment.Experiment`'s interface" +\
+                                            " and not directly from Training Plan"
 
     @abstractmethod
     def model(self):
@@ -614,6 +618,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         Args:
             filename: path to the file where the model will be saved.
+        
+        Raises:
+            FedBiomedTrainingPlanError: raised if model has not be initialized through the 
+            `post_init` method. If you need to export the model, you must do it through
+            [`Experiment`][`fedbiomed.researcher.experiment.Experiment`]'s interface.
 
         !!! info "Notes":
             This method is designed to save the model to a local dump
@@ -627,6 +636,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             outside of a training context) and export results using
             [`Serializer`][fedbiomed.common.serializer.Serializer].
         """
+        if self._model is None:
+            raise FedbiomedTrainingPlanError(self._error_msg_import_model % "export")
         self._model.export(filename)
 
     def import_model(self, filename: str) -> None:
@@ -634,6 +645,12 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         Args:
             filename: path to the file where the model has been exported.
+
+        Raises:
+            FedBiomedTrainingPlanError: raised if model has not be initialized through the 
+            `post_init` method. If you need to export the model from the Training Plan, you
+            must do it through [`Experiment`][`fedbiomed.researcher.experiment.Experiment`]'s
+            interface.
 
         !!! info "Notes":
             This method is designed to load the model from a local dump
@@ -646,6 +663,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             network-exchanged file, and the `set_model_params` method to assign
             the loaded values into the wrapped model.
         """
+        if self._model is None:
+            raise FedbiomedTrainingPlanError(self._error_msg_import_model % "import")
         try:
             self._model.reload(filename)
         except FedbiomedModelError as exc:

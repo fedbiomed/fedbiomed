@@ -314,7 +314,7 @@ class Job:
         # (behaviour can be defined by user / changed by strategy)
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
-        # Upload optimizer auxiliary variables, when there are.
+        # Upload optimizer auxiliary variables, when there are some.
         if do_training and optim_aux_var:
             aux_shared, aux_bynode = (
                 self._prepare_agg_optimizer_aux_var(optim_aux_var, nodes=list(self._nodes))
@@ -399,7 +399,9 @@ class Job:
         self,
         round_id: int,
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
-        """Restructure the received auxiliary variables (if any) from a round.
+        """Restructures the received auxiliary variables (if any) from a round, and
+        saved it in a file (for the given `round_id`). Modifies in-place the `training_replies`
+        "optim_aux_var" entries by the path of the file saved.
 
         Args:
             round_id: Index of the round, replies from which to parse through.
@@ -409,11 +411,25 @@ class Job:
             format `{mod_name: {node_id: node_dict}}`.
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
+        nodes_optim_aux_vars = {}  # keep here all the `optim_aux_var` parameters
+        aux_vars_path: str = None  # path to the file where optim_aux_var will be saved (if any)
+
         for reply in self.training_replies[round_id].values():
             node_id = reply["node_id"]
             node_av = reply.get("optim_aux_var", {})
             for module, params in node_av.items():
                 aux_var.setdefault(module, {})[node_id] = params
+            # save optimizer auxiliary variables in a file
+            # FIXME: should we keep them for advanced optimizer/strategies?
+            if node_av:
+                nodes_optim_aux_vars.update({node_id: node_av})
+                if aux_vars_path is None:
+                    aux_vars_path = os.path.join(
+                        self._keep_files_dir, f"auxiliary_var_replies_{round_id}_{uuid.uuid4()}.mpk")
+
+                reply["optim_aux_var"] = aux_vars_path
+        if nodes_optim_aux_vars:
+            Serializer.dump(nodes_optim_aux_vars, aux_vars_path)
         return aux_var
 
     def _get_model_params(self) -> Dict[str, Any]:

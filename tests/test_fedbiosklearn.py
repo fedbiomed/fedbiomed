@@ -131,15 +131,29 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
 
     def test_sklearntrainingplanbasicinheritance_03_export_model(self):
         training_plan = SKLearnTrainingPlan()
+
+        # first test export_model when model hasnot been created
+
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            training_plan.import_model('model_file.pt')
+
+        # then test when modle has been created (eg through Experiment)
         training_plan._model = create_autospec(spec=fedbiomed.common.models._sklearn.BaseSkLearnModel,
                                                instance=True)
-       
+
         training_plan.export_model('filename')
         training_plan._model.export.assert_called_once_with('filename')
 
 
     def test_sklearntrainingplanbasicinheritance_04_import_model(self):
         training_plan = SKLearnTrainingPlan()
+
+        # first test import_model when model hasnot been created
+        temp = tempfile.mkdtemp()  # creating file to load model from
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            training_plan.import_model(temp)
+
+        # then test when modle has been created (eg through Experiment)
         training_plan._model = SGDClassifierSKLearnModel(SGDClassifier())
 
         # Saved object is not of the correct type
