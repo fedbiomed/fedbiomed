@@ -91,9 +91,56 @@ def _node_signal_trigger_term() -> None:
 
 
 
+def start_node(node_args):
+    """Starts the node"""
+
+    cli_utils = imp_cli_utils()
+
+    tp_security_manager = cli_utils.tp_security_manager
+    dataset_manager = cli_utils.dataset_manager
+    Node = importlib.import_module("fedbiomed.node.node").Node
+    environ = importlib.import_module("fedbiomed.node.environ").environ
+
+    try:
+        signal.signal(signal.SIGTERM, _node_signal_handler)
+
+        logger.info('Launching node...')
+
+        # Register default training plans and update hashes
+        if environ["TRAINING_PLAN_APPROVAL"]:
+            # This methods updates hashes if hashing algorithm has changed
+            tp_security_manager.check_hashes_for_registered_training_plans()
+            if environ["ALLOW_DEFAULT_TRAINING_PLANS"]:
+                logger.info('Loading default training plans')
+                tp_security_manager.register_update_default_training_plans()
+        else:
+            logger.warning('Training plan approval for train request is not activated. ' +
+                            'This might cause security problems. Please, consider to enable training plan approval.')
+
+        logger.info('Starting communication channel with network')
+        _node = Node(dataset_manager=dataset_manager,
+                        tp_security_manager=tp_security_manager,
+                        node_args=node_args)
+        _node.start_messaging(_node_signal_trigger_term)
+
+        logger.info('Starting task manager')
+        _node.task_manager()  # handling training tasks in queue
+
+    except FedbiomedError:
+        logger.critical("Node stopped.")
+        # we may add extra information for the user depending on the error
+
+    except Exception as exp:
+        # must send info to the researcher (no mqqt should be handled
+        # by the previous FedbiomedError)
+        _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
+        logger.critical("Node stopped.")
+
+
+
 class DatasetArgumentParser(CLIArgumentParser):
     """Initializes CLI options for dataset actions"""
-
+        
     def initialize(self):
         """Initializes dataset options for the node CLI"""
 
@@ -104,7 +151,8 @@ class DatasetArgumentParser(CLIArgumentParser):
 
         # Creates subparser of dataset option
         dataset_subparsers = dataset.add_subparsers()
-
+        
+        
         # Add option
         add = dataset_subparsers.add_parser(
             "add",
@@ -355,57 +403,15 @@ class NodeControl(CLIArgumentParser):
             help="Node performs training only using GPU resources."
                  "This flag automatically activate GPU.")
 
-    def _start_node(self, node_args):
-        """Starts the node"""
-        cli_utils = imp_cli_utils()
-
-        tp_security_manager = cli_utils.tp_security_manager
-        dataset_manager = cli_utils.dataset_manager
-        Node = importlib.import_module("fedbiomed.node.node").Node
-        environ = importlib.import_module("fedbiomed.node.environ").environ
-
-        try:
-            signal.signal(signal.SIGTERM, _node_signal_handler)
-
-            logger.info('Launching node...')
-
-            # Register default training plans and update hashes
-            if environ["TRAINING_PLAN_APPROVAL"]:
-                # This methods updates hashes if hashing algorithm has changed
-                tp_security_manager.check_hashes_for_registered_training_plans()
-                if environ["ALLOW_DEFAULT_TRAINING_PLANS"]:
-                    logger.info('Loading default training plans')
-                    tp_security_manager.register_update_default_training_plans()
-            else:
-                logger.warning('Training plan approval for train request is not activated. ' +
-                               'This might cause security problems. Please, consider to enable training plan approval.')
-
-            logger.info('Starting communication channel with network')
-            _node = Node(dataset_manager=dataset_manager,
-                         tp_security_manager=tp_security_manager,
-                         node_args=node_args)
-            _node.start_messaging(_node_signal_trigger_term)
-
-            logger.info('Starting task manager')
-            _node.task_manager()  # handling training tasks in queue
-
-        except FedbiomedError:
-            logger.critical("Node stopped.")
-            # we may add extra information for the user depending on the error
-
-        except Exception as exp:
-            # must send info to the researcher (no mqqt should be handled
-            # by the previous FedbiomedError)
-            _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
-            logger.critical("Node stopped.")
-
 
     def start(self, args):
         """Starts the node"""
 
-        intro()
+        global start_node
 
+        intro()
         environ = importlib.import_module("fedbiomed.node.environ").environ
+
 
         # Define arguments
         node_args = {
@@ -413,7 +419,7 @@ class NodeControl(CLIArgumentParser):
             "gpu_num": args.gpu_num,
             "gpu_only": True if args.gpu_only else False}
 
-        p = Process(target=self._start_node, name='node-' + environ['NODE_ID'], args=(node_args,))
+        p = Process(target=start_node, name='node-' + environ['NODE_ID'], args=(node_args,))
         p.deamon = True
         p.start()
 
@@ -487,7 +493,6 @@ class GUIControl(CLIArgumentParser):
             process.wait()
 
 
-
 class NodeCLI(CommonCLI):
 
     _arg_parsers_classes: List[type] = [
@@ -503,7 +508,6 @@ class NodeCLI(CommonCLI):
 
         # Parent parser for parameters that are common for Node CLI actions
         self.initialize()
-
 
     def initialize(self):
         """Initializes node module"""
