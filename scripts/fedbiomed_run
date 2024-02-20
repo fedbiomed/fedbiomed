@@ -479,7 +479,8 @@ case $1 in
         ;;
 
     help|-h|--help)
-         $basedir/scripts/fedbiomed -h
+        source "$basedir"/scripts/fedbiomed_environment researcher
+        $basedir/scripts/fedbiomed -h
         ;;
 
     *)
