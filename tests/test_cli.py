@@ -12,7 +12,13 @@ from testsupport.base_case import NodeTestCase
 import fedbiomed
 import fedbiomed.node.cli_utils
 
-from fedbiomed.node.cli import NodeCLI, NodeControl, DatasetArgumentParser, TrainingPlanArgumentParser
+from fedbiomed.node.cli import (
+    NodeCLI, 
+    NodeControl, 
+    DatasetArgumentParser, 
+    TrainingPlanArgumentParser,
+    start_node
+)
 from fedbiomed.node.cli_utils._medical_folder_dataset import get_map_modalities2folders_from_cli, \
     add_medical_folder_dataset_from_cli
 from fedbiomed.node.cli_utils import add_database
@@ -133,23 +139,23 @@ class TestNodeControl(NodeTestCase):
         self.env["ALLOW_DEFAULT_TRAINING_PLANS"] = True
 
         args= {"gpu": False}
-        self.control._start_node(args)
+        start_node(args)
         mock_node.return_value.task_manager.assert_called_once()
         mock_node.return_value.task_manager.reset_mock()
 
         args= {"gpu": False}
         self.env["TRAINING_PLAN_APPROVAL"] = False
-        self.control._start_node(args)
+        start_node(args)
         mock_node.return_value.task_manager.assert_called_once()
 
         with patch.object(fedbiomed.node.cli, "logger") as logger:
             mock_node.return_value.task_manager.side_effect = FedbiomedError
-            self.control._start_node(args)
+            start_node(args)
             logger.critical.assert_called_once()
             logger.critical.reset_mock()
 
             mock_node.return_value.task_manager.side_effect = Exception
-            self.control._start_node(args)
+            start_node(args)
             logger.critical.assert_called_once()
 
 
