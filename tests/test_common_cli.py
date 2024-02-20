@@ -1,3 +1,4 @@
+import os
 import sys
 import unittest
 import tempfile
@@ -6,6 +7,7 @@ import shutil
 from unittest.mock import patch, MagicMock
 from fedbiomed.common.cli import CommonCLI, ConfigurationParser
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.constants import ComponentType
 
 
 class TestConfigurationParser(unittest.TestCase):
@@ -97,6 +99,8 @@ class TestCommonCLI(unittest.TestCase):
         self.assertEqual(self.cli._environ, {"test": "test"})
         self.assertEqual(self.cli.arguments, None)
 
+        self.assertTrue(self.cli.subparsers)
+
     def test_02_error_message(self):
         with patch("builtins.print") as patch_print:
             with self.assertRaises(SystemExit):
@@ -107,6 +111,13 @@ class TestCommonCLI(unittest.TestCase):
         with patch("builtins.print") as patch_print:
             self.cli.success("Hello this is success message")
             self.assertEqual(patch_print.call_count, 2)
+
+    def test_04_bis_cli_initialize_optional(self):
+
+        self.cli.initialize_optional()
+
+        self.assertTrue('certificate-dev-setup' in self.cli._subparsers.choices)
+        self.assertTrue('configuration' in self.cli._subparsers.choices)                   
 
     def test_04_common_cli_initialize_magic_dev_environment_parsers(self):
         self.cli.initialize_magic_dev_environment_parsers()
@@ -352,6 +363,12 @@ class TestCommonCLI(unittest.TestCase):
         sys.argv = ["fedbiomed_run", "certificate-dev-setup"]
         self.cli.parse_args()
         mock_dev_environment.assert_called_once_with(args, [])
+
+        with self.assertRaises(SystemExit):
+            # node argument is not known yet
+            sys.argv = ["fedbiomed_run", "node", "dataset"]
+            self.cli.parse_args()
+
 
 
 if __name__ == "__main__":
