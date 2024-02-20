@@ -474,7 +474,7 @@ training_plan_approval = True
 For starting node with disabled training plan approval and default training plans;
 
 ```shell
-ENABLE_TRAINING_PLAN_APPROVAL=False DISABLE_DEFAULT_TRAINING_PLANS./scripts/fedbiomed_run node --config config-n1.ini start
+ENABLE_TRAINING_PLAN_APPROVAL=False ALLOW_DEFAULT_TRAINING_PLANS=False ./scripts/fedbiomed_run node --config config-n1.ini start
 ```
 
 #### Default TrainingPlans
