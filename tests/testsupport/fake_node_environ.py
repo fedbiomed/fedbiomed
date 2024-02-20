@@ -75,6 +75,10 @@ class NodeEnviron:
         self._values['MPSPDZ_CERTIFICATE_KEY'] = 'dummy/path'
         self._values['MPSPDZ_CERTIFICATE_PEM'] = 'dummy/path'
 
+    def set_environment(self):
+        """Dummy set environ"""
+        pass
+
     def __getitem__(self, key):
         return self._values[key]
 

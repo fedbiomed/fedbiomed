@@ -26,6 +26,52 @@ from fedbiomed.common.data import MapperBlock
 from fedbiomed.common.exceptions import FedbiomedError
 from test_medical_datasets import patch_modality_glob, patch_is_modality_dir
 
+class TestTrainingPlanArgumentParser(NodeTestCase):
+
+    """Test case for node cli dataset argument parse """
+    def setUp(self):
+        self.parser = argparse.ArgumentParser()
+        self.subparsers = self.parser.add_subparsers()
+        self.tp_arg_pars = TrainingPlanArgumentParser(self.subparsers, self.parser)
+
+    def test_01_training_plan_argument_parser_initialize(self):
+        """Tests training plan parser intialization"""
+        self.tp_arg_pars.initialize()
+        self.assertTrue("training-plan" in self.subparsers.choices)
+
+        tp_choices  = self.subparsers.choices["training-plan"]._subparsers._group_actions[0].choices
+
+        self.assertTrue("approve" in tp_choices)  #noqa
+        self.assertTrue("list" in tp_choices)  #noqa
+        self.assertTrue("delete" in tp_choices) #noqa
+        self.assertTrue("reject" in tp_choices) #noqa
+        self.assertTrue("view" in tp_choices) #noqa
+        self.assertTrue("update" in tp_choices) #noqa
+
+    @patch.object(fedbiomed.node.cli,  "imp_cli_utils")
+    def test_02_training_plan_argument_parser_execute(self, cli_utils):
+        """Tests training plan arugment parser actions"""
+
+        self.tp_arg_pars.initialize()
+
+        self.tp_arg_pars.delete()
+        cli_utils.return_value.delete_training_plan.assert_called_once()
+
+        self.tp_arg_pars.list()
+        cli_utils.return_value.tp_security_manager.list_training_plans.assert_called_once()
+
+        self.tp_arg_pars.view()
+        cli_utils.return_value.view_training_plan.assert_called_once()
+
+        self.tp_arg_pars.register()
+        cli_utils.return_value.register_training_plan.assert_called_once()
+
+        self.tp_arg_pars.reject()
+        cli_utils.return_value.reject_training_plan.assert_called_once()
+
+        self.tp_arg_pars.update()
+        cli_utils.return_value.update_training_plan.assert_called_once()
+
 
 class TestDatasetArgumentParser(NodeTestCase):
     """Test case for node cli dataset argument parse """
@@ -170,6 +216,9 @@ class TestNodeCLI(NodeTestCase):
 
     def test_01_node_cli_init(self):
         """Tests intialization"""
+        self.node_cli = NodeCLI()
+        self.node_cli.parse_args(["--config", "config_n1"])
+
 
 
 
