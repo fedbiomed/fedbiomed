@@ -29,6 +29,168 @@ GRN = '\033[1;32m'  # green
 NC = '\033[0m'  # no color
 BOLD = '\033[1m'
 
+class CLIArgumentParser:
+
+    def __init__(self, subparser):
+
+        self._subparser = subparser
+
+
+class ConfigurationParser(CLIArgumentParser):
+    """Instantiates configuration parser"""
+
+    def initialize(self):
+        """Initializes argument parser for creating configuration file."""
+
+        configuration = self._subparser.add_parser('configuration', help='Configuration')
+
+        # Common parser to register common arguments for create and refresh
+        common_parser = argparse.ArgumentParser(add_help=False)
+        common_parser.add_argument(
+            '-r',
+            '--root',
+            metavar='ROOT_PATH_FEDBIOMED',
+            type=str,
+            nargs='?',
+            default=None,
+            help='Root directory for configuration and Fed-BioMed setup')
+
+        # Add arguments
+        common_parser.add_argument(
+            '-n',
+            '--name',
+            metavar='CONFIGURATION_FILE_NAME',
+            type=str,
+            nargs='?',
+            required=False,
+            help='Name of configuration file')
+
+        common_parser.add_argument(
+            '-c',
+            '--component',
+            metavar='COMPONENT_TYPE[ NODE|RESEARCHER ]',
+            type=str,
+            nargs='?',
+            required=True,
+            help='Component type NODE or RESEARCHER')
+
+
+        # Create sub parser under `configuration` command
+        configuration_sub_parsers = configuration.add_subparsers()
+
+        create = configuration_sub_parsers.add_parser(
+            'create',
+            parents=[common_parser],
+            help="Creates configuration file for the specified component if it does not exist. "
+                 "If the configuration file exists, leave it unchanged"
+        )
+
+        refresh = configuration_sub_parsers.add_parser(
+            'refresh',
+            parents=[common_parser],
+            help="Refreshes the configuration file by overwriting parameters without changing component ID"
+        )
+
+        create.add_argument(
+            '-uc',
+            '--use-current',
+            action="store_true",
+            help="Creates configuration only if there isn't an existing one"
+        )
+
+        create.add_argument(
+            '-f',
+            '--force',
+            action="store_true",
+            help='Force configuration create')
+
+        create.set_defaults(func=self.create)
+        refresh.set_defaults(func=self.refresh)
+
+    def _create_config_instance(self, component, root, name):
+
+        # TODO: this implementation is a temporary hack as it introduces a dependency of
+        # fedbiomed.common to fedbiomed.node or fedbiomed.researcher
+        # To be suppressed when redesigning the imports
+        if component.lower() == "node":
+            NodeConfig = importlib.import_module('fedbiomed.node.config').NodeConfig
+            config = NodeConfig(root=root, name=name, auto_generate=False)
+        elif component.lower() == "researcher":
+            ResearcherConfig = importlib.import_module('fedbiomed.researcher.config').ResearcherConfig
+            config = ResearcherConfig(root=root, name=name, auto_generate=False)
+        else:
+            print(f"Undefined component type {component}")
+            exit(101)
+
+        return config
+
+    def _update_register_default_biprimes(self, config: Config):
+        """Post common action after configuration is create
+
+        Args:
+          config: Config instance Node or Researcher
+        """
+
+        df_biprimes = config.get('mpspdz', 'allow_default_biprimes')
+        biprimes_dir = os.path.normpath(
+            os.path.join(config.root, CONFIG_FOLDER_NAME , config.get('mpspdz', 'default_biprimes_dir'))
+        )
+        # Update secure aggregation biprimes in component database
+        print(
+            "Updating secure aggregation default biprimes with:\n"
+            f"ALLOW_DEFAULT_BIPRIMES : {df_biprimes}\n"
+            f"DEFAULT_BIPRIMES_DIR   : {biprimes_dir}\n"
+        )
+
+        db_path = os.path.normpath(
+            os.path.join(config.root, CONFIG_FOLDER_NAME, config.get('default', 'db'))
+        )
+        BPrimeManager = SecaggBiprimeManager(db_path)
+        BPrimeManager.update_default_biprimes(df_biprimes, biprimes_dir)
+
+
+    def create(self, args):
+        """CLI Handler for creating configuration file and assets for given component
+
+        TODO: This method doesn't yet concentrate all actions for creating configuration file for
+            given component. Since, `environ` will be imported through component CLI, configuration
+            file will be automatically created. In future, it might be useful to generate configuration
+            files.
+        """
+
+        config = self._create_config_instance(args.component, args.root, args.name)
+
+        # Overwrite force configuration file
+        if config.is_config_existing() and args.force:
+            print("Overwriting existing configuration file")
+            config.generate(force=True)
+
+        # Use exisintg one (do nothing)
+        elif config.is_config_existing() and not args.force:
+            if not args.use_current:
+                print(f"Configuration file \"{config.path}\" is alreay existing for name \"{config.name}\". "
+                      "Please use --force option to overwrite")
+                exit(101)
+            # Generate wont do anything
+            config.generate()
+        else:
+            logger.info(f"Generation new configuration file \"{config.name}\"")
+            config.generate()
+
+        self._update_register_default_biprimes(config)
+
+    def refresh(self, args):
+        """Refreshes configuration file """
+
+        config = self._create_config_instance(args.component, args.root, args.name)
+        print("Refreshing configuration file using current environment variables. This operation will overwrite"
+              "existing configuration file without changing component id.")
+
+        # Refresh
+        config.refresh()
+        print("Configuration has been updated!")
+
+
 
 class CommonCLI:
 
@@ -43,6 +205,10 @@ class CommonCLI:
         self._environ = None
         self._description: str = ''
         self._args = None
+
+        # Initialize configuration parser
+        self.configuration_parser = ConfigurationParser(self._subparsers)
+        self.configuration_parser.initialize()
 
     @property
     def parser(self) -> argparse.ArgumentParser:
@@ -124,62 +290,6 @@ class CommonCLI:
         )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
-    def initialize_create_configuration(self) -> None:
-        """Initializes argument parser for creating configuration file."""
-
-        configuration = self._subparsers.add_parser('configuration', help='Configuration')
-
-        # Create sub parser under `configuration` command
-        configuration_sub_parsers = configuration.add_subparsers()
-
-        create = configuration_sub_parsers.add_parser(
-            'create',
-            help="Creates configuration file for the specified component if it does not exist. "
-                 "If the configuration file exists, leave it unchanged"
-        )
-
-        create.add_argument(
-            '-c',
-            '--component',
-            metavar='COMPONENT_TYPE[ NODE|RESEARCHER ]',
-            type=str,
-            nargs='?',
-            required=True,
-            help='Component type NODE or RESEARCHER')
-
-        create.add_argument(
-            '-r',
-            '--root',
-            metavar='ROOT_PATH_FEDBIOMED',
-            type=str,
-            nargs='?',
-            default=None,
-            help='Root directory for configuration and Fed-BioMed setup')
-
-        # Add arguments
-        create.add_argument(
-            '-n',
-            '--name',
-            metavar='CONFIGURATION_FILE_NAME',
-            type=str,
-            nargs='?',
-            required=False,
-            help='Name of configuration file')
-
-        create.add_argument(
-            '-uc',
-            '--use-current',
-            action="store_true",
-            help="Creates configuration only if there isn't an existing one"
-        )
-
-        create.add_argument(
-            '-f',
-            '--force',
-            action="store_true",
-            help='Force configuration create')
-
-        create.set_defaults(func=self._create_component)
 
     def initialize_certificate_parser(self):
         """Common arguments """
@@ -320,59 +430,6 @@ class CommonCLI:
 
                 print(f"Certificate of {certificate['party_id']} has been registered.")
 
-    def _create_component(self, args):
-        """CLI Handler for creating configuration file and assets for given component
-
-        TODO: This method doesn't yet concentrate all actions for creating configuration file for
-            given component. Since, `environ` will be imported through component CLI, configuration
-            file will be automatically created. In future, it might be useful to generate configuration
-            files.
-        """
-
-        # TODO: this implementation is a temporary hack as it introduces a dependency of
-        # fedbiomed.common to fedbiomed.node or fedbiomed.researcher
-        # To be suppressed when redesigning the imports
-        if args.component.lower() == "node":
-            NodeConfig = importlib.import_module('fedbiomed.node.config').NodeConfig
-            config = NodeConfig(root=args.root, name=args.name, auto_generate=False)
-        elif args.component.lower() == "researcher":
-            ResearcherConfig = importlib.import_module('fedbiomed.researcher.config').ResearcherConfig
-            config = ResearcherConfig(root=args.root, name=args.name, auto_generate=False)
-        else: 
-            print(f"Undefined component type {args.component}")
-            return
-
-        if config.is_config_existing() and args.force:
-            print("Overwriting existing configuration file")
-            config.generate(force=True)
-        elif config.is_config_existing() and not args.force:
-            if not args.use_current:
-                print(f"Configration file {config.path} is alreay exsiting for name {config.name}."
-                      "Please use --force option to overwrite")
-                exit(101)
-            config.generate()
-        else:
-            logger.info(f"Generation new configuration file {config.name}")
-            config.generate()
-
-        df_biprimes = config.get('mpspdz', 'allow_default_biprimes')
-        biprimes_dir = os.path.normpath(
-            os.path.join(config.root, CONFIG_FOLDER_NAME , config.get('mpspdz', 'default_biprimes_dir'))
-        )
-        # Update secure aggregation biprimes in component database
-        print(
-            "Updating secure aggregation default biprimes with:\n" 
-            f"ALLOW_DEFAULT_BIPRIMES : {df_biprimes}\n"
-            f"DEFAULT_BIPRIMES_DIR   : {biprimes_dir}\n"
-        )
-
-        db_path = os.path.normpath(
-            os.path.join(config.root, CONFIG_FOLDER_NAME, config.get('default', 'db'))
-        )
-        BPrimeManager = SecaggBiprimeManager(db_path)
-        BPrimeManager.update_default_biprimes(df_biprimes, biprimes_dir)
-
-
     def _generate_certificate(self, args: argparse.Namespace):
         """Generates certificate using Certificate Manager
 
@@ -505,5 +562,4 @@ if __name__ == '__main__':
     cli = CommonCLI()
     # Initialize only development magic parser
     cli.initialize_magic_dev_environment_parsers()
-    cli.initialize_create_configuration()
     cli.parse_args()

@@ -415,6 +415,7 @@ containers_configure() {
         CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
         CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
         $DOCKER_COMPOSE up -d vpnserver
+    sleep 1 # give time to container to initialize
 
     for i in ${ONLY_CONTAINERS[@]}
     do
@@ -453,6 +454,7 @@ containers_start() {
         CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
         CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
         $DOCKER_COMPOSE up -d vpnserver
+    sleep 1 # give time to container to initialize
 
     # start other container(s)
     for i in ${ONLY_CONTAINERS[@]}
@@ -476,6 +478,7 @@ containers_start() {
             CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
             CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
             $DOCKER_COMPOSE up -d $CONTAINER
+        sleep 1 # give time to container to initialize
 
         case $i in
             researcher)
@@ -512,7 +515,7 @@ run() {
     [[ -z "$RUN_ARGS" ]] && { usage "fedbiomed run $container needs extra arguments";  }
     cd "$basedir/envs/vpn/docker"
 
-    CMD="export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
+    CMD="export PYTHONPATH=/fedbiomed && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
 
     $DOCKER_COMPOSE exec -u ${CONTAINER_UID:-$(id -u)} $container bash -c "$CMD"
 

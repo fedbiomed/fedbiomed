@@ -76,6 +76,7 @@ nav:
         - "Using GPU" : './user-guide/nodes/using-gpu.md'
         - "Node GUI" : './user-guide/nodes/node-gui.md'
       - Researcher:
+        - "Configuring Researcher": './user-guide/researcher/configuring-researcher.md'
         - "Training Plan": './user-guide/researcher/training-plan.md'
         - "Training Data": './user-guide/researcher/training-data.md'
         - Experiment: './user-guide/researcher/experiment.md'
@@ -141,6 +142,16 @@ nav:
 
 extra:
   NewsPosts:
+      'WAICF-2024':
+          name: 'Fed-BioMed @ WAICF 2024'
+          desc: 'Fed-BioMed at WAICF 2024 on February 8-9'
+          link: '/news/waicf-2024'
+          image: 'assets/img/waicf2024.png'
+      'Release-12-2023':
+          name: 'A new release of Fed-BioMed (v5.0) is out!'
+          desc: 'A new release of Fed-BioMed is now available, introducing gRPC communication layer !'
+          link: '/news/Release-12-2023'
+          image: 'assets/img/v5.0.png'
       'VivaTech-2023':
           name: 'Fed-BioMed @ Viva Technology 2023'
           desc: 'Fed-BioMed at Viva Technology 2023 on June 16'

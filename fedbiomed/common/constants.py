@@ -58,7 +58,7 @@ SERVER_certificate_prefix = "server_certificate"
 # 2. bump the version below: if your change breaks backward compatibility you must increase the
 # major version, else the minor version. Micro versions are supported but their use is currently discouraged.
 
-__version__ = FBM_Component_Version('5.0.0')  # Fed-BioMed software version
+__version__ = FBM_Component_Version('5.1.0')  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version('2')  # researcher config file version
 __node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('1')  # node state version
@@ -69,8 +69,10 @@ __messaging_protocol_version__ = FBM_Component_Version('2')  # format of gRPC me
 
 
 # Max message length as bytes
-MAX_MESSAGE_BYTES_LENGTH = 4000000 - sys.getsizeof(bytes("", encoding="UTF-8")) # 4MB 
+MAX_MESSAGE_BYTES_LENGTH = 4000000 - sys.getsizeof(bytes("", encoding="UTF-8"))  # 4MB
 
+# Max number of retries for sending message (node and researcher side)
+MAX_SEND_RETRIES = 5
 
 
 class _BaseEnum(Enum):

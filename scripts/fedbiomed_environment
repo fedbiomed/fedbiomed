@@ -104,7 +104,6 @@ case $1 in
 
     clean)
         echo "** Cleaning all caches / temporary files"
-
         # node/researcher/gui cleaners
         conda deactivate
         environment_reset
@@ -157,21 +156,18 @@ case $1 in
 
     node|n)
         conda deactivate
-        [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2
         activate_node "$3"
         ;;
 
     researcher|r)
         conda deactivate
-        [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2
         activate_researcher "$3"
         ;;
 
     gui)
         conda deactivate
-        [[ -z "$FEDBIOMED_NO_RESET" ]] && { environment_reset ; }
         development_env $2
         activate_gui verbose
         ;;
