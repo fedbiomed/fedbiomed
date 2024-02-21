@@ -5,6 +5,8 @@ import os
 import uuid
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from declearn.optimizer.modules import AuxVar
+
 from fedbiomed.common.message import ErrorMessage, TrainReply, TrainRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -34,7 +36,7 @@ class TrainingJob(Job):
         aggregator_args: Dict[str, Dict[str, Any]],
         secagg_arguments: Union[Dict, None] = None,
         do_training: bool = True,
-        optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
+        optim_aux_var: Optional[Dict[str, AuxVar]] = None,
         **kwargs
     ):
 
@@ -96,7 +98,6 @@ class TrainingJob(Job):
         # Loops over replies
         for node_id, reply in replies.items():
 
-            reply: TrainReply
             if not reply.success:
                 logger.error(f"Training failed for node {reply.node_id}: {reply.msg}")
                 self._nodes.remove(reply.node_id)  # remove the faulty node from the list
@@ -124,14 +125,14 @@ class TrainingJob(Job):
 
         return timings
 
-    def execute(self) -> Tuple[Dict, Optional[Dict]]:
+    def execute(self) -> Tuple[Dict[str, TrainReply], List[Dict[str, AuxVar]]]:
         """ Sends training request to nodes and waits for the responses
 
         Returns:
             A tuple of
               * training replies for this round
-              * Dict of auxiliary variables, collating node-wise information, with
-                format `{mod_name: {node_id: node_dict}}`.
+              * List of node-wise optimizer auxiliary variables, with format
+                `[{module_name: module_aux_var}, ...]` (may be empty).
         """
 
         # Populate request message
@@ -148,23 +149,14 @@ class TrainingJob(Job):
                 exclude_buffers=not self._training_args.dict()['share_persistent_buffers']),
             'secagg_arguments': self._secagg_arguments,
             'aggregator_args': {},
+            'optim_aux_var': self._optim_aux_var
         }
-
-        # Prepare optimizer auxiliary variables, if any.
-        if self._do_training and self._optim_aux_var:
-            aux_shared, aux_bynode = (
-                self._prepare_agg_optimizer_aux_var(self._optim_aux_var, nodes=list(self._nodes))
-            )
-        else:
-            aux_shared = {}
-            aux_bynode = {}
 
         # Loop over nodes, add node specific data and send train request
         messages = MessagesByNode()
 
         for node in self._nodes:
             msg['dataset_id'] = self._data.data()[node]['dataset_id']
-            msg['aux_vars'] = [aux_shared, aux_bynode.get(node, None)]
             msg['state_id'] = self._nodes_state_ids.get(node)
 
             # add aggregator parameters to message header
@@ -190,14 +182,14 @@ class TrainingJob(Job):
             if training_replies.get(node_id):
                 training_replies[node_id].update({'timing': timing_results[node_id]})
 
-        # Extract aux variables from training replies
-        aux_vars = None
+        # Extract aux variables from training replies.
         if self._do_training:
             aux_vars = self._extract_received_optimizer_aux_var_from_round(training_replies)
-
+        else:
+            aux_vars = []
         return training_replies, aux_vars
 
-    def _log_round_info(self, node: str, training: True) -> None:
+    def _log_round_info(self, node: str, training: bool) -> None:
         """Logs round details
 
         Args:
@@ -216,64 +208,20 @@ class TrainingJob(Job):
                         f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
                         f'aggregated parameters \n {5 * "-------------"}')
 
-    # FIXME: are aux_var supposed to be dealt with in the TrainingJob
-    @staticmethod
-    def _prepare_agg_optimizer_aux_var(
-        aux_var: Dict[str, Dict[str, Any]],
-        nodes: List[str],
-    ) -> Tuple[
-        Dict[str, Dict[str, Any]],
-        Dict[str, Dict[str, Dict[str, Any]]],
-    ]:
-        """Collect and structure researcher-side Optimizer auxiliary variables.
-
-        Args:
-            aux_var: Auxiliary variables with to structure into multiple dicts,
-                from `{mod_name: (shared_dict | {node_id: node_dict})}` to
-                `{mod_name: shared_dict}` & `{node_id: {mod_name: node_dict}}`.
-            nodes: Ids of the nodes to whom auxiliary variables should be
-                sent. This is used to drop information of non-participating
-                nodes.
-
-        Returns:
-            aux_shared: Dict containing auxiliary variables that are shared
-                across all nodes, with `{mod_name: shared_dict}` format.
-            aux_bynode: Dict containing node-wise dicts of node-specific
-                auxiliary variables, with `{node_id: {mod_name: node_dict}}`
-                format.
-        """
-        aux_shared = {}  # type: Dict[str, Dict[str, Any]]
-        aux_bynode = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
-        # Iterate over nodes and plug-in-module-wise auxiliary variables.
-        for node_id in nodes:
-            aux_bynode[node_id] = {}
-            for mod_name, mod_info in aux_var.items():
-                # Case of node-specfic information.
-                if node_aux := mod_info.get(str(node_id)):
-                    aux_bynode[node_id][mod_name] = node_aux
-                # Case of global information shared with all nodes.
-                elif mod_name not in aux_shared:
-                    aux_shared[mod_name] = mod_info
-        # Return the restructured auxiliary variables dicts.
-        return aux_shared, aux_bynode
-
     @staticmethod
     def _extract_received_optimizer_aux_var_from_round(
         training_replies: Dict
-    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    ) -> List[Dict[str, AuxVar]]:
         """Restructure the received auxiliary variables (if any) from a round.
 
         Args:
             training_replies: training replies received for this job
 
         Returns:
-            Dict of auxiliary variables, collating node-wise information, with
-            format `{mod_name: {node_id: node_dict}}`.
+            List of node-wise optimizer auxiliary variables, with format
+            `[{module_name: module_aux_var}, ...]`.
         """
-        aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
-
-        for node_id, reply in training_replies.items():
-            node_av = reply.get("optim_aux_var", {})
-            for module, params in node_av.items():
-                aux_var.setdefault(module, {})[node_id] = params
-        return aux_var
+        return [
+            reply.get("optim_aux_var", {})
+            for reply in training_replies.values()
+        ]
