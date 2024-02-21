@@ -1238,7 +1238,7 @@ class TestMessage(unittest.TestCase):
             round=1,
             command='do_it',
             aggregator_args={'aggregator_name': 'fedavg'},
-            aux_vars=None,
+            optim_aux_var=None,
         )
 
         # bad param number
@@ -1600,7 +1600,7 @@ class TestMessage(unittest.TestCase):
             "training_plan": "TP",
             "training_plan_class": "my_model",
             "aggregator_args": {},
-            "aux_vars": ["https://dev.null", "https://dev.null"],
+            "optim_aux_var": {},
             "command": 'train'
         }
 
