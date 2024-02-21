@@ -23,7 +23,12 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
-from fedbiomed.common.optimizers import BaseOptimizer, EncryptedAuxVar, Optimizer
+from fedbiomed.common.optimizers import (
+    BaseOptimizer,
+    EncryptedAuxVar,
+    Optimizer,
+    flatten_auxvar_for_secagg,
+)
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common import utils
@@ -57,7 +62,7 @@ class Round:
         node_args: Dict,
         round_number: int = 0,
         dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None,
-        aux_vars: Optional[List[str]] = None,
+        aux_vars: Optional[Dict[str, AuxVar]] = None,
     ) -> None:
         """Constructor of the class
 
@@ -83,7 +88,7 @@ class Round:
                     doesn't request for using a GPU.
             dlp_and_loading_block_metadata: Data loading plan to apply, or None if no DLP for this round.
             round_number: number of the iteration for this experiment
-            aux_var: auxiliary variables of the model.
+            aux_var: Optional optimizer auxiliary variables.
         """
 
         self._use_secagg: bool = False
@@ -95,7 +100,7 @@ class Round:
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
         self.aggregator_args = aggregator_args
-        self.aux_vars = aux_vars or []
+        self.aux_vars = aux_vars or {}
         self.node_args = node_args
         self.training = training
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
@@ -359,7 +364,7 @@ class Round:
 
         # If training is activated.
         if self.training:
-            results = {}
+            results = {}  # type: Dict[str, Any]
 
             # Perform the training round.
             if self.training_plan.training_data_loader is not None:
@@ -411,24 +416,15 @@ class Round:
             model_weights = self.training_plan.after_training_params(flatten=self._use_secagg)
 
             if self._use_secagg:
-
-                logger.info("Encrypting model parameters. This process can take some time depending on model size.",
-                            researcher_id=self.researcher_id)
-
-                encrypt = functools.partial(
-                    self._secagg_crypter.encrypt,
-                    num_nodes=len(self._servkey["parties"]) - 1,  # -1: don't count researcher
-                    current_round=self._round,
-                    key=self._servkey["context"]["server_key"],
-                    biprime=self._biprime["context"]["biprime"],
-                    weight=results["sample_size"],
-                    clipping_range=secagg_arguments.get('secagg_clipping_range')
+                model_weights, enc_factor, aux_var = self._encrypt_weights_and_auxvar(
+                    model_weights=model_weights,
+                    optim_aux_var=results["optim_aux_var"],
+                    secagg_arguments=secagg_arguments,
+                    sample_size=results["sample_size"],
                 )
-                model_weights = encrypt(params=model_weights)
                 results["encrypted"] = True
-                results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
-                logger.info("Encryption is completed!",
-                            researcher_id=self.researcher_id)
+                results["encryption_factor"] = enc_factor
+                results["optim_aux_var"] = aux_var
 
             results['params'] = model_weights
             results['optimizer_args'] = self.training_plan.optimizer_args()
@@ -455,6 +451,69 @@ class Round:
             # Only for validation
             return self._send_round_reply(success=True)
 
+    def _encrypt_weights_and_auxvar(
+        self,
+        model_weights: List[float],
+        optim_aux_var: Dict[str, AuxVar],
+        secagg_arguments: Dict[str, Any],
+        sample_size: int,
+    ) -> Tuple[List[int], List[int], Optional[EncryptedAuxVar]]:
+        """Encrypt model weights and (opt.) optimizer auxiliary variables.
+
+        Args:
+            model_weights: Flattened model parameters to encrypt.
+            optim_aux_var: Optional optimizer auxiliary variables to encrypt.
+            secagg_arguments: Hyper-parameters for secure aggregation.
+            sample_size: Number of training samples (used to weight model
+                parameters).
+
+        Returns:
+            encrypted_weights: Encrypted model parameters, as a list of int.
+            encryption_factor: Encryptiong factor (based on a secagg argument).
+            encrypted_aux_var: Optional `EncryptedAuxVar` instance storing
+                encrypted optimizer auxiliary variables, if any.
+        """
+        # Setup the encryption function for this round.
+        encrypt = functools.partial(
+            self._secagg_crypter.encrypt,
+            num_nodes=len(self._servkey["parties"]) - 1,  # -1: don't count researcher
+            current_round=self._round,
+            key=self._servkey["context"]["server_key"],
+            biprime=self._biprime["context"]["biprime"],
+            weight=sample_size,
+            clipping_range=secagg_arguments.get('secagg_clipping_range')
+        )
+        # Case when optimizer auxiliary variables are to be encrypted.
+        if optim_aux_var:
+            logger.info(
+                "Encrypting model parameters and optimizer auxiliary variables."
+                "This process can take some time depending on model size.",
+                researcher_id=self.researcher_id,
+            )
+            cryptable, enc_specs, cleartext, clear_cls = (
+                flatten_auxvar_for_secagg(optim_aux_var)
+            )
+            encrypted = encrypt(params=model_weights + cryptable)
+            encrypted_wgt = encrypted[:len(model_weights)]
+            encrypted_aux = EncryptedAuxVar(
+                encrypted=[encrypted[len(model_weights):]],
+                enc_specs=enc_specs,
+                cleartext=cleartext,
+                clear_cls=clear_cls,
+            )
+        # Case when there are only model parameters to encrypt.
+        else:
+            logger.info(
+                "Encrypting model parameters."
+                "This process can take some time depending on model size.",
+                researcher_id=self.researcher_id,
+            )
+            encrypted_wgt = encrypt(params=model_weights)
+            encrypted_aux = None
+        # At any rate, produce encryption factors.
+        encrypted_rng = encrypt(params=[secagg_arguments["secagg_random"]])
+        logger.info("Encryption was completed!", researcher_id=self.researcher_id)
+        return encrypted_wgt, encrypted_rng, encrypted_aux
 
     def _send_round_reply(
             self,
@@ -499,19 +558,12 @@ class Round:
         """
         # Early-exit if there are no auxiliary variables to process.
         if not any(self.aux_vars):
-            return
-
-        # TODO-PAUL: clarify this + ensure these are AuxVar
-        aux_vars = {}
-        aux_vars.update(self.aux_vars[0])
-        aux_vars.update(self.aux_vars[1])
-
+            return None
         # Fetch the training plan's BaseOptimizer.
         try:
             optimizer = self._get_base_optimizer()
         except FedbiomedRoundError as exc:
             return str(exc)
-
         # Verify that the BaseOptimizer wraps an Optimizer.
         if not isinstance(optimizer.optimizer, Optimizer):
             return (
@@ -520,14 +572,13 @@ class Round:
             )
         # Pass auxiliary variables to the Optimizer.
         try:
-            optimizer.optimizer.set_aux(aux_vars)
+            optimizer.optimizer.set_aux(self.aux_vars)
         except FedbiomedOptimizerError as exc:
             return (
                 "TrainingPlan Optimizer failed to ingest the provided "
                 f"auxiliary variables: {repr(exc)}"
             )
-
-        return
+        return None
 
     def _load_round_state(self, state_id: str) -> None:
         """Loads optimizer state of previous `Round`, given a `state_id`.
@@ -628,7 +679,7 @@ class Round:
 
     def collect_optim_aux_var(
         self,
-    ) -> Union[Dict[str, AuxVar], EncryptedAuxVar]:
+    ) -> Dict[str, AuxVar]:
         """Collect auxiliary variables from the wrapped Optimizer, if any.
 
         If the TrainingPlan does not use a Fed-BioMed Optimizer, return an
@@ -636,51 +687,12 @@ class Round:
         FedbiomedRoundError.
 
         Returns:
-            Auxiliary variables, either as a cleartext dict mapping modules'
-                names to their `AuxVar` data, or as an `EncryptedAuxVar` data
-                structure wrapping encrypted values for SecAgg.
+            Auxiliary variables, as a `{module_name: module_auxvar}` dict.
         """
         optimizer = self._get_base_optimizer()
         if isinstance(optimizer.optimizer, Optimizer):
-            aux_var = optimizer.optimizer.get_aux()
-            if aux_var and self._use_secagg:
-                try:
-                    return self._encrypt_optim_aux_var(aux_var)
-                except NotImplementedError as exc:
-                    raise FedbiomedRoundError(
-                        f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables '
-                        'to the researcher that are not compatible with SecAgg.'
-                    ) from exc
-                except Exception as exc:
-                    raise FedbiomedRoundError(
-                        "Encryption of optimizer auxiliary variables failed."
-                    ) from exc
-            return aux_var
+            return optimizer.optimizer.get_aux()
         return {}
-
-    def _encrypt_optim_aux_var(
-        self,
-        aux_var: Dict[str, AuxVar],
-    ) -> EncryptedAuxVar:
-        """Encrypt optimizer auxiliary variables that are to be shared."""
-        logger.info(
-            "Encrypting optimizer auxiliary variables. This can take time.",
-            researcher_id=self.researcher_id,
-        )
-        encrypted = EncryptedAuxVar.from_cleartext_auxvar(
-            aux_var=aux_var,
-            crypter=self._secagg_crypter,
-            num_nodes=len(self._servkey["parties"]) - 1,
-            current_round=self._round,  # FIXME: same as model weights
-            key=self._servkey["context"]["server_key"],
-            biprime=self._biprime["context"]["biprime"],
-            clipping_range=None,  # FIXME: preserve from training round
-        )
-        logger.info(
-            "Encryption of optimizer auxiliary variables is completed.",
-            researcher_id=self.researcher_id,
-        )
-        return encrypted
 
     def _get_base_optimizer(self) -> BaseOptimizer:
         """Return the training plan's BaseOptimizer, or raise a FedbiomedRoundError.
