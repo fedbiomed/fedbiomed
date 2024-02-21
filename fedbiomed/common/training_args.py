@@ -329,7 +329,7 @@ class TrainingArgs:
             "test_batch_size": {
                 "rules": [cls._nonnegative_integer_value_validator_hook("test_batch_size")],
                 "required": False,
-                "default": 1
+                "default": 10
             },
             "test_on_local_updates": {
                 "rules": [bool], "required": False, "default": False

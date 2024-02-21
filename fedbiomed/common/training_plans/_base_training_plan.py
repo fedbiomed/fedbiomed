@@ -553,6 +553,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 output = self._model.predict(data)
                 if isinstance(target, torch.Tensor):
                     target = target.numpy()
+                print("EVAL", output.shape, data.shape, target.shape)
                 return metric_controller.evaluate(
                     target, output, metric=metric, **metric_args
                 )
