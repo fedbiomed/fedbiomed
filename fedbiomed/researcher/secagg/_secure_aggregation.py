@@ -169,7 +169,7 @@ class SecureAggregation:
             FedbiomedSecureAggregationError: Invalid argument type
         """
 
-        return self.aggtegator.setup(parties, job_id, force)
+        return self.aggregator.setup(parties, job_id, force)
 
 
     def aggregate(
@@ -259,6 +259,7 @@ class SecureAggregator(metaclass=ABCMeta):
           clipping_range: Clipping range used for quantization
         """
         self._crypter = None
+        self._parties = []
         self.clipping_range = clipping_range
 
     @abstractmethod
@@ -299,7 +300,6 @@ class SecureAggregator(metaclass=ABCMeta):
         self._configure_round(parties, job_id)
 
 
-    @abstractmethod
     def _configure_round(
         self,
         parties,
@@ -315,7 +315,7 @@ class SecureAggregator(metaclass=ABCMeta):
             parties: Nodes that participates federated training
             job_id: The id of the job of experiment
         """
-        if self._parties is None or self._job_id != job_id:
+        if not self._parties or self._job_id != job_id:
             self._set_secagg_contexts(parties, job_id)
 
         elif set(self._parties) != set(parties):
@@ -371,14 +371,14 @@ class JLSAggregator(SecureAggregator):
 
     def __init__(
         self,
-        clipping_range: int
+        clipping_range: int = None
     ) -> None:
         """Constructs Joye-Libert aggregator"""
 
         super().__init__(clipping_range)
 
         self._crypter = None
-        self._birpime = None
+        self._biprime = None
         self._servkey = None
 
     def _set_secagg_contexts(
@@ -388,7 +388,7 @@ class JLSAggregator(SecureAggregator):
     ) -> None:
         """Sets secure aggregation contexts"""
         # Call base class
-        super()._set_secagg_contexts()
+        super()._set_secagg_contexts(parties, job_id)
 
         self._biprime = SecaggBiprimeContext(
             parties=self._parties,
