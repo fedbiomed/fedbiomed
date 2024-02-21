@@ -3,7 +3,7 @@
 
 import numpy as np
 
-from dataclass import dataclass
+from dataclasses import dataclass
 from math import ceil
 from Crypto.Cipher import ChaCha20
 from typing import List, Optional, Dict
