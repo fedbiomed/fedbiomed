@@ -13,6 +13,8 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple, TypeVar, Type
 
+from declearn.optimizer.modules import AuxVar
+
 from fedbiomed.common.constants import TrainingPlanApprovalStatus, JOB_PREFIX, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedNodeStateAgentError
 from fedbiomed.common.logger import logger
@@ -398,7 +400,7 @@ class Job:
     def extract_received_optimizer_aux_var_from_round(
         self,
         round_id: int,
-    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    ) -> List[Dict[str, AuxVar]]:
         """Restructures the received auxiliary variables (if any) from a round, and
         saved it in a file (for the given `round_id`). Modifies in-place the `training_replies`
         "optim_aux_var" entries by the path of the file saved.
@@ -407,30 +409,28 @@ class Job:
             round_id: Index of the round, replies from which to parse through.
 
         Returns:
-            Dict of auxiliary variables, collating node-wise information, with
-            format `{mod_name: {node_id: node_dict}}`.
+            List of node-wise optimizer auxiliary variables, with format
+            `[{module_name: module_aux_var}, ...]`.
         """
-        aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
-        nodes_optim_aux_vars = {}  # keep here all the `optim_aux_var` parameters
-        aux_vars_path: str = None  # path to the file where optim_aux_var will be saved (if any)
-
+        # Initialize a container for node-wise auxiliary variables.
+        nodes_optim_aux_vars = {}  # type: Dict[str, Dict[str, AuxVar]]
+        # Path where node-wise auxiliary variables will be saved (if any).
+        aux_vars_path = os.path.join(
+            self._keep_files_dir, f"auxiliary_var_replies_{round_id}_{uuid.uuid4()}.mpk"
+        )
+        # Iterate over replies to collect auxiliary variables.
         for reply in self.training_replies[round_id].values():
             node_id = reply["node_id"]
             node_av = reply.get("optim_aux_var", {})
-            for module, params in node_av.items():
-                aux_var.setdefault(module, {})[node_id] = params
-            # save optimizer auxiliary variables in a file
-            # FIXME: should we keep them for advanced optimizer/strategies?
             if node_av:
-                nodes_optim_aux_vars.update({node_id: node_av})
-                if aux_vars_path is None:
-                    aux_vars_path = os.path.join(
-                        self._keep_files_dir, f"auxiliary_var_replies_{round_id}_{uuid.uuid4()}.mpk")
-
+                nodes_optim_aux_vars[node_id] = node_av
                 reply["optim_aux_var"] = aux_vars_path
+        # Save node-wise optimizer auxiliary variables in a file (if any).
+        # FIXME: should we keep them for advanced optimizer/strategies?
         if nodes_optim_aux_vars:
             Serializer.dump(nodes_optim_aux_vars, aux_vars_path)
-        return aux_var
+        # Return collected auxiliary variables.
+        return list(nodes_optim_aux_vars.values())
 
     def _get_model_params(self) -> Dict[str, Any]:
         """Gets model parameters form the training plan.

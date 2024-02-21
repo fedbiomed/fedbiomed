@@ -14,6 +14,7 @@ import functools
 import uuid
 from typing import Dict, Union, Any, Optional, Tuple, List
 
+from declearn.optimizer.modules import AuxVar
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
@@ -624,7 +625,7 @@ class Round:
 
         return state
 
-    def collect_optim_aux_var(self) -> Dict[str, Any]:
+    def collect_optim_aux_var(self) -> Dict[str, AuxVar]:
         """Collect auxiliary variables from the wrapped Optimizer, if any.
 
         If the TrainingPlan does not use a Fed-BioMed Optimizer, return an
@@ -639,6 +640,9 @@ class Round:
             aux_var = optimizer.optimizer.get_aux()
 
             if aux_var and self._use_secagg:
+
+                # TODO-PAUL: implement this
+
                 # TODO: remove the following warning when secagg compatibility has been fixed
                 # if secagg is used, raise a warning that encryption is not working with auxiliary variable
                 logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the '

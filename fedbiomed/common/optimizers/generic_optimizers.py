@@ -166,12 +166,13 @@ class DeclearnOptimizer(BaseOptimizer):
         updates = self.optimizer.step(grad, weights)
         self._model.apply_updates(updates.coefs)
 
-    def set_aux(self, aux: Dict[str, Any]):
+    def set_aux(self, aux: Dict[str, declearn.optimizer.modules.AuxVar]):
         # FIXME: for imported tensors in PyTorch sent as auxiliary variables,
         # we should push it on the appropriate device (ie cpu/gpu)
+        # TODO-PAUL: call the proper declearn routines
         self.optimizer.set_aux(aux)
 
-    def get_aux(self) -> Optional[Dict[str, Any]]:
+    def get_aux(self) -> Optional[Dict[str, declearn.optimizer.modules.AuxVar]]:
         aux = self.optimizer.get_aux()
         return aux
 

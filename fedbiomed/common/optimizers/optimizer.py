@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 from declearn.model.api import Vector
 from declearn.optimizer import Optimizer as DeclearnOptimizer
-from declearn.optimizer.modules import OptiModule
+from declearn.optimizer.modules import AuxVar, OptiModule
 from declearn.optimizer.regularizers import Regularizer
 from typing_extensions import Self
 
@@ -155,7 +155,7 @@ class Optimizer:
                 f"{ErrorNumbers.FB621.value}: error in 'step': {exc}"
             ) from exc
 
-    def get_aux(self) -> Dict[str, Union[Dict[str, Any], Any]]:
+    def get_aux(self) -> Dict[str, AuxVar]:
         """Return auxiliary variables that need to be shared across network.
 
         Returns:
@@ -177,15 +177,14 @@ class Optimizer:
                 f"{ErrorNumbers.FB621.value}: error in 'get_aux': {exc}"
             ) from exc
 
-    def set_aux(self, aux: Dict[str, Dict[str, Any]]) -> None:
+    def set_aux(self, aux: Dict[str, AuxVar]) -> None:
         """Update plug-in modules based on received shared auxiliary variables.
 
         Args:
             aux: Auxiliary variables received from the counterpart optimizer
-                (on the other side of the node-researcher frontier), that are
-                to be a `{module.name: module.collect_aux_var()}` *or* a
-                `{module.name: {node: module.collect_aux_var()}}` dict
-                (depending on which side this optimizer is on).
+                (on the other side of the node-researcher frontier). On the
+                researcher side, values must have been pre-aggregated based
+                on the ones sent by nodes.
 
         Raises:
             FedbiomedOptimizerError: If a key from `aux_var` does not match the

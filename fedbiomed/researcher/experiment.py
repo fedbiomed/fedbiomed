@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 import numpy as np
 import torch
 from declearn.model.api import Vector
+from declearn.optimizer.modules import AuxVar
 from pathvalidate import sanitize_filename
 from tabulate import tabulate
 
@@ -1555,7 +1556,7 @@ class Experiment:
 
     def _collect_optim_aux_var(
             self,
-    ) -> Optional[Dict[str, Dict[str, Any]]]:
+    ) -> Optional[Dict[str, AuxVar]]:
         """Collect auxiliary variables of the held Optimizer, if any."""
         if self._agg_optimizer is None:
             return None
@@ -1573,20 +1574,41 @@ class Experiment:
                 not match the expectations of the `agg_optimizer` Optimizer.
         """
         # Collect auxiliary variables from participating nodes' replies.
-        aux_var = self._job.extract_received_optimizer_aux_var_from_round(
+        nodes_aux_var = self._job.extract_received_optimizer_aux_var_from_round(
             self._round_current
         )
         # If an Optimizer is used, pass it the auxiliary variables (if any).
         if self._agg_optimizer is not None:
-            self._agg_optimizer.set_aux(aux_var)
+            aggregated_aux_var = self._aggregate_optim_aux_var(nodes_aux_var)
+            self._agg_optimizer.set_aux(aggregated_aux_var)
         # If no Optimizer is used but auxiliary variables were received, raise.
-        elif aux_var:
+        elif nodes_aux_var:
             raise FedbiomedExperimentError(
                 "Received auxiliary variables from 1+ node Optimizer, but "
                 "no `agg_optimizer` was set for this Experiment to process "
                 "them.\nThese variables come from the following plug-in "
-                f"modules: {set(aux_var)}."
+                f"modules: {set(key for aux in nodes_aux_var for key in aux)}."
             )
+
+    def _aggregate_optim_aux_var(
+        self,
+        nodes_aux_var: List[Dict[str, AuxVar]],
+    ) -> Dict[str, AuxVar]:
+        """Aggregate node-wise optimizer auxiliary variables.
+
+        Args:
+            nodes_aux_var: List of node-wise optimizer auxiliary variables,
+                with format `[{module_name: module_aux_var}, ...]`.
+
+        Returns:
+            Aggregated optimizer auxiliary variables, with format
+            `{module_name: module_aux_var}`.
+        """
+        aux_var = {}  # type: Dict[str, AuxVar]
+        for node_dict in nodes_aux_var:
+            for module, mod_aux in node_dict.items():
+                aux_var[module] = aux_var.get(module, 0) + mod_aux
+        return aux_var
 
     def _run_agg_optimizer(
         self,
