@@ -12,6 +12,7 @@ import time
 import uuid
 from typing import Dict, Union, Any, Optional, Tuple, List
 
+from declearn.optimizer.modules import AuxVar
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
@@ -554,7 +555,7 @@ class Round:
 
         return state
 
-    def collect_optim_aux_var(self) -> Dict[str, Any]:
+    def collect_optim_aux_var(self) -> Dict[str, AuxVar]:
         """Collect auxiliary variables from the wrapped Optimizer, if any.
 
         If the TrainingPlan does not use a Fed-BioMed Optimizer, return an
