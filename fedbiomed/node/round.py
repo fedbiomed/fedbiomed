@@ -24,7 +24,7 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages
-from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
+from fedbiomed.common.optimizers import BaseOptimizer, EncryptedAuxVar, Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common import utils
@@ -499,7 +499,7 @@ class Round:
         if not any(self.aux_vars):
             return
 
-
+        # TODO-PAUL: clarify this + ensure these are AuxVar
         aux_vars = {}
         aux_vars.update(self.aux_vars[0])
         aux_vars.update(self.aux_vars[1])
@@ -625,7 +625,9 @@ class Round:
 
         return state
 
-    def collect_optim_aux_var(self) -> Dict[str, AuxVar]:
+    def collect_optim_aux_var(
+        self,
+    ) -> Union[Dict[str, AuxVar], EncryptedAuxVar]:
         """Collect auxiliary variables from the wrapped Optimizer, if any.
 
         If the TrainingPlan does not use a Fed-BioMed Optimizer, return an
@@ -633,25 +635,51 @@ class Round:
         FedbiomedRoundError.
 
         Returns:
-            Auxiliary variables
+            Auxiliary variables, either as a cleartext dict mapping modules'
+                names to their `AuxVar` data, or as an `EncryptedAuxVar` data
+                structure wrapping encrypted values for SecAgg.
         """
         optimizer = self._get_base_optimizer()
         if isinstance(optimizer.optimizer, Optimizer):
             aux_var = optimizer.optimizer.get_aux()
-
             if aux_var and self._use_secagg:
-
-                # TODO-PAUL: implement this
-
-                # TODO: remove the following warning when secagg compatibility has been fixed
-                # if secagg is used, raise a warning that encryption is not working with auxiliary variable
-                logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the '
-                               'Researcher, but those are not encrypted with SecAgg.'
-                               'Auxiliary Variables may contain sensitive information about the Nodes.'
-                               'This issue will be fixed in a future version of Fed-BioMed',
-                               researcher_id=self.researcher_id)
+                try:
+                    return self._encrypt_optim_aux_var(aux_var)
+                except NotImplementedError as exc:
+                    raise FedbiomedRoundError(
+                        f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables '
+                        'to the researcher that are not compatible with SecAgg.'
+                    ) from exc
+                except Exception as exc:
+                    raise FedbiomedRoundError(
+                        "Encryption of optimizer auxiliary variables failed."
+                    ) from exc
             return aux_var
         return {}
+
+    def _encrypt_optim_aux_var(
+        self,
+        aux_var: Dict[str, AuxVar],
+    ) -> EncryptedAuxVar:
+        """Encrypt optimizer auxiliary variables that are to be shared."""
+        logger.info(
+            "Encrypting optimizer auxiliary variables. This can take time.",
+            researcher_id=self.researcher_id,
+        )
+        encrypted = EncryptedAuxVar.from_cleartext_auxvar(
+            aux_var=aux_var,
+            crypter=self._secagg_crypter,
+            num_nodes=len(self._servkey["parties"]) - 1,
+            current_round=self._round,  # FIXME: same as model weights
+            key=self._servkey["context"]["server_key"],
+            biprime=self._biprime["context"]["biprime"],
+            clipping_range=None,  # FIXME: preserve from training round
+        )
+        logger.info(
+            "Encryption of optimizer auxiliary variables is completed.",
+            researcher_id=self.researcher_id,
+        )
+        return encrypted
 
     def _get_base_optimizer(self) -> BaseOptimizer:
         """Return the training plan's BaseOptimizer, or raise a FedbiomedRoundError.
