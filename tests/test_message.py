@@ -1070,8 +1070,9 @@ class TestMessage(unittest.TestCase):
                 "secagg_clipping_range": None,
             },
             round=1,
-            aggregator_args={"aggregator_name": "fedavg"},
-            aux_vars=None,
+            command='do_it',
+            aggregator_args={'aggregator_name': 'fedavg'},
+            optim_aux_var=None,
         )
 
         # bad param number
