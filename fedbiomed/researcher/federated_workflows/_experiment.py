@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional, List, Tuple, Type, TypeVar, Union
 import numpy as np
 import torch
 from declearn.model.api import Vector
+from declearn.optimizer.modules import AuxVar
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import (
@@ -766,12 +767,12 @@ class Experiment(TrainingPlanWorkflow):
                           aggregator_args=aggregator_args,
                           do_training=True,
                           secagg_arguments=secagg_arguments,
-                          optim_aux_var=optim_aux_var
+                          optim_aux_var=optim_aux_var,
                           )
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
-        training_replies, aux_vars = job.execute()
+        training_replies, nodes_aux_vars = job.execute()
 
         # update node states with node answers + when used node list has changed during the round
         self._update_nodes_states_agent(before_training=False, training_replies=training_replies)
@@ -807,7 +808,7 @@ class Experiment(TrainingPlanWorkflow):
                                                            n_round=self._round_current)
 
         # Optionally refine the aggregated updates using an Optimizer.
-        self._process_optim_aux_var(aux_vars)
+        self._process_optim_aux_var(nodes_aux_vars)
         aggregated_params = self._run_agg_optimizer(self.training_plan(),
                                                     aggregated_params)
 
@@ -848,7 +849,7 @@ class Experiment(TrainingPlanWorkflow):
 
     def _collect_optim_aux_var(
             self,
-    ) -> Optional[Dict[str, Dict[str, Any]]]:
+    ) -> Optional[Dict[str, AuxVar]]:
         """Collect auxiliary variables of the held Optimizer, if any."""
         if self._agg_optimizer is None:
             return None
@@ -856,7 +857,7 @@ class Experiment(TrainingPlanWorkflow):
 
     def _process_optim_aux_var(
         self,
-        aux_var: Dict[str, Dict[str, Dict[str, Any]]]
+        nodes_aux_var: List[Dict[str, AuxVar]],
     ) -> None:
         """Process Optimizer auxiliary variables received during last round.
 
@@ -868,15 +869,34 @@ class Experiment(TrainingPlanWorkflow):
         """
         # If an Optimizer is used, pass it the auxiliary variables (if any).
         if self._agg_optimizer is not None:
-            self._agg_optimizer.set_aux(aux_var)
+            aggregated_aux_var = self._aggregate_optim_aux_var(nodes_aux_var)
+            self._agg_optimizer.set_aux(aggregated_aux_var)
         # If no Optimizer is used but auxiliary variables were received, raise.
-        elif aux_var:
+        elif nodes_aux_var:
             raise FedbiomedExperimentError(
                 "Received auxiliary variables from 1+ node Optimizer, but "
                 "no `agg_optimizer` was set for this Experiment to process "
                 "them.\nThese variables come from the following plug-in "
-                f"modules: {set(aux_var)}."
+                f"modules: {set(key for aux in nodes_aux_var for key in aux)}."
             )
+
+    def _aggregate_optim_aux_var(
+        self,
+        nodes_aux_var: List[Dict[str, AuxVar]],
+    ) -> Dict[str, AuxVar]:
+        """Aggregate node-wise optimizer auxiliary variables.
+        Args:
+            nodes_aux_var: List of node-wise optimizer auxiliary variables,
+                with format `[{module_name: module_aux_var}, ...]`.
+        Returns:
+            Aggregated optimizer auxiliary variables, with format
+            `{module_name: module_aux_var}`.
+        """
+        aux_var = {}  # type: Dict[str, AuxVar]
+        for node_dict in nodes_aux_var:
+            for module, mod_aux in node_dict.items():
+                aux_var[module] = aux_var.get(module, 0) + mod_aux
+        return aux_var
 
     def _run_agg_optimizer(
         self,

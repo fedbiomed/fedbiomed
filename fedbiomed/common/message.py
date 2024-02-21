@@ -696,8 +696,7 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
         training_plan_class: Class name of the training plan
         command: Reply command string
         aggregator_args: ??
-        aux_var_urls: Optional list of URLs where Optimizer auxiliary
-            variables files are available
+        optim_aux_var: Optional dict of Optimizer auxiliary variables
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -715,7 +714,7 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     command: str
     round: int
     aggregator_args: Dict
-    aux_vars: Optional[list] = None
+    optim_aux_var: Optional[Dict] = None
     secagg_servkey_id: Optional[str] = None
     secagg_biprime_id: Optional[str] = None
     secagg_random: Optional[float] = None
