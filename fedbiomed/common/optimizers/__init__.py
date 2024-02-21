@@ -11,6 +11,7 @@ from .generic_optimizers import (SklearnOptimizerProcessing,
                                  NativeSkLearnOptimizer,
                                  NativeTorchOptimizer,
                                  BaseOptimizer, DeclearnOptimizer)
+from ._secagg import EncryptedAuxVar
 
 __all__ = [
     "Optimizer",
@@ -18,5 +19,6 @@ __all__ = [
     "NativeSkLearnOptimizer",
     "NativeTorchOptimizer",
     "BaseOptimizer",
-    "DeclearnOptimizer"
+    "DeclearnOptimizer",
+    "EncryptedAuxVar",
 ]
