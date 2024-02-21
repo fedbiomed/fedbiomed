@@ -16,6 +16,7 @@ from declearn.utils import json_pack, json_unpack
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.optimizers import EncryptedAuxVar
 
 __all__ = [
     "Serializer",
@@ -125,6 +126,8 @@ class Serializer:
             return {"__type__": "AuxVar", "value": json_pack(obj)}
         if isinstance(obj, MetricTypes):
             return {"__type__": "MetricTypes", "value": obj.name}
+        if isinstance(obj, EncryptedAuxVar):
+            return {"__type__": "EncryptedAuxVar", "value": obj.to_dict()}
         # Raise on unsupported types.
         raise FedbiomedTypeError(
             f"Cannot serialize object of type '{type(obj)}'."
@@ -156,6 +159,8 @@ class Serializer:
             return json_unpack(obj["value"])
         if objtype == "MetricTypes":
             return MetricTypes.get_metric_type_by_name(obj["value"])
+        if objtype == "EncryptedAuxVar":
+            return EncryptedAuxVar.from_dict(obj["value"])
         logger.warning(
             "Encountered an object that cannot be properly deserialized."
         )
