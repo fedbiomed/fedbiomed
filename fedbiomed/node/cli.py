@@ -23,8 +23,16 @@ from types import FrameType
 from fedbiomed.common.constants import ErrorNumbers, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.cli import CommonCLI, CLIArgumentParser, RED, YLW, GRN, NC, BOLD
-
+from fedbiomed.common.cli import (
+    CommonCLI, 
+    CLIArgumentParser, 
+    ConfigNameAction,
+    RED, 
+    YLW, 
+    GRN, 
+    NC, 
+    BOLD
+)
 
 # Partial function to import CLI utils that frequently used in this module
 imp_cli_utils = functools.partial(importlib.import_module, "fedbiomed.node.cli_utils")
@@ -513,11 +521,21 @@ class NodeCLI(CommonCLI):
     def initialize(self):
         """Initializes node module"""
 
+
+        class ConfigNameActionNode(ConfigNameAction):
+            
+            _this = self
+            _component = ComponentType.NODE
+            
+            def import_environ(self) -> 'fedbiomed.node.environ.Environ':
+                """Imports dynamically node environ object"""
+                return importlib.import_module("fedbiomed.node.environ").environ
+
         self._parser.add_argument(
             "--config",
             "-cf",
             nargs="?",
-            action=self.config_action(self, ComponentType.NODE),
+            action=ConfigNameActionNode,
             default="node_config.ini",
             help="Name of the config file that the CLI will be activated for. Default is 'node_config.ini'.")
 

@@ -11,6 +11,8 @@ import argparse
 import importlib
 import os
 import sys
+
+from abc import ABC, abstractmethod
 from typing import Optional, List, Dict
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.certificate_manager import CertificateManager
@@ -37,6 +39,58 @@ class CLIArgumentParser:
 
         self._subparser = subparser
         self._parser = parser
+
+
+class ConfigNameAction(ABC, argparse.Action):
+    """Action for the argument config
+
+    This action class gets the config file name and set environ object before
+    executing any command.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Sets environ by default if option string for config is not present.
+        # The default is defined by the argument parser.
+        if not set(self.option_strings).intersection(set(sys.argv)):
+            self.set_environ(self.default)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        """When argument is called"""
+        
+        if not set(['--help', '-h']).intersection(set(sys.argv)):
+            self.set_environ(values)
+
+    @abstractmethod
+    def import_environ(self) -> 'Environ':
+        """Implements environ import
+        
+
+        Returns:
+            Environ object
+        """
+
+    def set_environ(self, config_file: str):
+        """Sets environ
+
+        Args:
+          config_file: Name of the config file that is activate
+        """
+
+        print(f'\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #')
+        os.environ["CONFIG_FILE"] = config_file
+            
+
+        environ = self.import_environ()
+
+        os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = environ["ID"]
+        
+        # Sets environ for the CLI. This implementation is required for
+        # the common CLI option that are present in fedbiomed.common.cli.CommonCLI
+        self._this.set_environ(environ)
+
+        # this may be changed on command line or in the config_node.ini
+        logger.setLevel("DEBUG")
 
 
 class ConfigurationParser(CLIArgumentParser):
@@ -276,54 +330,6 @@ class CommonCLI:
     @staticmethod
     def config_action(this: 'CommonCLI', component: ComponentType):
         """Returns CLI argument action for config file name"""
-
-        class ConfigNameAction(argparse.Action):
-            """Action for the argument config
-
-            This action class gets the config file name and set environ object before
-            executing any command.
-            """
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-
-                # Sets environ by default if option string for conifg is not present
-                if not set(self.option_strings).intersection(set(sys.argv)):
-                    self.set_environ(self.default, component)
-
-            def __call__(self, parser, namespace, values, option_string=None):
-                """When argument is called"""
-                
-                if not set(['--help', '-h']).intersection(set(sys.argv)):
-                    self.set_environ(values, component)
-
-
-            def set_environ(self, config_file: str, component: ComponentType):
-                """Sets environ
-
-                Args:
-                  config_file: Name of the config file that is activate
-                """
-
-                print(f'\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #')
-                os.environ["CONFIG_FILE"] = config_file
-
-                match component:
-                    case ComponentType.NODE:
-                        environ = importlib.import_module("fedbiomed.node.environ").environ
-                    case ComponentType.RESEARCHER:
-                        environ = importlib.import_module("fedbiomed.researcher.environ").environ
-                    case _:
-                        raise FedbiomedError(f"unrecognized component type: {component}")
-
-                os.environ[f"FEDBIOMED_ACTIVE_{component.name}_ID"] = environ["ID"]
-
-                # Sets environ for the CLI. This implementation is required for
-                # the common CLI option that are present in fedbiomed.common.cli.CommonCLI
-                this.set_environ(environ)
-
-                # this may be changed on command line or in the config_node.ini
-                logger.setLevel("DEBUG")
-
         return ConfigNameAction
 
     @staticmethod

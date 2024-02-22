@@ -4,10 +4,12 @@
 """Researcher CLI """
 import os
 import subprocess
+import importlib
+
 
 from typing import List, Dict
 
-from fedbiomed.common.cli import CommonCLI, CLIArgumentParser
+from fedbiomed.common.cli import CommonCLI, CLIArgumentParser, ConfigNameAction
 from fedbiomed.common.constants import ComponentType
 
 
@@ -83,6 +85,16 @@ class ResearcherCLI(CommonCLI):
     def initialize(self):
         """Initializes Researcher CLI"""
 
+        
+        class ConfigNameActionResearcher(ConfigNameAction):
+            _this = self
+            _component = ComponentType.RESEARCHER
+            
+            def import_environ(self) -> 'fedbiomed.researcher.environ.Environ':
+                """Import environ"""
+                return importlib.import_module("fedbiomed.researcher.environ").environ
+
+
         # Config parameter is not necessary. Python client (user in jupyter notebook)
         # will always use default config file which is `researcher_config`
         # However, this argument will play important role once researcher back-end (orhestrator)
@@ -91,7 +103,7 @@ class ResearcherCLI(CommonCLI):
             "--config",
             "-cf",
             nargs="?",
-            action=self.config_action(self, ComponentType.RESEARCHER),
+            action=ConfigNameActionResearcher,
             default="researcher_config.ini",
             help="Name of the config file that the CLI will be activated for. Default is 'researcher_config.ini'.")
 
