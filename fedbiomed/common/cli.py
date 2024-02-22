@@ -79,7 +79,6 @@ class ConfigNameAction(ABC, argparse.Action):
 
         print(f'\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #')
         os.environ["CONFIG_FILE"] = config_file
-            
 
         environ = self.import_environ()
 
@@ -669,7 +668,14 @@ class CommonCLI:
                     self._parser.parse_args(args_)
                 args.func()
 
-
+        else:
+            args = self._parser.parse_args(args_)
+            
+            print(f"{RED}ERROR:{NC}")
+            print(f"{BOLD}Invalid usage or missing command please check"
+                  "the usage below}{NC}")
+        
+            self._parser.parse_args(args_ + ['-h'])
 
 if __name__ == '__main__':
     cli = CommonCLI()
