@@ -217,7 +217,7 @@ class TestNodeCLI(NodeTestCase):
     def test_01_node_cli_init(self):
         """Tests intialization"""
         self.node_cli = NodeCLI()
-        self.node_cli.parse_args(["--config", "config_n1"])
+        self.node_cli.parse_args(["--config", "config_n1", 'dataset', 'list'])
 
 
 
