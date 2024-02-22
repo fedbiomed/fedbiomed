@@ -23,6 +23,7 @@ from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.utils import get_method_spec
+from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
 
 
 class PreProcessDict(TypedDict):
@@ -560,7 +561,16 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric_name = metric.name
         # Iterate over the validation dataset and run the defined routine.
         num_samples_observed_till_now: int = 0
+
+        iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
+        _iterations_accountant_batches = iterations_accountant.iterate_batches()
+        iterations_accountant.epochs = 1
+        iterations_accountant.cur_batch = 1
+        iterations_accountant.num_batches_per_epoch = n_batches
         for idx, (data, target) in enumerate(self.testing_data_loader, 1):
+            
+            testing_batch_size = self._infer_batch_size(data)
+            iterations_accountant.increment_sample_counters(testing_batch_size)
             num_samples_observed_till_now += self._infer_batch_size(data)
             # Run the evaluation step; catch and raise exceptions.
             try:
@@ -573,25 +583,30 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg) from exc
             # Log the computed value.
-            logger.debug(
-                f"Validation: Batch {idx}/{n_batches} "
-                f"| Samples {num_samples_observed_till_now}/{n_samples} "
-                f"| Metric[{metric_name}]: {m_value}"
-            )
-            # Further parse, and report it (provided a monitor is set).
-            if history_monitor is not None:
-                m_dict = self._create_metric_result_dict(m_value, metric_name)
-                history_monitor.add_scalar(
-                    metric=m_dict,
-                    iteration=idx,
-                    epoch=None,
-                    test=True,
-                    test_on_local_updates=(not before_train),
-                    test_on_global_updates=before_train,
-                    total_samples=n_samples,
-                    batch_samples=num_samples_observed_till_now,
-                    num_batches=n_batches
+            # Reporting
+            print("LOG?", iterations_accountant.should_log_this_batch(), )
+            if iterations_accountant.should_log_this_batch():
+                logger.debug(
+                    f"Validation: Batch {idx}/{n_batches} "
+                    f"| Samples {num_samples_observed_till_now}/{n_samples} "
+                    f"| Metric[{metric_name}]: {m_value}"
                 )
+                # Further parse, and report it (provided a monitor is set).
+                if history_monitor is not None:
+                    m_dict = self._create_metric_result_dict(m_value, metric_name)
+                    history_monitor.add_scalar(
+                        metric=m_dict,
+                        iteration=idx,
+                        epoch=None,
+                        test=True,
+                        test_on_local_updates=(not before_train),
+                        test_on_global_updates=before_train,
+                        total_samples=n_samples,
+                        batch_samples=num_samples_observed_till_now,
+                        num_batches=n_batches
+                    )
+            if idx < n_batches:
+                next(_iterations_accountant_batches)  # FIXME: remove that and include it inside the for loop
 
     @staticmethod
     def _infer_batch_size(data: Union[dict, list, tuple, 'torch.Tensor', 'np.ndarray']) -> int:
