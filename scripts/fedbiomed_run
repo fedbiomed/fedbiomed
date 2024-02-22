@@ -221,6 +221,8 @@ case $1 in
       ;;
 
     node)
+
+        CONFIG_FILE=node_config.ini
         while true ; do
             case $2 in
                 # handle optional parameters : config file, researcher ip, training plan approval and allow default training plans
@@ -282,12 +284,7 @@ case $1 in
                     export ALLOW_DEFAULT_TRAINING_PLANS=False
                     shift
                 ;;
-
-                help|-h|--help)
-                    usage node
-                    ;;
                 *)
-
                     break
                 ;;
             esac
@@ -314,18 +311,21 @@ case $1 in
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset list${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset list
+                exit 0
                 ;;
             del|delete|--del|--delete|-d)
                 deprecation_warning "fedbiomed_run node delete is deprecated. \
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset delete${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset delete
+                exit 0
                 ;;
             del-all|delete-all|--del-all|--delete-all|-da)
                 deprecation_warning "fedbiomed_run node delete-all | del-all | --del-all is deprecated.\
                         This command will be removed in the future releases. \
                         Please ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset delete --all${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset delete --all
+                exit 0
                 ;;
 
             delete-mnist|--delete-mnist|-dm)
@@ -333,18 +333,21 @@ case $1 in
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset delete --only-mnist${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset delete --only-mnist
-                    ;;
+                exit 0    
+                ;;
             add|--add|-a)
                 deprecation_warning "fedbiomed_run node add | --add | -a is deprecated.\
                         This command will be removed in the future releases. \
                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset add${NC}"
                  $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset add
+                exit 0
                 ;;
             add-mnist|--add-mnist|-am)
                 deprecation_warning "fedbiomed_run node add-mnist | -am is deprecated.\
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset add --mnist [PATH_TO_MNIST]${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset add --mnist $PARAMS
+                exit 0
                 ;;
 
             add-dataset-from-file|--add-dataset-from-file|-adff)
@@ -352,6 +355,7 @@ case $1 in
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset add --file [PATH_TO_FILE]${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset add --file $PARAMS
+                exit 0
                 ;;
 
             register-training-plan|--register-training-plan|-rtp)
@@ -359,6 +363,7 @@ case $1 in
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan register${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan register
+                exit 0
                 ;;
 
             approve-training-plan|--approve-training-plan|-atp)
@@ -366,6 +371,7 @@ case $1 in
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan approve${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan approve
+                exit 0
                 ;;
 
             reject-training-plan|--reject-training-plan|-rjtp)
@@ -373,12 +379,14 @@ case $1 in
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan reject${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan reject
+                exit 0
                 ;;
             update-training-plan|--update-training-plan|-utp)
                 deprecation_warning "fedbiomed_run node update-training-plan is deprecated.\
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan update${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan update
+                exit 0
                 ;;
 
             list-training-plans|--list-training-plans|-ltps)
@@ -386,12 +394,14 @@ case $1 in
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan list${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan list
-                ;;
+                exit 0
+                ;; 
             delete-training-plan|--delete-training-plan|-dtp)
                 deprecation_warning "fedbiomed_run node delete-training-plan is deprecated.\
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan delete${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan delete
+                exit 0
                 ;;
 
             view-training-plan|--view-training-plan|-vtp)
@@ -399,21 +409,23 @@ case $1 in
                         This command will be removed in the future releases. \
                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan view${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan view
+                exit 0
                 ;;
 
             start|--start|-s)
-                python -m fedbiomed.node.cli --start $PARAMS
+                PARAMS=${@:3:$#-2}
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" start $PARAMS
+                exit 0
                 ;;
         esac
 
-                # pass remaining params to launched script
         if [ $# -ge 2 ]
         then
             export PARAMS=${@:3:$#-2}
         else
             export PARAMS=
         fi
-
+        
         # All unkown arguments goes to node cli
         EXTRA_PARAMS=${@:2}
         $basedir/scripts/fedbiomed node $EXTRA_PARAMS

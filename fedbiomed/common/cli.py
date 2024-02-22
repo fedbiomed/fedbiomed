@@ -292,7 +292,10 @@ class CommonCLI:
 
             def __call__(self, parser, namespace, values, option_string=None):
                 """When argument is called"""
-                self.set_environ(values, component)
+                
+                if not set(['--help', '-h']).intersection(set(sys.argv)):
+                    self.set_environ(values, component)
+
 
             def set_environ(self, config_file: str, component: ComponentType):
                 """Sets environ
@@ -312,7 +315,6 @@ class CommonCLI:
                     case _:
                         raise FedbiomedError(f"unrecognized component type: {component}")
 
-                environ.set_environment()
                 os.environ[f"FEDBIOMED_ACTIVE_{component.name}_ID"] = environ["ID"]
 
                 # Sets environ for the CLI. This implementation is required for
