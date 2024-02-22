@@ -475,14 +475,14 @@ case $1 in
                 then
                     NB_OPTS='--NotebookApp.use_redirect_file=false'
                 fi
-
-                $basedir/scripts/fedbiomed researcher start
-
+                PARAMS=${@:3:$#-2}
+                $basedir/scripts/fedbiomed researcher start $PARAMS
+                exit 0
 
             ;;
             help|-h|--help)
                 $basedir/scripts/fedbiomed researcher -h
-
+                exit 0
             ;;
             *)
               $basedir/scripts/fedbiomed researcher "$EXTRA_PARAMS"

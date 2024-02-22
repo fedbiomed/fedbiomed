@@ -66,9 +66,6 @@ class ResearcherControl(CLIArgumentParser):
             process.wait()
 
 
-
-
-
 class ResearcherCLI(CommonCLI):
     """Researcher CLI"""
 
@@ -80,8 +77,7 @@ class ResearcherCLI(CommonCLI):
 
     def __init__(self):
         super().__init__()
-        self.description = f"{__intro__}: A CLI app for fedbiomed researchers."
-
+        self.description = f"{__intro__}\nA CLI app for fedbiomed researchers."
         self.initialize()
 
     def initialize(self):
@@ -100,9 +96,6 @@ class ResearcherCLI(CommonCLI):
             help="Name of the config file that the CLI will be activated for. Default is 'researcher_config.ini'.")
 
         super().initialize()
-
-        print(__intro__)
-        print('\t- 🆔 Your researcher ID:', os.environ['FEDBIOMED_ACTIVE_RESEARCHER_ID'], '\n')
 
 
 
