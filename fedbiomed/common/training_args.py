@@ -327,9 +327,9 @@ class TrainingArgs:
                 "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0
             },
             "test_batch_size": {
-                "rules": [cls._nonnegative_integer_value_validator_hook("test_batch_size")],
+                "rules": [cls.optional_type(typespec=int, argname='test_batch_size')],
                 "required": False,
-                "default": 10
+                "default": 48
             },
             "test_on_local_updates": {
                 "rules": [bool], "required": False, "default": False
