@@ -536,7 +536,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
 
         n_samples = len(self.testing_data_loader.dataset)
-        n_batches = max(len(self.testing_data_loader) // n_samples, 1)
+        n_batches = max(len(self.testing_data_loader) , 1)
 
         # Set up a batch-wise metrics-computation function.
         # Either use an optionally-implemented custom training routine.
