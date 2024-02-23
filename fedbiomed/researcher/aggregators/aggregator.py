@@ -74,17 +74,14 @@ class Aggregator:
         # Validation
         encryption_factors = [f for k, f in encryption_factors.items()]
         validation: List[int] = aggregate(params=encryption_factors)
-
         if len(validation) != 1 or not math.isclose(validation[0], secagg_random, abs_tol=0.01):
             raise FedbiomedAggregatorError("Aggregation is failed due to incorrect decryption.")
-
+        # Validation was ok, proceed with aggregation of model parameters
         aggregated_params = aggregate(params=params)
-
         # Convert model params
         model = training_plan._model
-
-        model_params = model.unflatten(aggregated_params)
-
+        model_params = model.unflatten(weights_vector=aggregated_params,
+                                       model_params=training_plan.after_training_params())
         return model_params
 
     def aggregate(self, model_params: list, weights: list, *args, **kwargs) -> Dict:

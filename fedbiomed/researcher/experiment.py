@@ -1506,8 +1506,10 @@ class Experiment:
             )
             # FIXME: Access TorchModel through non-private getter once it is implemented
             aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
-                self._job.training_plan._model.unflatten(flatten_params)
+                self._job.training_plan._model.unflatten(weights_vector=flatten_params,
+                                                         model_params=self.training_plan().after_training_params())
             )
+            print(f"AGGREGATED PARAMS {aggregated_params.keys()}")
 
         else:
             # aggregate models from nodes to a global model

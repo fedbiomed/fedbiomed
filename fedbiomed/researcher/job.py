@@ -285,6 +285,8 @@ class Job:
         # Assign empty dict to secagg arguments if it is None
         secagg_arguments = {} if secagg_arguments is None else secagg_arguments
 
+        print(f"JOB SENDING PARAMS {self._get_model_params(only_trainable=not self._training_args.dict()['share_persistent_buffers']).keys()}")
+
         msg = {
             'researcher_id': self._researcher_id,
             'job_id': self._id,
@@ -294,7 +296,7 @@ class Job:
             'round': round_,
             'training_plan': self._training_plan.source(),
             'training_plan_class': self._training_plan_class.__name__,
-            'params': self._get_model_params(),
+            'params': self._get_model_params(only_trainable=not self._training_args.dict()['share_persistent_buffers']),
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': secagg_arguments.get('secagg_random'),
@@ -432,13 +434,14 @@ class Job:
             Serializer.dump(nodes_optim_aux_vars, aux_vars_path)
         return aux_var
 
-    def _get_model_params(self) -> Dict[str, Any]:
+    def _get_model_params(self,
+                          only_trainable: bool = False) -> Dict[str, Any]:
         """Gets model parameters form the training plan.
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their value.
         """
-        return self._training_plan.get_model_params()
+        return self._training_plan.get_model_params(only_trainable)
 
     def _load_and_set_model_params_from_file(self, path: str) -> None:
         """Loads model parameters from given path

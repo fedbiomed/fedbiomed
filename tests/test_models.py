@@ -1,4 +1,5 @@
 import copy
+from collections import OrderedDict
 import logging
 import unittest
 import urllib.request
@@ -377,19 +378,13 @@ class TestSkLearnModel(unittest.TestCase):
             model.model.partial_fit(inputs, target)
             coef = model.model.coef_.astype(float).flatten()
             intercepts = model.model.intercept_.astype(float).flatten()
-            flatten = model.flatten()
+            flatten = model.flatten(model.get_weights())
 
             self.assertListEqual(flatten, [*intercepts, *coef])
 
-            unflatten = model.unflatten(flatten)
+            unflatten = model.unflatten(flatten, model_params=model.get_weights())
             self.assertListEqual(unflatten["coef_"].tolist(), model.model.coef_.tolist())
             self.assertListEqual(unflatten["intercept_"].tolist(), model.model.intercept_.tolist())
-
-            with self.assertRaises(FedbiomedModelError):
-                model.unflatten({"un-sported-type": "oopps"})
-
-            with self.assertRaises(FedbiomedModelError):
-                model.unflatten(["not-float-list"])
 
     def test_sklearnmodel_11_set_weights(self):
         """Test that 'SkLearnModel.set_weights' works properly."""
@@ -698,7 +693,7 @@ class TestTorchModel(unittest.TestCase):
         """Tests flatten and unflatten methods of Sklearn methods"""
 
         # Flatten model parameters
-        flatten = self.model.flatten()
+        flatten = self.model.flatten(self.model.get_weights())
 
         weights = self.model.get_weights()
 
@@ -706,16 +701,18 @@ class TestTorchModel(unittest.TestCase):
         b = weights["bias"].flatten().tolist()
         self.assertListEqual(flatten, [*w, *b])
 
-        unflatten = dict(self.model.unflatten(flatten))
+        unflatten = dict(self.model.unflatten(flatten, model_params=self.model.get_weights()))
         self.assertListEqual(unflatten["weight"].tolist(), weights["weight"].tolist())
         self.assertListEqual(unflatten["bias"].tolist(), weights["bias"].tolist())
 
         # Test invalid argument types
         with self.assertRaises(FedbiomedModelError):
-            self.model.unflatten({"un-sported-type": "oopps"})
-
+            self.model.unflatten({"un-sported-type": "oopps"}, model_params={})
         with self.assertRaises(FedbiomedModelError):
-            self.model.unflatten(["not-float-list"])
+            self.model.unflatten(["not-float-list"], model_params={})
+        with self.assertRaises(FedbiomedModelError):
+            self.model.unflatten([0.1], model_params='not a dict')
+
 
     def test_torchmodel_09_export(self):
         """Test that 'TorchModel.export' works properly."""

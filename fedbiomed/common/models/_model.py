@@ -126,7 +126,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def flatten(self) -> List[float]:
+    def flatten(self, params: Any) -> List[float]:
         """Flattens model weights
 
         Returns:
@@ -177,12 +177,15 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
     @abstractmethod
     def unflatten(
             self,
-            weights_vector: List[float]
+            weights_vector: List[float],
+            model_params: Dict[str, Any]
     ) -> None:
         """Revert flatten model weights back model-dict form.
 
         Args:
             weights_vector: Vectorized model weights to convert dict
+            model_params: Dictionary of model parameters in the format {param name: param value}. This is used only
+                to infer the format of the parameters (names and shapes).
 
         Returns:
             Model dictionary
@@ -190,5 +193,9 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
 
         if not isinstance(weights_vector, list) or not all([isinstance(w, float) for w in weights_vector]):
             raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622} `weights_vector should be 1D list of float containing flatten model parameters`"
+                f"{ErrorNumbers.FB622} `weights_vector` should be 1D list of float containing flatten model parameters"
+            )
+        if not isinstance(model_params, dict):
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622} `model_params` should be a dict of the form {{param name: param value}}"
             )
