@@ -373,7 +373,7 @@ class Scaffold(Aggregator):
                 the number of layers contained in the model (in Pytroch, each layer can have a specific learning rate).
         """
 
-        n_model_layers = len(training_plan.get_model_params())
+        n_model_layers = len(training_plan.get_model_params(only_trainable=True))
         for node_id in self._fds.node_ids():
             lrs: Dict[str, float] = {}
 

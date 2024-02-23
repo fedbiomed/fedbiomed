@@ -137,16 +137,15 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             ) from err
         return weights
 
-    def flatten(self) -> List[float]:
+    def flatten(self, params: Dict[str, Any]) -> List[float]:
         """Gets weights as flatten vector
 
         Returns:
             to_list: Convert np.ndarray to a list if it is True.
         """
 
-        weights = self.get_weights()
         flatten = []
-        for _, w in weights.items():
+        for _, w in params.items():
             w_: List[float] = list(w.flatten().astype(float))
             flatten.extend(w_)
 
@@ -154,25 +153,27 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
     def unflatten(
             self,
-            weights_vector: List[float]
+            weights_vector: List[float],
+            model_params: Dict[str, Any]
     ) -> Dict[str, np.ndarray]:
         """Unflatten vectorized model weights
 
         Args:
             weights_vector: Vectorized model weights to convert dict
+            model_params: Dictionary of model parameters in the format {param name: param value}. This is used only
+                to infer the format of the parameters (names and shapes)
 
         Returns:
             Model dictionary
         """
 
-        super().unflatten(weights_vector)
+        super().unflatten(weights_vector, model_params)
 
         weights_vector = np.array(weights_vector)
-        weights = self.get_weights()
         pointer = 0
 
         params = {}
-        for key, w in weights.items():
+        for key, w in model_params.items():
             num_param = w.size
             params[key] = weights_vector[pointer: pointer + num_param].reshape(w.shape)
 

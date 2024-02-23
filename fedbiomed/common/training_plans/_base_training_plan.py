@@ -610,7 +610,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             The trained parameters to aggregate.
         """
         if flatten:
-            return self._model.flatten()
+            return self._model.flatten(params=self.get_model_params())
         return self.get_model_params()
 
     def export_model(self, filename: str) -> None:

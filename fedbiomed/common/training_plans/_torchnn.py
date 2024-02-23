@@ -604,12 +604,12 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         if self._share_persistent_buffers:
             params = dict(self._model.model.state_dict())
         else:
-            params = super().after_training_params()
+            params = super().after_training_params(flatten=False)
         # Check whether postprocess method exists, and use it.
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")
             try:
-                params = self.postprocess(self._model.model.state_dict())  # Post process
+                params = self.postprocess(params)  # Post process
             except Exception as e:
                 raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605.value}: Error while running post-process "
                                                  f"{e}") from e
@@ -617,7 +617,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Run (optional) DP controller adjustments as well.
         params = self._dp_controller.after_training(params)
         if flatten:
-            params = self._model.flatten()
+            params = self._model.flatten(params)
         return params
 
     def __norm_l2(self) -> float:

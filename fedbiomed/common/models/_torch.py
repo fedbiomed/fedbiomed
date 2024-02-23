@@ -4,7 +4,7 @@
 """Torch interfacing Model class."""
 
 import copy
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import numpy as np
 import torch
@@ -70,29 +70,31 @@ class TorchModel(Model):
             Model weights, as a dictionary mapping parameters' names to their
                 torch tensor.
         """
+        if only_trainable:
+            parameters_iterator = self.model.named_parameters()
+        else:
+            parameters_iterator = self.model.state_dict().items()
         parameters = {
-            name: param.detach().clone()
-            for name, param in self.model.named_parameters()
-            if param.requires_grad or not only_trainable
-        }
+                name: param.detach().clone()
+                for name, param in parameters_iterator
+                if param.requires_grad or not only_trainable
+            }
         return parameters
 
-    def flatten(self) -> List[float]:
+    def flatten(self, params: Dict[str, Any]) -> List[float]:
         """Gets weights as flatten vector
 
         Returns:
             to_list: Convert np.ndarray to a list if it is True.
         """
 
-        params: List[float] = torch.nn.utils.parameters_to_vector(
-            self.model.parameters()
-        ).tolist()
-
+        params: List[float] = torch.nn.utils.parameters_to_vector(params.values()).tolist()
         return params
 
     def unflatten(
             self,
-            weights_vector: List[float]
+            weights_vector: List[float],
+            model_params: Dict[str, Any]
     ) -> Dict[str, torch.Tensor]:
         """Unflatten vectorized model weights using [`vector_to_parameters`][torch.nn.utils.vector_to_parameters]
 
@@ -100,12 +102,14 @@ class TorchModel(Model):
 
         Args:
             weights_vector: Vectorized model weights to convert dict
+            model_params: Dictionary of model parameters in the format {param name: param value}. This is used only
+                to infer the format of the parameters (names and shapes)
 
         Returns:
             Model dictionary
         """
 
-        super().unflatten(weights_vector)
+        super().unflatten(weights_vector, model_params)
 
         # Copy model to make sure global model parameters won't be overwritten
         model = copy.deepcopy(self.model)
@@ -113,7 +117,7 @@ class TorchModel(Model):
 
         # Following operation updates model parameters of copied model object
         try:
-            torch.nn.utils.vector_to_parameters(vector, model.parameters())
+            torch.nn.utils.vector_to_parameters(vector, model_params.values())
         except TypeError as e:
             FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value} Can not unflatten model parameters. {e}"
