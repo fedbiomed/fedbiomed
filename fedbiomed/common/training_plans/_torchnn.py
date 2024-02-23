@@ -604,7 +604,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         if self._share_persistent_buffers:
             params = dict(self._model.model.state_dict())
         else:
-            params = super().after_training_params()
+            # retrieve unflattened parameters, we will take care of flattening later on
+            params = super().after_training_params(flatten=False)
         # Check whether postprocess method exists, and use it.
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")

@@ -609,9 +609,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             The trained parameters to aggregate.
         """
+        params = self.get_model_params()
         if flatten:
-            return self._model.flatten()
-        return self.get_model_params()
+            params = self._model.flatten(params=params)
+        return params
 
     def export_model(self, filename: str) -> None:
         """Export the wrapped model to a dump file.
