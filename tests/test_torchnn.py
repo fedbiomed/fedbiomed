@@ -815,6 +815,19 @@ class TestTorchnn(unittest.TestCase):
         with self.assertRaises(FedbiomedTrainingPlanError):
             tp.export_model(temp)
 
+    def test_after_training_params(self):
+        model = nn.Linear(1,1)
+        tp = self.run_model_initialization(model=model)
+        params = tp.after_training_params()
+        self.assertDictEqual(model.state_dict(), params)
+
+        tp.postprocess = lambda x: x
+        params = tp.after_training_params()
+        self.assertDictEqual(model.state_dict(), params)
+
+        params = tp.after_training_params(flatten=True)
+        self.assertListEqual(list(model.state_dict().values()), params)
+
 
 class TestSendToDevice(unittest.TestCase):
 
@@ -980,6 +993,7 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp.training_step.assert_called_once_with({'key': torch.Tensor([0])}, {'key': torch.Tensor([1])})
         patch_tensor_backward.assert_called_once()
         #tp._optimizer.step.assert_called()
+
 
 
 if __name__ == '__main__':  # pragma: no cover
