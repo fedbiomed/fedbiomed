@@ -1,5 +1,9 @@
 # Fed-BioMed changelog
 
+## 2024-02-23 version 5.1.1
+
+- fix missing layers when using BatchNorm and other persistent buffers with SecAgg
+
 ## 2024-02-19 version 5.1.0
 
 - multiple fixes and improvements for gRPC communications stability
