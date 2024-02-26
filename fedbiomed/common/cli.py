@@ -43,11 +43,11 @@ class CLIArgumentParser:
 
     def default(self, args: argparse.Namespace = None) -> None:
         """Default function for subparser command"""
-        
+
         self._parser.print_help()
-        
+
         return None
-        
+
 
 class ConfigNameAction(ABC, argparse.Action):
     """Action for the argument config
@@ -58,7 +58,7 @@ class ConfigNameAction(ABC, argparse.Action):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        #Sets environ by default if option string for config is not present.
+        # Sets environ by default if option string for config is not present.
         # The default is defined by the argument parser.
         if not set(self.option_strings).intersection(set(sys.argv)):
             self.set_environ(self.default)
@@ -110,7 +110,7 @@ class ConfigurationParser(CLIArgumentParser):
             'configuration',
             help='The helper for generating or updating component configuration files, see `configuration -h`'
                  ' for more details')
-        
+
         self._parser.set_defaults(func=self.default)
 
         # Common parser to register common arguments for create and refresh
@@ -410,7 +410,7 @@ class CommonCLI:
                  "Please see 'certificate --help' for more information.",
             prog="fedbiomed_run [ node | researcher ] [--config [CONFIG_FILE]] certificate",
         )
-        
+
         def print_help(args):
             certificate_parser.print_help()
 
@@ -669,7 +669,7 @@ class CommonCLI:
         if hasattr(args, 'func'):
             specs = get_method_spec(args.func)
             if specs:
-                 # If default function has 2 arguments
+                # If default function has 2 arguments
                 if len(specs) > 1:
                     return args.func(args, unknown_args)
                 else:
@@ -678,7 +678,7 @@ class CommonCLI:
                         args = self._parser.parse_args(args_)
                     args.func(args)
             else:
-                 # Raise for unrecognized arguments
+                # Raise for unrecognized arguments
                 if unknown_args:
                     self._parser.parse_args(args_)
                 args.func()

@@ -564,7 +564,7 @@ class NodeCLI(CommonCLI):
 
     def __init__(self):
         super().__init__()
-        
+
         self._parser.prog = "fedbiomed_run node"
         self.description = f"{__intro__} \nA CLI app for fedbiomed node component."
         # Parent parser for parameters that are common for Node CLI actions
