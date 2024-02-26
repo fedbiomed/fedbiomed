@@ -145,13 +145,14 @@ class DatasetArgumentParser(CLIArgumentParser):
     def initialize(self):
         """Initializes dataset options for the node CLI"""
 
-        dataset = self._subparser.add_parser(
+        self._parser = self._subparser.add_parser(
             "dataset",
             help="Dataset operations"
         )
+        self._parser.set_defaults(func=self.default)
 
         # Creates subparser of dataset option
-        dataset_subparsers = dataset.add_subparsers()
+        dataset_subparsers = self._parser.add_subparsers()
 
 
         # Add option
@@ -201,11 +202,10 @@ class DatasetArgumentParser(CLIArgumentParser):
             action="store_true",
             help="Removes only MNIST dataset.")
 
-
         add.set_defaults(func=self.add)
         list_.set_defaults(func=self.list)
         delete.set_defaults(func=self.delete)
-
+        
     def add(self, args):
         """Adds datasets"""
 
@@ -302,13 +302,14 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
 
     def initialize(self):
 
-        training_plan = self._subparser.add_parser(
+        self._parser = self._subparser.add_parser(
             "training-plan",
             help="CLI operations for TrainingPlans register/list/delete/approve/reject etc."
         )
 
-        training_plan_suparsers = training_plan.add_subparsers()
-
+        training_plan_suparsers = self._parser.add_subparsers()
+        self._parser.set_defaults(func=self.default)
+        
         update = training_plan_suparsers.add_parser(
             "update", help="Updates training plan"
         )
@@ -443,43 +444,97 @@ class GUIControl(CLIArgumentParser):
 
     def initialize(self):
         """Initializes GUI commands"""
-        gui = self._subparser.add_parser("gui", add_help=False, help="Action to manage Node user interface")
-        gui.set_defaults(func=self.forward)
+        self._parser = self._subparser.add_parser("gui", add_help=False, help="Action to manage Node user interface")
+        self._parser.set_defaults(func=self.forward)
+        
 
-
-        # TODO: Implement argument parsing and execution in python
-        # gui.add_argument(
-        #     "--data-folder",
-        #     "-df",
-        #     type=str,
-        #     nargs="?",
-        #     default="data",  # data folder in root directory
-        #     required=False)
-
-        # gui.add_argument(
-        #     "--cert-file",
-        #     "-cf",
-        #     type=str,
-        #     nargs="?",
-        #     required=False,
-        #     help="Name of the certificate to use in order to enable HTTPS. "
-        #          "If cert file doesn't exist script will raise an error.")
-
-        # gui.add_argument(
-        #     "--key-file",
-        #     "-cf",
-        #     type=str,
-        #     nargs="?",
-        #     required=False,
-        #     help="Name of the private key for the SSL certificate. "
-        #          "If the key file doesn't exist, the script will raise an error.")
-
-
+#        gui_subparsers = self._parser.add_subparsers()
+#        start = gui_subparsers.add_parser('start')
+#        
+#
+#        # TODO: Implement argument parsing and execution in python
+#        start.add_argument(
+#            "--data-folder",
+#           "-df",
+#            type=str,
+#            nargs="?",
+#            default="data",  # data folder in root directory
+#            required=False)
+#
+#        start.add_argument(
+#            "--cert-file",
+#            "-cf",
+#            type=str,
+#            nargs="?",
+#            required=False,
+#            help="Name of the certificate to use in order to enable HTTPS. "
+#                 "If cert file doesn't exist script will raise an error.")
+#
+#        start.add_argument(
+#            "--key-file",
+#            "-kf",
+#            type=str,
+#            nargs="?",
+#            required=False,
+#            help="Name of the private key for the SSL certificate. "
+#                 "If the key file doesn't exist, the script will raise an error.")
+#        
+#        start.add_argument(
+#            "--port",
+#            "-p",
+#            type=str,
+#            nargs="?",
+#            default="8484",
+#            required=False,
+#            help="HTTP port that GUI will be served. Default is `8484`")
+#        
+#        start.add_argument(
+#            "--host",
+#            "-ho",
+#            type=str,
+#            default="localhost",
+#            nargs="?",
+#            required=False,
+#            help="HTTP port that GUI will be served. Default is `8484`")
+#
+#        start.add_argument(
+#            "--debug",
+#            "-dbg",
+#            action="store_true",
+#            required=False,
+#            help="HTTP port that GUI will be served. Default is `8484`")
+# 
+#        start.add_argument(
+#            "--recreate",
+#            "-rc",
+#            action="store_true",
+#            required=False,
+#            help="HTTP port that GUI will be served. Default is `8484`")
+#
+#        start.set_defaults(func=self.forward)    
+#
     def forward(self, args, extra_args):
         """Forwards gui commands to ./script/fedbiomed_gui Extra arguments
 
         TODO: Implement argument GUI parseing and execution
         """
+        
+#        commad = []
+#        command.extend(['--data-folder', args.data_folder, '--port', args.port, '--host', args.host])
+        
+
+#        if args.key_file:
+#            command.extend(['--key-file', args.key_file])
+#    
+#        if args.cert_file:
+#            command.extend(['--cert-file', args.cert_file])
+#        
+#        if args.recreate:
+#            command.append('--recreate')
+#        
+#        if args.debug:
+#            command.append('--debug') 
+
 
         gui_script = os.path.abspath(os.path.join(__file__, '..', '..', '..', 'scripts', 'fedbiomed_gui'))
         command = [gui_script, *extra_args]
