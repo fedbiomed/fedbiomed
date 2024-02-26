@@ -38,11 +38,10 @@ class CLIArgumentParser:
     def __init__(self, subparser: argparse.ArgumentParser):
 
         self._subparser = subparser
-        
         # Parser that is going to be add using subparser
         self._parser = None
 
-    def default(self, args: argparse.Namespace = None) -> None: 
+    def default(self, args: argparse.Namespace = None) -> None:
         """Default function for subparser command"""
         
         self._parser.print_help()
