@@ -479,14 +479,13 @@ case $1 in
                 cd $basedir/notebooks
                 $basedir/scripts/fedbiomed researcher start $PARAMS
                 exit 0
-
             ;;
             help|-h|--help)
                 $basedir/scripts/fedbiomed researcher -h
                 exit 0
             ;;
             *)
-              $basedir/scripts/fedbiomed researcher "$EXTRA_PARAMS"
+              $basedir/scripts/fedbiomed researcher $EXTRA_PARAMS
             ;;
         esac
         ;;
