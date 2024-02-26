@@ -53,7 +53,6 @@ if __name__ == "__main__":
 
     # This part executes know arguments
     args, extra = cli.parser.parse_known_args()
-    print(args)    
     # Forward arguments to Node or Researcher CLI
     if hasattr(args, "func") and args.func in [node, researcher]:
         args.func(extra)

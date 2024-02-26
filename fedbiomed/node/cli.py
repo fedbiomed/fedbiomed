@@ -564,7 +564,8 @@ class NodeCLI(CommonCLI):
 
     def __init__(self):
         super().__init__()
-
+        
+        self._parser.prog = "fedbiomed_run node"
         self.description = f"{__intro__} \nA CLI app for fedbiomed node component."
         # Parent parser for parameters that are common for Node CLI actions
         self.initialize()
@@ -591,9 +592,6 @@ class NodeCLI(CommonCLI):
             help="Name of the config file that the CLI will be activated for. Default is 'node_config.ini'.")
 
         super().initialize()
-
-        # Initialize common
-        self.initialize_certificate_parser()
 
 
 if __name__ == '__main__':
