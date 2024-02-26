@@ -22,8 +22,8 @@ from fedbiomed.common.constants import ErrorNumbers, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.cli import (
-    CommonCLI, 
-    CLIArgumentParser, 
+    CommonCLI,
+    CLIArgumentParser,
     ConfigNameAction,
 )
 
@@ -450,7 +450,7 @@ class GUIControl(CLIArgumentParser):
 
 #        gui_subparsers = self._parser.add_subparsers()
 #        start = gui_subparsers.add_parser('start')
-#        
+#
 #
 #        # TODO: Implement argument parsing and execution in python
 #        start.add_argument(
@@ -478,7 +478,7 @@ class GUIControl(CLIArgumentParser):
 #            required=False,
 #            help="Name of the private key for the SSL certificate. "
 #                 "If the key file doesn't exist, the script will raise an error.")
-#        
+#
 #        start.add_argument(
 #            "--port",
 #            "-p",
@@ -487,7 +487,7 @@ class GUIControl(CLIArgumentParser):
 #            default="8484",
 #            required=False,
 #            help="HTTP port that GUI will be served. Default is `8484`")
-#        
+#
 #        start.add_argument(
 #            "--host",
 #            "-ho",
@@ -503,7 +503,7 @@ class GUIControl(CLIArgumentParser):
 #            action="store_true",
 #            required=False,
 #            help="HTTP port that GUI will be served. Default is `8484`")
-# 
+#
 #        start.add_argument(
 #            "--recreate",
 #            "-rc",
@@ -511,7 +511,7 @@ class GUIControl(CLIArgumentParser):
 #            required=False,
 #            help="HTTP port that GUI will be served. Default is `8484`")
 #
-#        start.set_defaults(func=self.forward)    
+#        start.set_defaults(func=self.forward)
 #
 
 
@@ -527,15 +527,15 @@ class GUIControl(CLIArgumentParser):
 
 #        if args.key_file:
 #            command.extend(['--key-file', args.key_file])
-#    
+#
 #        if args.cert_file:
 #            command.extend(['--cert-file', args.cert_file])
-#        
+#
 #        if args.recreate:
 #            command.append('--recreate')
-#        
+#
 #        if args.debug:
-#            command.append('--debug') 
+#            command.append('--debug')
 
 
         gui_script = os.path.abspath(os.path.join(__file__, '..', '..', '..', 'scripts', 'fedbiomed_gui'))
@@ -564,7 +564,7 @@ class NodeCLI(CommonCLI):
 
     def __init__(self):
         super().__init__()
-        
+
         self._parser.prog = "fedbiomed_run node"
         self.description = f"{__intro__} \nA CLI app for fedbiomed node component."
         # Parent parser for parameters that are common for Node CLI actions
