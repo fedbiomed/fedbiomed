@@ -111,4 +111,4 @@ class ResearcherCLI(CommonCLI):
 
 if __name__ == '__main__':
     cli = ResearcherCLI()
-    cli.parser_args()
+    cli.parse_args()
