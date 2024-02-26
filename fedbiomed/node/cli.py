@@ -592,3 +592,7 @@ class NodeCLI(CommonCLI):
 
         # Initialize common
         self.initialize_certificate_parser()
+
+if __name__ == '__main__':
+    cli = NodeCLI()
+    cli.parser_args()
