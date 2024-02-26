@@ -60,7 +60,9 @@ class ConfigNameAction(ABC, argparse.Action):
 
         # Sets environ by default if option string for config is not present.
         # The default is defined by the argument parser.
-        if not set(self.option_strings).intersection(set(sys.argv)):
+        if not set(self.option_strings).intersection(set(sys.argv)) and \
+                not set(['--help', '-h']).intersection(set(sys.argv)) and \
+                len(sys.argv) > 2:
             self.set_environ(self.default)
 
     def __call__(self, parser, namespace, values, option_string=None):
