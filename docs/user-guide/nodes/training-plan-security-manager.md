@@ -174,17 +174,17 @@ A human reviewer then checks and decides whether the training plan should be aut
 Use the following command to view a training plan on the CLI, optionally indicating your preferred editor with `EDITOR`. All registered training plans are listed with their name and status, select the one you want to view:
 
 ```shell
-# EDITOR=emacs ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini view-training-plan
+# EDITOR=emacs ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini training-plan view
 
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini view-training-plan
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini training-plan view
 ```
 
 After reviewing the training plan, use one of the following commands to either approve or reject the training plan:
 
 ```shell
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini approve-training-plan
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini training-plan approve
 
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini reject-training-plan
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini training-plan reject
 ```
 
 The command returns the list of training plans that can be approved/rejected, choose the reviewed training plan from the list:
@@ -196,13 +196,13 @@ Select the training plan to approve:
 Select: 1
 ```
 
-Training Plan status on the node can later be changed again using the same `approve-training-plan` and `reject-training-plan` commands.
+Training Plan status on the node can later be changed again using the same `training-plan approve` and `training-plan reject` commands.
 
 When a node doesn't want to keep track of a registered training plan anymore, it can delete it from the database. 
 The command does not delete the file containing the modtraining planel, only the database entry for the training plan.
 
 ```shell
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini delete-training-plan
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini training-plan delete
 ```
 
 The output of this command lists deletable training plans with their names and id. It asks you to select the training plan file you would like to remove. For example, in the following example, typing 1  removes the MyTrainingPlan from registered/approved 
@@ -223,7 +223,7 @@ Registered training plans are training plans manually added to the node via the 
 The following command launches Fed-BioMed CLI for selecting a training plan file and entering a name and description for the training plan. The training plan name, its path and its hash should be unique. It means that you can not add the same training plan file multiple times. 
 
 ```shell
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini register-training-plan
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini training-plan register
 ```
 After selecting the training plan file, the training plan manager computes a hash for the training plan file and saves it into the persistent database.
 
@@ -233,12 +233,12 @@ Each time that the node is started, training plan manager checks whether the tra
 training plan manager also deletes it from the database. Therefore, please make sure that the training plan file always exists in the path where
 it is stored. 
 
-As for requested training plans, registered training plans can later be viewed (`view-training-plan`), changed status (`approve-training-plan` or `reject-training-plan`) or removed (`delete-training-plan`).
+As for requested training plans, registered training plans can later be viewed (`training-plan viw`), changed status (`training-plan approve` or `training-plan reject`) or removed (`training-plan delete`).
 
 It is also possible to update registered training plans with a different file or the same training plan file whose content has changed. This is useful when working on a training plan, and you want it to be updated without having to remove it and restore it in database. The following command launches the CLI to select the training plan that will be updated 
 
 ```shell
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini update-training-plan
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini training-plan update
 ```
 
 The command lists registered training plans with their names and ids and asks you to select a training plan you would like to update. Afterward, it asks to select a training plan file from file system. You can either select a different or the same training plan file. It computes a hash for the specified training plan file and updates the database.   
@@ -258,7 +258,7 @@ stored in the `envs/common/default_training_plans` directory. They are automatic
 
 If the default training plans already exists in the database at node start, training plan manager checks whether there is any modification. If any default training plan file is deleted from the filesystem, training plan manager also deletes it from the database. If the training plan file is modified, or the hashing algorithm is changed, training plan manager updates the hashes in the database. This checking/controlling operation is done while starting the node. 
 
-As for requested training plans, default training plans can later be viewed (`view-training-plan`) or changed status (`approve-training-plan` or `reject-training-plan`).
+As for requested training plans, default training plans can later be viewed (`training-plan view`) or changed status (`training-plan approve` or `training-plan reject`).
 
 !!! note 
         Default training plans cannot be removed using Fed-BioMed CLI. They should be removed from the 
