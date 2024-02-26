@@ -11,7 +11,7 @@ import shutil
 import tempfile
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, TypeVar, Type
+from typing import Any, Dict, List, Optional, Tuple, TypeVar, Type, Union
 
 from declearn.optimizer.modules import AuxVar
 
@@ -20,6 +20,7 @@ from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedNodeStateAge
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import  TrainRequest, TrainReply, TrainingPlanStatusRequest
+from fedbiomed.common.optimizers import EncryptedAuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.common import utils
@@ -400,20 +401,31 @@ class Job:
     def extract_received_optimizer_aux_var_from_round(
         self,
         round_id: int,
-    ) -> List[Dict[str, AuxVar]]:
-        """Restructures the received auxiliary variables (if any) from a round, and
-        saved it in a file (for the given `round_id`). Modifies in-place the `training_replies`
-        "optim_aux_var" entries by the path of the file saved.
+    ) -> Union[
+        Dict[str, Dict[str, AuxVar]],
+        Dict[str, Dict[str, EncryptedAuxVar]],
+    ]:
+        """Extract optimizer auxiliary variables from a round's training replies.
+
+        Parse through the round's training replies to extract (optional)
+        optimizer auxiliary variables send by nodes.
+
+        Save extracted data in a file (for the given `round_id`), and modify
+        the accessed training replies in-place so that they point to that file
+        rather than detain its content.
+
+        As a consequence, this method should only be called once per `round_id`.
 
         Args:
             round_id: Index of the round, replies from which to parse through.
 
         Returns:
             List of node-wise optimizer auxiliary variables, with format
-            `[{module_name: module_aux_var}, ...]`.
+            `[{module_name: module_aux_var}, ...]` if secagg is not used,
+            or `[encrypted_aux_var, ...]` if it is used.
         """
         # Initialize a container for node-wise auxiliary variables.
-        nodes_optim_aux_vars = {}  # type: Dict[str, Dict[str, AuxVar]]
+        nodes_optim_aux_vars = {}  # type: Union[Dict[str, Dict[str, AuxVar]], Dict[str, Dict[str, EncryptedAuxVar]]]
         # Path where node-wise auxiliary variables will be saved (if any).
         aux_vars_path = os.path.join(
             self._keep_files_dir, f"auxiliary_var_replies_{round_id}_{uuid.uuid4()}.mpk"
@@ -430,7 +442,7 @@ class Job:
         if nodes_optim_aux_vars:
             Serializer.dump(nodes_optim_aux_vars, aux_vars_path)
         # Return collected auxiliary variables.
-        return list(nodes_optim_aux_vars.values())
+        return nodes_optim_aux_vars
 
     def _get_model_params(self) -> Dict[str, Any]:
         """Gets model parameters form the training plan.
