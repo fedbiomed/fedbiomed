@@ -117,7 +117,7 @@ class TestCommonCLI(unittest.TestCase):
         self.cli.initialize_optional()
 
         self.assertTrue('certificate-dev-setup' in self.cli._subparsers.choices)
-        self.assertTrue('configuration' in self.cli._subparsers.choices)                   
+        self.assertTrue('configuration' in self.cli._subparsers.choices)
 
     def test_04_common_cli_initialize_magic_dev_environment_parsers(self):
         self.cli.initialize_magic_dev_environment_parsers()
