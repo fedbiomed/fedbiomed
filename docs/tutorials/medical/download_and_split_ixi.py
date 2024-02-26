@@ -138,7 +138,7 @@ if __name__ == '__main__':
     print()
     print('Please add the data to your nodes executing and using the `ixi-train` tag:')
     for center_name in center_names:
-        print(f'\t./scripts/fedbiomed_run node --config {center_name.lower()}.ini add')
+        print(f'\t./scripts/fedbiomed_run node --config {center_name.lower()}.ini dataset add')
 
     print()
     print('Then start your nodes by executing:')

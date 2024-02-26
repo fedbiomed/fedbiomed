@@ -21,7 +21,7 @@ The following code will add the dataset into the node configured using the `conf
 
 ``` shell
 
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini add
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini dataset add
 
 ```
 

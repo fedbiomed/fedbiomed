@@ -96,7 +96,7 @@ class TestDatasetArgumentParser(NodeTestCase):
         self.assertTrue("--file" in  dataset_choices["add"]._option_string_actions)
 
         self.assertTrue("--all" in  dataset_choices["delete"]._option_string_actions)
-        self.assertTrue("--only-mnist" in  dataset_choices["delete"]._option_string_actions)
+        self.assertTrue("--mnist" in  dataset_choices["delete"]._option_string_actions)
 
     @patch.object(fedbiomed.node.cli,  "imp_cli_utils")
     def test_02_dataset_argument_parser_add(self, cli_utils):
@@ -127,7 +127,7 @@ class TestDatasetArgumentParser(NodeTestCase):
         cli_utils.return_value.delete_all_database.assert_called_once_with()
         cli_utils.return_value.delete_all_database.reset_mock()
 
-        args = self.parser.parse_args(["dataset", "delete", "--only-mnist"])
+        args = self.parser.parse_args(["dataset", "delete", "--mnist"])
         self.dataset_arg_pars.delete(args)
         cli_utils.return_value.delete_database.assert_called_once_with(interactive=False)
         cli_utils.return_value.delete_database.reset_mock()

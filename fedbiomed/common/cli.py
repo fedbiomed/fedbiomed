@@ -672,7 +672,7 @@ class CommonCLI:
                         args = self._parser.parse_args(args_)
                     args.func(args)
             else:
-                 # Raise for unrecognized arguments
+                # Raise for unrecognized arguments
                 if unknown_args:
                     self._parser.parse_args(args_)
                 args.func()

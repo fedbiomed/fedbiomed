@@ -79,8 +79,8 @@ conda deactivate
 echo "INFO: killing kpids=$kpids"
 kill -9 $kpids
 source $basedir/scripts/fedbiomed_environment node
-$basedir/scripts/fedbiomed_run node dataset delete --only-mnist
-$basedir/scripts/fedbiomed_run node --config config-n1.ini dataset delete --only-mnist
+$basedir/scripts/fedbiomed_run node dataset delete --mnist
+$basedir/scripts/fedbiomed_run node --config config-n1.ini dataset delete --mnist
 
 conda deactivate
 

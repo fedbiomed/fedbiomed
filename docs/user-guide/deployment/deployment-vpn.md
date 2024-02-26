@@ -345,7 +345,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):
 
         ```bash
-        [user@node-container $] ./scripts/fedbiomed_run node -am /data
+        [user@node-container $] ./scripts/fedbiomed_run node dataset add -m /data
         [user@node-container $] ./scripts/fedbiomed_run node dataset add
         ```
 

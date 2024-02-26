@@ -243,7 +243,7 @@ case $1 in
                         ${BLD}'export RESEARCHER_SERVER_PORT'${NC}\
                         before executing command.\n\
                         ${BLD}WARNING:${NC} 'export RESEARCHER_SERVER_PORT' is only valid when generating a new \
-                        configuration file (will not be interpreted otherwise)"
+                        configuration file (will not be interpreted otherwise)."
 
                     if [ $# -lt 3 ] ; then
                         echo "ERROR: missing researcher ip"
@@ -334,8 +334,8 @@ case $1 in
             delete-mnist|--delete-mnist|-dm)
                 deprecation_warning "fedbiomed_run node delete-mnist | --delete-mnist is deprecated.\
                         This command will be removed in the future releases. \
-                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset delete --only-mnist${NC}"
-                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset delete --only-mnist
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset delete --mnist${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset delete --mnist
                 exit 0    
                 ;;
             add|--add|-a)

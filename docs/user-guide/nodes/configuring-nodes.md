@@ -114,7 +114,7 @@ from the default one, you need to specify the config file.
 
 ```
 $ ./scripts/fedbiomed_run node --config config-n1.ini dataset list
-$ ./scripts/fedbiomed_run node --config config-n1.ini add
+$ ./scripts/fedbiomed_run node --config config-n1.ini dataset add
 ```
 
 !!! info "Configurations for deployment"
