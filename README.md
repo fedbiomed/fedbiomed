@@ -260,7 +260,7 @@ To setup **all** these components, you should:
 - run a **fedbiomed_run** command inside the node component. Eg:
 
 ```
-./scripts/fedbiomed_vpn node --add-mnist /data
+./scripts/fedbiomed_vpn node dataset add --mnist /data
 ./scripts/fedbiomed_vpn node list
 ./scripts/fedbiomed_vpn node start
 ```

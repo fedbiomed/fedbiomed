@@ -127,7 +127,7 @@ For example to launch and add a dataset to a second node using the `config2.ini`
 ```
 $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config2.ini start
 $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config2.ini dataset list
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config2.ini add
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config2.ini dataset add
 ```
 
 **Warning : if you launch more than one node with the same configuration file, no error is detected, but the nodes are not functional**

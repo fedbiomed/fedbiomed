@@ -249,7 +249,7 @@ Run this for all launches of the container :
 [user@node-container $] eval "$(conda shell.bash hook)"
 [user@node-container $] conda activate fedbiomed-node
 # example : add MNIST dataset using persistent (mounted) /data
-[user@node-container $] ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli -am /data
+[user@node-container $] ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli -m /data
 # start the node
 # - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
 # - start with training plan approval enabled and default training plans allowed

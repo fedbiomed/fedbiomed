@@ -196,16 +196,16 @@ class DatasetArgumentParser(CLIArgumentParser):
             help="Removes entire dataset database.")
 
         delete.add_argument(
-            "--only-mnist",
-            '-om',
+            "--mnist",
+            '-m',
             required=False,
             action="store_true",
-            help="Removes only MNIST dataset.")
+            help="Removes MNIST dataset.")
 
         add.set_defaults(func=self.add)
         list_.set_defaults(func=self.list)
         delete.set_defaults(func=self.delete)
-        
+
     def add(self, args):
         """Adds datasets"""
 
@@ -309,7 +309,7 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
 
         training_plan_suparsers = self._parser.add_subparsers()
         self._parser.set_defaults(func=self.default)
-        
+
         update = training_plan_suparsers.add_parser(
             "update", help="Updates training plan"
         )
@@ -446,7 +446,7 @@ class GUIControl(CLIArgumentParser):
         """Initializes GUI commands"""
         self._parser = self._subparser.add_parser("gui", add_help=False, help="Action to manage Node user interface")
         self._parser.set_defaults(func=self.forward)
-        
+
 
 #        gui_subparsers = self._parser.add_subparsers()
 #        start = gui_subparsers.add_parser('start')
@@ -513,15 +513,17 @@ class GUIControl(CLIArgumentParser):
 #
 #        start.set_defaults(func=self.forward)    
 #
+
+
     def forward(self, args, extra_args):
         """Forwards gui commands to ./script/fedbiomed_gui Extra arguments
 
         TODO: Implement argument GUI parseing and execution
         """
-        
+
 #        commad = []
 #        command.extend(['--data-folder', args.data_folder, '--port', args.port, '--host', args.host])
-        
+
 
 #        if args.key_file:
 #            command.extend(['--key-file', args.key_file])
@@ -593,6 +595,7 @@ class NodeCLI(CommonCLI):
         # Initialize common
         self.initialize_certificate_parser()
 
+
 if __name__ == '__main__':
     cli = NodeCLI()
-    cli.parser_args()
+    cli.parse_args()
