@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Researcher CLI """
-import os
 import subprocess
 import importlib
 
@@ -33,7 +32,7 @@ class ResearcherControl(CLIArgumentParser):
 
         start = self._subparser.add_parser(
             "start", help="Starts Jupyter (server) Notebook for researcher API. The default"
-                                                 "directory will be  notebook directory.")
+                          "directory will be  notebook directory.")
 
         start.add_argument(
             "--directory",
@@ -85,11 +84,11 @@ class ResearcherCLI(CommonCLI):
     def initialize(self):
         """Initializes Researcher CLI"""
 
-        
+
         class ConfigNameActionResearcher(ConfigNameAction):
             _this = self
             _component = ComponentType.RESEARCHER
-            
+
             def import_environ(self) -> 'fedbiomed.researcher.environ.Environ':
                 """Import environ"""
                 return importlib.import_module("fedbiomed.researcher.environ").environ
@@ -108,7 +107,6 @@ class ResearcherCLI(CommonCLI):
             help="Name of the config file that the CLI will be activated for. Default is 'researcher_config.ini'.")
 
         super().initialize()
-
 
 
 if __name__ == '__main__':
