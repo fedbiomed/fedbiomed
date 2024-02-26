@@ -173,9 +173,9 @@ class DatasetArgumentParser(CLIArgumentParser):
 
         add.add_argument(
             "--mnist",
-            "-am",
+            "-m",
             metavar="MNIST_DATA_PATH",
-            help="Deployes MNIST dataset by downloading form default source to given path.",
+            help="Deploys MNIST dataset by downloading form default source to given path.",
             required=False
         )
 
