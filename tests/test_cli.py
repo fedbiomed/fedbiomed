@@ -32,7 +32,7 @@ class TestTrainingPlanArgumentParser(NodeTestCase):
     def setUp(self):
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
-        self.tp_arg_pars = TrainingPlanArgumentParser(self.subparsers, self.parser)
+        self.tp_arg_pars = TrainingPlanArgumentParser(self.subparsers)
 
     def test_01_training_plan_argument_parser_initialize(self):
         """Tests training plan parser intialization"""
@@ -78,7 +78,7 @@ class TestDatasetArgumentParser(NodeTestCase):
     def setUp(self):
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
-        self.dataset_arg_pars = DatasetArgumentParser(self.subparsers, self.parser)
+        self.dataset_arg_pars = DatasetArgumentParser(self.subparsers)
 
     def test_01_dataset_argument_parser_initialize(self):
         """Test initialization"""
@@ -150,7 +150,7 @@ class TestNodeControl(NodeTestCase):
 
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
-        self.control = NodeControl(self.subparsers, self.parser)
+        self.control = NodeControl(self.subparsers) 
 
     def test_01_node_control_initialize(self):
         """Tests intialize"""
