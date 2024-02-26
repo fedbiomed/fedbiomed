@@ -12,7 +12,7 @@ class TestResearcherControl(unittest.TestCase):
     def setUp(self):
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
-        self.control = ResearcherControl(self.subparsers, self.parser)
+        self.control = ResearcherControl(self.subparsers)
 
     def tearDown(self):
         pass

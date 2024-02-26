@@ -58,7 +58,7 @@ class ConfigNameAction(ABC, argparse.Action):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Sets environ by default if option string for config is not present.
+        #Sets environ by default if option string for config is not present.
         # The default is defined by the argument parser.
         if not set(self.option_strings).intersection(set(sys.argv)):
             self.set_environ(self.default)
@@ -406,9 +406,15 @@ class CommonCLI:
         # Add certificate sub parser (sub-command)
         certificate_parser = self._subparsers.add_parser(
             'certificate',
-            prog="fedbiomed_run [ node | researcher ] [config [CONFIG_FILE]] certificate",
-
+            help="Command to manage certificates in node and researcher components. " 
+                 "Please see 'certificate --help' for more information.",
+            prog="fedbiomed_run [ node | researcher ] [--config [CONFIG_FILE]] certificate",
         )
+        
+        def print_help(args):
+            certificate_parser.print_help()
+
+        certificate_parser.set_defaults(func=print_help)
 
         # Create sub parser under `certificate` command
         certificate_sub_parsers = certificate_parser.add_subparsers(
@@ -672,7 +678,7 @@ class CommonCLI:
                         args = self._parser.parse_args(args_)
                     args.func(args)
             else:
-                # Raise for unrecognized arguments
+                 # Raise for unrecognized arguments
                 if unknown_args:
                     self._parser.parse_args(args_)
                 args.func()
