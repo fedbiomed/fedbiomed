@@ -5,7 +5,6 @@
 Command line user interface for the node component
 """
 
-import argparse
 import json
 import os
 import signal
@@ -13,7 +12,6 @@ import sys
 import time
 import importlib
 import functools
-import readline
 import subprocess
 
 from multiprocessing import Process
@@ -27,11 +25,6 @@ from fedbiomed.common.cli import (
     CommonCLI, 
     CLIArgumentParser, 
     ConfigNameAction,
-    RED, 
-    YLW, 
-    GRN, 
-    NC, 
-    BOLD
 )
 
 # Partial function to import CLI utils that frequently used in this module
@@ -123,12 +116,12 @@ def start_node(node_args):
                 tp_security_manager.register_update_default_training_plans()
         else:
             logger.warning('Training plan approval for train request is not activated. ' +
-                            'This might cause security problems. Please, consider to enable training plan approval.')
+                           'This might cause security problems. Please, consider to enable training plan approval.')
 
         logger.info('Starting communication channel with network')
         _node = Node(dataset_manager=dataset_manager,
-                        tp_security_manager=tp_security_manager,
-                        node_args=node_args)
+                     tp_security_manager=tp_security_manager,
+                     node_args=node_args)
         _node.start_messaging(_node_signal_trigger_term)
 
         logger.info('Starting task manager')
@@ -148,7 +141,7 @@ def start_node(node_args):
 
 class DatasetArgumentParser(CLIArgumentParser):
     """Initializes CLI options for dataset actions"""
-        
+
     def initialize(self):
         """Initializes dataset options for the node CLI"""
 
@@ -159,8 +152,8 @@ class DatasetArgumentParser(CLIArgumentParser):
 
         # Creates subparser of dataset option
         dataset_subparsers = dataset.add_subparsers()
-        
-        
+
+
         # Add option
         add = dataset_subparsers.add_parser(
             "add",
@@ -481,6 +474,7 @@ class GUIControl(CLIArgumentParser):
         #     help="Name of the private key for the SSL certificate. "
         #          "If the key file doesn't exist, the script will raise an error.")
 
+
     def forward(self, args, extra_args):
         """Forwards gui commands to ./script/fedbiomed_gui Extra arguments
 
@@ -513,7 +507,7 @@ class NodeCLI(CommonCLI):
 
     def __init__(self):
         super().__init__()
-        
+
         self.description = f"{__intro__} \nA CLI app for fedbiomed node component."
         # Parent parser for parameters that are common for Node CLI actions
         self.initialize()
@@ -523,10 +517,10 @@ class NodeCLI(CommonCLI):
 
 
         class ConfigNameActionNode(ConfigNameAction):
-            
+
             _this = self
             _component = ComponentType.NODE
-            
+
             def import_environ(self) -> 'fedbiomed.node.environ.Environ':
                 """Imports dynamically node environ object"""
                 return importlib.import_module("fedbiomed.node.environ").environ

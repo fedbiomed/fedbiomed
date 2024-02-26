@@ -57,14 +57,14 @@ class ConfigNameAction(ABC, argparse.Action):
 
     def __call__(self, parser, namespace, values, option_string=None):
         """When argument is called"""
-        
+
         if not set(['--help', '-h']).intersection(set(sys.argv)):
             self.set_environ(values)
 
     @abstractmethod
     def import_environ(self) -> 'Environ':
         """Implements environ import
-        
+
 
         Returns:
             Environ object
@@ -83,7 +83,7 @@ class ConfigNameAction(ABC, argparse.Action):
         environ = self.import_environ()
 
         os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = environ["ID"]
-        
+
         # Sets environ for the CLI. This implementation is required for
         # the common CLI option that are present in fedbiomed.common.cli.CommonCLI
         self._this.set_environ(environ)
