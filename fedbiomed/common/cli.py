@@ -673,7 +673,7 @@ class CommonCLI:
             
             print(f"{RED}ERROR:{NC}")
             print(f"{BOLD}Invalid usage or missing command please check"
-                  "the usage below}{NC}")
+                  f" the usage below{NC}")
         
             self._parser.parse_args(args_ + ['-h'])
 
