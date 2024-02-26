@@ -63,7 +63,7 @@ class Round:
         node_args: Dict,
         round_number: int = 0,
         dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None,
-        aux_vars: Optional[List[str]] = None,
+        aux_vars: Optional[Dict[str, AuxVar]] = None,
     ) -> None:
         """Constructor of the class
 
@@ -89,7 +89,7 @@ class Round:
                     doesn't request for using a GPU.
             dlp_and_loading_block_metadata: Data loading plan to apply, or None if no DLP for this round.
             round_number: number of the iteration for this experiment
-            aux_var: auxiliary variables of the model.
+            aux_var: Optional optimizer auxiliary variables.
         """
 
         self._use_secagg: bool = False
@@ -101,7 +101,7 @@ class Round:
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
         self.aggregator_args = aggregator_args
-        self.aux_vars = aux_vars or []
+        self.aux_vars = aux_vars or {}
         self.node_args = node_args
         self.training = training
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
@@ -488,11 +488,16 @@ class Round:
                 "This process can take some time depending on model size.",
                 researcher_id=self.researcher_id,
             )
-            cryptable, *auxvar_args = flatten_auxvar_for_secagg(optim_aux_var)
+            cryptable, enc_specs, cleartext, clear_cls = (
+                flatten_auxvar_for_secagg(optim_aux_var)
+            )
             encrypted = encrypt(params=model_weights + cryptable)
             encrypted_wgt = encrypted[:len(model_weights)]
             encrypted_aux = EncryptedAuxVar(
-                encrypted[len(model_weights):], *auxvar_args
+                encrypted=[encrypted[len(model_weights):]],
+                enc_specs=enc_specs,
+                cleartext=cleartext,
+                clear_cls=clear_cls,
             )
         # Case when there are only model parameters to encrypt.
         else:
@@ -551,19 +556,12 @@ class Round:
         """
         # Early-exit if there are no auxiliary variables to process.
         if not any(self.aux_vars):
-            return
-
-        # TODO-PAUL: clarify this + ensure these are AuxVar
-        aux_vars = {}
-        aux_vars.update(self.aux_vars[0])
-        aux_vars.update(self.aux_vars[1])
-
+            return None
         # Fetch the training plan's BaseOptimizer.
         try:
             optimizer = self._get_base_optimizer()
         except FedbiomedRoundError as exc:
             return str(exc)
-
         # Verify that the BaseOptimizer wraps an Optimizer.
         if not isinstance(optimizer.optimizer, Optimizer):
             return (
@@ -572,14 +570,13 @@ class Round:
             )
         # Pass auxiliary variables to the Optimizer.
         try:
-            optimizer.optimizer.set_aux(aux_vars)
+            optimizer.optimizer.set_aux(self.aux_vars)
         except FedbiomedOptimizerError as exc:
             return (
                 "TrainingPlan Optimizer failed to ingest the provided "
                 f"auxiliary variables: {repr(exc)}"
             )
-
-        return
+        return None
 
     def _load_round_state(self, state_id: str) -> None:
         """Loads optimizer state of previous `Round`, given a `state_id`.

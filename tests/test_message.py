@@ -1600,7 +1600,7 @@ class TestMessage(unittest.TestCase):
             "training_plan": "TP",
             "training_plan_class": "my_model",
             "aggregator_args": {},
-            "aux_vars": ["https://dev.null", "https://dev.null"],
+            "aux_vars": {},
             "command": 'train'
         }
 

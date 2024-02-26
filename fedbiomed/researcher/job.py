@@ -268,7 +268,7 @@ class Job:
         aggregator_args: Dict[str, Dict[str, Any]],
         secagg_arguments: Optional[Dict] = None,
         do_training: bool = True,
-        optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
+        optim_aux_var: Optional[Dict[str, AuxVar]] = None,
     ) -> None:
         """ Sends training request to nodes and waits for the replies
 
@@ -279,7 +279,7 @@ class Job:
                 strategy, useful to transfer some data when it's required by am aggregator.
             secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
-            optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
+            optim_aux_var: Auxiliary variables sent by the researcher-side Optimizer, if any.
                 Note that such variables may only be used if both the Experiment and node-side training plan
                 hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
                 are coherent with each other as to expected information exchange.
@@ -304,7 +304,7 @@ class Job:
             'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
             'command': 'train',
             'aggregator_args': {},
-            'aux_vars': [],
+            'aux_vars': optim_aux_var,
         }
 
         timer = {}
@@ -317,23 +317,11 @@ class Job:
         # (behaviour can be defined by user / changed by strategy)
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
-        # Upload optimizer auxiliary variables, when there are some.
-        if do_training and optim_aux_var:
-            aux_shared, aux_bynode = (
-                self._prepare_agg_optimizer_aux_var(optim_aux_var, nodes=list(self._nodes))
-            )
-
-        else:
-            aux_shared = {}
-            aux_bynode = {}
-
         # Loop over nodes, add node specific data and send train request
         messages = MessagesByNode()
 
         for node in self._nodes:
             msg['dataset_id'] = self._data.data()[node]['dataset_id']
-            msg['aux_vars'] = [aux_shared, aux_bynode.get(node, None)]
-
             msg['state_id'] = nodes_state_ids.get(node)
 
             # FIXME: There might be another node join recently
@@ -357,46 +345,6 @@ class Job:
 
         # return the list of nodes which answered because nodes in error have been removed
         return self._nodes
-
-    @staticmethod
-    def _prepare_agg_optimizer_aux_var(
-        aux_var: Dict[str, Dict[str, Any]],
-        nodes: List[uuid.UUID],
-    ) -> Tuple[
-        Dict[str, Dict[str, Any]],
-        Dict[uuid.UUID, Dict[str, Dict[str, Any]]],
-    ]:
-        """Collect and structure researcher-side Optimizer auxiliary variables.
-
-        Args:
-            aux_var: Auxiliary variables with to structure into multiple dicts,
-                from `{mod_name: (shared_dict | {node_id: node_dict})}` to
-                `{mod_name: shared_dict}` & `{node_id: {mod_name: node_dict}}`.
-            nodes: Ids of the nodes to whom auxiliary variables should be
-                sent. This is used to drop information of non-participating
-                nodes.
-
-        Returns:
-            aux_shared: Dict containing auxiliary variables that are shared
-                across all nodes, with `{mod_name: shared_dict}` format.
-            aux_bynode: Dict containing node-wise dicts of node-specific
-                auxiliary variables, with `{node_id: {mod_name: node_dict}}`
-                format.
-        """
-        aux_shared = {}  # type: Dict[str, Dict[str, Any]]
-        aux_bynode = {}  # type: Dict[uuid.UUID, Dict[str, Dict[str, Any]]]
-        # Iterate over nodes and plug-in-module-wise auxiliary variables.
-        for node_id in nodes:
-            aux_bynode[node_id] = {}
-            for mod_name, mod_info in aux_var.items():
-                # Case of node-specfic information.
-                if node_aux := mod_info.get(str(node_id)):
-                    aux_bynode[node_id][mod_name] = node_aux
-                # Case of global information shared with all nodes.
-                elif mod_name not in aux_shared:
-                    aux_shared[mod_name] = mod_info
-        # Return the restructured auxiliary variables dicts.
-        return aux_shared, aux_bynode
 
     def extract_received_optimizer_aux_var_from_round(
         self,

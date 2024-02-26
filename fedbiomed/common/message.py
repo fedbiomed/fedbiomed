@@ -707,7 +707,7 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     command: str
     round: int
     aggregator_args: Dict
-    aux_vars: Optional[list] = None
+    aux_vars: Optional[dict] = None
     secagg_servkey_id: Optional[str] = None
     secagg_biprime_id: Optional[str] = None
     secagg_random: Optional[float] = None
