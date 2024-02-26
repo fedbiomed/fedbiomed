@@ -35,11 +35,19 @@ BOLD = '\033[1m'
 
 class CLIArgumentParser:
 
-    def __init__(self, subparser, parser: Optional[argparse.ArgumentParser] = None):
+    def __init__(self, subparser: argparse.ArgumentParser):
 
         self._subparser = subparser
-        self._parser = parser
+        # Parser that is going to be add using subparser
+        self._parser = None
 
+    def default(self, args: argparse.Namespace = None) -> None:
+        """Default function for subparser command"""
+        
+        self._parser.print_help()
+        
+        return None
+        
 
 class ConfigNameAction(ABC, argparse.Action):
     """Action for the argument config
@@ -98,10 +106,12 @@ class ConfigurationParser(CLIArgumentParser):
     def initialize(self):
         """Initializes argument parser for creating configuration file."""
 
-        configuration = self._subparser.add_parser(
+        self._parser = self._subparser.add_parser(
             'configuration',
             help='The helper for generating or updating component configuration files, see `configuration -h`'
                  ' for more details')
+        
+        self._parser.set_defaults(func=self.default)
 
         # Common parser to register common arguments for create and refresh
         common_parser = argparse.ArgumentParser(add_help=False)
@@ -135,7 +145,7 @@ class ConfigurationParser(CLIArgumentParser):
 
 
         # Create sub parser under `configuration` command
-        configuration_sub_parsers = configuration.add_subparsers()
+        configuration_sub_parsers = self._parser.add_subparsers()
 
         create = configuration_sub_parsers.add_parser(
             'create',
@@ -650,11 +660,10 @@ class CommonCLI:
                 Please make sure this method is called after all necessary arguments are set
         """
         args, unknown_args = self._parser.parse_known_args(args_)
-
         if hasattr(args, 'func'):
             specs = get_method_spec(args.func)
             if specs:
-                # If default function has 2 arguments
+                 # If default function has 2 arguments
                 if len(specs) > 1:
                     return args.func(args, unknown_args)
                 else:
@@ -663,19 +672,13 @@ class CommonCLI:
                         args = self._parser.parse_args(args_)
                     args.func(args)
             else:
-                # Raise for unrecognized arguments
+                 # Raise for unrecognized arguments
                 if unknown_args:
                     self._parser.parse_args(args_)
                 args.func()
-
         else:
-            args = self._parser.parse_args(args_)
+            args = self._parser.print_help()
 
-            print(f"{RED}ERROR:{NC}")
-            print(f"{BOLD}Invalid usage or missing command please check"
-                  f" the usage below{NC}")
-
-            self._parser.parse_args(args_ + ['-h'])
 
 if __name__ == '__main__':
     cli = CommonCLI()
