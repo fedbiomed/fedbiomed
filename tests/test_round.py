@@ -1,19 +1,11 @@
-import builtins
 import copy
-import importlib
 import inspect
-import logging
 import os
-import tempfile
 import unittest
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 from unittest.mock import MagicMock, create_autospec, patch, PropertyMock
 
-import numpy as np
-from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
-from fedbiomed.common.serializer import Serializer
-from fedbiomed.node.node_state_manager import NodeStateFileName
-
+from declearn.optimizer.modules import AuxVar
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
@@ -27,18 +19,20 @@ from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlock
 from testsupport import fake_training_plan
 
 import torch
-from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModule, RidgeRegularizer
 
 from fedbiomed.common.constants import DatasetTypes, SecureAggregationSchemes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
-from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError, FedbiomedUserInputError
+from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.models import TorchModel, Model
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
+from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModule, RidgeRegularizer
+from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
+
 from fedbiomed.node.environ import environ
+from fedbiomed.node.node_state_manager import NodeStateFileName
 from fedbiomed.node.round import Round
-from fedbiomed.common.data import NPDataLoader
 
 # Needed to access length of dataset from Round class
 class FakeLoader:
@@ -509,7 +503,7 @@ class TestRound(NodeTestCase):
         self.r1.training_plan_class = "DeclearnAuxVarModel"
         self.r1.dataset = {'dataset_id': 'dataset_id_1234',
                         'path': os.path.join('path', 'to', 'my', 'dataset')}
-        self.r1.aux_vars = [{}, {'scaffold': {'delta': 'some incorrect value for scaffold'}}]
+        self.r1.aux_vars = {'scaffold': 'some-incorrect-data'}
 
 
         # action
@@ -522,7 +516,6 @@ class TestRound(NodeTestCase):
 
     def test_round_12_process_optim_aux_var(self):
         """Test that 'process_optim_aux_var' works properly."""
-
         # Set up a mock BaseOptimizer with an attached Optimizer.
         mock_optim = create_autospec(Optimizer, instance=True)
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
@@ -530,23 +523,17 @@ class TestRound(NodeTestCase):
         # Attach the former to the Round's mock TrainingPlan.
         self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
         self.r1.training_plan.optimizer.return_value = mock_b_opt
-
         # Attach fake auxiliary variables (as though pre-downloaded).
-        fake_aux_var = [{}, {"module": {"key": "val"}}]
-        setattr(self.r1, "aux_vars", fake_aux_var)
+        mock_aux_var = {"module": create_autospec(AuxVar, instance=True)}
+        self.r1.aux_vars = mock_aux_var
         # Call the tested method and verify its outputs and effects.
         msg = self.r1.process_optim_aux_var()
         self.assertEqual(msg, None)
-
-        call_with = {}
-        call_with.update(fake_aux_var[0])
-        call_with.update(fake_aux_var[1])
-        mock_optim.set_aux.assert_called_once_with(call_with)
+        mock_optim.set_aux.assert_called_once_with(mock_aux_var)
 
     def test_round_13_process_optim_aux_var_without_aux_var(self):
         """Test that 'process_optim_aux_var' exits properly without aux vars."""
         # Set up a Round with a mock Optimizer attached, but no aux vars.
-
         mock_optim = create_autospec(Optimizer, instance=True)
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
         mock_b_opt.optimizer = mock_optim
@@ -560,8 +547,7 @@ class TestRound(NodeTestCase):
     def test_round_14_process_optim_aux_var_without_base_optimizer(self):
         """Test that 'process_optim_aux_var' documents missing BaseOptimizer."""
         # Set up a Round with fake aux_vars, but no BaseOptimizer.
-
-        setattr(self.r1, "aux_vars", [{}, {"module": {"key": "val"}}])
+        self.r1.aux_vars = {"module": create_autospec(AuxVar, instance=True)}
         self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
         self.r1.training_plan.optimizer.return_value = None
         # Call the tested method, verifying that it returns an error.
@@ -572,8 +558,7 @@ class TestRound(NodeTestCase):
     def test_round_15_process_optim_aux_var_without_optimizer(self):
         """Test that 'process_optim_aux_var' documents missing Optimizer."""
         # Set up a Round with aux vars, but a non-Optimizer optimizer.
-
-        setattr(self.r1, "aux_vars", [{}, {"module": {"key": "val"}}])
+        self.r1.aux_vars = {"module": create_autospec(AuxVar, instance=True)}
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
         mock_b_opt.optimizer = MagicMock()  # not a declearn-based Optimizer
         self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
@@ -586,10 +571,8 @@ class TestRound(NodeTestCase):
     def test_round_16_process_optim_aux_var_with_optimizer_error(self):
         """Test that 'process_optim_aux_var' documents 'Optimizer.set_aux' error."""
         # Set up a Round with fake pre-downloaded aux vars.
-
-        fake_aux_var = [{}, {"module": {"key": "val"}}]
-        setattr(self.r1, "aux_vars", [{}, {"module": {"key": "val"}}])
-
+        mock_aux_var = {"module": create_autospec(AuxVar, instance=True)}
+        self.r1.aux_vars = mock_aux_var
         # Set up a mock BaseOptimizer with an attached failing Optimizer.
         mock_optim = create_autospec(Optimizer, instance=True)
         fake_error = "fake FedbiomedOptimizerError on 'set_aux' call"
@@ -602,17 +585,11 @@ class TestRound(NodeTestCase):
         # Call the tested method, verifying that it returns an error.
         msg = self.r1.process_optim_aux_var()
         self.assertTrue(fake_error in msg)
-
-        call_with = {}
-        call_with.update(fake_aux_var[0])
-        call_with.update(fake_aux_var[1])
-        mock_optim.set_aux.assert_called_once_with(call_with)
+        mock_optim.set_aux.assert_called_once_with(mock_aux_var)
 
     def test_round_17_collect_optim_aux_var(self):
         """Test that 'collect_optim_aux_var' works properly with an Optimizer."""
         # Set up a Round with an attached mock Optimizer.
-
-
         mock_optim = create_autospec(Optimizer, instance=True)
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
         # why not using DeclearnOptimizer?
@@ -627,7 +604,6 @@ class TestRound(NodeTestCase):
     def test_round_18_collect_optim_aux_var_without_optimizer(self):
         """Test that 'collect_optim_aux_var' works properly without an Optimizer."""
         # Set up a Round with a non-Optimizer optimizer.
-
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
         mock_b_opt.optimizer = MagicMock()  # non-declearn-based object
         self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
@@ -639,7 +615,6 @@ class TestRound(NodeTestCase):
     def test_round_19_collect_optim_aux_var_without_base_optimizer(self):
         """Test that 'collect_optim_aux_var' fails without a BaseOptimizer."""
         # Set up a Round without a BaseOptimizer.
-
         self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
         self.r1.training_plan.optimizer.return_value = None
         # Verify that aux-var collection raises.
@@ -745,7 +720,7 @@ class TestRound(NodeTestCase):
 
     @patch('fedbiomed.node.round.Serializer', autospec=True)
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    def test_round_23_save_round_state(self,
+    def test_round_28_save_round_state(self,
                                        get_optim_patch,
                                        serializer_patch):
 
