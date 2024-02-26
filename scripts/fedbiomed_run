@@ -476,6 +476,7 @@ case $1 in
                     NB_OPTS='--NotebookApp.use_redirect_file=false'
                 fi
                 PARAMS=${@:3:$#-2}
+                cd $basedir/notebooks
                 $basedir/scripts/fedbiomed researcher start $PARAMS
                 exit 0
 
