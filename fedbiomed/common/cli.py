@@ -670,11 +670,11 @@ class CommonCLI:
 
         else:
             args = self._parser.parse_args(args_)
-            
+
             print(f"{RED}ERROR:{NC}")
             print(f"{BOLD}Invalid usage or missing command please check"
                   f" the usage below{NC}")
-        
+
             self._parser.parse_args(args_ + ['-h'])
 
 if __name__ == '__main__':
