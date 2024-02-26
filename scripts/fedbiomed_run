@@ -241,7 +241,9 @@ case $1 in
                     deprecation_warning "The option ${BLD}ip_address${NC} is deprecated and will be removed in future releases\
                         please use/set environment variable ${BLD}'export RESEARCHER_SERVER_HOST'${NC} or \
                         ${BLD}'export RESEARCHER_SERVER_PORT'${NC}\
-                        before executing command."
+                        before executing command.\n\
+                        ${BLD}WARNING:${NC} 'export RESEARCHER_SERVER_PORT' is only valid when generating a new \
+                        configuration file (will not be interpreted otherwise)"
 
                     if [ $# -lt 3 ] ; then
                         echo "ERROR: missing researcher ip"
@@ -442,9 +444,9 @@ case $1 in
                         ${BLD}'export RESEARCHER_SERVER_PORT'${NC}\
                         before executing command.\
                         \n${BLD}WARNING:${NC} ${BLD}ip_address${NC} and ${BLD}'export RESEARCHER_SERVER_HOST'${NC} \
-                        are only valid when generation a \
-                        new researcher configuration because the generated certificate uses it as its CN \
-                        (cannot be overwritten afterwards)."
+                        are only valid when generating a \
+                        new researcher configuration because is is included in the generated certificate \
+                        used as server CN (will not be overwritten afterwards)."
 
                     if [ $# -lt 3 ] ; then
                         echo "ERROR: missing researcher ip"
