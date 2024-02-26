@@ -595,4 +595,4 @@ class NodeCLI(CommonCLI):
 
 if __name__ == '__main__':
     cli = NodeCLI()
-    cli.parser_args()
+    cli.parse_args()
