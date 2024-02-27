@@ -79,10 +79,11 @@ class TrainingJob(Job):
         self._optim_aux_var = optim_aux_var
 
 
-    def _get_training_results(self,
-                              replies: Dict[str, TrainReply],
-                              errors: Dict[str, ErrorMessage],
-                              ) -> Dict:
+    def _get_training_results(
+        self,
+        replies: Dict[str, TrainReply],
+        errors: Dict[str, ErrorMessage],
+    ) -> Dict[str, Dict[str, Any]]:
         """"Waits for training replies, and updates `_training_replies` wrt replies from Node(s) participating
          in the training
 
@@ -127,7 +128,7 @@ class TrainingJob(Job):
         return timings
 
     def execute(self) -> Tuple[
-        Dict[str, TrainReply],
+        Dict[str, Dict[str, Any]],  # inner dicts are TrainReply dumps
         Union[Dict[str, Dict[str, AuxVar]], Dict[str, EncryptedAuxVar]],
     ]:
         """ Sends training request to nodes and waits for the responses
@@ -189,7 +190,7 @@ class TrainingJob(Job):
 
         # Extract aux variables from training replies.
         if self._do_training:
-            aux_vars = self._extract_received_optimizer_aux_var_from_round(training_replies)
+            aux_vars = self._extract_received_optimizer_aux_var_from_round(replies)
         else:
             aux_vars = {}
         return training_replies, aux_vars
@@ -230,7 +231,11 @@ class TrainingJob(Job):
             `{node_name: {module_name: module_aux_var}}` if secagg is not used,
             or `{node_name: encrypted_aux_var}` if it is used.
         """
-        return [
-            reply.get("optim_aux_var", {})
-            for reply in training_replies.values()
-        ]
+        nodes_aux_var = {}  # type: Union[Dict[str, Dict[str, AuxVar]], Dict[str, Dict[str, EncryptedAuxVar]]]
+        for reply in training_replies.values():
+            node_id = reply.node_id
+            node_av = reply.optim_aux_var or {}
+            if reply.encrypted:
+                node_av = EncryptedAuxVar.from_dict(node_av)
+            nodes_aux_var[node_id] = node_av
+        return nodes_aux_var
