@@ -2,7 +2,7 @@ import copy
 import inspect
 import os
 import unittest
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 from unittest.mock import MagicMock, create_autospec, patch, PropertyMock
 
 from declearn.optimizer.modules import AuxVar
@@ -18,14 +18,16 @@ from testsupport.fake_uuid import FakeUuid
 from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlockTypesForTesting
 from testsupport import fake_training_plan
 
+import numpy as np
 import torch
 
 from fedbiomed.common.constants import DatasetTypes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.message import TrainReply
 from fedbiomed.common.models import TorchModel, Model
-from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
+from fedbiomed.common.optimizers import BaseOptimizer, EncryptedAuxVar, Optimizer
 from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModule, RidgeRegularizer
 from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
@@ -712,9 +714,82 @@ class TestRound(NodeTestCase):
         # Verify that aux-var collection raises.
         self.assertRaises(FedbiomedRoundError, self.r1.collect_optim_aux_var)
 
-    # add a test with : shared and node specific auxiliary avraibales
+    @patch("fedbiomed.common.utils.import_class_object_from_file")
+    @patch("fedbiomed.node.round.BPrimeManager.get")
+    @patch("fedbiomed.node.round.SKManager.get")
+    def test_round_26_run_model_training_secagg_with_optim_aux_var(
+        self,
+        servkey_get,
+        biprime_get,
+        ic_from_file,
+    ):
+        """Test the training loop with both SecAgg and optimizer AuxVar."""
+        # Set up a mock TrainingPlan with a mock declearn-based Optimizer.
+        training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        fbm_optimizer = create_autospec(Optimizer, instance=True)
+        base_optimizer = create_autospec(BaseOptimizer, instance=True)
+        base_optimizer.optimizer = fbm_optimizer
+        base_optimizer.save_state.return_value = None
+        training_plan.optimizer.return_value = base_optimizer
+        training_plan.optimizer_args.return_value = {}
+        # Set deterministic output model parameters and auxiliary variables.
+        training_plan.after_training_params.return_value = [0.1, 0.2, 0.3]
 
-    def test_round_26_split_train_and_test_data_raises_exceptions(self):
+        class StubAuxVar(AuxVar):
+            """'AuxVar' subclass for testing purposes."""
+
+            cryptable: np.ndarray = np.array([0.0, 0.1])
+            cleartext: str = "mock-value"
+
+            def prepare_for_secagg(
+                self,
+            ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+                return {"cryptable": self.cryptable}, {"cleartext": self.cleartext}
+
+        fbm_optimizer.get_aux.return_value = {"module": StubAuxVar()}
+        # Patch things to approve the training plan and use it in the round.
+        environ["TRAINING_PLAN_APPROVAL"] = False
+        ic_from_file.return_value = (MagicMock(), training_plan)
+        # Set up forceful secagg configuration.
+        servkey_get.return_value = {
+            "parties": ["r-1", "n-1", "n-2"], "context" : {"server_key": 123445}
+        }
+        biprime_get.return_value = {
+            "parties": ["r-1", "n-1", "n-2"], "context" : {"biprime": 123445}
+        }
+        environ["SECURE_AGGREGATION"] = True
+        environ["FORCE_SECURE_AGGREGATION"] = True
+        # Patch the data splitting method. This is ugly, but unavoidable.
+        self.r1._split_train_and_test_data = MagicMock(
+            return_value=(FakeLoader(), FakeLoader())
+        )
+        training_plan.training_data_loader = FakeLoader()
+        # Run Round model training.
+        self.r1.initialize_arguments()
+        msg_test = self.r1.run_model_training(secagg_arguments={
+            'secagg_random': 1.12,
+            'secagg_servkey_id': '1234',
+            'secagg_biprime_id': '1234',
+        })
+        # Verify that the routine succeeded and model parameters were encryped.
+        assert isinstance(msg_test, TrainReply)
+        assert msg_test.success, f"Training failed: {msg_test.msg}"
+        assert msg_test.encrypted
+        assert isinstance(msg_test.params, list)
+        assert all(isinstance(x, int) for x in msg_test.params)
+        # Verify that optimizer auxiliary variables were encrypted.
+        assert isinstance(msg_test.optim_aux_var, dict)
+        aux_var = EncryptedAuxVar.from_dict(msg_test.optim_aux_var)
+        assert len(aux_var.encrypted) == 1
+        assert all(isinstance(x, int) for x in aux_var.encrypted[0])
+        assert aux_var.cleartext == [{"cleartext": "mock-value"}]
+        assert aux_var.clear_cls == [("module", StubAuxVar)]
+        # Reset environment variables.
+        environ["SECURE_AGGREGATION"] = False
+        environ["FORCE_SECURE_AGGREGATION"] = False
+        environ["TRAINING_PLAN_APPROVAL"] = True
+
+    def test_round_27_split_train_and_test_data_raises_exceptions(self):
         """Test that _split_train_and_test_data raises correct exceptions"""
         mock_training_plan = MagicMock()
         def foo_takes_an_argument(x):
@@ -729,7 +804,7 @@ class TestRound(NodeTestCase):
 
     @patch('fedbiomed.node.round.Serializer')
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    def test_round_27_load_round_state(self,
+    def test_round_28_load_round_state(self,
                                        get_optim_patch,
                                        serializer_patch,
                                        ):
@@ -770,7 +845,7 @@ class TestRound(NodeTestCase):
     @patch('fedbiomed.node.round.logger')
     @patch('fedbiomed.node.round.Serializer')
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    def test_round_28_load_round_state_failure(self,
+    def test_round_29_load_round_state_failure(self,
                                                get_optim_patch,
                                                serializer_patch,
                                                logger_patch
@@ -812,7 +887,7 @@ class TestRound(NodeTestCase):
 
     @patch('fedbiomed.node.round.Serializer', autospec=True)
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    def test_round_28_save_round_state(self,
+    def test_round_30_save_round_state(self,
                                        get_optim_patch,
                                        serializer_patch):
 
@@ -854,7 +929,7 @@ class TestRound(NodeTestCase):
 
 
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    def test_round_29_save_round_state_failure_saving_optimizer(self,
+    def test_round_31_save_round_state_failure_saving_optimizer(self,
                                                                 get_optim_patch,
                                                                 ):
         self.r1.job_id = '1234'
@@ -876,7 +951,7 @@ class TestRound(NodeTestCase):
 
     @patch('uuid.uuid4', autospec=True)
     @patch('fedbiomed.node.round.Serializer', autospec=True)
-    def test_round_30_save_and_load_state(self,
+    def test_round_32_save_and_load_state(self,
                                           serializer_patch,
                                           uuid_patch):
 
@@ -905,7 +980,7 @@ class TestRound(NodeTestCase):
         self.state_manager_mock.return_value.add.assert_called_once()
 
 
-    def test_round_31_initialize_arguments(self):
+    def test_round_33_initialize_arguments(self):
         previous_state_id = 'state_id_1234'
 
         self.r1.initialize_arguments(previous_state_id=previous_state_id)
