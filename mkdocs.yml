@@ -142,6 +142,11 @@ nav:
 
 extra:
   NewsPosts:
+      'WAICF-2024':
+          name: 'Fed-BioMed @ WAICF 2024'
+          desc: 'Fed-BioMed at WAICF 2024 on February 8-9'
+          link: '/news/waicf-2024'
+          image: 'assets/img/waicf2024.png'
       'Release-12-2023':
           name: 'A new release of Fed-BioMed (v5.0) is out!'
           desc: 'A new release of Fed-BioMed is now available, introducing gRPC communication layer !'

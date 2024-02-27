@@ -50,10 +50,7 @@ Project does not mention authors in the code files. Developers can add themselve
 
 ### Framework
 
-The framework is contained in [one git repository](https://github.com/fedbiomed/fedbiomed) with 3 functional parts:
-
-* network: a top layer which contains network layers (http server, message server) and
-a set of scripts to start the services and the components of fedbiomed.
+The framework is contained in [one git repository](https://github.com/fedbiomed/fedbiomed) with 2 functional parts:
 
 * node: the library and tools to run on each node
 
