@@ -23,7 +23,7 @@ from fedbiomed.common.exceptions import (
     FedbiomedUserInputError
 )
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.message import NodeMessages, TrainReply
 from fedbiomed.common.optimizers import (
     BaseOptimizer,
     EncryptedAuxVar,
@@ -222,9 +222,9 @@ class Round:
 
 
     def run_model_training(
-            self,
-            secagg_arguments: Union[Dict, None] = None,
-    ) -> Dict[str, Any]:
+        self,
+        secagg_arguments: Union[Dict, None] = None,
+    ) -> TrainReply:
         """Runs one round of model training
 
         Args:
@@ -422,7 +422,8 @@ class Round:
                 )
                 results["encrypted"] = True
                 results["encryption_factor"] = enc_factor
-                results["optim_aux_var"] = aux_var
+                if aux_var is not None:
+                    results["optim_aux_var"] = aux_var.to_dict()
 
             results['params'] = model_weights
             results['optimizer_args'] = self.training_plan.optimizer_args()
@@ -514,12 +515,12 @@ class Round:
         return encrypted_wgt, encrypted_rng, encrypted_aux
 
     def _send_round_reply(
-            self,
-            success: bool = False,
-            message: str = '',
-            extend_with: Optional[Dict] = None,
-            timing: dict = {},
-    ) -> None:
+        self,
+        success: bool = False,
+        message: str = '',
+        extend_with: Optional[Dict] = None,
+        timing: dict = {},
+    ) -> TrainReply:
         """Sends reply to researcher after training/validation.
 
         Message content changes based on success status.
@@ -763,7 +764,7 @@ class Round:
                                    `fedbiomed.common.data.DataManager`.
                                  - If `load` method of DataManager returns an error
         """
-        training_plan_type = self.training_plan.type()
+        training_plan_type = self.training_plan.type()  # FIXME: type is not part of the BaseTrainingPlan API
         try:
             data_manager = self.training_plan.training_data()
         except TypeError as e:

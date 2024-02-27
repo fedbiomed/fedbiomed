@@ -383,6 +383,8 @@ class Job:
             node_id = reply["node_id"]
             node_av = reply.get("optim_aux_var", {})
             if node_av:
+                if reply["encrypted"]:
+                    node_av = EncryptedAuxVar.from_dict(node_av)
                 nodes_optim_aux_vars[node_id] = node_av
                 reply["optim_aux_var"] = aux_vars_path
         # Save node-wise optimizer auxiliary variables in a file (if any).
