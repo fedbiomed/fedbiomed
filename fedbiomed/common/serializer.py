@@ -3,13 +3,14 @@
 
 """MsgPack serialization utils, wrapped into a namespace class."""
 
+import dataclasses
 from math import ceil
 from typing import Any, Optional
 
 import msgpack
 import numpy as np
 import torch
-from declearn.model.api import Vector
+from declearn.model.api import Vector, VectorSpec
 from declearn.optimizer.modules import AuxVar
 from declearn.utils import json_pack, json_unpack
 
@@ -122,6 +123,8 @@ class Serializer:
             return {"__type__": "torch.Tensor", "value": spec}
         if isinstance(obj, Vector):
             return {"__type__": "Vector", "value": obj.coefs}
+        if isinstance(obj, VectorSpec):
+            return {"__type__": "VectorSpec", "value": dataclasses.asdict(obj)}
         if isinstance(obj, AuxVar):
             return {"__type__": "AuxVar", "value": json_pack(obj)}
         if isinstance(obj, MetricTypes):
@@ -155,6 +158,8 @@ class Serializer:
             return torch.from_numpy(array)
         if objtype == "Vector":
             return Vector.build(obj["value"])
+        if objtype == "VectorSpec":
+            return VectorSpec(**obj["value"])
         if objtype == "AuxVar":
             return json_unpack(obj["value"])
         if objtype == "MetricTypes":
