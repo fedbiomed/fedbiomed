@@ -329,7 +329,6 @@ class VES:
             mask <<= 1
             mask |= bit
 
-        # while b != 0:
         for _ in range(element_number):
             v = mask & b
             V.append(int(v))

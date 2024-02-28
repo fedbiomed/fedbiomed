@@ -351,25 +351,31 @@ class TestJoyeLibert(unittest.TestCase):
 
     def test_joye_libert_02_aggregate(self):
 
-        plaintext = [10, 10, 10]
+        plaintexts = [
+            [10, 10, 10],
+            [0, 5, 20, 0]
+        ]
 
-        en_1 = self.jl.protect(public_param=self.public_param,
-                               user_key=self.user_key_1,
-                               tau=1,
-                               x_u_tau=plaintext,
-                               n_users=2)
+        for plaintext in plaintexts:
 
-        en_2 = self.jl.protect(public_param=self.public_param,
-                               user_key=self.user_key_2,
-                               tau=1,
-                               x_u_tau=plaintext,
-                               n_users=2)
+            en_1 = self.jl.protect(public_param=self.public_param,
+                                   user_key=self.user_key_1,
+                                   tau=1,
+                                   x_u_tau=plaintext,
+                                   n_users=2)
 
-        en_1_ = [EncryptedNumber(self.public_param, int(en)) for en in en_1]
-        en_2_ = [EncryptedNumber(self.public_param, int(en)) for en in en_2]
+            en_2 = self.jl.protect(public_param=self.public_param,
+                                   user_key=self.user_key_2,
+                                   tau=1,
+                                   x_u_tau=plaintext,
+                                   n_users=2)
 
-        agg = self.jl.aggregate(sk_0=self.server_key,
-                                tau=1,
-                                list_y_u_tau=[en_1_, en_2_])
+            en_1_ = [EncryptedNumber(self.public_param, int(en)) for en in en_1]
+            en_2_ = [EncryptedNumber(self.public_param, int(en)) for en in en_2]
 
-        self.assertListEqual(agg, [20, 20, 20])
+            agg = self.jl.aggregate(sk_0=self.server_key,
+                                    tau=1,
+                                    list_y_u_tau=[en_1_, en_2_],
+                                    num_expected_params=len(plaintext))
+
+            self.assertListEqual(agg, [2 * el for el in plaintext])

@@ -1107,6 +1107,7 @@ class TestExperiment(ResearcherTestCase):
                                              [0.1, 0.9],
                                              10,
                                              {'node-1': [1], 'node-2': [1]})
+        self.mock_job.return_value.training_plan.model.return_value.flatten.return_value = [1, 2, 3, 4, 5]
         # Prepare secure aggregation context
         self.test_exp.secagg._configure_round(parties=[environ["ID"], "node-1", "node-2"],
                                               job_id="dummy-job-id")
