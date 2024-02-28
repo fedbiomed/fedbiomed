@@ -6,11 +6,16 @@ Optimizer is an interface that enables the use of [declearn](https://gitlab.inri
 optimizers for Federated Learning inside Fed-BioMed
 """
 
+from . import declearn
+from .declearn import AuxVar
 from .optimizer import Optimizer
-from .generic_optimizers import (SklearnOptimizerProcessing,
-                                 NativeSkLearnOptimizer,
-                                 NativeTorchOptimizer,
-                                 BaseOptimizer, DeclearnOptimizer)
+from .generic_optimizers import (
+    BaseOptimizer,
+    DeclearnOptimizer,
+    NativeSkLearnOptimizer,
+    NativeTorchOptimizer,
+    SklearnOptimizerProcessing,
+)
 from ._secagg import (
     EncryptedAuxVar,
     flatten_auxvar_for_secagg,
@@ -18,13 +23,15 @@ from ._secagg import (
 )
 
 __all__ = [
+    "AuxVar",
     "Optimizer",
-    "SklearnOptimizerProcessing",
-    "NativeSkLearnOptimizer",
-    "NativeTorchOptimizer",
     "BaseOptimizer",
     "DeclearnOptimizer",
+    "NativeSkLearnOptimizer",
+    "NativeTorchOptimizer",
+    "SklearnOptimizerProcessing",
     "EncryptedAuxVar",
     "flatten_auxvar_for_secagg",
     "unflatten_auxvar_after_secagg",
+    "declearn",
 ]

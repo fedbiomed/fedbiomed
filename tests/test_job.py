@@ -4,7 +4,6 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, call, create_autospec, patch
 
-from declearn.optimizer.modules import AuxVar
 
 from testsupport.base_case import ResearcherTestCase  # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_mocks import MockRequestModule
@@ -14,10 +13,9 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.message import (
     TrainReply,ErrorMessage, TrainingPlanStatusReply
 )
-from fedbiomed.common.optimizers import EncryptedAuxVar
+from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
-
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import DiscardOnTimeout

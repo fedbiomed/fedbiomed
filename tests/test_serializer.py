@@ -13,10 +13,10 @@ import numpy as np
 import torch
 from declearn.model.sklearn import NumpyVector
 from declearn.model.torch import TorchVector
-from declearn.optimizer.modules import ScaffoldAuxVar
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.serializer import Serializer
+from fedbiomed.common.optimizers.declearn import ScaffoldAuxVar
 
 
 class TestSerializer(unittest.TestCase):

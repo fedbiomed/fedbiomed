@@ -14,11 +14,11 @@ import torch
 from declearn.model.api import Vector
 from declearn.optimizer import Optimizer as DeclearnOptimizer
 from declearn.optimizer.modules import OptiModule
-from fedbiomed.common.optimizers.declearn import ScaffoldServerModule, YogiModule
 from declearn.optimizer.regularizers import Regularizer
 
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
 from fedbiomed.common.optimizers.optimizer import Optimizer
+from fedbiomed.common.optimizers.declearn import ScaffoldServerModule, YogiModule
 
 
 class TestOptimizer(unittest.TestCase):
@@ -251,7 +251,7 @@ class TestOptimizer(unittest.TestCase):
 
             aux_var_list = [aux_var[node_id]['delta'].coefs for node_id in ordered_aux_var_names]
             return aux_var_list
-        
+
         model = torch.nn.Linear(4,2)
         model_params = dict(model.state_dict())
         scaffold_aux_var = {
