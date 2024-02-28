@@ -111,6 +111,8 @@ class Serializer:
                 byteorder="big")}
         if isinstance(obj, tuple):
             return {"__type__": "tuple", "value": list(obj)}
+        if isinstance(obj, set):
+            return {"__type__": "set", "value": list(obj)}
         if isinstance(obj, np.ndarray):
             spec = [obj.tobytes(), obj.dtype.name, list(obj.shape)]
             return {"__type__": "np.ndarray", "value": spec}
@@ -146,6 +148,8 @@ class Serializer:
             return tuple(obj["value"])
         if objtype == "int":
             return int.from_bytes(obj["value"], byteorder="big")
+        if objtype == "set":
+            return set(obj["value"])
         if objtype == "np.ndarray":
             data, dtype, shape = obj["value"]
             return np.frombuffer(data, dtype=dtype).reshape(shape).copy()
