@@ -46,7 +46,7 @@ class DataManager(object):
         self._target = target
         self._loader_arguments: Dict = kwargs
         self._data_manager_instance = None
-        self._test_batch_size: Optional[int] = None
+        #self._test_batch_size: Optional[int] = None
 
     def extend_loader_args(self, extension: Dict):
         """Extends the class' loader arguments

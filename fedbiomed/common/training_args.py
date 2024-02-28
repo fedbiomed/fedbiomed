@@ -329,7 +329,7 @@ class TrainingArgs:
             "test_batch_size": {
                 "rules": [cls.optional_type(typespec=int, argname='test_batch_size')],
                 "required": False,
-                "default": 48
+                "default": 0
             },
             "test_on_local_updates": {
                 "rules": [bool], "required": False, "default": False
