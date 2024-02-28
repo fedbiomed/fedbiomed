@@ -489,10 +489,14 @@ class Round:
                 "This process can take some time depending on model size.",
                 researcher_id=self.researcher_id,
             )
+            # Flatten optimizer auxiliary variables and divide them by scaling weights.
             cryptable, enc_specs, cleartext, clear_cls = (
                 flatten_auxvar_for_secagg(optim_aux_var)
             )
+            cryptable = [x / sample_size for x in cryptable]
+            # Encrypt both model parameters and optimizer aux var at once.
             encrypted = encrypt(params=model_weights + cryptable)
+            # Separate batch encrypted model parameters and optimizer aux var.
             encrypted_wgt = encrypted[:len(model_weights)]
             encrypted_aux = EncryptedAuxVar(
                 encrypted=[encrypted[len(model_weights):]],
