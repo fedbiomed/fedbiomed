@@ -16,6 +16,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.models import Model, SkLearnModel, TorchModel
+from fedbiomed.common.optimizers.declearn import AuxVar
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 
 
@@ -166,13 +167,13 @@ class DeclearnOptimizer(BaseOptimizer):
         updates = self.optimizer.step(grad, weights)
         self._model.apply_updates(updates.coefs)
 
-    def set_aux(self, aux: Dict[str, declearn.optimizer.modules.AuxVar]):
+    def set_aux(self, aux: Dict[str, AuxVar]):
         # FIXME: for imported tensors in PyTorch sent as auxiliary variables,
         # we should push it on the appropriate device (ie cpu/gpu)
         # TODO-PAUL: call the proper declearn routines
         self.optimizer.set_aux(aux)
 
-    def get_aux(self) -> Optional[Dict[str, declearn.optimizer.modules.AuxVar]]:
+    def get_aux(self) -> Optional[Dict[str, AuxVar]]:
         aux = self.optimizer.get_aux()
         return aux
 
@@ -212,7 +213,7 @@ class DeclearnOptimizer(BaseOptimizer):
                     'velocity': {'state': 0.0}})]}
         ```
         Modules of DeclearnOptimizer will be reloaded provided that Module is the same and occupying the same index.
-        Eg if the state contains following modules: 
+        Eg if the state contains following modules:
         ```modules=[AdamModule(), AdagradModule(), MomemtumModule()]```
          And the Optimizer contained in the TrainingPlan has the following modules:
         ```modules=[AdamModule(), MomemtumModule()]```
@@ -242,7 +243,7 @@ class DeclearnOptimizer(BaseOptimizer):
         if load_from_state:
             # first get Optimizer detailed in the TrainingPlan.
 
-            init_optim_state = self.optimizer.get_state()  # we have to get states since it is the only way we can 
+            init_optim_state = self.optimizer.get_state()  # we have to get states since it is the only way we can
             # gather modules (other methods of `Optimizer are private`)
 
             optim_state_copy = copy.deepcopy(optim_state)
@@ -281,7 +282,7 @@ class DeclearnOptimizer(BaseOptimizer):
                                     component_name: str,
                                     components_to_keep: List[Tuple[str, int]]):
         """Methods that checks which modules and regularizers are common from `init_state`, the current state Optimizer
-        state, and `optim_state`, the previous optimizer state. Populates in that regard the `components_to_keep` list, 
+        state, and `optim_state`, the previous optimizer state. Populates in that regard the `components_to_keep` list,
         a list containing common Modules and Regularizers, and that can be access through its reference.
 
         Args:

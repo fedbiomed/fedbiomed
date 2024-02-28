@@ -17,7 +17,6 @@ from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 import numpy as np
 import torch
 from declearn.model.api import Vector
-from declearn.optimizer.modules import AuxVar
 from pathvalidate import sanitize_filename
 from tabulate import tabulate
 
@@ -27,9 +26,7 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.optimizers import (
-    EncryptedAuxVar, Optimizer, unflatten_auxvar_after_secagg
-)
+from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar, Optimizer, unflatten_auxvar_after_secagg
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan

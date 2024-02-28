@@ -11,13 +11,12 @@ import msgpack
 import numpy as np
 import torch
 from declearn.model.api import Vector, VectorSpec
-from declearn.optimizer.modules import AuxVar
 from declearn.utils import json_pack, json_unpack
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.optimizers import EncryptedAuxVar
+from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 
 __all__ = [
     "Serializer",

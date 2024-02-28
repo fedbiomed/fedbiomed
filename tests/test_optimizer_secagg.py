@@ -13,15 +13,18 @@ import declearn
 import declearn.model.torch
 import numpy as np
 import torch
-from declearn.optimizer.modules import AuxVar
 
 from fedbiomed.common.optimizers import (
+    AuxVar,
     EncryptedAuxVar,
     Optimizer,
     flatten_auxvar_for_secagg,
     unflatten_auxvar_after_secagg,
 )
-from fedbiomed.common.optimizers.declearn import ScaffoldClientModule
+from fedbiomed.common.optimizers.declearn import (
+    ScaffoldAuxVar,
+    ScaffoldClientModule,
+)
 from fedbiomed.common.secagg import SecaggCrypter
 from fedbiomed.common.serializer import Serializer
 
@@ -342,8 +345,8 @@ class TestAuxVarSecAgg(unittest.TestCase):
         assert result.keys() == expect.keys() == {"scaffold"}
         exp_scaffold = expect["scaffold"]
         res_scaffold = result["scaffold"]
-        assert isinstance(exp_scaffold, declearn.optimizer.modules.ScaffoldAuxVar)
-        assert isinstance(res_scaffold, declearn.optimizer.modules.ScaffoldAuxVar)
+        assert isinstance(exp_scaffold, ScaffoldAuxVar)
+        assert isinstance(res_scaffold, ScaffoldAuxVar)
         # Verify that SecAgg and raw aggregation results match.
         assert res_scaffold.clients == exp_scaffold.clients
         assert res_scaffold.state is exp_scaffold.state is None

@@ -13,14 +13,13 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple, TypeVar, Type, Union
 
-from declearn.optimizer.modules import AuxVar
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus, JOB_PREFIX, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedNodeStateAgentError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import  TrainRequest, TrainReply, TrainingPlanStatusRequest
-from fedbiomed.common.optimizers import EncryptedAuxVar
+from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.common import utils

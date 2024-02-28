@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, call, create_autospec, patch
 
 import numpy as np
 import torch
-from declearn.optimizer.modules import AuxVar
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -21,7 +20,7 @@ from testsupport import fake_training_plan
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedNodeStateAgentError
 from fedbiomed.common.message import TrainingPlanStatusReply, TrainReply, ErrorMessage
-from fedbiomed.common.optimizers import EncryptedAuxVar
+from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.serializer import Serializer

@@ -11,7 +11,6 @@ import unittest
 from typing import Dict, List, Optional
 from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
-import declearn
 import numpy as np
 import torch
 from declearn.model.api import Vector
@@ -34,7 +33,7 @@ from fedbiomed.common.exceptions import (
     FedbiomedExperimentError, FedbiomedSilentTerminationError
 )
 from fedbiomed.common.optimizers import Optimizer
-from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldServerModule
+from fedbiomed.common.optimizers.declearn import ScaffoldAuxVar, ScaffoldServerModule, YogiModule
 from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer, NativeTorchOptimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -2122,7 +2121,7 @@ class TestExperiment(ResearcherTestCase):
         patch_get_model_params.return_value = model_params
         # simulate a training
         scaffold_aux_var = {
-            'scaffold': declearn.optimizer.modules.ScaffoldAuxVar(
+            'scaffold': ScaffoldAuxVar(
                 delta=Vector.build({k : torch.randn(v.shape) for k,v in model_params.items()}),
                 clients={"node_1", "node_2"},
             )
