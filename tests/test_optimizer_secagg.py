@@ -7,6 +7,7 @@ import dataclasses
 import unittest
 import secrets
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from unittest.mock import MagicMock
 
 import declearn
 import declearn.model.torch
@@ -46,8 +47,13 @@ class NoSecaggAuxVar(AuxVar, register=False):
         raise NotImplementedError("This module does not support SecAgg.")
 
 
-def generate_scaffold_aux_var() -> Dict[str, AuxVar]:
+def generate_scaffold_aux_var(n_feats: int = 32) -> Dict[str, AuxVar]:
     """Generate auxiliary variables from a Scaffold Optimizer.
+
+    Args:
+        n_feats: Dimensionality of features of the mocked linear
+            model. Parameters will have `n_feats + 1` size due
+            to the addition of a bias.
 
     Use mock (random-valued) model weights and input gradients,
     and return auxiliary variables after running a single local
@@ -57,10 +63,10 @@ def generate_scaffold_aux_var() -> Dict[str, AuxVar]:
     declearn.utils.set_device_policy(gpu=False)
     # Run a mock training step using a Scaffold optimizer.
     gradients = declearn.model.torch.TorchVector(
-        {"kernel": torch.randn((32, 1)), "bias": torch.randn((1,))}
+        {"kernel": torch.randn((n_feats, 1)), "bias": torch.randn((1,))}
     )
     weights = declearn.model.torch.TorchVector(
-        {"kernel": torch.randn((32, 1)), "bias": torch.randn((1,))}
+        {"kernel": torch.randn((n_feats, 1)), "bias": torch.randn((1,))}
     )
     optimizer = Optimizer(lr=0.001, modules=[ScaffoldClientModule()])
     optimizer.step(gradients, weights)
@@ -109,7 +115,7 @@ class TestFlattenAuxVarForSecagg(unittest.TestCase):
     def test_flatten_auxvar_scaffold(self) -> None:
         """Test flattening auxiliary variables from a Scaffold optimizer."""
         # Run a mock training step using a Scaffold optimizer.
-        aux_var = generate_scaffold_aux_var()
+        aux_var = generate_scaffold_aux_var(n_feats=32)
         # Flatten the resulting auxiliary variables.
         outputs = flatten_auxvar_for_secagg(aux_var)
         self.assert_flattened_auxvar_types(aux_var, *outputs)
@@ -151,8 +157,8 @@ class TestUnflattenAuxVarAfterSecagg(unittest.TestCase):
         assert aux_var == aux_bis
 
 
-class TestEncryptedAuxVar:
-    """Unit and functional tests for the 'EncryptedAuxVar' data structure."""
+class TestEncryptedAuxVar(unittest.TestCase):
+    """Unit tests for the 'EncryptedAuxVar' data structure."""
 
     @staticmethod
     def assert_dict_serializable(enc_aux: EncryptedAuxVar) -> None:
@@ -192,7 +198,78 @@ class TestEncryptedAuxVar:
         self.assert_dict_serializable(enc_aux)
         self.assert_string_serializable(enc_aux)
 
-    # TODO: add unit test for simple aggregation with deterministic int values
+    def test_aggregate_simple(self) -> None:
+        """Test that 'EncryptedAuxVar' aggregation works as expected.
+
+        Here, leave encryption/decryption apart to focus solely on the
+        aggregation of two instances.
+        """
+        # Set up a couple of 'SimpleAuxVar', flatten and wrap them.
+        aux_a = {"simple": SimpleAuxVar(0.0)}  # type: Dict[str, AuxVar]
+        aux_b = {"simple": SimpleAuxVar(1.0)}  # type: Dict[str, AuxVar]
+        flat_a, *specs_a = flatten_auxvar_for_secagg(aux_a)
+        flat_b, *specs_b = flatten_auxvar_for_secagg(aux_b)
+        enc_a = EncryptedAuxVar([[int(x) for x in flat_a]], *specs_a)
+        enc_b = EncryptedAuxVar([[int(x) for x in flat_b]], *specs_b)
+        # Run the aggregation and verify that the output is an EncryptedAuxVar.
+        agg = enc_a + enc_b
+        assert isinstance(agg, EncryptedAuxVar)
+        assert agg.encrypted == enc_a.encrypted + enc_b.encrypted
+        # Sum-aggregated pseudo-encrypted values and unflatten the results.
+        sum_values = [
+            float(sum(values[i] for values in agg.encrypted))
+            for i in range(len(agg.encrypted[0]))
+        ]
+        res = unflatten_auxvar_after_secagg(
+            sum_values, agg.enc_specs, agg.cleartext, agg.clear_cls
+        )
+        # Verify that the obtained auxiliary variables match expectations.
+        assert isinstance(res, dict)
+        assert res.keys() == aux_a.keys()
+        assert isinstance(res["simple"], SimpleAuxVar)
+        assert res["simple"].value == 1.0
+
+    def test_aggregate_raises_wrong_type(self) -> None:
+        """Test aggregating 'EncryptedAuxVar' with another object."""
+        # Set up EncryptedAuxVar wrapping simple auxiliary variables.
+        aux_var = {"simple": SimpleAuxVar(1.0)}  # type: Dict[str, AuxVar]
+        flat_value, *flat_specs = flatten_auxvar_for_secagg(aux_var)
+        enc_aux = EncryptedAuxVar([[int(x) for x in flat_value]], *flat_specs)
+        # Verify that a TypeError is raised when trying to aggregate.
+        with self.assertRaises(TypeError):
+            enc_aux.aggregate(MagicMock())
+
+    def test_aggregate_raises_wrong_specs(self) -> None:
+        """Test aggregating 'EncryptedAuxVar' with mismatching specs."""
+        # Generate ScaffoldAuxVar instances with distinct shapes.
+        aux_a = generate_scaffold_aux_var(n_feats=16)
+        aux_b = generate_scaffold_aux_var(n_feats=32)
+        # Flatten and wrap them (rouding up values for type correctness).
+        flat_a, *specs_a = flatten_auxvar_for_secagg(aux_a)
+        flat_b, *specs_b = flatten_auxvar_for_secagg(aux_b)
+        enc_a = EncryptedAuxVar([[int(x) for x in flat_a]], *specs_a)
+        enc_b = EncryptedAuxVar([[int(x) for x in flat_b]], *specs_b)
+        # Verify that a ValueError is raised when trying to aggregate.
+        with self.assertRaises(ValueError):
+            enc_a.aggregate(enc_b)
+
+    def test_aggregate_raises_wrong_classes(self) -> None:
+        """Test aggregating 'EncryptedAuxVar' wrapping distinct types."""
+        # Generate auxiliary variables of different nature.
+        aux_a = {"simple": SimpleAuxVar(1.0)}  # type: Dict[str, AuxVar]
+        aux_b = generate_scaffold_aux_var()
+        # Flatten and wrap them (rouding up values for type correctness).
+        flat_a, *specs_a = flatten_auxvar_for_secagg(aux_a)
+        flat_b, *specs_b = flatten_auxvar_for_secagg(aux_b)
+        enc_a = EncryptedAuxVar([[int(x) for x in flat_a]], *specs_a)
+        enc_b = EncryptedAuxVar([[int(x) for x in flat_b]], *specs_b)
+        # Verify that a ValueError is raised when trying to aggregate.
+        with self.assertRaises(ValueError):
+            enc_a.aggregate(enc_b)
+
+
+class TestAuxVarSecAgg(unittest.TestCase):
+    """Functional tests of Secure Aggregation of optimizer auxiliary variables."""
 
     @staticmethod
     def perform_secure_aggregation(
@@ -201,26 +278,43 @@ class TestEncryptedAuxVar:
     ) -> Dict[str, AuxVar]:
         """Perform Secure Aggregation of Optimizer auxiliary variables."""
         # Set up a SecAgg crypter and private and public parameters.
-        biprime = (  # 256-bits biprime number
-            90390182084222873784815027944462556152041719957060669052217514443038412964509
+        biprime = int.from_bytes(  # 1024-bits biprime number
+            b'\xe2+!\x9a\xdc\xc3.\xcaY\x1b\xd6\xfdH\xfc1\xaeG6\xc0O\xa5\x9a'
+            b'\x8bi)i \xac=\x88\xb5\xfdo\xac\xadS\x80\xb3xL\xa6\xc7\xca]\x17'
+            b'\xb1\x16\rB\x8f"\xb1*\x12.J`\xc8AW\x92\xd0\t\x14*fwx"o\xff\xca'
+            b'\xec\x8e\x86G\x7f\x9c\xdf?\x00}&\xa8b\xcd\n!\xa9\x1f\xc0\x99{'
+            b'\x91h"\xe6,j\x87\xf6\xa6\xee0\xc5_\xdbi\x93\xea\x80qJ\x12\xbc'
+            b'\xd7,AE\xb5\xdc\xf1\xf5\x962\xcdms',
+            byteorder="big",
         )
-        skey_a = secrets.randbits(128)
-        skey_b = secrets.randbits(128)
+        skey_a = secrets.randbits(2048)
+        skey_b = secrets.randbits(2048)
 
         def encrypt(params: List[float], s_key: int) -> List[int]:
             """Perform Joye-Libert encryption."""
             nonlocal biprime
             return SecaggCrypter().encrypt(
-                params=params, key=s_key,
-                num_nodes=2, current_round=1, biprime=biprime,
+                params=params,
+                key=s_key,
+                num_nodes=2,
+                current_round=1,
+                biprime=biprime,
             )
 
-        def sum_decrypt(params: List[List[int]]) -> List[float]:
+        def sum_decrypt(
+            params: List[List[int]],
+            n_params: int,
+        ) -> List[float]:
             """Perform Joye-Libert sum-decryption."""
             nonlocal biprime, skey_a, skey_b
             averaged = SecaggCrypter().aggregate(
-                params=params, key=-(skey_a + skey_b), total_sample_size=2,
-                num_nodes=2, current_round=1, biprime=biprime,
+                params=params,
+                key=-(skey_a + skey_b),
+                total_sample_size=2,
+                num_nodes=2,
+                current_round=1,
+                biprime=biprime,
+                num_expected_params=n_params,
             )
             return [value * 2 for value in averaged]
 
@@ -229,36 +323,44 @@ class TestEncryptedAuxVar:
         flat_b, *specs_b = flatten_auxvar_for_secagg(aux_b)
         enc_a = EncryptedAuxVar([encrypt(flat_a, skey_a)], *specs_a)
         enc_b = EncryptedAuxVar([encrypt(flat_b, skey_b)], *specs_b)
+        n_params = sum(spec[1] for mod in enc_a.enc_specs for spec in mod)
         # Aggregate both instances, decrypt and unflatten the result.
         flat = enc_a + enc_b
-        flat_decrypted = sum_decrypt(flat.encrypted)
+        flat_decrypted = sum_decrypt(flat.encrypted, n_params)
         return unflatten_auxvar_after_secagg(
             flat_decrypted, flat.enc_specs, flat.cleartext, flat.clear_cls
         )
 
-    def test_aggregate_encrypted_aux_var_simple(self) -> None:
-        """Test aggregating simple auxiliary variables using SecAgg."""
+    def test_secagg_auxvar_simple(self) -> None:
+        """Test secure-aggregating simple auxiliary variables."""
+        # Set up two simple auxiliary variables and perform their aggregation.
         aux_a = {"simple": SimpleAuxVar(0.0)}  # type: Dict[str, AuxVar]
         aux_b = {"simple": SimpleAuxVar(1.0)}  # type: Dict[str, AuxVar]
         result = self.perform_secure_aggregation(aux_a, aux_b)
+        # Verify that results have proper type and value.
         assert isinstance(result, dict) and (result.keys() == {"simple"})
         assert isinstance(result["simple"], SimpleAuxVar)
         assert abs(result["simple"].value - 1.0) < 1e-3
 
-    def test_aggregate_encrypted_aux_var_scaffold(self) -> None:
-        """Test aggregating Scaffold auxiliary variables using SecAgg."""
+    def test_secagg_auxvar_scaffold(self) -> None:
+        """Test secure-aggregating Scaffold auxiliary variables."""
         # Set up two sets of Scaffold auxiliary variables and aggregate them.
         aux_a = generate_scaffold_aux_var()
         aux_b = generate_scaffold_aux_var()
-        expect = {key: aux_a[key] + aux_b[key] for key in aux_a}
+        expect = {key: val_a + aux_b[key] for key, val_a in aux_a.items()}
         result = self.perform_secure_aggregation(aux_a, aux_b)
         # Verify that SecAgg results have expected type/format.
         assert isinstance(result, dict)
         assert result.keys() == expect.keys() == {"scaffold"}
-        assert isinstance(result["scaffold"], declearn.optimizer.modules.ScaffoldAuxVar)
+        exp_scaffold = expect["scaffold"]
+        res_scaffold = result["scaffold"]
+        assert isinstance(exp_scaffold, declearn.optimizer.modules.ScaffoldAuxVar)
+        assert isinstance(res_scaffold, declearn.optimizer.modules.ScaffoldAuxVar)
         # Verify that SecAgg and raw aggregation results match.
-        assert result["scaffold"].clients == expect["scaffold"].clients
-        assert result["scaffold"].state is None
-        for key, val_exp in expect["scaffold"].delta.coefs.items():
-            val_res = result["scaffold"].delta.coefs[key]
+        assert res_scaffold.clients == exp_scaffold.clients
+        assert res_scaffold.state is exp_scaffold.state is None
+        assert isinstance(exp_scaffold.delta, declearn.model.torch.TorchVector)
+        assert isinstance(res_scaffold.delta, declearn.model.torch.TorchVector)
+        for key, val_exp in exp_scaffold.delta.coefs.items():
+            val_res = res_scaffold.delta.coefs[key]
             assert np.allclose(val_exp.cpu().numpy(), val_res.cpu().numpy(), atol=1e-3)
