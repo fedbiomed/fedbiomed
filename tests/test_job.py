@@ -1,18 +1,12 @@
-from collections import defaultdict
-import copy
 import os
 import shutil
 import unittest
-import uuid
 from typing import Any, Dict
 from unittest.mock import MagicMock, call, create_autospec, patch
 
 import numpy as np
 import torch
-import fedbiomed
-from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
-from fedbiomed.common.serializer import Serializer
-from fedbiomed.researcher.datasets import FederatedDataSet
+from declearn.optimizer.modules import AuxVar
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
@@ -24,16 +18,17 @@ from testsupport.fake_training_plan import FakeModel, FakeTorchTrainingPlan
 from testsupport.fake_message import FakeMessages
 from testsupport import fake_training_plan
 
-
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.message import TrainingPlanStatusReply, TrainingPlanStatusRequest, TrainReply, ErrorMessage
+from fedbiomed.common.exceptions import FedbiomedJobError, FedbiomedNodeStateAgentError
+from fedbiomed.common.message import TrainingPlanStatusReply, TrainReply, ErrorMessage
+from fedbiomed.common.optimizers import EncryptedAuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
-from fedbiomed.common.exceptions import FedbiomedJobError
+from fedbiomed.common.serializer import Serializer
+from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.job import Job
 from fedbiomed.researcher.requests import Requests
-import fedbiomed.researcher.job # needed for specific mocking
 
 
 training_args_for_testing = TrainingArgs({"loader_args": {"batch_size": 12}}, only_required=False)
@@ -78,7 +73,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         self.patcher4 = patch('fedbiomed.common.message.ResearcherMessages.format_outgoing_message')
         self.patcher5 = patch('fedbiomed.researcher.job.atexit')
         self.ic_from_file_patch = patch('fedbiomed.researcher.job.utils.import_class_object_from_file', autospec=True)
-        
+
         self.mock_request_create = self.patcher4.start()
         self.mock_atexit = self.patcher5.start()
         self.ic_from_file_mock = self.ic_from_file_patch.start()
@@ -92,7 +87,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
 
         self.model = FakeTorchTrainingPlan
         self.model.save_code = MagicMock()
-        
+
         self.ic_from_file_mock.return_value = (fake_training_plan, FakeTorchTrainingPlan() )
         # Build Global Job that will be used in most of the tests
         self.job = Job(
@@ -205,7 +200,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         replies = {
             'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': True, 'approval_obligation': True, 'status': 'APPROVED'}),
             'node-2': TrainingPlanStatusReply(**{**base_reply,'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'status': 'APPROVED'})
-        } 
+        }
 
         self.mock_federated_request.replies.return_value = replies
         result = self.job.check_training_plan_is_approved_by_nodes()
@@ -217,7 +212,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         replies = {
             'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': True, 'approval_obligation': True, 'status': 'APPROVED'}),
             'node-2': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'status': 'REJECTED'})
-        } 
+        }
         self.mock_federated_request.replies.return_value = replies
         result = self.job.check_training_plan_is_approved_by_nodes()
         self.assertDictEqual(replies, result,
@@ -227,7 +222,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         replies = {
             'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'status': 'REJECTED'}),
             'node-2': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-2', 'success': True, 'approval_obligation': True,  'status': 'APPROVED'})
-        } 
+        }
         self.mock_federated_request.replies.return_value = replies
         result = self.job.check_training_plan_is_approved_by_nodes()
         self.assertDictEqual(replies, result,
@@ -237,7 +232,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         replies = {
             'node-1': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-1', 'success': False, 'approval_obligation': False, 'status': 'REJECTED'}),
             'node-2': TrainingPlanStatusReply(**{**base_reply, 'node_id': 'node-2', 'success': True, 'approval_obligation': True, 'status': 'REJECTED'})
-        } 
+        }
         self.mock_federated_request.replies.return_value = replies
         result = self.job.check_training_plan_is_approved_by_nodes()
         self.assertDictEqual(replies, result,
@@ -246,7 +241,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         # Test when one of the nodes does not reply
         replies = {
             'node-1': TrainingPlanStatusReply(**{**base_reply,'node_id': 'node-1', 'success': True, 'approval_obligation': False, 'status': 'REJECTED'})
-        } 
+        }
         self.mock_federated_request.replies.return_value = replies
         result = self.job.check_training_plan_is_approved_by_nodes()
         self.assertDictEqual(replies, result,
@@ -402,7 +397,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         )
         # second create a `training_replies` variable
         loaded_training_replies_torch = [
-            
+
                 {
                     "node_1234": {"success": True,
                         "msg": "",
@@ -419,7 +414,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                         "params_path": "/path/to/file/param2.mpk",
                         "timing": {"time": 0}}
                 }
-            
+
         ]
 
         # action
@@ -449,7 +444,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         )
         self.assertTrue(isinstance(torch_training_replies[0], Dict))
 
-      
+
     @patch('fedbiomed.researcher.job.Job._load_training_replies')
     @patch('fedbiomed.researcher.job.Job.update_parameters')
     @patch('fedbiomed.researcher.job.Serializer.load')
@@ -465,8 +460,8 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         node_states = {
             'collection_state_ids': {'node_id_xxx': 'state_id_xxx', 'node_id_xyx': 'state_id_xyx'},
         }
-        
-        # modifying FederatedDataset mock 
+
+        # modifying FederatedDataset mock
         self.fds.data.return_value = node_states
         self.job.nodes = node_states
         job_state = {
@@ -505,10 +500,10 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         test that job breakpoint state structure + file links are created
         """
         fds_content = {'node_id_xxx': MagicMock(), 'node_id_xyx': MagicMock()}
-        
-        # modifying FederatedDataset mock 
+
+        # modifying FederatedDataset mock
         self.fds.data.return_value = fds_content
-        
+
         test_job = Job(
             training_plan_class=self.model,
             training_args=training_args_for_testing,
@@ -524,7 +519,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             "node-1": {'params_path': 'xxx/job_test_save_state_params0.pt'},
             "node-2": {'params_path': 'xxx/job_test_save_state_params1.pt'},
         }]
-        
+
 
         link_path = '/path/to/job_test_save_state_params_link.pt'
 
@@ -554,28 +549,77 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         """Test that 'extract_received_optimizer_aux_var_from_round' works well."""
         # Set up: nodes sent back some Optimizer aux var information.
         replies = {}
+        aux_var_1 = {
+            "module_a": create_autospec(AuxVar, instance=True),
+            "module_b": create_autospec(AuxVar, instance=True),
+        }
+        aux_var_2 = {
+            "module_a": create_autospec(AuxVar, instance=True),
+            "module_b": create_autospec(AuxVar, instance=True),
+        }
         replies.update({'node-1': {
             "node_id": "node-1",
-            "optim_aux_var": {
-                "module_a": {"key": "a1"}, "module_b": {"key": "b1"}
-            }}})
-
+            "optim_aux_var": aux_var_1.copy(),
+            "encrypted": False,
+        }})
         replies.update({'node-2': {
             "node_id": "node-2",
-            "optim_aux_var": {
-                "module_a": {"key": "a2"}, "module_b": {"key": "b2"}
-            }}})
-
+            "optim_aux_var": aux_var_2.copy(),
+            "encrypted": False,
+        }})
         getattr(self.job, "_training_replies")[1] = replies
         # Call the method and verify that its output matches expectations.
-        aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
-        expected = {
-            "module_a": {"node-1": {"key": "a1"}, "node-2": {"key": "a2"}},
-            "module_b": {"node-1": {"key": "b1"}, "node-2": {"key": "b2"}},
-        }
+        with patch("fedbiomed.common.serializer.Serializer.dump") as patch_dump:
+            aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
+        expected = {"node-1": aux_var_1, "node-2": aux_var_2}
         self.assertDictEqual(aux_var, expected)
+        # Verify that obtained results were meant to be serialized.
+        assert isinstance(replies["node-1"]["optim_aux_var"], str)
+        assert replies["node-1"]["optim_aux_var"] == replies["node-2"]["optim_aux_var"]
+        patch_dump.assert_called_once_with(
+            aux_var, replies["node-1"]["optim_aux_var"]
+        )
 
-    def test_job_26_extract_received_optimizer_aux_var_from_round_empty(self):
+    def test_job_26_extract_received_optimizer_aux_var_from_round_encrypted(self):
+        """Test that 'extract_received_optimizer_aux_var_from_round' works well."""
+        # Set up: nodes sent back some encrypted Optimizer aux var information.
+        replies = {}
+        replies.update({'node-1': {
+            "node_id": "node-1",
+            "optim_aux_var": {"mock-dict": "node-1"},  # mock dump
+            "encrypted": True,
+        }})
+        replies.update({'node-2': {
+            "node_id": "node-2",
+            "optim_aux_var": {"mock-dict": "node-2"},  # mock dump
+            "encrypted": True,
+        }})
+        getattr(self.job, "_training_replies")[1] = replies
+        # Set up mock EncryptedAuxVar instances.
+        aux_var_1 = create_autospec(EncryptedAuxVar, instance=True)
+        aux_var_2 = create_autospec(EncryptedAuxVar, instance=True)
+
+        # Call the method and verify that its output matches expectations.
+        with patch("fedbiomed.common.serializer.Serializer.dump") as patch_dump:
+            with patch(
+                "fedbiomed.common.optimizers.EncryptedAuxVar.from_dict",
+                side_effect=[aux_var_1, aux_var_2],
+            ) as patch_from_dict:
+                aux_var = self.job.extract_received_optimizer_aux_var_from_round(round_id=1)
+        expected = {"node-1": aux_var_1, "node-2": aux_var_2}
+        self.assertDictEqual(aux_var, expected)
+        # Verify that expected calls occured.
+        patch_from_dict.assert_has_calls(
+            [call({"mock-dict": "node-1"}), call({"mock-dict": "node-2"})]
+        )
+        # Verify that obtained results were meant to be serialized.
+        assert isinstance(replies["node-1"]["optim_aux_var"], str)
+        assert replies["node-1"]["optim_aux_var"] == replies["node-2"]["optim_aux_var"]
+        patch_dump.assert_called_once_with(
+            aux_var, replies["node-1"]["optim_aux_var"]
+        )
+
+    def test_job_27_extract_received_optimizer_aux_var_from_round_empty(self):
         """Test 'extract_received_optimizer_aux_var_from_round' without aux var."""
         # Set up: nodes did not send Optimizer aux var information.
         replies = {}
@@ -599,7 +643,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         # FIXME: this is more like an integration test rather than a unit test
         # it should be defined in a specific class that contains all integration tests
         # modifying fds of Job
-        
+
         def set_training_replies_through_bkpt(job: Job, states: Dict):
             """Sets Job's `training_replies` private attributethrough breakpoint API
 
@@ -616,18 +660,18 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'node-1': [{'dataset_id': 'dataset-id-1',
                         'shape': [100, 100]}],
             'node-2': [{'dataset_id': 'dataset-id-2',
-                        'shape': [120, 120], 
+                        'shape': [120, 120],
                         'test_ratio': .0}],
             'node-3': [{'dataset_id': 'dataset-id-3',
-                        'shape': [120, 120], 
+                        'shape': [120, 120],
                         'test_ratio': .0}],
             'node-4': [{'dataset_id': 'dataset-id-4',
-                        'shape': [120, 120], 
+                        'shape': [120, 120],
                         'test_ratio': .0}],
         }
         fds = FederatedDataSet(data)
 
-        loaded_training_replies_torch = [{ 
+        loaded_training_replies_torch = [{
             'node-1': {
                 "success": True,
                 "msg": "",
@@ -659,11 +703,11 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         self.assertDictEqual({k: None for k in data.keys()}, job_state['node_state']['collection_state_ids'])
 
         # we cannot access to `_training_replies` private attribute hence the saving/loading part
-        job_state.update({'training_replies': loaded_training_replies_torch})  
+        job_state.update({'training_replies': loaded_training_replies_torch})
 
         set_training_replies_through_bkpt(test_job, job_state)
 
-        # action! 
+        # action!
         test_job._update_nodes_states_agent(before_training=False)
 
         # retrieving NodeAgentState through Job state
@@ -676,7 +720,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         # finally we are testing that exception is raised if index cannot be extracted
 
         loaded_training_replies = []
-        job_state.update({'training_replies': loaded_training_replies})  
+        job_state.update({'training_replies': loaded_training_replies})
 
         set_training_replies_through_bkpt(test_job, job_state)
 
