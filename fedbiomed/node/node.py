@@ -108,10 +108,7 @@ class Node:
         Args:
             msg: Incoming message from Researcher.
         """
-
         message: Message
-
-        # Deserialize message
         try:
             message = Message.from_dict(msg)
         except FedbiomedError as e:
@@ -125,7 +122,7 @@ class Node:
         else:
             no_print = [
                 "aggregator_args",
-                "aux_vars",
+                "optim_aux_var",
                 "params",
                 "training_plan",
                 "overlay",
@@ -313,7 +310,7 @@ class Node:
             node_args=self.node_args,
             round_number=msg.get_param("round"),
             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-            aux_vars=msg.get_param("aux_vars"),
+            aux_vars= aux_vars=msg.get_param('optim_aux_var'),
         )
 
         # the round raises an error if it cannot initialize
