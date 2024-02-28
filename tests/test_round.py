@@ -5,7 +5,6 @@ import unittest
 from typing import Any, Dict, Optional, Tuple
 from unittest.mock import MagicMock, create_autospec, patch, PropertyMock
 
-from declearn.optimizer.modules import AuxVar
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
@@ -27,8 +26,8 @@ from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundE
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
 from fedbiomed.common.models import TorchModel, Model
-from fedbiomed.common.optimizers import BaseOptimizer, EncryptedAuxVar, Optimizer
-from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModule, RidgeRegularizer
+from fedbiomed.common.optimizers import AuxVar, BaseOptimizer, EncryptedAuxVar, Optimizer
+from fedbiomed.common.optimizers.declearn import RidgeRegularizer, ScaffoldClientModule, YogiModule
 from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 

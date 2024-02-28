@@ -4,10 +4,6 @@ from unittest.mock import MagicMock, create_autospec, patch
 
 from declearn.model.api import Vector
 
-from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedExperimentError
-from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.metrics import MetricTypes
-
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
 #############################################################
@@ -34,6 +30,7 @@ import fedbiomed
 from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedExperimentError
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.optimizers import AuxVar
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.federated_workflows import Experiment
