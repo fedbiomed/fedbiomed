@@ -21,12 +21,7 @@ from fedbiomed.common.exceptions import (
     FedbiomedUserInputError, FedbiomedSecureAggregationError
 )
 from fedbiomed.common.logger import logger
-<<<<<<< HEAD
 from fedbiomed.common.message import TrainReply
-from fedbiomed.common.message import NodeMessages
-=======
-from fedbiomed.common.message import NodeMessages, TrainReply
->>>>>>> ec656c6a (Fix transmission of 'EncryptedAuxVar' from nodes to researcher.)
 from fedbiomed.common.optimizers import (
     BaseOptimizer,
     EncryptedAuxVar,
@@ -415,15 +410,19 @@ class Round:
                 "This process can take some time depending on model size.",
                 researcher_id=self.researcher_id,
             )
+            # Flatten optimizer auxiliary variables and divide them by scaling weights.
             cryptable, enc_specs, cleartext, clear_cls = (
                 flatten_auxvar_for_secagg(optim_aux_var)
             )
-
+            cryptable = [x / sample_size for x in cryptable]
+            # Encrypt both model parameters and optimizer aux var at once.
             encrypted_wgt = self._secure_aggregation.scheme.encrypt(
                     params=model_weights + cryptable,
                     current_round=self._round,
                     weight=sample_size,
             )
+
+            # Separate batch encrypted model parameters and optimizer aux var.
             encrypted_wgt = encrypted[:len(model_weights)]
             encrypted_aux = EncryptedAuxVar(
                 encrypted=[encrypted[len(model_weights):]],
