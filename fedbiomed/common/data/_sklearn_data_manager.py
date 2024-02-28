@@ -352,6 +352,11 @@ class SkLearnDataManager(object):
             self._subset_test = (x_test, y_test)
             self._subset_train = (x_train, y_train)
 
+        if not test_batch_size:
+            # case where test_batch_size=0 or test_batch_size=None, ie where user doesnot want
+            # to use test_batch_size
+            test_batch_size = len(self._subset_test)
+
         #test_batch_size = max(1,self._test_batch_size, 1)
         return self._subset_loader(self._subset_train, **self._loader_arguments), \
             self._subset_loader(self._subset_test, batch_size=test_batch_size)
