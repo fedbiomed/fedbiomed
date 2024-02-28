@@ -222,7 +222,7 @@ case $1 in
 
     node)
 
-        CONFIG_FILE=node_config.ini
+        CONFIG_FILE=config_node.ini
         while true ; do
             case $2 in
                 # handle optional parameters : config file, researcher ip, training plan approval and allow default training plans

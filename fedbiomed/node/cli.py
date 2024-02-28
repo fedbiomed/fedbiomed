@@ -588,8 +588,8 @@ class NodeCLI(CommonCLI):
             "-cf",
             nargs="?",
             action=ConfigNameActionNode,
-            default="node_config.ini",
-            help="Name of the config file that the CLI will be activated for. Default is 'node_config.ini'.")
+            default="config_node.ini",
+            help="Name of the config file that the CLI will be activated for. Default is 'config_node.ini'.")
 
         super().initialize()
 
