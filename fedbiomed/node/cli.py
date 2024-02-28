@@ -243,7 +243,7 @@ class DatasetArgumentParser(CLIArgumentParser):
         if args.all:
             return cli_utils.delete_all_database()
 
-        if args.only_mnist:
+        if args.mnist:
             return cli_utils.delete_database(interactive=False)
 
         return cli_utils.delete_database()
