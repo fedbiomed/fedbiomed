@@ -12,7 +12,6 @@ import time
 import uuid
 from typing import Dict, Union, Any, Optional, Tuple, List
 
-from declearn.optimizer.modules import AuxVar
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
@@ -23,6 +22,7 @@ from fedbiomed.common.exceptions import (
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
 from fedbiomed.common.optimizers import (
+    AuxVar,
     BaseOptimizer,
     EncryptedAuxVar,
     Optimizer,

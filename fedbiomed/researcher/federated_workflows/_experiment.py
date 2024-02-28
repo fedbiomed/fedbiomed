@@ -13,18 +13,17 @@ from typing import Any, Dict, Optional, List, Tuple, Type, TypeVar, Union
 import numpy as np
 import torch
 from declearn.model.api import Vector
-from declearn.optimizer.modules import AuxVar
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError,
-    FedbiomedNodeStateAgentError,
     FedbiomedTypeError,
     FedbiomedValueError
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers import (
+    AuxVar,
     EncryptedAuxVar,
     Optimizer,
     unflatten_auxvar_after_secagg,
