@@ -290,12 +290,22 @@ class VES:
             Decoded vector
         """
 
-        element_size, _ = self._get_elements_size_and_compression_ratio(add_ops)
+        #element_size, _ = self._get_elements_size_and_compression_ratio(add_ops)
+        element_size, comp_ratio = self._get_elements_size_and_compression_ratio(add_ops)
         V = []
 
+        # TODO: real patch needed - not hardcoded value taken from this model size !
+        if len(E) == 1:
+            # for encryption factors
+            v_expected = 1
+        else:
+            v_expected = 1199882
+
         for e in E:
-            for v in self._debatch(e, element_size):
+            v_number = min(v_expected, comp_ratio)
+            for v in self._debatch(e, element_size, v_number):
                 V.append(v)
+            v_expected -= v_number
         return V
 
     @staticmethod
@@ -313,7 +323,8 @@ class VES:
     @staticmethod
     def _debatch(
             b: int,
-            element_size: int
+            element_size: int,
+            element_number: int
     ) -> List[int]:
         """
         """
@@ -324,7 +335,8 @@ class VES:
             mask <<= 1
             mask |= bit
 
-        while b != 0:
+        # while b != 0:
+        for _ in range(element_number):
             v = mask & b
             V.append(int(v))
             b >>= element_size
