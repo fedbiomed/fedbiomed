@@ -16,7 +16,7 @@ This tutorial details a deployment scenario where:
 ## Requirements
 
 !!! info "Supported operating systems and software requirements"
-    Supported operating systems for containers/VPN deployment include **Fedora 38**, **Ubuntu 22.04 LTS**. Should also work for most recent Linux, **MacOS X 12.6.6 and 13**, **Windows 11** with WSL2 using Ubuntu-22.04 distribution. Also requires
+    Supported operating systems for containers/VPN deployment include **Fedora 38**, **Ubuntu 22.04 LTS**. Should also work for most recent Linux, **MacOS X 12.6.6, 13 and 14**, **Windows 11** with WSL2 using Ubuntu-22.04 distribution. Also requires
     **docker** and **docker compose >= 2.0**.
 
     Check here for [guidelines](./vpn-dependencies-install.md) on `docker` and `docker-compose` installation
@@ -487,7 +487,7 @@ Some possible management commands after initial deployment include:
     [user@node $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean image
     ```
 
-## Annex
+## Troubleshooting
 
 ### Proxy
 
@@ -508,3 +508,15 @@ Prefix used by Fed-BioMed's communication inside the VPN (`10.220.0.0/14`) shall
  }
 }
 ```
+
+### Image build on Mac M1/M2/M3 ARM
+
+Build may fail on Mac M1/M2/M3 processors for `fedbiomed/vpn-base` or `fedbiomed/vpn-basenode` due to arm64 system.
+
+By default, docker can use the images that are created for `arm64/aarch64`. But docker build files of the Fed-BioMed images and the libraries that are installed within are compatible with `amd64` type of platforms. Therefore, you may get some error while `fedbiomed_vpn` script builds images. Those errors can be during the miniconda installation, secure aggregation setup or while installing some of required pip dependencies for Fed-BioMed environment. You can fix this problem by setting environment variable that declares default default docker platform to force docker to use linux/amd64. 
+
+```
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
+```
+
+After setting this variable you can execute build command through ``{FEDBIOMED_DIR}/scripts/fedbiomed_run build`
