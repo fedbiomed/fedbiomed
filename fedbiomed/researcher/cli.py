@@ -103,8 +103,8 @@ class ResearcherCLI(CommonCLI):
             "-cf",
             nargs="?",
             action=ConfigNameActionResearcher,
-            default="researcher_config.ini",
-            help="Name of the config file that the CLI will be activated for. Default is 'researcher_config.ini'.")
+            default="config_researcher.ini",
+            help="Name of the config file that the CLI will be activated for. Default is 'config_researcher.ini'.")
 
         super().initialize()
 
