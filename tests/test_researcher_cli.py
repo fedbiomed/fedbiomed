@@ -1,17 +1,47 @@
 import unittest
+import argparse
 from unittest.mock import patch
 from testsupport.fake_researcher_environ import ResearcherEnviron
 from testsupport.base_case import ResearcherTestCase
-from fedbiomed.researcher.cli import ResearcherCLI
+from fedbiomed.researcher.cli import ResearcherCLI, ResearcherControl
 from fedbiomed.common.cli import CommonCLI
 
+
+class TestResearcherControl(unittest.TestCase):
+    """Tests researcher control unit argument parser"""
+    def setUp(self):
+        self.parser = argparse.ArgumentParser()
+        self.subparsers = self.parser.add_subparsers()
+        self.control = ResearcherControl(self.subparsers)
+
+    def tearDown(self):
+        pass
+
+    def test_01_researcher_control_initialize(self):
+
+        self.control.initialize()
+        self.assertTrue("start" in self.subparsers.choices)
+        self.assertTrue("--directory" in self.subparsers.choices["start"]._option_string_actions)
+
+    @patch("fedbiomed.researcher.cli.subprocess.Popen")
+    def test_02_researcher_control_start(self, sub_process_p_open):
+
+        self.control.initialize()
+        args = self.parser.parse_args(["start", "--directory", "./"])
+        self.control.start(args)
+
+        sub_process_p_open.assert_called_once()
+
+        sub_process_p_open.return_value.wait.side_effect = KeyboardInterrupt
+        sub_process_p_open.return_value.terminate.side_effect = Exception
+
+        with self.assertRaises(KeyboardInterrupt):
+            self.control.start(args)
 
 class TestResearcherCLI(ResearcherTestCase):
 
     def setUp(self) -> None:
-
         self.cli = ResearcherCLI()
-        self.assertIsInstance(self.cli._environ, ResearcherEnviron, 'Environ is not set properly')
 
     def tearDown(self) -> None:
         pass
@@ -20,12 +50,7 @@ class TestResearcherCLI(ResearcherTestCase):
         self.assertEqual(ResearcherCLI.__base__, CommonCLI, 'ResearcherCLI should inherit from CommonCLI')
 
     @patch('builtins.print')
-    @patch('fedbiomed.common.cli.CommonCLI.parse_args')
-    def test_02_researcher_cli_launch_cli(self,
-                                          mock_parse_args,
-                                          mock_print
-                                          ):
-        self.cli.launch_cli()
+    def test_02_researcher_initialize(self, mock_print):
 
         # Tests certificate parser options
         choices = self.cli._subparsers.choices["certificate"]._subparsers._group_actions[0].choices
@@ -52,15 +77,6 @@ class TestResearcherCLI(ResearcherTestCase):
         self.assertTrue("--path" in generate_options)
         self.assertTrue("--force" in generate_options)
 
-        # # Test configuration parser option
-        # self.assertTrue('configuration' in self.cli._subparsers.choices)
-        # self.assertTrue('create' in self.cli._subparsers.choices["configuration"]._subparsers._group_actions[0].choices)
-
-        # self.assertEqual(self.cli._subparsers.choices["configuration"].
-        #                  _subparsers._group_actions[0].choices["create"]._defaults["func"].__func__.__name__,
-        #                  '_create_component')
-
 
 if __name__ == "__main__":
     unittest.main()
-

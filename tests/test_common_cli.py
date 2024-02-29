@@ -1,3 +1,5 @@
+import os
+import sys
 import unittest
 import tempfile
 import argparse
@@ -5,6 +7,7 @@ import shutil
 from unittest.mock import patch, MagicMock
 from fedbiomed.common.cli import CommonCLI, ConfigurationParser
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.constants import ComponentType
 
 
 class TestConfigurationParser(unittest.TestCase):
@@ -96,6 +99,8 @@ class TestCommonCLI(unittest.TestCase):
         self.assertEqual(self.cli._environ, {"test": "test"})
         self.assertEqual(self.cli.arguments, None)
 
+        self.assertTrue(self.cli.subparsers)
+
     def test_02_error_message(self):
         with patch("builtins.print") as patch_print:
             with self.assertRaises(SystemExit):
@@ -106,6 +111,13 @@ class TestCommonCLI(unittest.TestCase):
         with patch("builtins.print") as patch_print:
             self.cli.success("Hello this is success message")
             self.assertEqual(patch_print.call_count, 2)
+
+    def test_04_bis_cli_initialize_optional(self):
+
+        self.cli.initialize_optional()
+
+        self.assertTrue('certificate-dev-setup' in self.cli._subparsers.choices)
+        self.assertTrue('configuration' in self.cli._subparsers.choices)
 
     def test_04_common_cli_initialize_magic_dev_environment_parsers(self):
         self.cli.initialize_magic_dev_environment_parsers()
@@ -339,20 +351,24 @@ class TestCommonCLI(unittest.TestCase):
 
         self.cli.set_environ({"ID": "node-id", "CERT_DIR": "dummy/cert/dir", "DB_PATH": "dummy/db/path"})
         self.cli.initialize_certificate_parser()
-        args = self.cli.parser.parse_args(["certificate", "list"])
 
-        with patch("fedbiomed.common.cli.argparse.ArgumentParser.parse_args") as mock_parse_args:
-            mock_parse_args.return_value = args
-            self.cli.parse_args()
-            mock_list.assert_called_once_with(verbose=True)
+        args = self.cli.parser.parse_args(["certificate", "list"])
+        sys.argv = ["fedbiomed_run", "certificate", "list"]
+        self.cli.parse_args()
+        mock_list.assert_called_once_with(verbose=True)
 
         self.cli.initialize_magic_dev_environment_parsers()
         args = self.cli.parser.parse_args(["certificate-dev-setup"])
 
-        with patch("fedbiomed.common.cli.argparse.ArgumentParser.parse_args") as mock_parse_args:
-            mock_parse_args.return_value = args
+        sys.argv = ["fedbiomed_run", "certificate-dev-setup"]
+        self.cli.parse_args()
+        mock_dev_environment.assert_called_once_with(args, [])
+
+        with self.assertRaises(SystemExit):
+            # node argument is not known yet
+            sys.argv = ["fedbiomed_run", "node", "dataset"]
             self.cli.parse_args()
-            mock_dev_environment.assert_called_once_with(args)
+
 
 
 if __name__ == "__main__":

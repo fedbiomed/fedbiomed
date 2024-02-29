@@ -21,14 +21,14 @@ The following code will add the dataset into the node configured using the `conf
 
 ``` shell
 
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node config config-n1.ini add
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini dataset add
 
 ```
 
 Another option is to add a dataset into the default node without addressing any config file. In this case, a default config file for the node is created.
 
 ```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node add
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset add
 ```
 
 **Note:** Adding dataset into nodes with config is better when you work with multiple nodes.
@@ -83,7 +83,7 @@ My Dataset  csv          ['#my-csv-data', '#csv-dummy-data']  Dummy CSV data  [1
 You can also check the list of datasets by using the following command:
 
 ```shell
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node config config-n1.ini list
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini dataset list
 ```
 
 It will return the datasets saved into the node which use the `config-n1.ini` file as config.

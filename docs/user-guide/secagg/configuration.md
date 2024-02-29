@@ -138,7 +138,7 @@ any desired time. If a certificate has already been generated, the command shoul
 -f option.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run node config config-n1.ini certificate generate -f
+${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini certificate generate -f
 ```
 or
 
@@ -171,7 +171,7 @@ starting a Fed-BioMed component. This option does not re-write configuration fil
 value during the component lifetime.
 
 ```shell
-MPSDPZ_IP=<ip-address> MPSDPZ_PORT=<port> ${FEDBIOMED_DIR}/scripts/fedbiomed_run node config config-n1.ini start
+MPSDPZ_IP=<ip-address> MPSDPZ_PORT=<port> ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini start
 ```
 
 or for researcher
