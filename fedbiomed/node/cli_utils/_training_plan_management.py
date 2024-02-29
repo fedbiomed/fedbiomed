@@ -9,7 +9,7 @@ import uuid
 from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import Terminal256Formatter
-from fedbiomed.node.environ import environ
+# from fedbiomed.node.environ import environ
 from fedbiomed.common.logger import logger
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.common.constants import TrainingPlanApprovalStatus, TrainingPlanStatus
