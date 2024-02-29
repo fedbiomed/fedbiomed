@@ -510,7 +510,7 @@ class CommonCLI:
             help="Forces to overwrite certificate files"
         )
 
-    def _create_magic_dev_environment(self):
+    def _create_magic_dev_environment(self, dummy: None):
         """Creates development environment for MPSDPZ"""
 
         db_names = get_existing_component_db_names()
