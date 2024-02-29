@@ -202,7 +202,7 @@ class TestCommonCLI(unittest.TestCase):
 
         with patch("fedbiomed.common.cli.ROOT_DIR", 'path/to/root'):
 
-            self.cli._create_magic_dev_environment()
+            self.cli._create_magic_dev_environment(None)
 
             self.assertEqual(self.mock_set_db.call_count, 3)
 
@@ -210,12 +210,12 @@ class TestCommonCLI(unittest.TestCase):
             self.assertEqual(mock_cm_insert.call_args_list[1].kwargs, {**certificates[2], "upsert": True})
 
             mock_cm_insert.side_effect = FedbiomedError
-            self.cli._create_magic_dev_environment()
+            self.cli._create_magic_dev_environment(None)
             self.assertEqual(mock_cm_error.call_count, 6)
 
             mock_get_all_certificates.return_value = ["test", "test"]
             with patch('builtins.print') as mock_print:
-                self.cli._create_magic_dev_environment()
+                self.cli._create_magic_dev_environment(None)
                 self.assertEqual(mock_print.call_count, 2)
 
     @patch("builtins.open")
