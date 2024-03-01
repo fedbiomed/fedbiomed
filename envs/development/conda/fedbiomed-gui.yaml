@@ -51,5 +51,5 @@ dependencies:
       # FLamby
       - git+https://github.com/owkin/FLamby@main
       # declearn
-      - declearn[torch1] ~=2.3.2
+      - declearn[torch1] ~=2.4.0
       - gmpy2 >=2.1,< 2.2

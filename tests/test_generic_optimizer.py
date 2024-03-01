@@ -13,10 +13,18 @@ from sklearn.linear_model import SGDClassifier, SGDRegressor
 import declearn
 from declearn.optimizer import Optimizer as DecOptimizer
 from fedbiomed.common.optimizers.declearn import (
-        ScaffoldServerModule, ScaffoldClientModule, 
-        YogiMomentumModule, AdaGradModule, YogiModule,
-        AdamModule, MomentumModule, FedProxRegularizer,
-        LassoRegularizer, RidgeRegularizer)
+    AdaGradModule,
+    AdamModule,
+    FedProxRegularizer,
+    LassoRegularizer,
+    MomentumModule,
+    RidgeRegularizer,
+    ScaffoldAuxVar,
+    ScaffoldClientModule,
+    ScaffoldServerModule,
+    YogiModule,
+    YogiMomentumModule,
+)
 from declearn.model.torch import TorchVector
 from declearn.model.sklearn import NumpyVector
 
@@ -84,25 +92,25 @@ class TestDeclearnOptimizer(unittest.TestCase):
         selected_reg = random.sample(self.regularizers, random.randint(min_modules, len(self.regularizers)))
 
         optim = FedOptimizer(lr=learning_rate,
-                                decay=w_decay, 
+                                decay=w_decay,
                                 modules=selected_modules,
                                 regularizers=selected_reg)
         return optim, selected_modules, selected_reg
 
-    def serializer(self, 
+    def serializer(self,
                    msg: Dict[str, Dict[str, Dict[str, Union[NumpyVector, TorchVector]]]]) -> Dict[str, Dict[str, Dict[str,Dict[str, Any]]]]:
             """Mimics the serialization module: converts nested declearn vector in nested dictionaries"""
             types = (NumpyVector, TorchVector)
             msg = {k: v.coefs if isinstance(v, types) else self.serializer(v) for k, v in msg.items()}
             return msg
-        
+
     def deserializer(self, msg):
         """Mimics the deserialization module: converts model parameters into declearn Vector objects"""
         types = (np.ndarray, torch.Tensor)
 
         msg =  {k: declearn.model.api.Vector.build(v) if any([isinstance(q, types) for p, q in v.items()]) else self.deserializer(v) for k, v in msg.items()}
         return msg
-    
+
     def perform_sklearn_training_node_side(self, node_id: str,
                                            node_model: SkLearnModel,
                                            node_optim_w: DeclearnOptimizer,
@@ -131,7 +139,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
             aux_var = {k: v[node_id] for k, v in aux_var.items() if v.get(node_id)}
         node_optim_w.set_aux(copy.deepcopy(aux_var))
         node_model.set_weights(global_model_weights)
-        
+
         # performs (or simulates) a training on node side
         with node_optim_w.optimizer_processing():
             # training process
@@ -142,12 +150,12 @@ class TestDeclearnOptimizer(unittest.TestCase):
         # collect auxiliary  variables
         aux_var = node_optim_w.get_aux()
         # serialization: convert everything from declearn Vector to dictionaries
-        
+
         aux_var = self.serializer(aux_var)
         aux_var = {'scaffold': {node_id: aux_var['scaffold']}}
 
         return aux_var
-    
+
     def perform_torch_training_node_side(self, node_id: str,
                                          node_model: TorchModel,
                                          node_optim_w: DeclearnOptimizer,
@@ -179,7 +187,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
             aux_var = {k: v[node_id] for k, v in aux_var.items() if v.get(node_id)}
         node_optim_w.set_aux(copy.deepcopy(aux_var))
         node_model.set_weights(global_model_weights)
-        
+
         # performs (or simulates) a training on node side
         node_optim_w.init_training()
         node_optim_w.zero_grad()
@@ -191,7 +199,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
         # collect auxiliary  variables
         aux_var = node_optim_w.get_aux()
         # serialization: convert everything from declearn Vector to dictionaries
-        
+
         aux_var = self.serializer(aux_var)
         aux_var = {'scaffold': {node_id: aux_var['scaffold']}}
 
@@ -207,7 +215,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
         Args:
             optim_w: optimizer wrapper for Researcher
             global_model_weights: dictionary that contains all Nodes models that need to be aggregated
-            aggr_model_weights: previous aggregated model weights. Graidents will be computed a follows: 
+            aggr_model_weights: previous aggregated model weights. Graidents will be computed a follows:
                 aggr_model_weights - global_model_weights
             aux_var: auxialiary variables sent by the Nodes to the Researcher
 
@@ -224,7 +232,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
         global_model_weights = declearn.model.api.Vector.build(global_model_weights)
         updates = declearn.model.api.Vector.build(aggr_model_weights) - global_model_weights
         optim_w.optimizer.step(updates, global_model_weights)
-        
+
         # retrieves researcher model parameters and aux_var
         aux_var = optim_w.get_aux()
 
@@ -237,28 +245,28 @@ class TestDeclearnOptimizer(unittest.TestCase):
                                        global_model_weigths: Dict) -> Dict:
         """Used for testing delta scaffold computation for scaffold tests (auxiliary variable to be sent
         from Node to Researcher).
-        
+
         Args:
             aux_var: auxiliary variables sent from Nodes to Researcher, that should contain `scaffold` entry,
                 containing a `state` entry
             global_model_weights: dictionary that contains model global weights. Used only to get the model layers.
-        
+
         Returns:
             Dict: dictionary containing delats for each Node (mapping node-id to its delta)
         """
         node_ids = list(aux_var['scaffold'])
         deltas = {node_id: {} for node_id in node_ids}
         for layer in global_model_weigths:
-            
+
             sum_state = sum(aux_var['scaffold'][k]['state'][layer] for k in aux_var['scaffold'] )
             sum_state /= len(aux_var['scaffold'])
             delta = {}
             for node_id in node_ids:
 
-                delta[layer] = aux_var['scaffold'][node_id]['state'][layer] - sum_state 
+                delta[layer] = aux_var['scaffold'][node_id]['state'][layer] - sum_state
                 deltas[node_id].update(delta)
         return deltas
-    
+
     def check_optimizer_states(self,
                                previous_round_optim: DeclearnOptimizer,
                                current_round_optim: DeclearnOptimizer,
@@ -271,7 +279,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
             current_round_optim (DeclearnOptimizer): mimicks optimizer of current round
             is_same_optimizer (bool): set `True` to perform an additional test, that checks if optimizers states
                 are equal.
-        
+
         Raises:
             AssertionError: as expected for tests, raised if test fails
         """
@@ -390,42 +398,37 @@ class TestDeclearnOptimizer(unittest.TestCase):
 
         for model_wrappers in (self._torch_model_wrappers, self._sklearn_model_wrappers):
             for model in model_wrappers:
+                # Set up a declearn-backed Scaffold optimizer.
                 optim = FedOptimizer(lr=learning_rate, modules = [ScaffoldServerModule()])
                 optim_wrapper = DeclearnOptimizer(model, optim)
-                empty_aux = {}
-                optim_wrapper.set_aux(empty_aux)
-
-                self.assertDictEqual(optim_wrapper.get_aux(), {})
-                aux = { 'scaffold': 
-                    {
-                        'node-1': {'state': 1.},
-                        'node-2': {'state': 2.},
-                        'node-3': {'state': 3.}
-                    }
-                }
-
-                optim_wrapper.set_aux(aux)
-                
+                # Verify that at first it emits a zero-valued shared state.
                 collected_aux_vars = optim_wrapper.get_aux()
-                expected_aux_vars = {
-                    'scaffold':
-                        {
-                            'node-1': {'delta': -1.},
-                            'node-2': {'delta': 0.},
-                            'node-3': {'delta': 1.}
-                        }
-                }
-                # computation performed to get deltas: node_state -  sum(node_states) / nb_nodes_involved
+                expected_aux_vars = {"scaffold": ScaffoldAuxVar(state=0.0)}
+                self.assertDictEqual(collected_aux_vars, expected_aux_vars)
+                # Pass it aggregated (i.e. sum of) client state updates.
+                # Here, we simulate participation from three nodes.
+                aux_1 = ScaffoldAuxVar(delta=1.0, clients={"node-1"})
+                aux_2 = ScaffoldAuxVar(delta=2.0, clients={"node-2"})
+                aux_3 = ScaffoldAuxVar(delta=3.0, clients={"node-3"})
+                aux = {'scaffold': aux_1 + aux_2 + aux_3}
+                optim_wrapper.set_aux(aux)
+                # Verify that the updated global state matches expectation (average of states).
+                collected_aux_vars = optim_wrapper.get_aux()
+                expected_aux_vars = {'scaffold': ScaffoldAuxVar(state=2.0)}
+                self.assertDictEqual(collected_aux_vars, expected_aux_vars)
+                # Process new state updates and verify the global state again.
+                # Here, one new node participates, and an old one does not.
+                aux_1 = ScaffoldAuxVar(delta=0.0, clients={"node-1"})
+                aux_2 = ScaffoldAuxVar(delta=2.0, clients={"node-2"})
+                aux_4 = ScaffoldAuxVar(delta=4.0, clients={"node-4"})
+                aux = {'scaffold': aux_1 + aux_2 + aux_4}
+                optim_wrapper.set_aux(aux)
+                # Expected state: average of newest node states:
+                # {node-1: 1.0, node-2: 4.0, node-3: 3.0, node-4: 4.0}
+                collected_aux_vars = optim_wrapper.get_aux()
+                expected_aux_vars = {'scaffold': ScaffoldAuxVar(state=3.0)}
                 self.assertDictEqual(collected_aux_vars, expected_aux_vars)
 
-                optim = FedOptimizer(lr=learning_rate, modules = [ScaffoldClientModule()])
-                optim_wrapper = DeclearnOptimizer(model, optim)
-                aux = {'scaffold': {'delta': 1.}}
-                optim_wrapper.set_aux(aux)
-                expected_aux = {'scaffold': {'state': 0.}}
-                collected_aux = optim_wrapper.get_aux()
-                self.assertDictEqual(expected_aux, collected_aux)
-        
     def test_declearnoptimizer_06_states(self):
         def check_state(state: Dict[str, Any], learning_rate: float, w_decay: float, modules: List, regs: List, model):
             self.assertEqual(state['config']['lrate'], learning_rate)
@@ -439,26 +442,26 @@ class TestDeclearnOptimizer(unittest.TestCase):
 
         learning_rate = .12345
         w_decay = .54321
-        
+
         optim = FedOptimizer(lr=learning_rate, decay=w_decay)
-        
+
         for model_wrappers in (self._torch_model_wrappers, self._sklearn_model_wrappers):
             for model in model_wrappers:
                 optim_wrapper = DeclearnOptimizer(model, optim)
                 state = optim_wrapper.save_state()
-                
+
                 check_state(state, learning_rate, w_decay, [], [], model)
-        
+
         nb_tests = 10  # number of time the following test will be executed
-        
+
         for model_wrappers in (self._torch_model_wrappers, self._sklearn_model_wrappers):
             for model in model_wrappers:
                 for _ in range(nb_tests):
-                    # test DeclearnOptimizer with random modules and regularizers 
+                    # test DeclearnOptimizer with random modules and regularizers
                     optim, selected_modules, selected_reg = self.create_random_declearn_optimizer(learning_rate, w_decay)
                     optim_wrapper = DeclearnOptimizer(model, optim)
                     state = optim_wrapper.save_state()
-                    
+
                     check_state(state, learning_rate, w_decay, selected_modules, selected_reg, model)
 
     def test_declearnoptimizer_07_loading_from_previous_state_1_unchanged_optim(self):
@@ -468,7 +471,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
         previous_round_optim = FedOptimizer(lr=lr,
                                       modules=[AdamModule(), YogiMomentumModule()],
                                       regularizers=[LassoRegularizer()])
-        
+
         for model_wrappers in (self._torch_model_wrappers, self._sklearn_model_wrappers):
             for model in model_wrappers:
                 previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
@@ -477,10 +480,10 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 current_round_optim_w = DeclearnOptimizer(model, current_round_optim)
                 current_round_optim_w.load_state(previous_optim_state, load_from_state=True)
                 current_optim_state = current_round_optim_w.save_state()
-                
+
                 self.assertDictEqual(previous_optim_state, current_optim_state)
                 self.assertNotEqual(id(current_round_optim), id(previous_round_optim))  # make sure they are not same object
-                
+
     def test_declearnoptimizer_07_loading_from_previous_state_1_fully_changed_optim(self):
         # simulates loading of an optimizer state from previous round into a new defined optimizer
         # case where optimizer has been fully redefined
@@ -489,23 +492,23 @@ class TestDeclearnOptimizer(unittest.TestCase):
         previous_round_optim = FedOptimizer(lr=previous_r_lr,
                                       modules=[YogiMomentumModule(), AdaGradModule()],
                                       regularizers=[LassoRegularizer()])
-        
-        current_round_optim = FedOptimizer(lr=current_r_lr, 
+
+        current_round_optim = FedOptimizer(lr=current_r_lr,
                                           modules=[AdamModule()])
-        
-        
+
+
         for model_wrappers in (self._torch_model_wrappers, self._sklearn_model_wrappers):
             for model in model_wrappers:
                 previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
                 current_round_optim_w = DeclearnOptimizer(model, current_round_optim)
                 previous_round_optim_state = previous_round_optim_w.save_state()
                 current_round_optim_state = current_round_optim_w.save_state()
-                
+
                 current_round_optim_w.load_state(copy.deepcopy(previous_round_optim_state),
                                                  load_from_state=True)
-                
+
                 current_round_optim_state_after_loading = current_round_optim_w.save_state()
-                
+
                 for module_name in current_round_optim_state['states']:
                     prev = previous_round_optim_state['states'][module_name]
                     current = current_round_optim_state['states'][module_name]
@@ -516,7 +519,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     previous_round_optim_state['config']['lrate'],
                     current_round_optim_state_after_loading['config']['lrate']
                 )
-                
+
                 self.assertEqual(current_round_optim_state_after_loading['config']['lrate'], current_r_lr)
                 self.assertDictEqual(current_round_optim_state_after_loading, current_round_optim_state)
                 # these states are equal because model hasnot been trained from previous round to current
@@ -525,13 +528,13 @@ class TestDeclearnOptimizer(unittest.TestCase):
         # simulates training for sklearn models
         # FIXME: this looks more like an integration test
         learning_rate = .12345
-        
+
         w_decay = .54321
         n_iter = 10
         data = np.array([[1, 1, 1, 1,],
                         [1, 0, 1, 0],
                         [1, 1, 1, 1]])
-        
+
         targets = np.array([[1], [0], [1], [1]])
 
         for model in self._sklearn_model_wrappers:
@@ -540,31 +543,31 @@ class TestDeclearnOptimizer(unittest.TestCase):
                                             decay=w_decay,
                                             modules=[AdamModule(), YogiMomentumModule()],
                                             regularizers=[LassoRegularizer()])
-        
+
             current_round_optim = copy.deepcopy(previous_round_optim)
             previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
             for _ in range(n_iter):
                 previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
                 model.set_init_params({'n_features': 4, 'n_classes': 2})
-                
+
                 with previous_round_optim_w.optimizer_processing():
                     previous_round_optim_w.init_training()
                     model.train(data, targets)
                     previous_round_optim_w.step()
-                
+
             current_round_optim_w = DeclearnOptimizer(model, current_round_optim)
             self.check_optimizer_states(previous_round_optim_w, current_round_optim_w, is_same_optimizer=True)
 
-    def test_declearnoptimizer_07_loading_from_previous_state_3_unchanged_optim_pytorch(self):       
+    def test_declearnoptimizer_07_loading_from_previous_state_3_unchanged_optim_pytorch(self):
         # tests on pytorch models
         learning_rate = .12345
-        
+
         w_decay = .54321
         n_iter = 10
         data = torch.Tensor([[1,1,1,1],
                              [1,0,0,1]])
         targets = torch.Tensor([[1, 1], [0, 1]])
-        
+
         loss_func = torch.nn.MSELoss()
 
         for model in self._torch_model_wrappers:
@@ -572,11 +575,11 @@ class TestDeclearnOptimizer(unittest.TestCase):
                                             decay=w_decay,
                                             modules=[AdamModule(), YogiMomentumModule()],
                                             regularizers=[LassoRegularizer()])
-        
+
             current_round_optim = copy.deepcopy(previous_round_optim)
             previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
             for _ in range(n_iter):
-                
+
                 previous_round_optim_w.init_training()
                 previous_round_optim_w.zero_grad()
                 output = model.model.forward(data)
@@ -591,7 +594,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
     def test_declearnoptimizer_07_loading_from_previous_state_4_partially_changed_optimizer_sklearn(self):
         # test that optimizer is loaded accordingly, when partial changes are detected in the modules of
         # the declearn optimizer
-        
+
         previous_r_lr = .12345
         current_r_lr = .3456
         w_decay = .54321
@@ -599,29 +602,29 @@ class TestDeclearnOptimizer(unittest.TestCase):
         data = np.array([[1, 1, 1, 1,],
                         [1, 0, 1, 0],
                         [1, 1, 1, 1]])
-        
+
         targets = np.array([[1], [0], [1], [1]])
 
-        
+
         for model in self._sklearn_model_wrappers:
             common_opi_module = YogiMomentumModule()
             previous_round_optim = FedOptimizer(lr=previous_r_lr,
                                                 decay=w_decay,
                                         modules=[YogiMomentumModule(), AdaGradModule()],
                                         regularizers=[LassoRegularizer()])
-            
-            current_round_optim = FedOptimizer(lr=current_r_lr, 
+
+            current_round_optim = FedOptimizer(lr=current_r_lr,
                                             modules=[YogiMomentumModule(), AdamModule()])
             previous_round_optim_w = DeclearnOptimizer(model, previous_round_optim)
-                            
+
             model.set_init_params({'n_features': 4, 'n_classes': 2})
             for _ in range(n_iter):
-                
+
                 with previous_round_optim_w.optimizer_processing():
                     previous_round_optim_w.init_training()
                     model.train(data, targets)
                     previous_round_optim_w.step()
-                
+
             current_round_optim_w = DeclearnOptimizer(model, current_round_optim)
             #self.check_optimizer_states(previous_round_optim_w, current_round_optim_w, is_same_optimizer=False)
             # check that YogiModule has been reloaded accordingly
@@ -629,7 +632,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
 
             current_round_optim_w.load_state(copy.deepcopy(previous_round_optim_state), load_from_state=True)
             current_round_optim_state = current_round_optim_w.save_state()
-            
+
             for curr_module_state, prev_module_state in zip(
             current_round_optim_state['states']['modules'],
             previous_round_optim_state['states']['modules']
@@ -640,7 +643,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     self.assertNotEqual(curr_module_state, prev_module_state)
 
     def test_declearnoptimizer_08_loading_state_failure(self):
-        
+
         learning_rate, w_decay = .1234, 3.
         bad_states = (123, set((1, 2, 3,)), ['a', 'b', 'c'],)
         for model in self._torch_model_wrappers:
@@ -660,19 +663,19 @@ class TestDeclearnOptimizer(unittest.TestCase):
         nb_tests = 10  # number of time the following test will be executed
         learning_rate = .12345
         w_decay = .54321
-        
+
         data = np.array([[1, 1, 1, 1,],
                         [1, 0, 1, 0],
                         [1, 1, 1, 1]])
-        
+
         targets = np.array([[1], [0], [1], [1]])
-        
+
         for _ in range(nb_tests):
             optim, modules , regs = self.create_random_declearn_optimizer(learning_rate, w_decay)
             for model in self._sklearn_model_wrappers:
                 optim_w = DeclearnOptimizer(model, optim)
                 model.set_init_params({'n_features': 4, 'n_classes': 2})
-                
+
                 with optim_w.optimizer_processing():
                     optim_w.init_training()
                     model.train(data, targets)
@@ -684,7 +687,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
         data = torch.Tensor([[1,1,1,1],
                              [1,0,0,1]])
         targets = torch.Tensor([[1, 1], [0, 1]])
-        
+
         learning_rate = .12345
         w_decay = .54321
 
@@ -702,11 +705,11 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 loss.backward()
                 optim_w.step()
 
-    
+
     def test_declearnoptimizer_10_declearn_scaffold_1_sklearnModel(self):
         # FIXME: this test is more a funcitonal test and should belong to trainingplan tests
         # test with one server and one node on a SklearnModel
-        
+
         # this test was made to simulate a training with node and researcher with optimizer sending auxiliary variables for scaffold
         # in addition to model parameters
         # it tests:
@@ -721,9 +724,9 @@ class TestDeclearnOptimizer(unittest.TestCase):
         data2 = np.array([[1, 0, 1, 0],
                               [1, 1, 1, 1,],
                               [1, 1, 1, 1]])
-        
+
         targets = np.array([[1], [0], [1], [1]])
-        
+
         num_features = 4
         num_classes = 2
         # node_scenarios is a tuple containing for each test a dictionary specifying:
@@ -746,7 +749,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
             for model in self._sklearn_model_wrappers:
                 researcher_optim = FedOptimizer(lr=researcher_lr, modules=[ScaffoldServerModule()])
 
-                # step 1: initializes and zeroes node model weights 
+                # step 1: initializes and zeroes node model weights
                 # zero sklearn model weights
                 model.set_init_params({'n_features': num_features, 'n_classes': num_classes})
                 node_optims = {node_id: FedOptimizer(lr=node_lr, modules=[ScaffoldClientModule()]) for node_id in nodes_scenario['nodes']}
@@ -757,7 +760,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 node_sklearn_optim_wrappers = {k: DeclearnOptimizer(node_models[k], node_optims[k]) for k in nodes_scenario['nodes']}
 
                 aux_var = researcher_sklearn_optim_wrapper.get_aux()
-                
+
                 self.assertDictEqual(aux_var, {})  # test that aux_var are 0 for the first round
 
                 for _ in range(5):  # simulates 5 rounds
@@ -771,7 +774,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                                                                                node_sklearn_optim_wrappers[node_id],
                                                                                model.get_weights(),
                                                                                aux_var,
-                                                                               nodes_scenario['data'][node_id], 
+                                                                               nodes_scenario['data'][node_id],
                                                                                nodes_scenario['target'][node_id])
 
                         for k, v in node_models[node_id].get_gradients().items():
@@ -802,7 +805,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     for node_id in nodes_scenario['nodes']:
                         avg += aux_var['scaffold'][node_id]['delta'][k]
                     self.assertTrue(np.isclose(avg, np.zeros_like(avg)).all())
-                    
+
                 # final check 2. test correct computation of deltas
                 for node_id in nodes_scenario['nodes']:
                     for  (k, v) in model.get_weights().items():
@@ -818,12 +821,12 @@ class TestDeclearnOptimizer(unittest.TestCase):
         # - correct properties of Nodes deltas
         researcher_lr, node_lr = .03, .5
         data = torch.Tensor([[1, 1, 1 ,1],
-                             [1, 0, 0, 1], 
+                             [1, 0, 0, 1],
                              [1, 0, 0, 0],
                              [0, 0, 0, 0],
                              [1, 0, 0, 1]])
         data2 = torch.Tensor([[1,1,1,1],
-                             [1,1,0,1], 
+                             [1,1,0,1],
                              [1, 1, 0, 0],
                              [0, 0, 1, 0],
                              [1, 0, 0, 1]])
@@ -847,10 +850,10 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     'node-2': data,
                     'node-3': data2
                 },
-                
+
                 'target': {
                     'node-1': targets,
-                    'node-2': targets, 
+                    'node-2': targets,
                     'node-3': targets
                     }
             }
@@ -867,7 +870,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 node_torch_optim_wrappers = {k: DeclearnOptimizer(node_models[k], node_optims[k]) for k in nodes_scenario['nodes']}
                 aux_var = researcher_torch_optim_wrapper.get_aux()
                 self.assertDictEqual(aux_var, {})  # test that aux_var are 0 for the first round
-                
+
                 for _ in range(5):  # simulates 5 rounds
 
                     # step 3: performs (or simulates) a training on node side
@@ -880,7 +883,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                                                             node_torch_optim_wrappers[node_id],
                                                             model.get_weights(),
                                                             aux_var,
-                                                            nodes_scenario['data'][node_id], 
+                                                            nodes_scenario['data'][node_id],
                                                             nodes_scenario['target'][node_id],
                                                             loss_func)
                         v = node_torch_optim_wrappers[node_id].optimizer._optimizer.modules[0].delta
@@ -920,7 +923,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
                         self.assertTrue(torch.isclose(deltas[node_id][k], aux_var['scaffold'][node_id]['delta'][k]).all())
 
     def test_declearnoptimizer_11_multiple_scaffold(self):
-        # the goal of this test is to check that user will get error if specifying non sensical 
+        # the goal of this test is to check that user will get error if specifying non sensical
         # Optimizer when passing both `ScaffoldServerModule()`and `ScaffoldClientModule()` modules
 
         researcher_lr, node_lr = .03, .5
@@ -938,7 +941,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
             loss = loss_func(output, targets)
             loss.backward()
             incorrect_optim_w.step()
-            
+
             incorrect_state = incorrect_optim_w.get_aux()
             optim = FedOptimizer(lr=node_lr, modules=[ScaffoldClientModule()])
 
@@ -1053,9 +1056,9 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
                               [1, 0,0, 1],
                               [1, 1, 1, 1],
                               [1, 1, 1, 0]])
-        
+
         self.targets = np.array([[1], [0], [1], [1]])
-    
+
     def tearDown(self):
         pass
 
@@ -1064,7 +1067,7 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
         # using declearn optimizer gives the same results
         random_seed = 1234
         learning_rate = .1234
-        
+
         for sk_model in self._sklearn_model:
             # native sklearn
             sk_model.set_params(random_state=random_seed,
@@ -1079,11 +1082,11 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
                 sk_optim_w.init_training()
                 sk_model_native.train(self.data, self.targets)
                 sk_optim_w.step()
-            
+
             # sklearn with declearn optimizers
             sk_model_declearn = copy.deepcopy(sk_model)
             self.assertDictEqual(sk_model_declearn.get_params(), sk_model_native.get_params())  # if this is not passing, test will fail
-            
+
             dec_optim_w = DeclearnOptimizer(sk_model_declearn, FedOptimizer(lr=learning_rate))
             with dec_optim_w.optimizer_processing():
                 dec_optim_w.init_training()
@@ -1094,13 +1097,13 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
                 self.assertTrue(np.all(np.isclose(v, v_ref)))
 
     def test_sklearnbasedoptimizer_02_optimizer_processing(self):
-        
+
         learning_rate = .12345
         num_features = 4
         num_classes = 2
         for model in self._sklearn_model:
             # 1. test for declearn optimizers
-            optim = FedOptimizer(lr=learning_rate) 
+            optim = FedOptimizer(lr=learning_rate)
             optim_wrapper = DeclearnOptimizer(model, optim)
             model.set_init_params({'n_features': num_features, 'n_classes': num_classes})
             model.model.penality = None # disable penality
@@ -1118,7 +1121,7 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
                     # check that only the declearn learning rate is used for training the model
                     self.assertTrue(np.all(np.isclose(w_after, w_before_step - learning_rate * grads)))
                     self.assertNotEqual(disabled_optim_hyperparameters, init_optim_hyperparameters)
-                    
+
             self.assertDictEqual(init_optim_hyperparameters, model.get_params())
 
     def test_sklearnbasedoptimizer_03_invalid_method(self):
@@ -1126,9 +1129,9 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
 
         for model in self._sklearn_model:
 
-            optim = FedOptimizer(lr=.12345) 
+            optim = FedOptimizer(lr=.12345)
             optim_wrapper = DeclearnOptimizer(model, optim)
-            
+
             with self.assertRaises(FedbiomedOptimizerError):
                 optim_wrapper.zero_grad()
 
@@ -1154,11 +1157,11 @@ class TestNativeTorchOptimizer(unittest.TestCase):
             for optim_func in self.torch_optimizers:
                 optim = optim_func(model.parameters(), lr=learning_rate)
                 optim_w = NativeTorchOptimizer(TorchModel(model), optim)
-                
+
                 with patch.object(optim_func, 'step') as step_patch:
                     optim_w.step()
                 step_patch.assert_called_once()
-    
+
     def test_nativetorchoptimizer_02_getlearningrate_1(self):
         """test_torch_nn_08_get_learning_rate: test we retrieve the appropriate
         learning rate
@@ -1170,10 +1173,10 @@ class TestNativeTorchOptimizer(unittest.TestCase):
         dataset = torch.Tensor([[1, 2], [1, 1], [2, 2]])
         target = torch.Tensor([1, 2, 2])
         optimizer = NativeTorchOptimizer(model, torch.optim.SGD(model.model.parameters(), lr=lr))
-        
+
         lr_extracted = optimizer.get_learning_rate()
         self.assertDictEqual(lr_extracted, {k: lr for k,_ in model.model.named_parameters()})
-        
+
         # then test using a pytorch scheduler
         scheduler = LambdaLR(optimizer.optimizer, lambda e: 2*e)
         # this pytorch scheduler increase earning rate by twice its previous value
@@ -1204,7 +1207,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
             ```
             batch_size = 5
             model = ComplexModel()
-            data = torch.rand(batch_size,1, 25,25) 
+            data = torch.rand(batch_size,1, 25,25)
             model.forward(data)
             ```
             """
@@ -1270,16 +1273,16 @@ class TestNativeTorchOptimizer(unittest.TestCase):
         for model in self.torch_models:
             model = TorchModel(model)
             torch_optim = NativeTorchOptimizer(model, torch.optim.SGD(model.model.parameters(), lr=torch_learning_rate))
-            
-            
+
+
             dec_optim = FedOptimizer(lr=declearn_learning_rate,
                                                     decay=w_decay,
                                             modules=[YogiMomentumModule(), AdaGradModule()],
                                             regularizers=[LassoRegularizer()])
             dec_optim = DeclearnOptimizer(model, dec_optim)
-            
+
             dec_optim_state = dec_optim.save_state()
-            
+
             torch_optim.load_state(dec_optim_state, load_from_state=True)
             torch_optim_state = torch_optim.save_state()
 
@@ -1297,15 +1300,15 @@ class TestNativeSklearnOptimizer(unittest.TestCase):
     def setUp(self) -> None:
         self._sklearn_model_wrappers = (SkLearnModel(SGDClassifier),
                                         SkLearnModel(SGDRegressor))
-    
+
     def tearDown(self) -> None:
         return super().tearDown()
-    
+
     def test_nativesklearnoptimizer_01_optimizer_post_processing(self):
-        
+
         for model in self._sklearn_model_wrappers:
             init_model_hyperparameters = model.get_params()
-            
+
             optim_wrapper = NativeSkLearnOptimizer(model)
             with optim_wrapper.optimizer_processing():
                 model_hyperparameters = model.get_params()
@@ -1314,19 +1317,19 @@ class TestNativeSklearnOptimizer(unittest.TestCase):
 
             self.assertDictEqual(model_hyperparameters, model.get_params())
 
-  
+
 class TestOptimizerBuilder(unittest.TestCase):
     def setUp(self) -> None:
         self.torch_models = (nn.Module(),
                              nn.Linear(4, 2),)
         self.sklearn_models = (SkLearnModel(SGDClassifier),
                                SkLearnModel(SGDRegressor),)
-        
+
         torch_model = nn.Linear(4, 2)
         self.native_torch_optimizers = (torch.optim.SGD(torch_model.parameters(), lr=.12345),
                                        torch.optim.Adam(torch_model.parameters(), lr=.12345),
                                        torch.optim.Adagrad(torch_model.parameters(), lr=.12345),)
-        
+
         self.modules = [
             ScaffoldServerModule(),
             YogiMomentumModule(),
@@ -1342,7 +1345,7 @@ class TestOptimizerBuilder(unittest.TestCase):
         selected_reg = random.sample(self.regularizers, random.randint(0, len(self.regularizers)))
 
         optim = FedOptimizer(lr=lr,
-                             decay=w_decay, 
+                             decay=w_decay,
                              modules=selected_modules,
                              regularizers=selected_reg)
         return optim
@@ -1351,7 +1354,7 @@ class TestOptimizerBuilder(unittest.TestCase):
         optim_builder = OptimizerBuilder()
         nb_tests = 10
         random_declearn_optim = [self.create_random_fedoptimizer() for _ in range(nb_tests)]
-        # check that NativeTorchOptimizer and DeclearnOptimizer are correclty built 
+        # check that NativeTorchOptimizer and DeclearnOptimizer are correclty built
         for torch_model in self.torch_models:
 
             for optim in self.native_torch_optimizers:
@@ -1360,7 +1363,7 @@ class TestOptimizerBuilder(unittest.TestCase):
             for optim in random_declearn_optim:
                 optim_wrapper = optim_builder.build(TrainingPlans.TorchTrainingPlan, TorchModel(torch_model), optim)
                 self.assertIsInstance(optim_wrapper, DeclearnOptimizer)
-        
+
         # check that NativeSklearnOptimizer and DeclearnOptimizer are correctly built
         for sk_model in self.sklearn_models:
             optim_wrapper = optim_builder.build(TrainingPlans.SkLearnTrainingPlan, sk_model, None)
@@ -1371,7 +1374,7 @@ class TestOptimizerBuilder(unittest.TestCase):
 
     def test_02_get_parent_class(self):
         def check_type(obj, parent_obj):
-            """Tests that function `get_parent_class` retruns 
+            """Tests that function `get_parent_class` retruns
             the appropriate type of the highest parent class (just after `object`)
 
             Args:
@@ -1386,21 +1389,21 @@ class TestOptimizerBuilder(unittest.TestCase):
 
         class A:
             pass
-        
+
         class B(A):
             pass
-        
+
         class C(A):
             pass
-        
+
         class D(B, C):
             pass
-        
+
         class E(C, A):
             pass
-        
+
         objects = [A, B, C, D, E]
-        
+
         optim_builder = OptimizerBuilder()
         # test with `object`
         check_type(object, object)
@@ -1408,16 +1411,16 @@ class TestOptimizerBuilder(unittest.TestCase):
         # test with `None`
         res = optim_builder.get_parent_class(None)
         self.assertEqual(res, None)
-        
+
         # test  with dummy objects
         for obj in objects:
             check_type(obj, A)
-            
+
         # test with torch optimizers
         for torch_optim in self.native_torch_optimizers:
             res = optim_builder.get_parent_class(torch_optim)
             self.assertEqual(res, torch.optim.Optimizer)
-    
+
     def test_03_buildfailure_unknowntrainingplan(self):
         for incorrect_training_plan_type in (None, 'unknown_training_plan',):
             for model_collection in (self.torch_models, self.sklearn_models,):
@@ -1432,7 +1435,7 @@ class TestOptimizerBuilder(unittest.TestCase):
         # for SkLearnTrainingPlan
         for coll in (self.native_torch_optimizers, ("unknown", object,),):
             for item in coll:
-        
+
                 with self.assertRaises(FedbiomedOptimizerError):
                     optim_builer.build(TrainingPlans.SkLearnTrainingPlan, model, item)
 

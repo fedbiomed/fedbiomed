@@ -78,7 +78,7 @@ class TestNode(NodeTestCase):
                                            autospec=True,
                                            return_value=None)
         self.grpc_send_patch = patch('fedbiomed.transport.controller.GrpcController.send', autospec=True)
-        
+
         self.grpc_controller_patcher = self.grpc_controller_patch.start()
         self.grpc_send_mock = self.grpc_send_patch.start()
 
@@ -496,7 +496,7 @@ class TestNode(NodeTestCase):
             'dataset_id': 'dataset_id_1234',
             'training': True,
             'aggregator_args': {},
-            "aux_vars": ["url_shared_aux_var", "url_bynode_aux_var"],
+            "aux_vars": None,
         }
         # we convert this dataset into a string
         msg1_dataset = NodeMessages.format_incoming_message(dict_msg_1_dataset)
@@ -512,20 +512,20 @@ class TestNode(NodeTestCase):
 
         # checks
         round_patch.assert_called_once_with(
-            model_kwargs=dict_msg_1_dataset['model_args'], 
-            training_kwargs=dict_msg_1_dataset['training_args'], 
-            training=True, 
-            dataset=self.database_id, 
-            params=dict_msg_1_dataset['params'], 
-            job_id=dict_msg_1_dataset['job_id'], 
-            researcher_id=dict_msg_1_dataset['researcher_id'], 
-            history_monitor=unittest.mock.ANY, 
-            aggregator_args=None, 
-            node_args=None, 
-            training_plan=dict_msg_1_dataset['training_plan'], 
-            training_plan_class=dict_msg_1_dataset['training_plan_class'], 
-            round_number=1, 
-            dlp_and_loading_block_metadata=None, 
+            model_kwargs=dict_msg_1_dataset['model_args'],
+            training_kwargs=dict_msg_1_dataset['training_args'],
+            training=True,
+            dataset=self.database_id,
+            params=dict_msg_1_dataset['params'],
+            job_id=dict_msg_1_dataset['job_id'],
+            researcher_id=dict_msg_1_dataset['researcher_id'],
+            history_monitor=unittest.mock.ANY,
+            aggregator_args=None,
+            node_args=None,
+            training_plan=dict_msg_1_dataset['training_plan'],
+            training_plan_class=dict_msg_1_dataset['training_plan_class'],
+            round_number=1,
+            dlp_and_loading_block_metadata=None,
             aux_vars= dict_msg_1_dataset['aux_vars']
         )
 
@@ -557,7 +557,7 @@ class TestNode(NodeTestCase):
             "command": "train",
             "dataset_id": "dataset_id_1234",
             'aggregator_args': {},
-            "aux_vars": ["single_url_aux_var"],
+            "aux_vars": None,
         }
 
         #
@@ -574,20 +574,20 @@ class TestNode(NodeTestCase):
 
         # checks
         round_patch.assert_called_once_with(
-            model_kwargs=dict_msg_1_dataset['model_args'], 
-            training_kwargs=dict_msg_1_dataset['training_args'], 
-            training=True, 
-            dataset=self.database_id, 
-            params=dict_msg_1_dataset['params'], 
-            job_id=dict_msg_1_dataset['job_id'], 
-            researcher_id=dict_msg_1_dataset['researcher_id'], 
-            history_monitor=unittest.mock.ANY, 
-            aggregator_args=None, 
-            node_args=None, 
-            training_plan=dict_msg_1_dataset['training_plan'], 
-            training_plan_class=dict_msg_1_dataset['training_plan_class'], 
-            round_number=1, 
-            dlp_and_loading_block_metadata=None, 
+            model_kwargs=dict_msg_1_dataset['model_args'],
+            training_kwargs=dict_msg_1_dataset['training_args'],
+            training=True,
+            dataset=self.database_id,
+            params=dict_msg_1_dataset['params'],
+            job_id=dict_msg_1_dataset['job_id'],
+            researcher_id=dict_msg_1_dataset['researcher_id'],
+            history_monitor=unittest.mock.ANY,
+            aggregator_args=None,
+            node_args=None,
+            training_plan=dict_msg_1_dataset['training_plan'],
+            training_plan_class=dict_msg_1_dataset['training_plan_class'],
+            round_number=1,
+            dlp_and_loading_block_metadata=None,
             aux_vars= dict_msg_1_dataset['aux_vars']
         )
 
