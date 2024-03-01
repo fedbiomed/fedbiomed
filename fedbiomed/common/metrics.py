@@ -104,7 +104,7 @@ class Metrics(object):
 
         if y_pred is not None and not isinstance(y_pred, (np.ndarray, list)):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_pred` should an instance "
-                                       f"of `np.ndarray`, but got {type(y_true)} ")
+                                       f"of `np.ndarray`, but got {type(y_pred)} ")
 
         y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
         result = self.metrics[metric.name](y_true, y_pred, **kwargs)
@@ -361,11 +361,6 @@ class Metrics(object):
         """
 
         # Squeeze array [[1],[2],[3]] to [1,2,3]
-        # _diff = len(y_pred.shape) - len(y_true.shape)
-        # if _diff > 0:
-        #     y_true = y_true.reshape((1, -1))
-        # elif _diff < 0:
-        #     y_pred = y_pred.reshape((1, -1))
         y_pred = np.squeeze(y_pred)
         y_true = np.squeeze(y_true)
 
@@ -374,14 +369,6 @@ class Metrics(object):
         if y_true.ndim == 0:
             y_true = y_true.reshape((1,))
 
-        # if len(y_pred) != len(y_true):
-        #     if y_true.ndim == 1:
-        #         y_true = y_true.reshape((1, -1))
-        # if len(y_pred) != len(y_true):
-        #     if y_pred.ndim == 1:
-        #         y_pred = y_pred.reshape((1, -1))
-
-        print("VAL", y_pred.shape, y_true.shape)
         if y_pred.shape[0] != y_true.shape[0]:
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions and true values should have"
                                        f"equal number of samples, {len(y_true)}, {len(y_pred)}")
