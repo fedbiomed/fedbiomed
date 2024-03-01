@@ -23,7 +23,7 @@ from fedbiomed.common.utils import (
 )
 from fedbiomed.common.certificate_manager import retrieve_ip_and_port, generate_certificate
 from fedbiomed.common.exceptions import FedbiomedError
-
+from fedbiomed.common.secagg_manager import SecaggBiprimeManager
 
 class Config(metaclass=ABCMeta):
     """Base Config class"""
@@ -172,6 +172,9 @@ class Config(metaclass=ABCMeta):
             )
         }
 
+        # Register default biprime
+        self._register_default_biprime(db_path)
+
         # Calls child class add_parameterss
         self.add_parameters()
 
@@ -196,3 +199,24 @@ class Config(metaclass=ABCMeta):
 
         # Generate by keeping the component ID
         self.generate(force=True, id=id)
+
+    def _register_default_biprime(self, db_path):
+        """Registers default biprime into detabase"""
+
+        df_biprimes = self._cfg.get('mpspdz', 'allow_default_biprimes')
+        biprimes_dir = os.path.normpath(
+            os.path.join(self.root, self.name, self._cfg.get('mpspdz', 'default_biprimes_dir'))
+        )
+        # Update secure aggregation biprimes in component database
+        print(
+            "Updating secure aggregation default biprimes with:\n"
+            f"ALLOW_DEFAULT_BIPRIMES : {df_biprimes}\n"
+            f"DEFAULT_BIPRIMES_DIR   : {biprimes_dir}\n"
+        )
+
+       # db_path = os.path.normpath(
+       #     os.path.join(self._config.root, self.name, elf._cfg.onfig.get('default', 'db'))
+       # )
+        BPrimeManager = SecaggBiprimeManager(db_path)
+        BPrimeManager.update_default_biprimes(df_biprimes, biprimes_dir)
+

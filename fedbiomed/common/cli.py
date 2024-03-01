@@ -195,31 +195,6 @@ class ConfigurationParser(CLIArgumentParser):
 
         return config
 
-    def _update_register_default_biprimes(self, config: Config):
-        """Post common action after configuration is create
-
-        Args:
-          config: Config instance Node or Researcher
-        """
-
-        df_biprimes = config.get('mpspdz', 'allow_default_biprimes')
-        biprimes_dir = os.path.normpath(
-            os.path.join(config.root, CONFIG_FOLDER_NAME , config.get('mpspdz', 'default_biprimes_dir'))
-        )
-        # Update secure aggregation biprimes in component database
-        print(
-            "Updating secure aggregation default biprimes with:\n"
-            f"ALLOW_DEFAULT_BIPRIMES : {df_biprimes}\n"
-            f"DEFAULT_BIPRIMES_DIR   : {biprimes_dir}\n"
-        )
-
-        db_path = os.path.normpath(
-            os.path.join(config.root, CONFIG_FOLDER_NAME, config.get('default', 'db'))
-        )
-        BPrimeManager = SecaggBiprimeManager(db_path)
-        BPrimeManager.update_default_biprimes(df_biprimes, biprimes_dir)
-
-
     def create(self, args):
         """CLI Handler for creating configuration file and assets for given component
 
@@ -247,8 +222,6 @@ class ConfigurationParser(CLIArgumentParser):
         else:
             logger.info(f"Generation new configuration file \"{config.name}\"")
             config.generate()
-
-        self._update_register_default_biprimes(config)
 
     def refresh(self, args):
         """Refreshes configuration file """
