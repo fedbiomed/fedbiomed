@@ -101,7 +101,7 @@ Currently, creating config files is done by the `fedbiomed_run` script. It autom
 configuration file. The following command creates a specific config file with default settings and starts the node. 
 
 ```
-$ ./scripts/fedbiomed_run node config config-n1.ini start
+$ ./scripts/fedbiomed_run node --config config-n1.ini start
 ```
 
 If you run this command, you can see a new config file created in the `etc/` directory of the Fed-BioMed. 
@@ -113,8 +113,8 @@ Listing and adding datasets follows the same logic. If you want to list or add d
 from the default one, you need to specify the config file.
 
 ```
-$ ./scripts/fedbiomed_run node config config-n1.ini list
-$ ./scripts/fedbiomed_run node config config-n1.ini add
+$ ./scripts/fedbiomed_run node --config config-n1.ini dataset list
+$ ./scripts/fedbiomed_run node --config config-n1.ini dataset add
 ```
 
 !!! info "Configurations for deployment"

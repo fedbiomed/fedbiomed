@@ -86,6 +86,10 @@ class ResearcherEnviron:
         self._values[key] = value
         return value
 
+    def set_environment(self):
+        """Dummy set environ"""
+        pass
+
 
 class ResearcherRandomEnv(ResearcherEnviron):
     def __getitem__(self, item):

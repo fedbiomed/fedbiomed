@@ -73,7 +73,7 @@ Same datasets will be automatically provided at subsequent starts of the node.
 
 Begin adding a dataset to the node with this command :
 ```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node add
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset add
 
 ```
 
@@ -113,10 +113,10 @@ MNIST   default     ['#MNIST', '#dataset']   MNIST database     [60000, 1, 28, 2
 
 You can check at any time which datasets are provided by a node with :
 ```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node list
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset list
 ```
 
-When no dataset is provided by the node, the command `${FEDBIOMED_DIR}/scripts/fedbiomed_run node list` will answer `No data has been set up.` as its final output line.
+When no dataset is provided by the node, the command `${FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset list` will answer `No data has been set up.` as its final output line.
 
 
 #### Starting more nodes
@@ -125,9 +125,9 @@ To launch and configure more than one node, specify a different (non-default) co
 
 For example to launch and add a dataset to a second node using the `config2.ini` configuration file :
 ```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node config config2.ini start
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node config config2.ini list
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node config config2.ini add
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config2.ini start
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config2.ini dataset list
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config2.ini dataset add
 ```
 
 **Warning : if you launch more than one node with the same configuration file, no error is detected, but the nodes are not functional**
@@ -201,7 +201,7 @@ When you restart a node after cleaning the Fed-BioMed instance, the node doesn't
 After cleaning your Fed-BioMed environment, restart a node and the researcher to be ready for the next tutorial ... do you remember the commands ?
 
 ```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node add
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset add
 $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node start
 $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run researcher start
 ```

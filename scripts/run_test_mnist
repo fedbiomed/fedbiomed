@@ -33,8 +33,8 @@ kpids= # PIDs to be killed
 # populate node
 echo "INFO: populating fedbiomed node"
 source $basedir/scripts/fedbiomed_environment node
-$basedir/scripts/fedbiomed_run node --add-mnist $path_mnist
-$basedir/scripts/fedbiomed_run node config config-n1.ini --add-mnist $path_mnist
+$basedir/scripts/fedbiomed_run node dataset add --mnist $path_mnist
+$basedir/scripts/fedbiomed_run node --config config-n1.ini dataset add --mnist $path_mnist
 
 # Launch node 1
 echo "INFO: launching fedbiomed node"
@@ -42,7 +42,7 @@ $basedir/scripts/fedbiomed_run node start &
 apids_root=$!
 
 # Launch node 2
-$basedir/scripts/fedbiomed_run node config config-n1.ini start &
+$basedir/scripts/fedbiomed_run node --config config-n1.ini start &
 apids_root="$apids_root $!"
 
 conda deactivate
@@ -79,8 +79,8 @@ conda deactivate
 echo "INFO: killing kpids=$kpids"
 kill -9 $kpids
 source $basedir/scripts/fedbiomed_environment node
-$basedir/scripts/fedbiomed_run node --delete-mnist
-$basedir/scripts/fedbiomed_run node config config-n1.ini --delete-mnist
+$basedir/scripts/fedbiomed_run node dataset delete --mnist
+$basedir/scripts/fedbiomed_run node --config config-n1.ini dataset delete --mnist
 
 conda deactivate
 
