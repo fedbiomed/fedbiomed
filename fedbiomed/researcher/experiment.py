@@ -1503,6 +1503,7 @@ class Experiment:
                 encryption_factors=encryption_factors,
                 total_sample_size=total_sample_size,
                 model_params=model_params,
+                # FIXME: Access TorchModel through non-private getter once it is implemented
                 num_expected_params=len(self._job.training_plan._model.flatten())
             )
             # FIXME: Access TorchModel through non-private getter once it is implemented
