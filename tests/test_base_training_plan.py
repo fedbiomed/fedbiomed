@@ -2,6 +2,8 @@ import unittest
 from unittest.mock import patch, MagicMock
 from typing import Any, Dict, Optional
 import logging
+from fedbiomed.common.models._torch import TorchModel
+from fedbiomed.common.training_args import TrainingArgs
 import torch
 import numpy as np
 
@@ -277,17 +279,18 @@ class TestBaseTrainingPlan(unittest.TestCase):
                          f'and leaf type {data_leaf_type.__name__}')
 
     # test for bug #893
-    def test_base_training_plan_10_node_out_of_memory_bug(self):
+    def test_base_training_plan_10_node_out_of_memory_bug_npdataloader(self):
         # bug description: validation testing uses batch size equal to all the validation dataset, which leads to some
         # OutOfMemory errors.
-        # 
+        # It tests the introduction of new feature `test_batch_size`, in order to compute validation
+        # metric for every batches (and avoid loading the whole dataset, thus OutOfMemory errors)
         nb_samples_test_dataset = 123
         test_batch_sizes = (1, 2, 10, nb_samples_test_dataset, nb_samples_test_dataset + 10, nb_samples_test_dataset-1,)
-        
+
         for test_batch_size in test_batch_sizes:
 
             test_data_loader = np.random.randn(nb_samples_test_dataset, 100)
-            test_data_loader_target = np.random.randint(0,2, size = nb_samples_test_dataset)
+            test_data_loader_target = np.random.randint(0, 2, size = nb_samples_test_dataset)
             train_data_loader = np.random.randn(64, 100)
             train_data_loader_target = np.random.randint(0, 2, size = 64)
             nb_test_batch = nb_samples_test_dataset // test_batch_size + int(nb_samples_test_dataset % test_batch_size >0)
@@ -297,27 +300,72 @@ class TestBaseTrainingPlan(unittest.TestCase):
             # test_data.__len__.return_value = test_batch_size
             data = NPDataLoader(dataset=train_data_loader,
                                 target=train_data_loader_target)
-            
+
             test_data = NPDataLoader(dataset=test_data_loader,
-                                    target=test_data_loader_target,
-                                    batch_size=test_batch_size)
-            
-            
+                                     target=test_data_loader_target,
+                                     batch_size=test_batch_size)
+
             def predict(x: np.ndarray):
                 return x.T[0]
+
             model = MagicMock(predict = MagicMock(side_effect=predict))
-            
+
             self.tp._model = model
+            self.tp._training_args = TrainingArgs(only_required=False)
             self.tp.set_data_loaders(data, test_data)
             self.tp.testing_routine(metric=None,
                                     metric_args={},
                                     history_monitor=None,
                                     before_train=True,)
-            print("HAS BEEN CALLED", model.predict.call_count)
+
             # here we are checking how many time we are calling model.`predict` method, which is equal to 
             # how many batch sizes are processed
             self.assertEqual(model.predict.call_count, nb_test_batch)
-        
+
+    # 2nd test for bug #893
+    def test_base_training_plan_10_node_out_of_memory_bug_pytorch(self):
+        # bug description: validation testing uses batch size equal to all the validation dataset, which leads to some
+        # OutOfMemory errors.
+        # 
+        class FakeDataset(torch.utils.data.Dataset):
+            def __init__(self, nb_samples_dataset: int = 1234):
+                self.train_dataset = torch.randn(nb_samples_dataset, 100)
+                self.train_label = torch.randint(0, 5, size=(nb_samples_dataset,) )
+                self.nb_samples = nb_samples_dataset
+
+            def __len__(self):
+                return self.nb_samples
+
+            def __getitem__(self, idx):
+                data = self.train_dataset[idx]
+                label = self.train_label[idx]
+                return data, label
+
+        nb_samples_test_dataset = 123
+        test_batch_sizes = (1, 2, 10, nb_samples_test_dataset, nb_samples_test_dataset + 10,
+                            nb_samples_test_dataset - 1,)
+        nb_samples_train_dataset = 1234
+
+        for test_batch_size in test_batch_sizes:
+
+            train_dataloader = torch.utils.data.DataLoader(FakeDataset(nb_samples_train_dataset),)
+            test_dataloader = torch.utils.data.DataLoader(FakeDataset(nb_samples_test_dataset),
+                                                          batch_size=test_batch_size)
+
+            def predict(x: torch.Tensor):
+                return x.T[0].numpy()
+
+            model = MagicMock(predict = MagicMock(side_effect=predict), spec=TorchModel)
+            self.tp._model = model
+            self.tp._training_args = TrainingArgs(only_required=False)
+            self.tp.set_data_loaders(train_dataloader, test_dataloader)
+            self.tp.testing_routine(metric=None,
+                                    metric_args={},
+                                    history_monitor=None,
+                                    before_train=True,)
+
+            nb_test_batch = nb_samples_test_dataset // test_batch_size + int(nb_samples_test_dataset % test_batch_size >0)
+            self.assertEqual(model.predict.call_count, nb_test_batch)
 
 
 if __name__ == '__main__':  # pragma: no cover
