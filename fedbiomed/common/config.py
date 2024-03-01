@@ -200,8 +200,12 @@ class Config(metaclass=ABCMeta):
         # Generate by keeping the component ID
         self.generate(force=True, id=id)
 
-    def _register_default_biprime(self, db_path):
-        """Registers default biprime into detabase"""
+    def _register_default_biprime(self, db_path: str):
+        """Registers default biprime into database
+
+        Args: 
+            db_path: The path to component's DB file. 
+        """
 
         df_biprimes = self._cfg.get('mpspdz', 'allow_default_biprimes')
         biprimes_dir = os.path.normpath(
@@ -213,10 +217,7 @@ class Config(metaclass=ABCMeta):
             f"ALLOW_DEFAULT_BIPRIMES : {df_biprimes}\n"
             f"DEFAULT_BIPRIMES_DIR   : {biprimes_dir}\n"
         )
-
-       # db_path = os.path.normpath(
-       #     os.path.join(self._config.root, self.name, elf._cfg.onfig.get('default', 'db'))
-       # )
+ 
         BPrimeManager = SecaggBiprimeManager(db_path)
         BPrimeManager.update_default_biprimes(df_biprimes, biprimes_dir)
 
