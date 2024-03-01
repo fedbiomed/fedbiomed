@@ -49,12 +49,12 @@ class TestConfigurationParser(unittest.TestCase):
 
         args = self.main_parser.parse_args(["configuration", "create", "--component", "NODE", '-uc'])
         self.conf_parser.create(args)
-        mock_print.assert_called()
+        nconfig.return_value.generate.assert_called_once()
 
         mock_print.reset_mock()
         args = self.main_parser.parse_args(["configuration", "create", "--component", "RESEARCHER", '-uc'])
         self.conf_parser.create(args)
-        mock_print.assert_called()
+        rconfig.return_value.generate.assert_called_once()
 
     @patch("builtins.print")
     @patch('builtins.open')
