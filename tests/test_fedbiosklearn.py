@@ -52,7 +52,8 @@ class FakeTrainingArgs(dict):
 
     def pure_training_arguments(self):
         return {"epochs": 1,
-                "batch_maxnum": 2}
+                "batch_maxnum": 2,
+                'log_interval':10}
 
     def loader_arguments(self):
         return {'batch_size': 1}
