@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 from typing import Any, Dict, Optional
 import logging
+from fedbiomed.common.training_args import TrainingArgs
 import torch
 import numpy as np
 
@@ -308,6 +309,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
             model = MagicMock(predict = MagicMock(side_effect=predict))
             
             self.tp._model = model
+            self.tp._training_args = TrainingArgs(only_required=False)
             self.tp.set_data_loaders(data, test_data)
             self.tp.testing_routine(metric=None,
                                     metric_args={},

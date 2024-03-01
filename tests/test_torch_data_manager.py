@@ -95,19 +95,19 @@ class TestTorchDataManager(unittest.TestCase):
 
         # Test invalid ratio argument
         with self.assertRaises(FedbiomedTorchDataManagerError):
-            self.torch_data_manager.split(test_ratio=12)
+            self.torch_data_manager.split(test_ratio=12, test_batch_size=0)
 
         # Test invalid ratio argument
         with self.assertRaises(FedbiomedTorchDataManagerError):
-            self.torch_data_manager.split(test_ratio='12')
+            self.torch_data_manager.split(test_ratio='12', test_batch_size=2)
 
         # Test invalid ratio argument
         with self.assertRaises(FedbiomedTorchDataManagerError):
-            self.torch_data_manager.split(test_ratio=-12)
+            self.torch_data_manager.split(test_ratio=-12, test_batch_size=3)
 
         # Test proper split
         try:
-            self.torch_data_manager.split(0.3)
+            self.torch_data_manager.split(0.3, test_batch_size=None)
         except:
             self.assertTrue(False, 'Error while splitting TorchDataManager')
 
@@ -115,39 +115,39 @@ class TestTorchDataManager(unittest.TestCase):
         invalid = TestTorchDataManager.CustomDatasetInvalid()
         self.torch_data_manager._dataset = invalid
         with self.assertRaises(FedbiomedTorchDataManagerError):
-            self.torch_data_manager.split(0.3)
+            self.torch_data_manager.split(0.3, test_batch_size=4)
 
         invalid = TestTorchDataManager.CustomDatasetTypeError()
         self.torch_data_manager._dataset = invalid
         with self.assertRaises(FedbiomedTorchDataManagerError):
-            self.torch_data_manager.split(0.3)
+            self.torch_data_manager.split(0.3, test_batch_size=5)
 
         invalid = TestTorchDataManager.CustomDatasetAttrError()
         self.torch_data_manager._dataset = invalid
         with self.assertRaises(FedbiomedTorchDataManagerError):
-            self.torch_data_manager.split(0.3)
+            self.torch_data_manager.split(0.3, test_batch_size=6)
 
     def test_torch_data_manager_05_split_results(self):
         """ Test splitting result """
 
         # Test with split
-        loader_train, loader_test = self.torch_data_manager.split(0.5)
+        loader_train, loader_test = self.torch_data_manager.split(0.5, test_batch_size=None)
         self.assertEqual(len(loader_train.dataset), len(self.dataset) / 2, 'Did not properly get loader '
                                                                            'of train partition')
 
         # If test partition is zero
-        loader_train, loader_test = self.torch_data_manager.split(0)
+        loader_train, loader_test = self.torch_data_manager.split(0, test_batch_size=None)
         self.assertIsNone(loader_test, 'Loader is not None where it should be')
 
         # If test partition is 1
-        loader_train, loader_test = self.torch_data_manager.split(1)
+        loader_train, loader_test = self.torch_data_manager.split(1, test_batch_size=None)
         self.assertIsNone(loader_train, 'Loader is not None where it should be')
 
     def test_torch_data_manager_05_subset_train(self):
         """ Testing the method load train partition """
 
         # Test with split
-        self.torch_data_manager.split(0.5)
+        self.torch_data_manager.split(0.5, test_batch_size=None)
         subset = self.torch_data_manager.subset_train()
         self.assertIsInstance(subset, Subset, 'Can not get proper subset object')
 
@@ -155,7 +155,7 @@ class TestTorchDataManager(unittest.TestCase):
         """ Testing the method load train partition """
 
         # Test with split
-        self.torch_data_manager.split(0.5)
+        self.torch_data_manager.split(0.5, test_batch_size=None)
         subset = self.torch_data_manager.subset_test()
         self.assertIsInstance(subset, Subset, 'Can not get proper subset object')
 
@@ -163,7 +163,7 @@ class TestTorchDataManager(unittest.TestCase):
         """ Testing the method load train partition """
 
         # Test with split
-        self.torch_data_manager.split(0.5)
+        self.torch_data_manager.split(0.5, test_batch_size=None)
         loader = self.torch_data_manager.load_all_samples()
         self.assertEqual(len(loader.dataset), len(self.dataset), 'Did not properly get loader for all samples')
 
@@ -171,7 +171,7 @@ class TestTorchDataManager(unittest.TestCase):
     def test_torch_data_manager_06_create_torch_data_loader(self, data_loader):
         """ Test function create torch data loader """
 
-        self.torch_data_manager.split(0.5)
+        self.torch_data_manager.split(0.5, test_batch_size=None)
         s = self.torch_data_manager.subset_test()
 
         data_loader.side_effect = TypeError()
