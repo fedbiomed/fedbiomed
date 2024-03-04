@@ -3,8 +3,9 @@ import importlib
 import tempfile
 import json
 import os
+import threading
 
-from execution import shell_process, collect
+from execution import shell_process, collect, execute_in_paralel
 from constants import CONFIG_PREFIX
 
 from fedbiomed.common.constants import ComponentType
@@ -57,6 +58,32 @@ def add_dataset_to_node(
     tempdir_.cleanup()
 
     return True
+
+def _start_nodes(
+    configs: list[Config],
+) -> bool:
+    """Starts given nodes"""
+
+    processes = []
+    for c in configs:
+        processes.append(shell_process(["node", "--config", c.name, "start"]))
+
+    execute_in_paralel(processes)
+
+def start_nodes(configs):
+    """Starts the nodes"""
+
+    t1 = threading.Thread(target=_start_nodes, args=(configs,))
+    t1.start()
+
+    return t1
+
+
+
+def execute_experiment(experiment_file):
+
+    pass
+
 
 
 def clear_component_data(config: Config):

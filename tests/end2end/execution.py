@@ -30,7 +30,7 @@ def default_on_exit(process: subprocess.Popen):
     if process.returncode != 0:
         raise End2EndError(f"Processes has stopped with error. {process.stderr.readline()}")
 
-    print("Process has finshed without error")
+    print("Process is finshed!")
 
 
 
