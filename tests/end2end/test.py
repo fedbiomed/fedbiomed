@@ -4,7 +4,31 @@ from execution import (
     execute_in_paralel,
 )
 
+from helpers import (
+    create_component,
+    add_dataset_to_node
+)
+
 from constants import CONFIG_PREFIX
+
+from fedbiomed.common.constants import ComponentType
+
+
+# node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
+
+dataset = {
+    "name": "MNIST",
+    "description": "MNIST DATASET",
+    "tags": "#MNIST,#dataset",
+    "data_type": "default",
+    "path": "./data/"
+}
+
+add_dataset_to_node(node_1, dataset)
+print(node_1.get('default', 'id'))
+
+exit()
+
 
 
 def execute_add_mnist():
@@ -19,7 +43,9 @@ def execute_add_mnist():
         print("Failed:", e)
 
 
-# execute_add_mnist()
+execute_add_mnist()
+
+exit()
 
 def start_nodes():
 
