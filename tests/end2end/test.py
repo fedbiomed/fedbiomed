@@ -6,7 +6,8 @@ from execution import (
 
 from helpers import (
     create_component,
-    add_dataset_to_node
+    add_dataset_to_node,
+    clear_component_data
 )
 
 from constants import CONFIG_PREFIX
@@ -14,7 +15,7 @@ from constants import CONFIG_PREFIX
 from fedbiomed.common.constants import ComponentType
 
 
-# node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
+node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
 
 dataset = {
     "name": "MNIST",
@@ -24,9 +25,10 @@ dataset = {
     "path": "./data/"
 }
 
-add_dataset_to_node(node_1, dataset)
+#add_dataset_to_node(node_1, dataset)
 print(node_1.get('default', 'id'))
 
+clear_component_data(node_1)
 exit()
 
 
