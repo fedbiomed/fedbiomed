@@ -24,7 +24,7 @@ add_dataset_to_node(node_2, dataset)
 
 
 # Starts the nodes
-t = start_nodes([node_1, node_2])
+node_processes = start_nodes([node_1, node_2])
 
 # Good to waiat 3 second to give time to nodes start
 time.sleep(3)
@@ -32,7 +32,7 @@ time.sleep(3)
 
 
 def test_experiment_run_01():
-
+    """Tests running training mnist with basic configuration"""
     model_args = {}
     tags = ['#MNIST', '#dataset']
     rounds = 2
@@ -58,12 +58,5 @@ def test_experiment_run_01():
 
     exp.run()
 
-
-
-test_experiment_run_01()
-
-
-
-
-
-
+    # has to be called at the end of tests
+    node_processes.terminate()

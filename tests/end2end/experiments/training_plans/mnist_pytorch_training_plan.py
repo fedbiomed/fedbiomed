@@ -52,8 +52,8 @@ class MyTrainingPlan(TorchTrainingPlan):
     def training_data(self):
         # Custom torch Dataloader for MNIST data
 
-        import sys
-        sys.exit(12)
+#        import sys
+#        sys.exit(12)
 
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])

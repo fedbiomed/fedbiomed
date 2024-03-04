@@ -4,6 +4,7 @@ import tempfile
 import json
 import os
 import threading
+import multiprocessing
 
 from execution import shell_process, collect, execute_in_paralel
 from constants import CONFIG_PREFIX
@@ -60,8 +61,8 @@ def add_dataset_to_node(
     return True
 
 def _start_nodes(
-    configs: list[Config],
-) -> bool:
+        configs: list[Config],
+    ) -> bool:
     """Starts given nodes"""
 
     processes = []
@@ -70,18 +71,23 @@ def _start_nodes(
 
     execute_in_paralel(processes)
 
-def start_nodes(configs):
+
+def start_nodes(
+    configs: list[Config]
+) -> multiprocessing.Process:
     """Starts the nodes"""
 
-    t1 = threading.Thread(target=_start_nodes, args=(configs,))
-    t1.start()
+    processes = []
 
-    return t1
+    p = multiprocessing.Process(target=_start_nodes, args=(configs, ))
+    p.deamon = True
+    p.start()
 
+    return p
 
 
 def execute_experiment(experiment_file):
-
+    """Desc"""
     pass
 
 
