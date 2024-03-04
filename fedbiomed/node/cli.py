@@ -281,7 +281,7 @@ class DatasetArgumentParser(CLIArgumentParser):
         elif elements[0]:
             # p is relative (does not start with /)
             # prepend with topdir
-            environ = importlib.import_module("fedbiomed.node.environ.environ")
+            environ = importlib.import_module("fedbiomed.node.environ").environ
             elements = [environ["ROOT_DIR"]] + elements
 
         # rebuild the path with these (eventually) new elements

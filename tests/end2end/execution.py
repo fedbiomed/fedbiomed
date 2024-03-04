@@ -14,13 +14,15 @@ def collect(process):
     """Collects process results"""
 
     try:
-        process.wait()
+        output, error = process.communicate()
     except Exception as e:
         print(f"Error raised! {e}")
 
+    print(output)
     if process.returncode != 0:
-        raise End2EndError("Error")
+        raise End2EndError(f"Error: {error}")
 
+    return True
 
 def default_on_exit(process: subprocess.Popen):
     """Default function to execute when the process is on exit"""
