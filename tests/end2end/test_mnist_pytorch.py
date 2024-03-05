@@ -1,7 +1,13 @@
 import time
 import pytest
 
-from helpers import create_component, add_dataset_to_node, start_nodes, kill_subprocesses
+from helpers import (
+    create_component,
+    add_dataset_to_node,
+    start_nodes,
+    kill_subprocesses,
+    clear_component_data)
+
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 
 from fedbiomed.common.constants import ComponentType
@@ -39,6 +45,10 @@ def setup(request):
     # Clear files and processes created for the tests
     def clear():
         kill_subprocesses(node_processes)
+
+        print("Cleareaniing component data")
+        clear_component_data(node_1)
+        clear_component_data(node_2)
 
     # Good to wait 3 second to give time to nodes start
     print("Sleep 5 seconds. Giving some time for nodes to start")
