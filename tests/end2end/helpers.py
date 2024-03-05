@@ -60,9 +60,10 @@ def add_dataset_to_node(
 
     return True
 
+
 def _start_nodes(
         configs: list[Config],
-    ) -> bool:
+) -> bool:
     """Starts given nodes"""
 
     processes = []
@@ -75,9 +76,11 @@ def _start_nodes(
 def start_nodes(
     configs: list[Config]
 ) -> multiprocessing.Process:
-    """Starts the nodes"""
+    """Starts the nodes by given list of configs
 
-    processes = []
+    Args:
+        configs: List of node config objects
+    """
 
     p = multiprocessing.Process(target=_start_nodes, args=(configs, ))
     p.deamon = True
@@ -86,10 +89,15 @@ def start_nodes(
     return p
 
 
-def execute_experiment(experiment_file):
-    """Desc"""
-    pass
+def execute_python(file: str):
+    """Executes given python file in a process"""
+    return file
 
+
+def execute_ipython(file: str):
+    """Executes given ipython file in a process"""
+
+    return file
 
 
 def clear_component_data(config: Config):
