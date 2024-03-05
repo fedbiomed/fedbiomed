@@ -3,10 +3,13 @@ import importlib
 import tempfile
 import json
 import os
+import signal
 import threading
 import multiprocessing
+import subprocess
+import psutil
 
-from execution import shell_process, collect, execute_in_paralel
+from execution import shell_process, collect, execute_in_paralel, FEDBIOMED_RUN
 from constants import CONFIG_PREFIX
 
 from fedbiomed.common.constants import ComponentType
@@ -53,6 +56,8 @@ def add_dataset_to_node(
         json.dump(dataset, file)
 
     command = ["node", "--config", config.name, "dataset", "add", "--file", d_file]
+    # command.insert(0, FEDBIOMED_RUN)
+    # subprocess.call(command)
     process = shell_process(command)
     collect(process)
 
@@ -61,15 +66,20 @@ def add_dataset_to_node(
     return True
 
 
+
 def _start_nodes(
         configs: list[Config],
 ) -> bool:
     """Starts given nodes"""
 
+    print("Starting nodes")
     processes = []
     for c in configs:
+        print(f"Starting node start process for config {c.name}")
         processes.append(shell_process(["node", "--config", c.name, "start"]))
+        print(f"Process created for {c.name}")
 
+    print("Executin in paralel!")
     execute_in_paralel(processes)
 
 
@@ -82,12 +92,27 @@ def start_nodes(
         configs: List of node config objects
     """
 
-    p = multiprocessing.Process(target=_start_nodes, args=(configs, ))
-    p.deamon = True
-    p.start()
+    processes = []
+    for c in configs:
+        processes.append(shell_process(["node", "--config", c.name, "start"]))
 
-    return p
 
+     # Listen outputs in parallel
+    t = threading.Thread(target=execute_in_paralel, args=(processes,))
+    t.start()
+
+
+    return processes, t
+
+def kill_subprocesses(processes):
+    """Kills given processes"""
+    for p in processes:
+
+        print(f"Killing process: {p.pid} and it childs")
+        parent = psutil.Process(p.pid)
+        for child in parent.children(recursive=True):
+            child.kill()
+        parent.kill()
 
 def execute_python(file: str):
     """Executes given python file in a process"""
