@@ -18,9 +18,11 @@ def collect(process):
     except Exception as e:
         print(f"Error raised! {e}")
 
+
     print(output)
     if process.returncode != 0:
         raise End2EndError(f"Error: {error}")
+
 
     return True
 
@@ -30,6 +32,7 @@ def default_on_exit(process: subprocess.Popen):
     if process.returncode != 0:
         raise End2EndError(f"Processes has stopped with error. {process.stderr.readline()}")
 
+    raise Exception("Processes finished")
     print("Process is finshed!")
 
 
@@ -37,27 +40,15 @@ def default_on_exit(process: subprocess.Popen):
 def execute_in_paralel(processes: subprocess.Popen, on_exit = default_on_exit):
     """Execute commands in parallel"""
 
-    timeout = 0.1
     while processes:
         for p in processes:
-            if p.poll() is not None:
-                print(p.stdout.read(), end="")
-                p.stdout.close()
-
-                # Execute on exit
-                on_exit(p)
-
-                # Remove process from list
+            line = p.stdout.readline().strip()
+            print(line)
+            if p.poll() != None:
+                print("Process finished")
+                print(f"Return code {p.returncode}")
                 processes.remove(p)
 
-        rlist = select.select([p.stdout for p in processes], [], [], timeout)[0]
-        rlist_err = select.select([p.stderr for p in processes], [], [], timeout)[0]
-
-        for f  in rlist:
-            print(f.readline(), end='')
-
-        for f in rlist_err:
-            print(f.readline(), end='')
 
 
 def shell_process(command: list):
@@ -72,7 +63,7 @@ def shell_process(command: list):
     process = subprocess.Popen( " ".join(command),
                                 shell=True,
                                 stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
                                 bufsize=1,
                                 close_fds=True,
                                 universal_newlines=True

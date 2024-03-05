@@ -57,9 +57,9 @@ class ResearcherEnviron(Environ):
         self._values['EXPERIMENTS_DIR'] = os.path.join(self._values['VAR_DIR'], "experiments")
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(self._values['VAR_DIR'], 'queue_messages')
 
-        self._values["SERVER_HOST"] = os.getenv('RESEARCHER_SERVER_HOST', 
+        self._values["SERVER_HOST"] = os.getenv('RESEARCHER_SERVER_HOST',
                                                 self._config.get('server', 'host'))
-        self._values["SERVER_PORT"] = os.getenv('RESEARCHER_SERVER_PORT', 
+        self._values["SERVER_PORT"] = os.getenv('RESEARCHER_SERVER_PORT',
                                                 self._config.get('server', 'port'))
 
 
@@ -87,7 +87,7 @@ class ResearcherEnviron(Environ):
         logger.info("type = " + str(self._values['COMPONENT_TYPE']))
 
 
-sys.tracebacklimit = 3
+sys.tracebacklimit = 20
 
 # Global dictionary which contains all environment for the RESEARCHER
 environ = ResearcherEnviron()
