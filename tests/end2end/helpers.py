@@ -138,70 +138,69 @@ def clear_component_data(config: Config):
 
     if _component_type == ComponentType.NODE.name:
 
-        # load node 's environ
-        # environ = importlib.import_module("fedbiomed.node.environ").environ
-        # print("ENVIRON", environ["RESEARCHERS"])
-        # print("NODE_ID", environ["NODE_ID"])
-
-        node_id = config.get('default', 'id')
-        # remove node's state
-        _node_state_dir = os.path.join(VAR_DIR, "node_state_%s" % node_id)
-
-        if os.path.lexists(_node_state_dir):
-            print("[INFO] Removing folder ", _node_state_dir)
-            shutil.rmtree(_node_state_dir)
-
-        # remove node's taskqueue
-        _task_queue_dir = os.path.join(VAR_DIR,
-                                       f'queue_manager_{node_id}')
-        if os.path.lexists(_task_queue_dir):
-            print("[INFO] Removing folder ", _task_queue_dir)
-            shutil.rmtree(_task_queue_dir)
-
-        # remove grpc certificate 
-        for section in config.sections() :
-            if section.startswith("researcher"):
-                # _certificate_file = environ["RESEARCHERS"][0]['certificate']
-                # if _certificate_file:
-                #     os.remove(os.path.join(CONFIG_DIR, _certificate_file))
-
-                # TODO: find a way or modify environ in order to delete GRPC certificate
-                pass
-
-        # remove node's mpspdz material
-        _mpspdz_material_files = ('private_key', 'public_key')
-        for mpspdz_file in _mpspdz_material_files:
-            mpspdz_material = config.get('mpspdz', mpspdz_file,)
-            _material_to_remove = os.path.join(CONFIG_DIR, mpspdz_material)
-            _material_to_remove_folder = os.path.dirname(_material_to_remove)
-            if not os.path.lexists(_material_to_remove_folder):
-                continue
-            print("[INFO] Removing folder ", _material_to_remove_folder)
-            shutil.rmtree(_material_to_remove_folder)  # remove the whole folder of cert
-            
-        # remove database
-        # FIXME: below we assume database is in the `VAR_DIR` folder
-        _database_file_path = config.get('default', 'db')
+        clear_node_data(config)
         
-        os.remove(os.path.join(VAR_DIR, _database_file_path))
         
     elif _component_type == ComponentType.RESEARCHER.name:
-        
-        
         
         # remove Researcher database
         #researcher_db_file = os.path.join()
 
         # remove Researcher config file 
         pass
-    _clear_config_file_component(config)
+    
 
 
 def clear_node_data(config: Config):
-    pass
+    node_id = config.get('default', 'id')
+    # remove node's state
+    _node_state_dir = os.path.join(VAR_DIR, "node_state_%s" % node_id)
+
+    if os.path.lexists(_node_state_dir):
+        print("[INFO] Removing folder ", _node_state_dir)
+        shutil.rmtree(_node_state_dir)
+
+    # remove node's taskqueue
+    _task_queue_dir = os.path.join(VAR_DIR,
+                                    f'queue_manager_{node_id}')
+    if os.path.lexists(_task_queue_dir):
+        print("[INFO] Removing folder ", _task_queue_dir)
+        shutil.rmtree(_task_queue_dir)
+
+    # remove grpc certificate 
+    for section in config.sections() :
+        if section.startswith("researcher"):
+            # _certificate_file = environ["RESEARCHERS"][0]['certificate']
+            # if _certificate_file:
+            #     os.remove(os.path.join(CONFIG_DIR, _certificate_file))
+
+            # TODO: find a way or modify environ in order to delete GRPC certificate
+            pass
+
+    # remove node's mpspdz material
+    _mpspdz_material_files = ('private_key', 'public_key')
+    for mpspdz_file in _mpspdz_material_files:
+        mpspdz_material = config.get('mpspdz', mpspdz_file,)
+        _material_to_remove = os.path.join(CONFIG_DIR, mpspdz_material)
+        _material_to_remove_folder = os.path.dirname(_material_to_remove)
+        if not os.path.lexists(_material_to_remove_folder):
+            continue
+        print("[INFO] Removing folder ", _material_to_remove_folder)
+        shutil.rmtree(_material_to_remove_folder)  # remove the whole folder of cert
+        
+    # remove database
+    # FIXME: below we assume database is in the `VAR_DIR` folder
+    _database_file_path = config.get('default', 'db')
+    
+    os.remove(os.path.join(VAR_DIR, _database_file_path))
+    # remove Node's config file
+    _clear_config_file_component(config)
 
 def clear_researcher_data(config: Config):
-    pass
+    # TODO
+    # remove Researcher config file
+    _clear_config_file_component(config)
+    
 
 def _clear_config_file_component(config: Config):
     _component_type = config.get('default', 'component')
@@ -223,9 +222,11 @@ def clear_experiment_data(exp: Experiment):
     print("[INFO] Removing folder content ", tensorboard_folder)
 
     # remove breakpoints folder created during experimentation from the default folder (if any)
-    _exp_folder = os.path.join(VAR_DIR, "experiments")
-    _nb_exp_folders = (len(os.listdir(_exp_folder)))
-    current_experimentation_folder = "Experiment_" + str("{:04d}".format(_nb_exp_folders - 1))
-    current_experimentation_folder = os.path.join(_exp_folder, current_experimentation_folder)
+    _exp_dir = os.path.join(VAR_DIR, "experiments")
+    # _nb_exp_folders = len(os.listdir(_exp_folder))
+    # current_experimentation_folder = "Experiment_" + str("{:04d}".format(_nb_exp_folders - 1))
+    # current_experimentation_folder = os.path.join(_exp_folder, current_experimentation_folder)
+    current_experimentation_folder = os.path.join(_exp_dir, exp._experimentation_folder)
+
     print("[INFO] Removing breakpoints", current_experimentation_folder)
     shutil.rmtree(current_experimentation_folder)
