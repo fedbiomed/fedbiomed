@@ -6,7 +6,8 @@ from helpers import (
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
-    clear_component_data)
+    clear_node_data, 
+    clear_experiment_data)
 
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 
@@ -48,10 +49,10 @@ def setup(request):
         kill_subprocesses(node_processes)
 
         print("Cleareaniing component data")
-        clear_component_data(node_1)
-        clear_component_data(node_2)
+        clear_node_data(node_1)
+        clear_node_data(node_2)
 
-        clear_component_data(researcher)
+        #clear_researcher_data(researcher)
 
     # Good to wait 3 second to give time to nodes start
     print("Sleep 5 seconds. Giving some time for nodes to start")
@@ -95,31 +96,32 @@ def test_experiment_run_01():
     exp.set_test_on_global_updates(True)
     exp.run()
 
+    clear_experiment_data(exp)
 
+def test_experiment_run_02():
+    """Test!"""
 
-# def test_experiment_run_02():
-#     """Test!"""
+    model_args = {}
+    tags = ['#MNIST', '#dataset']
+    rounds = 2
+    training_args = {
+        'loader_args': { 'batch_size': 48, },
+        'optimizer_args': {
+            "lr" : 1e-3
+        },
+        'epochs': 1,
+        'dry_run': False,
+        'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
+    }
 
-#     model_args = {}
-#     tags = ['#MNIST', '#dataset']
-#     rounds = 2
-#     training_args = {
-#         'loader_args': { 'batch_size': 48, },
-#         'optimizer_args': {
-#             "lr" : 1e-3
-#         },
-#         'epochs': 1,
-#         'dry_run': False,
-#         'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
-#     }
+    exp = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=MyTrainingPlan,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        node_selection_strategy=None)
 
-#     exp = Experiment(
-#         tags=tags,
-#         model_args=model_args,
-#         training_plan_class=MyTrainingPlan,
-#         training_args=training_args,
-#         round_limit=rounds,
-#         aggregator=FedAverage(),
-#         node_selection_strategy=None)
-
-#     exp.run()
+    exp.run()
+    clear_experiment_data(exp)
