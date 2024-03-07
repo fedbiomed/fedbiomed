@@ -13,9 +13,10 @@ import psutil
 from execution import shell_process, collect, execute_in_paralel, FEDBIOMED_RUN
 from constants import CONFIG_PREFIX
 
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME, ComponentType
 from fedbiomed.common.config import Config
 from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR
+from fedbiomed.researcher.experiment import Experiment
 
 
 def create_component(
@@ -183,13 +184,48 @@ def clear_component_data(config: Config):
         _database_file_path = config.get('default', 'db')
         
         os.remove(os.path.join(VAR_DIR, _database_file_path))
-        # remove config file
-        if  config.is_config_existing():
-            print("[INFO] Removing file ", config.path)
-            os.remove(config.path)
-        print(f"[INFO] {_component_type} has been cleared")
-
-
+        
     elif _component_type == ComponentType.RESEARCHER.name:
-        # TODO: complete below for Researcher
+        
+        
+        
+        # remove Researcher database
+        #researcher_db_file = os.path.join()
+
+        # remove Researcher config file 
         pass
+    _clear_config_file_component(config)
+
+
+def clear_node_data(config: Config):
+    pass
+
+def clear_researcher_data(config: Config):
+    pass
+
+def _clear_config_file_component(config: Config):
+    _component_type = config.get('default', 'component')
+    # remove config file
+    if config.is_config_existing():
+        print("[INFO] Removing file ", config.path)
+        os.remove(config.path)
+
+    # TODO: remove temporary file created when using notebook (located in ./var/tmp_xxx)
+    print(f"[INFO] {_component_type} with id {config.get('default', 'id')} has been cleared")
+
+def clear_experiment_data(exp: Experiment):
+    # removing only big files created by Researcher (for now) 
+    # remove tensorboard logs (if any)
+    tensorboard_folder = os.path.join(ROOT_DIR, TENSORBOARD_FOLDER_NAME)
+    tensorboard_files = os.listdir(tensorboard_folder)
+    for file in tensorboard_files:
+        shutil.rmtree(os.path.join(tensorboard_folder, file))
+    print("[INFO] Removing folder content ", tensorboard_folder)
+
+    # remove breakpoints folder created during experimentation from the default folder (if any)
+    _exp_folder = os.path.join(VAR_DIR, "experiments")
+    _nb_exp_folders = (len(os.listdir(_exp_folder)))
+    current_experimentation_folder = "Experiment_" + str("{:04d}".format(_nb_exp_folders - 1))
+    current_experimentation_folder = os.path.join(_exp_folder, current_experimentation_folder)
+    print("[INFO] Removing breakpoints", current_experimentation_folder)
+    shutil.rmtree(current_experimentation_folder)

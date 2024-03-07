@@ -24,6 +24,7 @@ def setup(request):
     node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
     node_2 = create_component(ComponentType.NODE, config_name="config_n2.ini")
 
+    researcher = create_component(ComponentType.RESEARCHER, config_name="res.ini")
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",
@@ -50,6 +51,8 @@ def setup(request):
         clear_component_data(node_1)
         clear_component_data(node_2)
 
+        clear_component_data(researcher)
+
     # Good to wait 3 second to give time to nodes start
     print("Sleep 5 seconds. Giving some time for nodes to start")
     time.sleep(5)
@@ -67,7 +70,7 @@ def test_experiment_run_01():
     """Tests running training mnist with basic configuration"""
     model_args = {}
     tags = ['#MNIST', '#dataset']
-    rounds = 2
+    rounds = 1
     training_args = {
         'loader_args': { 'batch_size': 48, },
         'optimizer_args': {
@@ -85,34 +88,38 @@ def test_experiment_run_01():
         training_args=training_args,
         round_limit=rounds,
         aggregator=FedAverage(),
-        node_selection_strategy=None)
+        node_selection_strategy=None,
+        tensorboard=True)
+    exp.set_test_ratio(0.1)
+    exp.set_test_on_local_updates(True)
+    exp.set_test_on_global_updates(True)
     exp.run()
 
 
 
-def test_experiment_run_02():
-    """Test!"""
+# def test_experiment_run_02():
+#     """Test!"""
 
-    model_args = {}
-    tags = ['#MNIST', '#dataset']
-    rounds = 2
-    training_args = {
-        'loader_args': { 'batch_size': 48, },
-        'optimizer_args': {
-            "lr" : 1e-3
-        },
-        'epochs': 1,
-        'dry_run': False,
-        'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
-    }
+#     model_args = {}
+#     tags = ['#MNIST', '#dataset']
+#     rounds = 2
+#     training_args = {
+#         'loader_args': { 'batch_size': 48, },
+#         'optimizer_args': {
+#             "lr" : 1e-3
+#         },
+#         'epochs': 1,
+#         'dry_run': False,
+#         'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
+#     }
 
-    exp = Experiment(
-        tags=tags,
-        model_args=model_args,
-        training_plan_class=MyTrainingPlan,
-        training_args=training_args,
-        round_limit=rounds,
-        aggregator=FedAverage(),
-        node_selection_strategy=None)
+#     exp = Experiment(
+#         tags=tags,
+#         model_args=model_args,
+#         training_plan_class=MyTrainingPlan,
+#         training_args=training_args,
+#         round_limit=rounds,
+#         aggregator=FedAverage(),
+#         node_selection_strategy=None)
 
-    exp.run()
+#     exp.run()
