@@ -23,8 +23,8 @@ def setup(request):
     """Setup fixture for the module"""
 
     print("Creating components ---------------------------------------------")
-    node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
-    node_2 = create_component(ComponentType.NODE, config_name="config_n2.ini")
+    node_1 = create_component(ComponentType.NODE, config_name="config_n1_2.ini")
+    node_2 = create_component(ComponentType.NODE, config_name="config_n2_2.ini")
 
     researcher = create_component(ComponentType.RESEARCHER, config_name="res.ini")
     dataset = {
@@ -82,7 +82,7 @@ def test_experiment_run_01():
         'dry_run': False,
 
     }
-
+    print("Instatiating experiment object -----------------------------------")
     exp = Experiment(
         tags=tags,
         model_args=model_args,
