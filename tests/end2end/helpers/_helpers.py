@@ -2,10 +2,12 @@ import importlib
 import shutil
 import tempfile
 import json
+import asyncio
 import os
 import threading
 import multiprocessing
 import psutil
+import ctypes
 
 from ._execution import (
     shell_process,
@@ -230,6 +232,38 @@ def _clear_config_file_component(config: Config):
     print(f"[INFO] {_component_type} with id"
           f"{config.get('default', 'id')} has been cleared")
 
+
+def stop_grpc_thread(thread):
+
+    """Stops the thread of grpc server"""
+
+    # returns id of the respective thread
+    if hasattr(thread, '_thread_id'):
+       thread_id = thread._thread_id
+
+    else:
+        for id, thread_ in threading._active.items():
+            if thread_ is thread:
+                thread_id = id
+
+    print("The thread ID")
+    print(thread_id)
+
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        thread_id, ctypes.py_object(asyncio.CancelledError)
+    )
+    print(res)
+    if res > 1:
+        print("Stopping thread")
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+
+
+    tasks = asyncio.all_tasks()
+
+    print("Tasks")
+    for task in tasks:
+        task.cancel()
+
 def clear_experiment_data(exp: Experiment):
     """Clears data relative to an Experiment execution, mainly:
     - `ROOT/experiments/Experiment_xx` folder
@@ -240,6 +274,36 @@ def clear_experiment_data(exp: Experiment):
     """
     # removing only big files created by Researcher (for now)
     # remove tensorboard logs (if any)
+
+
+   # print("Callling stop server")
+   # # del exp._reqs._grpc_server._server
+   # # stop_grpc_thread(exp._reqs._grpc_server._thread)
+
+   # tasks = asyncio.all_tasks(exp._reqs._grpc_server._loop)
+   # for task in tasks:
+   #     print("Canceling fedbiomed asyncio grpc server task")
+   #     task.cancel()
+
+   # tasks_server = asyncio.all_tasks(exp._reqs._grpc_server._server._loop)
+   # for task in tasks_server:
+   #     print("Canceling server task")
+   #     task.cancel()
+
+   # from psutil import process_iter
+   # from signal import SIGTERM # or SIGKILL
+
+   # for proc in process_iter():
+   #     for conns in proc.connections(kind='inet'):
+   #         if conns.laddr.port == 50051:
+   #             proc.send_signal(SIGTERM)
+
+   # # Need to remove request
+   # print("Removing request object")
+   # from fedbiomed.researcher.requests import Requests
+   # if Requests in Requests._objects:
+   #     del Requests._objects[Requests]
+
     tensorboard_folder = os.path.join(ROOT_DIR, TENSORBOARD_FOLDER_NAME)
     tensorboard_files = os.listdir(tensorboard_folder)
     for file in tensorboard_files:
