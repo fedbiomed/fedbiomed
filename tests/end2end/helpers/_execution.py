@@ -1,20 +1,20 @@
+"""Contains execution helpers"""
 
-import sys
 import os
-import select
 import subprocess
 
-from constants import End2EndError
 
+# TODO: When it is raised should exit from
+# subprocess and parent process
 class End2EndErrorExit(SystemExit):
     pass
 
 FEDBIOMED_RUN = os.path.abspath(
-    os.path.join(__file__, "..", "..", "..", "scripts", "fedbiomed_run")
+    os.path.join(__file__, "..", "..", "..", "..", "scripts", "fedbiomed_run")
 )
 
 FEDBIOMED_ENVIRONMENT = os.path.abspath(
-    os.path.join(__file__, "..", "..", "..", "scripts", "fedbiomed_environment")
+    os.path.join(__file__, "..", "..", "..", "..", "scripts", "fedbiomed_environment")
 )
 
 
@@ -47,8 +47,10 @@ def default_on_exit(process: subprocess.Popen):
     print("Process is finshed!")
 
 
-
-def execute_in_paralel(processes: subprocess.Popen, on_exit = default_on_exit):
+def collect_output_in_parallel(
+    processes: subprocess.Popen,
+    on_exit = default_on_exit
+):
     """Execute commands in parallel"""
 
     while processes:
@@ -58,8 +60,6 @@ def execute_in_paralel(processes: subprocess.Popen, on_exit = default_on_exit):
             if p.poll() != None:
                 processes.remove(p)
                 on_exit(p)
-
-
 
 def shell_process(
     command: list,

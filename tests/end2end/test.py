@@ -1,18 +1,14 @@
-from execution import (
-    shell_process,
-    collect,
-    execute_in_paralel,
-)
 
 from helpers import (
     create_component,
     add_dataset_to_node,
-    clear_component_data,
-    execute_script
+    clear_node_data,
+    execute_script,
+    collect_output_in_parallel
 )
 
 
-from constants import CONFIG_PREFIX
+from helpers.constants import CONFIG_PREFIX
 
 from fedbiomed.common.constants import ComponentType
 
