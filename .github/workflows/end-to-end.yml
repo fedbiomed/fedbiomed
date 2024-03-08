@@ -35,6 +35,7 @@ jobs:
           conda env remove --name fedbiomed-node
           conda env --update -f ./envs/development/conda/fedbiomed-researcher.yaml
           conda env --update -f ./envs/development/conda/fedbiomed-node.yaml
+        shell: bash -l {0}
 
       - name: Run end-to-end tests
         id: e2e-tests-with-pytest
