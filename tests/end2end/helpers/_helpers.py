@@ -321,33 +321,21 @@ def clear_experiment_data(exp: Experiment):
     # remove tensorboard logs (if any)
 
 
-   # print("Callling stop server")
-   # # del exp._reqs._grpc_server._server
-   # # stop_grpc_thread(exp._reqs._grpc_server._thread)
+    print("Stopping gRPC server started by the test function")
 
-   # tasks = asyncio.all_tasks(exp._reqs._grpc_server._loop)
-   # for task in tasks:
-   #     print("Canceling fedbiomed asyncio grpc server task")
-   #     task.cancel()
+    # Stop GRPC server and remove request object for next experiments
+    future = asyncio.run_coroutine_threadsafe(
+        exp._reqs._grpc_server._server.stop(15),
+        exp._reqs._grpc_server._server._loop
+    )
 
-   # tasks_server = asyncio.all_tasks(exp._reqs._grpc_server._server._loop)
-   # for task in tasks_server:
-   #     print("Canceling server task")
-   #     task.cancel()
+    future.result()
 
-   # from psutil import process_iter
-   # from signal import SIGTERM # or SIGKILL
-
-   # for proc in process_iter():
-   #     for conns in proc.connections(kind='inet'):
-   #         if conns.laddr.port == 50051:
-   #             proc.send_signal(SIGTERM)
-
-   # # Need to remove request
-   # print("Removing request object")
-   # from fedbiomed.researcher.requests import Requests
-   # if Requests in Requests._objects:
-   #     del Requests._objects[Requests]
+    # Need to remove request
+    print("Removing request object")
+    from fedbiomed.researcher.requests import Requests
+    if Requests in Requests._objects:
+        del Requests._objects[Requests]
 
     tensorboard_folder = os.path.join(ROOT_DIR, TENSORBOARD_FOLDER_NAME)
     tensorboard_files = os.listdir(tensorboard_folder)
