@@ -146,14 +146,19 @@ def clear_component_data(config: Config):
     elif _component_type == ComponentType.RESEARCHER.name:
 
         # remove Researcher database
-        #researcher_db_file = os.path.join()
+        # researcher_db_file = os.path.join()
 
         # remove Researcher config file
         pass
 
 
-
 def clear_node_data(config: Config):
+    """Clears data relative to Node, such as configuration file, database,
+    node state, mpspdz material
+
+    Args:
+        config: configuration object of the Node
+    """
     node_id = config.get('default', 'id')
     # remove node's state
     _node_state_dir = os.path.join(VAR_DIR, "node_state_%s" % node_id)
@@ -198,23 +203,37 @@ def clear_node_data(config: Config):
     # remove Node's config file
     _clear_config_file_component(config)
 
+
 def clear_researcher_data(config: Config):
-    # TODO
+    """Clears data relative to Researcher"""
+    # TODO: continue implementing this method
+    raise NotImplementedError
     # remove Researcher config file
     _clear_config_file_component(config)
 
 
 def _clear_config_file_component(config: Config):
+    """Clears configuration file of a Component (either Node or Researcher)
+    """
     _component_type = config.get('default', 'component')
     # remove config file
     if config.is_config_existing():
         print("[INFO] Removing file ", config.path)
         os.remove(config.path)
 
-    # TODO: remove temporary file created when using notebook (located in ./var/tmp_xxx)
-    print(f"[INFO] {_component_type} with id {config.get('default', 'id')} has been cleared")
+    # TODO: remove temporary file created when using
+    # notebook (located in ./var/tmp_xxx)
+    print(f"[INFO] {_component_type} with id"
+          f"{config.get('default', 'id')} has been cleared")
 
 def clear_experiment_data(exp: Experiment):
+    """Clears data relative to an Experiment execution, mainly:
+    - `ROOT/experiments/Experiment_xx` folder
+    - `ROOT/runs` folder when activating Tensorboard feature
+
+    Args:
+        exp: Experiment object used for running experiment
+    """
     # removing only big files created by Researcher (for now)
     # remove tensorboard logs (if any)
     tensorboard_folder = os.path.join(ROOT_DIR, TENSORBOARD_FOLDER_NAME)
