@@ -41,6 +41,6 @@ jobs:
         id: e2e-tests-with-pytest
         run: |
           echo "Launching end-to-end tests" # to check from time to time
-          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher pytest -rf -s -v tests/end2end/e2e_*.py
+          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher pytest -rfp -s -v tests/end2end/e2e_*.py
         shell: bash -l {0}
 
