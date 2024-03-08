@@ -1,4 +1,4 @@
-name: New: End-to-End Test
+name: New End-to-End Test
 run-name: fedbiomed-e2e-tests
 permissions: write-all
 on:
@@ -14,7 +14,7 @@ on:
       - 'feature/end-to-end-test-machinery'
 
 jobs:
-  e2e-test:
+  e2e-test-auto:
     name: e2e tests
     strategy:
       fail-fast: false # Importance ?
