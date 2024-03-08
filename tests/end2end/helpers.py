@@ -1,17 +1,15 @@
-
 import importlib
 import shutil
 import tempfile
 import json
 import os
-import signal
 import threading
 import multiprocessing
-import subprocess
 import psutil
 
-from execution import shell_process, collect, execute_in_paralel, FEDBIOMED_RUN
-from constants import CONFIG_PREFIX
+from execution import shell_process, fedbiomed_run, collect, execute_in_paralel
+from constants import CONFIG_PREFIX, End2EndError
+
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.config import Config
@@ -59,31 +57,11 @@ def add_dataset_to_node(
         json.dump(dataset, file)
 
     command = ["node", "--config", config.name, "dataset", "add", "--file", d_file]
-    # command.insert(0, FEDBIOMED_RUN)
-    # subprocess.call(command)
-    process = shell_process(command)
-    collect(process)
+    process = fedbiomed_run(command, wait=True)
 
     tempdir_.cleanup()
 
     return True
-
-
-
-def _start_nodes(
-        configs: list[Config],
-) -> bool:
-    """Starts given nodes"""
-
-    print("Starting nodes")
-    processes = []
-    for c in configs:
-        print(f"Starting node start process for config {c.name}")
-        processes.append(shell_process(["node", "--config", c.name, "start"]))
-        print(f"Process created for {c.name}")
-
-    print("Executin in paralel!")
-    execute_in_paralel(processes)
 
 
 def start_nodes(
@@ -97,35 +75,60 @@ def start_nodes(
 
     processes = []
     for c in configs:
-        processes.append(shell_process(["node", "--config", c.name, "start"]))
-
+        processes.append(fedbiomed_run(["node", "--config", c.name, "start"]))
 
      # Listen outputs in parallel
     t = threading.Thread(target=execute_in_paralel, args=(processes,))
     t.start()
 
-
     return processes, t
 
 def kill_subprocesses(processes):
-    """Kills given processes"""
-    for p in processes:
+    """Kills given processes
 
-        print(f"Killing process: {p.pid} and it childs")
+    Args:
+        processes: List of subprocesses to kill
+    """
+    for p in processes:
         parent = psutil.Process(p.pid)
         for child in parent.children(recursive=True):
             child.kill()
         parent.kill()
 
-def execute_python(file: str):
+
+def execute_script(file: str, activate: str = 'researcher'):
+    """Executes given scripts"""
+
+    if not os.path.isfile(file):
+        raise End2EndError("file is not existing")
+
+    if file.endswith('.py'):
+        return execute_python(file, activate)
+
+    if file.endswith('.ipynb'):
+        return execute_ipython(file, activate)
+
+    raise End2EndError('Unsopported file file. Please use .py or .ipynb')
+
+def execute_python(file: str, activate: str):
     """Executes given python file in a process"""
-    return file
+
+    print("Pytohn script execution")
+    return shell_process(
+        command=["python", f'{file}'],
+        activate=activate,
+        wait=True
+    )
 
 
-def execute_ipython(file: str):
+def execute_ipython(file: str, activate: str):
     """Executes given ipython file in a process"""
 
-    return file
+    return shell_process(
+        command=["ipython", "-c", f'"%run {file}"'],
+        activate=activate,
+        wait=True
+    )
 
 
 def clear_component_data(config: Config):
@@ -157,7 +160,7 @@ def clear_component_data(config: Config):
             print("[INFO] Removing folder ", _task_queue_dir)
             shutil.rmtree(_task_queue_dir)
 
-        # remove grpc certificate 
+        # remove grpc certificate
         for section in config.sections() :
             if section.startswith("researcher"):
                 # _certificate_file = environ["RESEARCHERS"][0]['certificate']
@@ -177,11 +180,11 @@ def clear_component_data(config: Config):
                 continue
             print("[INFO] Removing folder ", _material_to_remove_folder)
             shutil.rmtree(_material_to_remove_folder)  # remove the whole folder of cert
-            
+
         # remove database
         # FIXME: below we assume database is in the `VAR_DIR` folder
         _database_file_path = config.get('default', 'db')
-        
+
         os.remove(os.path.join(VAR_DIR, _database_file_path))
         # remove config file
         if  config.is_config_existing():
