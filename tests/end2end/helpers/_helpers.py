@@ -7,8 +7,12 @@ import threading
 import multiprocessing
 import psutil
 
-from execution import shell_process, fedbiomed_run, collect, execute_in_paralel
-from constants import CONFIG_PREFIX, End2EndError
+from ._execution import (
+    shell_process,
+    fedbiomed_run,
+    collect_output_in_parallel
+)
+from .constants import CONFIG_PREFIX, End2EndError
 
 
 from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME, ComponentType
@@ -79,7 +83,7 @@ def start_nodes(
         processes.append(fedbiomed_run(["node", "--config", c.name, "start"]))
 
      # Listen outputs in parallel
-    t = threading.Thread(target=execute_in_paralel, args=(processes,))
+    t = threading.Thread(target=collect_output_in_parallel, args=(processes,))
     t.start()
 
     return processes, t
