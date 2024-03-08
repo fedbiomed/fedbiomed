@@ -6,7 +6,8 @@ from helpers import (
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
-    clear_component_data)
+    clear_node_data, 
+    clear_experiment_data)
 
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 
@@ -24,6 +25,7 @@ def setup(request):
     node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
     node_2 = create_component(ComponentType.NODE, config_name="config_n2.ini")
 
+    researcher = create_component(ComponentType.RESEARCHER, config_name="res.ini")
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",
@@ -47,8 +49,10 @@ def setup(request):
         kill_subprocesses(node_processes)
 
         print("Cleareaniing component data")
-        clear_component_data(node_1)
-        clear_component_data(node_2)
+        clear_node_data(node_1)
+        clear_node_data(node_2)
+
+        #clear_researcher_data(researcher)
 
     # Good to wait 3 second to give time to nodes start
     print("Sleep 5 seconds. Giving some time for nodes to start")
@@ -67,7 +71,7 @@ def test_experiment_run_01():
     """Tests running training mnist with basic configuration"""
     model_args = {}
     tags = ['#MNIST', '#dataset']
-    rounds = 2
+    rounds = 1
     training_args = {
         'loader_args': { 'batch_size': 48, },
         'optimizer_args': {
@@ -85,10 +89,14 @@ def test_experiment_run_01():
         training_args=training_args,
         round_limit=rounds,
         aggregator=FedAverage(),
-        node_selection_strategy=None)
+        node_selection_strategy=None,
+        tensorboard=True)
+    exp.set_test_ratio(0.1)
+    exp.set_test_on_local_updates(True)
+    exp.set_test_on_global_updates(True)
     exp.run()
 
-
+    clear_experiment_data(exp)
 
 def test_experiment_run_02():
     """Test!"""
@@ -116,3 +124,4 @@ def test_experiment_run_02():
         node_selection_strategy=None)
 
     exp.run()
+    clear_experiment_data(exp)
