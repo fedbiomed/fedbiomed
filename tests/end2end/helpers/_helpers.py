@@ -323,9 +323,10 @@ def clear_experiment_data(exp: Experiment):
 
     print("Stopping gRPC server started by the test function")
 
+    print("Will wait 10 seconds to cancel current RPC requests")
     # Stop GRPC server and remove request object for next experiments
     future = asyncio.run_coroutine_threadsafe(
-        exp._reqs._grpc_server._server.stop(15),
+        exp._reqs._grpc_server._server.stop(10),
         exp._reqs._grpc_server._server._loop
     )
 
