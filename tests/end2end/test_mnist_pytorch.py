@@ -14,6 +14,7 @@ from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPla
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.aggregators.scaffold import Scaffold
 
 
 # Set up nodes and start
@@ -77,7 +78,36 @@ def test_experiment_run_01():
         'optimizer_args': {
             "lr" : 1e-3
         },
-        'epochs': 1,
+        'num_updates': 100,
+        'dry_run': False,
+        
+    }
+
+    exp = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=MyTrainingPlan,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,)
+
+    exp.run()
+
+    clear_experiment_data(exp)
+
+def test_experiment_run_02():
+    """Test but with more advanced configuration"""
+
+    model_args = {}
+    tags = ['#MNIST', '#dataset']
+    rounds = 2
+    training_args = {
+        'loader_args': { 'batch_size': 48, },
+        'optimizer_args': {
+            "lr" : 1e-3
+        },
+        'num_updates': 1,
         'dry_run': False,
         'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
     }
@@ -90,16 +120,18 @@ def test_experiment_run_01():
         round_limit=rounds,
         aggregator=FedAverage(),
         node_selection_strategy=None,
-        tensorboard=True)
+                tensorboard=True,
+        save_breakpoints=True)
     exp.set_test_ratio(0.1)
     exp.set_test_on_local_updates(True)
     exp.set_test_on_global_updates(True)
-    exp.run()
 
+    exp.run()
     clear_experiment_data(exp)
 
-def test_experiment_run_02():
-    """Test!"""
+
+def test_experiment_run_03():
+    """Test but with more advanced configuration & Scaffold"""
 
     model_args = {}
     tags = ['#MNIST', '#dataset']
@@ -109,7 +141,7 @@ def test_experiment_run_02():
         'optimizer_args': {
             "lr" : 1e-3
         },
-        'epochs': 1,
+        'num_updates': 1,
         'dry_run': False,
         'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
     }
@@ -120,8 +152,14 @@ def test_experiment_run_02():
         training_plan_class=MyTrainingPlan,
         training_args=training_args,
         round_limit=rounds,
-        aggregator=FedAverage(),
-        node_selection_strategy=None)
+        aggregator=Scaffold(),
+        node_selection_strategy=None,
+                tensorboard=True,
+        save_breakpoints=True)
+    exp.set_test_ratio(0.1)
+    exp.set_test_on_local_updates(True)
+    exp.set_test_on_global_updates(True)
 
     exp.run()
     clear_experiment_data(exp)
+
