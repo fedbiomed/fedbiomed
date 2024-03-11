@@ -130,9 +130,9 @@ class TestSecaggCrypter(unittest.TestCase):
                                                params=[node_1, node_2],
                                                biprime=TestSecaggCrypter.biprime,
                                                key=-20,
-                                               total_sample_size=8)
+                                               total_sample_size=8,
+                                               num_expected_params=len(params))
 
-        print(result)
         self.assertEqual(len(result), len(params))
         self.assertTrue(result[0] > 0.4 or result[0] < 0.6,
                         "Secure aggregation result is not closer to expected avereage")

@@ -172,8 +172,8 @@ class TestSecureAggregation(ResearcherTestCase):
         agg_params = self.secagg.aggregate(round_=1,
                                            total_sample_size=100,
                                            model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
-                                           encryption_factors={'node-1': [1], 'node-2': [1]}
-                                           )
+                                           encryption_factors={'node-1': [1], 'node-2': [1]},
+                                           num_expected_params=5)
         self.assertTrue(len(agg_params) == 5)
 
         # IMPORTANT: this value has been set for biprime 1234 and servkey 1234
@@ -183,7 +183,8 @@ class TestSecureAggregation(ResearcherTestCase):
         agg_params = self.secagg.aggregate(round_=1,
                                            total_sample_size=100,
                                            model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
-                                           encryption_factors={'node-1': [1], 'node-2': [1]}
+                                           encryption_factors={'node-1': [1], 'node-2': [1]},
+                                           num_expected_params=5
                                            )
         self.assertTrue(len(agg_params) == 5)
 
