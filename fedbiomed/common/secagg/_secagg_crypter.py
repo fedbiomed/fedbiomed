@@ -149,7 +149,8 @@ class SecaggCrypter:
             key: int,
             biprime: int,
             total_sample_size: int,
-            clipping_range: Union[int, None] = None
+            clipping_range: Union[int, None] = None,
+            num_expected_params: int = 1
     ) -> List[float]:
         """Decrypt given parameters
 
@@ -162,6 +163,7 @@ class SecaggCrypter:
             total_sample_size: sum of number of samples from all nodes
             clipping_range: Clipping range for reverse-quantization, should be the
                 same clipping range used for quantization
+            num_expected_params: number of parameters to decode from the `params`
         Returns:
             Aggregated parameters decrypted and structured
 
@@ -197,7 +199,8 @@ class SecaggCrypter:
             sum_of_weights = self._jls.aggregate(
                 sk_0=key,
                 tau=current_round,  # The time period \\(\\tau\\)
-                list_y_u_tau=params
+                list_y_u_tau=params,
+                num_expected_params=num_expected_params
             )
         except (ValueError, TypeError) as e:
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624.value}: The aggregation of encrypted parameters "
