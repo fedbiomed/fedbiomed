@@ -101,6 +101,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     def get_weights(
         self,
         only_trainable: bool = False,
+        exclude_buffers: bool = True
     ) -> Dict[str, np.ndarray]:
         """Return a copy of the model's trainable weights.
 
@@ -137,7 +138,9 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             ) from err
         return weights
 
-    def flatten(self) -> List[float]:
+    def flatten(self,
+                only_trainable: bool = False,
+                exclude_buffers: bool = True) -> List[float]:
         """Gets weights as flatten vector
 
         Returns:

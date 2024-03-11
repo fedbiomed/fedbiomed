@@ -95,7 +95,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_weights(self, only_trainable: bool = False) -> Dict[str, DT]:
+    def get_weights(self, only_trainable: bool = False, exclude_buffers: bool = True) -> Dict[str, DT]:
         """Return a copy of the model's trainable weights.
 
         Args:
@@ -126,7 +126,9 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def flatten(self) -> List[float]:
+    def flatten(self,
+                only_trainable: bool = False,
+                exclude_buffers: bool = True) -> List[float]:
         """Flattens model weights
 
         Returns:

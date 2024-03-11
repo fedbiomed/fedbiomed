@@ -256,7 +256,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
-    def get_model_params(self, only_trainable: bool = False,) -> Dict[str, Any]:
+    def get_model_params(self,
+                         only_trainable: bool = False,
+                         exclude_buffers: bool = True) -> Dict[str, Any]:
         """Return a copy of the model's trainable weights.
 
         The type of data structure used to store weights depends on the actual
@@ -270,7 +272,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             Model weights, as a dictionary mapping parameters' names to their value.
         """
-        return self._model.get_weights(only_trainable=only_trainable)
+        return self._model.get_weights(only_trainable=only_trainable, exclude_buffers=exclude_buffers)
 
     def set_model_params(self, params: Dict[str, Any]) -> None:
         """Assign new values to the model's trainable parameters.
@@ -609,9 +611,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             The trained parameters to aggregate.
         """
+        exclude_buffers=self._training_args['share_persistent_buffers']
         if flatten:
-            return self._model.flatten()
-        return self.get_model_params()
+            return self._model.flatten(exclude_buffers=exclude_buffers)
+        return self.get_model_params(exclude_buffers=exclude_buffers)
 
     def export_model(self, filename: str) -> None:
         """Export the wrapped model to a dump file.
