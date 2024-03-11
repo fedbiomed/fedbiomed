@@ -11,9 +11,12 @@ import argparse
 import importlib
 import os
 import sys
+
+from abc import ABC, abstractmethod
+from typing import Optional, List, Dict
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import DB_FOLDER_NAME, MPSPDZ_certificate_prefix
+from fedbiomed.common.constants import DB_FOLDER_NAME, MPSPDZ_certificate_prefix, ComponentType
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_existing_component_db_names, \
     get_all_existing_certificates, \
@@ -29,11 +32,74 @@ GRN = '\033[1;32m'  # green
 NC = '\033[0m'  # no color
 BOLD = '\033[1m'
 
+
 class CLIArgumentParser:
 
-    def __init__(self, subparser):
+    def __init__(self, subparser: argparse.ArgumentParser):
 
         self._subparser = subparser
+        # Parser that is going to be add using subparser
+        self._parser = None
+
+    def default(self, args: argparse.Namespace = None) -> None:
+        """Default function for subparser command"""
+
+        self._parser.print_help()
+
+        return None
+
+
+class ConfigNameAction(ABC, argparse.Action):
+    """Action for the argument config
+
+    This action class gets the config file name and set environ object before
+    executing any command.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Sets environ by default if option string for config is not present.
+        # The default is defined by the argument parser.
+        if not set(self.option_strings).intersection(set(sys.argv)) and \
+                not set(['--help', '-h']).intersection(set(sys.argv)) and \
+                len(sys.argv) > 2:
+            self.set_environ(self.default)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        """When argument is called"""
+
+        if not set(['--help', '-h']).intersection(set(sys.argv)):
+            self.set_environ(values)
+
+    @abstractmethod
+    def import_environ(self) -> 'Environ':
+        """Implements environ import
+
+
+        Returns:
+            Environ object
+        """
+
+    def set_environ(self, config_file: str):
+        """Sets environ
+
+        Args:
+          config_file: Name of the config file that is activate
+        """
+
+        print(f'\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #')
+        os.environ["CONFIG_FILE"] = config_file
+
+        environ = self.import_environ()
+
+        os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = environ["ID"]
+
+        # Sets environ for the CLI. This implementation is required for
+        # the common CLI option that are present in fedbiomed.common.cli.CommonCLI
+        self._this.set_environ(environ)
+
+        # this may be changed on command line or in the config_node.ini
+        logger.setLevel("DEBUG")
 
 
 class ConfigurationParser(CLIArgumentParser):
@@ -42,7 +108,12 @@ class ConfigurationParser(CLIArgumentParser):
     def initialize(self):
         """Initializes argument parser for creating configuration file."""
 
-        configuration = self._subparser.add_parser('configuration', help='Configuration')
+        self._parser = self._subparser.add_parser(
+            'configuration',
+            help='The helper for generating or updating component configuration files, see `configuration -h`'
+                 ' for more details')
+
+        self._parser.set_defaults(func=self.default)
 
         # Common parser to register common arguments for create and refresh
         common_parser = argparse.ArgumentParser(add_help=False)
@@ -76,7 +147,7 @@ class ConfigurationParser(CLIArgumentParser):
 
 
         # Create sub parser under `configuration` command
-        configuration_sub_parsers = configuration.add_subparsers()
+        configuration_sub_parsers = self._parser.add_subparsers()
 
         create = configuration_sub_parsers.add_parser(
             'create',
@@ -124,31 +195,6 @@ class ConfigurationParser(CLIArgumentParser):
 
         return config
 
-    def _update_register_default_biprimes(self, config: Config):
-        """Post common action after configuration is create
-
-        Args:
-          config: Config instance Node or Researcher
-        """
-
-        df_biprimes = config.get('mpspdz', 'allow_default_biprimes')
-        biprimes_dir = os.path.normpath(
-            os.path.join(config.root, CONFIG_FOLDER_NAME , config.get('mpspdz', 'default_biprimes_dir'))
-        )
-        # Update secure aggregation biprimes in component database
-        print(
-            "Updating secure aggregation default biprimes with:\n"
-            f"ALLOW_DEFAULT_BIPRIMES : {df_biprimes}\n"
-            f"DEFAULT_BIPRIMES_DIR   : {biprimes_dir}\n"
-        )
-
-        db_path = os.path.normpath(
-            os.path.join(config.root, CONFIG_FOLDER_NAME, config.get('default', 'db'))
-        )
-        BPrimeManager = SecaggBiprimeManager(db_path)
-        BPrimeManager.update_default_biprimes(df_biprimes, biprimes_dir)
-
-
     def create(self, args):
         """CLI Handler for creating configuration file and assets for given component
 
@@ -177,8 +223,6 @@ class ConfigurationParser(CLIArgumentParser):
             logger.info(f"Generation new configuration file \"{config.name}\"")
             config.generate()
 
-        self._update_register_default_biprimes(config)
-
     def refresh(self, args):
         """Refreshes configuration file """
 
@@ -194,9 +238,12 @@ class ConfigurationParser(CLIArgumentParser):
 
 class CommonCLI:
 
+    _arg_parsers_classes: List[type] = []
+    _arg_parsers: Dict[str, CLIArgumentParser] = {}
+
     def __init__(self) -> None:
         self._parser: argparse.ArgumentParser = argparse.ArgumentParser(
-            prog='fedbiomed_run [ node | researcher | gui ] config [CONFIG_NAME] ',
+            prog='fedbiomed_run',
             formatter_class=argparse.RawTextHelpFormatter
         )
 
@@ -208,7 +255,6 @@ class CommonCLI:
 
         # Initialize configuration parser
         self.configuration_parser = ConfigurationParser(self._subparsers)
-        self.configuration_parser.initialize()
 
     @property
     def parser(self) -> argparse.ArgumentParser:
@@ -218,6 +264,15 @@ class CommonCLI:
             Main argument parser object
         """
         return self._parser
+
+    @property
+    def subparsers(self):
+        """Gets subparsers of common cli
+
+        Returns:
+          Subparsers of CLI parser
+        """
+        return self._subparsers
 
     @property
     def description(self) -> str:
@@ -257,6 +312,11 @@ class CommonCLI:
         self._environ = environ
 
     @staticmethod
+    def config_action(this: 'CommonCLI', component: ComponentType):
+        """Returns CLI argument action for config file name"""
+        return ConfigNameAction
+
+    @staticmethod
     def error(message: str) -> None:
         """Prints given error message
 
@@ -278,6 +338,30 @@ class CommonCLI:
         print(f"{GRN}Operation successful! {NC}")
         print(f"{BOLD}{message}{NC}")
 
+    def initialize_optional(self):
+        """Initializes optional subparser
+
+        Optional subparsers are not going to be visible for the CLI that are
+        inherited from CommonCLI class as long as `intialize_optional` method
+        is not executed.
+        """
+
+        self.configuration_parser.initialize()
+        self.initialize_magic_dev_environment_parsers()
+
+    def initialize(self):
+        """Initializes parser classes and common parser for child clisses.
+
+        This parser classes will be added by child classes.
+        """
+
+        for arg_parser in self._arg_parsers_classes:
+            p = arg_parser(self._subparsers)
+            p.initialize()
+            self._arg_parsers.update({arg_parser.__name__ : p})
+
+        self.initialize_certificate_parser()
+
     def initialize_magic_dev_environment_parsers(self) -> None:
         """Initializes argument parser for the option to create development environment."""
         magic = self._subparsers.add_parser(
@@ -297,9 +381,15 @@ class CommonCLI:
         # Add certificate sub parser (sub-command)
         certificate_parser = self._subparsers.add_parser(
             'certificate',
-            prog="fedbiomed_run [ node | researcher ] [config [CONFIG_FILE]] certificate",
-
+            help="Command to manage certificates in node and researcher components. " 
+                 "Please see 'certificate --help' for more information.",
+            prog="fedbiomed_run [ node | researcher ] [--config [CONFIG_FILE]] certificate",
         )
+
+        def print_help(args):
+            certificate_parser.print_help()
+
+        certificate_parser.set_defaults(func=print_help)
 
         # Create sub parser under `certificate` command
         certificate_sub_parsers = certificate_parser.add_subparsers(
@@ -383,7 +473,7 @@ class CommonCLI:
             '--path',
             type=str,
             nargs='?',
-            default=os.path.join(self._environ["CERT_DIR"], f"cert_{self._environ['ID']}"),
+            required=False,
             help="The path where certificates will be saved. By default it will overwrite existing certificate.")
 
         generate.add_argument(
@@ -393,10 +483,7 @@ class CommonCLI:
             help="Forces to overwrite certificate files"
         )
 
-        # Set db path that certificate manager will be using to store certificates
-        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
-
-    def _create_magic_dev_environment(self):
+    def _create_magic_dev_environment(self, dummy: None):
         """Creates development environment for MPSDPZ"""
 
         db_names = get_existing_component_db_names()
@@ -443,9 +530,11 @@ class CommonCLI:
             CommonCLI.error(f"Certificate is already existing in {MPSPDZ_certificate_prefix}. \n "
                             f"Please use -f | --force option to overwrite existing certificate.")
 
+        path = os.path.join(self._environ["CERT_DIR"], f"cert_{self._environ['ID']}") if not args.path else args.path
+
         try:
             CertificateManager.generate_self_signed_ssl_certificate(
-                certificate_folder=args.path,
+                certificate_folder=path,
                 certificate_name=MPSPDZ_certificate_prefix,
                 component_id=self._environ["ID"]
             )
@@ -471,6 +560,7 @@ class CommonCLI:
         Args:
             args: Parser arguments
         """
+        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
 
         try:
             self._certificate_manager.register_certificate(
@@ -489,11 +579,14 @@ class CommonCLI:
 
     def _list_certificates(self, args: argparse.Namespace):
         """ Lists saved certificates """
+        print(f"{GRN}Listing registered certificates...{NC}")
 
+        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
         self._certificate_manager.list(verbose=True)
 
     def _delete_certificate(self, args: argparse.Namespace):
 
+        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
         certificates = self._certificate_manager.list(verbose=False)
         options = [d['party_id'] for d in certificates]
         msg = "Select the certificate to delete:\n"
@@ -541,25 +634,36 @@ class CommonCLI:
                   f"-pi {self._environ['ID']} --ip {self._environ['MPSPDZ_IP']} --port {self._environ['MPSPDZ_PORT']}")
         pass
 
-    def parse_args(self):
+    def parse_args(self, args_ = None):
         """Parse arguments after adding the arguments
 
         !!! warning "Attention"
                 Please make sure this method is called after all necessary arguments are set
-
         """
-        self._args = self._parser.parse_args()
-
-        if hasattr(self._args, 'func'):
-            specs = get_method_spec(self._args.func)
+        args, unknown_args = self._parser.parse_known_args(args_)
+        if hasattr(args, 'func'):
+            specs = get_method_spec(args.func)
             if specs:
-                self._args.func(self._args)
+                # If default function has 2 arguments
+                if len(specs) > 1:
+                    return args.func(args, unknown_args)
+                else:
+                    # Run parser_args to raise error for unrecognized arguments
+                    if unknown_args:
+                        args = self._parser.parse_args(args_)
+                    args.func(args)
             else:
-                self._args.func()
+                # Raise for unrecognized arguments
+                if unknown_args:
+                    self._parser.parse_args(args_)
+                args.func()
+        else:
+            args = self._parser.print_help()
 
 
 if __name__ == '__main__':
     cli = CommonCLI()
     # Initialize only development magic parser
     cli.initialize_magic_dev_environment_parsers()
+    cli.initialize_optional()
     cli.parse_args()

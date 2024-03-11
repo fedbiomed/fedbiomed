@@ -279,23 +279,27 @@ class VES:
     def decode(
             self,
             E: List[int],
-            add_ops: int
+            add_ops: int,
+            v_expected: int
     ) -> List[int]:
         """Decode a vector back to original size vector
 
         Args:
-            E: ?
+            E: encoded parameters to decode
             add_ops: ?
+            v_expected: number of parameters to decode from the encoded parameters
         Returns:
             Decoded vector
         """
 
-        element_size, _ = self._get_elements_size_and_compression_ratio(add_ops)
+        element_size, comp_ratio = self._get_elements_size_and_compression_ratio(add_ops)
         V = []
 
         for e in E:
-            for v in self._debatch(e, element_size):
+            v_number = min(v_expected, comp_ratio)
+            for v in self._debatch(e, element_size, v_number):
                 V.append(v)
+            v_expected -= v_number
         return V
 
     @staticmethod
@@ -313,7 +317,8 @@ class VES:
     @staticmethod
     def _debatch(
             b: int,
-            element_size: int
+            element_size: int,
+            element_number: int
     ) -> List[int]:
         """
         """
@@ -324,7 +329,7 @@ class VES:
             mask <<= 1
             mask |= bit
 
-        while b != 0:
+        for _ in range(element_number):
             v = mask & b
             V.append(int(v))
             b >>= element_size
@@ -812,7 +817,8 @@ class JoyeLibert:
             self,
             sk_0: ServerKey,
             tau: int,
-            list_y_u_tau: List[List[EncryptedNumber]]
+            list_y_u_tau: List[List[EncryptedNumber]],
+            num_expected_params: int
     ) -> List[int]:
         """Aggregates users protected inputs with the server's secret key
 
@@ -830,6 +836,7 @@ class JoyeLibert:
             sk_0: The server's secret key \\(sk_0\\)
             tau: The time period \\(\\tau\\)
             list_y_u_tau: A list of the users' protected inputs \\(\\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}}\\)
+            num_expected_params: Number of parameters to decode from the decrypted vectors
 
         Returns:
             The sum of the users' inputs of type `int`
@@ -853,7 +860,7 @@ class JoyeLibert:
 
         decrypted_vector = sk_0.decrypt(sum_of_vectors, tau)
 
-        return self._vector_encoder.decode(decrypted_vector, add_ops=n_user)
+        return self._vector_encoder.decode(decrypted_vector, add_ops=n_user, v_expected=num_expected_params)
 
 
 class FDH:
