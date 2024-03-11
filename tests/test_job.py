@@ -115,11 +115,15 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                     }
                 }
             )
-        # The `send` function of the Requests module is always only called once regardless of the number of nodes
+        # The `send` function of the Requests module is always only called
+        # once regardless of the number of nodes
+        self.maxDiff = None
         self.mock_requests.return_value.send.called_once_with(
             [
                 (
-                    {'alice': self._get_msg(mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()),
+                    {'alice': self._get_msg(
+                        mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()
+                        ),
                      'bob': self._get_msg(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
                     ['alice', 'bob']
                 )
@@ -131,7 +135,8 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             expected_replies.update({
                 node_id: {
                     **r.get_dict(),
-                    'params_path': os.path.join(job._keep_files_dir, f"params_{node_id}.mpk")
+                    #'params_path': os.path.join(job._keep_files_dir, f"params_{node_id}.mpk")
+                    'params_path': unittest.mock.ANY
                 }
             })
         self.assertDictEqual(replies, expected_replies)

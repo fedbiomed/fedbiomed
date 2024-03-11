@@ -13,7 +13,7 @@ from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_training_plan import (
     FakeTorchTrainingPlan,
-    FakeSKLearnTrainingPlanForClassSource
+    FakeSKLearnTrainingPlan
 )
 #############################################################
 
@@ -68,7 +68,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
             'save_breakpoints': (True, False),
             'training_plan_class': (
                 FakeTorchTrainingPlan,
-                FakeSKLearnTrainingPlanForClassSource,
+                FakeSKLearnTrainingPlan,
                 None
             ),
             'model_args': ({'model': 'args'}, None),

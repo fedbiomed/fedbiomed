@@ -158,25 +158,6 @@ class FakeSKLearnTrainingPlan(FedSGDRegressor):
         pass
 
 
-class FakeTorchTrainingPlanForClassSource(TorchTrainingPlan):
-
-    def init_model(self):
-        pass
-
-    def training_data(self):
-        pass
-
-    def training_step(self):
-        pass
-
-class FakeSKLearnTrainingPlanForClassSource(FedSGDRegressor):
-
-    def training_data(self):
-        pass
-
-    def training_step(self):
-        pass
-
 class FakeTorchTrainingPlan2(TorchTrainingPlan):
 
     def init_dependencies(self):
