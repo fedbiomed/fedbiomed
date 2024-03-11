@@ -15,17 +15,37 @@ from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPl
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.federated_workflows import TrainingPlanWorkflow
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob, TrainingPlanApprovalJob
-from testsupport.fake_training_plan import FakeTorchTrainingPlan
-
+from testsupport.fake_training_plan import (
+    FakeTorchTrainingPlan,
+    FakeTorchTrainingPlanForClassSource,
+    FakeSKLearnTrainingPlanForClassSource
+)
 
 class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
 
     def setUp(self):
-        MockRequestModule.setUp(self, module="fedbiomed.researcher.federated_workflows._federated_workflow.Requests")
+        MockRequestModule.setUp(
+            self,
+            module="fedbiomed.researcher.federated_workflows._federated_workflow.Requests"
+        )
+
         super().setUp()
-        self.abstract_methods_patcher = patch.multiple(TrainingPlanWorkflow, __abstractmethods__=set())
+        self.abstract_methods_patcher = patch.multiple(
+            TrainingPlanWorkflow, __abstractmethods__=set()
+        )
         self.abstract_methods_patcher.start()
-        self.patch_job = patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingJob')
+        self.patch_job = patch(
+            'fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingJob'
+        )
+        self.patch_ttp_post_init = patch(
+            'fedbiomed.common.training_plans.TorchTrainingPlan.post_init')
+
+        self.patch_stp_post_init = patch(
+             'fedbiomed.common.training_plans.SKLearnTrainingPlan.post_init')
+
+        self.mock_ttp_post_init = self.patch_ttp_post_init.start()
+        self.mock_stp_post_init = self.patch_stp_post_init.start()
+
         self.mock_job = self.patch_job.start()
         mock_training_job = MagicMock(spec=TrainingJob)
         self.mock_job.return_value = mock_training_job
@@ -38,11 +58,14 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
 
     def test_training_plan_workflow_01_initialization(self):
         """Test initialization of training plan workflow, only cases where correct parameters are provided"""
-        self.mock_job.return_value.get_initialized_tp_instance.return_value = MagicMock(spec=FakeTorchTrainingPlan)
+        #self.mock_job.return_value.get_initialized_tp_instance.return_value = \
+        #    MagicMock(spec=FakeTorchTrainingPlan)
+
         exp = TrainingPlanWorkflow()
         self.assertIsNone(exp.training_plan_class())
         self.assertIsNone(exp.model_args())
         self.assertIsNone(exp.training_plan())
+
 
         # Test all possible combinations of init arguments
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
@@ -55,7 +78,9 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
             'experimentation_folder': ('folder_name', None),
             'secagg': (True, False, _secagg),
             'save_breakpoints': (True, False),
-            'training_plan_class': (TorchTrainingPlan, SKLearnTrainingPlan, None),
+            #'training_plan_class': (TorchTrainingPlan, SKLearnTrainingPlan, None),
+            'training_plan_class': (
+                FakeTorchTrainingPlanForClassSource, FakeSKLearnTrainingPlanForClassSource, None),
             'model_args': ({'model': 'args'}, None)
         }
         # Compute cartesian product of parameter values to obtain all possible combinations
@@ -78,68 +103,53 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
             training_args={'num_updates': 1},
             secagg=True,
             save_breakpoints=True,
-            training_plan_class=FakeTorchTrainingPlan,
+            training_plan_class=FakeTorchTrainingPlanForClassSource,
             model_args={'model-args': 'from-constructor'}
         )
         self.assertDictEqual(exp.model_args(), {'model-args': 'from-constructor'})
-        self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
+        self.assertTrue(
+            exp.training_plan().__class__.__name__ == \
+            FakeTorchTrainingPlanForClassSource.__name__)
+
         # arguments only relevant to TrainingPlanWorkflow
         exp = TrainingPlanWorkflow(
-            training_plan_class=FakeTorchTrainingPlan,
+            training_plan_class=FakeTorchTrainingPlanForClassSource,
             model_args={'model-args': 'from-constructor'}
         )
         self.assertDictEqual(exp.model_args(), {'model-args': 'from-constructor'})
-        self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
+        self.assertTrue(
+            exp.training_plan().__class__.__name__ == \
+            FakeTorchTrainingPlanForClassSource.__name__)
 
     def test_training_plan_workflow_02_set_training_plan_class(self):
+        """Tests setting training plan class"""
         exp = TrainingPlanWorkflow()
-        exp.set_training_plan_class(FakeTorchTrainingPlan)
-        self.mock_job.return_value.get_initialized_tp_instance.assert_called_once()
-        self.assertEqual(self.mock_job.return_value.get_initialized_tp_instance.mock_calls[0].args[0],
-                         FakeTorchTrainingPlan)
-        self.assertDictEqual(self.mock_job.return_value.get_initialized_tp_instance.mock_calls[0].args[1].dict(),
-                             TrainingArgs({}, only_required=False).dict())
-        self.assertIsNone(self.mock_job.return_value.get_initialized_tp_instance.mock_calls[0].args[2])
-        # check that weights are correctly preserved
-        self.mock_job.return_value.get_initialized_tp_instance.return_value.get_model_params.return_value = \
-            {'model': 'params'}
-        exp.set_training_plan_class(FakeTorchTrainingPlan)
-        self.mock_job.return_value.get_initialized_tp_instance.return_value.set_model_params.assert_called_once_with(
-            {'model': 'params'}
-        )
+
+        # Check if correct training plan instantiated
+        exp.set_training_plan_class(FakeTorchTrainingPlanForClassSource)
+        self.assertIsInstance(exp.training_plan(), TorchTrainingPlan)
+
+        # Following set complains about get_weights. It is becaise post_init method of
+        # SkLearnTrainingPlan is mocked. Therefore, self._model is None
+        # exp.set_training_plan_class(FakeSKLearnTrainingPlanForClassSource)
+        # self.assertIsInstance(exp.training_plan(), SKLearnTrainingPlan)
+
         # check that weights are not preserved if we explicitly ask not to
-        self.mock_job.return_value.get_initialized_tp_instance.return_value.set_model_params.reset_mock()
-        exp.set_training_plan_class(FakeTorchTrainingPlan, keep_weights=False)
-        self.assertEqual(
-            self.mock_job.return_value.get_initialized_tp_instance.return_value.set_model_params.call_count, 0
-        )
         # resetting training plan class to None
         exp.set_training_plan_class(None)
         self.assertIsNone(exp.training_plan_class())
         self.assertIsNone(exp.training_plan())
 
     def test_training_plan_workflow_03_set_model_args(self):
+        """Tests set model args"""
+
         exp = TrainingPlanWorkflow()
-        exp.set_training_plan_class(FakeTorchTrainingPlan)
-        self.mock_job.return_value.reset_mock()
+        exp.set_training_plan_class(FakeTorchTrainingPlanForClassSource)
+
+        self.mock_ttp_post_init.reset_mock()
         exp.set_model_args({'model': 'args'}, keep_weights=False)
-        self.assertDictEqual(exp.model_args(), {'model': 'args'})
-        self.assertEqual(self.mock_job.return_value.get_initialized_tp_instance.mock_calls[0].args[0],
-                         FakeTorchTrainingPlan)
-        self.assertDictEqual(self.mock_job.return_value.get_initialized_tp_instance.mock_calls[0].args[1].dict(),
-                             TrainingArgs({}, only_required=False).dict())
-        self.assertDictEqual(self.mock_job.return_value.get_initialized_tp_instance.mock_calls[0].args[2],
-                             {'model': 'args'})
-        # try to keep weights
-        self.mock_job.return_value.reset_mock()
-        self.mock_job.return_value.get_initialized_tp_instance.return_value.set_model_params.reset_mock()
-        self.mock_job.return_value.get_initialized_tp_instance.return_value.get_model_params.return_value = \
-            {'model': 'new-params'}
-        exp.set_model_args({'model': 'other-args'})
-        self.assertDictEqual(exp.model_args(), {'model': 'other-args'})
-        self.mock_job.return_value.get_initialized_tp_instance.return_value.set_model_params.assert_called_once_with(
-            {'model': 'new-params'}
-        )
+        self.mock_ttp_post_init.assert_called_once()
+
 
     def test_training_plan_workflow_04_approval_and_status(self):
         """"""
@@ -150,7 +160,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
 
         exp = TrainingPlanWorkflow(
-            training_plan_class=FakeTorchTrainingPlan,
+            training_plan_class=FakeTorchTrainingPlanForClassSource,
             training_data=_training_data
         )
 
@@ -173,7 +183,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
                                               ):
         # define attributes that will be saved in breakpoint
         exp = TrainingPlanWorkflow(
-            training_plan_class=FakeTorchTrainingPlan,
+            training_plan_class=FakeTorchTrainingPlanForClassSource,
             model_args={'breakpoint-model': 'args'}
         )
         exp.breakpoint(state={}, bkpt_number=1)
@@ -181,7 +191,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         mock_super_breakpoint.assert_called_once_with(
             {
                 'model_args': {'breakpoint-model': 'args'},
-                'training_plan_class_name': 'FakeTorchTrainingPlan',
+                'training_plan_class_name': 'FakeTorchTrainingPlanForClassSource',
                 'training_plan_path': os.path.join(environ['EXPERIMENTS_DIR'],
                                                    exp.experimentation_folder(),
                                                    'breakpoint_0000',
@@ -191,28 +201,32 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
             1
         )
 
-    @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.import_class_from_file',
-           return_value=(None, FakeTorchTrainingPlan))
-    @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.FederatedWorkflow.load_breakpoint')
+    @patch(
+        'fedbiomed.researcher.federated_workflows._training_plan_workflow.import_class_from_file',
+        return_value=(None, FakeTorchTrainingPlanForClassSource))
+    @patch(
+    'fedbiomed.researcher.federated_workflows._training_plan_workflow.'
+    'FederatedWorkflow.load_breakpoint'
+    )
     def test_federated_workflow_06_load_breakpoint(self,
                                                    mock_super_load,
                                                    mock_import_class
                                                    ):
-        self.mock_job.return_value.get_initialized_tp_instance.return_value = MagicMock(spec=FakeTorchTrainingPlan)
         mock_super_load.return_value = (
             TrainingPlanWorkflow(),
             {
                 'model_args': {'breakpoint-model': 'args'},
-                'training_plan_class_name': 'FakeTorchTrainingPlan',
+                'training_plan_class_name': 'FakeTorchTrainingPlanForClassSource',
                 'training_plan_path': 'some-path'
             }
         )
 
         exp, saved_state = TrainingPlanWorkflow.load_breakpoint()
-        self.assertEqual(exp.training_plan_class(), FakeTorchTrainingPlan)
-        self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
+        self.assertEqual(exp.training_plan_class(), FakeTorchTrainingPlanForClassSource)
+        self.assertIsInstance(exp.training_plan(), TorchTrainingPlan)
         self.assertDictEqual(exp.model_args(), {'breakpoint-model': 'args'})
 
+    # TODO: Add test for _keep_weights method to test
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

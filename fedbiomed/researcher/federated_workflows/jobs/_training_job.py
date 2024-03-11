@@ -23,63 +23,65 @@ from fedbiomed.researcher.federated_workflows.jobs._job import Job
 
 class TrainingJob(Job):
     """
-    TrainingJob is a task for training an ML model on the nodes by executing a [TrainingPlan][fedbiomed.common.training_plans.BaseTrainingPlan].
+    TrainingJob is a task for training an ML model on the nodes by executing a
+    [TrainingPlan][fedbiomed.common.training_plans.BaseTrainingPlan].
     """
 
-    def _get_default_constructed_tp_instance(self,
-                                             training_plan_class: Type[Callable],
-                                             ) -> BaseTrainingPlan:
-        """Returns a default-constructed instance of the training plan class.
+    #def _get_default_constructed_tp_instance(self,
+    #                                         training_plan_class: Type[Callable],
+    #                                         ) -> BaseTrainingPlan:
+    #    """Returns a default-constructed instance of the training plan class.
 
-        !!! note "Saves to temporary file"
-            This function saves the code of the training plan to a temporary file.
+    #    !!! note "Saves to temporary file"
+    #        This function saves the code of the training plan to a temporary file.
 
-        Assumptions:
+    #    Assumptions:
 
-        - the `training_plan_class` is a class, inheriting from
-            [`BaseTrainingPlan`][fedbiomed.common.training_plan.BaseTrainingPlan] that can be default-constructed
+    #    - the `training_plan_class` is a class, inheriting from
+    #        [`BaseTrainingPlan`][fedbiomed.common.training_plan.BaseTrainingPlan]
+    #        that can be default-constructed
 
-        Returns:
-            Default-constructed object of type `training_plan_class`
-        """
+    #    Returns:
+    #        Default-constructed object of type `training_plan_class`
+    #    """
 
-        # create TrainingPlan instance
-        training_plan = training_plan_class()  # contains TrainingPlan
+    #    # create TrainingPlan instance
+    #    training_plan = training_plan_class()  # contains TrainingPlan
 
-        # save and load training plan to a file to be sure
-        # 1. a file is associated to training plan, so we can read its source, etc.
-        # 2. all dependencies are applied
-        training_plan_module = 'model_' + str(uuid.uuid4())
-        training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
-        try:
-            training_plan.save_code(training_plan_file)
-        except Exception as e:
-            msg = f"{ErrorNumbers.FB418}: cannot save training plan to file: {e}"
-            logger.critical(msg)
-            raise FedbiomedJobError(msg)
-        del training_plan
+    #    # save and load training plan to a file to be sure
+    #    # 1. a file is associated to training plan, so we can read its source, etc.
+    #    # 2. all dependencies are applied
+    #    training_plan_module = 'model_' + str(uuid.uuid4())
+    #    training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
+    #    try:
+    #        training_plan.save_code(training_plan_file)
+    #    except Exception as e:
+    #        msg = f"{ErrorNumbers.FB418}: cannot save training plan to file: {e}"
+    #        logger.critical(msg)
+    #        raise FedbiomedJobError(msg)
+    #    del training_plan
 
-        _, training_plan = utils.import_class_object_from_file(
-            training_plan_file, training_plan_class.__name__)
+    #    _, training_plan = utils.import_class_object_from_file(
+    #        training_plan_file, training_plan_class.__name__)
 
-        return training_plan
+    #    return training_plan
 
-    def get_initialized_tp_instance(self,
-                                    training_plan_class: Type[Callable],
-                                    training_args: Union[dict, TrainingArgs],
-                                    model_args: Optional[dict] = None,
-                                    ):
-        """Returns an initialized instance of the TrainingPlan.
+    #def get_initialized_tp_instance(self,
+    #                                training_plan_class: Type[Callable],
+    #                                training_args: Union[dict, TrainingArgs],
+    #                                model_args: Optional[dict] = None,
+    #                                ):
+    #    """Returns an initialized instance of the TrainingPlan.
 
-        Creates a default-constructed instance of `training_plan_class`, then calls its `post_init` method.
+    #    Creates a default-constructed instance of `training_plan_class`, then calls its `post_init` method.
 
-        Returns:
-            Object of type `training_plan_class` with properly initialized model and optimizer
-        """
-        skeleton_training_plan = self._get_default_constructed_tp_instance(training_plan_class)
-        skeleton_training_plan.post_init(model_args={} if model_args is None else model_args,
-                                         training_args=training_args)
-        return skeleton_training_plan
+    #    Returns:
+    #        Object of type `training_plan_class` with properly initialized model and optimizer
+    #    """
+    #    skeleton_training_plan = self._get_default_constructed_tp_instance(training_plan_class)
+    #    skeleton_training_plan.post_init(model_args={} if model_args is None else model_args,
+    #                                     training_args=training_args)
+    #    return skeleton_training_plan
 
     def _get_training_testing_results(self, replies, errors, timer: Dict) -> Dict:
         """"Waits for training replies
@@ -124,7 +126,7 @@ class TrainingJob(Job):
 
     def start_nodes_training_round(
         self,
-        job_id: str, 
+        job_id: str,
         round_: int,
         training_plan: BaseTrainingPlan,
         training_args: Union[dict, TrainingArgs],
@@ -176,7 +178,7 @@ class TrainingJob(Job):
             'command': 'train',
             'aggregator_args': {},
         }
-        
+
         timer = {}
 
         # Prepare optimizer auxiliary variables, when there are.
@@ -187,7 +189,7 @@ class TrainingJob(Job):
         else:
             aux_shared = {}
             aux_bynode = {}
-            
+
         # Loop over nodes, add node specific data and send train request
         messages = MessagesByNode()
 

@@ -8,7 +8,13 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers import BaseOptimizer
-from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan
+from fedbiomed.common.training_plans import (
+    BaseTrainingPlan,
+    TorchTrainingPlan,
+    SKLearnTrainingPlan,
+    FedSGDRegressor
+)
+from fedbiomed.common.models import SkLearnModel
 from fedbiomed.common.data import DataManager
 
 
@@ -137,14 +143,33 @@ class FakeTorchTrainingPlan(FakeModel, TorchTrainingPlan):
 
 
     def init_model(self):
-        pass 
+        pass
 
     def training_data(self):
-        pass 
+        pass
 
     def training_step(self):
         pass
 
+
+class FakeTorchTrainingPlanForClassSource(TorchTrainingPlan):
+
+    def init_model(self):
+        pass
+
+    def training_data(self):
+        pass
+
+    def training_step(self):
+        pass
+
+class FakeSKLearnTrainingPlanForClassSource(FedSGDRegressor):
+
+    def training_data(self):
+        pass
+
+    def training_step(self):
+        pass
 
 class FakeTorchTrainingPlan2(TorchTrainingPlan):
 
@@ -162,13 +187,13 @@ class FakeTorchTrainingPlan2(TorchTrainingPlan):
         ]
 
     def init_optimizer(self):
-        pass 
+        pass
 
     def init_model(self):
-        pass 
+        pass
 
     def training_data(self):
-        pass 
+        pass
 
     def training_step(self):
         pass
@@ -193,20 +218,20 @@ class DeclearnAuxVarModel(FakeModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # overriding specific component 
+        # overriding specific component
         self._optimizer = DeclearnAuxVarModel.OPTIM
 
     def training_data(self):
         return DataManager(dataset=self.CustomDataset())
-    
+
     def type(self):
         return DeclearnAuxVarModel.TYPE
-    
+
     def training_routine(self, **kwargs):
         td = self.training_data()
         td.load(TrainingPlans.TorchTrainingPlan)
         all_s = td.load_all_samples()
-        
+
         for v, t in all_s:
             o = self._optimizer._model.model(v)
             loss = t - o # stupid loss function, created only for the sake of testing
