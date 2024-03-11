@@ -152,6 +152,12 @@ class FakeTorchTrainingPlan(FakeModel, TorchTrainingPlan):
         pass
 
 
+class FakeSKLearnTrainingPlan(FedSGDRegressor):
+
+    def training_data(self, batch_size):
+        pass
+
+
 class FakeTorchTrainingPlanForClassSource(TorchTrainingPlan):
 
     def init_model(self):
