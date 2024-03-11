@@ -89,7 +89,7 @@ class TorchModel(Model):
         """
 
         params: List[float] = torch.nn.utils.parameters_to_vector(
-            self.get_weights(only_trainable=only_trainable, exclude_buffers=exclude_buffers)
+            self.get_weights(only_trainable=only_trainable, exclude_buffers=exclude_buffers).values()
         ).tolist()
 
         return params
