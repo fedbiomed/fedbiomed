@@ -138,7 +138,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             training_plan_class: Training plan class
         """
 
-        # FIXME: Followng actions can be part of training plan class
+        # FIXME: Following actions can be part of training plan class
         # create TrainingPlan instance
         training_plan_class = self.training_plan_class()
         training_plan = training_plan_class() # contains TrainingPlan
