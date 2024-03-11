@@ -132,7 +132,7 @@ class NodeEnviron(Environ):
         logger.info("allow_default_training_plans   = " + str(self._values['ALLOW_DEFAULT_TRAINING_PLANS']))
 
 
-sys.tracebacklimit = 3
+sys.tracebacklimit = 20
 
 
 # # global dictionary which contains all environment for the NODE
