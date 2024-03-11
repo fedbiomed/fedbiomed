@@ -50,7 +50,7 @@ class TrainingJob(Job):
                 self._nodes.remove(reply.node_id)  # remove the faulty node from the list
                 continue
 
-            params_path = os.path.join(self._keep_files_dir, f"params_{node_id}.mpk")
+            params_path = os.path.join(self._keep_files_dir, f"params_{str(node_id)[0:11]}_{uuid.uuid4()}.mpk")
             Serializer.dump(reply.params, params_path)
 
             rtime_total = time.perf_counter() - timer[node_id]
