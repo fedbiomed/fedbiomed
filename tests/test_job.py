@@ -64,7 +64,8 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         job.nodes = ['another-node']
         self.assertTrue(all(x == y for x,y in zip(job.nodes, ['another-node'])))
 
-    def test_job_02_training_job(self):
+    @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
+    def test_job_02_training_job(self, mock_uuid):
         # TrainingJob should be default-constructible
         job = TrainingJob()
 
@@ -110,7 +111,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                 job_id='some_id',
                 round_=1,
                 training_plan=mock_tp,
-                training_args=TrainingArgs({}),
+                training_args=TrainingArgs({}, only_required=False),
                 model_args=None,
                 data=self.fds,  # mocked FederatedDataSet class
                 nodes_state_ids=fake_node_state_ids,
@@ -133,7 +134,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             expected_replies.update({
                 node_id: {
                     **r.get_dict(),
-                    'params_path': os.path.join(job._keep_files_dir, f"params_{node_id}.mpk")
+                    'params_path': os.path.join(job._keep_files_dir, f"params_{node_id}_{mock_uuid.return_value}.mpk")
                 }
             })
         self.assertDictEqual(replies, expected_replies)
