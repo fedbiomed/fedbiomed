@@ -138,7 +138,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         if self.__training_plan_class is None:
             self.__training_plan = None
         else:
-            job = TrainingJob(keep_files_dir=self.experimentation_path())
+            job = TrainingJob(nodes=None, keep_files_dir=self.experimentation_path())
             with self._keep_weights(keep_weights):
                 self.__training_plan = job.get_initialized_tp_instance(self.training_plan_class(),
                                                                        self._training_args,
@@ -333,6 +333,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                                               description=description,
                                               )
         return responses
+
     @exp_exceptions
     def breakpoint(self,
                    state,

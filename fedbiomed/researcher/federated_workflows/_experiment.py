@@ -823,7 +823,7 @@ class Experiment(TrainingPlanWorkflow):
         job = TrainingJob(nodes=training_nodes,
                           keep_files_dir=self.experimentation_path())
 
-        logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
+        logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(training_nodes))
 
         training_replies = job.start_nodes_training_round(
             job_id=self._id,
@@ -860,18 +860,19 @@ class Experiment(TrainingPlanWorkflow):
             )
 
         else:
+            print("TP#", training_replies)
             # aggregate models from nodes to a global model
             aggregated_params = self._aggregator.aggregate(model_params,
                                                            weights,
                                                            global_model=model_params_before_round,
                                                            training_plan=self.training_plan(),
                                                            training_replies=training_replies,
-                                                           node_ids=job.nodes,
+                                                           node_ids=training_nodes,
                                                            n_updates=self._training_args.get('num_updates'),
                                                            n_round=self._round_current)
 
         # Optionally refine the aggregated updates using an Optimizer.
-        self._process_optim_aux_var(job)
+        self._process_optim_aux_var()
         aggregated_params = self._run_agg_optimizer(self.training_plan(),
                                                     aggregated_params)
 
@@ -916,7 +917,6 @@ class Experiment(TrainingPlanWorkflow):
 
     def _process_optim_aux_var(
         self,
-        job: TrainingJob
     ) -> None:
         """Process Optimizer auxiliary variables received during last round.
 
@@ -927,7 +927,7 @@ class Experiment(TrainingPlanWorkflow):
                 not match the expectations of the `agg_optimizer` Optimizer.
         """
         # Collect auxiliary variables from participating nodes' replies.
-        aux_var = job.extract_received_optimizer_aux_var_from_round(
+        aux_var = TrainingJob.extract_received_optimizer_aux_var_from_round(
             self._round_current,
             self._training_replies
         )

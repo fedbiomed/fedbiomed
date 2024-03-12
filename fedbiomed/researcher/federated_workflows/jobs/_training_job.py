@@ -26,43 +26,6 @@ class TrainingJob(Job):
     TrainingJob is a task for training an ML model on the nodes by executing a [TrainingPlan][fedbiomed.common.training_plans.BaseTrainingPlan].
     """
 
-    def _get_default_constructed_tp_instance(self,
-                                             training_plan_class: Type[Callable],
-                                             ) -> BaseTrainingPlan:
-        """Returns a default-constructed instance of the training plan class.
-
-        !!! note "Saves to temporary file"
-            This function saves the code of the training plan to a temporary file.
-
-        Assumptions:
-
-        - the `training_plan_class` is a class, inheriting from
-            [`BaseTrainingPlan`][fedbiomed.common.training_plan.BaseTrainingPlan] that can be default-constructed
-
-        Returns:
-            Default-constructed object of type `training_plan_class`
-        """
-
-        # create TrainingPlan instance
-        training_plan = training_plan_class()  # contains TrainingPlan
-
-        # save and load training plan to a file to be sure
-        # 1. a file is associated to training plan, so we can read its source, etc.
-        # 2. all dependencies are applied
-        training_plan_module = 'model_' + str(uuid.uuid4())
-        training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
-        try:
-            training_plan.save_code(training_plan_file)
-        except Exception as e:
-            msg = f"{ErrorNumbers.FB418}: cannot save training plan to file: {e}"
-            logger.critical(msg)
-            raise FedbiomedJobError(msg)
-        del training_plan
-
-        _, training_plan = utils.import_class_object_from_file(
-            training_plan_file, training_plan_class.__name__)
-
-        return training_plan
 
     def get_initialized_tp_instance(self,
                                     training_plan_class: Type[Callable],
@@ -81,11 +44,16 @@ class TrainingJob(Job):
                                          training_args=training_args)
         return skeleton_training_plan
 
-    def _get_training_testing_results(self, replies, errors, timer: Dict) -> Dict:
-        """"Waits for training replies
+    def _get_training_timing_results(self, replies: Dict, errors: Dict, timer: Dict) -> Dict:
+        """"Waits for training replies, and computes timings
 
         Args:
+            replies:???
+            errors: ???
             timer: Stores time elapsed on the researcher side
+
+        Returns:
+            Training_replies entry as a dictionary for the current Round
         """
 
         training_replies = {}
@@ -205,14 +173,15 @@ class TrainingJob(Job):
             messages.update({node: TrainRequest(**msg)})  # send request to node
 
         # Send training request
-        with self._reqs.send(messages, self._nodes) as federated_req:
+        with self._reqs.send(messages, self._nodes, self._policies) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
-            formatted_training_replies = self._get_training_testing_results(replies=replies,
-                                                                            errors=errors,
-                                                                            timer=timer)
+            formatted_training_replies = self._get_training_timing_results(replies=replies,
+                                                                           errors=errors,
+                                                                           timer=timer)
 
         # return the list of nodes which answered because nodes in error have been removed
+        print("TP", formatted_training_replies)
         return formatted_training_replies
 
     def _log_round_info(self, node: str, training: True) -> None:
@@ -223,17 +192,19 @@ class TrainingJob(Job):
             training: If True round will do training, otherwise it is the last validation round
         """
 
-        if not training:
-            logger.info(f'\033[1mSending request\033[0m \n'
-                        f'\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n'
-                        f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
-                        f'aggregated parameters \n {5 * "-------------"}')
-        else:
+        if training:
             logger.info(f'\033[1mSending request\033[0m \n'
                         f'\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n'
                         f'\t\t\t\t\t\033[1m Request: \033[0m: TRAIN'
                         f'\n {5 * "-------------"}')
+        else:
+            logger.info(f'\033[1mSending request\033[0m \n'
+                        f'\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n'
+                        f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
+                        f'aggregated parameters \n {5 * "-------------"}')
 
+    # FIXME: are aux_var supposed to be dealt with in the TrainingJob
+    # besides should they be staticmethods?
     @staticmethod
     def _prepare_agg_optimizer_aux_var(
         aux_var: Dict[str, Dict[str, Any]],
@@ -274,8 +245,8 @@ class TrainingJob(Job):
         # Return the restructured auxiliary variables dicts.
         return aux_shared, aux_bynode
 
+    @staticmethod
     def extract_received_optimizer_aux_var_from_round(
-        self,
         round_id: int,
         training_replies: Dict[int, Dict[str, Any]],
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
@@ -290,8 +261,9 @@ class TrainingJob(Job):
             format `{mod_name: {node_id: node_dict}}`.
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
-
+        print("TP", training_replies)
         for node_id, reply in training_replies[round_id].items():
+            
             node_av = reply.get("optim_aux_var", {})
             for module, params in node_av.items():
                 aux_var.setdefault(module, {})[node_id] = params
