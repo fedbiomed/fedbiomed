@@ -142,7 +142,7 @@ class TrainingJob(Job):
             'training_plan': self._training_plan.source(),
             'training_plan_class': self._training_plan.__class__.__name__,
             'params': self._training_plan.get_model_params(
-                exclude_buffers=not training_args.dict()['share_persistent_buffers']
+                exclude_buffers=not self._training_args.dict()['share_persistent_buffers']
              ),
             'secagg_servkey_id': self._secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': self._secagg_arguments.get('secagg_biprime_id'),
