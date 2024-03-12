@@ -30,8 +30,10 @@ class Job:
     """
 
     def __init__(self,
+                 *,
                  nodes: Optional[List[str]] = None,
-                 keep_files_dir: str = None):
+                 keep_files_dir: str = None,
+                 ):
 
         """ Constructor of the class
 
