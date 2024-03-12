@@ -149,6 +149,7 @@ class TrainingArgs:
         keys = ["batch_maxnum",
                 "fedprox_mu",
                 "log_interval",
+                "share_persistent_buffers",
                 "dry_run",
                 "epochs",
                 "use_gpu",

@@ -172,10 +172,12 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     @exp_exceptions
     def _reset_training_plan(self,
                              keep_weights: bool = True) -> None:
-        """Private utility function that resets the training plan according to the value of training plan class.
+        """Private utility function that resets the training plan according to the value
+        of training plan class.
 
         If training plan class is None, then sets the training plan to None.
-        Otherwise, it sets the training plan to a new, default-constructed instance of training plan class.
+        Otherwise, it sets the training plan to a new, default-constructed
+        instance of training plan class.
         """
 
         if self.__training_plan_class is None:
@@ -463,7 +465,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
 
         if keep_weights and self.__training_plan is not None:
-            weights = self.__training_plan.get_model_params()
+            weights = self.__training_plan.get_model_params(exclude_buffers=False)
             yield
             try:
                 self.__training_plan.set_model_params(weights)
