@@ -11,8 +11,11 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedJobError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
-from fedbiomed.common.utils import import_class_from_file
+from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
+from fedbiomed.common.utils import (
+    import_class_from_file,
+    import_class_object_from_file
+)
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions, FederatedWorkflow
@@ -127,22 +130,62 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         self.set_model_args(model_args)
         self.set_training_plan_class(training_plan_class)
 
+
+    def _instantiate_training_plan(self) -> BaseTrainingPlan:
+        """Instantiates training plan class
+
+        Args:
+            training_plan_class: Training plan class
+
+        Returns:
+            an initialized training plan object
+        """
+
+        # FIXME: Following actions can be part of training plan class
+        # create TrainingPlan instance
+        training_plan_class = self.training_plan_class()
+        training_plan = training_plan_class()  # contains TrainingPlan
+
+        # save and load training plan to a file to be sure
+        # 1. a file is associated to training plan, so we can read its source, etc.
+        # 2. all dependencies are applied
+        training_plan_module = 'model_' + str(uuid.uuid4())
+        training_plan_file = os.path.join(
+            self.experimentation_path(),
+            training_plan_module + '.py'
+        )
+
+        training_plan.save_code(training_plan_file)
+        del training_plan
+
+        _, training_plan = import_class_object_from_file(
+            training_plan_file, training_plan_class.__name__)
+
+        training_plan.post_init(
+            model_args={} if self._model_args is None else self._model_args,
+            training_args=self._training_args
+        )
+
+        return training_plan
+
+
     @exp_exceptions
     def _reset_training_plan(self,
                              keep_weights: bool = True) -> None:
-        """Private utility function that resets the training plan according to the value of training plan class.
+        """Private utility function that resets the training plan according to the value
+        of training plan class.
 
         If training plan class is None, then sets the training plan to None.
-        Otherwise, it sets the training plan to a new, default-constructed instance of training plan class.
+        Otherwise, it sets the training plan to a new, default-constructed
+        instance of training plan class.
         """
+
         if self.__training_plan_class is None:
             self.__training_plan = None
         else:
-            job = TrainingJob(nodes=None, keep_files_dir=self.experimentation_path())
             with self._keep_weights(keep_weights):
-                self.__training_plan = job.get_initialized_tp_instance(self.training_plan_class(),
-                                                                       self._training_args,
-                                                                       self._model_args)
+               self.__training_plan = self._instantiate_training_plan()
+
 
     @exp_exceptions
     def training_plan_class(self) -> Optional[Type_TrainingPlan]:
@@ -301,6 +344,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
 
         job = TrainingPlanApprovalJob(nodes=self.training_data().node_ids(),
+                                      training_plan=self.training_plan(),
                                       keep_files_dir=self.experimentation_path())
         responses = job.check_training_plan_is_approved_by_nodes(job_id=self._id,
                                                                  training_plan=self.training_plan()
@@ -328,6 +372,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             to the "approval queue" on the node side.
         """
         job = TrainingPlanApprovalJob(nodes=self.training_data().node_ids(),
+                                      training_plan=self.training_plan(),
                                       keep_files_dir=self.experimentation_path())
         responses = job.training_plan_approve(training_plan=self.training_plan(),
                                               description=description,
@@ -413,9 +458,17 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
     @contextmanager
     def _keep_weights(self, keep_weights: bool):
-        """Context manager for trying to keep the same weights as the current training plan after modifying it"""
+        """Keeps same weights of training plan.
+
+        Context manager for trying to keep the same weights as the
+        current training plan after modifying it
+
+        Args:
+            keep_weights: If True tries to keep the weights as non-changed.
+        """
+
         if keep_weights and self.__training_plan is not None:
-            weights = self.__training_plan.get_model_params()
+            weights = self.__training_plan.get_model_params(exclude_buffers=False)
             yield
             try:
                 self.__training_plan.set_model_params(weights)

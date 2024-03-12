@@ -821,6 +821,7 @@ class Experiment(TrainingPlanWorkflow):
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
         job = TrainingJob(nodes=training_nodes,
+                          training_plan=self.training_plan(),
                           keep_files_dir=self.experimentation_path())
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(training_nodes))
@@ -860,7 +861,6 @@ class Experiment(TrainingPlanWorkflow):
             )
 
         else:
-            print("TP#", training_replies)
             # aggregate models from nodes to a global model
             aggregated_params = self._aggregator.aggregate(model_params,
                                                            weights,
@@ -871,6 +871,8 @@ class Experiment(TrainingPlanWorkflow):
                                                            n_updates=self._training_args.get('num_updates'),
                                                            n_round=self._round_current)
 
+        # Update experiment's in-memory history
+        self.commit_experiment_history(training_replies, aggregated_params)
         # Optionally refine the aggregated updates using an Optimizer.
         self._process_optim_aux_var()
         aggregated_params = self._run_agg_optimizer(self.training_plan(),
@@ -878,9 +880,6 @@ class Experiment(TrainingPlanWorkflow):
 
         # Update the training plan with the aggregated parameters
         self.training_plan().set_model_params(aggregated_params)
-
-        # Update experiment's in-memory history
-        self.commit_experiment_history(training_replies, aggregated_params)
 
         # Increase round number
         self._set_round_current(self._round_current + 1)
@@ -1494,5 +1493,5 @@ class Experiment(TrainingPlanWorkflow):
             self._aggregated_params[self._round_current] = {'params': aggregated_params}
         else:
             # only store the last round's values
-            self._training_replies= {self._round_current: training_replies}
+            self._training_replies = {self._round_current: training_replies}
             self._aggregated_params = {self._round_current: {'params': aggregated_params}}

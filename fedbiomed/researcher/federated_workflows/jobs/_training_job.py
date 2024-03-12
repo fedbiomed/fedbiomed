@@ -6,7 +6,7 @@ import time
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
-from fedbiomed.common.message import TrainReply, TrainRequest
+from fedbiomed.common.message import ErrorMessage, TrainReply, TrainRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
@@ -23,34 +23,21 @@ from fedbiomed.researcher.federated_workflows.jobs._job import Job
 
 class TrainingJob(Job):
     """
-    TrainingJob is a task for training an ML model on the nodes by executing a [TrainingPlan][fedbiomed.common.training_plans.BaseTrainingPlan].
+    TrainingJob is a task for training an ML model on the nodes by executing a
+    [TrainingPlan][fedbiomed.common.training_plans.BaseTrainingPlan].
     """
 
-
-    def get_initialized_tp_instance(self,
-                                    training_plan_class: Type[Callable],
-                                    training_args: Union[dict, TrainingArgs],
-                                    model_args: Optional[dict] = None,
-                                    ):
-        """Returns an initialized instance of the TrainingPlan.
-
-        Creates a default-constructed instance of `training_plan_class`, then calls its `post_init` method.
-
-        Returns:
-            Object of type `training_plan_class` with properly initialized model and optimizer
-        """
-        skeleton_training_plan = self._get_default_constructed_tp_instance(training_plan_class)
-        skeleton_training_plan.post_init(model_args={} if model_args is None else model_args,
-                                         training_args=training_args)
-        return skeleton_training_plan
-
-    def _get_training_timing_results(self, replies: Dict, errors: Dict, timer: Dict) -> Dict:
-        """"Waits for training replies, and computes timings
+    def _get_training_timing_results(self,
+                                     replies: Dict[str, TrainReply],
+                                     errors: Dict[str, ErrorMessage],
+                                     timer: Dict[str, float]
+                                     ) -> Dict:
+        """"Waits for training replies, and computes timing
 
         Args:
             replies:???
             errors: ???
-            timer: Stores time elapsed on the researcher side
+            timer: Stores time elapsed on the researcher side, for each Node (maps node_id with its associated timing)
 
         Returns:
             Training_replies entry as a dictionary for the current Round
@@ -92,9 +79,8 @@ class TrainingJob(Job):
 
     def start_nodes_training_round(
         self,
-        job_id: str, 
+        job_id: str,
         round_: int,
-        training_plan: BaseTrainingPlan,
         training_args: Union[dict, TrainingArgs],
         model_args: Optional[dict],
         data: FederatedDataSet,
@@ -134,9 +120,11 @@ class TrainingJob(Job):
             'training': do_training,
             'model_args': model_args if model_args is not None else {},
             'round': round_,
-            'training_plan': training_plan.source(),
-            'training_plan_class': training_plan.__class__.__name__,
-            'params': training_plan.get_model_params(),
+            'training_plan': self._training_plan.source(),
+            'training_plan_class': self._training_plan.__class__.__name__,
+            'params': self._training_plan.get_model_params(
+                exclude_buffers=not training_args.dict()['share_persistent_buffers']
+            ),  # take into account share_persistent_buffers
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': secagg_arguments.get('secagg_random'),
@@ -144,7 +132,7 @@ class TrainingJob(Job):
             'command': 'train',
             'aggregator_args': {},
         }
-        
+
         timer = {}
 
         # Prepare optimizer auxiliary variables, when there are.
@@ -155,7 +143,7 @@ class TrainingJob(Job):
         else:
             aux_shared = {}
             aux_bynode = {}
-            
+
         # Loop over nodes, add node specific data and send train request
         messages = MessagesByNode()
 
@@ -181,7 +169,6 @@ class TrainingJob(Job):
                                                                            timer=timer)
 
         # return the list of nodes which answered because nodes in error have been removed
-        print("TP", formatted_training_replies)
         return formatted_training_replies
 
     def _log_round_info(self, node: str, training: True) -> None:
