@@ -136,12 +136,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         Args:
             training_plan_class: Training plan class
+
+        Returns:
+            an initialized training plan object
         """
 
         # FIXME: Following actions can be part of training plan class
         # create TrainingPlan instance
         training_plan_class = self.training_plan_class()
-        training_plan = training_plan_class() # contains TrainingPlan
+        training_plan = training_plan_class()  # contains TrainingPlan
 
         # save and load training plan to a file to be sure
         # 1. a file is associated to training plan, so we can read its source, etc.
