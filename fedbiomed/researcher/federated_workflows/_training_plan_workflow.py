@@ -414,7 +414,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     def _keep_weights(self, keep_weights: bool):
         """Context manager for trying to keep the same weights as the current training plan after modifying it"""
         if keep_weights and self.__training_plan is not None:
-            weights = self.__training_plan.get_model_params()
+            weights = self.__training_plan.get_model_params(exclude_buffers=False)
             yield
             try:
                 self.__training_plan.set_model_params(weights)

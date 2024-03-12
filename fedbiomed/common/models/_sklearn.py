@@ -101,12 +101,15 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     def get_weights(
         self,
         only_trainable: bool = False,
+        exclude_buffers: bool = True
     ) -> Dict[str, np.ndarray]:
         """Return a copy of the model's trainable weights.
 
         Args:
             only_trainable: Unused for scikit-learn models. (Whether to ignore
                 non-trainable model parameters.)
+            exclude_buffers: Unused for scikit-learn models. (Whether to ignore
+                buffers.)
 
         Raises:
             FedbiomedModelError: If the model parameters are not initialized.
@@ -137,8 +140,16 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             ) from err
         return weights
 
-    def flatten(self) -> List[float]:
+    def flatten(self,
+                only_trainable: bool = False,
+                exclude_buffers: bool = True) -> List[float]:
         """Gets weights as flatten vector
+
+        Args:
+            only_trainable: Unused for scikit-learn models. (Whether to ignore
+                non-trainable model parameters.)
+            exclude_buffers: Unused for scikit-learn models. (Whether to ignore
+                buffers.)
 
         Returns:
             to_list: Convert np.ndarray to a list if it is True.

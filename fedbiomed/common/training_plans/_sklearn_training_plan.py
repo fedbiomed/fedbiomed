@@ -97,6 +97,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         super().post_init(model_args, training_args, aggregator_args)
         self._model = SkLearnModel(self._model_cls)
         self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
+        self._warn_about_training_args()
 
         # configure optimizer (if provided in the TrainingPlan)
         self._configure_optimizer()
@@ -312,3 +313,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     def type(self) -> TrainingPlans:
         """Getter for training plan type """
         return self.__type
+
+    def _warn_about_training_args(self):
+        if self._training_args['share_persistent_buffers']:
+            logger.warning("Option share_persistent_buffers is not supported in SKLearnTrainingPlan, "
+                           "it will be ignored.")
