@@ -333,6 +333,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                                               description=description,
                                               )
         return responses
+
     @exp_exceptions
     def breakpoint(self,
                    state,

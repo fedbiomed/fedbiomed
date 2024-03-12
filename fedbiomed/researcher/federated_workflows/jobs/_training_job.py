@@ -26,6 +26,60 @@ class TrainingJob(Job):
     TrainingJob is a task for training an ML model on the nodes by executing a [TrainingPlan][fedbiomed.common.training_plans.BaseTrainingPlan].
     """
 
+    def __init__(self,
+                 *,
+                 job_id: str,
+                 round_: int,
+                 training_plan: BaseTrainingPlan,
+                 training_args: Union[dict, TrainingArgs],
+                 model_args: Optional[dict],
+                 data: FederatedDataSet,
+                 nodes_state_ids: Dict[str, str],
+                 aggregator_args: Dict[str, Dict[str, Any]],
+                 secagg_arguments: Union[Dict, None] = None,
+                 do_training: bool = True,
+                 optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
+                 nodes: Optional[List[str]] = None,
+                 keep_files_dir: str = None,
+                 ):
+
+        """ Constructor of the class
+
+        Args:
+            job_id: unique ID of this job
+            round_: current number of round the algorithm is performing (a round is considered to be all the
+                training steps of a federated model between 2 aggregations).
+            training_plan: TrainingPlan with properly initialized model and optimizer
+            training_args: arguments for training
+            model_args: arguments for the model
+            data: metadata of the federated data set
+            nodes_state_ids: unique IDs of the node states saved remotely
+            aggregator_args: aggregator arguments required for remote execution
+            secagg_arguments: Secure aggregation ServerKey context id
+            do_training: if False, skip training in this round (do only validation). Defaults to True.
+            optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
+                Note that such variables may only be used if both the Experiment and node-side training plan
+                hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
+                are coherent with each other as to expected information exchange.
+            nodes: A dict of node_id containing the nodes used for training
+            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
+                of the job. Defaults to None, files are not kept after the end of the job.
+        """
+        super().__init__(nodes=nodes, keep_files_dir=keep_files_dir)
+
+        # to be used for `execute()`
+        self._job_id = job_id
+        self._round_ = round_
+        self._training_plan = training_plan
+        self._training_args = training_args
+        self._model_args = model_args
+        self._data = data
+        self._nodes_state_ids = nodes_state_ids
+        self._aggregator_args = aggregator_args
+        self._secagg_arguments = secagg_arguments
+        self._do_training = do_training
+        self._optim_aux_var = optim_aux_var
+
     def _get_default_constructed_tp_instance(self,
                                              training_plan_class: Type[Callable],
                                              ) -> BaseTrainingPlan:
@@ -122,57 +176,30 @@ class TrainingJob(Job):
 
         return training_replies
 
-    def start_nodes_training_round(
-        self,
-        job_id: str, 
-        round_: int,
-        training_plan: BaseTrainingPlan,
-        training_args: Union[dict, TrainingArgs],
-        model_args: Optional[dict],
-        data: FederatedDataSet,
-        nodes_state_ids: Dict[str, str],
-        aggregator_args: Dict[str, Dict[str, Any]],
-        secagg_arguments: Union[Dict, None] = None,
-        do_training: bool = True,
-        optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
-    ) -> Dict:
+    def start_nodes_training_round(self) -> Dict:
         """ Sends training request to nodes and waits for the responses
 
-        Args:
-            round_: current number of round the algorithm is performing (a round is considered to be all the
-                training steps of a federated model between 2 aggregations).
-            secagg_arguments: Secure aggregation ServerKey context id
-            do_training: if False, skip training in this round (do only validation). Defaults to True.
-            optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
-                Note that such variables may only be used if both the Experiment and node-side training plan
-                hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
-                are coherent with each other as to expected information exchange.
-            job_id: unique ID of this job
-            training_plan: TrainingPlan with properly initialized model and optimizer
-            training_args: arguments for training
-            model_args: arguments for the model
-            data: metadata of the federated data set
-            nodes_state_ids: unique IDs of the node states saved remotely
-            aggregator_args: aggregator arguments required for remote execution
+        Returns:
+            training replies for this round
         """
         # Assign empty dict to secagg arguments if it is None
-        if secagg_arguments is None:
-            secagg_arguments = {}
+        if self._secagg_arguments is None:
+            self._secagg_arguments = {}
         # Populate request message
         msg = {
             'researcher_id': self._researcher_id,
-            'job_id': job_id,
-            'training_args': training_args.dict(),
-            'training': do_training,
-            'model_args': model_args if model_args is not None else {},
-            'round': round_,
-            'training_plan': training_plan.source(),
-            'training_plan_class': training_plan.__class__.__name__,
-            'params': training_plan.get_model_params(),
-            'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
-            'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
-            'secagg_random': secagg_arguments.get('secagg_random'),
-            'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
+            'job_id': self._job_id,
+            'training_args': self._training_args.dict(),
+            'training': self._do_training,
+            'model_args': self._model_args if self._model_args is not None else {},
+            'round': self._round_,
+            'training_plan': self._training_plan.source(),
+            'training_plan_class': self._training_plan.__class__.__name__,
+            'params': self._training_plan.get_model_params(),
+            'secagg_servkey_id': self._secagg_arguments.get('secagg_servkey_id'),
+            'secagg_biprime_id': self._secagg_arguments.get('secagg_biprime_id'),
+            'secagg_random': self._secagg_arguments.get('secagg_random'),
+            'secagg_clipping_range': self._secagg_arguments.get('secagg_clipping_range'),
             'command': 'train',
             'aggregator_args': {},
         }
@@ -180,9 +207,9 @@ class TrainingJob(Job):
         timer = {}
 
         # Prepare optimizer auxiliary variables, when there are.
-        if do_training and optim_aux_var:
+        if self._do_training and self._optim_aux_var:
             aux_shared, aux_bynode = (
-                self._prepare_agg_optimizer_aux_var(optim_aux_var, nodes=list(self._nodes))
+                self._prepare_agg_optimizer_aux_var(self._optim_aux_var, nodes=list(self._nodes))
             )
         else:
             aux_shared = {}
@@ -192,14 +219,14 @@ class TrainingJob(Job):
         messages = MessagesByNode()
 
         for node in self._nodes:
-            msg['dataset_id'] = data.data()[node]['dataset_id']
+            msg['dataset_id'] = self._data.data()[node]['dataset_id']
             msg['aux_vars'] = [aux_shared, aux_bynode.get(node, None)]
-            msg['state_id'] = nodes_state_ids.get(node)
+            msg['state_id'] = self._nodes_state_ids.get(node)
 
             # add aggregator parameters to message header
-            msg['aggregator_args'] = aggregator_args.get(node, {}) if aggregator_args else {}
+            msg['aggregator_args'] = self._aggregator_args.get(node, {}) if self._aggregator_args else {}
 
-            self._log_round_info(node=node, training=do_training)
+            self._log_round_info(node=node, training=self._do_training)
 
             timer[node] = time.perf_counter()
             messages.update({node: TrainRequest(**msg)})  # send request to node
