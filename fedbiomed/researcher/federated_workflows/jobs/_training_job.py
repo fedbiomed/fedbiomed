@@ -4,15 +4,12 @@
 import os
 import time
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from fedbiomed.common.message import TrainReply, TrainRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
-from fedbiomed.common import utils
-from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedJobError
 from fedbiomed.common.logger import logger
 
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -143,8 +140,7 @@ class TrainingJob(Job):
             'training_plan': self._training_plan.source(),
             'training_plan_class': self._training_plan.__class__.__name__,
             'params': self._training_plan.get_model_params(
-                exclude_buffers=not self._training_args.dict()['share_persistent_buffers']
-             ),
+                exclude_buffers=not self._training_args.dict()['share_persistent_buffers']),
             'secagg_servkey_id': self._secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': self._secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': self._secagg_arguments.get('secagg_random'),
@@ -185,8 +181,8 @@ class TrainingJob(Job):
             errors = federated_req.errors()
             replies = federated_req.replies()
             training_replies = self._get_training_testing_results(replies=replies,
-                                                                            errors=errors,
-                                                                            timer=timer)
+                                                                  errors=errors,
+                                                                  timer=timer)
 
         # Extract aux variables from training replies
         aux_vars = self._extract_received_optimizer_aux_var_from_round(training_replies)
@@ -257,6 +253,9 @@ class TrainingJob(Job):
         training_replies: Dict
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Restructure the received auxiliary variables (if any) from a round.
+
+        Args:
+            training_replies: training replies received for this job
 
         Returns:
             Dict of auxiliary variables, collating node-wise information, with
