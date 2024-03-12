@@ -931,10 +931,8 @@ class Experiment(TrainingPlanWorkflow):
                 not match the expectations of the `agg_optimizer` Optimizer.
         """
         # Collect auxiliary variables from participating nodes' replies.
-        aux_var = job.extract_received_optimizer_aux_var_from_round(
-            self._round_current,
-            self._training_replies
-        )
+        aux_var = job.extract_received_optimizer_aux_var_from_round()
+
         # If an Optimizer is used, pass it the auxiliary variables (if any).
         if self._agg_optimizer is not None:
             self._agg_optimizer.set_aux(aux_var)

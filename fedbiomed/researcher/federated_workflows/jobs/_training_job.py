@@ -81,6 +81,8 @@ class TrainingJob(Job):
         self._do_training = do_training
         self._optim_aux_var = optim_aux_var
 
+        self._training_replies = {}
+
     def _get_training_testing_results(self, replies, errors, timer: Dict) -> Dict:
         """"Waits for training replies
 
@@ -183,12 +185,12 @@ class TrainingJob(Job):
         with self._reqs.send(messages, self._nodes) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
-            formatted_training_replies = self._get_training_testing_results(replies=replies,
+            self._training_replies = self._get_training_testing_results(replies=replies,
                                                                             errors=errors,
                                                                             timer=timer)
 
         # return the list of nodes which answered because nodes in error have been removed
-        return formatted_training_replies
+        return self._training_replies
 
     def _log_round_info(self, node: str, training: True) -> None:
         """Logs round details
@@ -249,16 +251,8 @@ class TrainingJob(Job):
         # Return the restructured auxiliary variables dicts.
         return aux_shared, aux_bynode
 
-    def extract_received_optimizer_aux_var_from_round(
-        self,
-        round_id: int,
-        training_replies: Dict[int, Dict[str, Any]],
-    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    def extract_received_optimizer_aux_var_from_round(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Restructure the received auxiliary variables (if any) from a round.
-
-        Args:
-            round_id: Index of the round, replies from which to parse through.
-            training_replies: the replies of each node received after training for this round
 
         Returns:
             Dict of auxiliary variables, collating node-wise information, with
@@ -266,7 +260,7 @@ class TrainingJob(Job):
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
 
-        for node_id, reply in training_replies[round_id].items():
+        for node_id, reply in self._training_replies.items():
             node_av = reply.get("optim_aux_var", {})
             for module, params in node_av.items():
                 aux_var.setdefault(module, {})[node_id] = params

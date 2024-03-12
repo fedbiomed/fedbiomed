@@ -112,9 +112,15 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         })
 
         self.mock_federated_request.errors.return_value = {}
-        self.mock_federated_request.replies.return_value ={
-            'alice': TrainReply(**self._get_train_reply('alice', self.fds.data()['alice']['dataset_id'])),
-            'bob': TrainReply(**self._get_train_reply('bob', self.fds.data()['bob']['dataset_id'])),
+        self.mock_federated_request.replies.return_value = {
+            'alice': TrainReply(**self._get_train_reply(
+                'alice',
+                self.fds.data()['alice']['dataset_id'],
+                {'module': 'params_alice'})),
+            'bob': TrainReply(**self._get_train_reply(
+                'bob',
+                self.fds.data()['bob']['dataset_id'],
+                {'module': 'params_bob'})),
         }
         with patch("time.perf_counter") as mock_perf_counter:
             mock_perf_counter.return_value = 0
@@ -144,20 +150,8 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         self.assertDictEqual(replies, expected_replies)
 
         # test extract_received_optimizer_aux_var_from_round
-        extracted_aux_var = job.extract_received_optimizer_aux_var_from_round(
-            round_id=42,
-            training_replies={
-                42: {
-                    'alice': {
-                        'optim_aux_var': {'module': 'params'}
-                    },
-                    'bob': {
-                        'optim_aux_var': {'module': 'params'}
-                    }
-                }
-            }
-        )
-        self.assertDictEqual(extracted_aux_var, {'module': {'alice': 'params', 'bob': 'params'}})
+        extracted_aux_var = job.extract_received_optimizer_aux_var_from_round()
+        self.assertDictEqual(extracted_aux_var, {'module': {'alice': 'params_alice', 'bob': 'params_bob'}})
 
     def _get_msg(self,
                  mock_tp,
@@ -188,7 +182,8 @@ class TestJob(ResearcherTestCase, MockRequestModule):
 
     def _get_train_reply(self,
                          node_id,
-                         dataset_id):
+                         dataset_id,
+                         optim_aux_var):
         return {
             'researcher_id': environ['RESEARCHER_ID'],
             'job_id': 'some_id',
@@ -203,7 +198,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'encrypted': False,
             'params': None,
             'optimizer_args': None,
-            'optim_aux_var': None,
+            'optim_aux_var': optim_aux_var,
             'encryption_factor': None,
         }
 
