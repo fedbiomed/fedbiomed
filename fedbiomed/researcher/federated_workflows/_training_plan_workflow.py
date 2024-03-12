@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Type, TypeVar, Union, Optional, Tuple
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedJobError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.common.utils import import_class_from_file
@@ -367,6 +368,9 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             # experiment in a different tree
             os.path.join('..', os.path.basename(training_plan_file))
         )
+        params_path = os.path.join(breakpoint_path, f"model_params_{uuid.uuid4()}.mpk")
+        Serializer.dump(self.training_plan()._model.get_weights(only_trainable = False, exclude_buffers = False), params_path)
+        state['model_weights_path'] = params_path
 
         super().breakpoint(state, bkpt_number)
 
@@ -407,6 +411,9 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                   'breakpoint file seems corrupted, `training_plan` is None'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
+        param_path = saved_state['model_weights_path']
+        params = Serializer.load(param_path)
+        loaded_exp.training_plan()._model.set_weights(params)
 
         return loaded_exp, saved_state
 

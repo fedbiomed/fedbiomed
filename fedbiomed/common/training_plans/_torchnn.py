@@ -601,10 +601,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
         # Either include non-parameter buffers to the outputs or not.
         # Note: this is mostly about sharing statistics from BatchNorm layers.
-        if self._share_persistent_buffers:
-            params = dict(self._model.model.state_dict())
-        else:
-            params = super().after_training_params()
+        params = super().after_training_params()
         # Check whether postprocess method exists, and use it.
         if hasattr(self, 'postprocess'):
             logger.debug("running model.postprocess() method")
