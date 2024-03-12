@@ -29,6 +29,8 @@ class TrainingJob(Job):
 
     def __init__(self,
                  *,
+                 nodes: Optional[List[str]] = None,
+                 keep_files_dir: str = None,
                  job_id: str,
                  round_: int,
                  training_plan: BaseTrainingPlan,
@@ -40,13 +42,14 @@ class TrainingJob(Job):
                  secagg_arguments: Union[Dict, None] = None,
                  do_training: bool = True,
                  optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
-                 nodes: Optional[List[str]] = None,
-                 keep_files_dir: str = None,
                  ):
 
         """ Constructor of the class
 
         Args:
+            nodes: A dict of node_id containing the nodes used for training
+            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
+                of the job. Defaults to None, files are not kept after the end of the job.
             job_id: unique ID of this job
             round_: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
@@ -62,9 +65,6 @@ class TrainingJob(Job):
                 Note that such variables may only be used if both the Experiment and node-side training plan
                 hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
                 are coherent with each other as to expected information exchange.
-            nodes: A dict of node_id containing the nodes used for training
-            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
-                of the job. Defaults to None, files are not kept after the end of the job.
         """
         super().__init__(nodes=nodes, keep_files_dir=keep_files_dir)
 

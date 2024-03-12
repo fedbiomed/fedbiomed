@@ -343,11 +343,13 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        job = TrainingPlanCheckJob(nodes=self.training_data().node_ids(),
-                                   keep_files_dir=self.experimentation_path())
-        responses = job.check_training_plan_is_approved_by_nodes(job_id=self._id,
-                                                                 training_plan=self.training_plan()
-                                                                 )
+        job = TrainingPlanCheckJob(
+            nodes=self.training_data().node_ids(),
+            keep_files_dir=self.experimentation_path(),
+            job_id=self._id,
+            training_plan=self.training_plan()
+        )
+        responses = job.execute()
         return responses
 
     @exp_exceptions
@@ -370,11 +372,13 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             Warning: status does not mean that the training plan is approved, only that it has been added
             to the "approval queue" on the node side.
         """
-        job = TrainingPlanApproveJob(nodes=self.training_data().node_ids(),
-                                     keep_files_dir=self.experimentation_path())
-        responses = job.training_plan_approve(training_plan=self.training_plan(),
-                                              description=description,
-                                              )
+        job = TrainingPlanApproveJob(
+            nodes=self.training_data().node_ids(),
+            keep_files_dir=self.experimentation_path(),
+            training_plan=self.training_plan(),
+            description=description,
+        )
+        responses = job.execute()
         return responses
 
     @exp_exceptions

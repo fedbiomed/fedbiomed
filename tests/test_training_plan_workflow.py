@@ -157,16 +157,8 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
             training_data=_training_data
         )
 
-        #status = exp.check_training_plan_status()
-        #mock_approval_job.check_training_plan_is_approved_by_nodes.assert_called_once_with(
-        #    job_id=exp.id,
-        #    training_plan=exp.training_plan()
-        #)
         response = exp.training_plan_approve(description='some description')
-        mock_approval_job.training_plan_approve.assert_called_once_with(
-            training_plan=exp.training_plan(),
-            description='some description'
-        )
+        mock_approval_job.execute.assert_called_once_with()
 
     def test_training_plan_workflow_05_status(self):
         """"""
@@ -182,10 +174,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         )
 
         status = exp.check_training_plan_status()
-        mock_approval_job.check_training_plan_is_approved_by_nodes.assert_called_once_with(
-            job_id=exp.id,
-            training_plan=exp.training_plan()
-        )
+        mock_approval_job.execute.assert_called_once_with()
 
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.FederatedWorkflow.breakpoint')
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
