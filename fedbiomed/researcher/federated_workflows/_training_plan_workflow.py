@@ -19,7 +19,7 @@ from fedbiomed.common.utils import (
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions, FederatedWorkflow
-from fedbiomed.researcher.federated_workflows.jobs import TrainingJob, TrainingPlanApprovalJob
+from fedbiomed.researcher.federated_workflows.jobs import TrainingPlanApproveJob, TrainingPlanCheckJob
 from fedbiomed.researcher.filetools import create_unique_link, choose_bkpt_file
 from fedbiomed.researcher.secagg import SecureAggregation
 
@@ -343,8 +343,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        job = TrainingPlanApprovalJob(nodes=self.training_data().node_ids(),
-                                      keep_files_dir=self.experimentation_path())
+        job = TrainingPlanCheckJob(nodes=self.training_data().node_ids(),
+                                   keep_files_dir=self.experimentation_path())
         responses = job.check_training_plan_is_approved_by_nodes(job_id=self._id,
                                                                  training_plan=self.training_plan()
                                                                  )
@@ -370,8 +370,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             Warning: status does not mean that the training plan is approved, only that it has been added
             to the "approval queue" on the node side.
         """
-        job = TrainingPlanApprovalJob(nodes=self.training_data().node_ids(),
-                                      keep_files_dir=self.experimentation_path())
+        job = TrainingPlanApproveJob(nodes=self.training_data().node_ids(),
+                                     keep_files_dir=self.experimentation_path())
         responses = job.training_plan_approve(training_plan=self.training_plan(),
                                               description=description,
                                               )

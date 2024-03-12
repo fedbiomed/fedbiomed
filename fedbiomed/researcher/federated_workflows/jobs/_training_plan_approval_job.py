@@ -12,7 +12,23 @@ from fedbiomed.researcher.federated_workflows.jobs._job import Job
 from fedbiomed.researcher.requests import DiscardOnTimeout
 
 
-class TrainingPlanApprovalJob(Job):
+class TrainingPlanApproveJob(Job):
+
+    def training_plan_approve(self,
+                              training_plan: BaseTrainingPlan,
+                              description: str) -> Dict:
+        """Requests the approval of the provided TrainingPlan.
+
+        Parameters:
+            training_plan: an instance of a TrainingPlan object
+            description: human-readable description of the TrainingPlan for the reviewer on the node
+        """
+        return self._reqs.training_plan_approve(training_plan,
+                                                description,
+                                                self.nodes)
+
+
+class TrainingPlanCheckJob(Job):
 
     def check_training_plan_is_approved_by_nodes(self,
                                                  job_id: str,
@@ -63,16 +79,3 @@ class TrainingPlanApprovalJob(Job):
                                  while running your experiment. ")
 
         return replies
-
-    def training_plan_approve(self,
-                              training_plan: BaseTrainingPlan,
-                              description: str) -> Dict:
-        """Requests the approval of the provided TrainingPlan.
-
-        Parameters:
-            training_plan: an instance of a TrainingPlan object
-            description: human-readable description of the TrainingPlan for the reviewer on the node
-        """
-        return self._reqs.training_plan_approve(training_plan,
-                                                description,
-                                                self.nodes)
