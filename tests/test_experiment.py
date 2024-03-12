@@ -27,9 +27,6 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
     def setUp(self):
         MockRequestModule.setUp(self, module="fedbiomed.researcher.federated_workflows._federated_workflow.Requests")
         super().setUp()
-        self.patch_tp_job = patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingJob')
-        mock_tp_job = self.patch_tp_job.start()
-        mock_tp_job.return_value = MagicMock(spec=TrainingJob)
 
         self.patch_import_class_object = patch(
             'fedbiomed.researcher.federated_workflows._training_plan_workflow.import_class_object_from_file'
@@ -47,7 +44,6 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
     def tearDown(self):
         super().tearDown()
         self.patch_job.stop()
-        self.patch_tp_job.stop()
 
     def test_experiment_01_initialization(self):
         # Experiment must be default-constructible
