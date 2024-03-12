@@ -120,11 +120,14 @@ class TrainingJob(Job):
 
         return training_replies
 
-    def execute(self) -> Dict:
+    def execute(self) -> Tuple[Dict, Optional[Dict]]:
         """ Sends training request to nodes and waits for the responses
 
         Returns:
-            training replies for this round
+            A tuple of
+              * training replies for this round
+              * Dict of auxiliary variables, collating node-wise information, with
+                format `{mod_name: {node_id: node_dict}}`.
         """
         # Assign empty dict to secagg arguments if it is None
         if self._secagg_arguments is None:
@@ -185,7 +188,9 @@ class TrainingJob(Job):
                                                                   timer=timer)
 
         # Extract aux variables from training replies
-        aux_vars = self._extract_received_optimizer_aux_var_from_round(training_replies)
+        aux_vars = None
+        if self._do_training:
+            aux_vars = self._extract_received_optimizer_aux_var_from_round(training_replies)
 
         return training_replies, aux_vars
 
