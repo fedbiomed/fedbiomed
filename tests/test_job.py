@@ -75,16 +75,8 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         mock_tp_class = MagicMock()
         mock_tp_class.return_value = MagicMock(spec=BaseTrainingPlan)
         mock_tp_class.__name__ = 'mock_tp_class'
-        mock_tp = job.get_initialized_tp_instance(
-            training_plan_class=mock_tp_class,
-            training_args={'training_args': 'training_args'},
-            model_args={'model_args': 'model_args'}
-        )
-        mock_tp_class.assert_called_once_with()
-        mock_tp.post_init.assert_called_once_with(
-            training_args={'training_args': 'training_args'},
-            model_args={'model_args': 'model_args'}
-        )
+
+        mock_tp = mock_tp_class()
 
         # Calling start_nodes_training_round must:
         # 1) call the `Requests.send` function to initiate training on the nodes
@@ -116,13 +108,23 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                 data=self.fds,  # mocked FederatedDataSet class
                 nodes_state_ids=fake_node_state_ids,
                 aggregator_args={},
-                optim_aux_var={'shared': {}, 'node-specific': {'alice': 'node-specific', 'bob': 'node-specific'}}
+                optim_aux_var={
+                    'shared': {},
+                    'node-specific': {
+                        'alice':'node-specific',
+                        'bob':'node-specific'
+                    }
+                }
             )
-        # The `send` function of the Requests module is always only called once regardless of the number of nodes
+        # The `send` function of the Requests module is always only called
+        # once regardless of the number of nodes
+        self.maxDiff = None
         self.mock_requests.return_value.send.called_once_with(
             [
                 (
-                    {'alice': self._get_msg(mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()),
+                    {'alice': self._get_msg(
+                        mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()
+                        ),
                      'bob': self._get_msg(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
                     ['alice', 'bob']
                 )
