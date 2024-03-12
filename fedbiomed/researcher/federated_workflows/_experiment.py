@@ -851,7 +851,8 @@ class Experiment(TrainingPlanWorkflow):
                 round_=self._round_current,
                 encryption_factors=encryption_factors,
                 total_sample_size=total_sample_size,
-                model_params=model_params
+                model_params=model_params,
+                num_expected_params=len(self.training_plan()._model.flatten())
             )
             # FIXME: Access TorchModel through non-private getter once it is implemented
             aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (

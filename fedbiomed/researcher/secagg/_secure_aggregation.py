@@ -259,6 +259,7 @@ class SecureAggregation:
             total_sample_size: int,
             model_params: Dict[str, List[int]],
             encryption_factors: Union[Dict[str, List[int]], None] = None,
+            num_expected_params: int = 1
     ) -> List[float]:
         """Aggregates given model parameters
 
@@ -267,6 +268,7 @@ class SecureAggregation:
             total_sample_size: sum of number of samples used by all nodes
             model_params: model parameters from the participating nodes
             encryption_factors: encryption factors from the participating nodes
+            num_expected_params: number of decrypted parameters to decode from the model parameters
 
         Returns:
             Aggregated parameters
@@ -310,7 +312,7 @@ class SecureAggregation:
 
             logger.info("Validating secure aggregation results...")
             encryption_factors = [f for k, f in encryption_factors.items()]
-            validation: List[float] = aggregate(params=encryption_factors)
+            validation: List[float] = aggregate(params=encryption_factors, num_expected_params=1)
 
             if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.03):
                 raise FedbiomedSecureAggregationError(
@@ -325,7 +327,7 @@ class SecureAggregation:
         logger.info("Aggregating encrypted parameters. This process may take some time depending on model size.")
         # Aggregate parameters
         params = [p for _, p in model_params.items()]
-        aggregated_params = aggregate(params=params)
+        aggregated_params = aggregate(params=params, num_expected_params=num_expected_params)
 
         return aggregated_params
 

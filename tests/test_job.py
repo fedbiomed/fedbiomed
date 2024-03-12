@@ -64,7 +64,8 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         job.nodes = ['another-node']
         self.assertTrue(all(x == y for x,y in zip(job.nodes, ['another-node'])))
 
-    def test_job_02_training_job(self):
+    @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
+    def test_job_02_training_job(self, mock_uuid):
         # TrainingJob should be default-constructible
         job = TrainingJob()
 
@@ -74,16 +75,8 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         mock_tp_class = MagicMock()
         mock_tp_class.return_value = MagicMock(spec=BaseTrainingPlan)
         mock_tp_class.__name__ = 'mock_tp_class'
-        mock_tp = job.get_initialized_tp_instance(
-            training_plan_class=mock_tp_class,
-            training_args={'training_args': 'training_args'},
-            model_args={'model_args': 'model_args'}
-        )
-        mock_tp_class.assert_called_once_with()
-        mock_tp.post_init.assert_called_once_with(
-            training_args={'training_args': 'training_args'},
-            model_args={'model_args': 'model_args'}
-        )
+
+        mock_tp = mock_tp_class()
 
         # Calling start_nodes_training_round must:
         # 1) call the `Requests.send` function to initiate training on the nodes
@@ -110,18 +103,28 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                 job_id='some_id',
                 round_=1,
                 training_plan=mock_tp,
-                training_args=TrainingArgs({}),
+                training_args=TrainingArgs({}, only_required=False),
                 model_args=None,
                 data=self.fds,  # mocked FederatedDataSet class
                 nodes_state_ids=fake_node_state_ids,
                 aggregator_args={},
-                optim_aux_var={'shared': {}, 'node-specific': {'alice': 'node-specific', 'bob': 'node-specific'}}
+                optim_aux_var={
+                    'shared': {},
+                    'node-specific': {
+                        'alice':'node-specific',
+                        'bob':'node-specific'
+                    }
+                }
             )
-        # The `send` function of the Requests module is always only called once regardless of the number of nodes
+        # The `send` function of the Requests module is always only called
+        # once regardless of the number of nodes
+        self.maxDiff = None
         self.mock_requests.return_value.send.called_once_with(
             [
                 (
-                    {'alice': self._get_msg(mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()),
+                    {'alice': self._get_msg(
+                        mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()
+                        ),
                      'bob': self._get_msg(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
                     ['alice', 'bob']
                 )
@@ -133,7 +136,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             expected_replies.update({
                 node_id: {
                     **r.get_dict(),
-                    'params_path': os.path.join(job._keep_files_dir, f"params_{node_id}.mpk")
+                    'params_path': os.path.join(job._keep_files_dir, f"params_{node_id}_{mock_uuid.return_value}.mpk")
                 }
             })
         self.assertDictEqual(replies, expected_replies)

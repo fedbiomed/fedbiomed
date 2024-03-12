@@ -11,7 +11,10 @@ from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPl
 # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestModule
-from testsupport.fake_training_plan import FakeTorchTrainingPlan
+from testsupport.fake_training_plan import (
+    FakeTorchTrainingPlan,
+    FakeSKLearnTrainingPlan
+)
 #############################################################
 
 import fedbiomed
@@ -27,7 +30,16 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         self.patch_tp_job = patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingJob')
         mock_tp_job = self.patch_tp_job.start()
         mock_tp_job.return_value = MagicMock(spec=TrainingJob)
-        self.mock_tp = mock_tp_job.return_value.get_initialized_tp_instance.return_value
+
+        self.patch_import_class_object = patch(
+            'fedbiomed.researcher.federated_workflows._training_plan_workflow.import_class_object_from_file'
+        )
+        self.mock_import_class_object = self.patch_import_class_object.start()
+
+        self.mock_tp = MagicMock()
+        self.mock_import_class_object.return_value = None, self.mock_tp
+
+
         self.patch_job =  patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
         self.mock_job = self.patch_job.start()
         self.mock_job.return_value = MagicMock(spec=TrainingJob)
@@ -54,7 +66,11 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
             'training_args': (TrainingArgs({'epochs': 42}),),
             'secagg': (_secagg,),
             'save_breakpoints': (True, False),
-            'training_plan_class': (TorchTrainingPlan, SKLearnTrainingPlan, None),
+            'training_plan_class': (
+                FakeTorchTrainingPlan,
+                FakeSKLearnTrainingPlan,
+                None
+            ),
             'model_args': ({'model': 'args'}, None),
             'aggregator': (_aggregator, None),
             'node_selection_strategy': (_strategy, None),

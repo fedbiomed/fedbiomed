@@ -123,7 +123,7 @@ Requirement : conda installed in Ubuntu and configured for your user account
 
 Follow Fed-BioMed Linux installation tutorial [from the *git clone* command](../../tutorials/installation/0-basic-software-installation.md#install-fedbiomed-software)
 
-When running ```network``` for the first time, a Windows defender pop up may appear (triggered by docker), choose *"authorize only on private network"*.
+When running for the first time, a Windows defender pop up may appear (triggered by docker), choose *"authorize only on private network"*.
 
 !!! info "Performance issue"
     To ensure  Fed-BioMed performance in WSL2, be sure to use the native WSL2 Linux filesystem (in `/home/login`),

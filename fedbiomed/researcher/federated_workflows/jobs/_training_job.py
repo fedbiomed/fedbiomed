@@ -23,7 +23,8 @@ from fedbiomed.researcher.federated_workflows.jobs._job import Job
 
 class TrainingJob(Job):
     """
-    TrainingJob is a task for training an ML model on the nodes by executing a [TrainingPlan][fedbiomed.common.training_plans.BaseTrainingPlan].
+    TrainingJob is a task for training an ML model on the nodes by executing a
+    [TrainingPlan][fedbiomed.common.training_plans.BaseTrainingPlan].
     """
 
     def __init__(self,
@@ -80,61 +81,6 @@ class TrainingJob(Job):
         self._do_training = do_training
         self._optim_aux_var = optim_aux_var
 
-    def _get_default_constructed_tp_instance(self,
-                                             training_plan_class: Type[Callable],
-                                             ) -> BaseTrainingPlan:
-        """Returns a default-constructed instance of the training plan class.
-
-        !!! note "Saves to temporary file"
-            This function saves the code of the training plan to a temporary file.
-
-        Assumptions:
-
-        - the `training_plan_class` is a class, inheriting from
-            [`BaseTrainingPlan`][fedbiomed.common.training_plan.BaseTrainingPlan] that can be default-constructed
-
-        Returns:
-            Default-constructed object of type `training_plan_class`
-        """
-
-        # create TrainingPlan instance
-        training_plan = training_plan_class()  # contains TrainingPlan
-
-        # save and load training plan to a file to be sure
-        # 1. a file is associated to training plan, so we can read its source, etc.
-        # 2. all dependencies are applied
-        training_plan_module = 'model_' + str(uuid.uuid4())
-        training_plan_file = os.path.join(self._keep_files_dir, training_plan_module + '.py')
-        try:
-            training_plan.save_code(training_plan_file)
-        except Exception as e:
-            msg = f"{ErrorNumbers.FB418}: cannot save training plan to file: {e}"
-            logger.critical(msg)
-            raise FedbiomedJobError(msg)
-        del training_plan
-
-        _, training_plan = utils.import_class_object_from_file(
-            training_plan_file, training_plan_class.__name__)
-
-        return training_plan
-
-    def get_initialized_tp_instance(self,
-                                    training_plan_class: Type[Callable],
-                                    training_args: Union[dict, TrainingArgs],
-                                    model_args: Optional[dict] = None,
-                                    ):
-        """Returns an initialized instance of the TrainingPlan.
-
-        Creates a default-constructed instance of `training_plan_class`, then calls its `post_init` method.
-
-        Returns:
-            Object of type `training_plan_class` with properly initialized model and optimizer
-        """
-        skeleton_training_plan = self._get_default_constructed_tp_instance(training_plan_class)
-        skeleton_training_plan.post_init(model_args={} if model_args is None else model_args,
-                                         training_args=training_args)
-        return skeleton_training_plan
-
     def _get_training_testing_results(self, replies, errors, timer: Dict) -> Dict:
         """"Waits for training replies
 
@@ -158,7 +104,7 @@ class TrainingJob(Job):
                 self._nodes.remove(reply.node_id)  # remove the faulty node from the list
                 continue
 
-            params_path = os.path.join(self._keep_files_dir, f"params_{node_id}.mpk")
+            params_path = os.path.join(self._keep_files_dir, f"params_{str(node_id)[0:11]}_{uuid.uuid4()}.mpk")
             Serializer.dump(reply.params, params_path)
 
             rtime_total = time.perf_counter() - timer[node_id]
@@ -195,7 +141,9 @@ class TrainingJob(Job):
             'round': self._round_,
             'training_plan': self._training_plan.source(),
             'training_plan_class': self._training_plan.__class__.__name__,
-            'params': self._training_plan.get_model_params(),
+            'params': self._training_plan.get_model_params(
+                exclude_buffers=not training_args.dict()['share_persistent_buffers']
+             ),
             'secagg_servkey_id': self._secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': self._secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': self._secagg_arguments.get('secagg_random'),
@@ -203,7 +151,7 @@ class TrainingJob(Job):
             'command': 'train',
             'aggregator_args': {},
         }
-        
+
         timer = {}
 
         # Prepare optimizer auxiliary variables, when there are.
@@ -214,7 +162,7 @@ class TrainingJob(Job):
         else:
             aux_shared = {}
             aux_bynode = {}
-            
+
         # Loop over nodes, add node specific data and send train request
         messages = MessagesByNode()
 

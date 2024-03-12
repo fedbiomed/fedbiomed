@@ -58,6 +58,7 @@ class TorchModel(Model):
     def get_weights(
         self,
         only_trainable: bool = False,
+        exclude_buffers: bool = True
     ) -> Dict[str, torch.Tensor]:
         """Return the model's parameters.
 
@@ -65,27 +66,39 @@ class TorchModel(Model):
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
+            exclude_buffers: Whether to ignore buffers (the default), or 
+                include them.
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their
                 torch tensor.
         """
+        param_iterator = self.model.named_parameters() if exclude_buffers else self.model.state_dict().items()
         parameters = {
             name: param.detach().clone()
-            for name, param in self.model.named_parameters()
+            for name, param in param_iterator
             if param.requires_grad or not only_trainable
         }
         return parameters
 
-    def flatten(self) -> List[float]:
+    def flatten(self,
+                only_trainable: bool = False,
+                exclude_buffers: bool = True) -> List[float]:
         """Gets weights as flatten vector
+
+        Args:
+            only_trainable: Whether to ignore non-trainable model parameters
+                from outputs (e.g. frozen neural network layers' parameters),
+                or include all model parameters (the default).
+            exclude_buffers: Whether to ignore buffers (the default), or 
+                include them.
 
         Returns:
             to_list: Convert np.ndarray to a list if it is True.
         """
 
         params: List[float] = torch.nn.utils.parameters_to_vector(
-            self.model.parameters()
+            self.get_weights(only_trainable=only_trainable, exclude_buffers=exclude_buffers).values()
         ).tolist()
 
         return params
