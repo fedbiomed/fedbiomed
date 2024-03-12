@@ -37,11 +37,12 @@ class TrainingJob(Job):
                  data: FederatedDataSet,
                  nodes_state_ids: Dict[str, str],
                  aggregator_args: Dict[str, Dict[str, Any]],
+                 keep_files_dir: str,
                  secagg_arguments: Union[Dict, None] = None,
                  do_training: bool = True,
                  optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
                  nodes: Optional[List[str]] = None,
-                 keep_files_dir: str = None,
+                 
                  ):
 
         """ Constructor of the class
@@ -56,6 +57,8 @@ class TrainingJob(Job):
             data: metadata of the federated data set
             nodes_state_ids: unique IDs of the node states saved remotely
             aggregator_args: aggregator arguments required for remote execution
+            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
+                of the job. Usually, they are kept in the `EXP_FOLDER/experiments` folders.
             secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
             optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
@@ -63,8 +66,7 @@ class TrainingJob(Job):
                 hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
                 are coherent with each other as to expected information exchange.
             nodes: A dict of node_id containing the nodes used for training
-            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
-                of the job. Defaults to None, files are not kept after the end of the job.
+            
         """
         super().__init__(nodes=nodes, keep_files_dir=keep_files_dir)
 
@@ -77,7 +79,7 @@ class TrainingJob(Job):
         self._data = data
         self._nodes_state_ids = nodes_state_ids
         self._aggregator_args = aggregator_args
-        self._secagg_arguments = secagg_arguments
+        self._secagg_arguments = secagg_arguments or {}  # Assign empty dict to secagg arguments if it is None
         self._do_training = do_training
         self._optim_aux_var = optim_aux_var
 
@@ -86,13 +88,13 @@ class TrainingJob(Job):
     def _get_training_results(self,
                               replies: Dict[str, TrainReply],
                               errors: Dict[str, ErrorMessage],
-                              ) -> Dict:
-        """"Waits for training replies, and computes timing
+                              ):
+        """"Waits for training replies, and cupdates `_training_replies` wrt replies from Node(s) participating
+         in the training
 
         Args:
-            replies:???
-            errors: ???
-            timer: Stores time elapsed on the researcher side, for each Node (maps node_id with its associated timing)
+            replies: replies from the request sent to Nodes
+            errors: errors collected (if any) while sending requests and rertieving replies
 
         Returns:
             Training_replies entry as a dictionary for the current Round
@@ -123,7 +125,7 @@ class TrainingJob(Job):
             })
 
     def _get_timing_results(self, replies: Dict[str, TrainReply]):
-        
+        """Retrieves timing results and updates it to the `_traiing_replies`"""
         # Loops over replies
         for node_id, reply in replies.items():
             timing = reply.timing
@@ -131,16 +133,13 @@ class TrainingJob(Job):
 
             self._training_replies[node_id].update({node_id: timing})
 
-
     def execute(self) -> Dict:
         """ Sends training request to nodes and waits for the responses
 
         Returns:
             training replies for this round
         """
-        # Assign empty dict to secagg arguments if it is None
-        if self._secagg_arguments is None:
-            self._secagg_arguments = {}
+
         # Populate request message
         msg = {
             'researcher_id': self._researcher_id,
@@ -162,7 +161,7 @@ class TrainingJob(Job):
             'aggregator_args': {},
         }
 
-        # Prepare optimizer auxiliary variables, when there are.
+        # Prepare optimizer auxiliary variables, if any.
         if self._do_training and self._optim_aux_var:
             aux_shared, aux_bynode = (
                 self._prepare_agg_optimizer_aux_var(self._optim_aux_var, nodes=list(self._nodes))
@@ -186,14 +185,15 @@ class TrainingJob(Job):
 
             messages.update({node: TrainRequest(**msg)})  # send request to node
 
-        # Send training request
-        with self._timer:
+        with self._timer:  # compute request time
+            # Send training request
             with self._reqs.send(messages, self._nodes, self._policies) as federated_req:
-            
+
                 errors = federated_req.errors()
                 replies = federated_req.replies()
+
         self._get_training_results(replies=replies,
-                                          errors=errors)
+                                   errors=errors)
         self._get_timing_results(replies)
 
         # return the list of nodes which answered because nodes in error have been removed
@@ -219,7 +219,6 @@ class TrainingJob(Job):
                         f'aggregated parameters \n {5 * "-------------"}')
 
     # FIXME: are aux_var supposed to be dealt with in the TrainingJob
-    # besides should they be staticmethods?
     @staticmethod
     def _prepare_agg_optimizer_aux_var(
         aux_var: Dict[str, Dict[str, Any]],

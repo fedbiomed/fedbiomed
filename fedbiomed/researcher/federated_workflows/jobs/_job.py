@@ -4,9 +4,9 @@
 """Manage the training part of the experiment."""
 
 import time
-from typing import Callable, Dict, List, Optional, Type
+from typing import Dict, List
 
-from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.researcher.requests import RequestPolicy
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 
@@ -45,14 +45,15 @@ class Job:
         self._reqs = Requests()
         self._nodes: List[str] = nodes or []  # List of node ids participating in this task
         self._keep_files_dir = keep_files_dir
-        self._policies = None
+        self._policies: List[RequestPolicy] | None = None
         self._timer = Job.NodeTimer(self._nodes)
 
     @property
     def requests(self):
         return self._reqs
-    
 
+
+    # FIXME: this method is very basic, and doesnot compute the total time of request since it waits for all requests before computing elapsed time
     class NodeTimer:
         """Context manager that computes the processing time while entering and exiting for each node
 
@@ -62,16 +63,15 @@ class Job:
         job = Job(nodes, file)
         with job._timer():
             # ... send some request
-        
+
         job._timer.get_timer()
-        # {node_1: 2.22, node_2: 2.21}
+        # {node_1: 2.22, node_2: 2.21} # request time in second
         ```
-        
         """
         def __init__(self, nodes: List[str]):
             """
             Constructor of NodeTimer
-            
+
             Args:
                 nodes: existing nodes that will be requested for the Job
             """
@@ -80,7 +80,7 @@ class Job:
 
         def __enter__(self):
             self._timer.update({node_id: time.perf_counter() for node_id in self._timer.keys()})
-        
+
         def __exit__(self, type, value, traceback):
             self._timer.update({node_id: time.perf_counter() - self._timer[node_id] for node_id in self._timer.keys()})
 
