@@ -134,8 +134,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     def _instantiate_training_plan(self) -> BaseTrainingPlan:
         """Instantiates training plan class
 
-        Args:
-            training_plan_class: Training plan class
+        Returns:
+            Training plan instance
         """
 
         # FIXME: Following actions can be part of training plan class
@@ -169,10 +169,12 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     @exp_exceptions
     def _reset_training_plan(self,
                              keep_weights: bool = True) -> None:
-        """Private utility function that resets the training plan according to the value of training plan class.
+        """Private utility function that resets the training plan according to the value
+        of training plan class.
 
         If training plan class is None, then sets the training plan to None.
-        Otherwise, it sets the training plan to a new, default-constructed instance of training plan class.
+        Otherwise, it sets the training plan to a new, default-constructed
+        instance of training plan class.
         """
 
         if self.__training_plan_class is None:
