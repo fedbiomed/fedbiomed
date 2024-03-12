@@ -122,7 +122,7 @@ class TrainingJob(Job):
 
         return training_replies
 
-    def start_nodes_training_round(self) -> Dict:
+    def execute(self) -> Dict:
         """ Sends training request to nodes and waits for the responses
 
         Returns:

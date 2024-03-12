@@ -66,8 +66,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
 
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
     def test_job_02_training_job(self, mock_uuid):
-        # TrainingJob should be default-constructible
-        job = TrainingJob()
 
         # Initializing a training plan instance via Job must call:
         # 1) the training plan's default constructor
@@ -77,8 +75,34 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         mock_tp_class.__name__ = 'mock_tp_class'
 
         mock_tp = mock_tp_class()
+        mock_tp.get_model_params.return_value = MagicMock(spec=dict)
+        mock_tp.source.return_value = MagicMock(spec=str)
 
-        # Calling start_nodes_training_round must:
+        fake_node_state_ids = {
+            'alice': 'alide_nsid',
+            'bob': 'bob_nsid'
+        }
+
+        # initialize TrainingJob
+        job = TrainingJob(
+            job_id='some_id',
+            round_=1,
+            training_plan=mock_tp,
+            training_args=TrainingArgs({}, only_required=False),
+            model_args=None,
+            data=self.fds,  # mocked FederatedDataSet class
+            nodes_state_ids=fake_node_state_ids,
+            aggregator_args={},
+            optim_aux_var={
+                'shared': {},
+                'node-specific': {
+                    'alice': 'node-specific',
+                    'bob': 'node-specific'
+                }
+            }
+        )
+
+        # Calling execute() must:
         # 1) call the `Requests.send` function to initiate training on the nodes
         # 2) return the properly formatted replies
         job.nodes = ['alice', 'bob']
@@ -86,12 +110,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'alice': {'dataset_id': 'alice_data'},
             'bob': {'dataset_id': 'bob_data'},
         })
-        fake_node_state_ids = {
-            'alice': 'alide_nsid',
-            'bob': 'bob_nsid'
-        }
-        mock_tp.get_model_params.return_value = MagicMock(spec=dict)
-        mock_tp.source.return_value = MagicMock(spec=str)
+
         self.mock_federated_request.errors.return_value = {}
         self.mock_federated_request.replies.return_value ={
             'alice': TrainReply(**self._get_train_reply('alice', self.fds.data()['alice']['dataset_id'])),
@@ -99,23 +118,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         }
         with patch("time.perf_counter") as mock_perf_counter:
             mock_perf_counter.return_value = 0
-            replies = job.start_nodes_training_round(
-                job_id='some_id',
-                round_=1,
-                training_plan=mock_tp,
-                training_args=TrainingArgs({}, only_required=False),
-                model_args=None,
-                data=self.fds,  # mocked FederatedDataSet class
-                nodes_state_ids=fake_node_state_ids,
-                aggregator_args={},
-                optim_aux_var={
-                    'shared': {},
-                    'node-specific': {
-                        'alice':'node-specific',
-                        'bob':'node-specific'
-                    }
-                }
-            )
+            replies = job.execute()
         # The `send` function of the Requests module is always only called
         # once regardless of the number of nodes
         self.maxDiff = None
@@ -123,8 +126,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             [
                 (
                     {'alice': self._get_msg(
-                        mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()
-                        ),
+                        mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()),
                      'bob': self._get_msg(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
                     ['alice', 'bob']
                 )

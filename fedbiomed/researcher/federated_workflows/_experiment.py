@@ -837,7 +837,7 @@ class Experiment(TrainingPlanWorkflow):
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
-        training_replies = job.start_nodes_training_round()
+        training_replies = job.execute()
 
         # update node states with node answers + when used node list has changed during the round
         self._update_nodes_states_agent(before_training=False, training_replies=training_replies)
@@ -906,7 +906,7 @@ class Experiment(TrainingPlanWorkflow):
                               aggregator_args=aggr_args,
                               do_training=False
                               )
-            job.start_nodes_training_round()
+            job.execute()
 
         return 1
 
