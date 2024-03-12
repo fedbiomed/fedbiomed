@@ -48,13 +48,17 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         super().tearDown()
 
     def test_job_01_base_job(self):
+        class MinimalJob(Job):
+            def execute():
+                pass
+
         # Job should be default-constructible
-        job = Job()
+        job = MinimalJob()
         self.assertIsNotNone(job._keep_files_dir)  # must be initialized by Job
         self.assertTrue(isinstance(job.nodes, list) and len(job.nodes) == 0)  # nodes must be empty list by default
         # Job can take nodes and keep_files_dir as arguments
         mynodes = ['first-node', 'second-node']
-        job = Job(
+        job = MinimalJob(
             nodes = mynodes,
             keep_files_dir='keep_files_dir'
         )

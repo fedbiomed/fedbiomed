@@ -132,7 +132,7 @@ def approve_training_plan(sort_by_date: bool = True):
             training_plan_id = non_approved_training_plans[opt_idx]['training_plan_id']
             tp_security_manager.approve_training_plan(training_plan_id)
             logger.info(f"Training plan {training_plan_id} has been approved. Researchers can now train the Training Plan" +
-                        f" on Node {environ['NODE_ID']}")
+                        " on this node.")
             return
 
         except (ValueError, IndexError, AssertionError):
@@ -166,7 +166,7 @@ def reject_training_plan():
             notes = input("Please give a note to explain why training plan has been rejected: \n")
             tp_security_manager.reject_training_plan(training_plan_id, notes)
             logger.info(f"Training plan {training_plan_id} has been rejected. Researchers can not train training plan" +
-                        f" on Node {environ['NODE_ID']} anymore")
+                        " on this node anymore")
             return
 
         except (ValueError, IndexError, AssertionError):

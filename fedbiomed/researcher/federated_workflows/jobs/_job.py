@@ -6,13 +6,15 @@
 import atexit
 import shutil
 import tempfile
-from typing import List, Optional
+from typing import List, Optional, Any
+
+from abc import ABC, abstractmethod
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 
 
-class Job:
+class Job(ABC):
     """
     Job represents a task to be executed on the node.
 
@@ -65,3 +67,13 @@ class Job:
     @nodes.setter
     def nodes(self, nodes: List[str]):
         self._nodes = nodes
+
+    @abstractmethod
+    def execute(self) -> Any:
+        """Payload of the job.
+
+        Completes a request to the job's nodes and collects replies.
+
+        Returns:
+            values specific to the type of job
+        """
