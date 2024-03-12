@@ -4,15 +4,12 @@
 import os
 import time
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from fedbiomed.common.message import TrainReply, TrainRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
-from fedbiomed.common import utils
-from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedJobError
 from fedbiomed.common.logger import logger
 
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -81,7 +78,6 @@ class TrainingJob(Job):
         self._do_training = do_training
         self._optim_aux_var = optim_aux_var
 
-        self._training_replies = {}
 
     def _get_training_testing_results(self, replies, errors, timer: Dict) -> Dict:
         """"Waits for training replies
@@ -124,11 +120,14 @@ class TrainingJob(Job):
 
         return training_replies
 
-    def execute(self) -> Dict:
+    def execute(self) -> Tuple[Dict, Optional[Dict]]:
         """ Sends training request to nodes and waits for the responses
 
         Returns:
-            training replies for this round
+            A tuple of
+              * training replies for this round
+              * Dict of auxiliary variables, collating node-wise information, with
+                format `{mod_name: {node_id: node_dict}}`.
         """
         # Assign empty dict to secagg arguments if it is None
         if self._secagg_arguments is None:
@@ -144,8 +143,7 @@ class TrainingJob(Job):
             'training_plan': self._training_plan.source(),
             'training_plan_class': self._training_plan.__class__.__name__,
             'params': self._training_plan.get_model_params(
-                exclude_buffers=not self._training_args.dict()['share_persistent_buffers']
-             ),
+                exclude_buffers=not self._training_args.dict()['share_persistent_buffers']),
             'secagg_servkey_id': self._secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': self._secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': self._secagg_arguments.get('secagg_random'),
@@ -185,12 +183,16 @@ class TrainingJob(Job):
         with self._reqs.send(messages, self._nodes) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
-            self._training_replies = self._get_training_testing_results(replies=replies,
-                                                                            errors=errors,
-                                                                            timer=timer)
+            training_replies = self._get_training_testing_results(replies=replies,
+                                                                  errors=errors,
+                                                                  timer=timer)
 
-        # return the list of nodes which answered because nodes in error have been removed
-        return self._training_replies
+        # Extract aux variables from training replies
+        aux_vars = None
+        if self._do_training:
+            aux_vars = self._extract_received_optimizer_aux_var_from_round(training_replies)
+
+        return training_replies, aux_vars
 
     def _log_round_info(self, node: str, training: True) -> None:
         """Logs round details
@@ -251,8 +253,14 @@ class TrainingJob(Job):
         # Return the restructured auxiliary variables dicts.
         return aux_shared, aux_bynode
 
-    def extract_received_optimizer_aux_var_from_round(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    def _extract_received_optimizer_aux_var_from_round(
+        self,
+        training_replies: Dict
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Restructure the received auxiliary variables (if any) from a round.
+
+        Args:
+            training_replies: training replies received for this job
 
         Returns:
             Dict of auxiliary variables, collating node-wise information, with
@@ -260,7 +268,7 @@ class TrainingJob(Job):
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
 
-        for node_id, reply in self._training_replies.items():
+        for node_id, reply in training_replies.items():
             node_av = reply.get("optim_aux_var", {})
             for module, params in node_av.items():
                 aux_var.setdefault(module, {})[node_id] = params
