@@ -165,7 +165,9 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
     def unflatten(
             self,
-            weights_vector: List[float]
+            weights_vector: List[float],
+            only_trainable: bool = False,
+            exclude_buffers: bool = True
     ) -> Dict[str, np.ndarray]:
         """Unflatten vectorized model weights
 

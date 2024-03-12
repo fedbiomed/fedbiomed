@@ -617,7 +617,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Run (optional) DP controller adjustments as well.
         params = self._dp_controller.after_training(params)
         if flatten:
-            params = self._model.flatten()
+            params = self._model.flatten(exclude_buffers=not self._share_persistent_buffers)
         return params
 
     def __norm_l2(self) -> float:
