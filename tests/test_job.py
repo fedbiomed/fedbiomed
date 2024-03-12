@@ -124,10 +124,16 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         }
         with patch("time.perf_counter") as mock_perf_counter:
             mock_perf_counter.return_value = 0
-            replies = job.execute()
+            replies, aux_vars = job.execute()
+        print("Aux vars--------")
+        print(aux_vars)
         # The `send` function of the Requests module is always only called
         # once regardless of the number of nodes
         self.maxDiff = None
+
+        # Follwing line tests if aux_vars from training replies extracted correctly
+        self.assertDictEqual(aux_vars, {'module': {'alice': 'params_alice', 'bob': 'params_bob'}})
+
         self.mock_requests.return_value.send.called_once_with(
             [
                 (
@@ -149,9 +155,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             })
         self.assertDictEqual(replies, expected_replies)
 
-        # test extract_received_optimizer_aux_var_from_round
-        extracted_aux_var = job.extract_received_optimizer_aux_var_from_round()
-        self.assertDictEqual(extracted_aux_var, {'module': {'alice': 'params_alice', 'bob': 'params_bob'}})
 
     def _get_msg(self,
                  mock_tp,
