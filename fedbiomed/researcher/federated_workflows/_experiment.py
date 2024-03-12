@@ -837,7 +837,7 @@ class Experiment(TrainingPlanWorkflow):
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
-        training_replies = job.execute()
+        training_replies, aux_vars = job.execute()
 
         # update node states with node answers + when used node list has changed during the round
         self._update_nodes_states_agent(before_training=False, training_replies=training_replies)
@@ -871,7 +871,7 @@ class Experiment(TrainingPlanWorkflow):
                                                            n_round=self._round_current)
 
         # Optionally refine the aggregated updates using an Optimizer.
-        self._process_optim_aux_var(job)
+        self._process_optim_aux_var(aux_vars)
         aggregated_params = self._run_agg_optimizer(self.training_plan(),
                                                     aggregated_params)
 
@@ -920,7 +920,7 @@ class Experiment(TrainingPlanWorkflow):
 
     def _process_optim_aux_var(
         self,
-        job: TrainingJob
+        aux_var: Dict[str, Dict[str, Dict[str, Any]]]
     ) -> None:
         """Process Optimizer auxiliary variables received during last round.
 
@@ -930,9 +930,6 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedOptimizerError: if the received auxiliary variables do
                 not match the expectations of the `agg_optimizer` Optimizer.
         """
-        # Collect auxiliary variables from participating nodes' replies.
-        aux_var = job.extract_received_optimizer_aux_var_from_round()
-
         # If an Optimizer is used, pass it the auxiliary variables (if any).
         if self._agg_optimizer is not None:
             self._agg_optimizer.set_aux(aux_var)
