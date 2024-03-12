@@ -344,7 +344,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
 
         job = TrainingPlanApprovalJob(nodes=self.training_data().node_ids(),
-                                      training_plan=self.training_plan(),
                                       keep_files_dir=self.experimentation_path())
         responses = job.check_training_plan_is_approved_by_nodes(job_id=self._id,
                                                                  training_plan=self.training_plan()
@@ -372,7 +371,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             to the "approval queue" on the node side.
         """
         job = TrainingPlanApprovalJob(nodes=self.training_data().node_ids(),
-                                      training_plan=self.training_plan(),
                                       keep_files_dir=self.experimentation_path())
         responses = job.training_plan_approve(training_plan=self.training_plan(),
                                               description=description,

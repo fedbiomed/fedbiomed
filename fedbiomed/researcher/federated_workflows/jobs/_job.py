@@ -3,8 +3,8 @@
 
 """Manage the training part of the experiment."""
 
-
-from typing import Callable, List, Optional, Type
+import time
+from typing import Callable, Dict, List, Optional, Type
 
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.environ import environ
@@ -30,7 +30,6 @@ class Job:
 
     def __init__(self,
                  nodes: List[str] | None,
-                 training_plan: BaseTrainingPlan,
                  keep_files_dir: str):
 
         """ Constructor of the class
@@ -47,8 +46,43 @@ class Job:
         self._nodes: List[str] = nodes or []  # List of node ids participating in this task
         self._keep_files_dir = keep_files_dir
         self._policies = None
-        self._training_plan = training_plan
+        self._timer = Job.NodeTimer(self._nodes)
 
     @property
     def requests(self):
         return self._reqs
+    
+
+    class NodeTimer:
+        """Context manager that computes the processing time while entering and exiting for each node
+
+        Usage:
+        ```
+        nodes = ['node_1', 'node_2']
+        job = Job(nodes, file)
+        with job._timer():
+            # ... send some request
+        
+        job._timer.get_timer()
+        # {node_1: 2.22, node_2: 2.21}
+        ```
+        
+        """
+        def __init__(self, nodes: List[str]):
+            """
+            Constructor of NodeTimer
+            
+            Args:
+                nodes: existing nodes that will be requested for the Job
+            """
+            self._timer = {node_id: 0.  for node_id in nodes}
+
+
+        def __enter__(self):
+            self._timer.update({node_id: time.perf_counter() for node_id in self._timer.keys()})
+        
+        def __exit__(self, type, value, traceback):
+            self._timer.update({node_id: time.perf_counter() - self._timer[node_id] for node_id in self._timer.keys()})
+
+        def get_timer(self) -> Dict:
+            return self._timer

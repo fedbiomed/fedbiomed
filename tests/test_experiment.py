@@ -40,7 +40,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         self.mock_import_class_object.return_value = None, self.mock_tp
 
 
-        self.patch_job =  patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
+        self.patch_job = patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
         self.mock_job = self.patch_job.start()
         self.mock_job.return_value = MagicMock(spec=TrainingJob)
 
@@ -169,8 +169,8 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         exp.training_plan().after_training_params.assert_called_once()
         # 3. create aggregator arguments
         _aggregator.create_aggregator_args.assert_called_once()
-        # 4. call Job's start_nodes_training_round
-        self.mock_job.return_value.start_nodes_training_round.assert_called_once()
+        # 4. call Job's execute()
+        self.mock_job.return_value.execute.assert_called_once()
         # 5. populate training replies
         self.assertEqual(len(exp.training_replies()), 1)
         # 6. node strategy refine
@@ -187,7 +187,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         exp.set_round_limit(1)
         x = exp.run_once(increase=False)
         self.assertEqual(x, 0)
-        self.assertFalse(self.mock_job.return_value.start_nodes_training_round.called)
+        self.assertFalse(self.mock_job.return_value.execute.called)
 
         # Test run_once with test_after
         self.mock_job.reset_mock()
@@ -201,7 +201,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         _strategy.sample_nodes.assert_called_once()
         self.assertEqual(exp.training_plan().after_training_params.call_count, 2)
         self.assertEqual(_aggregator.create_aggregator_args.call_count, 2)
-        self.assertEqual(self.mock_job.return_value.start_nodes_training_round.call_count, 2)
+        self.assertEqual(self.mock_job.return_value.execute.call_count, 2)
         self.assertEqual(len(exp.training_replies()), 2)  # validation replies are not saved
         _strategy.refine.assert_called_once()
         _aggregator.aggregate.assert_called_once()
