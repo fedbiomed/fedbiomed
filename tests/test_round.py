@@ -606,6 +606,7 @@ class TestRound(NodeTestCase):
 
 
         # action
+        self.r1.initialize_arguments()
         rnd_reply = self.r1.run_model_training()
 
         self.assertIn("TrainingPlan Optimizer failed to ingest the provided auxiliary variables",

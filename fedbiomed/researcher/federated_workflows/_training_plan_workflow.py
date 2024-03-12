@@ -462,7 +462,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
 
         if keep_weights and self.__training_plan is not None:
-            weights = self.__training_plan.get_model_params()
+            weights = self.__training_plan.get_model_params(exclude_buffers=False)
             yield
             try:
                 self.__training_plan.set_model_params(weights)

@@ -114,7 +114,9 @@ class TrainingJob(Job):
             'round': round_,
             'training_plan': training_plan.source(),
             'training_plan_class': training_plan.__class__.__name__,
-            'params': training_plan.get_model_params(),
+            'params': training_plan.get_model_params(
+                exclude_buffers=not training_args.dict()['share_persistent_buffers']
+            ),  # take into account share_persistent_buffers
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': secagg_arguments.get('secagg_random'),

@@ -50,7 +50,7 @@ class FakeModel(BaseTrainingPlan):
         aggregator_args: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Fake 'post_init', that does not make use of input arguments."""
-        return None
+        super().post_init(model_args, training_args, aggregator_args)
 
     def model(self):
         return self._model
