@@ -4,7 +4,7 @@
 import os
 import time
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from fedbiomed.common.message import ErrorMessage, TrainReply, TrainRequest
 from fedbiomed.common.serializer import Serializer
@@ -26,6 +26,8 @@ class TrainingJob(Job):
 
     def __init__(self,
                  *,
+                 nodes: Optional[List[str]] = None,
+                 keep_files_dir: str,
                  job_id: str,
                  round_: int,
                  training_plan: BaseTrainingPlan,
@@ -34,17 +36,18 @@ class TrainingJob(Job):
                  data: FederatedDataSet,
                  nodes_state_ids: Dict[str, str],
                  aggregator_args: Dict[str, Dict[str, Any]],
-                 keep_files_dir: str,
                  secagg_arguments: Union[Dict, None] = None,
                  do_training: bool = True,
                  optim_aux_var: Optional[Dict[str, Dict[str, Any]]] = None,
-                 nodes: Optional[List[str]] = None,
-                 
                  ):
 
         """ Constructor of the class
 
         Args:
+            nodes: A dict of node_id containing the nodes used for training
+            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
+                of the job. Defaults to None, files are not kept after the end of the job. Usually, files are kept in
+                  the `EXP_FOLDER/experiments` folders.
             job_id: unique ID of this job
             round_: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
@@ -55,15 +58,13 @@ class TrainingJob(Job):
             nodes_state_ids: unique IDs of the node states saved remotely
             aggregator_args: aggregator arguments required for remote execution
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
-                of the job. Usually, they are kept in the `EXP_FOLDER/experiments` folders.
+                of the job. 
             secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
             optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
                 Note that such variables may only be used if both the Experiment and node-side training plan
                 hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
                 are coherent with each other as to expected information exchange.
-            nodes: A dict of node_id containing the nodes used for training
-            
         """
         super().__init__(nodes=nodes, keep_files_dir=keep_files_dir)
 
@@ -81,7 +82,7 @@ class TrainingJob(Job):
         self._optim_aux_var = optim_aux_var
 
         self._training_replies = {}
-    
+
     def _get_training_results(self,
                               replies: Dict[str, TrainReply],
                               errors: Dict[str, ErrorMessage],
@@ -130,11 +131,14 @@ class TrainingJob(Job):
 
             self._training_replies[node_id].update({node_id: timing})
 
-    def execute(self) -> Dict:
+    def execute(self) -> Tuple[Dict, Optional[Dict]]:
         """ Sends training request to nodes and waits for the responses
 
         Returns:
-            training replies for this round
+            A tuple of
+              * training replies for this round
+              * Dict of auxiliary variables, collating node-wise information, with
+                format `{mod_name: {node_id: node_dict}}`.
         """
 
         # Populate request message
@@ -148,8 +152,7 @@ class TrainingJob(Job):
             'training_plan': self._training_plan.source(),
             'training_plan_class': self._training_plan.__class__.__name__,
             'params': self._training_plan.get_model_params(
-                exclude_buffers=not self._training_args.dict()['share_persistent_buffers']
-             ),
+                exclude_buffers=not self._training_args.dict()['share_persistent_buffers']),
             'secagg_servkey_id': self._secagg_arguments.get('secagg_servkey_id'),
             'secagg_biprime_id': self._secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': self._secagg_arguments.get('secagg_random'),
@@ -193,8 +196,12 @@ class TrainingJob(Job):
                                    errors=errors)
         self._get_timing_results(replies)
 
-        # return the list of nodes which answered because nodes in error have been removed
-        return self._training_replies
+        # Extract aux variables from training replies
+        aux_vars = None
+        if self._do_training:
+            aux_vars = self._extract_received_optimizer_aux_var_from_round()
+
+        return aux_vars
 
     def _log_round_info(self, node: str, training: True) -> None:
         """Logs round details
@@ -256,8 +263,13 @@ class TrainingJob(Job):
         # Return the restructured auxiliary variables dicts.
         return aux_shared, aux_bynode
 
-    def extract_received_optimizer_aux_var_from_round(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    def _extract_received_optimizer_aux_var_from_round(
+        self,
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Restructure the received auxiliary variables (if any) from a round.
+
+        Args:
+            training_replies: training replies received for this job
 
         Returns:
             Dict of auxiliary variables, collating node-wise information, with

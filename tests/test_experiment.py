@@ -27,9 +27,6 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
     def setUp(self):
         MockRequestModule.setUp(self, module="fedbiomed.researcher.federated_workflows._federated_workflow.Requests")
         super().setUp()
-        self.patch_tp_job = patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingJob')
-        mock_tp_job = self.patch_tp_job.start()
-        mock_tp_job.return_value = MagicMock(spec=TrainingJob)
 
         self.patch_import_class_object = patch(
             'fedbiomed.researcher.federated_workflows._training_plan_workflow.import_class_object_from_file'
@@ -44,10 +41,11 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         self.mock_job = self.patch_job.start()
         self.mock_job.return_value = MagicMock(spec=TrainingJob)
 
+        self.mock_job.return_value.execute.return_value = MagicMock(), {}
+
     def tearDown(self):
         super().tearDown()
         self.patch_job.stop()
-        self.patch_tp_job.stop()
 
     def test_experiment_01_initialization(self):
         # Experiment must be default-constructible
@@ -147,7 +145,6 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
 
 #    @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
     def test_experiment_04_run_once_base_case(self):
-        self.mock_job.return_value.extract_received_optimizer_aux_var_from_round.return_value = {}
 
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
@@ -279,7 +276,6 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
             mock_run_once.assert_called_once_with(increase=False, test_after=True)
 
     def test_experiment_06_run_once_special_cases(self):
-        self.mock_job.return_value.extract_received_optimizer_aux_var_from_round.return_value = {}
 
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
@@ -305,13 +301,12 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
             ["get_aux", "set_aux", "init_round", "step"],
             "Aggregator optimizer did not receive expected ordered calls"
         )
-        self.mock_job.return_value.extract_received_optimizer_aux_var_from_round.assert_called_once()
 
         # Test that receiving auxiliary variables without an aggregator-level optimizer fails
         self.mock_job.reset_mock()
-        self.mock_job.return_value.extract_received_optimizer_aux_var_from_round.return_value = {
-            "module": {"node_id": {"key": "val"}}
-        }  # mock aux-var dict
+        self.mock_job.return_value.execute.return_value = \
+            MagicMock(), {"module": {"node_id": {"key": "val"}}}  # mock aux-var dict
+
         exp = Experiment(
             training_data=_training_data,
             aggregator=_aggregator,
@@ -319,10 +314,9 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
             training_plan_class=FakeTorchTrainingPlan,
             node_selection_strategy=_strategy,
         )
-        with patch.object(Vector, "build", new=create_autospec(Vector)):
-            with patch.object(FedbiomedExperimentError, "__init__") as patch_exc:
-                patch_exc.return_value = None  # __init__ must return None
-                self.assertRaises(SystemExit, exp.run_once)
+        with patch.object(FedbiomedExperimentError, "__init__") as patch_exc:
+            patch_exc.return_value = None  # __init__ must return None
+            self.assertRaises(SystemExit, exp.run_once)
         patch_exc.assert_called_once()
         error_msg = patch_exc.call_args[0][0]
         self.assertTrue(

@@ -14,7 +14,7 @@ from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.federated_workflows import TrainingPlanWorkflow
-from fedbiomed.researcher.federated_workflows.jobs import TrainingJob, TrainingPlanApprovalJob
+from fedbiomed.researcher.federated_workflows.jobs import TrainingJob, TrainingPlanApproveJob, TrainingPlanCheckJob
 from testsupport.fake_training_plan import (
     FakeTorchTrainingPlan,
     FakeSKLearnTrainingPlan
@@ -30,12 +30,6 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.abstract_methods_patcher = patch.multiple(TrainingPlanWorkflow, __abstractmethods__=set())
         self.abstract_methods_patcher.start()
 
-        # Mock TrainingJob
-        self.patch_job = patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingJob')
-        self.mock_job = self.patch_job.start()
-        mock_training_job = MagicMock(spec=TrainingJob)
-        self.mock_job.return_value = mock_training_job
-
         # Mock import class object from file for training plan class
 
         self.mock_tp = MagicMock(spec=FakeTorchTrainingPlan)
@@ -48,7 +42,6 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
     def tearDown(self):
         super().tearDown()
         self.abstract_methods_patcher.stop()
-        self.patch_job.stop()
         self.patch_import_class_object.stop()
 
 
@@ -151,11 +144,27 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
             {'model': 'new-params'}
         )
 
-    def test_training_plan_workflow_04_approval_and_status(self):
+    def test_training_plan_workflow_04_approval(self):
         """"""
-        patch_job = patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingPlanApprovalJob')
+        patch_job = patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingPlanApproveJob')
         mock_job = patch_job.start()
-        mock_approval_job = MagicMock(spec=TrainingPlanApprovalJob)
+        mock_approval_job = MagicMock(spec=TrainingPlanApproveJob)
+        mock_job.return_value = mock_approval_job
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+
+        exp = TrainingPlanWorkflow(
+            training_plan_class=FakeTorchTrainingPlan,
+            training_data=_training_data
+        )
+
+        response = exp.training_plan_approve(description='some description')
+        mock_approval_job.execute.assert_called_once_with()
+
+    def test_training_plan_workflow_05_status(self):
+        """"""
+        patch_job = patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingPlanCheckJob')
+        mock_job = patch_job.start()
+        mock_approval_job = MagicMock(spec=TrainingPlanCheckJob)
         mock_job.return_value = mock_approval_job
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
 
@@ -165,19 +174,11 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         )
 
         status = exp.check_training_plan_status()
-        mock_approval_job.check_training_plan_is_approved_by_nodes.assert_called_once_with(
-            job_id=exp.id,
-            training_plan=exp.training_plan()
-        )
-        response = exp.training_plan_approve(description='some description')
-        mock_approval_job.training_plan_approve.assert_called_once_with(
-            training_plan=exp.training_plan(),
-            description='some description'
-        )
+        mock_approval_job.execute.assert_called_once_with()
 
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.FederatedWorkflow.breakpoint')
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
-    def test_federated_workflow_05_breakpoint(self,
+    def test_federated_workflow_06_breakpoint(self,
                                               mock_uuid,
                                               mock_super_breakpoint,
                                               ):
@@ -208,7 +209,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
     @patch(
         'fedbiomed.researcher.federated_workflows.'
         '_training_plan_workflow.FederatedWorkflow.load_breakpoint')
-    def test_federated_workflow_06_load_breakpoint(self,
+    def test_federated_workflow_07_load_breakpoint(self,
                                                    mock_super_load,
                                                    mock_import_class
                                                    ):

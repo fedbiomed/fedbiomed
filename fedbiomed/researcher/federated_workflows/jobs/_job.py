@@ -4,14 +4,15 @@
 """Manage the training part of the experiment."""
 
 import time
-from typing import Dict, List
+from typing import Dict, List, Any
+from abc import ABC, abstractmethod
 
 from fedbiomed.researcher.requests import RequestPolicy
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests
 
 
-class Job:
+class Job(ABC):
     """
     Job represents a task to be executed on the node.
 
@@ -65,7 +66,7 @@ class Job:
             # ... send some request
 
         job._timer.get_timer()
-        # {node_1: 2.22, node_2: 2.21} # request time in second
+        # {node_1: 2.22, node_2: 2.21} # request time for each Node in second
         ```
         """
         def __init__(self, nodes: List[str]):
@@ -77,7 +78,6 @@ class Job:
             """
             self._timer = {node_id: 0.  for node_id in nodes}
 
-
         def __enter__(self):
             self._timer.update({node_id: time.perf_counter() for node_id in self._timer.keys()})
 
@@ -86,3 +86,13 @@ class Job:
 
         def get_timer(self) -> Dict:
             return self._timer
+
+    @abstractmethod
+    def execute(self) -> Any:
+        """Payload of the job.
+
+        Completes a request to the job's nodes and collects replies.
+
+        Returns:
+            values specific to the type of job
+        """

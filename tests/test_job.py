@@ -21,8 +21,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
     """Tests Job class and all of its subclasses"""
     def setUp(self):
         MockRequestModule.setUp(self, module="fedbiomed.researcher.federated_workflows.jobs._job.Requests")
-        self.ic_from_file_patch = patch('fedbiomed.researcher.federated_workflows.jobs._training_job.utils.import_class_object_from_file', autospec=True)
-        self.ic_from_file_mock = self.ic_from_file_patch.start()
         self.patch_serializer = patch("fedbiomed.common.serializer.Serializer")
         self.mock_serializer = self.patch_serializer.start()
 
@@ -32,12 +30,9 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         self.fds.data = MagicMock(return_value={})
         self.model = FakeTorchTrainingPlan
         self.model.save_code = MagicMock()
-        self.ic_from_file_mock.return_value = (fake_training_plan, MagicMock(spec=BaseTrainingPlan) )
 
     def tearDown(self) -> None:
 
-        #self.patcher4.stop()
-        self.ic_from_file_patch.stop()
         self.patch_serializer.stop()
 
         # Remove if there is dummy model file
@@ -48,13 +43,17 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         super().tearDown()
 
     def test_job_01_base_job(self):
+        class MinimalJob(Job):
+            def execute():
+                pass
+
         # Job should be default-constructible
-        job = Job()
+        job = MinimalJob()
         self.assertIsNotNone(job._keep_files_dir)  # must be initialized by Job
         self.assertTrue(isinstance(job.nodes, list) and len(job.nodes) == 0)  # nodes must be empty list by default
         # Job can take nodes and keep_files_dir as arguments
         mynodes = ['first-node', 'second-node']
-        job = Job(
+        job = MinimalJob(
             nodes = mynodes,
             keep_files_dir='keep_files_dir'
         )
@@ -124,10 +123,16 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         }
         with patch("time.perf_counter") as mock_perf_counter:
             mock_perf_counter.return_value = 0
-            replies = job.execute()
+            replies, aux_vars = job.execute()
+        print("Aux vars--------")
+        print(aux_vars)
         # The `send` function of the Requests module is always only called
         # once regardless of the number of nodes
         self.maxDiff = None
+
+        # Follwing line tests if aux_vars from training replies extracted correctly
+        self.assertDictEqual(aux_vars, {'module': {'alice': 'params_alice', 'bob': 'params_bob'}})
+
         self.mock_requests.return_value.send.called_once_with(
             [
                 (
@@ -149,9 +154,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             })
         self.assertDictEqual(replies, expected_replies)
 
-        # test extract_received_optimizer_aux_var_from_round
-        extracted_aux_var = job.extract_received_optimizer_aux_var_from_round()
-        self.assertDictEqual(extracted_aux_var, {'module': {'alice': 'params_alice', 'bob': 'params_bob'}})
 
     def _get_msg(self,
                  mock_tp,
