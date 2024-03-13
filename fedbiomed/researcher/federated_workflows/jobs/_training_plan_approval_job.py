@@ -49,8 +49,8 @@ class TrainingPlanApproveJob(Job):
         """
         return self._reqs.training_plan_approve(self._training_plan,
                                                 self._description,
-                                                self._policies,
-                                                self._nodes)
+                                                self._nodes,
+                                                self._policies)
 
 
 class TrainingPlanCheckJob(Job):
