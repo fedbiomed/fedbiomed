@@ -78,4 +78,5 @@ class TrainingPlanApprovalJob(Job):
         """
         return self._reqs.training_plan_approve(training_plan,
                                                 description,
+                                                self._policies,
                                                 self._nodes)
