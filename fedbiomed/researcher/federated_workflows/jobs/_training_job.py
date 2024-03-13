@@ -123,13 +123,14 @@ class TrainingJob(Job):
             })
 
     def _get_timing_results(self, replies: Dict[str, TrainReply]):
-        """Retrieves timing results and updates it to the `_traiing_replies`"""
+        """Retrieves timing results and updates it to the `_training_replies`"""
         # Loops over replies
         for node_id, reply in replies.items():
             timing = reply.timing
             timing['rtime_total'] = self._timer.get_timer()[node_id]
-
-            self._training_replies[node_id].update({node_id: timing})
+            # `training_replies` can be empty if there wasnot any replies
+            if self._training_replies.get(node_id):
+                self._training_replies[node_id].update({node_id: timing})
 
     def execute(self) -> Tuple[Dict, Optional[Dict]]:
         """ Sends training request to nodes and waits for the responses
