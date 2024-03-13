@@ -934,6 +934,7 @@ class Experiment(TrainingPlanWorkflow):
             self._agg_optimizer.set_aux(aux_var)
         # If no Optimizer is used but auxiliary variables were received, raise.
         elif aux_var:
+            print("AUX VAR FOR TEST", aux_var)
             raise FedbiomedExperimentError(
                 "Received auxiliary variables from 1+ node Optimizer, but "
                 "no `agg_optimizer` was set for this Experiment to process "

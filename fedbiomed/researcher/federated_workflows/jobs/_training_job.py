@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -130,7 +129,7 @@ class TrainingJob(Job):
             timing['rtime_total'] = self._timer.get_timer()[node_id]
             # `training_replies` can be empty if there wasnot any replies
             if self._training_replies.get(node_id):
-                self._training_replies[node_id].update({node_id: timing})
+                self._training_replies[node_id].update({'timing': timing})
 
     def execute(self) -> Tuple[Dict, Optional[Dict]]:
         """ Sends training request to nodes and waits for the responses

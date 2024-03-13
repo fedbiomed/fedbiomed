@@ -25,7 +25,8 @@ class Job(ABC):
         the execution of the task.
 
     Attributes:
-        requests: read-only [`Requests`][fedbiomed.researcher.requests.Requests] object handling communication with remote nodes
+        requests: read-only [`Requests`][fedbiomed.researcher.requests.Requests] object handling communication with
+                 remote nodes
         nodes: node IDs participating in the task
     """
 
