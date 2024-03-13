@@ -1182,7 +1182,7 @@ class Experiment(TrainingPlanWorkflow):
         loaded_exp, saved_state = super().load_breakpoint()
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
-        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=loaded_exp.training_data())
+        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args)
         loaded_exp.set_strategy(bkpt_sampling_strategy)
         # retrieve breakpoint researcher optimizer
         bkpt_optim = Experiment._load_optimizer(saved_state.get("agg_optimizer"))
