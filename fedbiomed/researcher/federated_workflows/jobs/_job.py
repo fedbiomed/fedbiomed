@@ -55,9 +55,10 @@ class Job(ABC):
         return self._reqs
 
 
-    # FIXME: this method is very basic, and doesnot compute the total time of request since it waits for all requests before computing elapsed time
+    # FIXME: this method is very basic, and doesnot compute the total time of request since it waits for all requests
+    # before computing elapsed time
     class NodeTimer:
-        """Context manager that computes the processing time while entering and exiting for each node
+        """Context manager that computes the processing time elapsed for the request and the reply
 
         Usage:
         ```

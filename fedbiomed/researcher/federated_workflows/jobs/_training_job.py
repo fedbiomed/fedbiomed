@@ -82,19 +82,16 @@ class TrainingJob(Job):
 
         self._training_replies = {}
 
-    def _get_training_results(self,
-                              replies: Dict[str, TrainReply],
-                              errors: Dict[str, ErrorMessage],
-                              ):
+    def _compute_training_results(self,
+                                  replies: Dict[str, TrainReply],
+                                  errors: Dict[str, ErrorMessage],
+                                  ):
         """"Waits for training replies, and cupdates `_training_replies` wrt replies from Node(s) participating
          in the training
 
         Args:
             replies: replies from the request sent to Nodes
             errors: errors collected (if any) while sending requests and rertieving replies
-
-        Returns:
-            Training_replies entry as a dictionary for the current Round
         """
 
         # Loops over errors
@@ -121,7 +118,7 @@ class TrainingJob(Job):
                 }
             })
 
-    def _get_timing_results(self, replies: Dict[str, TrainReply]):
+    def _compute_timing_results(self, replies: Dict[str, TrainReply]):
         """Retrieves timing results and updates it to the `_training_replies`"""
         # Loops over replies
         for node_id, reply in replies.items():
@@ -192,9 +189,9 @@ class TrainingJob(Job):
                 errors = federated_req.errors()
                 replies = federated_req.replies()
 
-        self._get_training_results(replies=replies,
-                                   errors=errors)
-        self._get_timing_results(replies)
+        self._compute_training_results(replies=replies,
+                                       errors=errors)
+        self._compute_timing_results(replies)
 
         # Extract aux variables from training replies
         aux_vars = None
@@ -268,9 +265,6 @@ class TrainingJob(Job):
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Restructure the received auxiliary variables (if any) from a round.
 
-        Args:
-            training_replies: training replies received for this job
-
         Returns:
             Dict of auxiliary variables, collating node-wise information, with
             format `{mod_name: {node_id: node_dict}}`.
@@ -282,3 +276,7 @@ class TrainingJob(Job):
             for module, params in node_av.items():
                 aux_var.setdefault(module, {})[node_id] = params
         return aux_var
+
+    def training_replies(self):
+        return self._training_replies
+@property
