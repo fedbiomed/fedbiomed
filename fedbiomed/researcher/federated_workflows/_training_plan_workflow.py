@@ -445,6 +445,9 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
         loaded_exp, saved_state = super().load_breakpoint()
 
+        # Define type for pylint
+        loaded_exp: TrainingPlanWorkflow
+
         # Import TP class
         _, tp_class = import_class_from_file(
             module_path=saved_state.get("training_plan_path"),
