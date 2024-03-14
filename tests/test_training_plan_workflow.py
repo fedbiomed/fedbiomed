@@ -215,7 +215,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
             1
         )
 
-    @patch('fedbiomed.common.serializer.Serializer.load')
+    @patch('fedbiomed.common.serializer.Serializer.load', return_value={"coefs": [1, 2, 3]})
     @patch(
         'fedbiomed.researcher.federated_workflows.'
         '_training_plan_workflow.import_class_from_file',
@@ -247,6 +247,11 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertEqual(exp.training_plan_class(), FakeTorchTrainingPlan)
         self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
         self.assertDictEqual(exp.model_args(), {'breakpoint-model': 'args'})
+        # Test if set_weights is called with the right arguments
+        print('ICI', type(exp.training_plan()._model.set_weights))
+        exp.training_plan()._model.set_weights.assert_called_once_with(
+            mock_serializer_load.return_value
+        )
 
 
 if __name__ == '__main__':  # pragma: no cover
