@@ -269,9 +269,12 @@ class TrainingJob(Job):
 
     @staticmethod
     def _extract_received_optimizer_aux_var_from_round(
-        training_replies
+        training_replies: Dict
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Restructure the received auxiliary variables (if any) from a round.
+
+        Args:
+            training_replies: training replies received for this job
 
         Returns:
             Dict of auxiliary variables, collating node-wise information, with
