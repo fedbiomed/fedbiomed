@@ -3,7 +3,7 @@
 
 import os
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
 
 from fedbiomed.common.message import ErrorMessage, TrainReply, TrainRequest
 from fedbiomed.common.serializer import Serializer
@@ -15,6 +15,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.requests import MessagesByNode
 
 from fedbiomed.researcher.federated_workflows.jobs._job import Job
+
 
 
 class TrainingJob(Job):
@@ -80,12 +81,11 @@ class TrainingJob(Job):
         self._do_training = do_training
         self._optim_aux_var = optim_aux_var
 
-        self._training_replies = {}
 
-    def _compute_training_results(self,
-                                  replies: Dict[str, TrainReply],
-                                  errors: Dict[str, ErrorMessage],
-                                  ):
+    def _get_training_results(self,
+                              replies: Dict[str, TrainReply],
+                              errors: Dict[str, ErrorMessage],
+                              ) -> Dict:
         """"Waits for training replies, and cupdates `_training_replies` wrt replies from Node(s) participating
          in the training
 
@@ -93,7 +93,7 @@ class TrainingJob(Job):
             replies: replies from the request sent to Nodes
             errors: errors collected (if any) while sending requests and rertieving replies
         """
-
+        training_replies = {}
         # Loops over errors
         for node_id, error in errors.items():
             logger.info(f"Error message received during training: {error.errnum}. {error.extra_msg}")
@@ -111,22 +111,24 @@ class TrainingJob(Job):
             params_path = os.path.join(self._keep_files_dir, f"params_{str(node_id)[0:11]}_{uuid.uuid4()}.mpk")
             Serializer.dump(reply.params, params_path)
 
-            self._training_replies.update({
+            training_replies.update({
                 node_id: {
                     **reply.get_dict(),
                     'params_path': params_path,
                 }
             })
+        return training_replies
 
-    def _compute_timing_results(self, replies: Dict[str, TrainReply]):
+    def _get_timing_results(self, replies: Dict[str, TrainReply], timer: Dict):
         """Retrieves timing results and updates it to the `_training_replies`"""
         # Loops over replies
+        timings = {}
         for node_id, reply in replies.items():
             timing = reply.timing
-            timing['rtime_total'] = self._timer.get_timer()[node_id]
-            # `training_replies` can be empty if there wasnot any replies
-            if self._training_replies.get(node_id):
-                self._training_replies[node_id].update({'timing': timing})
+            timing['rtime_total'] = timer[node_id]
+            timings[node_id] = timing
+
+        return timings
 
     def execute(self) -> Tuple[Dict, Optional[Dict]]:
         """ Sends training request to nodes and waits for the responses
@@ -182,23 +184,28 @@ class TrainingJob(Job):
 
             messages.update({node: TrainRequest(**msg)})  # send request to node
 
-        with self._timer:  # compute request time
+        with self.RequestTimer(self._nodes) as timer:  # compute request time
             # Send training request
             with self._reqs.send(messages, self._nodes, self._policies) as federated_req:
 
                 errors = federated_req.errors()
                 replies = federated_req.replies()
 
-        self._compute_training_results(replies=replies,
-                                       errors=errors)
-        self._compute_timing_results(replies)
+        training_replies = self._get_training_results(replies=replies,
+                                                      errors=errors)
+
+        timing_results = self._get_timing_results(replies, timer)
+        # `training_replies` can be empty if there wasnot any replies
+        for node_id in replies:
+            if training_replies.get(node_id):
+                training_replies[node_id].update({'timing': timing_results[node_id]})
 
         # Extract aux variables from training replies
         aux_vars = None
         if self._do_training:
-            aux_vars = self._extract_received_optimizer_aux_var_from_round()
+            aux_vars = self._extract_received_optimizer_aux_var_from_round(training_replies)
 
-        return aux_vars
+        return training_replies, aux_vars
 
     def _log_round_info(self, node: str, training: True) -> None:
         """Logs round details
@@ -260,8 +267,9 @@ class TrainingJob(Job):
         # Return the restructured auxiliary variables dicts.
         return aux_shared, aux_bynode
 
+    @staticmethod
     def _extract_received_optimizer_aux_var_from_round(
-        self,
+        training_replies
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Restructure the received auxiliary variables (if any) from a round.
 
@@ -271,12 +279,8 @@ class TrainingJob(Job):
         """
         aux_var = {}  # type: Dict[str, Dict[str, Dict[str, Any]]]
 
-        for node_id, reply in self._training_replies.items():
+        for node_id, reply in training_replies.items():
             node_av = reply.get("optim_aux_var", {})
             for module, params in node_av.items():
                 aux_var.setdefault(module, {})[node_id] = params
         return aux_var
-
-    def training_replies(self):
-        return self._training_replies
-@property

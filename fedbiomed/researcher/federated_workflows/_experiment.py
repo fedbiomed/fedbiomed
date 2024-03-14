@@ -837,14 +837,14 @@ class Experiment(TrainingPlanWorkflow):
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(training_nodes))
 
-        aux_vars = job.execute()
+        training_replies, aux_vars = job.execute()
 
         # update node states with node answers + when used node list has changed during the round
-        self._update_nodes_states_agent(before_training=False, training_replies=job.training_replies())
+        self._update_nodes_states_agent(before_training=False, training_replies=training_replies)
 
         # refining/normalizing model weights received from nodes
         model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
-            job.training_replies(), self._round_current)
+            training_replies, self._round_current)
 
         if self._secagg.active:
             flatten_params = self._secagg.aggregate(
@@ -865,13 +865,13 @@ class Experiment(TrainingPlanWorkflow):
                                                            weights,
                                                            global_model=model_params_before_round,
                                                            training_plan=self.training_plan(),
-                                                           training_replies=job.training_replies(),
+                                                           training_replies=training_replies,
                                                            node_ids=training_nodes,
                                                            n_updates=self._training_args.get('num_updates'),
                                                            n_round=self._round_current)
 
         # Update experiment's in-memory history
-        self.commit_experiment_history(job.training_replies(), aggregated_params)
+        self.commit_experiment_history(training_replies, aggregated_params)
         # Optionally refine the aggregated updates using an Optimizer.
         self._process_optim_aux_var(aux_vars)
         aggregated_params = self._run_agg_optimizer(self.training_plan(),

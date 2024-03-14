@@ -48,7 +48,6 @@ class Job(ABC):
         self._nodes: List[str] = nodes or []  # List of node ids participating in this task
         self._keep_files_dir = keep_files_dir
         self._policies: List[RequestPolicy] | None = None
-        self._timer = Job.NodeTimer(self._nodes)
 
     @property
     def requests(self):
@@ -57,7 +56,7 @@ class Job(ABC):
 
     # FIXME: this method is very basic, and doesnot compute the total time of request since it waits for all requests
     # before computing elapsed time
-    class NodeTimer:
+    class RequestTimer:
         """Context manager that computes the processing time elapsed for the request and the reply
 
         Usage:
@@ -82,9 +81,11 @@ class Job(ABC):
 
         def __enter__(self):
             self._timer.update({node_id: time.perf_counter() for node_id in self._timer.keys()})
+            return self._timer
 
         def __exit__(self, type, value, traceback):
             self._timer.update({node_id: time.perf_counter() - self._timer[node_id] for node_id in self._timer.keys()})
+            return self._timer
 
         def get_timer(self) -> Dict:
             return self._timer

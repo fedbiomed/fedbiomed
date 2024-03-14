@@ -83,7 +83,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'alice': 'alide_nsid',
             'bob': 'bob_nsid'
         }
-        files_dir = '/path/to/my/files'
 
         # initialize TrainingJob
         with tempfile.TemporaryDirectory() as fp:
@@ -129,7 +128,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             }
             with patch("time.perf_counter") as mock_perf_counter:
                 mock_perf_counter.return_value = 0
-                aux_vars = job.execute()
+                training_replies, aux_vars = job.execute()
             print("Aux vars--------")
             print(aux_vars)
             # The `send` function of the Requests module is always only called
@@ -144,7 +143,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                     (
                         {'alice': self._get_msg(
                             mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()),
-                        'bob': self._get_msg(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
+                         'bob': self._get_msg(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
                         ['alice', 'bob']
                     )
                 ]
@@ -152,14 +151,13 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             # populate expected replies
             expected_replies = {}
             for node_id, r in self.mock_federated_request.replies.return_value.items():
-                print("R VALUE", r)
                 expected_replies.update({
                     node_id: {
                         **r.get_dict(),
                         'params_path': os.path.join(job._keep_files_dir, f"params_{node_id}_{mock_uuid.return_value}.mpk")
                     }
                 })
-            self.assertDictEqual(job._training_replies, expected_replies)
+            self.assertDictEqual(training_replies, expected_replies)
 
 
     def _get_msg(self,

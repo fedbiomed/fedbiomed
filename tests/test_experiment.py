@@ -42,7 +42,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         self.mock_job.return_value = MagicMock(spec=TrainingJob)
         self.mock_job.return_value._training_replies = {}
 
-        self.mock_job.return_value.execute.return_value = {}
+        self.mock_job.return_value.execute.return_value = MagicMock(), {}
 
     def tearDown(self):
         super().tearDown()
@@ -305,7 +305,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
 
         # Test that receiving auxiliary variables without an aggregator-level optimizer fails
         self.mock_job.reset_mock()
-        self.mock_job.return_value.execute.return_value =  {"module": {"node_id": {"key": "val"}}}  # mock aux-var dict
+        self.mock_job.return_value.execute.return_value = MagicMock(), {"module": {"node_id": {"key": "val"}}}  # mock aux-var dict
 
         exp = Experiment(
             training_data=_training_data,
