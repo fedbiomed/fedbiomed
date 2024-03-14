@@ -173,6 +173,10 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
         Args:
             weights_vector: Vectorized model weights to convert dict
+            only_trainable: Unused for scikit-learn models. (Whether to ignore
+                non-trainable model parameters.)
+            exclude_buffers: Unused for scikit-learn models. (Whether to ignore
+                buffers.)
 
         Returns:
             Model dictionary
