@@ -3,13 +3,12 @@
 
 """Manage the training part of the experiment."""
 
-import time
-from typing import Dict, List, Any
 from abc import ABC, abstractmethod
+import time
+from typing import Any, Dict, List
 
-from fedbiomed.researcher.requests import RequestPolicy
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.requests import Requests
+from fedbiomed.researcher.requests import RequestPolicy, Requests
 
 
 class Job(ABC):

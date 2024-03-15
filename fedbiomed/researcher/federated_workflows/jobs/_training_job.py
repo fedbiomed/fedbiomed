@@ -83,7 +83,7 @@ class TrainingJob(Job):
                               replies: Dict[str, TrainReply],
                               errors: Dict[str, ErrorMessage],
                               ) -> Dict:
-        """"Waits for training replies, and cupdates `_training_replies` wrt replies from Node(s) participating
+        """"Waits for training replies, and updates `_training_replies` wrt replies from Node(s) participating
          in the training
 
         Args:
