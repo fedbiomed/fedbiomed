@@ -17,7 +17,6 @@ from fedbiomed.researcher.requests import MessagesByNode
 from fedbiomed.researcher.federated_workflows.jobs._job import Job
 
 
-
 class TrainingJob(Job):
     """
     TrainingJob is a task for training an ML model on the nodes by executing a
@@ -57,8 +56,6 @@ class TrainingJob(Job):
             data: metadata of the federated data set
             nodes_state_ids: unique IDs of the node states saved remotely
             aggregator_args: aggregator arguments required for remote execution
-            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
-                of the job. 
             secagg_arguments: Secure aggregation ServerKey context id
             do_training: if False, skip training in this round (do only validation). Defaults to True.
             optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.

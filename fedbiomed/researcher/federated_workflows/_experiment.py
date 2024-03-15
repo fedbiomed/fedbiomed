@@ -870,8 +870,6 @@ class Experiment(TrainingPlanWorkflow):
                                                            n_updates=self._training_args.get('num_updates'),
                                                            n_round=self._round_current)
 
-        # Update experiment's in-memory history
-        self.commit_experiment_history(training_replies, aggregated_params)
         # Optionally refine the aggregated updates using an Optimizer.
         self._process_optim_aux_var(aux_vars)
         aggregated_params = self._run_agg_optimizer(self.training_plan(),
@@ -879,6 +877,9 @@ class Experiment(TrainingPlanWorkflow):
 
         # Update the training plan with the aggregated parameters
         self.training_plan().set_model_params(aggregated_params)
+
+        # Update experiment's in-memory history
+        self.commit_experiment_history(training_replies, aggregated_params)
 
         # Increase round number
         self._set_round_current(self._round_current + 1)

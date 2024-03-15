@@ -31,6 +31,7 @@ class Job(ABC):
     """
 
     def __init__(self,
+                 *,
                  nodes: List[str] | None,
                  keep_files_dir: str):
 
