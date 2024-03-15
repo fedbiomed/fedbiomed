@@ -15,7 +15,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.federated_workflows import FederatedWorkflow
 from fedbiomed.researcher.secagg import SecureAggregation
-
+from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
 
 class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
 
@@ -101,12 +101,24 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
 
     def test_federated_workflow_02_set_tags(self):
         exp = FederatedWorkflow()
+
         exp.set_tags('just-a-str')
         self.assertEqual(exp.tags(), ['just-a-str'])
-        exp.set_tags(None)
-        self.assertIsNone(exp.tags())
+
         exp.set_tags(['first', 'second'])
         self.assertEqual(exp.tags(), ['first', 'second'])
+
+
+        # Test invalid type and values
+        with self.assertRaises(SystemExit):  # FedbiomedValueError,
+            exp.set_tags(None)
+
+        with self.assertRaises(SystemExit):  # FedbiomedValueError
+            exp.set_tags([])
+
+        with self.assertRaises(SystemExit):  # FedbiomedTypeError
+            exp.set_tags(15)
+
 
     def test_federated_workflow_03_set_nodes(self):
         exp = FederatedWorkflow()
@@ -159,22 +171,33 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertEqual(exp.secagg, _secagg)
 
     def test_federated_workflow_08_consistency_fds_tags(self):
+
         self.fake_search_reply = {'node1': [{'my-metadata': 'is-the-best', 'tags': ['some-tags']}]}
         self.mock_requests.return_value.search.return_value = self.fake_search_reply
         exp = FederatedWorkflow()
         # setting tags when training data is None -> simply set tags
         exp.set_tags(['some-tags'])
         self.assertListEqual(exp.tags(), ['some-tags'])
-        self.assertIsNone(exp.training_data())
+        self.assertDictEqual(exp.training_data().data(), self.fake_search_reply)
         self.assertIsNone(exp.nodes())  # no filtering applied
+
+
         # resetting tags to None when training data is not None -> simply set tags to None
+        exp._tags = None
+        exp._fds = None
+        exp.set_tags(['some-tags'], reset_training_data=False)
+        self.assertIsNone(exp.training_data())
+        self.assertListEqual(exp.tags(), ['some-tags'])
+
+        exp._tags = None
         exp.set_training_data(FederatedDataSet(self.fake_search_reply))
-        exp.set_tags(None)
         self.assertIsNone(exp.tags())
         self.assertDictEqual(exp.training_data().data(), self.fake_search_reply)
+
         # setting training data from tags, when tags is None -> raise error
         with self.assertRaises(SystemExit):
             exp.set_training_data(None, from_tags=True)
+
         # resetting training data to None -> set it to None
         exp.set_training_data(None)
         self.assertIsNone(exp.tags())
@@ -182,6 +205,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         # set tags when training data is not None -> reset training data based on new tags
         exp.set_training_data(FederatedDataSet(self.fake_search_reply))
         self.fake_search_reply = {'node2': [{'my-metadata': 'is-the-bestest', 'tags': ['other-tags']}]}
+        self.mock_requests.reset_mock()
         self.mock_requests.return_value.search.return_value = self.fake_search_reply
         exp.set_tags('other-tags')
         self.assertListEqual(exp.tags(), ['other-tags'])
@@ -288,6 +312,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
             }
 
         exp, saved_state = FederatedWorkflow.load_breakpoint()
+
         self.assertEqual(exp.id, 'exp-id')
         self.assertDictEqual(exp.training_args(), TrainingArgs({'num_updates': 42}, only_required=False).dict())
         self.assertEqual(exp.training_data().data(), {'node1': {'training': 'data', 'tags': 'some-tags'}})
