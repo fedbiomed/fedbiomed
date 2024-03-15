@@ -406,12 +406,12 @@ class FederatedWorkflow(ABC):
 
         self._tags = tags_to_set
 
-        logger.info(
-            "Updating training data. This action will update FederatedDataset, and the nodes that "
-            "will participate to the experiment.")
-
         # Set training data
         if reset_training_data:
+            logger.info(
+                "Updating training data. This action will update FederatedDataset, "
+                "and the nodes that will participate to the experiment.")
+
             try:
                 self.set_training_data(None, from_tags=True)
             except FedbiomedError as e:
