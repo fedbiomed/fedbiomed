@@ -7,9 +7,8 @@ from abc import ABC, abstractmethod
 import time
 from typing import Any, Dict, List
 
-from fedbiomed.researcher.requests import RequestPolicy
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.requests import Requests
+from fedbiomed.researcher.requests import RequestPolicy, Requests
 
 
 class Job(ABC):
