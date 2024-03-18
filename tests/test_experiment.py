@@ -399,7 +399,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         )
         exp._set_round_current(2)
 
-        with patch.object(exp, '_save_aggregated_params', return_value={'agg_params': 'bkpt'}) as mock_agg_param_save,\
+        with patch.object(exp, 'save_aggregated_params', return_value={'agg_params': 'bkpt'}) as mock_agg_param_save,\
                 patch.object(exp, 'save_training_replies', return_value={'replies': 'bkpt'}) as mock_save_replies, \
                 patch.object(exp, 'training_plan') as mock_tp:
             exp.breakpoint()
