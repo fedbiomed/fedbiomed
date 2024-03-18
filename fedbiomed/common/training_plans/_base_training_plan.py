@@ -613,7 +613,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             The trained parameters to aggregate.
         """
-        exclude_buffers=not self._training_args['share_persistent_buffers']
+        exclude_buffers = not self._training_args['share_persistent_buffers']
         if flatten:
             return self._model.flatten(exclude_buffers=exclude_buffers)
         return self.get_model_params(exclude_buffers=exclude_buffers)
