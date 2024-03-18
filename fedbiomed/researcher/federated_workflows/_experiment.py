@@ -852,11 +852,11 @@ class Experiment(TrainingPlanWorkflow):
                 encryption_factors=encryption_factors,
                 total_sample_size=total_sample_size,
                 model_params=model_params,
-                num_expected_params=len(self.training_plan()._model.flatten())
+                num_expected_params=len(self.training_plan()._model.flatten(exclude_buffers = not self.training_args()['share_persistent_buffers']))
             )
             # FIXME: Access TorchModel through non-private getter once it is implemented
             aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
-                self.training_plan()._model.unflatten(flatten_params)
+                self.training_plan()._model.unflatten(flatten_params, exclude_buffers = not self.training_args()['share_persistent_buffers'])
             )
 
         else:
