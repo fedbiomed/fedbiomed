@@ -153,9 +153,6 @@ class Experiment(TrainingPlanWorkflow):
         self._agg_optimizer = None
         self.aggregator_args = {}
         self._aggregated_params = {}
-        self._client_correction_states_dict = {}
-        self._client_states_dict = {}
-        self._server_state = None
         self._training_replies: Dict = {}
         self._retain_full_history = None
 

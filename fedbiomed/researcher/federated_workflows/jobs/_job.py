@@ -48,7 +48,6 @@ class Job(ABC):
 
         self._researcher_id = environ['RESEARCHER_ID']
         self._reqs = Requests()
-        self.last_msg = None
         self._nodes: List[str] = nodes or []  # List of node ids participating in this task
 
         if keep_files_dir:
