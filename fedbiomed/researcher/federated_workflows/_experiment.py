@@ -1210,8 +1210,11 @@ class Experiment(TrainingPlanWorkflow):
         Creates link to the params file from the `breakpoint_path` and use them to reference the params files.
 
         Args:
-            aggregated_params_init (dict): ???
-            breakpoint_path: path to the directory where breakpoints files and links will be saved
+            aggregated_params_init: initial aggregated parameters to be saved inside the breakpoint. This
+                argument won't be modified in-place.
+            breakpoint_path: path to the directory where breakpoints files and links will be saved,
+                in a `*.mpk` file. Aggregated parameters are saved in a file named `aggregated_params_xxx.mpk`,
+                inside the breakpoint_path folder.
 
         Returns:
             Extract from `aggregated_params`
