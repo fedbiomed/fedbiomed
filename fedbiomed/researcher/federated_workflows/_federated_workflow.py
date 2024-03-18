@@ -4,7 +4,13 @@
 """ This file defines the FederatedWorkflow class and some additional generic utility functions that can be used by
     all other workflows."""
 
-import functools, json, os, sys, tabulate, traceback, uuid
+import functools
+import json
+import os
+import sys
+import tabulate
+import traceback
+import uuid
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathvalidate import sanitize_filename
@@ -229,9 +235,9 @@ class FederatedWorkflow(ABC):
 
         | node_id in nodes filter | node_id in training data | outcome |
         | --- | --- | --- |
-        | yes | yes | this node is part of the federation, but will not be considered for executing the workflow |
+        | yes | yes | this node is part of the federation, and will take part in the execution the workflow |
         | yes | no | ignored |
-        | no | yes | this node is part of the federation and will take part in the execution the workflow |
+        | no | yes | this node is part of the federation but will not be considered for executing the workflow |
         | no | no | ignored |
 
         Please see [`set_nodes`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_nodes] to set `nodes`.
@@ -296,7 +302,8 @@ class FederatedWorkflow(ABC):
     def training_args(self) -> dict:
         """Retrieves training arguments.
 
-        Please see also [`set_training_args`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_args]
+        Please see also
+        [`set_training_args`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_args]
 
         Returns:
             The arguments that are going to be passed to the training plan's `training_routine` to perfom training on
@@ -336,24 +343,24 @@ class FederatedWorkflow(ABC):
                 'Values': []
             }
         info['Arguments'].extend([
-                'Tags',
-                'Nodes filter',
-                'Training Data',
-                'Training Arguments',
-                'Experiment folder',
-                'Experiment Path',
-                'Secure Aggregation'
+            'Tags',
+            'Nodes filter',
+            'Training Data',
+            'Training Arguments',
+            'Experiment folder',
+            'Experiment Path',
+            'Secure Aggregation'
         ])
 
         info['Values'].extend(['\n'.join(findall('.{1,60}', str(e))) for e in [
-                           self._tags,
-                           self._nodes_filter,
-                           self._fds,
-                           self._training_args,
-                           self._experimentation_folder,
-                           self.experimentation_path(),
-                           f'- Using: {self._secagg}\n- Active: {self._secagg.active}'
-                       ]])
+            self._tags,
+            self._nodes_filter,
+            self._fds,
+            self._training_args,
+            self._experimentation_folder,
+            self.experimentation_path(),
+            f'- Using: {self._secagg}\n- Active: {self._secagg.active}'
+        ]])
         print(tabulate.tabulate(info, headers='keys'))
         return info
 
@@ -420,7 +427,7 @@ class FederatedWorkflow(ABC):
                     "inconsistency between tags and training data failed. Please reset "
                     "tags and training data to None before attempting to modify them again. "
                     f" Please see raised error: {e}"
-               ) from e
+                ) from e
 
         # set the tags
         return self._tags
@@ -444,12 +451,12 @@ class FederatedWorkflow(ABC):
         # set nodes
         elif isinstance(nodes, list):
             if not all(map(lambda node: isinstance(node, str), nodes)):
-                msg = ErrorNumbers.FB410.value + f' `nodes` argument must be a list of strings or None.'
+                msg = ErrorNumbers.FB410.value + ' `nodes` argument must be a list of strings or None.'
                 logger.critical(msg)
                 raise FedbiomedTypeError(msg)
             self._nodes_filter = nodes
         else:
-            msg = ErrorNumbers.FB410.value + f' `nodes` argument must be a list of strings or None.'
+            msg = ErrorNumbers.FB410.value + ' `nodes` argument must be a list of strings or None.'
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
         return self._nodes_filter

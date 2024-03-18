@@ -46,7 +46,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     manages the life-cycle of the training plan.
 
     !!! warning "Use `set_training_plan_class` to manage the training plan"
-        Please only ever use the [`set_training_plan_class`][fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingPlanWorkflow.set_training_plan_class]
+        Please only ever use the
+        [`set_training_plan_class`][fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingPlanWorkflow.set_training_plan_class]
         function to manage the training plan. Do not set the training plan or training plan class directly!
 
     """
@@ -112,7 +113,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedTypeError(
                 f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. "
                 f"It is not subclass of supported training plans {training_plans_types}"
-)
+            )
 
         # __training_plan_class determines the life-cycle of the training plan: if training_plass_class changes, then
         # the training plan must be reinitialized
@@ -192,14 +193,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             self.__training_plan = None
         else:
             with self._keep_weights(keep_weights):
-               self.__training_plan = self._instantiate_training_plan()
+                self.__training_plan = self._instantiate_training_plan()
 
 
     @exp_exceptions
     def training_plan_class(self) -> Optional[TrainingPlanT]:
         """Retrieves the type of the training plan that is created for training.
 
-        Please see also [`set_training_plan_class`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.set_training_plan_class].
+        Please see also
+        [`set_training_plan_class`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.set_training_plan_class].
 
         Returns:
             training_plan_class: the class type of the training plan.
@@ -244,14 +246,14 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 'Values': []
             }
         info['Arguments'].extend([
-                'Training Plan Class',
-                'Model Arguments',
-            ])
+            'Training Plan Class',
+            'Model Arguments',
+        ])
         info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
-                           self.__training_plan_class,
-                           self._model_args,
-                       ]])
+            self.__training_plan_class,
+            self._model_args,
+        ]])
         info = super().info(info)
         return info
 
@@ -460,7 +462,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         training_plan = loaded_exp.training_plan()
         if training_plan is None:
             msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
-                  'breakpoint file seems corrupted, `training_plan` is None'
+                'breakpoint file seems corrupted, `training_plan` is None'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -490,4 +492,3 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 raise FedbiomedExperimentError(msg)
         else:
             yield
-
