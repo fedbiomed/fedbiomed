@@ -248,7 +248,6 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
         self.assertDictEqual(exp.model_args(), {'breakpoint-model': 'args'})
         # Test if set_weights is called with the right arguments
-        print('ICI', type(exp.training_plan()._model.set_weights))
         exp.training_plan()._model.set_weights.assert_called_once_with(
             mock_serializer_load.return_value
         )
