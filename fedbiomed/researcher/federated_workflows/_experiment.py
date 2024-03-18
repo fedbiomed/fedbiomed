@@ -835,7 +835,7 @@ class Experiment(TrainingPlanWorkflow):
                           optim_aux_var=optim_aux_var
                           )
 
-        logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(training_nodes))
+        logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
         training_replies, aux_vars = job.execute()
 
@@ -866,7 +866,7 @@ class Experiment(TrainingPlanWorkflow):
                                                            global_model=model_params_before_round,
                                                            training_plan=self.training_plan(),
                                                            training_replies=training_replies,
-                                                           node_ids=training_nodes,
+                                                           node_ids=job.nodes,
                                                            n_updates=self._training_args.get('num_updates'),
                                                            n_round=self._round_current)
 

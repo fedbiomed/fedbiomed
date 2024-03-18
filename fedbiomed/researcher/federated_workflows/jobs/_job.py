@@ -50,9 +50,12 @@ class Job(ABC):
         self._policies: List[RequestPolicy] | None = None
 
     @property
-    def requests(self):
+    def requests(self) -> List[RequestPolicy] | None:
         return self._reqs
 
+    @property
+    def nodes(self) -> List[str]:
+        return self._nodes
 
     # FIXME: this method is very basic, and doesnot compute the total time of request since it waits for all requests
     # before computing elapsed time
