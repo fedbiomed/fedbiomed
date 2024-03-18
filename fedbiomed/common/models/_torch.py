@@ -124,7 +124,7 @@ class TorchModel(Model):
             Model dictionary
         """
 
-        super().unflatten(weights_vector)
+        super().unflatten(weights_vector, only_trainable, exclude_buffers)
 
         # Copy model to make sure global model parameters won't be overwritten
         model = copy.deepcopy(self)

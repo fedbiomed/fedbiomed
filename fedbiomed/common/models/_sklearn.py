@@ -182,7 +182,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             Model dictionary
         """
 
-        super().unflatten(weights_vector)
+        super().unflatten(weights_vector, only_trainable, exclude_buffers)
 
         weights_vector = np.array(weights_vector)
         weights = self.get_weights()
