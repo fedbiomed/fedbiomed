@@ -1493,5 +1493,5 @@ class Experiment(TrainingPlanWorkflow):
             self._aggregated_params[self._round_current] = {'params': aggregated_params}
         else:
             # only store the last round's values
-            self._training_replies= {self._round_current: training_replies}
+            self._training_replies = {self._round_current: training_replies}
             self._aggregated_params = {self._round_current: {'params': aggregated_params}}

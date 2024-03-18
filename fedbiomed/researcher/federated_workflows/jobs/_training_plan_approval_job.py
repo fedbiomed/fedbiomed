@@ -34,7 +34,7 @@ class TrainingPlanApproveJob(Job):
             description: human-readable description of the TrainingPlan for the reviewer on the node
         """
         super().__init__(nodes=nodes, keep_files_dir=keep_files_dir)
-
+        self._policies = [DiscardOnTimeout(5)]  # specific policy for TrainingApproval
         self._training_plan = training_plan
         self._description = description
 
@@ -49,7 +49,8 @@ class TrainingPlanApproveJob(Job):
         """
         return self._reqs.training_plan_approve(self._training_plan,
                                                 self._description,
-                                                self._nodes)
+                                                self._nodes,
+                                                self._policies)
 
 
 class TrainingPlanCheckJob(Job):
@@ -74,7 +75,7 @@ class TrainingPlanCheckJob(Job):
             training_plan: an instance of a TrainingPlan object
         """
         super().__init__(nodes=nodes, keep_files_dir=keep_files_dir)
-
+        self._policies = [DiscardOnTimeout(5)]  # specific policy for TrainingApproval
         self._job_id = job_id
         self._training_plan = training_plan
 
@@ -96,7 +97,8 @@ class TrainingPlanCheckJob(Job):
         })
 
         # Send message to each node that has been found after dataset search request
-        with self._reqs.send(message, self.nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
+        # TODO: add timer to compute request time
+        with self._reqs.send(message, self._nodes, policies=self._policies) as federated_req:
             replies = federated_req.replies()
 
             for node_id, reply in replies.items():
@@ -106,14 +108,14 @@ class TrainingPlanCheckJob(Job):
                             logger.info(f'Training plan has been approved by the node: {node_id}')
                         else:
                             logger.warning(f'Training plan has NOT been approved by the node: {node_id}.' +
-                                           f'Training plan status : {node_id}')
+                                           f'Training plan status : {reply.status}')
                     else:
                         logger.info(f'Training plan approval is not required by the node: {node_id}')
                 else:
                     logger.warning(f"Node : {node_id} : {reply.msg}")
 
         # Get the nodes that haven't replied training-plan-status request
-        non_replied_nodes = list(set(self.nodes) - set(replies.keys()))
+        non_replied_nodes = list(set(self._nodes) - set(replies.keys()))
         if non_replied_nodes:
             logger.warning(f"Request for checking training plan status hasn't been replied \
                              by the nodes: {non_replied_nodes}. You might get error \
