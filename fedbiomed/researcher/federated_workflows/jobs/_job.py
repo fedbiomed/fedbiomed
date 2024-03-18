@@ -53,9 +53,6 @@ class Job(ABC):
     def requests(self):
         return self._reqs
 
-    def nodes(self) -> List[str]:
-        """Returns list of nodes selected for the job"""
-        return self._nodes
 
     # FIXME: this method is very basic, and doesnot compute the total time of request since it waits for all requests
     # before computing elapsed time

@@ -50,9 +50,9 @@ class TestJob(ResearcherTestCase, MockRequestModule):
 
         nodes = MagicMock(spec=list)
         files_dir = '/path/to/my/files'
-        job = MinimalJob(nodes=nodes, keep_files_dir=files_dir)
+        job = MinimalJob(nodes, files_dir)
         self.assertIsNotNone(job._keep_files_dir)  # must be initialized by Job
-        self.assertTrue(isinstance(job.nodes(), list) and len(job.nodes()) == 0)  # nodes must be empty list by default
+        self.assertTrue(isinstance(job._nodes, list) and len(job._nodes) == 0)  # nodes must be empty list by default
         # Job can take nodes and keep_files_dir as arguments
         mynodes = ['first-node', 'second-node']
         job = MinimalJob(
@@ -60,10 +60,10 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             keep_files_dir='keep_files_dir'
         )
         self.assertEqual(job._keep_files_dir, 'keep_files_dir')
-        self.assertTrue(all(x == y for x, y in zip(job._nodes, mynodes)))
+        self.assertTrue(all(x == y for x,y in zip(job._nodes, mynodes)))
         # Nodes can be set a posteriori
         job.nodes = ['another-node']
-        self.assertTrue(all(x == y for x, y in zip(job.nodes, ['another-node'])))
+        self.assertTrue(all(x == y for x,y in zip(job.nodes, ['another-node'])))
 
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
     def test_job_02_training_job(self, mock_uuid):
