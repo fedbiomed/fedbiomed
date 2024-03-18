@@ -527,10 +527,11 @@ class FederatedWorkflow(ABC):
         if training_data is None:
             if from_tags is True:
                 if self._tags is None:
-                    raise FedbiomedValueError(
-                        f"{ErrorNumbers.FB410.value}: attempting to"
-                        "set training data from undefined tags. Please consider set tags before "
-                        "using set_tags method of the experiment.")
+                    msg = f"{ErrorNumbers.FB410.value}: attempting to" \
+                        "set training data from undefined tags. Please consider set tags before " \
+                        "using set_tags method of the experiment."
+                    logger.critical(msg)
+                    raise FedbiomedValueError(msg)
                 training_data = self._reqs.search(self._tags, self._nodes_filter)
             else:
                 self._fds = None
