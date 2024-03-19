@@ -168,7 +168,7 @@ class FederatedWorkflow(ABC):
         self._fds: Optional[FederatedDataSet] = None  # dataset metadata from the full federation
         self._reqs: Requests = Requests()
         self._nodes_filter: Optional[List[str]] = None  # researcher-defined nodes filter
-        self._training_args: Optional[TrainingArgs] = None
+        self._training_args: Optional[TrainingArgs] = None  # FIXME: is it ok to have this here?
         self._tags: Optional[List[str]] = None
         self._experimentation_folder: Optional[str] = None
         self._secagg: Optional[SecureAggregation] = None
@@ -316,20 +316,23 @@ class FederatedWorkflow(ABC):
 
         return self._save_breakpoints
 
+    @staticmethod
+    def _create_default_info_structure():
+
+        return {
+                'Arguments': [],
+                'Values': []
+                }
+
     @exp_exceptions
     def info(self, info=None) -> Dict[str, Any]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
 
-        Raises:
-            FedbiomedExperimentError: Inconsistent experiment due to missing variables
         """
         if info is None:
-            info = {
-                'Arguments': [],
-                'Values': []
-            }
+            info = self._create_default_info_structure()
         info['Arguments'].extend([
                 'Tags',
                 'Nodes filter',
@@ -654,6 +657,7 @@ class FederatedWorkflow(ABC):
                 - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
                 - if after, updates `NodeStateAgent` wrt the latest reply
         """
+        # FIXME: before_training for what?
         node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
         self._node_state_agent.update_node_states(node_ids)
 
@@ -681,12 +685,11 @@ class FederatedWorkflow(ABC):
             'id': self._id,
             'breakpoint_version': str(__breakpoints_version__),
             'training_data': self._fds.data(),
-            'training_args': self._training_args.dict(),
             'experimentation_folder': self._experimentation_folder,
             'tags': self._tags,
             'nodes': self._nodes_filter,
             'secagg': self._secagg.save_state_breakpoint(),
-            'node_state':  self._node_state_agent.save_state_breakpoint()
+            'node_state': self._node_state_agent.save_state_breakpoint()
         })
 
         # save state into a json file
@@ -719,7 +722,7 @@ class FederatedWorkflow(ABC):
             workflow. Defaults to None.
 
         Returns:
-            Reinitialized workflow object.
+            Tuple contaning reinitialized workflow object and the saved state as a dictionary
 
         Raises:
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint

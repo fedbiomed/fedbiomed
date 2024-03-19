@@ -8,7 +8,7 @@ import inspect
 import os
 import uuid
 from re import findall
-from typing import Any, Dict, Optional, List, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Optional, List, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch
@@ -376,21 +376,19 @@ class Experiment(TrainingPlanWorkflow):
         Raises:
             FedbiomedExperimentError: Inconsistent experiment due to missing variables
         """
-
+        # TODO: redo check for experiments
         # at this point all attributes are initialized (in constructor)
         if info is None:
-            info = {
-                'Arguments': [],
-                'Values': []
-            }
+            info = self._create_default_info_structure()
+
         info['Arguments'].extend([
-                'Aggregator',
-                'Strategy',
-                'Aggregator Optimizer',
-                'Rounds already run',
-                'Rounds total',
-                'Breakpoint State',
-            ])
+            'Aggregator',
+            'Strategy',
+            'Aggregator Optimizer',
+            'Rounds already run',
+            'Rounds total',
+            'Breakpoint State',
+        ])
         info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
                 self._aggregator.aggregator_name if self._aggregator is not None else None,
@@ -423,23 +421,11 @@ class Experiment(TrainingPlanWorkflow):
         if aggregator is None:
             # default aggregator
             self._aggregator = FedAverage()
-        elif inspect.isclass(aggregator):
-            # a class is provided, need to instantiate an object
-            if issubclass(aggregator, Aggregator):
-                self._aggregator = aggregator()
-            else:
-                # bad argument
-                msg = ErrorNumbers.FB410.value + f' `aggregator` : {aggregator} class'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-        elif isinstance(aggregator, Aggregator):
-            # an object of a proper class is provided, nothing to do
-            self._aggregator = aggregator
         else:
-            # other bad type or object
-            msg = ErrorNumbers.FB410.value + f' `aggregator` : {type(aggregator)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            # a class is provided, need to instantiate an object
+
+            msg = ErrorNumbers.FB410.value + ' `aggregator` : %s class'
+            self._aggregator = self._check_and_load_object(aggregator, Aggregator, msg)
         # at this point self._aggregator is (non-None) aggregator object
         self.aggregator_args["aggregator_name"] = self._aggregator.aggregator_name
         # ensure consistency with federated dataset
@@ -467,12 +453,13 @@ class Experiment(TrainingPlanWorkflow):
         """
         super().set_training_data(training_data, from_tags)
         # Below: Experiment-specific operations for consistency
-        if self._aggregator is not None and self._fds is not None:
-            # update the aggregator's training data
-            self._aggregator.set_fds(self._fds)
-        if self._node_state_agent is not None and self._fds is not None:
-            # update the node state agent (member of FederatedWorkflow)
-            self._node_state_agent.update_node_states(list(self._fds.data().keys()))
+        # if self._aggregator is not None and self._fds is not None:
+        #     # update the aggregator's training data
+        #     self._aggregator.set_fds(self._fds)
+        #if self._node_state_agent is not None and self._fds is not None:
+        #
+        #    # update the node state agent (member of FederatedWorkflow)
+        self._node_state_agent.update_node_states(self.all_federation_nodes())
         return self._fds
 
     @exp_exceptions
@@ -504,6 +491,37 @@ class Experiment(TrainingPlanWorkflow):
         self._agg_optimizer = agg_optimizer
         return self._agg_optimizer
 
+    def _check_and_load_object(self, passed_obj: Union[Callable, T], type_ref_obj: Type, msg: str):
+        """Checks consistancy of object and loads object, depending if passed object is a Callable or 
+        a type"""
+        if inspect.isclass(passed_obj):
+
+            if issubclass(passed_obj, type_ref_obj):
+                return passed_obj()
+                # FIXME: what should we do if `passed_obj` requires arguments?
+            else:
+                # bad argument
+                logger.critical(msg % passed_obj)
+                raise FedbiomedTypeError(msg)
+        elif isinstance(passed_obj, type_ref_obj):
+            return passed_obj
+        else:
+            logger.critical(msg % type(passed_obj))
+            raise FedbiomedTypeError(msg)
+
+    def _check_round_value_consistancy(self, round_current: int, variable_name: str) -> bool:
+        if not isinstance(round_current, int):
+            msg = ErrorNumbers.FB410.value + f' `{variable_name}` of type : {type(round_current)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        if round_current < 0.:
+            # cannot set a round <0
+            msg = ErrorNumbers.FB410.value + f' `{variable_name}` cannot be negative : {round_current}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+        return True
+
     @exp_exceptions
     def set_strategy(self, node_selection_strategy: Optional[Union[Strategy, Type[Strategy]]] = None) -> \
             Union[Strategy, None]:
@@ -525,25 +543,13 @@ class Experiment(TrainingPlanWorkflow):
         if node_selection_strategy is None:
             # default node_selection_strategy
             self._node_selection_strategy = DefaultStrategy()
-        elif inspect.isclass(node_selection_strategy):
+        else: 
+            msg = ErrorNumbers.FB410.value + ' `node_selection_strategy` : %s class'
+
             # a class is provided, need to instantiate an object
-            if issubclass(node_selection_strategy, Strategy):
-                self._node_selection_strategy = node_selection_strategy()
-            else:
-                # bad argument
-                msg = ErrorNumbers.FB410.value + \
-                    f' `node_selection_strategy` : {node_selection_strategy} class'
-                logger.critical(msg)
-                raise FedbiomedTypeError(msg)
-        elif isinstance(node_selection_strategy, Strategy):
-            # an object of a proper class is provided, nothing to do
-            self._node_selection_strategy = node_selection_strategy
-        else:
-            # other bad type or object
-            msg = ErrorNumbers.FB410.value + \
-                f' `node_selection_strategy` : {type(node_selection_strategy)}'
-            logger.critical(msg)
-            raise FedbiomedTypeError(msg)
+            self._node_selection_strategy = self._check_and_load_object(node_selection_strategy,
+                                                                        Strategy,
+                                                                        msg)
         # at this point self._node_selection_strategy is a Union[Strategy, None]
         return self._node_selection_strategy
 
@@ -566,22 +572,14 @@ class Experiment(TrainingPlanWorkflow):
         if round_limit is None:
             # no limit for training rounds
             self._round_limit = None
-        elif isinstance(round_limit, int):
-            # at this point round_limit is an int
-            if round_limit < 0:
-                msg = ErrorNumbers.FB410.value + f' `round_limit` can not be negative: {round_limit}'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
-            elif round_limit < self._round_current:
+        else:
+            self._check_round_value_consistancy(round_limit, "round_limit")
+            if round_limit < self._round_current:
                 # self._round_limit can't be less than current round
                 logger.error(f'cannot set `round_limit` to less than the number of already run rounds '
                              f'({self._round_current})')
             else:
                 self._round_limit = round_limit
-        else:
-            msg = ErrorNumbers.FB410.value + f' `round_limit` : {type(round_limit)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
 
         # at this point self._round_limit is a Union[int, None]
         return self._round_limit
@@ -600,17 +598,7 @@ class Experiment(TrainingPlanWorkflow):
         Raises:
             FedbiomedExperimentError : bad round_current type or value
         """
-        if not isinstance(round_current, int):
-            msg = ErrorNumbers.FB410.value + f' `round_current` : {type(round_current)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        if round_current < 0:
-            # cannot set a round <0
-            msg = ErrorNumbers.FB410.value + f' `round_current` : {round_current}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
+        self._check_round_value_consistancy(round_current, "round_current")
         #
         if self._round_limit is not None and round_current > self._round_limit:
             # cannot set a round over the round_limit (when it is not None)
@@ -791,10 +779,11 @@ class Experiment(TrainingPlanWorkflow):
                 return 0
 
         # check pre-requisites are met for running a round
-        if self._node_selection_strategy is None:
-            msg = ErrorNumbers.FB411.value + ', missing `node_selection_strategy`'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+        # From here, node_selection_strategy is never None
+        # if self._node_selection_strategy is None:
+        #     msg = ErrorNumbers.FB411.value + ', missing `node_selection_strategy`'
+        #     logger.critical(msg)
+        #     raise FedbiomedExperimentError(msg)
 
         # Sample nodes for training
         training_nodes = self._node_selection_strategy.sample_nodes(
@@ -816,10 +805,13 @@ class Experiment(TrainingPlanWorkflow):
         # Collect auxiliary variables from the aggregator optimizer, if any.
         optim_aux_var = self._collect_optim_aux_var()
 
-        # update node states when used node list has changed from one round to another
+        # update node states when list of nodes has changed from one round to another
         self._update_nodes_states_agent(before_training=True)
+        # TODO check node state agent
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
+        # TODO check fds and training plan is not None 
+        # if fds is updated, aggregator should be updated too
         job = TrainingJob(nodes=training_nodes,
                           keep_files_dir=self.experimentation_path(),
                           job_id=self._id,
@@ -881,9 +873,6 @@ class Experiment(TrainingPlanWorkflow):
         # Update experiment's in-memory history
         self.commit_experiment_history(training_replies, aggregated_params)
 
-        # Increase round number
-        self._set_round_current(self._round_current + 1)
-
         if self._save_breakpoints:
             self.breakpoint()
 
@@ -908,6 +897,8 @@ class Experiment(TrainingPlanWorkflow):
                               )
             job.execute()
 
+        # Increase round number
+        self._set_round_current(self._round_current + 1)
         return 1
 
     def _collect_optim_aux_var(
@@ -986,7 +977,7 @@ class Experiment(TrainingPlanWorkflow):
         return {k: weights.get(k, v) for k, v in aggregated_params.items()}
 
     @exp_exceptions
-    def run(self, rounds: Union[int, None] = None, increase: bool = False) -> int:
+    def run(self, rounds: Optional[int] = None, increase: bool = False) -> int:
         """Run one or more rounds of an experiment, continuing from the point the
         experiment had reached.
 
@@ -1137,6 +1128,7 @@ class Experiment(TrainingPlanWorkflow):
             agg_bkpt = self._aggregator.save_state_breakpoint(breakpoint_path,
                                                               global_model=self.training_plan().after_training_params())
         if self._agg_optimizer is not None:
+            # FIXME: harmonize naming of save_object
             agg_optim_bkpt = self.save_optimizer(breakpoint_path)
         if self._node_selection_strategy is not None:
             strategy_bkpt = self._node_selection_strategy.save_state_breakpoint()
@@ -1210,7 +1202,7 @@ class Experiment(TrainingPlanWorkflow):
         Creates link to the params file from the `breakpoint_path` and use them to reference the params files.
 
         Args:
-            aggregated_params_init (dict): ???
+            aggregated_params_init (dict): aggregated parameters
             breakpoint_path: path to the directory where breakpoints files and links will be saved
 
         Returns:
@@ -1234,7 +1226,7 @@ class Experiment(TrainingPlanWorkflow):
         aggregated_params = {}
         for round_, params_dict in aggregated_params_init.items():
             if not isinstance(params_dict, dict):
-                msg = ErrorNumbers.FB413.value+ ' - save failed. ' + \
+                msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
                       f'Bad type for aggregated params item {str(round_)}, ' + \
                       f'should be `dict` not {type(params_dict)}'
                 logger.critical(msg)
@@ -1333,7 +1325,8 @@ class Experiment(TrainingPlanWorkflow):
             before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
                 - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
                 - if after, updates `NodeStateAgent` wrt the latest reply
-            training_replies: the node replies from the latest round. Required when before_training=False
+            training_replies: the node replies from the latest round. Required when before_training=False. Defaults to 
+                None, which can work only for `before_training=False`
 
         Raises:
             FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
@@ -1493,5 +1486,5 @@ class Experiment(TrainingPlanWorkflow):
             self._aggregated_params[self._round_current] = {'params': aggregated_params}
         else:
             # only store the last round's values
-            self._training_replies= {self._round_current: training_replies}
+            self._training_replies = {self._round_current: training_replies}
             self._aggregated_params = {self._round_current: {'params': aggregated_params}}

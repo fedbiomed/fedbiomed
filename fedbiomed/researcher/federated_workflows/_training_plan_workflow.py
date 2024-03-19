@@ -24,7 +24,7 @@ from fedbiomed.researcher.filetools import create_unique_link, choose_bkpt_file
 from fedbiomed.researcher.secagg import SecureAggregation
 
 # for checking class passed to experiment
-training_plans_types = (TorchTrainingPlan, SKLearnTrainingPlan)
+TRAINING_PLAN_TYPES = (TorchTrainingPlan, SKLearnTrainingPlan)
 # typing information
 TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
 Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
@@ -101,9 +101,9 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` {type(training_plan_class)}"
             raise FedbiomedJobError(msg)
 
-        if training_plan_class is not None and not issubclass(training_plan_class, training_plans_types):
+        if training_plan_class is not None and not issubclass(training_plan_class, TRAINING_PLAN_TYPES):
             msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
-                  f" supported training plans {training_plans_types}"
+                  f" supported training plans {TRAINING_PLAN_TYPES}"
             raise FedbiomedJobError(msg)
 
         # __training_plan_class determines the life-cycle of the training plan: if training_plass_class changes, then
@@ -184,7 +184,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             self.__training_plan = None
         else:
             with self._keep_weights(keep_weights):
-               self.__training_plan = self._instantiate_training_plan()
+                self.__training_plan = self._instantiate_training_plan()
 
 
     @exp_exceptions
@@ -221,20 +221,25 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         return self._model_args
 
     @exp_exceptions
-    def info(self, info=None) -> Dict[str, Any]:
+    def info(self, info: Optional[Dict] = None) -> Dict[str, List[Any]]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
 
+        Args: 
+            information already created that will be completed with some additional information.
+            Defaults to None.
+
+        Returns:
+            dictionary containing all pieces of information, with 2 entries: `Arguments` mapping a list 
+            of all argument, and `Values` mapping a list copntaining all the values.
+
         Raises:
-            FedbiomedExperimentError: Inconsistent experiment due to missing variables
+            KeyError: if `Arguments` or `Values` entry is missing in passing argument `info`
         """
         # at this point all attributes are initialized (in constructor)
         if info is None:
-            info = {
-                'Arguments': [],
-                'Values': []
-            }
+            info = self._create_default_info_structure()
         info['Arguments'].extend([
                 'Training Plan Class',
                 'Model Arguments',
@@ -274,7 +279,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             self.__training_plan_class = None
         elif inspect.isclass(training_plan_class):
             # training_plan_class must be a subclass of a valid training plan
-            if issubclass(training_plan_class, training_plans_types):
+            if issubclass(training_plan_class, TRAINING_PLAN_TYPES):
                 # valid class
                 self.__training_plan_class = training_plan_class
             else:
@@ -401,6 +406,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         state.update({
             'model_args': self._model_args,
             'training_plan_class_name': self.__training_plan_class.__name__,
+            'training_args': self._training_args.dict(),
         })
 
         breakpoint_path, breakpoint_file_name = \
