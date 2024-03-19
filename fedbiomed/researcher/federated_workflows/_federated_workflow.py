@@ -395,7 +395,7 @@ class FederatedWorkflow(ABC):
         # preprocess the tags argument to correct typing
         if not tags:
             raise FedbiomedValueError(
-                f"{ErrorNumbers.FB410.value}: Invalid value for tags argument {tag}, tags "
+                f"{ErrorNumbers.FB410.value}: Invalid value for tags argument {tags}, tags "
                 "should be non-empty list of str or non-empty str.")
 
         if isinstance(tags, list):
@@ -470,15 +470,9 @@ class FederatedWorkflow(ABC):
             Union[FederatedDataSet, None]:
         """Sets training data for federated training + verification on arguments type
 
-        Ensures consistency with the tags attribute following this definition:
-        - if training data is None, then the attributes are consistent
-        - if training data is not None and tags is not None, check that the tags from the training data all contain
-            the tags declared in the self._tags attribute
-
-        The state diagram below explains the flow of setters and consistency checks
-        ![state diagram](https://www.plantuml.com/plantuml/png/ZP91ZzCm48Nl_XLpHjf3usGFqIhQ0ul4XGEik22qCiviQz7OnPvK8CH_9rESAgdjqalhsFE-zsRinq3AqpZinRGWXAUV1_HcG4llhI7uBG2UlJBMsErRHUfbMb4B7vn5Fb7RiDpv8oBb4nAVFRlFQZzYIgbQE7Wy6ZS6E799XF41JVyP4Xka85a2oKoafR84l5ytTv_moy12htKB5BzV-cbZHjStezzvDx0aPJSNRFYc0lRWBBYHj1iGt2ju_35YeDctoVbUNFlTNNTnXwMAT09p4te33mzwvup6hWCXrZm6S4aBUeVwEsXdWmc4Ll_YpCJjAjl3Qn-4td1rSIej67kMKtGFv0uS06tVTP4GDrjOL9_JoZHjqbjCBMzABKfvcV5HcO1FtZlFyQFIXDFRMtHGdpjO2EPEwkiMMWgXvVeg6L-ULpMxHLtSpCvh-lMqWKbnMasQk9Cy7JOS0thuDzqLe4e0LHBucbucUfbxAbbEleRLNzvyNRdKYKkTS_b_kqq2Qgw_x3L9Y4Uq_JZi_m80)
 
         The full expected behaviour when changing training data is given in the table below:
+
         | New value of `training_data` | `from_tags` | Outcome |
         | --- | --- | --- |
         | dict or FederatedDataset | True  | fail because user is attempting to set from tags but also providing a training_data argument|
@@ -508,9 +502,10 @@ class FederatedWorkflow(ABC):
             FederatedDataSet metadata
 
         Raises:
-            FedbiomedTypeError : bad training_data type
-            FedbiomedValueError : attempting to set training data from tags but self._tags is None
+            FedbiomedTypeError: bad training_data or from_tags type.
+            FedbiomedValueError: Invalid value for the arguments  `training_data` or `from_tags`.
         """
+
         if not isinstance(from_tags, bool):
             msg = ErrorNumbers.FB410.value + \
                 f' `from_tags` : got {type(from_tags)} but expected a boolean'
@@ -527,15 +522,16 @@ class FederatedWorkflow(ABC):
         if training_data is None:
             if from_tags is True:
                 if not self._tags:
-                    msg = f"{ErrorNumbers.FB410.value}: attempting to" \
+                    msg = f"{ErrorNumbers.FB410.value}: attempting to " \
                         "set training data from undefined tags. Please consider set tags before " \
                         "using set_tags method of the experiment."
                     logger.critical(msg)
                     raise FedbiomedValueError(msg)
                 training_data = self._reqs.search(self._tags, self._nodes_filter)
             else:
-                self._fds = None
-                return None  # quick exit
+                raise FedbiomedValueError(
+                    f"{ErrorNumbers.FB410.value}: Can not set training data to `None`. "
+                    "Please set from_tags=True or provide a valid training data")
 
         # from here, training_data is not None
         if isinstance(training_data, FederatedDataSet):

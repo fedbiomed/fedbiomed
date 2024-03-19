@@ -133,8 +133,12 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
 
     def test_federated_workflow_04_set_training_data(self):
         exp = FederatedWorkflow()
-        exp.set_training_data(None, from_tags=False)
+
+        with self.assertRaises(SystemExit):
+            exp.set_training_data(None, from_tags=False)
+
         self.assertIsNone(exp.training_data())
+
         self.fake_search_reply = {'node1': [{'my-metadata': 'is-the-best', 'tags': ['some-tag']}]}
         self.mock_requests.return_value.search.return_value = self.fake_search_reply
         exp.set_tags('just-a-str')
@@ -188,8 +192,6 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
 
         # resetting tags to None when training data is not None -> simply set tags to None
         exp._tags = None
-
-        exp._tags = None
         exp.set_training_data(FederatedDataSet(self.fake_search_reply))
         self.assertIsNone(exp.tags())
         self.assertDictEqual(exp.training_data().data(), self.fake_search_reply)
@@ -198,10 +200,6 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         with self.assertRaises(SystemExit):
             exp.set_training_data(None, from_tags=True)
 
-        # resetting training data to None -> set it to None
-        exp.set_training_data(None)
-        self.assertIsNone(exp.tags())
-        self.assertIsNone(exp.training_data())
         # set tags when training data is not None -> reset training data based on new tags
         exp.set_training_data(FederatedDataSet(self.fake_search_reply))
         self.fake_search_reply = {'node2': [{'my-metadata': 'is-the-bestest', 'tags': ['other-tags']}]}
