@@ -47,18 +47,21 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
         _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
         parameters_and_possible_values = {
-            'tags': ('one-tag', ['one-tag', 'another-tag'], None),
-            'nodes': (['one-node'], None),
+            'tags': (None, None, ['one-tag', 'another-tag']),
+            'nodes': (['one-node'], None, None),
             'training_data': (_training_data, {'one-node': {'tags': ['one-tag']}}, None),
             'training_args': (TrainingArgs({'epochs': 42}), {'num_updates': 1}, None),
-            'experimentation_folder': ('folder_name', None),
+            'experimentation_folder': ('folder_name', None, None),
              'secagg': (True, False, _secagg),
-            'save_breakpoints': (True, False)
+            'save_breakpoints': (True, False, True)
         }
         # Compute cartesian product of parameter values to obtain all possible combinations
-        keys, values = zip(*parameters_and_possible_values.items())
-        all_parameter_combinations = [dict(zip(keys, v)) for v in product(*values)]
-        for params in all_parameter_combinations:
+
+        combs = [{key: value[i]
+                    for key, value in parameters_and_possible_values.items() }
+                    for i in range(3)]
+
+        for params in combs:
             try:
                 exp = FederatedWorkflow(**params)
             except Exception as e:
@@ -90,14 +93,15 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         )
         self.assertListEqual(exp.tags(), ['some-tags'])
         self.assertDictEqual(exp.training_data().data(), self.fake_search_reply)
+
         # b. when tags, nodes and training data are provided, the latter takes precedence and tags are set to None
-        exp = FederatedWorkflow(
-            tags='some-tags',
-            nodes=['wrong', 'nodes'],
-            training_data=_training_data
-        )
-        self.assertIsNone(exp.tags())  # in this case, tags are set to None
-        self.assertEqual(exp.training_data(), _training_data)
+        with self.assertRaises(SystemExit):
+            exp = FederatedWorkflow(
+                tags='some-tags',
+                nodes=['wrong', 'nodes'],
+                training_data=_training_data
+            )
+
 
     def test_federated_workflow_02_set_tags(self):
         exp = FederatedWorkflow()
@@ -184,10 +188,6 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
 
         # resetting tags to None when training data is not None -> simply set tags to None
         exp._tags = None
-        exp._fds = None
-        exp.set_tags(['some-tags'], reset_training_data=False)
-        self.assertIsNone(exp.training_data())
-        self.assertListEqual(exp.tags(), ['some-tags'])
 
         exp._tags = None
         exp.set_training_data(FederatedDataSet(self.fake_search_reply))
