@@ -188,10 +188,11 @@ class FederatedWorkflow(ABC):
 
         # TODO: Manage tags within the FederatedDataset to avoid conflicts
         if training_data is not None and tags is not None:
-            raise FedbiomedValueError(
-                f"{ErrorNumbers.FB410.value}: Can not set `training_data` and `tags` at the "
-                "same time. Please provide only `training_data`, or tags to search for "
-                "training data.")
+            msg = f"{ErrorNumbers.FB410.value}: Can not set `training_data` and `tags` at the " /
+                "same time. Please provide only `training_data`, or tags to search for " /
+                "training data."
+            logger.critical(msg)
+            raise FedbiomedValueError(msg)
 
         # Set tags if it tags is not None
         if tags:
@@ -394,24 +395,29 @@ class FederatedWorkflow(ABC):
         """
         # preprocess the tags argument to correct typing
         if not tags:
-            raise FedbiomedValueError(
-                f"{ErrorNumbers.FB410.value}: Invalid value for tags argument {tags}, tags "
-                "should be non-empty list of str or non-empty str.")
+            msg = f"{ErrorNumbers.FB410.value}: Invalid value for tags argument {tags}, tags " \
+                "should be non-empty list of str or non-empty str."
+            logger.critical(msg)
+            raise FedbiomedValueError(msg)
+
 
         if isinstance(tags, list):
             if not all(map(lambda tag: isinstance(tag, str), tags)):
-                raise FedbiomedTypeError(
-                    f"{ErrorNumbers.FB410.value}: `tags` must be a non-empty str or "
-                    "a non-empty list of str.")
+                msg = f"{ErrorNumbers.FB410.value}: `tags` must be a non-empty str or " \
+                    "a non-empty list of str."
+                logger.cirtical(msg)
+                raise FedbiomedTypeError(msg)
+
             # If it is empty list
             tags_to_set = tags
 
         elif isinstance(tags, str):
             tags_to_set = [tags]
         else:
-            raise FedbiomedTypeError(
-                f"{ErrorNumbers.FB410.value} `tags` must be a non-empty str, "
-                "a non-empty list of str")
+            msg = f"{ErrorNumbers.FB410.value} `tags` must be a non-empty str, " \
+                "a non-empty list of str"
+            logger.cirtical(msg)
+            raise FedbiomedTypeError(msg)
 
         self._tags = tags_to_set
 
@@ -420,17 +426,8 @@ class FederatedWorkflow(ABC):
             "Updating training data. This action will update FederatedDataset, "
             "and the nodes that will participate to the experiment.")
 
-        try:
-            self.set_training_data(None, from_tags=True)
-        except FedbiomedError as e:
-            raise FedbiomedValueError(
-                f"{ErrorNumbers.FB410.value} in `set_tags`. Automatic attempt to fix "
-                "inconsistency between tags and training data failed. Please reset "
-                "tags and training data to None before attempting to modify them again. "
-                f" Please see raised error: {e}"
-            ) from e
+        self.set_training_data(None, from_tags=True)
 
-        # set the tags
         return self._tags
 
     @exp_exceptions
@@ -529,11 +526,11 @@ class FederatedWorkflow(ABC):
                     raise FedbiomedValueError(msg)
                 training_data = self._reqs.search(self._tags, self._nodes_filter)
             else:
-                raise FedbiomedValueError(
-                    f"{ErrorNumbers.FB410.value}: Can not set training data to `None`. "
+                msg = f"{ErrorNumbers.FB410.value}: Can not set training data to `None`. " \
                     "Please set from_tags=True or provide a valid training data")
+                logger.critical(msg)
+                raise FedbiomedValueError(msg)
 
-        # from here, training_data is not None
         if isinstance(training_data, FederatedDataSet):
             self._fds = training_data
         elif isinstance(training_data, dict):
