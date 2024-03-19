@@ -188,8 +188,8 @@ class FederatedWorkflow(ABC):
 
         # TODO: Manage tags within the FederatedDataset to avoid conflicts
         if training_data is not None and tags is not None:
-            msg = f"{ErrorNumbers.FB410.value}: Can not set `training_data` and `tags` at the " /
-                "same time. Please provide only `training_data`, or tags to search for " /
+            msg = f"{ErrorNumbers.FB410.value}: Can not set `training_data` and `tags` at the " \
+                "same time. Please provide only `training_data`, or tags to search for " \
                 "training data."
             logger.critical(msg)
             raise FedbiomedValueError(msg)
@@ -527,7 +527,7 @@ class FederatedWorkflow(ABC):
                 training_data = self._reqs.search(self._tags, self._nodes_filter)
             else:
                 msg = f"{ErrorNumbers.FB410.value}: Can not set training data to `None`. " \
-                    "Please set from_tags=True or provide a valid training data")
+                    "Please set from_tags=True or provide a valid training data"
                 logger.critical(msg)
                 raise FedbiomedValueError(msg)
 
