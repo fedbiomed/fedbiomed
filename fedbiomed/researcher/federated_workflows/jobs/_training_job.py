@@ -2,11 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import time
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
 
-from fedbiomed.common.message import TrainReply, TrainRequest
+from fedbiomed.common.message import ErrorMessage, TrainReply, TrainRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
@@ -27,7 +26,7 @@ class TrainingJob(Job):
     def __init__(self,
                  *,
                  nodes: Optional[List[str]] = None,
-                 keep_files_dir: str = None,
+                 keep_files_dir: str,
                  job_id: str,
                  round_: int,
                  training_plan: BaseTrainingPlan,
@@ -46,7 +45,8 @@ class TrainingJob(Job):
         Args:
             nodes: A dict of node_id containing the nodes used for training
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
-                of the job. Defaults to None, files are not kept after the end of the job.
+                of the job. Defaults to None, files are not kept after the end of the job. Usually, files are kept in
+                  the `EXP_FOLDER/experiments` folders.
             job_id: unique ID of this job
             round_: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
@@ -74,20 +74,23 @@ class TrainingJob(Job):
         self._data = data
         self._nodes_state_ids = nodes_state_ids
         self._aggregator_args = aggregator_args
-        self._secagg_arguments = secagg_arguments
+        self._secagg_arguments = secagg_arguments or {}  # Assign empty dict to secagg arguments if it is None
         self._do_training = do_training
         self._optim_aux_var = optim_aux_var
 
 
-    def _get_training_testing_results(self, replies, errors, timer: Dict) -> Dict:
-        """"Waits for training replies
+    def _get_training_results(self,
+                              replies: Dict[str, TrainReply],
+                              errors: Dict[str, ErrorMessage],
+                              ) -> Dict:
+        """"Waits for training replies, and updates `_training_replies` wrt replies from Node(s) participating
+         in the training
 
         Args:
-            timer: Stores time elapsed on the researcher side
+            replies: replies from the request sent to Nodes
+            errors: errors collected (if any) while sending requests and rertieving replies
         """
-
         training_replies = {}
-
         # Loops over errors
         for node_id, error in errors.items():
             logger.info(f"Error message received during training: {error.errnum}. {error.extra_msg}")
@@ -105,20 +108,24 @@ class TrainingJob(Job):
             params_path = os.path.join(self._keep_files_dir, f"params_{str(node_id)[0:11]}_{uuid.uuid4()}.mpk")
             Serializer.dump(reply.params, params_path)
 
-            rtime_total = time.perf_counter() - timer[node_id]
-
-            timing = reply.timing
-            timing['rtime_total'] = rtime_total
-
             training_replies.update({
                 node_id: {
                     **reply.get_dict(),
                     'params_path': params_path,
-                    'timing': timing,
                 }
             })
-
         return training_replies
+
+    def _get_timing_results(self, replies: Dict[str, TrainReply], timer: Dict):
+        """Retrieves timing results and updates it to the `_training_replies`"""
+        # Loops over replies
+        timings = {}
+        for node_id, reply in replies.items():
+            timing = reply.timing
+            timing['rtime_total'] = timer[node_id]
+            timings[node_id] = timing
+
+        return timings
 
     def execute(self) -> Tuple[Dict, Optional[Dict]]:
         """ Sends training request to nodes and waits for the responses
@@ -129,9 +136,7 @@ class TrainingJob(Job):
               * Dict of auxiliary variables, collating node-wise information, with
                 format `{mod_name: {node_id: node_dict}}`.
         """
-        # Assign empty dict to secagg arguments if it is None
-        if self._secagg_arguments is None:
-            self._secagg_arguments = {}
+
         # Populate request message
         msg = {
             'researcher_id': self._researcher_id,
@@ -152,9 +157,7 @@ class TrainingJob(Job):
             'aggregator_args': {},
         }
 
-        timer = {}
-
-        # Prepare optimizer auxiliary variables, when there are.
+        # Prepare optimizer auxiliary variables, if any.
         if self._do_training and self._optim_aux_var:
             aux_shared, aux_bynode = (
                 self._prepare_agg_optimizer_aux_var(self._optim_aux_var, nodes=list(self._nodes))
@@ -176,16 +179,23 @@ class TrainingJob(Job):
 
             self._log_round_info(node=node, training=self._do_training)
 
-            timer[node] = time.perf_counter()
             messages.update({node: TrainRequest(**msg)})  # send request to node
 
-        # Send training request
-        with self._reqs.send(messages, self._nodes) as federated_req:
-            errors = federated_req.errors()
-            replies = federated_req.replies()
-            training_replies = self._get_training_testing_results(replies=replies,
-                                                                  errors=errors,
-                                                                  timer=timer)
+        with self.RequestTimer(self._nodes) as timer:  # compute request time
+            # Send training request
+            with self._reqs.send(messages, self._nodes, self._policies) as federated_req:
+
+                errors = federated_req.errors()
+                replies = federated_req.replies()
+
+        training_replies = self._get_training_results(replies=replies,
+                                                      errors=errors)
+
+        timing_results = self._get_timing_results(replies, timer)
+        # `training_replies` can be empty if there wasnot any replies
+        for node_id in replies:
+            if training_replies.get(node_id):
+                training_replies[node_id].update({'timing': timing_results[node_id]})
 
         # Extract aux variables from training replies
         aux_vars = None
@@ -202,17 +212,18 @@ class TrainingJob(Job):
             training: If True round will do training, otherwise it is the last validation round
         """
 
-        if not training:
-            logger.info(f'\033[1mSending request\033[0m \n'
-                        f'\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n'
-                        f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
-                        f'aggregated parameters \n {5 * "-------------"}')
-        else:
+        if training:
             logger.info(f'\033[1mSending request\033[0m \n'
                         f'\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n'
                         f'\t\t\t\t\t\033[1m Request: \033[0m: TRAIN'
                         f'\n {5 * "-------------"}')
+        else:
+            logger.info(f'\033[1mSending request\033[0m \n'
+                        f'\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n'
+                        f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
+                        f'aggregated parameters \n {5 * "-------------"}')
 
+    # FIXME: are aux_var supposed to be dealt with in the TrainingJob
     @staticmethod
     def _prepare_agg_optimizer_aux_var(
         aux_var: Dict[str, Dict[str, Any]],
@@ -253,8 +264,8 @@ class TrainingJob(Job):
         # Return the restructured auxiliary variables dicts.
         return aux_shared, aux_bynode
 
+    @staticmethod
     def _extract_received_optimizer_aux_var_from_round(
-        self,
         training_replies: Dict
     ) -> Dict[str, Dict[str, Dict[str, Any]]]:
         """Restructure the received auxiliary variables (if any) from a round.

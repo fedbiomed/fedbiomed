@@ -154,9 +154,6 @@ class Experiment(TrainingPlanWorkflow):
         self._agg_optimizer = None
         self.aggregator_args = {}
         self._aggregated_params = {}
-        self._client_correction_states_dict = {}
-        self._client_states_dict = {}
-        self._server_state = None
         self._training_replies: Dict = {}
         self._retain_full_history = None
 
@@ -853,11 +850,11 @@ class Experiment(TrainingPlanWorkflow):
                 encryption_factors=encryption_factors,
                 total_sample_size=total_sample_size,
                 model_params=model_params,
-                num_expected_params=len(self.training_plan()._model.flatten())
+                num_expected_params=len(self.training_plan()._model.flatten(exclude_buffers = not self.training_args()['share_persistent_buffers']))
             )
             # FIXME: Access TorchModel through non-private getter once it is implemented
             aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
-                self.training_plan()._model.unflatten(flatten_params)
+                self.training_plan()._model.unflatten(flatten_params, exclude_buffers = not self.training_args()['share_persistent_buffers'])
             )
 
         else:
@@ -1150,7 +1147,7 @@ class Experiment(TrainingPlanWorkflow):
             'aggregator': agg_bkpt,
             'agg_optimizer': agg_optim_bkpt,
             'node_selection_strategy': strategy_bkpt,
-            'aggregated_params': self._save_aggregated_params(
+            'aggregated_params': self.save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
             'training_replies': training_replies_bkpt,
         }
@@ -1183,7 +1180,7 @@ class Experiment(TrainingPlanWorkflow):
         loaded_exp, saved_state = super().load_breakpoint()
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
-        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args, data=loaded_exp.training_data())
+        bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args)
         loaded_exp.set_strategy(bkpt_sampling_strategy)
         # retrieve breakpoint researcher optimizer
         bkpt_optim = Experiment._load_optimizer(saved_state.get("agg_optimizer"))
@@ -1205,14 +1202,17 @@ class Experiment(TrainingPlanWorkflow):
 
     @staticmethod
     @exp_exceptions
-    def _save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
+    def save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
         """Extract and format fields from aggregated_params that need to be saved in breakpoint.
 
         Creates link to the params file from the `breakpoint_path` and use them to reference the params files.
 
         Args:
-            aggregated_params_init (dict): ???
-            breakpoint_path: path to the directory where breakpoints files and links will be saved
+            aggregated_params_init: initial aggregated parameters to be saved inside the breakpoint. This
+                argument won't be modified in-place.
+            breakpoint_path: path to the directory where breakpoints files and links will be saved,
+                in a `*.mpk` file. Aggregated parameters are saved in a file named `aggregated_params_xxx.mpk`,
+                inside the breakpoint_path folder.
 
         Returns:
             Extract from `aggregated_params`
@@ -1494,5 +1494,5 @@ class Experiment(TrainingPlanWorkflow):
             self._aggregated_params[self._round_current] = {'params': aggregated_params}
         else:
             # only store the last round's values
-            self._training_replies= {self._round_current: training_replies}
+            self._training_replies = {self._round_current: training_replies}
             self._aggregated_params = {self._round_current: {'params': aggregated_params}}

@@ -279,7 +279,7 @@ class FederatedWorkflow(ABC):
     def experimentation_folder(self) -> str:
         """Retrieves the folder name where experiment data/result are saved.
 
-        Please see also[`set_experimentation_folder`]
+        Please see also [`set_experimentation_folder`]
         [fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_experimentation_folder]
 
         Returns:

@@ -1,5 +1,6 @@
 import os
 import shutil
+import tempfile
 import unittest
 from unittest.mock import MagicMock, create_autospec, patch
 
@@ -47,10 +48,11 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             def execute():
                 pass
 
-        # Job should be default-constructible
-        job = MinimalJob()
+        nodes = MagicMock(spec=list)
+        files_dir = '/path/to/my/files'
+        job = MinimalJob(nodes=nodes, keep_files_dir=files_dir)
         self.assertIsNotNone(job._keep_files_dir)  # must be initialized by Job
-        self.assertTrue(isinstance(job.nodes, list) and len(job.nodes) == 0)  # nodes must be empty list by default
+        self.assertTrue(isinstance(job._nodes, list) and len(job._nodes) == 0)  # nodes must be empty list by default
         # Job can take nodes and keep_files_dir as arguments
         mynodes = ['first-node', 'second-node']
         job = MinimalJob(
@@ -58,10 +60,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             keep_files_dir='keep_files_dir'
         )
         self.assertEqual(job._keep_files_dir, 'keep_files_dir')
-        self.assertTrue(all(x == y for x,y in zip(job.nodes, mynodes)))
-        # Nodes can be set a posteriori
-        job.nodes = ['another-node']
-        self.assertTrue(all(x == y for x,y in zip(job.nodes, ['another-node'])))
+        self.assertTrue(all(x == y for x,y in zip(job._nodes, mynodes)))
 
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
     def test_job_02_training_job(self, mock_uuid):
@@ -83,76 +82,79 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         }
 
         # initialize TrainingJob
-        job = TrainingJob(
-            job_id='some_id',
-            round_=1,
-            training_plan=mock_tp,
-            training_args=TrainingArgs({}, only_required=False),
-            model_args=None,
-            data=self.fds,  # mocked FederatedDataSet class
-            nodes_state_ids=fake_node_state_ids,
-            aggregator_args={},
-            optim_aux_var={
-                'shared': {},
-                'node-specific': {
-                    'alice': 'node-specific',
-                    'bob': 'node-specific'
-                }
-            }
-        )
+        with tempfile.TemporaryDirectory() as fp:
+            job = TrainingJob(
+                job_id='some_id',
+                round_=1,
+                training_plan=mock_tp,
+                training_args=TrainingArgs({}, only_required=False),
+                model_args=None,
+                data=self.fds,  # mocked FederatedDataSet class
+                nodes_state_ids=fake_node_state_ids,
+                nodes = ['alice', 'bob'],
+                aggregator_args={},
+                optim_aux_var={
+                    'shared': {},
+                    'node-specific': {
+                        'alice': 'node-specific',
+                        'bob': 'node-specific'
+                    }
+                },
+                keep_files_dir=fp
+            )
 
-        # Calling execute() must:
-        # 1) call the `Requests.send` function to initiate training on the nodes
-        # 2) return the properly formatted replies
-        job.nodes = ['alice', 'bob']
-        self.fds.data = MagicMock(return_value={
-            'alice': {'dataset_id': 'alice_data'},
-            'bob': {'dataset_id': 'bob_data'},
-        })
-
-        self.mock_federated_request.errors.return_value = {}
-        self.mock_federated_request.replies.return_value = {
-            'alice': TrainReply(**self._get_train_reply(
-                'alice',
-                self.fds.data()['alice']['dataset_id'],
-                {'module': 'params_alice'})),
-            'bob': TrainReply(**self._get_train_reply(
-                'bob',
-                self.fds.data()['bob']['dataset_id'],
-                {'module': 'params_bob'})),
-        }
-        with patch("time.perf_counter") as mock_perf_counter:
-            mock_perf_counter.return_value = 0
-            replies, aux_vars = job.execute()
-        print("Aux vars--------")
-        print(aux_vars)
-        # The `send` function of the Requests module is always only called
-        # once regardless of the number of nodes
-        self.maxDiff = None
-
-        # Follwing line tests if aux_vars from training replies extracted correctly
-        self.assertDictEqual(aux_vars, {'module': {'alice': 'params_alice', 'bob': 'params_bob'}})
-
-        self.mock_requests.return_value.send.called_once_with(
-            [
-                (
-                    {'alice': self._get_msg(
-                        mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()),
-                     'bob': self._get_msg(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
-                    ['alice', 'bob']
-                )
-            ]
-        )
-        # populate expected replies
-        expected_replies = {}
-        for node_id, r in self.mock_federated_request.replies.return_value.items():
-            expected_replies.update({
-                node_id: {
-                    **r.get_dict(),
-                    'params_path': os.path.join(job._keep_files_dir, f"params_{node_id}_{mock_uuid.return_value}.mpk")
-                }
+            # Calling execute() must:
+            # 1) call the `Requests.send` function to initiate training on the nodes
+            # 2) return the properly formatted replies
+            #job._nodes = ['alice', 'bob']
+            self.fds.data = MagicMock(return_value={
+                'alice': {'dataset_id': 'alice_data'},
+                'bob': {'dataset_id': 'bob_data'},
             })
-        self.assertDictEqual(replies, expected_replies)
+
+            self.mock_federated_request.errors.return_value = {}
+            self.mock_federated_request.replies.return_value = {
+                'alice': TrainReply(**self._get_train_reply(
+                    'alice',
+                    self.fds.data()['alice']['dataset_id'],
+                    {'module': 'params_alice'})),
+                'bob': TrainReply(**self._get_train_reply(
+                    'bob',
+                    self.fds.data()['bob']['dataset_id'],
+                    {'module': 'params_bob'})),
+            }
+            with patch("time.perf_counter") as mock_perf_counter:
+                mock_perf_counter.return_value = 0
+                training_replies, aux_vars = job.execute()
+            print("Aux vars--------")
+            print(aux_vars)
+            # The `send` function of the Requests module is always only called
+            # once regardless of the number of nodes
+            self.maxDiff = None
+
+            # Follwing line tests if aux_vars from training replies extracted correctly
+            self.assertDictEqual(aux_vars, {'module': {'alice': 'params_alice', 'bob': 'params_bob'}})
+
+            self.mock_requests.return_value.send.called_once_with(
+                [
+                    (
+                        {'alice': self._get_msg(
+                            mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()),
+                         'bob': self._get_msg(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
+                        ['alice', 'bob']
+                    )
+                ]
+            )
+            # populate expected replies
+            expected_replies = {}
+            for node_id, r in self.mock_federated_request.replies.return_value.items():
+                expected_replies.update({
+                    node_id: {
+                        **r.get_dict(),
+                        'params_path': os.path.join(job._keep_files_dir, f"params_{node_id}_{mock_uuid.return_value}.mpk")
+                    }
+                })
+            self.assertDictEqual(training_replies, expected_replies)
 
 
     def _get_msg(self,
