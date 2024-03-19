@@ -420,15 +420,7 @@ class FederatedWorkflow(ABC):
             "Updating training data. This action will update FederatedDataset, "
             "and the nodes that will participate to the experiment.")
 
-        try:
-            self.set_training_data(None, from_tags=True)
-        except FedbiomedError as e:
-            raise FedbiomedValueError(
-                f"{ErrorNumbers.FB410.value} in `set_tags`. Automatic attempt to fix "
-                "inconsistency between tags and training data failed. Please reset "
-                "tags and training data to None before attempting to modify them again. "
-                f" Please see raised error: {e}"
-            ) from e
+        self.set_training_data(None, from_tags=True)
 
         # set the tags
         return self._tags
