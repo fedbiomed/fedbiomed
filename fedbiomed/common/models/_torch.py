@@ -96,7 +96,6 @@ class TorchModel(Model):
         Returns:
             to_list: Convert np.ndarray to a list if it is True.
         """
-
         params: List[float] = torch.nn.utils.parameters_to_vector(
             self.get_weights(only_trainable=only_trainable, exclude_buffers=exclude_buffers).values()
         ).tolist()
@@ -105,7 +104,9 @@ class TorchModel(Model):
 
     def unflatten(
             self,
-            weights_vector: List[float]
+            weights_vector: List[float],
+            only_trainable: bool = False,
+            exclude_buffers: bool = True
     ) -> Dict[str, torch.Tensor]:
         """Unflatten vectorized model weights using [`vector_to_parameters`][torch.nn.utils.vector_to_parameters]
 
@@ -113,26 +114,31 @@ class TorchModel(Model):
 
         Args:
             weights_vector: Vectorized model weights to convert dict
+            only_trainable: Whether to ignore non-trainable model parameters
+                from outputs (e.g. frozen neural network layers' parameters),
+                or include all model parameters (the default).
+            exclude_buffers: Whether to ignore buffers (the default), or 
+                include them.
 
         Returns:
             Model dictionary
         """
 
-        super().unflatten(weights_vector)
+        super().unflatten(weights_vector, only_trainable, exclude_buffers)
 
         # Copy model to make sure global model parameters won't be overwritten
-        model = copy.deepcopy(self.model)
+        model = copy.deepcopy(self)
         vector = torch.as_tensor(weights_vector).type(torch.DoubleTensor)
+        weights = model.get_weights(only_trainable=only_trainable, exclude_buffers=exclude_buffers)
 
         # Following operation updates model parameters of copied model object
         try:
-            torch.nn.utils.vector_to_parameters(vector, model.parameters())
+            torch.nn.utils.vector_to_parameters(vector, weights.values())
         except TypeError as e:
             FedbiomedModelError(
                 f"{ErrorNumbers.FB622.value} Can not unflatten model parameters. {e}"
             )
-
-        return TorchModel(model).get_weights()
+        return weights
 
     def set_weights(
         self,

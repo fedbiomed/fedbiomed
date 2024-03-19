@@ -138,9 +138,9 @@ class FakeModel(BaseTrainingPlan):
     def testing_routine(self, metric, history_monitor, before_train: bool):
         pass
 
-
 class FakeTorchTrainingPlan(FakeModel, TorchTrainingPlan):
 
+    _model = mock.create_autospec(Model, instance=True)
 
     def init_model(self):
         pass

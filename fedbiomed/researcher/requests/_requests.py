@@ -431,7 +431,8 @@ class Requests(metaclass=SingletonMeta):
             self,
             training_plan: BaseTrainingPlan,
             description: str = "no description provided",
-            nodes: Optional[List[str]] = None
+            nodes: Optional[List[str]] = None,
+            policies: Optional[List] = None
     ) -> dict:
         """Send a training plan and a ApprovalRequest message to node(s).
 
@@ -489,7 +490,7 @@ class Requests(metaclass=SingletonMeta):
             'training_plan': tp_source,
             'command': 'approval'})
 
-        with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
+        with self.send(message, nodes, policies=policies) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
             results = {req.node.id: False for req in federated_req.requests}

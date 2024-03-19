@@ -40,6 +40,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         self.patch_job = patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
         self.mock_job = self.patch_job.start()
         self.mock_job.return_value = MagicMock(spec=TrainingJob)
+        self.mock_job.return_value._training_replies = {}
 
         self.mock_job.return_value.execute.return_value = MagicMock(), {}
 
@@ -304,8 +305,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
 
         # Test that receiving auxiliary variables without an aggregator-level optimizer fails
         self.mock_job.reset_mock()
-        self.mock_job.return_value.execute.return_value = \
-            MagicMock(), {"module": {"node_id": {"key": "val"}}}  # mock aux-var dict
+        self.mock_job.return_value.execute.return_value = MagicMock(), {"module": {"node_id": {"key": "val"}}}  # mock aux-var dict
 
         exp = Experiment(
             training_data=_training_data,
@@ -399,7 +399,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         )
         exp._set_round_current(2)
 
-        with patch.object(exp, '_save_aggregated_params', return_value={'agg_params': 'bkpt'}) as mock_agg_param_save,\
+        with patch.object(exp, 'save_aggregated_params', return_value={'agg_params': 'bkpt'}) as mock_agg_param_save,\
                 patch.object(exp, 'save_training_replies', return_value={'replies': 'bkpt'}) as mock_save_replies, \
                 patch.object(exp, 'training_plan') as mock_tp:
             exp.breakpoint()
