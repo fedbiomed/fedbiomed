@@ -233,8 +233,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Configures model and optimizer before training
 
         Args:
-            initialize_optimizer: If True configures optimizer of
-                training training plan
+            initialize_optimizer: If True configures optimizer.
         """
 
         # Message to format for unexpected argument definitions in special methods
