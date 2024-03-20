@@ -1,14 +1,18 @@
-# This file is originally part of Fed-BioMed
-# SPDX-License-Identifier: Apache-2.0
-import inspect, os
+"""
+This file is originally part of Fed-BioMed
+SPDX-License-Identifier: Apache-2.0
+"""
+import os
+import inspect
 import uuid
+
 from abc import ABC
 from contextlib import contextmanager
 from re import findall
 from typing import Any, Dict, List, Type, TypeVar, Union, Optional, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedJobError
+from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedTypeError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -19,8 +23,10 @@ from fedbiomed.common.utils import (
 )
 
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions, FederatedWorkflow
-from fedbiomed.researcher.federated_workflows.jobs import TrainingPlanApproveJob, TrainingPlanCheckJob
+from fedbiomed.researcher.federated_workflows._federated_workflow \
+    import exp_exceptions, FederatedWorkflow
+from fedbiomed.researcher.federated_workflows.jobs \
+    import TrainingPlanApproveJob, TrainingPlanCheckJob
 from fedbiomed.researcher.filetools import create_unique_link, choose_bkpt_file
 from fedbiomed.researcher.secagg import SecureAggregation
 
@@ -28,8 +34,8 @@ from fedbiomed.researcher.secagg import SecureAggregation
 training_plans_types = (TorchTrainingPlan, SKLearnTrainingPlan)
 # typing information
 TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
-Type_TrainingPlan = TypeVar('Type_TrainingPlan', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
-TTrainingPlanWorkflow = TypeVar("TTrainingPlanWorkflow", bound='TrainingPlanWorkflow')  # only for typing
+TrainingPlanT = TypeVar('TrainingPlanT', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
+TrainingPlanWorkflowT = TypeVar("TrainingPlanWorkflowT", bound='TrainingPlanWorkflow')  # only for typing
 
 
 class TrainingPlanWorkflow(FederatedWorkflow, ABC):
@@ -41,7 +47,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     manages the life-cycle of the training plan.
 
     !!! warning "Use `set_training_plan_class` to manage the training plan"
-        Please only ever use the [`set_training_plan_class`][fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingPlanWorkflow.set_training_plan_class]
+        Please only ever use the
+        [`set_training_plan_class`][fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingPlanWorkflow.set_training_plan_class]
         function to manage the training plan. Do not set the training plan or training plan class directly!
 
     """
@@ -52,7 +59,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             tags: Optional[Union[List[str], str]] = None,
             nodes: Optional[List[str]] = None,
             training_data: Optional[Union[FederatedDataSet, dict]] = None,
-            training_plan_class: Optional[Type_TrainingPlan] = None,
+            training_plan_class: Optional[TrainingPlanT] = None,
             training_args: Optional[Union[TrainingArgs, dict]] = None,
             model_args: Optional[Dict] = None,
             experimentation_folder: Optional[str] = None,
@@ -79,7 +86,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 Defaults to None (query nodes for dataset if `tags` is not None, set training_data
                 to None else)
             training_plan_class: training plan class to be used for training.
-                For experiment to be properly and fully defined `training_plan_class` needs to be a `Type_TrainingPlan`
+                For experiment to be properly and fully defined `training_plan_class` needs to be a `TrainingPlanT`
                 Defaults to None (no training plan class defined yet)
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
                 output and input feature dimension, etc.
@@ -99,13 +106,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
         # Check arguments
         if training_plan_class is not None and not inspect.isclass(training_plan_class):
-            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class` {type(training_plan_class)}"
-            raise FedbiomedJobError(msg)
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB418.value}: bad type for argument "
+                f"`training_plan_class` {type(training_plan_class)}")
 
         if training_plan_class is not None and not issubclass(training_plan_class, training_plans_types):
-            msg = f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. It is not subclass of " + \
-                  f" supported training plans {training_plans_types}"
-            raise FedbiomedJobError(msg)
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. "
+                f"It is not subclass of supported training plans {training_plans_types}"
+            )
 
         # __training_plan_class determines the life-cycle of the training plan: if training_plass_class changes, then
         # the training plan must be reinitialized
@@ -185,14 +194,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             self.__training_plan = None
         else:
             with self._keep_weights(keep_weights):
-               self.__training_plan = self._instantiate_training_plan()
+                self.__training_plan = self._instantiate_training_plan()
 
 
     @exp_exceptions
-    def training_plan_class(self) -> Optional[Type_TrainingPlan]:
+    def training_plan_class(self) -> Optional[TrainingPlanT]:
         """Retrieves the type of the training plan that is created for training.
 
-        Please see also [`set_training_plan_class`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.set_training_plan_class].
+        Please see also
+        [`set_training_plan_class`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.set_training_plan_class].
 
         Returns:
             training_plan_class: the class type of the training plan.
@@ -237,22 +247,22 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 'Values': []
             }
         info['Arguments'].extend([
-                'Training Plan Class',
-                'Model Arguments',
-            ])
+            'Training Plan Class',
+            'Model Arguments',
+        ])
         info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
-                           self.__training_plan_class,
-                           self._model_args,
-                       ]])
+            self.__training_plan_class,
+            self._model_args,
+        ]])
         info = super().info(info)
         return info
 
     @exp_exceptions
     def set_training_plan_class(self,
-                                training_plan_class: Union[Type_TrainingPlan, None],
+                                training_plan_class: Union[TrainingPlanT, None],
                                 keep_weights: bool = True
-                                ) -> Union[Type_TrainingPlan, None]:
+                                ) -> Union[TrainingPlanT, None]:
         """Sets  the training plan type + verification on arguments type
 
         !!! warning "Resets the training plan"
@@ -261,7 +271,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         Args:
             training_plan_class: training plan class to be used for training.
-                For experiment to be properly and fully defined `training_plan_class` needs to be a `Type_TrainingPlan`
+                For experiment to be properly and fully defined `training_plan_class` needs to be a `TrainingPlanT`
                 Defaults to None (no training plan class defined yet)
             keep_weights: try to keep the same weights as the current training plan
 
@@ -426,7 +436,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     @classmethod
     @exp_exceptions
     def load_breakpoint(cls,
-                        breakpoint_folder_path: Optional[str] = None) -> Tuple[TTrainingPlanWorkflow, dict]:
+                        breakpoint_folder_path: Optional[str] = None) -> Tuple[TrainingPlanWorkflowT, dict]:
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so the workflow can be resumed.
@@ -459,7 +469,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         training_plan = loaded_exp.training_plan()
         if training_plan is None:
             msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
-                  'breakpoint file seems corrupted, `training_plan` is None'
+                'breakpoint file seems corrupted, `training_plan` is None'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         param_path = saved_state['model_weights_path']
@@ -492,4 +502,3 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 raise FedbiomedExperimentError(msg)
         else:
             yield
-

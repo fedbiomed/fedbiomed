@@ -34,7 +34,8 @@ from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
-from fedbiomed.researcher.federated_workflows._training_plan_workflow import Type_TrainingPlan, TrainingPlanWorkflow
+from fedbiomed.researcher.federated_workflows._training_plan_workflow  \
+    import TrainingPlanT, TrainingPlanWorkflow
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
@@ -76,7 +77,7 @@ class Experiment(TrainingPlanWorkflow):
         agg_optimizer: Optional[Optimizer] = None,
         node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
         round_limit: Union[int, None] = None,
-        training_plan_class: Union[Type_TrainingPlan, str, None] = None,
+        training_plan_class: Union[TrainingPlanT, str, None] = None,
         training_args: Union[TrainingArgs, dict, None] = None,
         model_args: Optional[Dict] = None,
         tensorboard: bool = False,
@@ -116,10 +117,10 @@ class Experiment(TrainingPlanWorkflow):
             round_limit: the maximum number of training rounds (nodes <-> central server) that should be executed for
                 the experiment. `None` means that no limit is defined. Defaults to None.
             training_plan_class: name of the training plan class [`str`][str] or training plan class
-                (`Type_TrainingPlan`) to use for training.
+                (`TrainingPlanT`) to use for training.
                 For experiment to be properly and fully defined `training_plan_class` needs to be:
                 - a [`str`][str] when `training_plan_class_path` is not None (training plan class comes from a file).
-                - a `Type_TrainingPlan` when `training_plan_class_path` is None (training plan class passed
+                - a `TrainingPlanT` when `training_plan_class_path` is None (training plan class passed
                     as argument).
                 Defaults to None (no training plan class defined yet)
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
