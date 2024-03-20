@@ -8,6 +8,7 @@ from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
 
 
 class NodeStateAgent:
+    # TODO: check if it is working
     """
     Manages Node States collection, gathered from `Nodes` replies.
     """

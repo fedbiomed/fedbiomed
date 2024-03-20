@@ -510,6 +510,7 @@ class Experiment(TrainingPlanWorkflow):
             raise FedbiomedTypeError(msg)
 
     def _check_round_value_consistancy(self, round_current: int, variable_name: str) -> bool:
+        """Checks round value is consistant, ie it is a non negative integer. Raises appropriate errors otherwise"""
         if not isinstance(round_current, int):
             msg = ErrorNumbers.FB410.value + f' `{variable_name}` of type : {type(round_current)}'
             logger.critical(msg)
@@ -1011,19 +1012,12 @@ class Experiment(TrainingPlanWorkflow):
         # check rounds is a >=1 integer or None
         if rounds is None:
             pass
-        elif isinstance(rounds, int):
-            if rounds < 1:
-                msg = ErrorNumbers.FB410.value + \
-                    f', in method `run` param `rounds` : value {rounds}'
-                logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
         else:
-            # bad type
             msg = ErrorNumbers.FB410.value + \
-                f', in method `run` param `rounds` : type {type(rounds)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-            # check increase is a boolean
+                    f', in method `run` param `rounds` : value {rounds}'
+            self._check_round_value_consistancy(rounds, msg)
+
+        # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
                 f', in method `run` param `increase` : type {type(increase)}'
@@ -1035,7 +1029,7 @@ class Experiment(TrainingPlanWorkflow):
             if isinstance(self._round_limit, int):
                 # run all remaining rounds in the experiment
                 rounds = self._round_limit - self._round_current
-                if rounds == 0:
+                if rounds == 0.:
                     # limit already reached
                     logger.warning(f'Round limit of {self._round_limit} already reached '
                                    'for this experiment, do nothing.')
