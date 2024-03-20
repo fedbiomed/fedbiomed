@@ -188,12 +188,19 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
     @abstractmethod
     def unflatten(
             self,
-            weights_vector: List[float]
+            weights_vector: List[float],
+            only_trainable: bool = False,
+            exclude_buffers: bool = True
     ) -> None:
         """Revert flatten model weights back model-dict form.
 
         Args:
             weights_vector: Vectorized model weights to convert dict
+            only_trainable: Whether to ignore non-trainable model parameters
+                from outputs (e.g. frozen neural network layers' parameters),
+                or include all model parameters (the default).
+            exclude_buffers: Whether to ignore buffers (the default), or 
+                include them.
 
         Returns:
             Model dictionary

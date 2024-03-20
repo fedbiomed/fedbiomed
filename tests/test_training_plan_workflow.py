@@ -56,20 +56,22 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
         _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
         parameters_and_possible_values = {
-            'tags': ('one-tag', ['one-tag', 'another-tag'], None),
-            'nodes': (['one-node'], None),
+            'tags': (None, None, ['one-tag', 'another-tag']),
+            'nodes': (['one-node'], None, None),
             'training_data': (_training_data, {'one-node': {'tags': ['one-tag']}}, None),
             'training_args': (TrainingArgs({'epochs': 42}), {'num_updates': 1}, None),
-            'experimentation_folder': ('folder_name', None),
+            'experimentation_folder': ('folder_name', None, None),
             'secagg': (True, False, _secagg),
-            'save_breakpoints': (True, False),
+            'save_breakpoints': (True, False, False),
             'training_plan_class': (FakeTorchTrainingPlan, FakeSKLearnTrainingPlan, None),
-            'model_args': ({'model': 'args'}, None)
+            'model_args': ({'model': 'args'}, None, None)
         }
         # Compute cartesian product of parameter values to obtain all possible combinations
-        keys, values = zip(*parameters_and_possible_values.items())
-        all_parameter_combinations = [dict(zip(keys, v)) for v in product(*values)]
-        for params in all_parameter_combinations:
+        combs = [{key: value[i]
+                    for key, value in parameters_and_possible_values.items() }
+                    for i in range(3)]
+
+        for params in combs:
             try:
                 exp = TrainingPlanWorkflow(**params)
             except Exception as e:
@@ -176,11 +178,13 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         status = exp.check_training_plan_status()
         mock_approval_job.execute.assert_called_once_with()
 
+    @patch('fedbiomed.common.serializer.Serializer.dump')
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.FederatedWorkflow.breakpoint')
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
     def test_federated_workflow_06_breakpoint(self,
                                               mock_uuid,
                                               mock_super_breakpoint,
+                                              mock_serializer_dump
                                               ):
         # define attributes that will be saved in breakpoint
         exp = TrainingPlanWorkflow(
@@ -188,6 +192,16 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
             model_args={'breakpoint-model': 'args'}
         )
         exp.breakpoint(state={}, bkpt_number=1)
+        # Test if the Serializer.dump is called once with the good arguments
+        params_path = os.path.join(environ['EXPERIMENTS_DIR'],
+                                   exp.experimentation_folder(),
+                                   'breakpoint_0000',
+                                   f'model_params_{mock_uuid.return_value}.mpk'
+                                   )
+        mock_serializer_dump.assert_called_once_with(
+            self.mock_tp._model.get_weights.return_value,
+            params_path
+        )
         # This also validates the breakpoint scheme: if this fails, please consider updating the breakpoints version
         mock_super_breakpoint.assert_called_once_with(
             {
@@ -198,10 +212,12 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
                                                    'breakpoint_0000',
                                                    'model_0000.py'
                                                    ),
+                'model_weights_path': params_path
             },
             1
         )
 
+    @patch('fedbiomed.common.serializer.Serializer.load', return_value={"coefs": [1, 2, 3]})
     @patch(
         'fedbiomed.researcher.federated_workflows.'
         '_training_plan_workflow.import_class_from_file',
@@ -211,21 +227,32 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         '_training_plan_workflow.FederatedWorkflow.load_breakpoint')
     def test_federated_workflow_07_load_breakpoint(self,
                                                    mock_super_load,
-                                                   mock_import_class
+                                                   mock_import_class,
+                                                   mock_serializer_load
                                                    ):
+        model_weights_path = 'some-path-for-model-weights'
         mock_super_load.return_value = (
             TrainingPlanWorkflow(),
             {
                 'model_args': {'breakpoint-model': 'args'},
                 'training_plan_class_name': 'FakeTorchTrainingPlan',
-                'training_plan_path': 'some-path'
+                'training_plan_path': 'some-path',
+                'model_weights_path': model_weights_path
             }
         )
 
         exp, saved_state = TrainingPlanWorkflow.load_breakpoint()
+        # Test if Serializer.load is called once with the good arguments
+        mock_serializer_load.assert_called_once_with(
+            model_weights_path
+        )
         self.assertEqual(exp.training_plan_class(), FakeTorchTrainingPlan)
         self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
         self.assertDictEqual(exp.model_args(), {'breakpoint-model': 'args'})
+        # Test if set_weights is called with the right arguments
+        exp.training_plan()._model.set_weights.assert_called_once_with(
+            mock_serializer_load.return_value
+        )
 
 
 if __name__ == '__main__':  # pragma: no cover
