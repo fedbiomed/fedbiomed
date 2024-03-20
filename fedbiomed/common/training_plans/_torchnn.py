@@ -260,6 +260,13 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._model = TorchModel(model)
 
         # Get optimizer defined by researcher ------------------------
+        # FIXME: This is implemented to solve the issue while setting model
+        # arguments before setting training arguments on the researcher side (#1048).
+        # the execution of init_optimizer during post init requires to have
+        # optimizer_args set. However, this happens only on the researcher side
+        # where optimizer of training plan is not used (see issue #1048).
+        # Therefore, this fix adds new argument initialize_optimizer to set it False
+        # on the researcher.
         if initialize_optimizer:
             init_optim_spec = get_method_spec(self.init_optimizer)
             if not init_optim_spec:
