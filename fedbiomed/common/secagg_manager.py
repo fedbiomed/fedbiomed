@@ -11,13 +11,15 @@ import copy
 import json
 from tinydb import TinyDB, Query
 
-from fedbiomed.common.constants import ErrorNumbers, BiprimeType
+from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
+from fedbiomed.common.constants import ErrorNumbers, BiprimeType, __secagg_element_version__
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError, SchemeValidator
 
 _DefaultBiprimeValidator = SchemeValidator({
+    'secagg_version': {"rules": [int], "required": True},
     'secagg_id': {"rules": [str], "required": True},
     'biprime': {"rules": [int], "required": True},
     'max_keysize': {"rules": [int], "required": True},
@@ -82,6 +84,10 @@ class BaseSecaggManager(ABC):
             raise FedbiomedSecaggError(errmess)
         elif len(entries) == 1:
             element = entries[0]
+            raise_for_version_compatibility(
+                str(element.get('secagg_version', __default_version__)),
+                __secagg_element_version__
+            )
         else:
             element = None
 
@@ -111,7 +117,11 @@ class BaseSecaggManager(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        specific.update({'secagg_id': secagg_id, 'parties': parties})
+        specific.update({
+            'secagg_version': str(__secagg_element_version__),
+            'secagg_id': secagg_id,
+            'parties': parties
+        })
         try:
             self._table.insert(specific)
         except Exception as e:
@@ -440,6 +450,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             try:
                 self._table.upsert(
                     {
+                        'secagg_version': bp['secagg_version'],
                         'secagg_id': bp['secagg_id'],
                         'parties': None,
                         'type': BiprimeType.DEFAULT.value,

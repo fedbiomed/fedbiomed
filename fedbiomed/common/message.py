@@ -793,7 +793,10 @@ class MessageFactory:
         MessageFactory._raise_for_missing_command(params)
         message_type = params['command']
         MessageFactory._validate_message_type_or_raise(message_type, cls.INCOMING_MESSAGE_TYPE_TO_CLASS_MAP)
-        raise_for_version_compatibility(__messaging_protocol_version__, params['protocol_version'])
+        raise_for_version_compatibility(
+            params['protocol_version'],
+            __messaging_protocol_version__
+        )
         return cls.INCOMING_MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
