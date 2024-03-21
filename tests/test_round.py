@@ -76,9 +76,6 @@ class TestRound(NodeTestCase):
         # logs messages
         history_monitor = MagicMock()
 
-        self.atexit_patcher = patch('fedbiomed.node.round.atexit')
-        self.atexit_mock = self.atexit_patcher.start()
-
         self.state_manager_patch = patch('fedbiomed.node.round.NodeStateManager')
         self.ic_from_spec_patch = patch("fedbiomed.node.round.utils.import_class_from_spec")
         self.ic_from_file_patch = patch("fedbiomed.node.round.utils.import_class_object_from_file")
@@ -135,7 +132,6 @@ class TestRound(NodeTestCase):
         self.r2.history_monitor = dummy_monitor
 
     def tearDown(self):
-        self.atexit_patcher.stop() 
         self.ic_from_file_patch.stop()
         self.ic_from_spec_patch.stop()
         self.state_manager_patch.stop()
