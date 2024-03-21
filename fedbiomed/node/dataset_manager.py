@@ -8,6 +8,9 @@ Interfaces with the node component database.
 
 import csv
 import os.path
+from pathlib import Path
+import random
+import shutil
 from typing import Iterable, Union, List, Any, Optional, Tuple
 import uuid
 
@@ -248,8 +251,8 @@ class DatasetManager:
 
     def load_mednist_database(self,
                               path: str,
-                              as_dataset: bool = False) -> Union[List[int],
-                                                                 torch.utils.data.Dataset]:
+                              as_dataset: bool = False) -> [Union[List[int],
+                                                            torch.utils.data.Dataset], str]:
         """Loads the MedNist dataset.
 
         Args:
@@ -268,10 +271,13 @@ class DatasetManager:
                 - one of the classes path is empty
 
         Returns:
-            Depends on the value of the parameter `as_dataset`: If
+            Tuple of 2 items:
+            First item Depends on the value of the parameter `as_dataset`: If
             set to True,  returns dataset (type: torch.utils.data.Dataset).
             If set to False, returns the size of the dataset stored inside
             a list (type: List[int])
+            Second item is the path used to download the MedNIST dataset, that needs to be saved as an
+            entry in the dataset
         """
         download_path = os.path.join(path, 'MedNIST')
         if not os.path.isdir(download_path):
@@ -309,9 +315,9 @@ class DatasetManager:
             raise FedbiomedDatasetManagerError(_msg)
 
         if as_dataset:
-            return dataset
+            return dataset, download_path
         else:
-            return self.get_torch_dataset_shape(dataset)
+            return self.get_torch_dataset_shape(dataset), download_path
 
     def load_images_dataset(self,
                             folder_path: str,
@@ -431,8 +437,7 @@ class DatasetManager:
 
         elif data_type == 'mednist':
             assert os.path.isdir(path), f'Folder {path} for MedNIST Dataset does not exist.'
-            shape = self.load_mednist_database(path)
-            path = os.path.join(path, 'MedNIST')
+            shape, path = self.load_mednist_database(path)
 
         elif data_type == 'csv':
             assert os.path.isfile(path), f'Path provided ({path}) does not correspond to a CSV file.'
@@ -492,6 +497,7 @@ class DatasetManager:
             dlp_id = None
         if dlp_id is not None:
             new_database['dlp_id'] = dlp_id
+
         self._dataset_table.insert(new_database)
 
         return dataset_id

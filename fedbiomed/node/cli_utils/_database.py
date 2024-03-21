@@ -5,11 +5,10 @@ import os
 import tkinter.messagebox
 import warnings
 from importlib import import_module
-from fedbiomed.common import data
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetManagerError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, FlambyDatasetMetadataBlock, \
+from fedbiomed.common.data import DataLoadingPlan, FlambyDatasetMetadataBlock, \
     FlambyLoadingBlockTypes
 from fedbiomed.node.cli_utils._medical_folder_dataset import add_medical_folder_dataset_from_cli
 from fedbiomed.node.dataset_manager import DatasetManager

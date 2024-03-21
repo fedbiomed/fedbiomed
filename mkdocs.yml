@@ -39,6 +39,7 @@ nav:
         - 'Federated Model vs Local Model': './tutorials/pytorch/03_PyTorch_MNIST_local_vs_Federated.ipynb'
         - 'Regression Example with Used Cars Dataset': './tutorials/pytorch/04_PyTorch_Used_Cars_Dataset_Example.ipynb'
         - 'Aggregators in Fed-BioMed': './tutorials/pytorch/05-Aggregation_in_Fed-BioMed.ipynb'
+        - 'Transfer-Learning in Fed-BioMed': './tutorials/pytorch/06_Transfer-learning_tutorial_usingDenseNet-121.ipynb'
       - MONAI: 
         - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb' 
         - '2D Image Registration with MedNIST': './tutorials/monai/02_monai-2d-image-registration.ipynb'
