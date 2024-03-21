@@ -5,7 +5,6 @@
 implementation of Round class of the node component
 '''
 
-import atexit
 import tempfile
 import shutil
 import os
@@ -116,8 +115,11 @@ class Round:
         self._node_state_manager: NodeStateManager = NodeStateManager(environ['DB_PATH'])
 
         self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
-        atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
 
+    def __del__(self):
+        """Class destructor"""
+        # remove temporary files directory
+        shutil.rmtree(self._keep_files_dir)
 
     def _initialize_validate_training_arguments(self) -> Optional[Dict[str, Any]]:
         """Initialize and validate requested experiment/training arguments.
