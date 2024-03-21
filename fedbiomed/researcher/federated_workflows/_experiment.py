@@ -34,8 +34,8 @@ from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
-from fedbiomed.researcher.federated_workflows._training_plan_workflow  \
-    import TrainingPlanT, TrainingPlanWorkflow
+from fedbiomed.researcher.federated_workflows._training_plan_workflow import (TrainingPlanT as Type_TrainingPlan,
+                                                                              TrainingPlanWorkflow)
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
@@ -77,7 +77,7 @@ class Experiment(TrainingPlanWorkflow):
         agg_optimizer: Optional[Optimizer] = None,
         node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
         round_limit: Union[int, None] = None,
-        training_plan_class: Union[TrainingPlanT, str, None] = None,
+        training_plan_class: Union[Type_TrainingPlan, str, None] = None,
         training_args: Union[TrainingArgs, dict, None] = None,
         model_args: Optional[Dict] = None,
         tensorboard: bool = False,
@@ -117,10 +117,10 @@ class Experiment(TrainingPlanWorkflow):
             round_limit: the maximum number of training rounds (nodes <-> central server) that should be executed for
                 the experiment. `None` means that no limit is defined. Defaults to None.
             training_plan_class: name of the training plan class [`str`][str] or training plan class
-                (`TrainingPlanT`) to use for training.
+                (`Type_TrainingPlan`) to use for training.
                 For experiment to be properly and fully defined `training_plan_class` needs to be:
                 - a [`str`][str] when `training_plan_class_path` is not None (training plan class comes from a file).
-                - a `TrainingPlanT` when `training_plan_class_path` is None (training plan class passed
+                - a `Type_TrainingPlan` when `training_plan_class_path` is None (training plan class passed
                     as argument).
                 Defaults to None (no training plan class defined yet)
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
@@ -154,6 +154,9 @@ class Experiment(TrainingPlanWorkflow):
         self._agg_optimizer = None
         self.aggregator_args = {}
         self._aggregated_params = {}
+        self._client_correction_states_dict = {}
+        self._client_states_dict = {}
+        self._server_state = None
         self._training_replies: Dict = {}
         self._retain_full_history = None
 
@@ -366,7 +369,7 @@ class Experiment(TrainingPlanWorkflow):
 
     # a specific getter-like
     @exp_exceptions
-    def info(self, info=None) -> Dict[str, Any]:
+    def info(self) -> Dict[str, Any]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
@@ -376,8 +379,8 @@ class Experiment(TrainingPlanWorkflow):
         """
         # TODO: redo check for experiments
         # at this point all attributes are initialized (in constructor)
-        if info is None:
-            info = self._create_default_info_structure()
+
+        info = self._create_default_info_structure()
 
         info['Arguments'].extend([
             'Aggregator',
@@ -396,8 +399,8 @@ class Experiment(TrainingPlanWorkflow):
                 self._round_limit,
                 self._save_breakpoints,
             ]])
-        info = super().info(info)
-        return info
+
+        return super().info(info)
 
     @exp_exceptions
     def set_aggregator(self, aggregator: Optional[Union[Aggregator, Type[Aggregator]]] = None) -> Aggregator:
@@ -488,38 +491,6 @@ class Experiment(TrainingPlanWorkflow):
             )
         self._agg_optimizer = agg_optimizer
         return self._agg_optimizer
-
-    def _check_and_load_object(self, passed_obj: Union[Callable, T], type_ref_obj: Type, msg: str):
-        """Checks consistancy of object and loads object, depending if passed object is a Callable or 
-        a type"""
-        if inspect.isclass(passed_obj):
-
-            if issubclass(passed_obj, type_ref_obj):
-                return passed_obj()
-                # FIXME: what should we do if `passed_obj` requires arguments?
-            else:
-                # bad argument
-                logger.critical(msg % passed_obj)
-                raise FedbiomedTypeError(msg)
-        elif isinstance(passed_obj, type_ref_obj):
-            return passed_obj
-        else:
-            logger.critical(msg % type(passed_obj))
-            raise FedbiomedTypeError(msg)
-
-    def _check_round_value_consistancy(self, round_current: int, variable_name: str) -> bool:
-        """Checks round value is consistant, ie it is a non negative integer. Raises appropriate errors otherwise"""
-        if not isinstance(round_current, int):
-            msg = ErrorNumbers.FB410.value + f' `{variable_name}` of type : {type(round_current)}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        if round_current < 0.:
-            # cannot set a round <0
-            msg = ErrorNumbers.FB410.value + f' `{variable_name}` cannot be negative : {round_current}'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-        return True
 
     @exp_exceptions
     def set_strategy(self, node_selection_strategy: Optional[Union[Strategy, Type[Strategy]]] = None) -> \
@@ -784,6 +755,10 @@ class Experiment(TrainingPlanWorkflow):
         #     logger.critical(msg)
         #     raise FedbiomedExperimentError(msg)
 
+        missing = self._check_missing_objects()
+        if missing:
+            raise FedbiomedExperimentError(ErrorNumbers.FB411.value + ' missing one or several object needed for'
+                                           ' starting the `Experiment`. Details:\n' + missing)
         # Sample nodes for training
         training_nodes = self._node_selection_strategy.sample_nodes(
             from_nodes=self.filtered_federation_nodes(),
@@ -843,11 +818,11 @@ class Experiment(TrainingPlanWorkflow):
                 encryption_factors=encryption_factors,
                 total_sample_size=total_sample_size,
                 model_params=model_params,
-                num_expected_params=len(self.training_plan()._model.flatten(exclude_buffers = not self.training_args()['share_persistent_buffers']))
+                num_expected_params=len(self.training_plan()._model.flatten())
             )
             # FIXME: Access TorchModel through non-private getter once it is implemented
             aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
-                self.training_plan()._model.unflatten(flatten_params, exclude_buffers = not self.training_args()['share_persistent_buffers'])
+                self.training_plan()._model.unflatten(flatten_params)
             )
 
         else:
@@ -1027,7 +1002,7 @@ class Experiment(TrainingPlanWorkflow):
             if isinstance(self._round_limit, int):
                 # run all remaining rounds in the experiment
                 rounds = self._round_limit - self._round_current
-                if rounds == 0.:
+                if rounds == 0:
                     # limit already reached
                     logger.warning(f'Round limit of {self._round_limit} already reached '
                                    'for this experiment, do nothing.')
@@ -1133,7 +1108,7 @@ class Experiment(TrainingPlanWorkflow):
             'aggregator': agg_bkpt,
             'agg_optimizer': agg_optim_bkpt,
             'node_selection_strategy': strategy_bkpt,
-            'aggregated_params': self.save_aggregated_params(
+            'aggregated_params': self._save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
             'training_replies': training_replies_bkpt,
         }
@@ -1188,22 +1163,14 @@ class Experiment(TrainingPlanWorkflow):
 
     @staticmethod
     @exp_exceptions
-    def save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
+    def _save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
         """Extract and format fields from aggregated_params that need to be saved in breakpoint.
 
         Creates link to the params file from the `breakpoint_path` and use them to reference the params files.
 
         Args:
-<<<<<<< HEAD
             aggregated_params_init (dict): aggregated parameters
             breakpoint_path: path to the directory where breakpoints files and links will be saved
-=======
-            aggregated_params_init: initial aggregated parameters to be saved inside the breakpoint. This
-                argument won't be modified in-place.
-            breakpoint_path: path to the directory where breakpoints files and links will be saved,
-                in a `*.mpk` file. Aggregated parameters are saved in a file named `aggregated_params_xxx.mpk`,
-                inside the breakpoint_path folder.
->>>>>>> 64a75dbe42d012a6fb760567b4447dc98c1b8671
 
         Returns:
             Extract from `aggregated_params`

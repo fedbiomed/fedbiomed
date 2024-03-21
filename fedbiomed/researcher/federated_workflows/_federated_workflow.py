@@ -333,19 +333,38 @@ class FederatedWorkflow(ABC):
         return self._save_breakpoints
 
     @staticmethod
-    def _create_default_info_structure():
+    def _create_default_info_structure() -> Dict[str, List]:
+        """Initializes info variable
+
+        Returns:
+            dictionary containing all pieces of information, with 2 entries: `Arguments` and `Values`,
+              both mapping an empty list.
+
+        """
 
         return {
-                'Arguments': [],
-                'Values': []
-                }
+            'Arguments': [],
+            'Values': []
+        }
 
     @exp_exceptions
-    def info(self, info=None) -> Dict[str, Any]:
+    def info(self,
+             info: Dict[str, List[str]] = None,
+             missing: str = '') -> Tuple[Dict[str, List[str]], str]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
 
+        Args: 
+            info: Dictionary of sub-classes relevant attributes status that will be completed with some additional
+                attributes status defined in this class. Defaults to None (no entries of sub-classes available or
+                of importance).
+            missing_object_to_check: dictionary mapping sub-classes attributes to attribute names, that may be
+                needed to fully run the object. Defaults to None (no check will be performed).
+
+        Returns:
+            dictionary containing all pieces of information, with 2 entries: `Arguments` mapping a list 
+            of all argument, and `Values` mapping a list copntaining all the values.
         """
         if info is None:
             info = self._create_default_info_structure()
@@ -368,8 +387,31 @@ class FederatedWorkflow(ABC):
             self.experimentation_path(),
             f'- Using: {self._secagg}\n- Active: {self._secagg.active}'
         ]])
+
+        # printing list of items set / not set yet
         print(tabulate.tabulate(info, headers='keys'))
-        return info
+
+        # definitions that may be missing for running the fedreated workflow
+        # (value None == not defined yet for _fds,)
+        _not_runable_if_missing = {
+            'Training Data': self._fds,
+            'Tags': self._tags
+        }
+
+        missing += self._check_missing_objects(_not_runable_if_missing)
+        if missing:
+            print(f"\nWarning: Object not fully defined, missing: {missing}")
+        return info, missing
+
+    def _check_missing_objects(self, missing_objects: Dict[str, Any]) -> str:
+        # definitions found missing
+        missing: str = ''
+
+        for key, value in missing_objects.items():
+            if value in (None, False):
+                missing += f'- {key}\n'
+
+        return missing
 
     # Setters
     @exp_exceptions

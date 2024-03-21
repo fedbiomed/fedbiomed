@@ -9,7 +9,7 @@ import uuid
 from abc import ABC
 from contextlib import contextmanager
 from re import findall
-from typing import Any, Dict, List, Type, TypeVar, Union, Optional, Tuple
+from typing import Any, Callable, Dict, List, Type, TypeVar, Union, Optional, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedTypeError
@@ -36,6 +36,7 @@ TRAINING_PLAN_TYPES = (TorchTrainingPlan, SKLearnTrainingPlan)
 TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
 TrainingPlanT = TypeVar('TrainingPlanT', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
 TrainingPlanWorkflowT = TypeVar("TrainingPlanWorkflowT", bound='TrainingPlanWorkflow')  # only for typing
+T = TypeVar("T")
 
 
 class TrainingPlanWorkflow(FederatedWorkflow, ABC):
@@ -139,7 +140,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         self.set_model_args(model_args)
         self.set_training_plan_class(training_plan_class)
 
-
     def _instantiate_training_plan(self) -> BaseTrainingPlan:
         """Instantiates training plan class
 
@@ -231,14 +231,17 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         return self._model_args
 
     @exp_exceptions
-    def info(self, info: Optional[Dict] = None) -> Dict[str, List[Any]]:
+    def info(self, info: Optional[Dict] = None, missing: str = '') -> Dict[str, List[str]]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
 
         Args: 
-            information already created that will be completed with some additional information.
-            Defaults to None.
+            info: Dictionary of sub-classes relevant attributes status that will be completed with some additional
+                attributes status defined in this class. Defaults to None (no entries of sub-classes available or
+                of importance).
+            missing_object_to_check: dictionary mapping sub-classes attributes to attribute names, that may be
+                needed to fully run the object. Defaults to None (no check will be performed).
 
         Returns:
             dictionary containing all pieces of information, with 2 entries: `Arguments` mapping a list 
@@ -259,8 +262,11 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             self.__training_plan_class,
             self._model_args,
         ]])
-        info = super().info(info)
-        return info
+        # definitions that may be missing for running the experiment
+
+        _not_runnable_if_missing = {'Training Plan Class' : self.__training_plan_class}
+        missing = self._check_missing_objects(_not_runnable_if_missing)
+        return super().info(info, missing)
 
     @exp_exceptions
     def set_training_plan_class(self,
@@ -482,6 +488,38 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         loaded_exp.training_plan()._model.set_weights(params)
 
         return loaded_exp, saved_state
+
+    def _check_and_load_object(self, passed_obj: Union[Callable, T], type_ref_obj: Type, msg: str):
+        """Checks consistancy of object and loads object, depending if passed object is a Callable or 
+        a type"""
+        if inspect.isclass(passed_obj):
+
+            if issubclass(passed_obj, type_ref_obj):
+                return passed_obj()
+                # FIXME: what should we do if `passed_obj` requires arguments?
+            else:
+                # bad argument
+                logger.critical(msg % passed_obj)
+                raise FedbiomedTypeError(msg)
+        elif isinstance(passed_obj, type_ref_obj):
+            return passed_obj
+        else:
+            logger.critical(msg % type(passed_obj))
+            raise FedbiomedTypeError(msg)
+
+    def _check_round_value_consistancy(self, round_current: int, variable_name: str) -> bool:
+        """Checks round value is consistant, ie it is a non negative integer. Raises appropriate errors otherwise"""
+        if not isinstance(round_current, int):
+            msg = ErrorNumbers.FB410.value + f' `{variable_name}` of type : {type(round_current)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        if round_current < 0.:
+            # cannot set a round <0
+            msg = ErrorNumbers.FB410.value + f' `{variable_name}` cannot be negative : {round_current}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+        return True
 
     @contextmanager
     def _keep_weights(self, keep_weights: bool):
