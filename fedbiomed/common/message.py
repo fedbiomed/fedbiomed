@@ -15,6 +15,7 @@ from google.protobuf.descriptor import FieldDescriptor
 import fedbiomed.transport.protocols.researcher_pb2 as r_pb2
 
 from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
+from fedbiomed.common.utils import raise_for_version_compatibility
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 
@@ -792,6 +793,7 @@ class MessageFactory:
         MessageFactory._raise_for_missing_command(params)
         message_type = params['command']
         MessageFactory._validate_message_type_or_raise(message_type, cls.INCOMING_MESSAGE_TYPE_TO_CLASS_MAP)
+        raise_for_version_compatibility(__messaging_protocol_version__, params['protocol_version'])
         return cls.INCOMING_MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
 
     @classmethod
