@@ -342,6 +342,10 @@ class Node:
                             )
                             msg.request_id = item.request_id
                             self._grpc_client.send(msg)
+
+                            # clean out `Round` objects (eg temporary files)
+                            # don't wait for garbage collection
+                            del round
                     except Exception as e:
                         # send an error message back to network if something
                         # wrong occured
