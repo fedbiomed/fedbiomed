@@ -369,7 +369,7 @@ class Experiment(TrainingPlanWorkflow):
 
     # a specific getter-like
     @exp_exceptions
-    def info(self) -> Dict[str, Any]:
+    def info(self) -> Tuple[Dict[str, List[str]], str]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
@@ -400,7 +400,8 @@ class Experiment(TrainingPlanWorkflow):
                 self._save_breakpoints,
             ]])
 
-        return super().info(info)
+        missing = self._check_missing_objects()
+        return super().info(info, missing)
 
     @exp_exceptions
     def set_aggregator(self, aggregator: Optional[Union[Aggregator, Type[Aggregator]]] = None) -> Aggregator:
@@ -757,7 +758,7 @@ class Experiment(TrainingPlanWorkflow):
 
         missing = self._check_missing_objects()
         if missing:
-            raise FedbiomedExperimentError(ErrorNumbers.FB411.value + ' missing one or several object needed for'
+            raise FedbiomedExperimentError(ErrorNumbers.FB411.value + ': missing one or several object needed for'
                                            ' starting the `Experiment`. Details:\n' + missing)
         # Sample nodes for training
         training_nodes = self._node_selection_strategy.sample_nodes(

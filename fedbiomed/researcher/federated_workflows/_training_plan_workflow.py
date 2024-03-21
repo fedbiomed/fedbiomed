@@ -231,7 +231,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         return self._model_args
 
     @exp_exceptions
-    def info(self, info: Optional[Dict] = None, missing: str = '') -> Dict[str, List[str]]:
+    def info(self, info: Optional[Dict] = None, missing: str = '') -> Tuple[Dict[str, List[str]], str]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
@@ -262,11 +262,16 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             self.__training_plan_class,
             self._model_args,
         ]])
-        # definitions that may be missing for running the experiment
 
-        _not_runnable_if_missing = {'Training Plan Class' : self.__training_plan_class}
-        missing = self._check_missing_objects(_not_runnable_if_missing)
         return super().info(info, missing)
+
+    def _check_missing_objects(self) -> str:
+        # definitions of elements that may be missing for running the experiment
+        _not_runnable_if_missing = {'Training Plan Class' : self.__training_plan_class}
+
+        missing: str = ''
+        missing += super()._check_missing_objects(_not_runnable_if_missing)
+        return missing
 
     @exp_exceptions
     def set_training_plan_class(self,

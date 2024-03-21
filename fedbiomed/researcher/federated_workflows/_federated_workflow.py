@@ -391,23 +391,28 @@ class FederatedWorkflow(ABC):
         # printing list of items set / not set yet
         print(tabulate.tabulate(info, headers='keys'))
 
+        if missing:
+            print("\nWarning: Object not fully defined, missing"
+                  f": \n{missing}")
+        else:
+            print(f"{self.__class__.__name__} can be run now (fully defined)")
+        return info, missing
+
+    def _check_missing_objects(self, missing_objects = None) -> str:
+        # definitions found missing
+
         # definitions that may be missing for running the fedreated workflow
         # (value None == not defined yet for _fds,)
+
         _not_runable_if_missing = {
             'Training Data': self._fds,
             'Tags': self._tags
         }
 
-        missing += self._check_missing_objects(_not_runable_if_missing)
-        if missing:
-            print(f"\nWarning: Object not fully defined, missing: {missing}")
-        return info, missing
-
-    def _check_missing_objects(self, missing_objects: Dict[str, Any]) -> str:
-        # definitions found missing
+        if missing_objects:
+            _not_runable_if_missing.update(missing_objects)
         missing: str = ''
-
-        for key, value in missing_objects.items():
+        for key, value in _not_runable_if_missing.items():
             if value in (None, False):
                 missing += f'- {key}\n'
 
