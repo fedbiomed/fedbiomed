@@ -81,6 +81,17 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def model(self):
         """Gets model instance of the training plan"""
 
+    # FIXME: re-implement Model as a subclass of Torch.nn.module, SGDClassifier, etc.
+    # to avoid having a distinct getter for the class, see #1049
+
+    def get_model_wrapper_class(self) -> Model:
+        """Gets training plan's model wrapper class.
+
+        Returns:
+            the wrapper class for the model
+        """
+        return self._model
+
     @property
     def dependencies(self):
             return self._dependencies
