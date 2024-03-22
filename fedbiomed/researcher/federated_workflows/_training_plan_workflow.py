@@ -427,7 +427,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             os.path.join('..', os.path.basename(training_plan_file))
         )
         params_path = os.path.join(breakpoint_path, f"model_params_{uuid.uuid4()}.mpk")
-        Serializer.dump(self.training_plan()._model.get_weights(only_trainable = False, exclude_buffers = False), params_path)
+        Serializer.dump(self.training_plan().get_model_wrapper_class().get_weights(
+            only_trainable = False, exclude_buffers = False), params_path)
         state['model_weights_path'] = params_path
 
         super().breakpoint(state, bkpt_number)
@@ -474,7 +475,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
         param_path = saved_state['model_weights_path']
         params = Serializer.load(param_path)
-        loaded_exp.training_plan()._model.set_weights(params)
+        loaded_exp.training_plan().get_model_wrapper_class().set_weights(params)
 
         return loaded_exp, saved_state
 
