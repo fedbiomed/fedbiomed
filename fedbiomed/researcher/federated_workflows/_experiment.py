@@ -434,6 +434,7 @@ class Experiment(TrainingPlanWorkflow):
 
         return self._aggregator
 
+    @exp_exceptions
     def set_training_data(
             self,
             training_data: Union[FederatedDataSet, dict, None],
@@ -454,13 +455,13 @@ class Experiment(TrainingPlanWorkflow):
         """
         super().set_training_data(training_data, from_tags)
         # Below: Experiment-specific operations for consistency
-        # if self._aggregator is not None and self._fds is not None:
-        #     # update the aggregator's training data
-        #     self._aggregator.set_fds(self._fds)
-        #if self._node_state_agent is not None and self._fds is not None:
-        #
-        #    # update the node state agent (member of FederatedWorkflow)
-        self._node_state_agent.update_node_states(self.all_federation_nodes())
+        if self._aggregator is not None and self._fds is not None:
+            # update the aggregator's training data
+            self._aggregator.set_fds(self._fds)
+        if self._node_state_agent is not None and self._fds is not None:
+
+            # update the node state agent (member of FederatedWorkflow)
+            self._node_state_agent.update_node_states(self.all_federation_nodes())
         return self._fds
 
     @exp_exceptions
