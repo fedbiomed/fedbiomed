@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import unittest
 
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
 import fedbiomed.common.message as message
 
@@ -1562,7 +1562,7 @@ class TestMessage(unittest.TestCase):
     def test_message_15_trainmessages(self):
 
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "experiment_id": 'experiment',
             "state_id": None,
@@ -1583,7 +1583,7 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance(r, message.TrainReply)
 
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "experiment_id": 'experiment',
             "params": {"x": 0},
@@ -1614,7 +1614,7 @@ class TestMessage(unittest.TestCase):
 
         """  Test list datasets messages for node and researcher """
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "success": True,
             "databases": ["one", "two"],
@@ -1640,7 +1640,7 @@ class TestMessage(unittest.TestCase):
     def test_message_17_searchmessages(self):
 
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "success": True,
             "databases": ["one", "two"],
@@ -1668,7 +1668,7 @@ class TestMessage(unittest.TestCase):
 
         # ping
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "node_id": 'titi',
             "success": True,
@@ -1695,7 +1695,7 @@ class TestMessage(unittest.TestCase):
 
         # error
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "node_id": 'titi',
             "errnum": ErrorNumbers.FB100.value,
@@ -1801,7 +1801,7 @@ class TestMessage(unittest.TestCase):
     def test_message_24_model_status_messages(self):
 
         params_reply = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             'researcher_id': 'toto',
             'node_id': 'titi',
             'experiment_id': 'titi',
@@ -2026,7 +2026,7 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance(r, message.ApprovalRequest)
 
         params_reply = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "node_id": 'titi',
             "status": 200,
