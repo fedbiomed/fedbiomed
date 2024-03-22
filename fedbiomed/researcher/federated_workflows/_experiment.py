@@ -820,7 +820,7 @@ class Experiment(TrainingPlanWorkflow):
 
         job = TrainingJob(nodes=training_nodes,
                           keep_files_dir=self.experimentation_path(),
-                          job_id=self._id,
+                          job_id=self._experiment_id,
                           round_=self._round_current,
                           training_plan=self.training_plan(),
                           training_args=self._training_args,
@@ -894,7 +894,7 @@ class Experiment(TrainingPlanWorkflow):
 
             job = TrainingJob(nodes=training_nodes,
                               keep_files_dir=self.experimentation_path(),
-                              job_id=self._id,
+                              job_id=self._experiment_id,
                               round_=self._round_current,
                               training_plan=self.training_plan(),
                               training_args=self._training_args,

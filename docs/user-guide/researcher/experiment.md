@@ -464,7 +464,7 @@ Running an experiment means starting the training process by sending train reque
 ```json
 {
   "researcher_id": "researcher id that sends training command",
-  "job_id": "created job id by experiment",
+  "experiment_id": "created experiment id by experiment",
   "training_args": {
     "loader_args": {
       "batch_size": 32
@@ -497,7 +497,7 @@ an example of `training_reply` from a node.
 ```python
 {
    "researcher_id":"researcher id that sends the training command",
-   "job_id":"job id that creates training job",
+   "experiment_id":"experiment id that creates training job",
    "success":True,
    "node_id":"ID of the node that completes the training ",
    "dataset_id":"dataset_dcf88a68-7f66-4b60-9b65-db09c6d970ee",

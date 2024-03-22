@@ -37,8 +37,8 @@ NODE_PREFIX = 'node_'
 NODE_STATE_PREFIX = 'node_state_'
 """Prefix for Node state ID"""
 
-JOB_PREFIX = 'job_'
-"""Prefix for job ID"""
+EXPERIMENT_PREFIX = 'exper_'
+"""Prefix for experiment ID"""
 
 CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 """FOLDER name for Certs directory"""

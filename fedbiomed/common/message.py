@@ -250,7 +250,7 @@ class Scalar(ProtoSerializableMessage):
 
     Attributes:
         researcher_id: ID of the researcher that receives the reply
-        job_id: ID of the Job that is sent by researcher
+        experiment_id: ID of the experiment that is sent by researcher
         train: Declares whether scalar value is for training
         test: Declares whether scalar value is for validation
         test_on_local_updates: Declares whether validation is performed over locally updated parameters
@@ -269,7 +269,7 @@ class Scalar(ProtoSerializableMessage):
     __PROTO_TYPE__ = r_pb2.FeedbackMessage.Scalar
 
     node_id: str
-    job_id: str
+    experiment_id: str
     train: bool
     test: bool
     test_on_local_updates: bool
@@ -444,7 +444,7 @@ class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        job_id: Job id related to the experiment.
+        experiment_id: ID related to the experiment.
         training_plan_url: The training plan that is going to be checked for approval
         command: Request command string
 
@@ -453,7 +453,7 @@ class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
    """
 
     researcher_id: str
-    job_id: str
+    experiment_id: str
     training_plan: str
     command: str
 
@@ -466,7 +466,7 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: Id of the researcher that sends the request
         node_id: Node id that replies the request
-        job_id: job id related to the experiment
+        experiment_id: ID related to the experiment
         success: True if the node process the request as expected, false
             if any exception occurs
         approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
@@ -483,7 +483,7 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
 
     researcher_id: str
     node_id: str
-    job_id: str
+    experiment_id: str
     success: bool
     approval_obligation: bool
     status: str
@@ -586,7 +586,7 @@ class SecaggDeleteRequest(RequestReply, RequiresProtocolVersion):
         researcher_id: ID of the researcher that requests deletion
         secagg_id: ID of secagg context element that is sent by researcher
         element: Type of secagg context element
-        job_id: Id of the Job to which this secagg context element is attached
+        experiment_id: Id of the experiment to which this secagg context element is attached
         command: Request command string
 
     Raises:
@@ -595,7 +595,7 @@ class SecaggDeleteRequest(RequestReply, RequiresProtocolVersion):
     researcher_id: str
     secagg_id: str
     element: int
-    job_id: Optional[str]
+    experiment_id: Optional[str]
     command: str
 
 
@@ -632,7 +632,7 @@ class SecaggRequest(RequestReply, RequiresProtocolVersion):
         researcher_id: ID of the researcher that requests setup
         secagg_id: ID of secagg context element that is sent by researcher
         element: Type of secagg context element
-        job_id: Id of the Job to which this secagg context element is attached
+        experiment_id: Id of the experiment to which this secagg context element is attached
         parties: List of parties participating to the secagg context element setup
         command: Request command string
 
@@ -642,7 +642,7 @@ class SecaggRequest(RequestReply, RequiresProtocolVersion):
     researcher_id: str
     secagg_id: str
     element: int
-    job_id: Optional[str]
+    experiment_id: Optional[str]
     parties: list
     command: str
 
@@ -680,7 +680,7 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: ID of the researcher that requests training
-        job_id: Id of the Job that is sent by researcher
+        experiment_id: Id of the experiment that is sent by researcher
         training_args: Arguments for training routine
         dataset_id: id of the dataset that is used for training
         training: Declares whether training will be performed
@@ -696,7 +696,7 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
         FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
-    job_id: str
+    experiment_id: str
     state_id: Optional[str]
     training_args: dict
     dataset_id: str
@@ -722,7 +722,7 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that receives the reply
-        job_id: Id of the Job that is sent by researcher
+        experiment_id: Id of the experiment that is sent by researcher
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies the request
         dataset_id: id of the dataset that is used for training
@@ -735,7 +735,7 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
         FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
-    job_id: str
+    experiment_id: str
     success: bool
     node_id: str
     dataset_id: str

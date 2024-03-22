@@ -88,7 +88,7 @@ takes longer.
 ### I want to set secure aggregation context without re-running a round.
 
 It is possible to access the secagg instance through the experiment object in order to reset the secure
-aggregation context by providing a list of parties and the experiment `job_id`.
+aggregation context by providing a list of parties and the experiment `experiment_id`.
 
 ```python
 from fedbiomed.researcher.experiment import Experiment
@@ -99,16 +99,16 @@ exp = Experiment(secagg=True,
                  )
 
 exp.secagg.setup(
-    parties= parties=[environ["ID"]] + exp.job().nodes,
-    job_id=exp.job().id
+    parties= parties=[environ["ID"]] + exp.filtered_federation_nodes(),
+    experiment_id=exp.id
 )
 
 ```
 If a context has already been set, you can use the force argument to forcefully recreate the context.
 ```python
 exp.secagg.setup(
-    parties= parties=[environ["ID"]] + exp.job().nodes,
-    job_id=exp.job().id,
+    parties= parties=[environ["ID"]] + exp.filtered_federation_nodes(),
+    experiment_id=exp.id,
     force=True
 )
 ```

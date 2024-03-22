@@ -17,7 +17,7 @@ from pathvalidate import sanitize_filename
 from re import findall
 from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
 
-from fedbiomed.common.constants import ErrorNumbers, JOB_PREFIX, __breakpoints_version__
+from fedbiomed.common.constants import ErrorNumbers, EXPERIMENT_PREFIX, __breakpoints_version__
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError, FedbiomedTypeError, FedbiomedValueError
 )
@@ -181,7 +181,7 @@ class FederatedWorkflow(ABC):
         self._save_breakpoints: Optional[bool] = None
         self._node_state_agent: Optional[NodeStateAgent] = None
         self._researcher_id: str = environ['RESEARCHER_ID']
-        self._id: str = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id # TO BE RENAMED
+        self._experiment_id: str = EXPERIMENT_PREFIX + str(uuid.uuid4())  # creating a unique job id # TO BE RENAMED
 
         # set internal members from constructor arguments
         self.set_secagg(secagg)
@@ -320,7 +320,7 @@ class FederatedWorkflow(ABC):
     @property
     def id(self):
         """Retrieves the unique experiment identifier."""
-        return self._id
+        return self._experiment_id
 
     @exp_exceptions
     def save_breakpoints(self) -> bool:
