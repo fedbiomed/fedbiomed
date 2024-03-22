@@ -801,7 +801,7 @@ class FederatedWorkflow(ABC):
 
         # initializing experiment
         loaded_exp = cls()
-        loaded_exp._id = saved_state.get('id')
+        loaded_exp._experiment_id = saved_state.get('id')
         loaded_exp.set_training_data(bkpt_fds)
         loaded_exp._tags = saved_state.get('tags')
         loaded_exp.set_nodes(saved_state.get('nodes'))
