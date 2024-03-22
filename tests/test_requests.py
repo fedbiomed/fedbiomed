@@ -184,7 +184,7 @@ class TestRequests(ResearcherTestCase):
         mock_print_node_log_message.assert_called_once_with(msg_logger.get_dict())
 
         msg_monitor = {'node_id': 'DummyNodeID',
-                       'job_id': 'DummyJobID',
+                       'experiment_id': 'DummyExperimentID',
                        'metric': {"loss": 12},
                        'train': True,
                        'test': False,

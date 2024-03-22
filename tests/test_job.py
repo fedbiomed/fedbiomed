@@ -84,7 +84,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         # initialize TrainingJob
         with tempfile.TemporaryDirectory() as fp:
             job = TrainingJob(
-                job_id='some_id',
+                experiment_id='some_id',
                 round_=1,
                 training_plan=mock_tp,
                 training_args=TrainingArgs({}, only_required=False),
@@ -165,7 +165,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                  data):
         return {
         'researcher_id': environ['RESEARCHER_ID'],
-        'job_id': 'some_id',
+        'experiment_id': 'some_id',
         'training_args': {},
         'training': True,
         'model_args': {},
@@ -190,7 +190,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                          optim_aux_var):
         return {
             'researcher_id': environ['RESEARCHER_ID'],
-            'job_id': 'some_id',
+            'experiment_id': 'some_id',
             'success': True,
             'node_id': node_id,
             'dataset_id': dataset_id,
