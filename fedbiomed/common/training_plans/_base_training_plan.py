@@ -55,8 +55,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         testing_data_loader: Data loader used in the validation routine.
     """
 
-    _model: Model
-    _optimizer: BaseOptimizer
+    _model: Optional[Model]
+    _optimizer: Optional[BaseOptimizer]
 
     def __init__(self) -> None:
         """Construct the base training plan."""
@@ -80,6 +80,18 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     @abstractmethod
     def model(self):
         """Gets model instance of the training plan"""
+
+    # FIXME: re-implement Model as a subclass of Torch.nn.module, SGDClassifier, etc.
+    # to avoid having a distinct getter for the class, see #1049
+
+    def get_model_wrapper_class(self) -> Optional[Model]:
+        """Gets training plan's model wrapper class.
+
+        Returns:
+            the wrapper class for the model, or None
+            if model is not instantiated.
+        """
+        return self._model
 
     @property
     def dependencies(self):
