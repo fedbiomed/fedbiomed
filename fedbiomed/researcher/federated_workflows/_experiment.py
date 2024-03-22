@@ -377,7 +377,6 @@ class Experiment(TrainingPlanWorkflow):
         Raises:
             FedbiomedExperimentError: Inconsistent experiment due to missing variables
         """
-        # TODO: redo check for experiments
         # at this point all attributes are initialized (in constructor)
 
         info = self._create_default_info_structure()
@@ -785,7 +784,6 @@ class Experiment(TrainingPlanWorkflow):
         # TODO check node state agent
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
-        # TODO check fds and training plan is not None 
         # if fds is updated, aggregator should be updated too
         job = TrainingJob(nodes=training_nodes,
                           keep_files_dir=self.experimentation_path(),
@@ -878,7 +876,7 @@ class Experiment(TrainingPlanWorkflow):
 
     def _collect_optim_aux_var(
             self,
-        ) -> Optional[Dict[str, Dict[str, Any]]]:
+    ) -> Optional[Dict[str, Dict[str, Any]]]:
         """Collect auxiliary variables of the held Optimizer, if any."""
         if self._agg_optimizer is None:
             return None
@@ -894,7 +892,7 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError: if auxiliary variables were received,
                 but `agg_optimizer` is None and thus cannot process them.
             FedbiomedOptimizerError: if the received auxiliary variables do
-                not match the expectations of the `agg_optimizer` Optimizer.
+                not match the expectations of the `agg_optimizer` (Aggregation) Optimizer.
         """
         # If an Optimizer is used, pass it the auxiliary variables (if any).
         if self._agg_optimizer is not None:
@@ -1037,6 +1035,7 @@ class Experiment(TrainingPlanWorkflow):
                                            f'run from {rounds} to {new_rounds}')
                             rounds = new_rounds
 
+        # FIXME: should we print warning if both rounds and _round_limit are None?
         # At this point `rounds` is an int > 0 (not None)
 
         # run the rounds
@@ -1123,7 +1122,7 @@ class Experiment(TrainingPlanWorkflow):
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so experience can be resumed. Useful if training has crashed
-        researcher side or if user wants to resume experiment.
+        researcher side or if user wants to resume a given experiment.
 
         Args:
           cls: Experiment class
@@ -1298,10 +1297,8 @@ class Experiment(TrainingPlanWorkflow):
 
         Raises:
             FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
-
         """
-        node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
-        self._node_state_agent.update_node_states(node_ids)
+        node_ids = self.all_federation_nodes()
         if before_training:
             self._node_state_agent.update_node_states(node_ids)
         else:

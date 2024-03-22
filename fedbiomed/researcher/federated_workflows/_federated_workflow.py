@@ -398,7 +398,13 @@ class FederatedWorkflow(ABC):
             print(f"{self.__class__.__name__} can be run now (fully defined)")
         return info, missing
 
-    def _check_missing_objects(self, missing_objects = None) -> str:
+    def _check_missing_objects(self, missing_objects: Optional[Dict[Any, str]] = None) -> str:
+        """Checks if some objects required for running the `run` method are not set.
+
+        Args:
+            missing_objects: dictionary mapping a string of character
+                naming the required object with the value of the corresponding object
+        """
         # definitions found missing
 
         # definitions that may be missing for running the fedreated workflow
@@ -450,12 +456,11 @@ class FederatedWorkflow(ABC):
             logger.critical(msg)
             raise FedbiomedValueError(msg)
 
-
         if isinstance(tags, list):
             if not all(map(lambda tag: isinstance(tag, str), tags)):
                 msg = f"{ErrorNumbers.FB410.value}: `tags` must be a non-empty str or " \
                     "a non-empty list of str."
-                logger.cirtical(msg)
+                logger.critical(msg)
                 raise FedbiomedTypeError(msg)
 
             # If it is empty list
@@ -466,7 +471,7 @@ class FederatedWorkflow(ABC):
         else:
             msg = f"{ErrorNumbers.FB410.value} `tags` must be a non-empty str, " \
                 "a non-empty list of str"
-            logger.cirtical(msg)
+            logger.critical(msg)
             raise FedbiomedTypeError(msg)
 
         self._tags = tags_to_set
@@ -727,14 +732,10 @@ class FederatedWorkflow(ABC):
         [fedbiomed.researcher.datasets.FederatedDataSet].
 
         Args:
-            before_training: whether to update `NodeStateAgent` at the begining
-            or at the end of a `Round`:
-                - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
-                - if after, updates `NodeStateAgent` wrt the latest reply
+            before_training: non used. Defaults to True.
         """
         # FIXME: before_training for what?
-        node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
-        self._node_state_agent.update_node_states(node_ids)
+        self._node_state_agent.update_node_states(self.all_federation_nodes())
 
     @exp_exceptions
     def breakpoint(self,

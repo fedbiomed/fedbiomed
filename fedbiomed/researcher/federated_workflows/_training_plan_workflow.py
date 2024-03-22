@@ -265,8 +265,9 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         return super().info(info, missing)
 
-    def _check_missing_objects(self) -> str:
-        # definitions of elements that may be missing for running the experiment
+    def _check_missing_objects(self, missing_objects: Optional[Dict[Any, str]] = None) -> str:
+        """Checks if some objects required for running the `run` method are not set"""
+        # definitions of elements that are needed (paramount) for running the experiment
         _not_runnable_if_missing = {'Training Plan Class' : self.__training_plan_class}
 
         missing: str = ''
