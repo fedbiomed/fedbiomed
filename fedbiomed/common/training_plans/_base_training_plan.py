@@ -55,8 +55,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         testing_data_loader: Data loader used in the validation routine.
     """
 
-    _model: Model
-    _optimizer: BaseOptimizer
+    _model: Optional[Model]
+    _optimizer: Optional[BaseOptimizer]
 
     def __init__(self) -> None:
         """Construct the base training plan."""
