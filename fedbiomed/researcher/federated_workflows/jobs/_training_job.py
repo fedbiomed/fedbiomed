@@ -27,7 +27,7 @@ class TrainingJob(Job):
                  *,
                  nodes: Optional[List[str]] = None,
                  keep_files_dir: str,
-                 job_id: str,
+                 experiment_id: str,
                  round_: int,
                  training_plan: BaseTrainingPlan,
                  training_args: Union[dict, TrainingArgs],
@@ -47,7 +47,7 @@ class TrainingJob(Job):
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
                 of the job. Defaults to None, files are not kept after the end of the job. Usually, files are kept in
                   the `EXP_FOLDER/experiments` folders.
-            job_id: unique ID of this job
+            experiment_id: unique ID of this experiment
             round_: current number of round the algorithm is performing (a round is considered to be all the
                 training steps of a federated model between 2 aggregations).
             training_plan: TrainingPlan with properly initialized model and optimizer
@@ -66,7 +66,7 @@ class TrainingJob(Job):
         super().__init__(nodes=nodes, keep_files_dir=keep_files_dir)
 
         # to be used for `execute()`
-        self._job_id = job_id
+        self._experiment_id = experiment_id
         self._round_ = round_
         self._training_plan = training_plan
         self._training_args = training_args
@@ -140,7 +140,7 @@ class TrainingJob(Job):
         # Populate request message
         msg = {
             'researcher_id': self._researcher_id,
-            'job_id': self._job_id,
+            'experiment_id': self._experiment_id,
             'training_args': self._training_args.dict(),
             'training': self._do_training,
             'model_args': self._model_args if self._model_args is not None else {},

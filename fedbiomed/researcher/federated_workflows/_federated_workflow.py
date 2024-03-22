@@ -665,7 +665,7 @@ class FederatedWorkflow(ABC):
         secagg_arguments = {}
         if self._secagg.active:
             self._secagg.setup(parties=[environ["ID"]] + sampled_nodes,
-                               job_id=self._id)
+                               experiment_id=self._experiment_id)
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
 
@@ -706,7 +706,7 @@ class FederatedWorkflow(ABC):
                 yet, or error when saving breakpoint
         """
         state.update({
-            'id': self._id,
+            'id': self._experiment_id,
             'breakpoint_version': str(__breakpoints_version__),
             'training_data': self._fds.data(),
             'training_args': self._training_args.dict(),

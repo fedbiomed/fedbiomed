@@ -39,15 +39,15 @@ class SecaggContext(ABC):
     Handles a Secure Aggregation context element on the researcher side.
     """
 
-    def __init__(self, parties: List[str], job_id: Union[str, None], secagg_id: Union[str, None] = None):
+    def __init__(self, parties: List[str], experiment_id: Union[str, None], secagg_id: Union[str, None] = None):
         """Constructor of the class.
 
         Args:
             parties: list of parties participating in the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
-            job_id: ID of the job to which this secagg context element is attached.
-                None means the element is not attached to a specific job
+            experiment_id: ID of the experiment to which this secagg context element is attached.
+                None means the element is not attached to a specific experiment
             secagg_id: optional secagg context element ID to use for this element.
                 Default is None, which means a unique element ID will be generated.
 
@@ -90,10 +90,10 @@ class SecaggContext(ABC):
         self._requests = Requests()
         self._status = False
         self._context = None
-        self._job_id = None
+        self._experiment_id = None
 
         # set job ID using setter to validate
-        self.set_job_id(job_id)
+        self.set_experiment_id(experiment_id)
 
         # one controller per secagg object to prevent any file conflict
         self._MPC = MPCController(
@@ -136,13 +136,13 @@ class SecaggContext(ABC):
         return self._secagg_id
 
     @property
-    def job_id(self) -> Union[str, None]:
-        """Getter for secagg context element job_id
+    def experiment_id(self) -> Union[str, None]:
+        """Getter for secagg context element experiment_id
 
         Returns:
-            secagg context element job_ib (or None if no job_id is attached to the element)
+            secagg context element job_ib (or None if no experiment_id is attached to the element)
         """
-        return self._job_id
+        return self._experiment_id
 
     @property
     def status(self) -> bool:
@@ -163,23 +163,23 @@ class SecaggContext(ABC):
         """
         return self._context
 
-    def set_job_id(self, job_id: Union[str, None]) -> None:
-        """Setter for secagg context element job_id
+    def set_experiment_id(self, experiment_id: Union[str, None]) -> None:
+        """Setter for secagg context element experiment_id
 
         Args:
-            job_id: ID of the job to which this secagg context element is attached.
+            experiment_id: ID of the experiment to which this secagg context element is attached.
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
 
-        if not isinstance(job_id, (str, type(None))):
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `job_id` must be a str or None if the ' \
+        if not isinstance(experiment_id, (str, type(None))):
+            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `experiment_id` must be a str or None if the ' \
                       f'context is set for biprime.'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        self._job_id = job_id
+        self._experiment_id = experiment_id
 
     @abstractmethod
     def _matching_parties(self, context: dict) -> bool:
@@ -198,11 +198,11 @@ class SecaggContext(ABC):
         Returns:
             a tuple of a `context` and a `status` for the biprime context element
         """
-        context = self._secagg_manager.get(self._secagg_id, self._job_id)
+        context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
 
         if context is None:
             _, status = self._payload_create()
-            context = self._secagg_manager.get(self._secagg_id, self._job_id)
+            context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
         else:
             # Need to ensure the read context has compatible parties with this element
             if not self._matching_parties(context):
@@ -233,7 +233,7 @@ class SecaggContext(ABC):
             a tuple of None (no context after deletion) and
                 a boolean (True if payload succeeded for this element)
         """
-        status = self._secagg_manager.remove(self._secagg_id, self.job_id)
+        status = self._secagg_manager.remove(self._secagg_id, self.experiment_id)
         if status:
             logger.debug(
                 f"Context element successfully deleted for researcher_id='{environ['ID']}' "
@@ -318,7 +318,7 @@ class SecaggContext(ABC):
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
             'element': self._element.value,
-            'job_id': self._job_id,
+            'experiment_id': self._experiment_id,
             'parties': self._parties,
             'command': 'secagg',
         })
@@ -338,7 +338,7 @@ class SecaggContext(ABC):
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
             'element': self._element.value,
-            'job_id': self._job_id,
+            'experiment_id': self._experiment_id,
             'command': 'secagg-delete',
         })
         return self._secagg_round(msg, False, self._delete_payload)
@@ -356,7 +356,7 @@ class SecaggContext(ABC):
             "arguments": {
                 "secagg_id": self._secagg_id,
                 "parties": self._parties,
-                "job_id": self._job_id,
+                "experiment_id": self._experiment_id,
 
             },
             "attributes": {
@@ -382,12 +382,12 @@ class SecaggContext(ABC):
         # Get class
         cls = getattr(importlib.import_module(state["module"]), state["class"])
 
-        # Validate job id
+        # Validate experiment id
         spec = get_method_spec(cls)
-        if 'job_id' in spec:
+        if 'experiment_id' in spec:
             secagg = cls(**state["arguments"])
         else:
-            state["arguments"].pop('job_id')
+            state["arguments"].pop('experiment_id')
             secagg = cls(**state["arguments"])
 
         for key, value in state["attributes"].items():
@@ -401,24 +401,24 @@ class SecaggServkeyContext(SecaggContext):
     Handles a Secure Aggregation server key context element on the researcher side.
     """
 
-    def __init__(self, parties: List[str], job_id: str, secagg_id: Union[str, None] = None):
+    def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
         """Constructor of the class.
 
         Args:
             parties: list of parties participating in the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
-            job_id: ID of the job to which this secagg context element is attached.
+            experiment_id: ID of the experiment to which this secagg context element is attached.
             secagg_id: optional secagg context element ID to use for this element.
                 Default is None, which means a unique element ID will be generated.
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(parties, job_id, secagg_id)
+        super().__init__(parties, experiment_id, secagg_id)
 
-        if not self._job_id:
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `job_id` must be non empty string'
+        if not self._experiment_id:
+            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `experiment_id` must be non empty string'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -474,7 +474,7 @@ class SecaggServkeyContext(SecaggContext):
             )
 
         context = {'server_key': int(server_key.strip())}
-        self._secagg_manager.add(self._secagg_id, self._parties, context, self._job_id)
+        self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
         logger.debug(
             f"Server key successfully created for researcher_id='{environ['ID']}' "
             f"secagg_id='{self._secagg_id}'")

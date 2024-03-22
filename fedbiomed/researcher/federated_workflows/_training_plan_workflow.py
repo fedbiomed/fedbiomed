@@ -357,7 +357,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         job = TrainingPlanCheckJob(
             nodes=self.training_data().node_ids(),
             keep_files_dir=self.experimentation_path(),
-            job_id=self._experiment_id,
+            experiment_id=self._experiment_id,
             training_plan=self.training_plan()
         )
         responses = job.execute()
