@@ -40,7 +40,7 @@ class NodeStateManager:
 
     Database Table that handles Node states is built with the following entries:
         - state_id
-        - job_id
+        - experiment_id
         - version_node_id: state id version, that checks if states can be used regarding FedBioMed versions.
         - state_entries: content of each entry that cmposes a Node State
     """
@@ -87,34 +87,35 @@ class NodeStateManager:
         """
         return self._previous_state_id
 
-    def get(self, job_id: str, state_id: str) -> Dict:
-        """Returns a state of a job on the `Node`.
+    def get(self, experiment_id: str, state_id: str) -> Dict:
+        """Returns a state of an experiment on the `Node`.
 
         Args:
-            job_id: the job for which a state is requested
-            state_id: the unique identifier of the job
+            experiment_id: the experiment for which a state is requested
+            state_id: the unique identifier of the experiment
 
         Returns:
-            dict containing the job state
+            dict containing the experiment state
 
         Raises:
             FedbiomedNodeStateManagerError: no matching state in the database
         """
-        state = self._load_state(job_id, state_id)
+        state = self._load_state(experiment_id, state_id)
 
         if state is None:
-            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: no entries matching job_id {job_id} and "
+            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: no entries matching"
+                                                 f" experiment_id {experiment_id} and "
                                                  f"state_id {state_id} found in the DataBase")
 
         # from this point, state should be a dictionary
         self._check_version(state.get("version_node_id"))
         return state
 
-    def add(self, job_id: str, state: Dict[str, Dict[str, str]]) -> str:
+    def add(self, experiment_id: str, state: Dict[str, Dict[str, str]]) -> str:
         """Adds new `Node` State into Database.
 
         Args:
-            job_id: job_id used to save entry in database
+            experiment_id: experiment_id used to save entry in database
             state: state to be saved in database.
 
         Returns:
@@ -129,24 +130,24 @@ class NodeStateManager:
         header = {
             "version_node_id": str(__node_state_version__),
             "state_id": self._state_id,
-            "job_id": job_id
+            "experiment_id": experiment_id
         }
 
         state.update(header)
         self._save_state(self._state_id, state)
         return self._state_id
 
-    def remove(self, job_id: Optional[str], state_id: Optional[str]):
+    def remove(self, experiment_id: Optional[str], state_id: Optional[str]):
         raise NotImplementedError
 
-    def list_states(self, job_id: str):
+    def list_states(self, experiment_id: str):
         raise NotImplementedError
 
-    def _load_state(self, job_id: str, state_id: str) -> Union[Dict, None]:
+    def _load_state(self, experiment_id: str, state_id: str) -> Union[Dict, None]:
         """Loads Node state from DataBase. Directly interfaces with database request.
 
         Args:
-            job_id: job_id from which to retrieve state
+            experiment_id: experiment_id from which to retrieve state
             state_id: state_id from which to retrieve state
 
         Raises:
@@ -157,7 +158,7 @@ class NodeStateManager:
         """
         try:
 
-            res = self._db.get((self._query.job_id == job_id) & (self._query.state_id == state_id))
+            res = self._db.get((self._query.experiment_id == experiment_id) & (self._query.state_id == state_id))
         except Exception as e:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to load node state "
                                                  "in DataBase") from e
@@ -211,14 +212,14 @@ class NodeStateManager:
         return self._node_state_base_dir
 
     def generate_folder_and_create_file_name(self,
-                                             job_id: str,
+                                             experiment_id: str,
                                              round_nb: int,
                                              element: NodeStateFileName) -> str:
         """Creates folders and file name for each content (Optimizer, model, ...) that composes
         a Node State.
 
         Args:
-            job_id: job_id
+            experiment_id: experiment_id
             round_nb: current Round number
             element: a NodeStateFileName object used to create specific file names. For instance,
                 could be a NodeStateFileName.OPTIMIZER
@@ -238,7 +239,7 @@ class NodeStateManager:
 
         if self._state_id is None:
             raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Node state manager is not initialized")
-        base_dir = os.path.join(node_state_base_dir, "job_id_%s" % job_id)
+        base_dir = os.path.join(node_state_base_dir, "experiment_id_%s" % experiment_id)
         try:
             os.makedirs(base_dir, exist_ok=True)
 
