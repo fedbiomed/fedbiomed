@@ -191,7 +191,7 @@ class SecaggServkeyManager(BaseSecaggManager):
 
         Check that there is at most one entry with this unique secagg ID.
 
-        If there is an entry for this `secagg_id`, check it is associated with expriment `experiment_id`
+        If there is an entry for this `secagg_id`, check it is associated with experiment `experiment_id`
 
         Args:
             secagg_id: secure aggregation ID key to search
