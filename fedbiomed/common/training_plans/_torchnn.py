@@ -119,6 +119,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             model_args: Dict[str, Any],
             training_args: TrainingArgs,
             aggregator_args: Optional[Dict[str, Any]] = None,
+            initialize_optimizer: bool = True
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -129,7 +130,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
-
+            initialize_optimizer: If True, configures optimizer. It has to be True for node
+                side configuration to prepare optimizer for the training.
         Raises:
             FedbiomedTrainingPlanError: If the provided arguments do not
                 match expectations, or if the optimizer, model and dependencies
@@ -155,7 +157,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._fedprox_mu = self._training_args.get('fedprox_mu')
         self.set_aggregator_args(aggregator_args or {})
         # Configure the model and optimizer.
-        self._configure_model_and_optimizer()
+
+        self._configure_model_and_optimizer(initialize_optimizer)
 
     @abstractmethod
     def init_model(self):
@@ -223,8 +226,15 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """ Gets training plan type"""
         return self.__type
 
-    def _configure_model_and_optimizer(self):
-        """Configures model and optimizer before training """
+    def _configure_model_and_optimizer(
+        self,
+        initialize_optimizer: bool = True
+    ):
+        """Configures model and optimizer before training
+
+        Args:
+            initialize_optimizer: If True configures optimizer.
+        """
 
         # Message to format for unexpected argument definitions in special methods
         method_error = \
@@ -249,22 +259,32 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         model = self._dp_controller.validate_and_fix_model(model)
         self._model = TorchModel(model)
 
-        # Get optimizer defined by researcher ---------------------------------------------------------------------
-        init_optim_spec = get_method_spec(self.init_optimizer)
-        if not init_optim_spec:
-            optimizer = self.init_optimizer()
-        elif len(init_optim_spec.keys()) == 1:
-            optimizer = self.init_optimizer(self._optimizer_args)
-        else:
-            raise FedbiomedTrainingPlanError(method_error.format(prefix="optimizer",
-                                                                 method="init_optimizer",
-                                                                 keys=list(init_optim_spec.keys()),
-                                                                 alternative="self.optimizer_args()"))
+        # Get optimizer defined by researcher ------------------------
+        # FIXME: This is implemented to solve the issue while setting model
+        # arguments before setting training arguments on the researcher side (#1048).
+        # the execution of init_optimizer during post init requires to have
+        # optimizer_args set. However, this happens only on the researcher side
+        # where optimizer of training plan is not used (see issue #1048).
+        # Therefore, this fix adds new argument initialize_optimizer to set it False
+        # on the researcher.
+        if initialize_optimizer:
+            init_optim_spec = get_method_spec(self.init_optimizer)
+            if not init_optim_spec:
+                optimizer = self.init_optimizer()
+            elif len(init_optim_spec.keys()) == 1:
+                optimizer = self.init_optimizer(self._optimizer_args)
+            else:
+                raise FedbiomedTrainingPlanError(
+                    method_error.format(
+                        prefix="optimizer",
+                        method="init_optimizer",
+                        keys=list(init_optim_spec.keys()),
+                        alternative="self.optimizer_args()"))
 
-        # Validate optimizer
-        optim_builder = OptimizerBuilder()
-        #  build the optimizer wrapper
-        self._optimizer = optim_builder.build(self.__type, self._model, optimizer)
+            # Validate optimizer
+            optim_builder = OptimizerBuilder()
+            #  build the optimizer wrapper
+            self._optimizer = optim_builder.build(self.__type, self._model, optimizer)
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -562,10 +582,10 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """Handles and loads aggregators arguments to received from the researcher
 
         Args:
-            aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument 
+            aggregator_args (Dict[str, Any]): dictionary mapping aggregator argument
                 name with its value (eg 'aggregator_correction' with correction states)
         """
-        
+
         self.aggregator_name = aggregator_args.get('aggregator_name', self.aggregator_name)
         # FIXME: this is too specific to Scaffold. Should be redesigned, or handled
         # by an aggregator handler that contains all keys for all strategies
