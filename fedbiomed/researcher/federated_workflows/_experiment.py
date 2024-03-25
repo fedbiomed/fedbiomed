@@ -401,7 +401,7 @@ class Experiment(TrainingPlanWorkflow):
         return super().info(info, missing)
 
     @exp_exceptions
-    def set_aggregator(self, aggregator: Optional[Union[Aggregator, Type[Aggregator]]] = None) -> Aggregator:
+    def set_aggregator(self, aggregator: Optional[Aggregator] = None) -> Aggregator:
         """Sets aggregator + verification on arguments type
 
         Ensures consistency with the training data.
@@ -422,11 +422,13 @@ class Experiment(TrainingPlanWorkflow):
             self._aggregator = FedAverage()
 
         elif not isinstance(aggregator, Aggregator):
-            # a class is provided, need to instantiate an object
+
             msg = f"{ErrorNumbers.FB410.value}: aggregator is not an instance of Aggregator."
             logger.ciritical(msg)
             raise FedbiomedTypeError(msg)
-
+        else:
+            # at this point, `agregator` is an instance / inheriting of `Aggregator`
+            self._aggregator = aggregator
         self.aggregator_args["aggregator_name"] = self._aggregator.aggregator_name
         # ensure consistency with federated dataset
         self._aggregator.set_fds(self._fds)
