@@ -199,7 +199,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
                                    f'model_params_{mock_uuid.return_value}.mpk'
                                    )
         mock_serializer_dump.assert_called_once_with(
-            self.mock_tp._model.get_weights.return_value,
+            self.mock_tp.get_model_wrapper_class.return_value.get_weights.return_value,
             params_path
         )
         # This also validates the breakpoint scheme: if this fails, please consider updating the breakpoints version
@@ -250,7 +250,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
         self.assertDictEqual(exp.model_args(), {'breakpoint-model': 'args'})
         # Test if set_weights is called with the right arguments
-        exp.training_plan()._model.set_weights.assert_called_once_with(
+        exp.training_plan().get_model_wrapper_class.return_value.set_weights.assert_called_once_with(
             mock_serializer_load.return_value
         )
 
