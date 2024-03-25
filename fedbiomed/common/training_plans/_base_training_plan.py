@@ -95,7 +95,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     @property
     def dependencies(self):
-            return self._dependencies
+        return self._dependencies
 
     def optimizer(self) -> Optional[BaseOptimizer]:
         """Get the BaseOptimizer wrapped by this training plan.
@@ -118,6 +118,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             model_args: Dict[str, Any],
             training_args: Dict[str, Any],
             aggregator_args: Optional[Dict[str, Any]] = None,
+            initialize_optimizer: bool = True
         ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -128,6 +129,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
+            initialize_optimizer: whether to initialize the optimizer or not. Defaults
+                to True.
         """
 
         # Store various arguments provided by the researcher
