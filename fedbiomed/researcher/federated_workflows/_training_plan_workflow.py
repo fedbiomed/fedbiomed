@@ -585,7 +585,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         if round_current < 0.:
             # cannot set a round <0
-            msg = ErrorNumbers.FB410.value + f' `{variable_name}` cannot be negative : {round_current}'
+            msg = ErrorNumbers.FB410.value + f' `{variable_name}` cannot be negative or zero: {round_current}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 

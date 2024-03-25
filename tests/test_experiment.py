@@ -122,7 +122,10 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
                 return super().set_fds(fds)
         _aggregator_class = FakeAggregator
 
-        exp.set_aggregator(_aggregator_class)
+        with self.assertRaises(SystemExit):
+            exp.set_aggregator(_aggregator_class)
+
+        exp.set_aggregator(FakeAggregator())
         self.assertIsInstance(exp.aggregator(), FakeAggregator)
         self.assertTrue(exp.aggregator().is_set_fds_called)
         self.assertEqual(exp.training_data().data(), exp.aggregator()._fds.data())
@@ -158,9 +161,11 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
                 self.has_been_called = True
         _strategy_class = MagicMock()
         _strategy_class.return_value = _strategy
-        # with patch('fedbiomed.researcher.federated_workflows._experiment.inspect.isclass', return_value=True), \
-        #         patch('fedbiomed.researcher.federated_workflows._experiment.issubclass', return_value=True):
-        exp.set_strategy(FakeStrategy)
+
+        with self.assertRaises(SystemExit):
+            exp.set_strategy(FakeStrategy)
+
+        exp.set_strategy(FakeStrategy())
         self.assertTrue(exp.strategy().has_been_called)
 
 #    @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
@@ -261,7 +266,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         # wrong argument types
         with patch.object(exp, 'run_once', return_value=1) as mock_run_once:
             with self.assertRaises(SystemExit):
-                exp.run(rounds=0)
+                exp.run(rounds=-1)
                 self.assertFalse(mock_run_once.called)
             with self.assertRaises(SystemExit):
                 exp.run(rounds='one')
