@@ -1109,7 +1109,7 @@ class Experiment(TrainingPlanWorkflow):
             'aggregator': agg_bkpt,
             'agg_optimizer': agg_optim_bkpt,
             'node_selection_strategy': strategy_bkpt,
-            'aggregated_params': self._save_aggregated_params(
+            'aggregated_params': self.save_aggregated_params(
                 self._aggregated_params, breakpoint_path),
             'training_replies': training_replies_bkpt,
         }
@@ -1164,7 +1164,7 @@ class Experiment(TrainingPlanWorkflow):
 
     @staticmethod
     @exp_exceptions
-    def _save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
+    def save_aggregated_params(aggregated_params_init: dict, breakpoint_path: str) -> Dict[int, dict]:
         """Extract and format fields from aggregated_params that need to be saved in breakpoint.
 
         Creates link to the params file from the `breakpoint_path` and use them to reference the params files.
