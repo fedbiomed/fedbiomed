@@ -176,7 +176,7 @@ class FederatedWorkflow(ABC):
         self._save_breakpoints: Optional[bool] = None
         self._node_state_agent: Optional[NodeStateAgent] = None
         self._researcher_id: str = environ['RESEARCHER_ID']
-        self._experiment_id: str = EXPERIMENT_PREFIX + str(uuid.uuid4())  # creating a unique job id # TO BE RENAMED
+        self._experiment_id: str = EXPERIMENT_PREFIX + str(uuid.uuid4())  # creating a unique experiment id
 
         # set internal members from constructor arguments
         self.set_secagg(secagg)

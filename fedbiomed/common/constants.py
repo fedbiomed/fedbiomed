@@ -299,7 +299,6 @@ class ErrorNumbers(_BaseEnum):
     FB415 = "FB415: secure aggregation handling error"
     FB416 = "FB416: federated dataset error"
     FB417 = "FB417: secure aggregation error"
-    FB418 = "FB418: error in experiment's `Job`"
     FB419 = "FB419: node state agent error"
 
     # general application errors (common to node/researcher/..)

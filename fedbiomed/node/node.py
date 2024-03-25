@@ -305,7 +305,8 @@ class Node:
             self._tasks_queue.task_done()
 
             logger.info(f"[TASKS QUEUE] Task received by task manager: Command: "
-                        f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('experiment_id')}")
+                        f"{item['command']} Researcher: {item['researcher_id']} "
+                        f"Experiment: {item.get('experiment_id')}")
 
             try:
 

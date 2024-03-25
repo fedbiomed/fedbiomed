@@ -195,14 +195,14 @@ class SecaggServkeyManager(BaseSecaggManager):
 
         Args:
             secagg_id: secure aggregation ID key to search
-            experiment_id: the job ID associated with the secagg entry
+            experiment_id: the experiment ID associated with the secagg entry
 
         Returns:
             A dict containing all values for the secagg element for this `secagg_id` if it exists,
                 or None if no element exists for this `secagg_id`
 
         Raises:
-            FedbiomedSecaggError: the entry is associated with another job
+            FedbiomedSecaggError: the entry is associated with another experiment
         """
 
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
@@ -238,11 +238,11 @@ class SecaggServkeyManager(BaseSecaggManager):
     def remove(self, secagg_id: str, experiment_id: str) -> bool:
         """Remove data entry for this `secagg_id` from the server key table
 
-        Check that the job ID for the table entry and the current job match  
+        Check that the experiment ID for the table entry and the current experiment match  
 
         Args:
             secagg_id: secure aggregation ID key of the entry
-            experiment_id: job ID of the current job
+            experiment_id: experiment ID of the current experiment
 
         Returns:
             True if an entry existed (and was removed) for this `secagg_id`,

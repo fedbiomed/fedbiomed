@@ -1419,13 +1419,14 @@ class Experiment(TrainingPlanWorkflow):
 
     def load_training_replies(self,
                               bkpt_training_replies: Dict[int, Dict[str, Dict[str, Any]]]) -> None:
-        """Reads training replies from a formatted breakpoint file, and build a job training replies data structure .
+        """Reads training replies from a formatted breakpoint file, and build an 
+            experiment training replies data structure .
 
         Args:
             bkpt_training_replies: Extract from training replies saved in breakpoint
 
         Returns:
-            Training replies of already executed rounds of the job
+            Training replies of already executed rounds of the experiment
         """
         if not bkpt_training_replies:
             logger.warning("No Replies has been found in this breakpoint")

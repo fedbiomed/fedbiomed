@@ -92,7 +92,7 @@ class SecaggContext(ABC):
         self._context = None
         self._experiment_id = None
 
-        # set job ID using setter to validate
+        # set experiment ID using setter to validate
         self.set_experiment_id(experiment_id)
 
         # one controller per secagg object to prevent any file conflict

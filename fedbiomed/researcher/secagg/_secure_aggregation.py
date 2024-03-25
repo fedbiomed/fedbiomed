@@ -211,7 +211,7 @@ class SecureAggregation:
 
         self._parties = parties
 
-        # Updates job id if it is provided
+        # Updates experiment id if it is provided
         if experiment_id is not None:
             self._experiment_id = experiment_id
 
