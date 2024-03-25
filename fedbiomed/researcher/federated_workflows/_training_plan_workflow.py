@@ -8,6 +8,7 @@ import uuid
 
 from abc import ABC
 from contextlib import contextmanager
+from copy import deepcopy
 from re import findall
 from typing import Any, Callable, Dict, List, Type, TypeVar, Union, Optional, Tuple
 
@@ -125,18 +126,19 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         # The __training_plan attribute represents the *actual instance* of a __training_plan_class that is currently
         # being used in the workflow. The training plan cannot be modified by the user.
         self.__training_plan = None
+        self._training_args: Optional[TrainingArgs] = None  # FIXME: is it ok to have this here?
 
         # initialize object
         super().__init__(
             tags=tags,
             nodes=nodes,
             training_data=training_data,
-            training_args=training_args,
             experimentation_folder=experimentation_folder,
             secagg=secagg,
             save_breakpoints=save_breakpoints
         )
 
+        self.set_training_args(training_args)
         self.set_model_args(model_args)
         self.set_training_plan_class(training_plan_class)
 
@@ -209,6 +211,25 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         return self.__training_plan_class
 
+
+    @exp_exceptions
+    def training_args(self) -> dict:
+        """Retrieves training arguments.
+
+        Please see also [`set_training_args`][fedbiomed.researcher.\
+        federated_workflows.FederatedWorkflow.set_training_args]
+
+        Returns:
+            The arguments that are going to be passed to the training plan's
+                `training_routine` to perfom training on the node side. An example
+                training routine: [`TorchTrainingPlan.training_routine`]
+                [fedbiomed.common.training_plans.TorchTrainingPlan.training_routine]
+        """
+
+        return self._training_args.dict()
+
+
+
     @exp_exceptions
     def training_plan(self) -> Optional[TrainingPlan]:
         """Retrieves the training plan instance currently being used in the federated workflow.
@@ -231,21 +252,28 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         return self._model_args
 
     @exp_exceptions
-    def info(self, info: Optional[Dict] = None, missing: str = '') -> Tuple[Dict[str, List[str]], str]:
+    def info(
+        self,
+        info: Optional[Dict] = None,
+        missing: str = ''
+    ) -> Tuple[Dict[str, List[str]], str]:
         """Prints out the information about the current status of the experiment.
 
-        Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
+        Lists  all the parameters/arguments of the experiment and informs whether
+        the experiment can be run.
 
         Args:
-            info: Dictionary of sub-classes relevant attributes status that will be completed with some additional
-                attributes status defined in this class. Defaults to None (no entries of sub-classes available or
-                of importance).
-            missing_object_to_check: dictionary mapping sub-classes attributes to attribute names, that may be
-                needed to fully run the object. Defaults to None (no check will be performed).
+            info: Dictionary of sub-classes relevant attributes status that will be
+                completed with some additional attributes status defined in this class.
+                Defaults to None (no entries of sub-classes available or of importance).
+            missing_object_to_check: dictionary mapping sub-classes attributes to
+                attribute names, that may be needed to fully run the object. Defaults
+                to None (no check will be performed).
 
         Returns:
-            dictionary containing all pieces of information, with 2 entries: `Arguments` mapping a list
-            of all argument, and `Values` mapping a list copntaining all the values.
+            dictionary containing all pieces of information, with 2 entries:
+                `Arguments` mapping a list of all argument, and `Values` mapping
+                a list copntaining all the values.
 
         Raises:
             KeyError: if `Arguments` or `Values` entry is missing in passing argument `info`
@@ -256,11 +284,13 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         info['Arguments'].extend([
             'Training Plan Class',
             'Model Arguments',
+            'Training Arguments'
         ])
         info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
             self.__training_plan_class,
             self._model_args,
+            self._training_args
         ]])
 
         return super().info(info, missing)
@@ -273,6 +303,41 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         missing: str = ''
         missing += super()._check_missing_objects(_not_runnable_if_missing)
         return missing
+
+
+    @exp_exceptions
+    def set_training_args(
+        self,
+        training_args: Union[dict, TrainingArgs, None]
+    ) -> Union[dict, None]:
+        """ Sets `training_args` + verification on arguments type
+
+        Args:
+            training_args: contains training arguments passed to the
+                training plan's `training_routine` such as lr, epochs, batch_size...
+
+        Returns:
+            Training arguments
+
+        Raises:
+            FedbiomedExperimentError : bad training_args type
+        """
+
+        if isinstance(training_args, TrainingArgs):
+            self._training_args = deepcopy(training_args)
+        elif isinstance(training_args, dict) or training_args is None:
+            self._training_args = TrainingArgs(training_args, only_required=False)
+        else:
+            msg = f"{ErrorNumbers.FB410.value} in function `set_training_args`. " \
+                  "Expected type TrainingArgs, dict, or " \
+                  f"None, got {type(training_args)} instead."
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        # Propagate training arguments to job
+        return self._training_args.dict()
+
+
 
     @exp_exceptions
     def set_training_plan_class(self,
@@ -417,6 +482,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         The following attributes will be saved:
 
+          - training_args
           - training_plan_class
           - model_args
         """
@@ -484,6 +550,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         loaded_exp.set_model_args(saved_state["model_args"])
         loaded_exp.set_training_plan_class(tp_class)
+        loaded_exp.set_training_args(saved_state.get('training_args'))
         training_plan = loaded_exp.training_plan()
         if training_plan is None:
             msg = ErrorNumbers.FB413.value + ' - load failed, ' + \

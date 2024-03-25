@@ -12,7 +12,6 @@ import tabulate
 import traceback
 import uuid
 from abc import ABC, abstractmethod
-from copy import deepcopy
 from pathvalidate import sanitize_filename
 from re import findall
 from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
@@ -131,7 +130,6 @@ class FederatedWorkflow(ABC):
             tags: Optional[List[str] | str] = None,
             nodes: Optional[List[str]] = None,
             training_data: Union[FederatedDataSet, dict, None] = None,
-            training_args: Union[TrainingArgs, dict, None] = None,
             experimentation_folder: Union[str, None] = None,
             secagg: Union[bool, SecureAggregation] = False,
             save_breakpoints: bool = False,
@@ -155,9 +153,7 @@ class FederatedWorkflow(ABC):
                     experiment is not fully initialized and cannot be launched)
                 Defaults to None (query nodes for dataset if `tags` is not None, set training_data
                 to None else)
-            training_args: contains training arguments passed to the `training_routine` of the training plan when
-                launching it: lr, epochs, batch_size...
-            save_breakpoints: whether to save breakpoints or not after each training round. Breakpoints can be used for
+           save_breakpoints: whether to save breakpoints or not after each training round. Breakpoints can be used for
                 resuming a crashed experiment.
             experimentation_folder: choose a specific name for the folder where experimentation result files and
                 breakpoints are stored. This should just contain the name for the folder not a path. The name is used
@@ -174,7 +170,6 @@ class FederatedWorkflow(ABC):
         self._fds: Optional[FederatedDataSet] = None  # dataset metadata from the full federation
         self._reqs: Requests = Requests()
         self._nodes_filter: Optional[List[str]] = None  # researcher-defined nodes filter
-        self._training_args: Optional[TrainingArgs] = None  # FIXME: is it ok to have this here?
         self._tags: Optional[List[str]] = None
         self._experimentation_folder: Optional[str] = None
         self._secagg: Optional[SecureAggregation] = None
@@ -203,7 +198,6 @@ class FederatedWorkflow(ABC):
 
         self.set_nodes(nodes)
         self.set_save_breakpoints(save_breakpoints)
-        self.set_training_args(training_args)
 
         self.set_experimentation_folder(experimentation_folder)
         self._node_state_agent = NodeStateAgent(list(self._fds.data().keys())
@@ -302,21 +296,6 @@ class FederatedWorkflow(ABC):
 
         return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
 
-    @exp_exceptions
-    def training_args(self) -> dict:
-        """Retrieves training arguments.
-
-        Please see also
-        [`set_training_args`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_args]
-
-        Returns:
-            The arguments that are going to be passed to the training plan's `training_routine` to perfom training on
-                the node side. An example training routine: [`TorchTrainingPlan.training_routine`]
-                [fedbiomed.common.training_plans.TorchTrainingPlan.training_routine]
-        """
-
-        return self._training_args.dict()
-
     @property
     def id(self):
         """Retrieves the unique experiment identifier."""
@@ -355,7 +334,7 @@ class FederatedWorkflow(ABC):
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
 
-        Args: 
+        Args:
             info: Dictionary of sub-classes relevant attributes status that will be completed with some additional
                 attributes status defined in this class. Defaults to None (no entries of sub-classes available or
                 of importance).
@@ -363,7 +342,7 @@ class FederatedWorkflow(ABC):
                 needed to fully run the object. Defaults to None (no check will be performed).
 
         Returns:
-            dictionary containing all pieces of information, with 2 entries: `Arguments` mapping a list 
+            dictionary containing all pieces of information, with 2 entries: `Arguments` mapping a list
             of all argument, and `Values` mapping a list copntaining all the values.
         """
         if info is None:
@@ -634,34 +613,6 @@ class FederatedWorkflow(ABC):
         return self._experimentation_folder
 
     @exp_exceptions
-    def set_training_args(self, training_args: Union[dict, TrainingArgs, None]) -> Union[dict, None]:
-        """ Sets `training_args` + verification on arguments type
-
-        Args:
-            training_args: contains training arguments passed to the
-                training plan's `training_routine` such as lr, epochs, batch_size...
-
-        Returns:
-            Training arguments
-
-        Raises:
-            FedbiomedExperimentError : bad training_args type
-        """
-
-        if isinstance(training_args, TrainingArgs):
-            self._training_args = deepcopy(training_args)
-        elif isinstance(training_args, dict) or training_args is None:
-            self._training_args = TrainingArgs(training_args, only_required=False)
-        else:
-            msg = f"{ErrorNumbers.FB410.value} in function `set_training_args`. Expected type TrainingArgs, dict, or " \
-                  f"None, got {type(training_args)} instead."
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        # Propagate training arguments to job
-        return self._training_args.dict()
-
-    @exp_exceptions
     def set_secagg(self, secagg: Union[bool, SecureAggregation]):
         """Sets secure aggregation
 
@@ -856,7 +807,6 @@ class FederatedWorkflow(ABC):
         loaded_exp.set_training_data(bkpt_fds)
         loaded_exp._tags = saved_state.get('tags')
         loaded_exp.set_nodes(saved_state.get('nodes'))
-        loaded_exp.set_training_args(saved_state.get('training_args'))
         loaded_exp.set_experimentation_folder(saved_state.get('experimentation_folder'))
         loaded_exp.set_secagg(SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
         loaded_exp._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
