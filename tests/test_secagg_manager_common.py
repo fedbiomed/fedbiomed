@@ -5,7 +5,7 @@ import os
 
 import inspect
 
-from fedbiomed.common.constants import BiprimeType 
+from fedbiomed.common.constants import BiprimeType, __secagg_element_version__
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 
@@ -125,8 +125,12 @@ class TestBaseSecaggManager(unittest.TestCase):
         managers = [SecaggServkeyManager, SecaggBiprimeManager]
         entries_list = [
             [[], 'my_dummy_experiment_id'],
-            [[{'experiment_id': 'my_dummy_experiment_id'}], 'my_dummy_experiment_id'],
-            [[{'experiment_id': 33, 'some_more_field': 3}], 33],
+            [
+                [{'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}],
+                'my_dummy_experiment_id'],
+            [
+                [{'secagg_version': str(__secagg_element_version__), 'experiment_id': 33, 'some_more_field': 3}],
+                33],
         ]
 
         # action
@@ -161,8 +165,16 @@ class TestBaseSecaggManager(unittest.TestCase):
         # preparation
         managers = [SecaggServkeyManager, SecaggBiprimeManager]
         entries_list = [
-            [True, [{'experiment_id': 'my_dummy_experiment_id'}, {'experiment_id': 'my_dummy_experiment_id'} ], 'my_dummy_experiment_id'],
-            [False, [{'experiment_id': 'my_dummy_experiment_id'}], 'another_experiment_id'],
+            [True,
+             [
+                 {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'},
+                 {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}
+             ],
+             'my_dummy_experiment_id'],
+            [False,
+             [
+                 {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}],
+             'another_experiment_id'],
         ]
 
         # action
@@ -194,9 +206,9 @@ class TestBaseSecaggManager(unittest.TestCase):
 
         # preparation
         entries_list = [
-            [{}],
-            [{'type': BiprimeType.DEFAULT.value}],
-            [{'other': BiprimeType.DYNAMIC.value}],
+            [{'secagg_version': str(__secagg_element_version__)}],
+            [{'secagg_version': str(__secagg_element_version__), 'type': BiprimeType.DEFAULT.value}],
+            [{'secagg_version': str(__secagg_element_version__), 'other': BiprimeType.DYNAMIC.value}],
         ]
 
         # action
@@ -257,7 +269,11 @@ class TestBaseSecaggManager(unittest.TestCase):
                     # preparation (continued)
                     manager = m('/path/to/dummy/file')
                     expected_entries = copy.deepcopy(specific)
-                    expected_entries.update({'secagg_id': secagg_id, 'parties': parties})
+                    expected_entries.update({
+                        'secagg_version': str(__secagg_element_version__),
+                        'secagg_id': secagg_id,
+                        'parties': parties}
+                    )
 
                     # action
                     manager.add(secagg_id, parties, **specific)
@@ -328,8 +344,13 @@ class TestBaseSecaggManager(unittest.TestCase):
         parties_list = [['r', 'n1', 'n2'], ['r', 'n1', 'n2', 'n3', 'n4', 'n5'], 111, []]
 
         specific_list = [
-            [SecaggServkeyManager, {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'}, {'experiment_id': 'my_experiment_id_dummy'}],
-            [SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'}, {}],
+            [
+                SecaggServkeyManager,
+                {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
+                {'experiment_id': 'my_experiment_id_dummy'}],
+            [
+                SecaggBiprimeManager,
+                {'context': 'a_long_dummy_biprime'}, {}],
         ]
 
         # action
@@ -374,7 +395,7 @@ class TestBaseSecaggManager(unittest.TestCase):
         # checks are done accordingly to default_biprimes dir content
         self.assertEqual(
             bpm._table.entries,
-            [{'secagg_id': 'dummy_biprime', 'parties': None, 'type': 'default',
+            [{'secagg_version': str(__secagg_element_version__), 'secagg_id': 'dummy_biprime', 'parties': None, 'type': 'default',
                 'context': {'biprime': 12345678, 'max_keysize': 33}}]
         )
 

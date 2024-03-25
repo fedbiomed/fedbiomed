@@ -19,7 +19,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError, SchemeValidator
 
 _DefaultBiprimeValidator = SchemeValidator({
-    'secagg_version': {"rules": [int], "required": True},
+    'secagg_version': {"rules": [str], "required": True},
     'secagg_id': {"rules": [str], "required": True},
     'biprime': {"rules": [int], "required": True},
     'max_keysize': {"rules": [int], "required": True},

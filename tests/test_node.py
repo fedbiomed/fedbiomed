@@ -478,7 +478,7 @@ class TestNode(NodeTestCase):
 
         # defining arguments
         dict_msg_1_dataset = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
             'training_plan': 'TP',
@@ -539,7 +539,7 @@ class TestNode(NodeTestCase):
 
         # defining arguments
         dict_msg_1_dataset = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
             "training": True,
@@ -778,7 +778,7 @@ class TestNode(NodeTestCase):
         n3 = Node(dataset_manager, self.model_manager_mock)
 
         search_msg = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             'command': 'search',
             'researcher_id': 'researcher_id_1234',
             'request_id': 'request_id',
@@ -797,7 +797,7 @@ class TestNode(NodeTestCase):
     ):
         """Tests `_task_secagg` normal (successful) case"""
 
-        req = {"protocol_version": '99.99',
+        req = {"protocol_version": str(__messaging_protocol_version__),
                'researcher_id': 'party1',
                'request_id': 'request',
                'secagg_id': 'my_dummy_secagg_id',
