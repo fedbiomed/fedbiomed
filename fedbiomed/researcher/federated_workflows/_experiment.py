@@ -517,13 +517,15 @@ class Experiment(TrainingPlanWorkflow):
         if node_selection_strategy is None:
             # default node_selection_strategy
             self._node_selection_strategy = DefaultStrategy()
-        elif not isinstace(node_selection_strategy, Strategy):
+        elif not isinstance(node_selection_strategy, Strategy):
 
             msg = f"{ErrorNumbers.FB410.value}: wrong type for " \
                   "node_selection_strategy {type(node_selection_strategy)} " \
                   "it should be an instance of Strategy"
             logger.ciritical(msg)
             raise FedbiomedTypeError(msg)
+        else:
+            self._node_selection_strategy = node_selection_strategy
         # at this point self._node_selection_strategy is a Union[Strategy, None]
         return self._node_selection_strategy
 
