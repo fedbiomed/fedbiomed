@@ -724,19 +724,6 @@ class FederatedWorkflow(ABC):
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
 
-    def _update_nodes_states_agent(self, before_training: bool = True):
-        """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent]
-
-        Updates node state agent with the latest state_id coming from `Nodes`
-        contained among all `Nodes` within [`FederatedDataset`]\
-        [fedbiomed.researcher.datasets.FederatedDataSet].
-
-        Args:
-            before_training: non used. Defaults to True.
-        """
-        # FIXME: before_training for what?
-        self._node_state_agent.update_node_states(self.all_federation_nodes())
-
     @exp_exceptions
     def breakpoint(self,
                    state: Dict,

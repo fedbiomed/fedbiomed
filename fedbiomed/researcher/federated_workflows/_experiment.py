@@ -854,6 +854,8 @@ class Experiment(TrainingPlanWorkflow):
         # Update experiment's in-memory history
         self.commit_experiment_history(training_replies, aggregated_params)
 
+        # Increase round number (should be incremented before call to `breakpoint`)
+        self._set_round_current(self._round_current + 1)
         if self._save_breakpoints:
             self.breakpoint()
 
@@ -878,8 +880,7 @@ class Experiment(TrainingPlanWorkflow):
                               )
             job.execute()
 
-        # Increase round number
-        self._set_round_current(self._round_current + 1)
+        
         return 1
 
     def _collect_optim_aux_var(
