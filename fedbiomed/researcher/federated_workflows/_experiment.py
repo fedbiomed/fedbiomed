@@ -34,8 +34,9 @@ from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
-from fedbiomed.researcher.federated_workflows._training_plan_workflow import (TrainingPlanT as Type_TrainingPlan,
-                                                                              TrainingPlanWorkflow)
+from fedbiomed.researcher.federated_workflows._training_plan_workflow import (
+    TrainingPlanT,
+    TrainingPlanWorkflow)
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
@@ -77,7 +78,7 @@ class Experiment(TrainingPlanWorkflow):
         agg_optimizer: Optional[Optimizer] = None,
         node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
         round_limit: Union[int, None] = None,
-        training_plan_class: Union[Type_TrainingPlan, str, None] = None,
+        training_plan_class: Union[TrainingPlanT, str, None] = None,
         training_args: Union[TrainingArgs, dict, None] = None,
         model_args: Optional[Dict] = None,
         tensorboard: bool = False,
@@ -117,10 +118,10 @@ class Experiment(TrainingPlanWorkflow):
             round_limit: the maximum number of training rounds (nodes <-> central server) that should be executed for
                 the experiment. `None` means that no limit is defined. Defaults to None.
             training_plan_class: name of the training plan class [`str`][str] or training plan class
-                (`Type_TrainingPlan`) to use for training.
+                (`TrainingPlanT`) to use for training.
                 For experiment to be properly and fully defined `training_plan_class` needs to be:
                 - a [`str`][str] when `training_plan_class_path` is not None (training plan class comes from a file).
-                - a `Type_TrainingPlan` when `training_plan_class_path` is None (training plan class passed
+                - a `TrainingPlanT` when `training_plan_class_path` is None (training plan class passed
                     as argument).
                 Defaults to None (no training plan class defined yet)
             model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
@@ -154,9 +155,6 @@ class Experiment(TrainingPlanWorkflow):
         self._agg_optimizer = None
         self.aggregator_args = {}
         self._aggregated_params = {}
-        self._client_correction_states_dict = {}
-        self._client_states_dict = {}
-        self._server_state = None
         self._training_replies: Dict = {}
         self._retain_full_history = None
 
@@ -514,7 +512,7 @@ class Experiment(TrainingPlanWorkflow):
         if node_selection_strategy is None:
             # default node_selection_strategy
             self._node_selection_strategy = DefaultStrategy()
-        else: 
+        else:
             msg = ErrorNumbers.FB410.value + ' `node_selection_strategy` : %s class'
 
             # a class is provided, need to instantiate an object
@@ -1295,7 +1293,7 @@ class Experiment(TrainingPlanWorkflow):
             before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
                 - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
                 - if after, updates `NodeStateAgent` wrt the latest reply
-            training_replies: the node replies from the latest round. Required when before_training=False. Defaults to 
+            training_replies: the node replies from the latest round. Required when before_training=False. Defaults to
                 None, which can work only for `before_training=False`
 
         Raises:
