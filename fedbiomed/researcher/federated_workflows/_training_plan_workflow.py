@@ -236,7 +236,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
 
-        Args: 
+        Args:
             info: Dictionary of sub-classes relevant attributes status that will be completed with some additional
                 attributes status defined in this class. Defaults to None (no entries of sub-classes available or
                 of importance).
@@ -244,7 +244,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 needed to fully run the object. Defaults to None (no check will be performed).
 
         Returns:
-            dictionary containing all pieces of information, with 2 entries: `Arguments` mapping a list 
+            dictionary containing all pieces of information, with 2 entries: `Arguments` mapping a list
             of all argument, and `Values` mapping a list copntaining all the values.
 
         Raises:
@@ -495,24 +495,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         loaded_exp.training_plan().get_model_wrapper_class().set_weights(params)
 
         return loaded_exp, saved_state
-
-    def _check_and_load_object(self, passed_obj: Union[Callable, T], type_ref_obj: Type, msg: str):
-        """Checks consistancy of object and loads object, depending if passed object is a Callable or 
-        a type"""
-        if inspect.isclass(passed_obj):
-
-            if issubclass(passed_obj, type_ref_obj):
-                return passed_obj()
-                # FIXME: what should we do if `passed_obj` requires arguments?
-            else:
-                # bad argument
-                logger.critical(msg % passed_obj)
-                raise FedbiomedTypeError(msg)
-        elif isinstance(passed_obj, type_ref_obj):
-            return passed_obj
-        else:
-            logger.critical(msg % type(passed_obj))
-            raise FedbiomedTypeError(msg)
 
     def _check_round_value_consistancy(self, round_current: int, variable_name: str) -> bool:
         """Checks round value is consistant, ie it is a non negative integer. Raises appropriate errors otherwise"""

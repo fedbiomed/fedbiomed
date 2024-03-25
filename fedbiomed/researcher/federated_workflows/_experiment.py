@@ -74,15 +74,15 @@ class Experiment(TrainingPlanWorkflow):
         tags: Union[List[str], str, None] = None,
         nodes: Union[List[str], None] = None,
         training_data: Union[FederatedDataSet, dict, None] = None,
-        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
+        aggregator: Optional[Aggregator] = None,
         agg_optimizer: Optional[Optimizer] = None,
-        node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
+        node_selection_strategy: Optional[Strategy] = None,
         round_limit: Union[int, None] = None,
         training_plan_class: Union[TrainingPlanT, str, None] = None,
         training_args: Union[TrainingArgs, dict, None] = None,
         model_args: Optional[Dict] = None,
         tensorboard: bool = False,
-        experimentation_folder: Union[str, None] = None,
+        experimentation_folder: Optional[str] = None,
         secagg: Union[bool, SecureAggregation] = False,
         save_breakpoints: bool = False,
         retain_full_history: bool = True,
@@ -420,12 +420,13 @@ class Experiment(TrainingPlanWorkflow):
         if aggregator is None:
             # default aggregator
             self._aggregator = FedAverage()
-        else:
-            # a class is provided, need to instantiate an object
 
-            msg = ErrorNumbers.FB410.value + ' `aggregator` : %s class'
-            self._aggregator = self._check_and_load_object(aggregator, Aggregator, msg)
-        # at this point self._aggregator is (non-None) aggregator object
+        elif not isinstance(aggregator, Aggregator):
+            # a class is provided, need to instantiate an object
+            msg = f"{ErrorNumbers.FB410.value}: aggregator is not an instance of Aggregator."
+            logger.ciritical(msg)
+            raise FedbiomedTypeError(msg)
+
         self.aggregator_args["aggregator_name"] = self._aggregator.aggregator_name
         # ensure consistency with federated dataset
         self._aggregator.set_fds(self._fds)
@@ -492,8 +493,10 @@ class Experiment(TrainingPlanWorkflow):
         return self._agg_optimizer
 
     @exp_exceptions
-    def set_strategy(self, node_selection_strategy: Optional[Union[Strategy, Type[Strategy]]] = None) -> \
-            Union[Strategy, None]:
+    def set_strategy(
+        self,
+        node_selection_strategy: Optional[Strategy] = None
+    ) -> Union[Strategy, None]:
         """Sets for `node_selection_strategy` + verification on arguments type
 
         Args:
@@ -512,13 +515,13 @@ class Experiment(TrainingPlanWorkflow):
         if node_selection_strategy is None:
             # default node_selection_strategy
             self._node_selection_strategy = DefaultStrategy()
-        else:
-            msg = ErrorNumbers.FB410.value + ' `node_selection_strategy` : %s class'
+        elif not isinstace(node_selection_strategy, Strategy):
 
-            # a class is provided, need to instantiate an object
-            self._node_selection_strategy = self._check_and_load_object(node_selection_strategy,
-                                                                        Strategy,
-                                                                        msg)
+            msg = f"{ErrorNumbers.FB410.value}: wrong type for " \
+                  "node_selection_strategy {type(node_selection_strategy)} " \
+                  "it should be an instance of Strategy"
+            logger.ciritical(msg)
+            raise FedbiomedTypeError(msg)
         # at this point self._node_selection_strategy is a Union[Strategy, None]
         return self._node_selection_strategy
 
