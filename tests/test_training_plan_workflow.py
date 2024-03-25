@@ -136,7 +136,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertDictEqual(exp.model_args(), {'model': 'args'})
 
         self.mock_tp.post_init.assert_called_once_with(
-            model_args={'model':'args'}, training_args=ANY)
+            model_args={'model':'args'}, training_args=ANY, initialize_optimizer=False)
 
         # try to keep weights
         self.mock_tp.reset_mock()
