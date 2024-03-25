@@ -174,7 +174,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         training_plan.post_init(
             model_args={} if self._model_args is None else self._model_args,
-            training_args=self._training_args
+            training_args=self._training_args,
+            initialize_optimizer=False
         )
 
         return training_plan
