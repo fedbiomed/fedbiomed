@@ -496,8 +496,21 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         return loaded_exp, saved_state
 
-    def _check_round_value_consistancy(self, round_current: int, variable_name: str) -> bool:
-        """Checks round value is consistant, ie it is a non negative integer. Raises appropriate errors otherwise"""
+    def _check_round_value_consistancy(
+        self,
+        round_current: int,
+        variable_name: str
+    ) -> bool:
+        """Checks round value is consistant, ie it is a non negative integer.
+
+        Args:
+            round_current: Round to set
+            variable_name: Argument name used for setting round.
+
+        Raises:
+            FedbiomedValueError: If round value is invalid
+            FedbiomedTypeError: If round type is not correct
+            """
         if not isinstance(round_current, int):
             msg = ErrorNumbers.FB410.value + f' `{variable_name}` of type : {type(round_current)}'
             logger.critical(msg)
@@ -508,6 +521,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             msg = ErrorNumbers.FB410.value + f' `{variable_name}` cannot be negative : {round_current}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
+
         return True
 
     @contextmanager
