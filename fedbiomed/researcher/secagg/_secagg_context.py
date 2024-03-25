@@ -140,7 +140,7 @@ class SecaggContext(ABC):
         """Getter for secagg context element experiment_id
 
         Returns:
-            secagg context element job_ib (or None if no experiment_id is attached to the element)
+            secagg context element experiment_id (or None if no experiment_id is attached to the element)
         """
         return self._experiment_id
 
