@@ -50,7 +50,7 @@ exp = Experiment(tags=tags,
     declaring an experiment step by step
 
 When you first initialize your experiment by providing all the arguments as it is shown in the code snippet above, it creates a `FederatedDataSet` by searching
-the datasets in nodes based on the given list of `tags`. Afterwards, it initializes a `Job` object with `training_plan_class`, `training_arguments`,
+the datasets in nodes based on the given list of `tags`. Afterwards, it initializes `training_plan_class`, `training_arguments`,
 `model_args`, and the training plan code to manage federated training rounds on all participating nodes. However, it also creates the strategy to select the nodes for each training round.
 When the `node_selection_strategy` is set to `None`, the experiment uses the default strategy which is `DefaultStrategy`.
 
@@ -497,7 +497,7 @@ an example of `training_reply` from a node.
 ```python
 {
    "researcher_id":"researcher id that sends the training command",
-   "experiment_id":"experiment id that creates training job",
+   "experiment_id":"experiment id that creates training request",
    "success":True,
    "node_id":"ID of the node that completes the training ",
    "dataset_id":"dataset_dcf88a68-7f66-4b60-9b65-db09c6d970ee",

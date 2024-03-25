@@ -14,7 +14,7 @@ Here below the glossary used for Fed-BioMed :
 * **testing** : process of assessing the accuracy of a model after training, on holdout samples different from the one that were used for training. Not implemented yet in Fed-BioMed.
 
 
-* **job** : not a researcher notion. Interface between the researcher and the nodes of an experiment. It triggers the local work for all sampled nodes at each round.
+* **job** : a pure researcher notion. Interface between the researcher and the nodes of an experiment for *one single request* (short lived, compared to experiment). It triggers the local work for all sampled nodes for one round.
 * **round** : everything included in choice of the nodes, perform local work on the nodes, sending back whatever information is required, server performs the aggregation
     - current Round() class on node corresponds to local work
 * **parameter update** : an update of the ML model parameters during the training loop, which usually corresponds to the processing of one batch of data
