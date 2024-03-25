@@ -85,7 +85,7 @@ class BaseSecaggManager(ABC):
         elif len(entries) == 1:
             element = entries[0]
             raise_for_version_compatibility(
-                str(element.get('secagg_version', __default_version__)),
+                element.get('secagg_version', __default_version__),
                 __secagg_element_version__
             )
         else:
