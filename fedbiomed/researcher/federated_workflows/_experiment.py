@@ -424,7 +424,7 @@ class Experiment(TrainingPlanWorkflow):
         elif not isinstance(aggregator, Aggregator):
 
             msg = f"{ErrorNumbers.FB410.value}: aggregator is not an instance of Aggregator."
-            logger.ciritical(msg)
+            logger.critical(msg)
             raise FedbiomedTypeError(msg)
         else:
             # at this point, `agregator` is an instance / inheriting of `Aggregator`
@@ -522,7 +522,7 @@ class Experiment(TrainingPlanWorkflow):
             msg = f"{ErrorNumbers.FB410.value}: wrong type for " \
                   "node_selection_strategy {type(node_selection_strategy)} " \
                   "it should be an instance of Strategy"
-            logger.ciritical(msg)
+            logger.critical(msg)
             raise FedbiomedTypeError(msg)
         else:
             self._node_selection_strategy = node_selection_strategy
@@ -880,7 +880,7 @@ class Experiment(TrainingPlanWorkflow):
                               )
             job.execute()
 
-        
+
         return 1
 
     def _collect_optim_aux_var(
