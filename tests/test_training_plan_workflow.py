@@ -51,6 +51,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertIsNone(exp.training_plan_class())
         self.assertIsNone(exp.model_args())
         self.assertIsNone(exp.training_plan())
+        self.assertIsNotNone(exp.training_args())
 
         # Test all possible combinations of init arguments
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
@@ -96,7 +97,8 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         # arguments only relevant to TrainingPlanWorkflow
         exp = TrainingPlanWorkflow(
             training_plan_class=FakeTorchTrainingPlan,
-            model_args={'model-args': 'from-constructor'}
+            model_args={'model-args': 'from-constructor'},
+            training_args={'num_updates': 1},
         )
         self.assertDictEqual(exp.model_args(), {'model-args': 'from-constructor'})
         self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
@@ -134,7 +136,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertDictEqual(exp.model_args(), {'model': 'args'})
 
         self.mock_tp.post_init.assert_called_once_with(
-            model_args={'model':'args'}, training_args=ANY)
+            model_args={'model':'args'}, training_args=ANY, initialize_optimizer=False)
 
         # try to keep weights
         self.mock_tp.reset_mock()
@@ -189,6 +191,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         # define attributes that will be saved in breakpoint
         exp = TrainingPlanWorkflow(
             training_plan_class=FakeTorchTrainingPlan,
+            training_args={'num_updates': 42},
             model_args={'breakpoint-model': 'args'}
         )
         exp.breakpoint(state={}, bkpt_number=1)
@@ -212,7 +215,8 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
                                                    'breakpoint_0000',
                                                    'model_0000.py'
                                                    ),
-                'model_weights_path': params_path
+                'model_weights_path': params_path,
+                'training_args': TrainingArgs({'num_updates': 42}, only_required=False).dict(),
             },
             1
         )
@@ -235,6 +239,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
             TrainingPlanWorkflow(),
             {
                 'model_args': {'breakpoint-model': 'args'},
+                'training_args': TrainingArgs({'num_updates': 42}, only_required=False).dict(),
                 'training_plan_class_name': 'FakeTorchTrainingPlan',
                 'training_plan_path': 'some-path',
                 'model_weights_path': model_weights_path
@@ -249,10 +254,22 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertEqual(exp.training_plan_class(), FakeTorchTrainingPlan)
         self.assertIsInstance(exp.training_plan(), FakeTorchTrainingPlan)
         self.assertDictEqual(exp.model_args(), {'breakpoint-model': 'args'})
+        self.assertDictEqual(exp.training_args(),
+            TrainingArgs({'num_updates': 42}, only_required=False).dict())
         # Test if set_weights is called with the right arguments
         exp.training_plan().get_model_wrapper_class.return_value.set_weights.assert_called_once_with(
             mock_serializer_load.return_value
         )
+
+    def test_training_plan_workflow_08_set_training_args(self):
+        """Tests setting training arguments"""
+        exp = TrainingPlanWorkflow()
+        self.assertTrue(isinstance(exp.training_args(), dict))
+        self.assertTrue(len(exp.training_args()) >= 1)
+        exp.set_training_args({'num_updates': 42})
+        self.assertTrue(exp.training_args()['num_updates'] == 42)
+        exp.set_training_args(TrainingArgs({'epochs': 42}))
+        self.assertTrue(exp.training_args()['epochs'] == 42)
 
 
 if __name__ == '__main__':  # pragma: no cover

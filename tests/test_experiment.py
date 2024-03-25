@@ -9,6 +9,9 @@ from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
+from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_training_plan import (
@@ -109,18 +112,31 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
 
         # setting through a class
         _aggregator.reset_mock()
-        _aggregator_class = MagicMock()
-        _aggregator_class.return_value = _aggregator
-        with patch('fedbiomed.researcher.federated_workflows._experiment.inspect.isclass', return_value=True), \
-                patch('fedbiomed.researcher.federated_workflows._experiment.issubclass', return_value=True):
+
+        class FakeAggregator(Aggregator):
+            aggregator_name = "aggregator"
+            is_set_fds_called = False
+            def set_fds(self, fds: FederatedDataSet) -> FederatedDataSet:
+                if not self.is_set_fds_called:
+                    self.is_set_fds_called = True
+                return super().set_fds(fds)
+        _aggregator_class = FakeAggregator
+
+        with self.assertRaises(SystemExit):
             exp.set_aggregator(_aggregator_class)
-        self.assertEqual(exp.aggregator(), _aggregator)
-        _aggregator.set_fds.assert_called_once_with(exp.training_data())  # same side effect
+
+        exp.set_aggregator(FakeAggregator())
+        self.assertIsInstance(exp.aggregator(), FakeAggregator)
+        self.assertTrue(exp.aggregator().is_set_fds_called)
+        self.assertEqual(exp.training_data().data(), exp.aggregator()._fds.data())
+
 
         # check that setting training data resets the aggregator's fds
         _aggregator.reset_mock()
+        exp.set_aggregator(_aggregator)
         exp.set_training_data(_training_data)
-        _aggregator.set_fds.assert_called_once_with(exp.training_data())
+        _aggregator.set_fds.assert_called_with(exp.training_data())
+        self.assertEqual(_aggregator.set_fds.call_count, 2)
 
     def test_experiment_03_set_strategy(self):
         """Tests setting the Experiment's node selection strategy and related side effects"""
@@ -137,12 +153,20 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
 
         # setting through a class
         _strategy.reset_mock()
+
+        class FakeStrategy(DefaultStrategy):
+            has_been_called = False
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.has_been_called = True
         _strategy_class = MagicMock()
         _strategy_class.return_value = _strategy
-        with patch('fedbiomed.researcher.federated_workflows._experiment.inspect.isclass', return_value=True), \
-                patch('fedbiomed.researcher.federated_workflows._experiment.issubclass', return_value=True):
-            exp.set_strategy(_strategy_class)
-        _strategy_class.assert_called_once_with()
+
+        with self.assertRaises(SystemExit):
+            exp.set_strategy(FakeStrategy)
+
+        exp.set_strategy(FakeStrategy())
+        self.assertTrue(exp.strategy().has_been_called)
 
 #    @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
     def test_experiment_04_run_once_base_case(self):
@@ -157,7 +181,8 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
             aggregator=_aggregator,
             round_limit=1,
             training_plan_class=FakeTorchTrainingPlan,
-            node_selection_strategy=_strategy
+            node_selection_strategy=_strategy,
+
         )
         exp.run_once()
         # experiment run workflow:
@@ -241,7 +266,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         # wrong argument types
         with patch.object(exp, 'run_once', return_value=1) as mock_run_once:
             with self.assertRaises(SystemExit):
-                exp.run(rounds=0)
+                exp.run(rounds=-1)
                 self.assertFalse(mock_run_once.called)
             with self.assertRaises(SystemExit):
                 exp.run(rounds='one')
