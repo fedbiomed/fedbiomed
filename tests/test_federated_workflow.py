@@ -10,7 +10,6 @@ from testsupport.base_mocks import MockRequestModule
 
 import fedbiomed
 from fedbiomed.common.constants import __breakpoints_version__
-from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.federated_workflows import FederatedWorkflow
@@ -37,8 +36,6 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertIsNone(exp.nodes())  # by default, nodes set to None
         self.assertIsNone(exp.training_data())  # by default, training data is initialized to something
         self.assertIsNotNone(exp.experimentation_folder())  # by default, exp folder is initialized to something
-        # by default, training_args is set to TrainingArgs(None), which is populated with several default values
-        self.assertIsNotNone(exp.training_args())
         # SecAgg
         self.assertTrue(isinstance(exp.secagg, SecureAggregation))  # set to inactive SecureAggregation
         self.assertFalse(exp.secagg.active)
@@ -50,7 +47,6 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
             'tags': (None, None, ['one-tag', 'another-tag']),
             'nodes': (['one-node'], None, None),
             'training_data': (_training_data, {'one-node': {'tags': ['one-tag']}}, None),
-            'training_args': (TrainingArgs({'epochs': 42}), {'num_updates': 1}, None),
             'experimentation_folder': ('folder_name', None, None),
              'secagg': (True, False, _secagg),
             'save_breakpoints': (True, False, True)
@@ -74,13 +70,11 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         exp = FederatedWorkflow(
             nodes=['alice', 'bob'],
             training_data=_training_data,
-            training_args={'num_updates': 1},
             secagg=True,
             save_breakpoints=True
         )
         self.assertListEqual(exp.nodes(), ['alice', 'bob'])
         self.assertEqual(exp.training_data(), _training_data)
-        self.assertDictEqual(exp.training_args(), TrainingArgs({'num_updates': 1}, only_required=False).dict())
         self.assertTrue(isinstance(exp.secagg, SecureAggregation))
         self.assertTrue(exp.secagg.active)
         self.assertTrue(exp.save_breakpoints())
@@ -159,15 +153,6 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
             mock_exp_folder_creat.reset_mock()
             exp.set_experimentation_folder('new-name')
             mock_exp_folder_creat.assert_called_once_with('new-name')
-
-    def test_federated_workflow_06_set_training_args(self):
-        exp = FederatedWorkflow()
-        self.assertTrue(isinstance(exp.training_args(), dict))
-        self.assertTrue(len(exp.training_args()) >= 1)
-        exp.set_training_args({'num_updates': 42})
-        self.assertTrue(exp.training_args()['num_updates'] == 42)
-        exp.set_training_args(TrainingArgs({'epochs': 42}))
-        self.assertTrue(exp.training_args()['epochs'] == 42)
 
     def test_federated_workflow_07_set_secagg(self):
         exp = FederatedWorkflow()
@@ -261,7 +246,6 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
         _training_data.data.return_value = {'training': 'data'}
         exp = FederatedWorkflow(
-            training_args={'num_updates': 42},
             training_data=_training_data,
         )
         exp.breakpoint(state={}, bkpt_number=1)
@@ -271,7 +255,6 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
                 'id': exp.id,
                 'breakpoint_version': str(__breakpoints_version__),
                 'training_data': {'training': 'data'},
-                'training_args': TrainingArgs({'num_updates': 42}, only_required=False).dict(),
                 'experimentation_folder': exp.experimentation_folder(),
                 'tags': exp.tags(),
                 'nodes': exp.nodes(),
@@ -300,7 +283,6 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
                 'id': 'exp-id',
                 'breakpoint_version': str(__breakpoints_version__),
                 'training_data': {'node1': [{'training': 'data', 'tags': 'some-tags'}]},
-                'training_args': TrainingArgs({'num_updates': 42}, only_required=False).dict(),
                 'experimentation_folder': 'some-folder',
                 'tags': ['some-tags'],
                 'nodes': ['node1'],
@@ -312,12 +294,10 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         exp, saved_state = FederatedWorkflow.load_breakpoint()
 
         self.assertEqual(exp.id, 'exp-id')
-        self.assertDictEqual(exp.training_args(), TrainingArgs({'num_updates': 42}, only_required=False).dict())
         self.assertEqual(exp.training_data().data(), {'node1': {'training': 'data', 'tags': 'some-tags'}})
         self.assertListEqual(exp.nodes(), ['node1'])
         self.assertListEqual(exp.tags(), ['some-tags'])
         self.assertEqual(saved_state['id'], 'exp-id')
-        self.assertDictEqual(saved_state['training_args'], TrainingArgs({'num_updates': 42}, only_required=False).dict())
         self.assertEqual(saved_state['training_data'], {'node1': {'training': 'data', 'tags': 'some-tags'}})
         self.assertListEqual(saved_state['nodes'], ['node1'])
         self.assertListEqual(saved_state['tags'], ['some-tags'])

@@ -12,7 +12,6 @@ import tabulate
 import traceback
 import uuid
 from abc import ABC, abstractmethod
-from copy import deepcopy
 from pathvalidate import sanitize_filename
 from re import findall
 from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
@@ -131,7 +130,6 @@ class FederatedWorkflow(ABC):
             tags: Optional[List[str] | str] = None,
             nodes: Optional[List[str]] = None,
             training_data: Union[FederatedDataSet, dict, None] = None,
-            training_args: Union[TrainingArgs, dict, None] = None,
             experimentation_folder: Union[str, None] = None,
             secagg: Union[bool, SecureAggregation] = False,
             save_breakpoints: bool = False,
@@ -155,9 +153,7 @@ class FederatedWorkflow(ABC):
                     experiment is not fully initialized and cannot be launched)
                 Defaults to None (query nodes for dataset if `tags` is not None, set training_data
                 to None else)
-            training_args: contains training arguments passed to the `training_routine` of the training plan when
-                launching it: lr, epochs, batch_size...
-            save_breakpoints: whether to save breakpoints or not after each training round. Breakpoints can be used for
+           save_breakpoints: whether to save breakpoints or not after each training round. Breakpoints can be used for
                 resuming a crashed experiment.
             experimentation_folder: choose a specific name for the folder where experimentation result files and
                 breakpoints are stored. This should just contain the name for the folder not a path. The name is used
@@ -174,7 +170,6 @@ class FederatedWorkflow(ABC):
         self._fds: Optional[FederatedDataSet] = None  # dataset metadata from the full federation
         self._reqs: Requests = Requests()
         self._nodes_filter: Optional[List[str]] = None  # researcher-defined nodes filter
-        self._training_args: Optional[TrainingArgs] = None
         self._tags: Optional[List[str]] = None
         self._experimentation_folder: Optional[str] = None
         self._secagg: Optional[SecureAggregation] = None
@@ -203,7 +198,6 @@ class FederatedWorkflow(ABC):
 
         self.set_nodes(nodes)
         self.set_save_breakpoints(save_breakpoints)
-        self.set_training_args(training_args)
 
         self.set_experimentation_folder(experimentation_folder)
         self._node_state_agent = NodeStateAgent(list(self._fds.data().keys())
@@ -302,21 +296,6 @@ class FederatedWorkflow(ABC):
 
         return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
 
-    @exp_exceptions
-    def training_args(self) -> dict:
-        """Retrieves training arguments.
-
-        Please see also
-        [`set_training_args`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_args]
-
-        Returns:
-            The arguments that are going to be passed to the training plan's `training_routine` to perfom training on
-                the node side. An example training routine: [`TorchTrainingPlan.training_routine`]
-                [fedbiomed.common.training_plans.TorchTrainingPlan.training_routine]
-        """
-
-        return self._training_args.dict()
-
     @property
     def id(self):
         """Retrieves the unique experiment identifier."""
@@ -332,20 +311,42 @@ class FederatedWorkflow(ABC):
 
         return self._save_breakpoints
 
+    @staticmethod
+    def _create_default_info_structure() -> Dict[str, List]:
+        """Initializes info variable
+
+        Returns:
+            dictionary containing all pieces of information, with 2 entries: `Arguments` and `Values`,
+              both mapping an empty list.
+
+        """
+
+        return {
+            'Arguments': [],
+            'Values': []
+        }
+
     @exp_exceptions
-    def info(self, info=None) -> Dict[str, Any]:
+    def info(self,
+             info: Dict[str, List[str]] = None,
+             missing: str = '') -> Tuple[Dict[str, List[str]], str]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
 
-        Raises:
-            FedbiomedExperimentError: Inconsistent experiment due to missing variables
+        Args:
+            info: Dictionary of sub-classes relevant attributes status that will be completed with some additional
+                attributes status defined in this class. Defaults to None (no entries of sub-classes available or
+                of importance).
+            missing_object_to_check: dictionary mapping sub-classes attributes to attribute names, that may be
+                needed to fully run the object. Defaults to None (no check will be performed).
+
+        Returns:
+            dictionary containing all pieces of information, with 2 entries: `Arguments` mapping a list
+            of all argument, and `Values` mapping a list copntaining all the values.
         """
         if info is None:
-            info = {
-                'Arguments': [],
-                'Values': []
-            }
+            info = self._create_default_info_structure()
         info['Arguments'].extend([
             'Tags',
             'Nodes filter',
@@ -365,8 +366,42 @@ class FederatedWorkflow(ABC):
             self.experimentation_path(),
             f'- Using: {self._secagg}\n- Active: {self._secagg.active}'
         ]])
+
+        # printing list of items set / not set yet
         print(tabulate.tabulate(info, headers='keys'))
-        return info
+
+        if missing:
+            print("\nWarning: Object not fully defined, missing"
+                  f": \n{missing}")
+        else:
+            print(f"{self.__class__.__name__} can be run now (fully defined)")
+        return info, missing
+
+    def _check_missing_objects(self, missing_objects: Optional[Dict[Any, str]] = None) -> str:
+        """Checks if some objects required for running the `run` method are not set.
+
+        Args:
+            missing_objects: dictionary mapping a string of character
+                naming the required object with the value of the corresponding object
+        """
+        # definitions found missing
+
+        # definitions that may be missing for running the fedreated workflow
+        # (value None == not defined yet for _fds,)
+
+        _not_runable_if_missing = {
+            'Training Data': self._fds,
+            # 'Tags': self._tags #
+        }
+
+        if missing_objects:
+            _not_runable_if_missing.update(missing_objects)
+        missing: str = ''
+        for key, value in _not_runable_if_missing.items():
+            if value in (None, False):
+                missing += f'- {key}\n'
+
+        return missing
 
     # Setters
     @exp_exceptions
@@ -400,12 +435,11 @@ class FederatedWorkflow(ABC):
             logger.critical(msg)
             raise FedbiomedValueError(msg)
 
-
         if isinstance(tags, list):
             if not all(map(lambda tag: isinstance(tag, str), tags)):
                 msg = f"{ErrorNumbers.FB410.value}: `tags` must be a non-empty str or " \
                     "a non-empty list of str."
-                logger.cirtical(msg)
+                logger.critical(msg)
                 raise FedbiomedTypeError(msg)
 
             # If it is empty list
@@ -416,7 +450,7 @@ class FederatedWorkflow(ABC):
         else:
             msg = f"{ErrorNumbers.FB410.value} `tags` must be a non-empty str, " \
                 "a non-empty list of str"
-            logger.cirtical(msg)
+            logger.critical(msg)
             raise FedbiomedTypeError(msg)
 
         self._tags = tags_to_set
@@ -579,34 +613,6 @@ class FederatedWorkflow(ABC):
         return self._experimentation_folder
 
     @exp_exceptions
-    def set_training_args(self, training_args: Union[dict, TrainingArgs, None]) -> Union[dict, None]:
-        """ Sets `training_args` + verification on arguments type
-
-        Args:
-            training_args: contains training arguments passed to the
-                training plan's `training_routine` such as lr, epochs, batch_size...
-
-        Returns:
-            Training arguments
-
-        Raises:
-            FedbiomedExperimentError : bad training_args type
-        """
-
-        if isinstance(training_args, TrainingArgs):
-            self._training_args = deepcopy(training_args)
-        elif isinstance(training_args, dict) or training_args is None:
-            self._training_args = TrainingArgs(training_args, only_required=False)
-        else:
-            msg = f"{ErrorNumbers.FB410.value} in function `set_training_args`. Expected type TrainingArgs, dict, or " \
-                  f"None, got {type(training_args)} instead."
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        # Propagate training arguments to job
-        return self._training_args.dict()
-
-    @exp_exceptions
     def set_secagg(self, secagg: Union[bool, SecureAggregation]):
         """Sets secure aggregation
 
@@ -669,22 +675,6 @@ class FederatedWorkflow(ABC):
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
 
-    def _update_nodes_states_agent(self, before_training: bool = True):
-        """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent]
-
-        Updates node state agent with the latest state_id coming from `Nodes`
-        contained among all `Nodes` within [`FederatedDataset`]\
-        [fedbiomed.researcher.datasets.FederatedDataSet].
-
-        Args:
-            before_training: whether to update `NodeStateAgent` at the begining
-            or at the end of a `Round`:
-                - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
-                - if after, updates `NodeStateAgent` wrt the latest reply
-        """
-        node_ids = list(self._fds.data().keys()) if self._fds and self._fds.data() else []
-        self._node_state_agent.update_node_states(node_ids)
-
     @exp_exceptions
     def breakpoint(self,
                    state: Dict,
@@ -709,7 +699,6 @@ class FederatedWorkflow(ABC):
             'id': self._experiment_id,
             'breakpoint_version': str(__breakpoints_version__),
             'training_data': self._fds.data(),
-            'training_args': self._training_args.dict(),
             'experimentation_folder': self._experimentation_folder,
             'tags': self._tags,
             'nodes': self._nodes_filter,
@@ -749,7 +738,7 @@ class FederatedWorkflow(ABC):
             If None, loads the latest breakpoint of the latest workflow. Defaults to None.
 
         Returns:
-            Reinitialized workflow object.
+            Tuple contaning reinitialized workflow object and the saved state as a dictionary
 
         Raises:
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or
@@ -805,7 +794,6 @@ class FederatedWorkflow(ABC):
         loaded_exp.set_training_data(bkpt_fds)
         loaded_exp._tags = saved_state.get('tags')
         loaded_exp.set_nodes(saved_state.get('nodes'))
-        loaded_exp.set_training_args(saved_state.get('training_args'))
         loaded_exp.set_experimentation_folder(saved_state.get('experimentation_folder'))
         loaded_exp.set_secagg(SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
         loaded_exp._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))

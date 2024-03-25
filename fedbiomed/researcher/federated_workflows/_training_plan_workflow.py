@@ -8,8 +8,9 @@ import uuid
 
 from abc import ABC
 from contextlib import contextmanager
+from copy import deepcopy
 from re import findall
-from typing import Any, Dict, List, Type, TypeVar, Union, Optional, Tuple
+from typing import Any, Callable, Dict, List, Type, TypeVar, Union, Optional, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedTypeError
@@ -31,11 +32,12 @@ from fedbiomed.researcher.filetools import create_unique_link, choose_bkpt_file
 from fedbiomed.researcher.secagg import SecureAggregation
 
 # for checking class passed to experiment
-training_plans_types = (TorchTrainingPlan, SKLearnTrainingPlan)
+TRAINING_PLAN_TYPES = (TorchTrainingPlan, SKLearnTrainingPlan)
 # typing information
 TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
 TrainingPlanT = TypeVar('TrainingPlanT', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
 TrainingPlanWorkflowT = TypeVar("TrainingPlanWorkflowT", bound='TrainingPlanWorkflow')  # only for typing
+T = TypeVar("T")
 
 
 class TrainingPlanWorkflow(FederatedWorkflow, ABC):
@@ -110,11 +112,10 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 f"{ErrorNumbers.FB418.value}: bad type for argument "
                 f"`training_plan_class` {type(training_plan_class)}")
 
-        if training_plan_class is not None and not issubclass(training_plan_class, training_plans_types):
-            raise FedbiomedTypeError(
-                f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`. "
-                f"It is not subclass of supported training plans {training_plans_types}"
-            )
+        if training_plan_class is not None and not issubclass(training_plan_class, TRAINING_PLAN_TYPES):
+
+            raise FedbiomedTypeError(f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`."
+                                     f" It is not subclass of supported training plans {TRAINING_PLAN_TYPES}")
 
         # __training_plan_class determines the life-cycle of the training plan: if training_plass_class changes, then
         # the training plan must be reinitialized
@@ -125,21 +126,21 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         # The __training_plan attribute represents the *actual instance* of a __training_plan_class that is currently
         # being used in the workflow. The training plan cannot be modified by the user.
         self.__training_plan = None
+        self._training_args: Optional[TrainingArgs] = None  # FIXME: is it ok to have this here?
 
         # initialize object
         super().__init__(
             tags=tags,
             nodes=nodes,
             training_data=training_data,
-            training_args=training_args,
             experimentation_folder=experimentation_folder,
             secagg=secagg,
             save_breakpoints=save_breakpoints
         )
 
+        self.set_training_args(training_args)
         self.set_model_args(model_args)
         self.set_training_plan_class(training_plan_class)
-
 
     def _instantiate_training_plan(self) -> BaseTrainingPlan:
         """Instantiates training plan class
@@ -211,6 +212,25 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         return self.__training_plan_class
 
+
+    @exp_exceptions
+    def training_args(self) -> dict:
+        """Retrieves training arguments.
+
+        Please see also [`set_training_args`][fedbiomed.researcher.\
+        federated_workflows.FederatedWorkflow.set_training_args]
+
+        Returns:
+            The arguments that are going to be passed to the training plan's
+                `training_routine` to perfom training on the node side. An example
+                training routine: [`TorchTrainingPlan.training_routine`]
+                [fedbiomed.common.training_plans.TorchTrainingPlan.training_routine]
+        """
+
+        return self._training_args.dict()
+
+
+
     @exp_exceptions
     def training_plan(self) -> Optional[TrainingPlan]:
         """Retrieves the training plan instance currently being used in the federated workflow.
@@ -233,31 +253,92 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         return self._model_args
 
     @exp_exceptions
-    def info(self, info=None) -> Dict[str, Any]:
+    def info(
+        self,
+        info: Optional[Dict] = None,
+        missing: str = ''
+    ) -> Tuple[Dict[str, List[str]], str]:
         """Prints out the information about the current status of the experiment.
 
-        Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
+        Lists  all the parameters/arguments of the experiment and informs whether
+        the experiment can be run.
+
+        Args:
+            info: Dictionary of sub-classes relevant attributes status that will be
+                completed with some additional attributes status defined in this class.
+                Defaults to None (no entries of sub-classes available or of importance).
+            missing_object_to_check: dictionary mapping sub-classes attributes to
+                attribute names, that may be needed to fully run the object. Defaults
+                to None (no check will be performed).
+
+        Returns:
+            dictionary containing all pieces of information, with 2 entries:
+                `Arguments` mapping a list of all argument, and `Values` mapping
+                a list copntaining all the values.
 
         Raises:
-            FedbiomedExperimentError: Inconsistent experiment due to missing variables
+            KeyError: if `Arguments` or `Values` entry is missing in passing argument `info`
         """
         # at this point all attributes are initialized (in constructor)
         if info is None:
-            info = {
-                'Arguments': [],
-                'Values': []
-            }
+            info = self._create_default_info_structure()
         info['Arguments'].extend([
             'Training Plan Class',
             'Model Arguments',
+            'Training Arguments'
         ])
         info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
             self.__training_plan_class,
             self._model_args,
+            self._training_args
         ]])
-        info = super().info(info)
-        return info
+
+        return super().info(info, missing)
+
+    def _check_missing_objects(self, missing_objects: Optional[Dict[Any, str]] = None) -> str:
+        """Checks if some objects required for running the `run` method are not set"""
+        # definitions of elements that are needed (paramount) for running the experiment
+        _not_runnable_if_missing = {'Training Plan Class' : self.__training_plan_class}
+
+        missing: str = ''
+        missing += super()._check_missing_objects(_not_runnable_if_missing)
+        return missing
+
+
+    @exp_exceptions
+    def set_training_args(
+        self,
+        training_args: Union[dict, TrainingArgs, None]
+    ) -> Union[dict, None]:
+        """ Sets `training_args` + verification on arguments type
+
+        Args:
+            training_args: contains training arguments passed to the
+                training plan's `training_routine` such as lr, epochs, batch_size...
+
+        Returns:
+            Training arguments
+
+        Raises:
+            FedbiomedExperimentError : bad training_args type
+        """
+
+        if isinstance(training_args, TrainingArgs):
+            self._training_args = deepcopy(training_args)
+        elif isinstance(training_args, dict) or training_args is None:
+            self._training_args = TrainingArgs(training_args, only_required=False)
+        else:
+            msg = f"{ErrorNumbers.FB410.value} in function `set_training_args`. " \
+                  "Expected type TrainingArgs, dict, or " \
+                  f"None, got {type(training_args)} instead."
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        # Propagate training arguments to job
+        return self._training_args.dict()
+
+
 
     @exp_exceptions
     def set_training_plan_class(self,
@@ -286,7 +367,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             self.__training_plan_class = None
         elif inspect.isclass(training_plan_class):
             # training_plan_class must be a subclass of a valid training plan
-            if issubclass(training_plan_class, training_plans_types):
+            if issubclass(training_plan_class, TRAINING_PLAN_TYPES):
                 # valid class
                 self.__training_plan_class = training_plan_class
             else:
@@ -402,6 +483,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         The following attributes will be saved:
 
+          - training_args
           - training_plan_class
           - model_args
         """
@@ -413,6 +495,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         state.update({
             'model_args': self._model_args,
             'training_plan_class_name': self.__training_plan_class.__name__,
+            'training_args': self._training_args.dict(),
         })
 
         breakpoint_path, breakpoint_file_name = \
@@ -468,6 +551,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         loaded_exp.set_model_args(saved_state["model_args"])
         loaded_exp.set_training_plan_class(tp_class)
+        loaded_exp.set_training_args(saved_state.get('training_args'))
         training_plan = loaded_exp.training_plan()
         if training_plan is None:
             msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
@@ -479,6 +563,34 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         loaded_exp.training_plan().get_model_wrapper_class().set_weights(params)
 
         return loaded_exp, saved_state
+
+    def _check_round_value_consistancy(
+        self,
+        round_current: int,
+        variable_name: str
+    ) -> bool:
+        """Checks round value is consistant, ie it is a non negative integer.
+
+        Args:
+            round_current: Round to set
+            variable_name: Argument name used for setting round.
+
+        Raises:
+            FedbiomedValueError: If round value is invalid
+            FedbiomedTypeError: If round type is not correct
+            """
+        if not isinstance(round_current, int):
+            msg = ErrorNumbers.FB410.value + f' `{variable_name}` of type : {type(round_current)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        if round_current < 0.:
+            # cannot set a round <0
+            msg = ErrorNumbers.FB410.value + f' `{variable_name}` cannot be negative or zero: {round_current}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        return True
 
     @contextmanager
     def _keep_weights(self, keep_weights: bool):
