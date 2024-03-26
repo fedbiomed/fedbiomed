@@ -62,7 +62,7 @@ class TrainingPlanCheckJob(Job):
                  *,
                  nodes: Optional[List[str]] = None,
                  keep_files_dir: str = None,
-                 job_id: str,
+                 experiment_id: str,
                  training_plan: BaseTrainingPlan,
                  ):
         """Constructor of the class.
@@ -71,12 +71,12 @@ class TrainingPlanCheckJob(Job):
             nodes: A dict of node_id containing the nodes used for training
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
                 of the job. Defaults to None, files are not kept after the end of the job.
-            job_id: unique ID of this task
+            experiment_id: unique ID of this experiment
             training_plan: an instance of a TrainingPlan object
         """
         super().__init__(nodes=nodes, keep_files_dir=keep_files_dir)
         self._policies = [DiscardOnTimeout(5)]  # specific policy for TrainingApproval
-        self._job_id = job_id
+        self._experiment_id = experiment_id
         self._training_plan = training_plan
 
     def execute(self) -> Dict:
@@ -91,7 +91,7 @@ class TrainingPlanCheckJob(Job):
 
         message = TrainingPlanStatusRequest(**{
             'researcher_id': self._researcher_id,
-            'job_id': self._job_id,
+            'experiment_id': self._experiment_id,
             'training_plan': self._training_plan.source(),
             'command': 'training-plan-status'
         })

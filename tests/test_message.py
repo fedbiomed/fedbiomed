@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import unittest
 
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
+from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError
 import fedbiomed.common.message as message
 
@@ -393,7 +393,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job',
+            experiment_id='experiment',
             state_id='state_id_1234',
             success=True,
             node_id='titi',
@@ -415,7 +415,7 @@ class TestMessage(unittest.TestCase):
             message.TrainReply,
             expected_result=False,
 
-            job_id='job')
+            experiment_id='experiment')
 
         self.check_class_args(
             message.TrainReply,
@@ -470,7 +470,7 @@ class TestMessage(unittest.TestCase):
             expected_result=False,
 
             researcher_id='toto',
-            job_id='job',
+            experiment_id='experiment',
             success=True,
             node_id='titi',
             dataset_id='my_data',
@@ -488,7 +488,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id=True,
-            job_id='job',
+            experiment_id='experiment',
             success=True,
             node_id='titi',
             dataset_id='my_data',
@@ -503,7 +503,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id=True,
+            experiment_id=True,
             success=True,
             node_id='titi',
             dataset_id='my_data',
@@ -518,7 +518,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job',
+            experiment_id='experiment',
             success='not_a_bool',
             node_id='titi',
             dataset_id='my_data',
@@ -533,7 +533,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job',
+            experiment_id='experiment',
             success=True,
             node_id=True,
             dataset_id='my_data',
@@ -548,7 +548,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job',
+            experiment_id='experiment',
             success=True,
             node_id='titi',
             dataset_id=True,
@@ -563,7 +563,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job',
+            experiment_id='experiment',
             success=True,
             node_id='titi',
             dataset_id='my_data',
@@ -578,7 +578,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job',
+            experiment_id='experiment',
             success=True,
             node_id='titi',
             dataset_id='my_data',
@@ -593,7 +593,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job',
+            experiment_id='experiment',
             success=True,
             node_id='titi',
             dataset_id='my_data',
@@ -608,7 +608,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job',
+            experiment_id='experiment',
             success=True,
             node_id='titi',
             dataset_id='my_data',
@@ -765,7 +765,7 @@ class TestMessage(unittest.TestCase):
             message.Scalar,
             expected_result=True,
             node_id='titi',
-            job_id='tutu',
+            experiment_id='tutu',
             train=True,
             test=True,
             test_on_local_updates= True,
@@ -788,7 +788,7 @@ class TestMessage(unittest.TestCase):
             message.Scalar,
             expected_result=False,
             node_id='titi',
-            job_id='tutu',
+            experiment_id='tutu',
             iteration=666,
             extra_arg='???')
 
@@ -798,7 +798,7 @@ class TestMessage(unittest.TestCase):
             expected_result=False,
 
             node_id=12,
-            job_id='tutu',
+            experiment_id='tutu',
             train=True,
             test=True,
             test_on_local_updates=True,
@@ -821,7 +821,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id='titi',
-            job_id='titi',
+            experiment_id='titi',
             success=True,
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.APPROVED.value,
@@ -836,7 +836,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id=12334,
-            job_id='titi',
+            experiment_id='titi',
             success=True,
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.REJECTED.value,
@@ -851,7 +851,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id=12344,
             node_id='12334',
-            job_id='titi',
+            experiment_id='titi',
             success=True,
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.PENDING.value,
@@ -866,7 +866,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='12344',
             node_id='12334',
-            job_id='titi',
+            experiment_id='titi',
             success=True,
             approval_obligation=True,
             status=True,
@@ -881,7 +881,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='12344',
             node_id='12334',
-            job_id='titi',
+            experiment_id='titi',
             success=True,
             approval_obligation='True',
             status='None',
@@ -896,7 +896,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id=333,
             node_id=1212,
-            job_id=False,
+            experiment_id=False,
             success='not a bool',
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.PENDING.value,
@@ -911,7 +911,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id=333,
             node_id=1212,
-            job_id=False,
+            experiment_id=False,
             success='not a bool',
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.REJECTED.value,
@@ -1222,7 +1222,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job_number',
+            experiment_id='experiment_number',
             params= {"x": 0},
             state_id='state_id_1234',
             training_args={"a": 1, "b": 2},
@@ -1252,7 +1252,7 @@ class TestMessage(unittest.TestCase):
             message.TrainRequest,
             expected_result=False,
 
-            job_id='job_number')
+            experiment_id='experiment_number')
 
         self.check_class_args(
             message.TrainRequest,
@@ -1306,7 +1306,7 @@ class TestMessage(unittest.TestCase):
             expected_result=False,
 
             researcher_id='toto',
-            job_id='job_number',
+            experiment_id='experiment_number',
             params= {"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
@@ -1324,7 +1324,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id=False,
-            job_id='job_number',
+            experiment_id='experiment_number',
             params= {"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
@@ -1342,7 +1342,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job_number',
+            experiment_id='experiment_number',
             params_url=False,
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
@@ -1359,7 +1359,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job_number',
+            experiment_id='experiment_number',
             params= {"x": 0},
             training_args={"foo": "not_a_str"},
             dataset_id="MNIS",
@@ -1375,7 +1375,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job_number',
+            experiment_id='experiment_number',
             params= {"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id={"foo": "not_a_str"},
@@ -1394,7 +1394,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job_number',
+            experiment_id='experiment_number',
             params= {"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
@@ -1410,7 +1410,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job_number',
+            experiment_id='experiment_number',
             params= {"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
@@ -1427,7 +1427,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job_number',
+            experiment_id='experiment_number',
             params={"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
@@ -1444,7 +1444,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='job_number',
+            experiment_id='experiment_number',
             params= {"x": 0},
             training_args={"a": 1, "b": 2},
             training_data="MNIS",
@@ -1513,7 +1513,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='sdsd',
+            experiment_id='sdsd',
             training_plan='TP',
             command='command-dummy')
 
@@ -1523,7 +1523,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id=True,
-            job_id='sdsd',
+            experiment_id='sdsd',
             training_plan_url='do_it',
             command='command-dummy')
 
@@ -1533,7 +1533,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id=122323,
+            experiment_id=122323,
             training_plan_url='do_it',
             command='command-dummy')
 
@@ -1543,7 +1543,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            job_id='sdsd',
+            experiment_id='sdsd',
             training_plan_url=12323,
             command='command-dummy')
 
@@ -1553,7 +1553,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='ttot',
-            job_id='sdsd',
+            experiment_id='sdsd',
             training_plan_url='do_it',
             command=False)
 
@@ -1562,9 +1562,9 @@ class TestMessage(unittest.TestCase):
     def test_message_15_trainmessages(self):
 
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
-            "job_id": 'job',
+            "experiment_id": 'experiment',
             "state_id": None,
             "success": True,
             "node_id": 'titi',
@@ -1583,9 +1583,9 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance(r, message.TrainReply)
 
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
-            "job_id": 'job',
+            "experiment_id": 'experiment',
             "params": {"x": 0},
             "state_id": 'state_id_1234',
             "training_args": {},
@@ -1614,7 +1614,7 @@ class TestMessage(unittest.TestCase):
 
         """  Test list datasets messages for node and researcher """
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "success": True,
             "databases": ["one", "two"],
@@ -1640,7 +1640,7 @@ class TestMessage(unittest.TestCase):
     def test_message_17_searchmessages(self):
 
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "success": True,
             "databases": ["one", "two"],
@@ -1668,7 +1668,7 @@ class TestMessage(unittest.TestCase):
 
         # ping
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "node_id": 'titi',
             "success": True,
@@ -1695,7 +1695,7 @@ class TestMessage(unittest.TestCase):
 
         # error
         params = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "node_id": 'titi',
             "errnum": ErrorNumbers.FB100.value,
@@ -1801,10 +1801,10 @@ class TestMessage(unittest.TestCase):
     def test_message_24_model_status_messages(self):
 
         params_reply = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             'researcher_id': 'toto',
             'node_id': 'titi',
-            'job_id': 'titi',
+            'experiment_id': 'titi',
             'success': True,
             'approval_obligation': True,
             'status': TrainingPlanApprovalStatus.APPROVED.value,
@@ -1821,7 +1821,7 @@ class TestMessage(unittest.TestCase):
 
         params_request = {
             'researcher_id': 'toto',
-            "job_id": 'titi',
+            "experiment_id": 'titi',
             "training_plan": 'TP',
             "command": 'training-plan-status'
         }
@@ -2026,7 +2026,7 @@ class TestMessage(unittest.TestCase):
         self.assertIsInstance(r, message.ApprovalRequest)
 
         params_reply = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "researcher_id": 'toto',
             "node_id": 'titi',
             "status": 200,

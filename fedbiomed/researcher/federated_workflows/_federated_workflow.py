@@ -16,7 +16,7 @@ from pathvalidate import sanitize_filename
 from re import findall
 from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
 
-from fedbiomed.common.constants import ErrorNumbers, JOB_PREFIX, __breakpoints_version__
+from fedbiomed.common.constants import ErrorNumbers, EXPERIMENT_PREFIX, __breakpoints_version__
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError, FedbiomedTypeError, FedbiomedValueError
 )
@@ -176,7 +176,7 @@ class FederatedWorkflow(ABC):
         self._save_breakpoints: Optional[bool] = None
         self._node_state_agent: Optional[NodeStateAgent] = None
         self._researcher_id: str = environ['RESEARCHER_ID']
-        self._id: str = JOB_PREFIX + str(uuid.uuid4())  # creating a unique job id # TO BE RENAMED
+        self._experiment_id: str = EXPERIMENT_PREFIX + str(uuid.uuid4())  # creating a unique experiment id
 
         # set internal members from constructor arguments
         self.set_secagg(secagg)
@@ -299,7 +299,7 @@ class FederatedWorkflow(ABC):
     @property
     def id(self):
         """Retrieves the unique experiment identifier."""
-        return self._id
+        return self._experiment_id
 
     @exp_exceptions
     def save_breakpoints(self) -> bool:
@@ -671,7 +671,7 @@ class FederatedWorkflow(ABC):
         secagg_arguments = {}
         if self._secagg.active:
             self._secagg.setup(parties=[environ["ID"]] + sampled_nodes,
-                               job_id=self._id)
+                               experiment_id=self._experiment_id)
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
 
@@ -696,7 +696,7 @@ class FederatedWorkflow(ABC):
                 yet, or error when saving breakpoint
         """
         state.update({
-            'id': self._id,
+            'id': self._experiment_id,
             'breakpoint_version': str(__breakpoints_version__),
             'training_data': self._fds.data(),
             'experimentation_folder': self._experimentation_folder,
@@ -790,7 +790,7 @@ class FederatedWorkflow(ABC):
 
         # initializing experiment
         loaded_exp = cls()
-        loaded_exp._id = saved_state.get('id')
+        loaded_exp._experiment_id = saved_state.get('id')
         loaded_exp.set_training_data(bkpt_fds)
         loaded_exp._tags = saved_state.get('tags')
         loaded_exp.set_nodes(saved_state.get('nodes'))

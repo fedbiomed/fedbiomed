@@ -10,12 +10,12 @@ class FakeSecaggSetup:
             self,
             researcher_id: str,
             secagg_id: str,
-            job_id: str,
+            experiment_id: str,
             parties: List[str]):
 
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
-        self._job_id = job_id
+        self._experiment_id = experiment_id
         self._parties = parties
 
         self._message = ''
@@ -27,8 +27,8 @@ class FakeSecaggSetup:
     def secagg_id(self) -> str:
         return self._secagg_id
 
-    def job_id(self) -> str:
-        return self._job_id
+    def experiment_id(self) -> str:
+        return self._experiment_id
 
     def setup(self) -> SecaggReply:
         return NodeMessages.format_outgoing_message(

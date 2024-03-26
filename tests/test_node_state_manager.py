@@ -51,43 +51,43 @@ class TestNodeStateManager(unittest.TestCase):
     def test_node_state_manager_2_get(self, raise_for_compatibility_patch):
 
         #self.query_patcher = patch('fedbiomed.node.node_state_manager.Query')
-        job_id , state_id = 'job_id' , 'state_id'
-        self.query_mock.job_id = MagicMock(return_value=job_id)
+        experiment_id , state_id = 'experiment_id' , 'state_id'
+        self.query_mock.experiment_id = MagicMock(return_value=experiment_id)
         self.query_mock.state_id = MagicMock(return_value=state_id)
         self.table_mock.return_value.table.return_value.get.return_value = {
             "version_node_id" : '1.2.3',
             'state_id': state_id,
-            'job_id': job_id,
+            'experiment_id': experiment_id,
             'state': {}
         }
         test_nsm = self.test_nsm
-        res = test_nsm.get(job_id, state_id)
+        res = test_nsm.get(experiment_id, state_id)
 
         self.table_mock.return_value.table.return_value.get.assert_called_once_with(
-            (self.query_mock.job_id == job_id) & (self.query_mock.state_id == state_id)
+            (self.query_mock.experiment_id == experiment_id) & (self.query_mock.state_id == state_id)
         )
         self.assertIsInstance(res, dict)
         raise_for_compatibility_patch.assert_called_once()
 
     def test_node_state_manager_3_get_error(self):
-        job_id , state_id = 'job_id' , 'state_id'
+        experiment_id , state_id = 'experiment_id' , 'state_id'
         # test first error: when returned state is None
         with patch('fedbiomed.node.node_state_manager.NodeStateManager._load_state') as private_load_state_mock:
             private_load_state_mock.return_value = None
 
             with self.assertRaises(FedbiomedNodeStateManagerError):
-                self.test_nsm.get(job_id, state_id)
+                self.test_nsm.get(experiment_id, state_id)
 
         # test second error: when database extraction request fails (in `_load_state` private method)
         self.table_mock.return_value.table.return_value.get.side_effect = RuntimeError("error raised for the sake of"
                                                                                        " testing!")
         with self.assertRaises(FedbiomedNodeStateManagerError):
-            self.test_nsm.get(job_id, state_id)
+            self.test_nsm.get(experiment_id, state_id)
 
     @patch('uuid.uuid4', autospec=True)
     def test_node_state_manager_4_add(self, uuid_patch):
 
-        job_id = 'job_id'
+        experiment_id = 'experiment_id'
 
         # TODO: add states that are framework native (here we are using format that is very similar to Declearn optimizers)
 
@@ -95,14 +95,14 @@ class TestNodeStateManager(unittest.TestCase):
         header = {
             "version_node_id": str(__node_state_version__),
             "state_id": expected_state_id,
-            "job_id": job_id
+            "experiment_id": experiment_id
         }
 
         uuid_patch.return_value = FakeUuid()
 
         self.query_mock.return_value.state_id = expected_state_id
         self.test_nsm.initialize()
-        res = self.test_nsm.add(job_id, self.fake_declearn_optimizer_state)
+        res = self.test_nsm.add(experiment_id, self.fake_declearn_optimizer_state)
 
         # checks
         expected_state = copy.deepcopy(self.fake_declearn_optimizer_state)
@@ -121,7 +121,7 @@ class TestNodeStateManager(unittest.TestCase):
             )
 
         with self.assertRaises(FedbiomedNodeStateManagerError):
-            self.test_nsm.add(job_id='job_id', state=self.fake_declearn_optimizer_state)
+            self.test_nsm.add(experiment_id='experiment_id', state=self.fake_declearn_optimizer_state)
 
 
     def test_node_state_manager_6_initialize_node_state_manager(self):
@@ -153,9 +153,9 @@ class TestNodeStateManager(unittest.TestCase):
         fake_var_dir, fake_node_id = 'fake/var/dir', 'fake_node_id_xxx'
         side_effect_env = lambda x: {"VAR_DIR": fake_var_dir, "NODE_ID": fake_node_id}.get(x)
 
-        # testing values for initializing folders for a given job and round
+        # testing values for initializing folders for a given experiment and round
         file_name = "file_name_for_elem_%s_%s"
-        job_id, round_nb, opt_file_name = 'job_id', 4321, MagicMock(spec=NodeStateFileName, 
+        experiment_id, round_nb, opt_file_name = 'experiment_id', 4321, MagicMock(spec=NodeStateFileName, 
                                                                     value=file_name)
         uuid_patch.return_value = FakeUuid()
         state_id = FakeUuid.VALUE
@@ -166,16 +166,16 @@ class TestNodeStateManager(unittest.TestCase):
 
             os_mkdirs_mock.reset_mock()
 
-            res = self.test_nsm.generate_folder_and_create_file_name(job_id, round_nb, opt_file_name)
+            res = self.test_nsm.generate_folder_and_create_file_name(experiment_id, round_nb, opt_file_name)
 
             # checks
             os_mkdirs_mock.assert_called_once_with(
                 os.path.join(self.test_nsm.get_node_state_base_dir(),
-                             'job_id_%s' % job_id),
+                             'experiment_id_%s' % experiment_id),
                 exist_ok=True
                 )
 
-        self.assertEqual(res, os.path.join(fake_var_dir, 'node_state_fake_node_id_xxx', 'job_id_%s' % job_id,
+        self.assertEqual(res, os.path.join(fake_var_dir, 'node_state_fake_node_id_xxx', 'experiment_id_%s' % experiment_id,
                                            file_name % (str(round_nb), "node_state_%s" % state_id)))
 
         # FIXME; should state_id be private?
@@ -183,12 +183,12 @@ class TestNodeStateManager(unittest.TestCase):
     @patch('uuid.uuid4', autospec=True)  
     def test_node_state_manager_9_generate_folder_and_create_file_name_failures(self, uuid_patch):
         file_name = "file_name_for_elem_%s_%s"
-        job_id, round_nb, opt_file_name = 'job_id', 4321, MagicMock(spec=NodeStateFileName, 
+        experiment_id, round_nb, opt_file_name = 'experiment_id', 4321, MagicMock(spec=NodeStateFileName, 
                                                                     value=file_name)
 
         # raise first exception: case where `node_state_base_dir` has not been found
         with self.assertRaises(FedbiomedNodeStateManagerError):
-            self.test_nsm.generate_folder_and_create_file_name(job_id,
+            self.test_nsm.generate_folder_and_create_file_name(experiment_id,
                                                                round_nb,
                                                                opt_file_name)
 
@@ -206,7 +206,7 @@ class TestNodeStateManager(unittest.TestCase):
             os_mkdirs_mock.side_effect = PermissionError("error raised for the sake of testing")
 
             with self.assertRaises(FedbiomedNodeStateManagerError):
-                self.test_nsm.generate_folder_and_create_file_name(job_id,
+                self.test_nsm.generate_folder_and_create_file_name(experiment_id,
                                                                    round_nb,
                                                                    opt_file_name)
 
