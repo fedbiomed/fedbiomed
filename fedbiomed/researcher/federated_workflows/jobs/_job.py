@@ -29,17 +29,18 @@ class Job(ABC):
         nodes: node IDs participating in the task
     """
 
-    def __init__(self,
-                 *,
-                 nodes: List[str] | None,
-                 keep_files_dir: str):
-
-        """ Constructor of the class
+    def __init__(
+        self,
+        *,
+        nodes: List[str] | None,
+        keep_files_dir: str
+    ):
+        """Constructor of the class
 
         Args:
             nodes: A dict of node_id containing the nodes used for training
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
-                of the job. 
+                of the job.
 
         """
 

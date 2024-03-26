@@ -17,22 +17,21 @@ class TrainingPlanApproveJob(Job):
     """
 
     def __init__(self,
-                 *,
-                 nodes: Optional[List[str]] = None,
-                 keep_files_dir: str = None,
                  training_plan: BaseTrainingPlan,
-                 description: str
+                 description: str,
+                 **kwargs
                  ):
         """Constructor of the class.
 
         Args:
-            nodes: A dict of node_id containing the nodes used for training
-            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
-                of the job. Defaults to None, files are not kept after the end of the job.
             training_plan: an instance of a TrainingPlan object
             description: human-readable description of the TrainingPlan for the reviewer on the node
+            *args: Positonal argument of parent class
+                [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]
+            **kwargs: Named arguments of parent class. Please see
+                [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]
         """
-        super().__init__(nodes=nodes, keep_files_dir=keep_files_dir)
+        super().__init__(*args, **kwargs)
         self._policies = [DiscardOnTimeout(5)]  # specific policy for TrainingApproval
         self._training_plan = training_plan
         self._description = description

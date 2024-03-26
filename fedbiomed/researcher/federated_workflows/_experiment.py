@@ -24,20 +24,17 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.training_args import TrainingArgs
+
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.filetools import choose_bkpt_file
 from fedbiomed.researcher.monitor import Monitor
-from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 
 from ._federated_workflow import exp_exceptions
-from ._training_plan_workflow import (
-    TrainingPlanT,
-    TrainingPlanWorkflow)
+from ._training_plan_workflow import TrainingPlanWorkflow
 
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
 T = TypeVar("T")
@@ -47,14 +44,14 @@ class Experiment(TrainingPlanWorkflow):
     """
     A Federated Learning Experiment based on a Training Plan.
 
-    This class provides a comprehensive entry point for the management and orchestration of a FL experiment, including
-    definition, execution, and interpretation of results.
+    This class provides a comprehensive entry point for the management and orchestration
+    of a FL experiment, including definition, execution, and interpretation of results.
 
     !!! note "Managing model parameters"
         The model parameters should be managed through the corresponding methods in the training_plan by accessing
         the experiment's
-        [`training_plan()`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.training_plan] attribute and
-        using the
+        [`training_plan()`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.training_plan]
+        attribute and using the
         [`set_model_params`][fedbiomed.common.training_plans._base_training_plan.BaseTrainingPlan.set_model_params] and
         [`get_model_params`][fedbiomed.common.training_plans._base_training_plan.BaseTrainingPlan.get_model_params]
         functions, e.g.
@@ -65,87 +62,57 @@ class Experiment(TrainingPlanWorkflow):
     !!! warning "Do not set the training plan attribute directly"
         Setting the `training_plan` attribute directly is not allowed. Instead, use the
         [`set_training_plan_class`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.set_training_plan_class]
-        method to set the training plan type, and the underlying model will be correctly constructed and initialized.
+        method to set the training plan type, and the underlying model will be correctly
+        constructed and initialized.
     """
 
     @exp_exceptions
     def __init__(
         self,
-        tags: Union[List[str], str, None] = None,
-        nodes: Union[List[str], None] = None,
-        training_data: Union[FederatedDataSet, dict, None] = None,
+        *args,
         aggregator: Optional[Aggregator] = None,
         agg_optimizer: Optional[Optimizer] = None,
         node_selection_strategy: Optional[Strategy] = None,
         round_limit: Union[int, None] = None,
-        training_plan_class: Union[TrainingPlanT, str, None] = None,
-        training_args: Union[TrainingArgs, dict, None] = None,
-        model_args: Optional[Dict] = None,
         tensorboard: bool = False,
-        experimentation_folder: Optional[str] = None,
-        secagg: Union[bool, SecureAggregation] = False,
-        save_breakpoints: bool = False,
         retain_full_history: bool = True,
+        **kwargs
     ) -> None:
         """Constructor of the class.
 
         Args:
-            tags: list of string with data tags or string with one data tag. Empty list of tags ([]) means any dataset
-                is accepted, it is different from None (tags not set, cannot search for training_data yet).
-            nodes: list of node_ids to filter the nodes to be involved in the experiment. Defaults to None (no
-                filtering).
-            training_data:
-                * If it is a FederatedDataSet object, use this value as training_data.
-                * else if it is a dict, create and use a FederatedDataSet object from the dict and use this value as
-                    training_data. The dict should use node ids as keys, values being list of dicts (each dict
-                    representing a dataset on a node).
-                * else if it is None (no training data provided)
-                  - if `tags` is not None, set training_data by
-                    searching for datasets with a query to the nodes using `tags` and `nodes`
-                  - if `tags` is None, set training_data to None (no training_data set yet,
-                    experiment is not fully initialized and cannot be launched)
-                Defaults to None (query nodes for dataset if `tags` is not None, set training_data
-                to None else)
-            aggregator: object defining the method for aggregating local updates. Default to None (use
+            aggregator: object defining the method for aggregating
+                local updates. Default to None (use
                 [`FedAverage`][fedbiomed.researcher.aggregators.FedAverage] for aggregation)
-            agg_optimizer: [`Optimizer`][fedbiomed.common.optimizers.Optimizer] instance, to refine aggregated
-                model updates prior to their application. If None, merely apply the aggregated updates.
-            node_selection_strategy:object defining how nodes are sampled at each round for training, and how
-                non-responding nodes are managed.  Defaults to None:
-                - use [`DefaultStrategy`][fedbiomed.researcher.strategies.DefaultStrategy] if training_data is
-                    initialized
+
+            agg_optimizer: [`Optimizer`][fedbiomed.common.optimizers.Optimizer] instance,
+                to refine aggregated model updates prior to their application. If None,
+                merely apply the aggregated updates.
+
+            node_selection_strategy: object defining how nodes are sampled at
+                each round for training, and how non-responding nodes are managed.
+                Defaults to None:
+                - use [`DefaultStrategy`][fedbiomed.researcher.strategies.DefaultStrategy]
+                    if training_data is initialized
                 - else strategy is None (cannot be initialized), experiment cannot be launched yet
-            round_limit: the maximum number of training rounds (nodes <-> central server) that should be executed for
-                the experiment. `None` means that no limit is defined. Defaults to None.
-            training_plan_class: name of the training plan class [`str`][str] or training plan class
-                (`TrainingPlanT`) to use for training.
-                For experiment to be properly and fully defined `training_plan_class` needs to be:
-                - a [`str`][str] when `training_plan_class_path` is not None (training plan class comes from a file).
-                - a `TrainingPlanT` when `training_plan_class_path` is None (training plan class passed
-                    as argument).
-                Defaults to None (no training plan class defined yet)
-            model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
-                output and input feature dimension, etc.
-            training_args: contains training arguments passed to the `training_routine` of the training plan when
-                launching it: lr, epochs, batch_size...
-            save_breakpoints: whether to save breakpoints or not after each training round. Breakpoints can be used for
-                resuming a crashed experiment.
-            tensorboard: whether to save scalar values  for displaying in Tensorboard during training for each node.
-                Currently, it is only used for loss values.
-                - If it is true, monitor instantiates a `Monitor` object that write scalar logs into `./runs` directory.
+
+            round_limit: the maximum number of training rounds (nodes <-> central server)
+                that should be executed for the experiment. `None` means that no limit is
+                defined. Defaults to None.
+
+            tensorboard: whether to save scalar values  for displaying in Tensorboard
+                during training for each node. Currently, it is only used for loss values.
+                - If it is true, monitor instantiates a `Monitor` object
+                    that write scalar logs into `./runs` directory.
                 - If it is False, it stops monitoring if it was active.
-            experimentation_folder: choose a specific name for the folder where experimentation result files and
-                breakpoints are stored. This should just contain the name for the folder not a path. The name is used
-                as a subdirectory of `environ[EXPERIMENTS_DIR])`. Defaults to None (auto-choose a folder name)
-                - Caveat : if using a specific name this experimentation will not be automatically detected as the last
-                experimentation by `load_breakpoint`
-                - Caveat : do not use a `experimentation_folder` name finishing with numbers ([0-9]+) as this would
-                confuse the last experimentation detection heuristic by `load_breakpoint`.
-            secagg: whether to setup a secure aggregation context for this experiment, and use it
-                to send encrypted updates from nodes to researcher. Defaults to `False`
-            retain_full_history: whether to retain in memory the full history of node replies and aggregated params
-                for the experiment. If False, only the last round's replies and aggregated params will be available.
-                Defaults to True.
+
+            retain_full_history: whether to retain in memory the full history
+                of node replies and aggregated params for the experiment. If False, only the
+                last round's replies and aggregated params will be available. Defaults to True.
+            *args: Extra positional arguments from parent class
+                [`TrainingPlanWorkflow`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow]
+            **kwargs: Arguments of parent class
+                [`TrainingPlanWorkflow`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow]
         """
         # define new members
         self._node_selection_strategy: Strategy = None
@@ -159,17 +126,7 @@ class Experiment(TrainingPlanWorkflow):
         self._retain_full_history = None
 
         # initialize object
-        super().__init__(
-            tags=tags,
-            nodes=nodes,
-            training_data=training_data,
-            training_plan_class=training_plan_class,
-            training_args=training_args,
-            model_args=model_args,
-            experimentation_folder=experimentation_folder,
-            secagg=secagg,
-            save_breakpoints=save_breakpoints
-        )
+        super().__init__(*args, **kwargs)
 
         # set self._aggregator : type Aggregator
         self.set_aggregator(aggregator)
@@ -1417,10 +1374,13 @@ class Experiment(TrainingPlanWorkflow):
                 reply.pop('params', None)
         return converted_training_replies
 
-    def load_training_replies(self,
-                              bkpt_training_replies: Dict[int, Dict[str, Dict[str, Any]]]) -> None:
-        """Reads training replies from a formatted breakpoint file, and build an 
-            experiment training replies data structure .
+    def load_training_replies(
+        self,
+        bkpt_training_replies: Dict[int, Dict[str, Dict[str, Any]]]
+    ) -> None:
+        """Reads training replies from a formatted breakpoint file.
+
+        Builds a job training replies data structure .
 
         Args:
             bkpt_training_replies: Extract from training replies saved in breakpoint
@@ -1451,9 +1411,10 @@ class Experiment(TrainingPlanWorkflow):
             - training replies
             - aggregated parameters
 
-        This function checks the retain_full_history flag: if it is True, it simply adds (or overwrites) the current
-        round's entry for the training_replies and aggregated_params dictionary. If the flag is set to False, we
-        simply store the last round's values in the same dictionary format.
+        This function checks the retain_full_history flag: if it is True, it simply adds
+        (or overwrites) the current round's entry for the training_replies and aggregated_params
+        dictionary. If the flag is set to False, we simply store the last round's values in the
+        same dictionary format.
         """
         if self._retain_full_history:
             # append to history
