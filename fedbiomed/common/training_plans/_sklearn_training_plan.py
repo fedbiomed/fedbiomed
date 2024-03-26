@@ -82,6 +82,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             model_args: Dict[str, Any],
             training_args: TrainingArgs,
             aggregator_args: Optional[Dict[str, Any]] = None,
+            initialize_optimizer: bool = True
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -92,6 +93,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
+            initialize_optimizer: Unused.
         """
         model_args.setdefault("verbose", 1)
         super().post_init(model_args, training_args, aggregator_args)
