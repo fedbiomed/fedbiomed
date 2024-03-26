@@ -122,29 +122,32 @@ class FederatedWorkflow(ABC):
         resets the tags to None and updates the nodes
 
     """
-
     @exp_exceptions
     def __init__(
-            self,
-            tags: Optional[List[str] | str] = None,
-            nodes: Optional[List[str]] = None,
-            training_data: Union[FederatedDataSet, dict, None] = None,
-            experimentation_folder: Union[str, None] = None,
-            secagg: Union[bool, SecureAggregation] = False,
-            save_breakpoints: bool = False,
+        self,
+        tags: Optional[List[str] | str] = None,
+        nodes: Optional[List[str]] = None,
+        training_data: Union[FederatedDataSet, dict, None] = None,
+        experimentation_folder: Union[str, None] = None,
+        secagg: Union[bool, SecureAggregation] = False,
+        save_breakpoints: bool = False,
     ) -> None:
         """Constructor of the class.
 
         Args:
-            tags: list of string with data tags or string with one data tag. Empty list of tags ([]) means any dataset
-                is accepted, it is different from None (tags not set, cannot search for training_data yet).
-            nodes: list of node_ids to filter the nodes to be involved in the experiment. Defaults to None (no
-                filtering).
+            tags: list of string with data tags or string with one data tag. Empty list of
+                tags ([]) means any dataset is accepted, it is different from None
+                (tags not set, cannot search for training_data yet).
+
+            nodes: list of node_ids to filter the nodes to be involved in the experiment.
+                Defaults to None (no filtering).
+
             training_data:
                 * If it is a FederatedDataSet object, use this value as training_data.
-                * else if it is a dict, create and use a FederatedDataSet object from the dict and use this value as
-                    training_data. The dict should use node ids as keys, values being list of dicts (each dict
-                    representing a dataset on a node).
+                * else if it is a dict, create and use a FederatedDataSet object
+                    from the dict and use this value as training_data. The dict should use
+                    node ids as keys, values being list of dicts (each dict representing a
+                    dataset on a node).
                 * else if it is None (no training data provided)
                   - if `tags` is not None, set training_data by
                     searching for datasets with a query to the nodes using `tags` and `nodes`
@@ -152,17 +155,22 @@ class FederatedWorkflow(ABC):
                     experiment is not fully initialized and cannot be launched)
                 Defaults to None (query nodes for dataset if `tags` is not None, set training_data
                 to None else)
-           save_breakpoints: whether to save breakpoints or not after each training round. Breakpoints can be used for
-                resuming a crashed experiment.
-            experimentation_folder: choose a specific name for the folder where experimentation result files and
-                breakpoints are stored. This should just contain the name for the folder not a path. The name is used
-                as a subdirectory of `environ[EXPERIMENTS_DIR])`. Defaults to None (auto-choose a folder name)
-                - Caveat : if using a specific name this experimentation will not be automatically detected as the last
-                experimentation by `load_breakpoint`
-                - Caveat : do not use a `experimentation_folder` name finishing with numbers ([0-9]+) as this would
-                confuse the last experimentation detection heuristic by `load_breakpoint`.
-            secagg: whether to setup a secure aggregation context for this experiment, and use it
-                to send encrypted updates from nodes to researcher. Defaults to `False`
+            save_breakpoints: whether to save breakpoints or not after each training
+                round. Breakpoints can be used for resuming a crashed experiment.
+
+            experimentation_folder: choose a specific name for the folder
+                where experimentation result files and breakpoints are stored. This
+                should just contain the name for the folder not a path. The name is used
+                as a subdirectory of `environ[EXPERIMENTS_DIR])`. Defaults to None
+                (auto-choose a folder name)
+                - Caveat : if using a specific name this experimentation will not be
+                    automatically detected as the last experimentation by `load_breakpoint`
+                - Caveat : do not use a `experimentation_folder` name finishing
+                    with numbers ([0-9]+) as this would confuse the last experimentation
+                    detection heuristic by `load_breakpoint`.
+            secagg: whether to setup a secure aggregation context for this experiment, and
+                use it to send encrypted updates from nodes to researcher.
+                Defaults to `False`
         """
         # predefine all class variables, so no need to write try/except
         # block each time we use it
@@ -410,10 +418,9 @@ class FederatedWorkflow(ABC):
     ) -> List[str]:
         """Sets tags and verification on argument type
 
-        Setting tags updates also training data by executing [`set_training_data`]\
-        [fedbiomed.researcher.federated_workflows.FederatedWorkflow.\
-        set_training_data] method.
-
+        Setting tags updates also training data by executing
+        [`set_training_data`].[fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_data]
+        method.
 
         Args:
             tags: List of string with data tags or string with one data tag. Empty list
@@ -619,11 +626,11 @@ class FederatedWorkflow(ABC):
         secure aggregation class
 
         Args:
-            secagg: If True activates training request with secure aggregation
-                by building [`SecureAggregation`][fedbiomed.researcher.secagg.\
-                SecureAggregation] class with default arguments. Or if argument is an
-                instance of `SecureAggregation` it does only assignment. Secure aggregation
-                activation and configuration depends on the instance provided.
+            secagg: If True activates training request with secure aggregation by building
+                [`SecureAggregation`][fedbiomed.researcher.secagg.SecureAggregation] class
+                with default arguments. Or if argument is an instance of `SecureAggregation`
+                it does only assignment. Secure aggregation activation and configuration
+                depends on the instance provided.
 
         Returns:
             Secure aggregation controller instance.

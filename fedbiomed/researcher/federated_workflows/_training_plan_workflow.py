@@ -21,11 +21,10 @@ from fedbiomed.common.utils import (
     import_class_from_file,
     import_class_object_from_file
 )
-from fedbiomed.researcher.datasets import FederatedDataSet
+
 from fedbiomed.researcher.federated_workflows.jobs \
     import TrainingPlanApproveJob, TrainingPlanCheckJob
 from fedbiomed.researcher.filetools import create_unique_link, choose_bkpt_file
-from fedbiomed.researcher.secagg import SecureAggregation
 
 from ._federated_workflow import exp_exceptions, FederatedWorkflow
 
@@ -34,75 +33,51 @@ TRAINING_PLAN_TYPES = (TorchTrainingPlan, SKLearnTrainingPlan)
 # typing information
 TrainingPlan = TypeVar('TrainingPlan', TorchTrainingPlan, SKLearnTrainingPlan)
 TrainingPlanT = TypeVar('TrainingPlanT', Type[TorchTrainingPlan], Type[SKLearnTrainingPlan])
-TrainingPlanWorkflowT = TypeVar("TrainingPlanWorkflowT", bound='TrainingPlanWorkflow')  # only for typing
+TrainingPlanWorkflowT = \
+    TypeVar("TrainingPlanWorkflowT", bound='TrainingPlanWorkflow')  # only for typing
 T = TypeVar("T")
 
 
 class TrainingPlanWorkflow(FederatedWorkflow, ABC):
-    """
-    A `TrainingPlanWorkflow` is an abstract entry point to orchestrate an experiment which uses a training plan.
+    """ A `TrainingPlanWorkflow` is an abstract entry point to orchestrate
+    an experiment which uses a training plan.
 
     In addition to the functionalities provided by
-    [`FederatedWorkflow`][fedbiomed.researcher.federated_workflows.FederatedWorkflow], the `TrainingPlanWorkflow` also
-    manages the life-cycle of the training plan.
+    [`FederatedWorkflow`][fedbiomed.researcher.federated_workflows.FederatedWorkflow],
+    the `TrainingPlanWorkflow` also manages the life-cycle of the training plan.
 
     !!! warning "Use `set_training_plan_class` to manage the training plan"
         Please only ever use the
         [`set_training_plan_class`][fedbiomed.researcher.federated_workflows._training_plan_workflow.TrainingPlanWorkflow.set_training_plan_class]
-        function to manage the training plan. Do not set the training plan or training plan class directly!
-
+        function to manage the training plan. Do not set the training plan
+        or training plan class directly!
     """
 
     @exp_exceptions
     def __init__(
-            self,
-            tags: Optional[Union[List[str], str]] = None,
-            nodes: Optional[List[str]] = None,
-            training_data: Optional[Union[FederatedDataSet, dict]] = None,
-            training_plan_class: Optional[TrainingPlanT] = None,
-            training_args: Optional[Union[TrainingArgs, dict]] = None,
-            model_args: Optional[Dict] = None,
-            experimentation_folder: Optional[str] = None,
-            secagg: Union[bool, SecureAggregation] = False,
-            save_breakpoints: bool = False,
+        self,
+        *args,
+        training_plan_class: Optional[TrainingPlanT] = None,
+        training_args: Optional[Union[TrainingArgs, dict]] = None,
+        model_args: Optional[Dict] = None,
+        **kwargs,
     ) -> None:
         """Constructor of the class.
 
         Args:
-            tags: list of string with data tags or string with one data tag. Empty list of tags ([]) means any dataset
-                is accepted, it is different from None (tags not set, cannot search for training_data yet).
-            nodes: list of node_ids to filter the nodes to be involved in the experiment. Defaults to None (no
-                filtering).
-            training_data:
-                * If it is a FederatedDataSet object, use this value as training_data.
-                * else if it is a dict, create and use a FederatedDataSet object from the dict and use this value as
-                    training_data. The dict should use node ids as keys, values being list of dicts (each dict
-                    representing a dataset on a node).
-                * else if it is None (no training data provided)
-                  - if `tags` is not None, set training_data by
-                    searching for datasets with a query to the nodes using `tags` and `nodes`
-                  - if `tags` is None, set training_data to None (no training_data set yet,
-                    experiment is not fully initialized and cannot be launched)
-                Defaults to None (query nodes for dataset if `tags` is not None, set training_data
-                to None else)
             training_plan_class: training plan class to be used for training.
-                For experiment to be properly and fully defined `training_plan_class` needs to be a `TrainingPlanT`
-                Defaults to None (no training plan class defined yet)
-            model_args: contains model arguments passed to the constructor of the training plan when instantiating it :
+                For experiment to be properly and fully defined `training_plan_class`
+                needs to be a `TrainingPlanT` Defaults to None (no training plan class
+                defined yet.
+            model_args: contains model arguments passed to the constructor
+                of the training plan when instantiating it :
                 output and input feature dimension, etc.
-            training_args: contains training arguments passed to the `training_routine` of the training plan when
-                launching it: lr, epochs, batch_size...
-            save_breakpoints: whether to save breakpoints or not after each training round. Breakpoints can be used for
-                resuming a crashed experiment.
-            experimentation_folder: choose a specific name for the folder where experimentation result files and
-                breakpoints are stored. This should just contain the name for the folder not a path. The name is used
-                as a subdirectory of `environ[EXPERIMENTS_DIR])`. Defaults to None (auto-choose a folder name)
-                - Caveat : if using a specific name this experimentation will not be automatically detected as the last
-                experimentation by `load_breakpoint`
-                - Caveat : do not use a `experimentation_folder` name finishing with numbers ([0-9]+) as this would
-                confuse the last experimentation detection heuristic by `load_breakpoint`.
-            secagg: whether to setup a secure aggregation context for this experiment, and use it
-                to send encrypted updates from nodes to researcher. Defaults to `False`
+            training_args: contains training arguments passed to the `training_routine`
+                of the training plan when launching it: lr, epochs, batch_size...
+            *args: Extra positional arguments from parent class
+                [`FederatedWorkflow`][fedbiomed.researcher.federated_workflows.FederatedWorkflow]
+            **kwargs: Arguments of parent class
+                [`FederatedWorkflow`][fedbiomed.researcher.federated_workflows.FederatedWorkflow]
         """
         # Check arguments
         if training_plan_class is not None and not inspect.isclass(training_plan_class):
@@ -110,31 +85,27 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 f"{ErrorNumbers.FB410.value}: bad type for argument "
                 f"`training_plan_class` {type(training_plan_class)}")
 
-        if training_plan_class is not None and not issubclass(training_plan_class, TRAINING_PLAN_TYPES):
+        if training_plan_class is not None and \
+                not issubclass(training_plan_class, TRAINING_PLAN_TYPES):
 
-            raise FedbiomedTypeError(f"{ErrorNumbers.FB410.value}: bad type for argument `training_plan_class`."
-                                     f" It is not subclass of supported training plans {TRAINING_PLAN_TYPES}")
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB410.value}: bad type for argument `training_plan_class`."
+                f" It is not subclass of supported training plans {TRAINING_PLAN_TYPES}")
 
-        # __training_plan_class determines the life-cycle of the training plan: if training_plass_class changes, then
-        # the training plan must be reinitialized
+        # __training_plan_class determines the life-cycle of the training plan:
+        # if training_plass_class changes, then the training plan must be reinitialized
         self.__training_plan_class = None
-        # model args is also tied to the life-cycle of training plan: if model_args changes, the training plan must be
-        # reinitialized
+        # model args is also tied to the life-cycle of training plan:
+        # if model_args changes, the training plan must be reinitialized
         self._model_args = None
-        # The __training_plan attribute represents the *actual instance* of a __training_plan_class that is currently
+        # The __training_plan attribute represents the *actual instance*
+        # of a __training_plan_class that is currently
         # being used in the workflow. The training plan cannot be modified by the user.
         self.__training_plan = None
         self._training_args: Optional[TrainingArgs] = None  # FIXME: is it ok to have this here?
 
         # initialize object
-        super().__init__(
-            tags=tags,
-            nodes=nodes,
-            training_data=training_data,
-            experimentation_folder=experimentation_folder,
-            secagg=secagg,
-            save_breakpoints=save_breakpoints
-        )
+        super().__init__(*args, **kwargs)
 
         self.set_training_args(training_args)
         self.set_model_args(model_args)
