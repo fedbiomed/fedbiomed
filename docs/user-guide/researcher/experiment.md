@@ -386,7 +386,7 @@ When you pass the aggregator argument as `None` it will use `FedAverage` aggrega
 exp.set_aggregator(aggregator=None)
 ```
 
-or you can directly pass an aggregator class
+or you can directly pass an aggregator instance
 
 ```python
 from fedbiomed.researcher.aggregators.fedavg import FedAverage

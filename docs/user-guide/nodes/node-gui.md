@@ -121,8 +121,8 @@ DATA_PATH = /data
 ### Default Admin Configuration
 
 When the Fed-BioMed GUI is started for the first time it will create a default admin with the credentials declared
-in the `[init_admin]` section of the configuration file.  By default, the email  will be `admin@fedbiomed.gui`
-and the password `admin`. You can modify the password either in configuration file or in GUI through User Panel
+in the `[init_admin]` section of the configuration file. **By default, the email  will be `admin@fedbiomed.gui`
+and the password `admin`**. You can modify the password either in configuration file or in GUI through User Panel
 but the e-mail can only be modified from the configuration file.
 
 

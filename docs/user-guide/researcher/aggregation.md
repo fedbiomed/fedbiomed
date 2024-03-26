@@ -157,6 +157,18 @@ def create_aggregator_args(self, *args, **kwargs) -> Tuple[dict, dict]:
 ```
 
 
+### How to use your aggregator?
+
+Once your aggregator has been created, you can pass it to your `Experiment` instance by calling the `set_aggregator` method.
+
+```python
+
+from fedbiomed.researcher.federated_workflow import Experiment
+
+exp = Experiment()
+exp.set_aggregator(MyAgregator())
+```
+
 ## Conclusions
 
 In this article, the aggregation process has been explained. Currently, Fed-BioMed only supports the vanilla federated 
