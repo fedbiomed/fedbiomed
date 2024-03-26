@@ -106,11 +106,11 @@ class Experiment(TrainingPlanWorkflow):
                     experiment is not fully initialized and cannot be launched)
                 Defaults to None (query nodes for dataset if `tags` is not None, set training_data
                 to None else)
-            aggregator: object or class defining the method for aggregating local updates. Default to None (use
+            aggregator: object defining the method for aggregating local updates. Default to None (use
                 [`FedAverage`][fedbiomed.researcher.aggregators.FedAverage] for aggregation)
             agg_optimizer: [`Optimizer`][fedbiomed.common.optimizers.Optimizer] instance, to refine aggregated
                 model updates prior to their application. If None, merely apply the aggregated updates.
-            node_selection_strategy:object or class defining how nodes are sampled at each round for training, and how
+            node_selection_strategy:object defining how nodes are sampled at each round for training, and how
                 non-responding nodes are managed.  Defaults to None:
                 - use [`DefaultStrategy`][fedbiomed.researcher.strategies.DefaultStrategy] if training_data is
                     initialized
@@ -407,7 +407,7 @@ class Experiment(TrainingPlanWorkflow):
         Ensures consistency with the training data.
 
         Args:
-            aggregator: Object or class defining the method for aggregating local updates. Default to None
+            aggregator: Object defining the method for aggregating local updates. Default to None
                 (use `FedAverage` for aggregation)
 
         Returns:
@@ -502,7 +502,7 @@ class Experiment(TrainingPlanWorkflow):
         """Sets for `node_selection_strategy` + verification on arguments type
 
         Args:
-            node_selection_strategy: object or class defining how nodes are sampled at each round for training, and
+            node_selection_strategy: object defining how nodes are sampled at each round for training, and
                 how non-responding nodes are managed. Defaults to None:
                 - use `DefaultStrategy` if training_data is initialized
                 - else strategy is None (cannot be initialized), experiment cannot

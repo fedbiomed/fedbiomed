@@ -14,11 +14,10 @@ Fed-BioMed provides a way to perform Federated Learning, that is a model trainin
 orchestrating the training process on available nodes. Orchestrating means;
 
 - Searching the datasets on active nodes, based on specific tags given by a researcher and used by the nodes to identify the dataset.
-- Uploading the training plan file created by the researcher and sending the file URL to the nodes.
-- Sending model and training arguments to the nodes.
+- Sending model, training plan and training arguments to the nodes.
 - Tracking training process in the nodes during all training rounds.
 - Checking the nodes responses to make sure that each round is successfully completed in every node.
-- Downloading the local model parameters after every round of training.
+- Receiving the local model parameters after every round of training.
 - Aggregating the local model parameters based on the specified federated approach, and eventually sending the aggregated parameters to the selected nodes for the next round.
 - Optimizing the global model (i.e. the aggregated model).
 
@@ -36,7 +35,7 @@ tune the experiment based on user preferences.
 ```python
 exp = Experiment(tags=tags,
                  nodes=None,
-                 training_plan_class=Net,
+                 training_plan_class=MyTrainingPlan,
                  training_args=training_args,
                  round_limit=rounds,
                  aggregator=FedAverage(),
@@ -101,6 +100,7 @@ and you want to perform federated training on specific ones. `nodes` argument is
 nodes = ['node-id-1', 'node-id-2']
 exp.set_nodes(nodes=nodes)
 ```
+
 By default, `nodes` argument is `None` which means that each node that a has registered dataset matching all the tags will be part of the federated training.
 
 ```python
@@ -108,12 +108,9 @@ exp.set_nodes(nodes=None)
 ```
 
 !!! note 
-        Setting nodes doesn't mean sending another dataset search request to the nodes. If the training data has been already set for the experiment,
-        you need to run `exp.set_training_data(training_data=None, from_tags=True)`
-        to update <code>FederatedDataset</code> after changing the nodes.
-        This command will send search request to specified nodes (to all if `nodes` is `None`) and update training data
-        (`FederatedDataset`)
-
+        Setting nodes doesn't mean sending another dataset search request to the nodes. Node filtering happens dynamically each time a training request is sent to nodes. In other words, if you search again for datasets after setting `nodes` by running
+        `exp.set_training_data(training_data=None, from_tags=True)` you select in your <code>FederatedDataset</code>
+        the same nodes as with `nodes=None`.
 
 
 
@@ -356,7 +353,7 @@ or you can directly pass an aggregator class
 
 ```python
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
-exp.set_aggregator(aggregator=FedAverage)
+exp.set_aggregator(aggregator=FedAverage())
 ```
 
 !!! info ""
@@ -465,6 +462,7 @@ Running an experiment means starting the training process by sending train reque
 {
   "researcher_id": "researcher id that sends training command",
   "experiment_id": "created experiment id by experiment",
+  "state_id": "state id for this round this experiment on this node",
   "training_args": {
     "loader_args": {
       "batch_size": 32
@@ -476,14 +474,20 @@ Running an experiment means starting the training process by sending train reque
     "dry_run": false,
     "batch_maxnum": 100
   },
+  "dataset_id": "id of the used dataset on this node",
+  "training": True,
   "model_args": <args>,
+  "params": <model weigths>,
+  "training_plan": "<training plan code>",
+  "training_plan_class": "MyTrainingPlan",
   "command": "train",
-  "training_plan_url": "<training plan url>",
-  "params_url": "<model_parameter_url>",
-  "training_plan_class": "Net",
-  "training_data": {
-    "node_id": [
-      "dataset_id"
+  "round": <round_number>,
+  "aggregator_args": <args>,
+  "aux_vars": [list of auxiliary variables],
+  "secagg_servkey_id": "secure aggregation server key id",
+  "secagg_biprime_id": "secure aggregation biprime key id", 
+  "secagg_random": <random number>,
+  "secagg_clipping_range": 3 
     ]
   }
 }
@@ -501,13 +505,15 @@ an example of `training_reply` from a node.
    "success":True,
    "node_id":"ID of the node that completes the training ",
    "dataset_id":"dataset_dcf88a68-7f66-4b60-9b65-db09c6d970ee",
-   "params_url":"URL of the model parameters' file obtained after training",
    "timing":{
       "rtime_training":87.74385611899197,
       "ptime_training":330.388954968
    },
    "msg":"",
-   "command":"train"
+   "command":"train",
+  "state_id": "state id for new round this experiment on this node",
+  "params": <model weigths>,
+  ...
 }
 
 ```
