@@ -24,8 +24,7 @@ from fedbiomed.common.utils import (
 )
 
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.federated_workflows._federated_workflow \
-    import exp_exceptions, FederatedWorkflow
+from ._federated_workflow import exp_exceptions, FederatedWorkflow
 from fedbiomed.researcher.federated_workflows.jobs \
     import TrainingPlanApproveJob, TrainingPlanCheckJob
 from fedbiomed.researcher.filetools import create_unique_link, choose_bkpt_file

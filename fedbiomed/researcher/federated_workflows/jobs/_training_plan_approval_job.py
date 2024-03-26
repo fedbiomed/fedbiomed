@@ -8,7 +8,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainingPlanStatusRequest
 from fedbiomed.common.training_plans import BaseTrainingPlan
 
-from fedbiomed.researcher.federated_workflows.jobs._job import Job
+from ._job import Job
 from fedbiomed.researcher.requests import DiscardOnTimeout
 
 

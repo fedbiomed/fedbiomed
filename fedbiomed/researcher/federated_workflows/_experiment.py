@@ -33,8 +33,8 @@ from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
-from fedbiomed.researcher.federated_workflows._training_plan_workflow import (
+from ._federated_workflow import exp_exceptions
+from ._training_plan_workflow import (
     TrainingPlanT,
     TrainingPlanWorkflow)
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
