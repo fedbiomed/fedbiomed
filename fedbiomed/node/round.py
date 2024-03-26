@@ -49,7 +49,7 @@ class Round:
         training: bool ,
         dataset: dict,
         params: str,
-        job_id: str,
+        experiment_id: str,
         researcher_id: str,
         history_monitor: HistoryMonitor,
         aggregator_args: Dict[str, Any],
@@ -69,7 +69,7 @@ class Round:
             dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
                 data path, its shape, its description... . Defaults to None.
             params: parameters of the model
-            job_id: job id
+            experiment_id: experiment id
             researcher_id: researcher id
             history_monitor: Sends real-time feed-back to end-user during training
             aggregator_args: Arguments managed by and shared with the
@@ -90,7 +90,7 @@ class Round:
         self.training_plan_source = training_plan
         self.training_plan_class = training_plan_class
         self.params = params
-        self.job_id = job_id
+        self.experiment_id = experiment_id
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
         self.aggregator_args = aggregator_args
@@ -203,7 +203,7 @@ class Round:
 
         if secagg_all_defined:
             self._biprime = BPrimeManager.get(secagg_id=secagg_biprime_id)
-            self._servkey = SKManager.get(secagg_id=secagg_servkey_id, job_id=self.job_id)
+            self._servkey = SKManager.get(secagg_id=secagg_servkey_id, experiment_id=self.experiment_id)
 
             if self._biprime is None:
                 raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Biprime for secagg: {secagg_biprime_id} "
@@ -479,7 +479,7 @@ class Round:
         # If round is not successful log error message
         return NodeMessages.format_outgoing_message(
             {'node_id': environ['NODE_ID'],
-             'job_id': self.job_id,
+             'experiment_id': self.experiment_id,
              'state_id': self._node_state_manager.state_id,
              'researcher_id': self.researcher_id,
              'command': 'train',
@@ -531,7 +531,7 @@ class Round:
     def _load_round_state(self, state_id: str) -> None:
         """Loads optimizer state of previous `Round`, given a `state_id`.
 
-        Loads optimizer with default values if optimizer entry hasnot been found
+        Loads optimizer with default values if optimizer entry has not been found
         or if Optimizer type has changed between current and previous `Round`. Should
         be called at the begining of a `Round`, before training a model.
         If loading fails, skip the loading part and loads `Optimizer` with default values.
@@ -540,14 +540,14 @@ class Round:
             state_id: state_id from which to recover `Node`'s state
 
         Raises:
-            FedbiomedRoundError: raised if `Round` doesnot have any `job_id` attribute.
+            FedbiomedRoundError: raised if `Round` doesnot have any `experiment_id` attribute.
 
         Returns:
             True
         """
 
         # define here all the object that should be reloaded from the node state database
-        state = self._node_state_manager.get(self.job_id, state_id)
+        state = self._node_state_manager.get(self.experiment_id, state_id)
 
         optimizer_wrapper = self._get_base_optimizer()  # optimizer from TrainingPlan
         if state['optimizer_state'] is not None and \
@@ -574,7 +574,7 @@ class Round:
         [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
 
         Some piece of information such as Optimizer state are also aved in files (located under
-        $FEDBIOMED_DIR/var/node_state<node_id>/job_id_<job_id>/).
+        $FEDBIOMED_DIR/var/node_state<node_id>/experiment_id_<experiment_id>/).
         Should be called at the end of a `Round`, once the model has been trained.
 
         Entries saved in State:
@@ -595,7 +595,7 @@ class Round:
         if optimizer_state is not None:
             # this condition was made so we dont save stateless optimizers
             optim_path = self._node_state_manager.generate_folder_and_create_file_name(
-                self.job_id,
+                self.experiment_id,
                 self._round,
                 NodeStateFileName.OPTIMIZER
             )
@@ -617,7 +617,7 @@ class Round:
 
         # save completed node state
 
-        self._node_state_manager.add(self.job_id, state)
+        self._node_state_manager.add(self.experiment_id, state)
         if _success:
             logger.debug("Node state saved into DataBase")
         else:

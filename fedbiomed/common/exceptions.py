@@ -108,13 +108,6 @@ class FedbiomedFederatedDataSetError(FedbiomedError):
     pass
 
 
-class FedbiomedJobError(FedbiomedError):
-    """
-    Error in the Job/localJob classes.
-    """
-    pass
-
-
 class FedbiomedLoadingBlockError(FedbiomedError):
     """
     Exception specific to the DataLoadingBlock classes/subclasses.

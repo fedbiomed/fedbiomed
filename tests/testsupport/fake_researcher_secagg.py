@@ -4,9 +4,9 @@ FAKE_CONTEXT_VALUE = "MY_CONTEXT"
 
 
 class FakeSecaggContext:
-    def __init__(self, parties: List[str], job_id: str):
+    def __init__(self, parties: List[str], experiment_id: str):
         self.parties = parties
-        self.job_id = job_id
+        self.experiment_id = experiment_id
         self.stat = False
         self.cont = None
         self.success = True

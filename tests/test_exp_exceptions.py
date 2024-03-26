@@ -12,7 +12,7 @@ from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exc
 
 
 class TestExpExceptions(ResearcherTestCase):
-    """ Test class for expriment.exp_exception """
+    """ Test class for experiment.exp_exception """
 
     def setUp(self) -> None:
         pass

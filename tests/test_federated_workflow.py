@@ -205,7 +205,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
             exp = FederatedWorkflow(secagg=True)
             secagg_args = exp.secagg_setup(['sampled-nodes'])
             _secagg.setup.assert_called_once_with(parties=[environ["ID"], 'sampled-nodes'],
-                                                  job_id=exp.id)
+                                                  experiment_id=exp.id)
             self.assertDictEqual(secagg_args, {'secagg': 'arguments'})
             # call with empty nodes list
             _secagg.setup.reset_mock()
@@ -214,7 +214,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
             exp = FederatedWorkflow(secagg=True)
             secagg_args = exp.secagg_setup([])
             _secagg.setup.assert_called_once_with(parties=[environ["ID"]],
-                                                  job_id=exp.id)
+                                                  experiment_id=exp.id)
             self.assertDictEqual(secagg_args, {'secagg': 'arguments'})
             # deactivate secagg
             _secagg.setup.reset_mock()

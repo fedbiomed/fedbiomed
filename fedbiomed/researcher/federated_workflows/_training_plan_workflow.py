@@ -108,12 +108,12 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         # Check arguments
         if training_plan_class is not None and not inspect.isclass(training_plan_class):
             raise FedbiomedTypeError(
-                f"{ErrorNumbers.FB418.value}: bad type for argument "
+                f"{ErrorNumbers.FB410.value}: bad type for argument "
                 f"`training_plan_class` {type(training_plan_class)}")
 
         if training_plan_class is not None and not issubclass(training_plan_class, TRAINING_PLAN_TYPES):
 
-            raise FedbiomedTypeError(f"{ErrorNumbers.FB418.value}: bad type for argument `training_plan_class`."
+            raise FedbiomedTypeError(f"{ErrorNumbers.FB410.value}: bad type for argument `training_plan_class`."
                                      f" It is not subclass of supported training plans {TRAINING_PLAN_TYPES}")
 
         # __training_plan_class determines the life-cycle of the training plan: if training_plass_class changes, then
@@ -334,7 +334,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        # Propagate training arguments to job
         return self._training_args.dict()
 
 
@@ -438,7 +437,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         job = TrainingPlanCheckJob(
             nodes=self.training_data().node_ids(),
             keep_files_dir=self.experimentation_path(),
-            job_id=self._id,
+            experiment_id=self._experiment_id,
             training_plan=self.training_plan()
         )
         responses = job.execute()
