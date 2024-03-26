@@ -66,6 +66,7 @@ When the new node is created without any specified configuration file or any opt
 hashing_algorithm = SHA256
 allow_default_training_plans = True
 training_plan_approval = False
+# other security parameters
 
 [researcher]
 # parameters for grpc
@@ -171,9 +172,8 @@ When receiving the training plan, `exp`'s nodes register the training plan in th
 
 A human reviewer then checks and decides whether the training plan should be authorized on the node, via the GUI or the CLI.
 
-Use the following command to view a training plan on the CLI, optionally indicating your preferred editor with `EDITOR`. All registered training plans are listed with their name and status, select the one you want to view:
-
 ```shell
+# support for alternate `EDITOR` is currently broken
 # EDITOR=emacs ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini training-plan view
 
 $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini training-plan view

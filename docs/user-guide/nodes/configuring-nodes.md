@@ -20,7 +20,7 @@ A basic `node` component configuration contains the following settings:
 !!! note "Note"
     These basic configurations are created automatically using default values.
     While it is possible to manually edit the configuration files, some parameters may become incompatible upon doing so; such as [server]/host and [server]/pem since the latter depends on the former.
-    It is therefore strongly adviced to rely on the dedicated scripts for configuration creation and refresh, namely : `fedbiomed_run configuration create` and `fedbiomed_run configuration create`; whose options are described above.
+    It is therefore strongly adviced to rely on the dedicated script for configuration creation and refresh, namely `fedbiomed_run configuration create` whose options are described above.
     
 ## Environment for Nodes 
 
@@ -44,26 +44,28 @@ A configuration file is an `ini` file that is located in`${FEDBIOMED_DIR}/etc` d
     - `id`: This is the unique ID that identifies the node. 
     - `component`: Specifies the component type. It is always `NODE` for node component
     - `version`: Version of the configuration format to avoid using older configuration files with recent Fed-BioMed versions. 
+    - `db`: Relative path to the node's database, from this configuration file
+
+- **MPSDPZ (Secure Aggregation)**
+    - MP-SDPZ is the library used for secure aggregation to be able to generate private/public keys securely. Please see the details [Here](../secagg/configuration.md).
+    - `private_key`: Path to private key to use in secure HTTP connection.
+    - `public_key`: Path to public key to share with other parties (nodes and researcher) use in secure HTTP connection.
+    - `mpspdz_ip`: The IP address that will be used for launching MP-SPDZ instance. 
+    - `mpsdpz_port`: The port that will be used for launching MP-SPDZ instance. 
+    - `allow_default_biprimes`: Boolean (True/False) to allow default biprimes for key generation. 
+    - `default_biprimes_dir` ": Relative path to the directory where default biprimes files are kept, from this configuration file
 
 - **Researcher:**  
     - `ip`: The IP address of the researcher component that the node will connect to.
     - `port`: The port of the researcher component.   
 
 - **Security Parameters:**
-  - `hashing_algorithm`: The algorithm will be used for hashing training plan scripts to verify if the requested training plan matches the one approved on the node side.
-  - `training_plan_approval`: Boolean value to switch [training plan approval](./training-plan-security-manager.md) 
-  to verify training plan scripts before the training.
-  - `allow_default_training_plans`: Boolean value to enable automatic approval of example training plans provided by Fed-BioMed. 
-  - `secure_aggregation`: Boolean parameter (True/False) to activate secure aggregation. 
-  - `force_secure_aggregation`: Boolean parameter (True/False) to force secure aggregation for every action that uses local dataset.
-
-- **MPSDPZ (Secure Aggregation)**
-  - MP-SDPZ is the library used for secure aggregation to be able to generate private/public keys securely. Please see the details [Here](../secagg/configuration.md).
-  - `private_key`: Path to private key to use in secure HTTP connection.
-  - `public_key`: Path to public key to share with other parties (nodes and researcher) use in secure HTTP connection.
-  - `mpspdz_ip`: The IP address that will be used for launching MP-SPDZ instance. 
-  - `mpsdpz_port`: The port that will be used for launching MP-SPDZ instance. 
-  - `allow_default_biprimes`: Boolean (True/False) to allow default biprimes for key generation. 
+    - `hashing_algorithm`: The algorithm will be used for hashing training plan scripts to verify if the requested training plan matches the one approved on the node side.
+    - `training_plan_approval`: Boolean value to switch [training plan approval](./training-plan-security-manager.md) 
+    to verify training plan scripts before the training.
+    - `allow_default_training_plans`: Boolean value to enable automatic approval of example training plans provided by Fed-BioMed. 
+    - `secure_aggregation`: Boolean parameter (True/False) to activate secure aggregation. 
+    - `force_secure_aggregation`: Boolean parameter (True/False) to force secure aggregation for every action that uses local dataset.
 
 
 An example for a config file is shown below;
@@ -73,6 +75,15 @@ An example for a config file is shown below;
 id = node_73768d5f-6a66-47de-8533-1291c4ef59d1
 component = NODE
 version = 2
+db = ../var/db_NODE_94572b0f-f55c-4167-b729-f16247c35a04.json
+
+[mpspdz]
+private_key = certs/cert_node_73768d5f-6a66-47de-8533-1291c4ef59d1/MPSPDZ_certificate.key
+public_key = certs/cert_node_73768d5f-6a66-47de-8533-1291c4ef59d1/MPSPDZ_certificate.pem
+mpspdz_ip = localhost
+mpspdz_port = 14004
+allow_default_biprimes = True
+default_biprimes_dir = ../envs/common/default_biprimes
 
 [security]
 hashing_algorithm = SHA256
@@ -84,13 +95,6 @@ force_secure_aggregation = False
 [researcher]
 ip = localhost
 port = 50051
-
-[mpspdz]
-private_key = certs/cert_node_73768d5f-6a66-47de-8533-1291c4ef59d1/MPSPDZ_certificate.key
-public_key = certs/cert_node_73768d5f-6a66-47de-8533-1291c4ef59d1/MPSPDZ_certificate.pem
-mpspdz_ip = localhost
-mpspdz_port = 14004
-allow_default_biprimes = True
 
 ```
 
@@ -106,8 +110,8 @@ $ ./scripts/fedbiomed_run node --config config-n1.ini start
 
 If you run this command, you can see a new config file created in the `etc/` directory of the Fed-BioMed. 
 Each node that runs in the same host should have a different node id and configuration file. Starting 
-another node that uses the same config file with another raises errors. Therefore, if you launch multiple nodes please  
-make sure to use different configurations.
+another node that uses the same config file does not raise an error message but results in errors during training.
+Therefore, if you launch multiple nodes please make sure to use different configurations.
 
 Listing and adding datasets follows the same logic. If you want to list or add datasets in the nodes that is different 
 from the default one, you need to specify the config file.
@@ -126,17 +130,19 @@ $ ./scripts/fedbiomed_run node --config config-n1.ini dataset add
 The script `${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -c NODE -n [CONFIGURATION_FILE_NAME]` will create or optionally recreate (`-f`) a configuration file for a node with `CONFIGURATION_FILE_NAME` name in the `${FEDBIOMED_DIR}/etc` folder.
 More options are available and described through the help menu: `${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -h`
 The parametrization of this script with regard to the various fields stored in the configuration happens through the usage of environment variables.
-The fields that can be controlled, their associated evironment variable and default value are described as follow:
+The fields that can be controlled, their associated environment variable and default value are described as follow:
 
+```
 [security]:
-- allow\_default\_training\_plans: ALLOW\_DEFAULT\_TRAINING\_PLANS, True
-- training\_plan\_approval: ENABLE\_TRAINING\_PLAN\_APPROVAL, False
-- secure\_aggregation: SECURE\_AGGREGATION, True
-- force\_secure\_aggregation: FORCE\_SECURE\_AGGREGATION, False
+- allow_default_training_plans: ALLOW_DEFAULT_TRAINING_PLANS, True
+- training_plan_approval: ENABLE_TRAINING_PLAN_APPROVAL, False
+- secure_aggregation: SECURE_AGGREGATION, True
+- force_secure_aggregation: FORCE_SECURE_AGGREGATION, False
 
 [researcher]:
-- ip: RESEARCHER\_SERVER\_HOST, ${IP\_ADDRESS}, if not set: localhost
-- port: RESEARCHER\_SERVER_PORT, 50051
+- ip: RESEARCHER_SERVER_HOST, ${IP_ADDRESS}, if not set: localhost
+- port: RESEARCHER_SERVER_PORT, 50051
+```
 
 ### Examples:
 ```
