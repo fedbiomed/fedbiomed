@@ -7,10 +7,9 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainingPlanStatusRequest
 from fedbiomed.common.training_plans import BaseTrainingPlan
-
-from fedbiomed.researcher.federated_workflows.jobs._job import Job
 from fedbiomed.researcher.requests import DiscardOnTimeout
 
+from ._job import Job
 
 class TrainingPlanApproveJob(Job):
     """Task for requesting nodes approval for running a given

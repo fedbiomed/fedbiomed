@@ -3,18 +3,17 @@
 
 import os
 import uuid
-from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from fedbiomed.common.message import ErrorMessage, TrainReply, TrainRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.logger import logger
-
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.requests import MessagesByNode
 
-from fedbiomed.researcher.federated_workflows.jobs._job import Job
+from ._job import Job
 
 
 class TrainingJob(Job):

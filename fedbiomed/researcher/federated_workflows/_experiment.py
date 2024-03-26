@@ -8,7 +8,7 @@ import inspect
 import os
 import uuid
 from re import findall
-from typing import Any, Callable, Dict, Optional, List, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, Optional, List, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch
@@ -25,7 +25,6 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
-
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.filetools import choose_bkpt_file
@@ -33,11 +32,12 @@ from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.secagg import SecureAggregation
 from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
-from fedbiomed.researcher.federated_workflows._training_plan_workflow import (
+from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
+
+from ._federated_workflow import exp_exceptions
+from ._training_plan_workflow import (
     TrainingPlanT,
     TrainingPlanWorkflow)
-from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 
 TExperiment = TypeVar("TExperiment", bound='Experiment')  # only for typing
 T = TypeVar("T")
