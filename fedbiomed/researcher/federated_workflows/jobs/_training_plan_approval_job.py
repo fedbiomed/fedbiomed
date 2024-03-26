@@ -17,7 +17,6 @@ class TrainingPlanApproveJob(Job):
     """
 
     def __init__(self,
-                 *args,
                  training_plan: BaseTrainingPlan,
                  description: str,
                  **kwargs

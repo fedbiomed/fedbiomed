@@ -24,7 +24,6 @@ class TrainingJob(Job):
 
     def __init__(
         self,
-        *args,
         experiment_id: str,
         round_: int,
         training_plan: BaseTrainingPlan,
