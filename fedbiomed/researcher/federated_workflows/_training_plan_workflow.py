@@ -5,12 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 import os
 import inspect
 import uuid
-
 from abc import ABC
 from contextlib import contextmanager
 from copy import deepcopy
 from re import findall
-from typing import Any, Callable, Dict, List, Type, TypeVar, Union, Optional, Tuple
+from typing import Any, Dict, List, Type, TypeVar, Union, Optional, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedTypeError
@@ -22,13 +21,13 @@ from fedbiomed.common.utils import (
     import_class_from_file,
     import_class_object_from_file
 )
-
 from fedbiomed.researcher.datasets import FederatedDataSet
-from ._federated_workflow import exp_exceptions, FederatedWorkflow
 from fedbiomed.researcher.federated_workflows.jobs \
     import TrainingPlanApproveJob, TrainingPlanCheckJob
 from fedbiomed.researcher.filetools import create_unique_link, choose_bkpt_file
 from fedbiomed.researcher.secagg import SecureAggregation
+
+from ._federated_workflow import exp_exceptions, FederatedWorkflow
 
 # for checking class passed to experiment
 TRAINING_PLAN_TYPES = (TorchTrainingPlan, SKLearnTrainingPlan)
