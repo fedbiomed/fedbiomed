@@ -90,7 +90,7 @@ Before designing your custom aggregation algorithm we recommend you to see defau
 through `*args` and `kwargs` depending, on the values needed for your `Aggregator`.
 
 It is possible to create your custom aggregator by creating a new class which inherits from the Aggregator class 
-defined in `fedbiomed.researcher.aggregators.aggregator.Aggregator`.
+defined in `fedbiomed.researcher.aggregators.Aggregator`.
 
 ```python
 class Aggregator:
@@ -140,7 +140,7 @@ type of the parameters, and then it does the averaging.
 For some advanced `Aggregators`, you may need to send some argument to `Nodes` in order to update the local model. For instance,
 `SCAFFOLD` `Aggregator` sends specific correction terms for each of the `Nodes` involved in the training. 
 
-The method that has this responsability is `create_aggregator_args`, and is designed as follow (in the `fedbiomed.researcher.aggregators.aggregator.Aggregator` class):
+The method that has this responsability is `create_aggregator_args`, and is designed as follow (in the `fedbiomed.researcher.aggregators.Aggregator` class):
 
 ```python
 def create_aggregator_args(self, *args, **kwargs) -> Tuple[dict, dict]:

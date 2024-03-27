@@ -17,7 +17,7 @@ Fed-BioMed provides pre-compiled MP-SPDZ protocols and scripts for Linux-based o
 for Darwin-based operating systems, MP-SPDZ must be compiled from its source code. Fed-BioMed provides a script
 that eases this process by distinguishing the operating system and performing the installation.
 
-To install or configure existing pre-compiled MP-SPDZ scripts for a `Node compoent`, please run following command.
+To install or configure existing pre-compiled MP-SPDZ scripts for a `Node component`, please run following command.
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg node

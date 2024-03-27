@@ -28,7 +28,7 @@ The option `gui` of the script `fedbiomed_run` is configured for starting Node G
 the sections for more detailed information.
 
 !!! info "Attention!"
-    By default `fedbiomed_run gui [OPTIONS]` starts Flask server accepting access only from
+    By default `fedbiomed_run node gui [OPTIONS]` starts Flask server accepting access only from
     `localhost`. It is not safe to open access from remote host machine since it is not a secured
     web server yet. We highly recommend to use `localhost` through SSH Tunnel for remote access.
 
@@ -42,7 +42,7 @@ The following command is the basic command to start Node GUI with default settin
 data files are stored in `${FEDBIOMED_DIR}/data` and the default node config is `config_node.ini` which is stored in
 `${FEDBIOMED_DIR}/etc`.
 
-`${FEDBIOMED_DIR}/scripts/fedbiomed_run gui start`
+`${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui start`
 
 After running this command the GUI will start listening on `localhost` on port `8484`.
 You can access the GUI through
@@ -60,7 +60,7 @@ configurations for log-in are explained in the [default admin configuration](#de
 Custom ports and host IP address can be specified as long as the port in the specified IP isn't already in use.
 
 ```shell
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui --port <port> --host <ip-address|localhost> start
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui --port <port> --host <ip-address|localhost> start
 ```
 
 
@@ -70,7 +70,7 @@ You might want to store your data files in a different folder. In such cases you
 specify which folder is used that includes data files.
 
 ````
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui --data-folder <path/to/data/folder> start
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui --data-folder <path/to/data/folder> start
 ````
 
 !!! info "Uploading data files through Fed-BioMed is not allowed."
@@ -82,16 +82,16 @@ $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui --data-folder <path/to/data/folder>
 It is possible to specify the node that the user interface will be used for through the option `config`.
 
 ````
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui --config <config-name>.ini start
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui --config <config-name>.ini start
 ````
 
 Thanks to this option it is possible to start multiple GUI for multiple nodes on the same machine as long as the ports are different.
 
 
 ```shell
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui --port 5001 --config config-node-1.ini start
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui --port 5002 --config config-node-2.ini start
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui --port 5003 --config config-name-3.ini start
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui --port 5001 --config config-node-1.ini start
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui --port 5002 --config config-node-2.ini start
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui --port 5003 --config config-name-3.ini start
 ```
 
 If it is desired they can share the same data folder.
@@ -150,19 +150,19 @@ password = admin
 
 ## Production Mode
 
-By default `fedbiomed_run gui` launches Node GUI in development mode that uses Flask web server.  However,
+By default `fedbiomed_run node gui` launches Node GUI in development mode that uses Flask web server.  However,
 using Flask server is not recommended for the production. Therefore, Node GUI has been configured to run on
 [Gunicorn](https://gunicorn.org/) **application server** when the production mode is activated. Please type the following command to activate
 production mode.
 
 ```shell
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui --production start
+$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui --production start
 ```
 
 It is also possible to activate production mode by setting  env variable `GUI_PRODUCTION=1` or `GUI_PRODUCTION=True`
 
 ```shell
-$ GUI_PRODUCTION=1 ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui --production start
+$ GUI_PRODUCTION=1 ${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui --production start
 ```
 
 !!! note "Please use a web server"
@@ -175,7 +175,7 @@ $ GUI_PRODUCTION=1 ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui --production start
 certificate for the application server.
 
 ```shell
-$ GUI_PRODUCTION=1 ${FEDBIOMED_DIR}/scripts/fedbiomed_run gui --key-file <path-to-key-file> --cert-file <path-to-cert-file> start
+$ GUI_PRODUCTION=1 ${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui --key-file <path-to-key-file> --cert-file <path-to-cert-file> start
 ```
 
 SSL certificate can also be set through proxy server (e.g. [Nginx](https://www.nginx.com/)) instead of application server.
