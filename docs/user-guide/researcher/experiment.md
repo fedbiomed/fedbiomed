@@ -54,7 +54,9 @@ Afterwards, `Experiment` initializes several internal variables to manage federa
 Finally, it also creates the strategy to select the nodes for each training round.
 When the `node_selection_strategy` is set to `None`, the experiment uses the default strategy which is `DefaultStrategy`.
 
-### Looking for a specific dataset using Tags
+### Setting the training data
+
+#### Setting the training data by setting the tags
 
 Each dataset deployed on the nodes is identified by tags.
 Tags allow researchers to select the same dataset registered under a given tag (or list of tags) on each node for the training.
@@ -68,6 +70,11 @@ exp.set_tags(tags=['#MNIST', '#dataset'])
 #or
 exp.set_tags(tags='#MNIST')
 ```
+
+!!! warning "Setting tags also sets the `Experiment`'s training data"
+    Whenever the `set_tags` method is called, a query is **always** issued to identify all nodes in the federation
+    that have datasets with matching tags. 
+    Consequently, the training data of `Experiment` is changed to match the results from the query.
 
 You can check your tags in your experiment as follows:
 
@@ -87,6 +94,19 @@ As a consequence, `tags` specified for an `Experiment` should not be ambiguous, 
 
 For example if you instantiate `Experiment(tags='#dataset')` and a node has registered one dataset with tags `['#dataset', '#MNIST']` and another dataset with tags `['#dataset', '#foo']` then experiment creation fails.
 
+#### Setting the training data by providing the metadata directly
+
+The dataset metadata can be provided directly using the `set_training_data` method. 
+The metadata can be a `FederatedDataSet` object or a nested `dict` with format `{node_id: {metadata_key: metadata_value}}`.
+
+When you provide a metadata object directly, the `Experiment`'s tags attribute is set to `None`.
+
+#### Under-the-hood consistency with all members of `Experiment`
+
+When you change the training data (either through `set_tags` or `set_training_data`), the `Experiment` class
+performs a lot of operations to ensure that consistency is maintained for all of its attributes that use the
+training data. 
+In particular, the `aggregator` and `node_state_agent` classes are updated with the new training data.
 
 ### Selecting specific Nodes for the training
 
@@ -149,18 +169,29 @@ training_plan_class = exp.training_plan_class()
 
 ### Model Arguments
 
-The `model_args` is a dictionary with the arguments related to the model (e.g. number of layers, layer arguments and dimensions, etc.). This will be passed to the `init_model` method during model setup.
-For example, the number of features that are going to be used in network layers can be passed with `model_args`.
-An example is shown below.
+The `model_args` is a dictionary with the arguments related to the model 
+(e.g. number of layers, layer arguments and dimensions, etc.). 
+This will be passed to the `init_model` method during model setup.
+An example for passing the number of input adn output features for a model is shown below.
 
 ```python
-{
-    "in_features"   : 15
+model_args = {
+    "in_features"   : 15,
     "out_features"  : 1
 }
+exp.set_model_args(model_args=model_args)
 ```
 
-These parameters can then be used within a `TrainingPlan` as in the example below,
+!!! warning "Incompatible `model_args`"
+    If you try to set new `model_args` that are incompatible with the current model weights, the 
+    function will raise an exception and the `Experiment` class will be left in an **inconsistent state**.
+    To rectify this, immediately re-execute `set_model_args` with additional keyword argument `keep_weights=False`
+    as in the example below:
+    ```python
+    exp.set_model_args(model_args, keep_weights=False)
+    ```
+
+Modela arguments can then be used within a `TrainingPlan` as in the example below,
 
 ```python
 class MyTrainingPlan(TorchTrainingPlan):
@@ -179,7 +210,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 ```
 
-!!! warning "Special model arguments for scikit-learn experiments"
+!!! info "Special model arguments for scikit-learn experiments"
     In scikit-learn experiments, you are required to provide additional special arguments in the `model_args`
     dictionary. For classification tasks, you must provide **both** a `n_features` and an `n_classes` field,
     while for regression tasks you are only required to provide a `n_features` field.
