@@ -417,7 +417,6 @@ class Experiment(TrainingPlanWorkflow):
             # update the aggregator's training data
             self._aggregator.set_fds(self._fds)
         if self._node_state_agent is not None and self._fds is not None:
-
             # update the node state agent (member of FederatedWorkflow)
             self._node_state_agent.update_node_states(self.all_federation_nodes())
         return self._fds
