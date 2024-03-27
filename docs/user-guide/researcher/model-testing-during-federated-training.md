@@ -143,10 +143,10 @@ exp.set_test_metric_args({'average': 'macro'})
 Setters allow updating validation arguments from one round to others.
 
 ```python
-exp.run(rounds=2)
+exp.run(rounds=2, increase=True)
 exp.set_test_ratio(0.35)
 exp.set_set_test_metric(MetricTypes.ACCURACY)
-exp.run(rounds=2)
+exp.run(rounds=2, increase=True)
 ```
 
 
