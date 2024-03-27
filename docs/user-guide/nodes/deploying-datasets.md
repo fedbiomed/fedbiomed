@@ -6,39 +6,36 @@ keywords: fedbiomed configuration,node configuration,deployin datasets
 
 # Deploying Datasets in Nodes
 
-Deploying datasets in nodes makes the datasets ready for federated training with Fed-BioMed [experiments](../researcher/experiment.md). It is the process of indicating metadata of the dataset. Thanks to that, node can access data and perform training based on given arguments in the experiment. A node can deploy multiple datasets and train models on them. It adds data files from the file system and saves their locations into the database. Each dataset should have the following attributes;
+Deploying datasets in nodes makes the datasets ready for federated training with Fed-BioMed [experiments](../researcher/experiment.md). 
+Dataset deployment in Fed-BioMed essentially means providing metadata for a dataset.
+One node can deploy multiple datasets.
+Once deployed, the dataset's metadata is saved into the node's database for persistent storage, even after the node is
+stopped and restarted. 
 
-- **Database Name:** The name of the dataset
-- **Description:** The description of the dataset. Thanks to that researchers can understand what the dataset is about.
-- **Tags:** This attribute identifies the dataset. It is important because when the experiment is initialized for training it searches the nodes based on given tags.
+Each dataset should have the at least following attributes:
 
+- **Database Name:** A user-readable short name of the dataset for display purposes.
+- **Description:** A longer description giving more details about the specifics of each dataset.
+- **Tags:** A unique identifier used by the federated training process to identify each dataset.
 
-## Adding Dataset with Fed-BioMed CLI
+## Requirements
 
-You can use Fed-BioMed CLI to add a dataset into a node. You can either configure a new node by adding new data or you can use a node which has been already configured. The config files in the `etc` directory of Fed-BioMed corresponds to the nodes that have already been configured.
+Fed-BioMed does not support downloading datasets from remote sources, 
+except for the default `MNIST` and `MedNIST` datasets.
+Therefore, before adding a dataset into a node, please make sure that you already prepared your dataset 
+and saved it on the file system. 
 
-The following code will add the dataset into the node configured using the `config-n1.ini` file. However, if there is no such config file, this command will automatically create a new one with a given file name which is `config-n1.ini`.
+## Adding a dataset using the Fed-BioMed CLI
+
+Use the following command to add a dataset into the node identified by the `config-n1.ini` file. 
 
 ``` shell
-
 $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini dataset add
+```
+ 
+Afterward, you will see the following screen in your terminal.
 
 ```
-
-Another option is to add a dataset into the default node without addressing any config file. In this case, a default config file for the node is created.
-
-```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset add
-```
-
-**Note:** Adding dataset into nodes with config is better when you work with multiple nodes.
-
-
-Before adding a dataset into a node, please make sure that you already prepared your dataset and saved it on the file system. Adding a dataset doesn't mean that you can add it from remote sources. The data should be in the host machine.
-
-Please open a terminal and run one of the commands above. Afterward, you will see the following screen in your terminal.
-
-```shell
 # Using configuration file: config_node.ini #
 Welcome to the Fed-BioMed CLI data manager
 Please select the data type that you're configuring:
@@ -51,51 +48,55 @@ Please select the data type that you're configuring:
 select:
 ```
 
-It asks you to select what kind of dataset you would like to add. As you can see, it offers four options, namely `csv`, `default`, `mednist`, `images`, `medical-folder` and `flamby`
-The `default` and `mednist` option are configured to automatically downloading and adding the MNIST and MedNIST datasets respectively.
-To configure your data, you should select `csv`, `image`, `medical-folder` or `flamby` option according to your needs. Let's suppose that you are going to add a CSV dataset. To do that you should type 1 and press enter.
+It asks you to select what kind of dataset you would like to add. 
+The `default` and `mednist` option are configured to automatically download and add the MNIST and MedNIST datasets respectively.
+To deploy your own data, you should select `csv`, `image`, `medical-folder` or `flamby` option according to your needs. 
+After you select an option, you will be prompted with additional questions that cover both common and option-specific details.
 
-```shell
+For example, let's suppose that you are going to add a CSV dataset. 
+To do that you should type 1 and press enter.
+The interface will ask you to insert the common elements: name, tags, and description.
+
+```
 Name of the database: My Dataset
 Tags (separate them by comma and no spaces): #my-csv-data,#csv-dummy-data
 Description: Dummy CSV data
 ```
 
-As you can see, it asks for the information which are necessary to save your data. For the `Tags` part, you can enter only one tag or more than one. Please make sure that you use a comma to separate multiple tags (without space). Afterward, it will open a browser window and ask you to select your dataset. After selecting, you will see the details of your dataset.
+If a graphical interface is available, the next step opens a file browser window and asks you to select your
+csv file.
+If a graphical interface is not available, you will be prompted to insert the full path to the file.
 
-```shell
+After selecting the file, you will be shown the details of your dataset.
+
+```
 Great! Take a look at your data:
 name        data_type    tags                                 description     shape      path                                   dataset_id                                    dataset_parameters
 ----------  -----------  -----------------------------------  --------------  ---------  -----------------  --------------------------------------------  --------------------
 My Dataset  csv          ['#my-csv-data', '#csv-dummy-data']  Dummy CSV data  [300, 20]  /path/to/your.csv  dataset_<id>
 ```
 
-You can also check the list of datasets by using the following command:
+You can also check the list of deployed datasets by using the following command:
 
 ```shell
 $ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini dataset list
 ```
 
-It will return the datasets saved into the node which use the `config-n1.ini` file as config.
+It will return the datasets saved into the node identified by the `config-n1.ini` file.
 
 ## How to Add Another Dataset to the Same Node
 
-As mentioned, nodes can store multiple datasets. You can follow the previous steps to add another dataset. 
-While adding another dataset, the config file of the node should be indicated. Otherwise, CLI can create or use 
-default node config to deploy your dataset. It is allowed to add datasets 
-with the same file path, or name. As the tags are used as an identifier for the dataset, the CLI checks 
-they are not conflicting with another dataset on the same node.
+Nodes can store multiple datasets. 
+You can follow the previous steps as many times as needed to add other datasets. 
 
-!!! info "Conflicting tags between datasets"
-    Tags from two datasets on the same node need to respect some rules:
+!!! info "Adding datasets with the same path"
+    Using the same files or the same path for multiple datasets is allowed, provided that the tags are unique.
 
-    * tags from one dataset cannot be a **subset** of the tags of another dataset
-    * tags from one dataset cannot be a **superset** of the tags of another dataset
-
-    As a consequence, two datasets on the same node cannot have exactly the same tags.
+!!! warning "Conflicting tags between datasets"
+    Tags from one dataset cannot be equal to, or a subset of, the tags of another dataset
 
 For example, CLI on a node:
 
 * accepts to register dataset1 with tags `[ 'tag1', 'tag3' ]`, dataset2 with tags `[ 'tag1', 'tag2' ]` and dataset3 with tags `[ 'tag2', 'tag3' ]`
-* refuses to register dataset1 with tags `[ 'tag1', 'tag2' ]` and dataset2 with tags `[ 'tag1' ]`
-* refuses to register dataset1 with tags `[ 'tag1', 'tag2' ]` and dataset2 with tags `[ 'tag1', 'tag2', 'tag3' ]`
+* refuses to register dataset1 with tags `[ 'tag1', 'tag2' ]` if dataset2 with tags `[ 'tag1' ]` already exists
+* refuses to register dataset1 with tags `[ 'tag1', 'tag2' ]` if dataset2 with tags `[ 'tag1', 'tag2', 'tag3' ]` already exists
