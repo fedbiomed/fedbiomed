@@ -20,25 +20,30 @@ A basic `node` component configuration contains the following settings:
 !!! note "Note"
     These basic configurations are created automatically using default values.
     While it is possible to manually edit the configuration files, some parameters may become incompatible upon doing so; such as [server]/host and [server]/pem since the latter depends on the former.
-    It is therefore strongly adviced to rely on the dedicated script for configuration creation and refresh, namely `fedbiomed_run configuration create` whose options are described above.
+    It is therefore strongly advised to rely on the dedicated script for configuration creation and refresh, namely `fedbiomed_run configuration create` whose options are described above.
     
 ## Environment for Nodes 
 
-A `node` requires a conda environment to be able to run. This environment provides necessary python modules for both the task management part and the model training part. Thanks to Fed-BioMed Node CLI, this conda environment can be created easily. 
+A `node` requires a conda environment to be able to run. 
+This environment provides the necessary python modules for both the task management part and the model training part. 
+Thanks to Fed-BioMed's Node CLI, this conda environment can be created easily. 
 
 ```
-$ ${FEDBIOMED_DIR}/scripts/configure_conda
+$ ${FEDBIOMED_DIR}/scripts/configure_conda node
 ```
 
-The command above creates three different environments including `fedbiomed-node`. You can see details in [installation tutorial](../../tutorials/installation/0-basic-software-installation.md). This documentation will focus more on configuration steps.  
-
+The command above creates the `fedbiomed-node` conda environment. 
+You can find more details in [installation tutorial](../../tutorials/installation/0-basic-software-installation.md). 
 
 **Note:** `FEDBIOMED_DIR` represents the path of the base Fed-BioMed project directory.
 
 
 ## Configuration Files
 
-A configuration file is an `ini` file that is located in`${FEDBIOMED_DIR}/etc` directory. It contains the variables that are required for starting a single node. Please see the sections and the corresponding variables of a basic configuration file for a node.
+A configuration file is an `ini` file that is located in the `${FEDBIOMED_DIR}/etc` directory. 
+Each configuration file is unique to one node.
+
+The configuration file is structured following the sections below:
 
 - **Default Parameters:**   
     - `id`: This is the unique ID that identifies the node. 
@@ -100,9 +105,8 @@ port = 50051
 
 ## Starting Nodes with Config Files
 
-Currently, creating config files is done by the `fedbiomed_run` script. It automatically creates config files based on 
- values assigned in the `fedbiomed.node.environ`. Starting nodes with specific config creates a new 
-configuration file. The following command creates a specific config file with default settings and starts the node. 
+Starting nodes with specific config creates a new configuration file. 
+The following command creates a specific config file with default settings and starts the node. 
 
 ```
 $ ./scripts/fedbiomed_run node --config config-n1.ini start
@@ -113,8 +117,7 @@ Each node that runs in the same host should have a different node id and configu
 another node that uses the same config file does not raise an error message but results in errors during training.
 Therefore, if you launch multiple nodes please make sure to use different configurations.
 
-Listing and adding datasets follows the same logic. If you want to list or add datasets in the nodes that is different 
-from the default one, you need to specify the config file.
+The `--config` flag can be used with any of the `node` subcommands as in the examples below. 
 
 ```
 $ ./scripts/fedbiomed_run node --config config-n1.ini dataset list
@@ -122,15 +125,26 @@ $ ./scripts/fedbiomed_run node --config config-n1.ini dataset add
 ```
 
 !!! info "Configurations for deployment"
-    This is the process for the local development environment. Please see 
+    The process described above is valid for the local development environment. Please see
     [deployment instructions with VPN](../deployment/deployment-vpn.md) for production.  
 
 ## Creating advanced configuration files for `node` components
 
-The script `${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -c NODE -n [CONFIGURATION_FILE_NAME]` will create or optionally recreate (`-f`) a configuration file for a node with `CONFIGURATION_FILE_NAME` name in the `${FEDBIOMED_DIR}/etc` folder.
-More options are available and described through the help menu: `${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -h`
-The parametrization of this script with regard to the various fields stored in the configuration happens through the usage of environment variables.
-The fields that can be controlled, their associated environment variable and default value are described as follow:
+The command below can be used to create, or optionally recreate (`-f`), a configuration file for a node with 
+`CONFIGURATION_FILE_NAME` name.
+
+```
+${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -c NODE -n [CONFIGURATION_FILE_NAME]
+```
+
+You may view and edit your new configuration file at the location `${FEDBIOMED_DIR}/etc/[CONFIGURATION_FILE_NAME]`.
+
+!!! warning "Recreating a configuration destroys the node id"
+    Recreating (`-f`) a configuration file overrides the whole file including the node id.
+    To preserve the node id across updates of the configuration file, prefer using `${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration refresh -c NODE -n node_1.ini`.
+
+Environment variables can be used to parametrize the various options for creating a configuration file.
+The fields that can be controlled, their associated environment variable, and default value are described below:
 
 ```
 [security]:
@@ -144,10 +158,17 @@ The fields that can be controlled, their associated environment variable and def
 - port: RESEARCHER_SERVER_PORT, 50051
 ```
 
-### Examples:
+You may also explore them through the command's help menu 
+
+```
+${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -h
+```
+
+### Examples
+
+Create the new configuration file `${FEDBIOMED_DIR}/etc/node_1.ini` with a specified IP and port for the researcher,
+and disabling secure aggregation. Forcefully delete and recreate the file if it was already existing.
+
 ```
 $ RESEARCHER_SERVER_HOST=121.203.21.147 RESEARCHER_SERVER_PORT=8909 SECURE_AGGREGATION=0 ${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -c NODE -n node_1.ini -f
 ```
-
-Note that recreating (`-f`) a configuration file will override the whole file including the node id.
-To preserve the node id across updates of the configuration file, prefer using `${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration refresh -c NODE -n node_1.ini`.
