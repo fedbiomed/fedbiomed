@@ -365,6 +365,13 @@ training_args = {
     'dry_run': False,
 }
 ```
+
+#### Sharing persistent buffers
+
+In Pytorch experiments, you may include the argument `share_persistent_buffers`. When set to `True` (default), nodes will share the full `state_dict()` of the Pytorch module, which contains both the learnable parameters and the persistent buffers (defined as invariant in the network, like batchnorm’s `running_mean` and `running_var`). When set to `False`, nodes will only share learnable parameters.
+
+This argument will be ignored for scikit-learn experiments, as the notion of persistent buffers is specific to Pytorch.
+
 ### Aggregator
 
 An aggregator is one of the required arguments for the experiment. It is used on the researcher for aggregating model parameters that are received from the nodes after
