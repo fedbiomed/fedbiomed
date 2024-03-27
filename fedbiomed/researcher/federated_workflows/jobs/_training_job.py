@@ -61,7 +61,7 @@ class TrainingJob(Job):
             **kwargs: Named arguments of parent class. Please see
                 [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         # to be used for `execute()`
         self._experiment_id = experiment_id
         self._round_ = round_
