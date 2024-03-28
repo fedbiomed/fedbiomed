@@ -565,7 +565,7 @@ is already built (means that `gui/ui/node_modules` and `var/gui-build` folders e
 reinstall and rebuild, please add `--recreate` flag in the command same as below,
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run gui data-folder ../data --recreate start
+${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui data-folder ../data --recreate start
 ```
 
 

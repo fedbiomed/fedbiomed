@@ -34,7 +34,7 @@ In `Fed-BioMed`, we provide a `Optimizer` object, that works as an interface wit
 ```python
 from fedbiomed.common.optimizers import Optimizer
 
-Optimizer(lr=.1, decay=.0, modules=[], regualrizers=[])
+Optimizer(lr=.1, decay=.0, modules=[], regularizers=[])
 ```
 
 with the following arguments:
@@ -317,7 +317,7 @@ exp.set_tags(tags = tags)
 exp.set_aggregator(aggregator=FedAverage())
 exp.set_round_limit(2)
 exp.set_training_data(training_data=None, from_tags=True)
-exp.set_strategy(node_selection_strategy=DefaultStrategy)
+exp.set_strategy(node_selection_strategy=DefaultStrategy())
 
 # here we are adding an Optimizer on Researcher side (FedYogi)
 fed_opt = Optimizer(lr=.8, modules=[FedYogi()])
