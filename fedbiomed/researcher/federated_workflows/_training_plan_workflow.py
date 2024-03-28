@@ -103,6 +103,9 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         # being used in the workflow. The training plan cannot be modified by the user.
         self._training_plan = None
         self._training_args: Optional[TrainingArgs] = None  # FIXME: is it ok to have this here?
+        # The _training_plan_file attribute represents the path of the file where the training plan is saved.
+        # It cannot be modified by the user
+        self._training_plan_file = None
 
         # initialize object
         super().__init__(*args, **kwargs)
@@ -111,14 +114,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         self.set_model_args(model_args)
         self.set_training_plan_class(training_plan_class)
 
-    def _instantiate_training_plan(self) -> BaseTrainingPlan:
+    def _instantiate_training_plan(self) -> Tuple[BaseTrainingPlan, str]:
         """Instantiates training plan class
 
         Args:
             training_plan_class: Training plan class
 
         Returns:
-            an initialized training plan object
+            a tuple of an initialized training plan object, and the path of the file
+                where the training plan is saved
         """
 
         # FIXME: Following actions can be part of training plan class
@@ -147,7 +151,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             initialize_optimizer=False
         )
 
-        return training_plan
+        return training_plan, training_plan_file
 
 
     @exp_exceptions
@@ -163,9 +167,10 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         if self._training_plan_class is None:
             self._training_plan = None
+            self._training_plan_file = None
         else:
             with self._keep_weights(keep_weights):
-                self._training_plan = self._instantiate_training_plan()
+                self._training_plan, self._training_plan_file = self._instantiate_training_plan()
 
 
     @exp_exceptions
@@ -180,6 +185,42 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
 
         return self._training_plan_class
+
+
+    @exp_exceptions
+    def training_plan_file(self, display: bool = True) -> str:
+        """Retrieves the path of the file where the training plan is saved, and optionally displays it.
+
+        Args:
+            display: If `True`, prints the content of the training plan file. Default is `True`
+
+        Returns:
+            Path to the training plan file
+
+        Raises:
+            FedbiomedExperimentError: bad argument type, or cannot read training plan file content
+        """
+        if not isinstance(display, bool):
+            # bad type
+            msg = ErrorNumbers.FB410.value + \
+                f', in method `training_plan_file` param `display` : type {type(display)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        if display and self._training_plan_file is not None:
+            try:
+                with open(self._training_plan_file) as file:
+                    content = file.read()
+                    file.close()
+                    print(content)
+            except OSError as e:
+                # cannot read training plan file content
+                msg = ErrorNumbers.FB412.value + \
+                    f', in method `training_plan_file` : error when reading training plan file - {e}'
+                logger.critical(msg)
+                raise FedbiomedExperimentError(msg)
+
+        return self._training_plan_file
 
 
     @exp_exceptions
