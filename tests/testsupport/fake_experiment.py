@@ -1,5 +1,5 @@
 """ This file contains dummy Classes for unit testing. It fakes Experiment class
-(from fedbiomed.researcher.experiment)
+(from fedbiomed.researcher.federated_workflows._experiment)
 """
 from typing import List, Optional, Type, TypeVar, Union
 

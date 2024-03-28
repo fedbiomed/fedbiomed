@@ -74,7 +74,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._training_args: Dict[str, Any] = None
         
         self._error_msg_import_model: str = f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n" +\
-                                            "To %s a model, you should do it through `fedbiomed.researcher.experiment.Experiment`'s interface" +\
+                                            "To %s a model, you should do it through `fedbiomed.researcher.federated_workflows.Experiment`'s interface" +\
                                             " and not directly from Training Plan"
 
     @abstractmethod
@@ -642,7 +642,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Raises:
             FedBiomedTrainingPlanError: raised if model has not be initialized through the 
             `post_init` method. If you need to export the model, you must do it through
-            [`Experiment`][`fedbiomed.researcher.experiment.Experiment`]'s interface.
+            [`Experiment`][`fedbiomed.researcher.federated_workflows.Experiment`]'s interface.
 
         !!! info "Notes":
             This method is designed to save the model to a local dump
@@ -669,7 +669,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Raises:
             FedBiomedTrainingPlanError: raised if model has not be initialized through the 
             `post_init` method. If you need to export the model from the Training Plan, you
-            must do it through [`Experiment`][`fedbiomed.researcher.experiment.Experiment`]'s
+            must do it through [`Experiment`][`fedbiomed.researcher.federated_workflows.Experiment`]'s
             interface.
 
         !!! info "Notes":
