@@ -291,15 +291,16 @@ class ErrorNumbers(_BaseEnum):
     FB407 = "FB407: list of nodes became empty when training (all nodes failed training or did not answer)"
     FB408 = "FB408: training failed on node or node did not answer during training"
     FB409 = "FB409: node sent Status=Error during training"
-    FB410 = "FB410: bad type or value for experiment argument"
-    FB411 = "FB411: cannot train an experiment that is not fully defined"
-    FB412 = "FB412: cannot do model checking for experiment"
-    FB413 = "FB413: cannot save or load breakpoint for experiment"
+    FB410 = "FB410: bad type or value for Experiment argument"
+    FB411 = "FB411: cannot train an Experiment that is not fully defined"
+    FB413 = "FB413: cannot save or load breakpoint for Experiment"
     FB414 = "FB414: bad type or value for training arguments"
     FB415 = "FB415: secure aggregation handling error"
     FB416 = "FB416: federated dataset error"
     FB417 = "FB417: secure aggregation error"
     FB419 = "FB419: node state agent error"
+    FB420 = "FB420: Bad type or value for Federated Workflow argument(s)"
+    FB421 = "FB421: cannot save or load breakpoint for Federated Workflow"
 
     # general application errors (common to node/researcher/..)
 

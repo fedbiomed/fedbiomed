@@ -190,7 +190,7 @@ class FederatedWorkflow(ABC):
 
         # TODO: Manage tags within the FederatedDataset to avoid conflicts
         if training_data is not None and tags is not None:
-            msg = f"{ErrorNumbers.FB410.value}: Can not set `training_data` and `tags` at the " \
+            msg = f"{ErrorNumbers.FB420.value}: Can not set `training_data` and `tags` at the " \
                 "same time. Please provide only `training_data`, or tags to search for " \
                 "training data."
             logger.critical(msg)
@@ -436,14 +436,14 @@ class FederatedWorkflow(ABC):
         """
         # preprocess the tags argument to correct typing
         if not tags:
-            msg = f"{ErrorNumbers.FB410.value}: Invalid value for tags argument {tags}, tags " \
+            msg = f"{ErrorNumbers.FB420.value}: Invalid value for tags argument {tags}, tags " \
                 "should be non-empty list of str or non-empty str."
             logger.critical(msg)
             raise FedbiomedValueError(msg)
 
         if isinstance(tags, list):
             if not all(map(lambda tag: isinstance(tag, str), tags)):
-                msg = f"{ErrorNumbers.FB410.value}: `tags` must be a non-empty str or " \
+                msg = f"{ErrorNumbers.FB420.value}: `tags` must be a non-empty str or " \
                     "a non-empty list of str."
                 logger.critical(msg)
                 raise FedbiomedTypeError(msg)
@@ -454,7 +454,7 @@ class FederatedWorkflow(ABC):
         elif isinstance(tags, str):
             tags_to_set = [tags]
         else:
-            msg = f"{ErrorNumbers.FB410.value} `tags` must be a non-empty str, " \
+            msg = f"{ErrorNumbers.FB420.value} `tags` must be a non-empty str, " \
                 "a non-empty list of str"
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
@@ -489,12 +489,12 @@ class FederatedWorkflow(ABC):
         # set nodes
         elif isinstance(nodes, list):
             if not all(map(lambda node: isinstance(node, str), nodes)):
-                msg = ErrorNumbers.FB410.value + ' `nodes` argument must be a list of strings or None.'
+                msg = ErrorNumbers.FB420.value + ' `nodes` argument must be a list of strings or None.'
                 logger.critical(msg)
                 raise FedbiomedTypeError(msg)
             self._nodes_filter = nodes
         else:
-            msg = ErrorNumbers.FB410.value + ' `nodes` argument must be a list of strings or None.'
+            msg = ErrorNumbers.FB420.value + ' `nodes` argument must be a list of strings or None.'
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
         return self._nodes_filter
@@ -544,12 +544,12 @@ class FederatedWorkflow(ABC):
         """
 
         if not isinstance(from_tags, bool):
-            msg = ErrorNumbers.FB410.value + \
+            msg = ErrorNumbers.FB420.value + \
                 f' `from_tags` : got {type(from_tags)} but expected a boolean'
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
         if from_tags and training_data is not None:
-            msg = ErrorNumbers.FB410.value + \
+            msg = ErrorNumbers.FB420.value + \
                 ' set_training_data: cannot specify a training_data argument if ' \
                 'from_tags is True'
             logger.critical(msg)
@@ -559,14 +559,14 @@ class FederatedWorkflow(ABC):
         if training_data is None:
             if from_tags is True:
                 if not self._tags:
-                    msg = f"{ErrorNumbers.FB410.value}: attempting to " \
+                    msg = f"{ErrorNumbers.FB420.value}: attempting to " \
                         "set training data from undefined tags. Please consider set tags before " \
                         "using set_tags method of the experiment."
                     logger.critical(msg)
                     raise FedbiomedValueError(msg)
                 training_data = self._reqs.search(self._tags, self._nodes_filter)
             else:
-                msg = f"{ErrorNumbers.FB410.value}: Can not set training data to `None`. " \
+                msg = f"{ErrorNumbers.FB420.value}: Can not set training data to `None`. " \
                     "Please set from_tags=True or provide a valid training data"
                 logger.critical(msg)
                 raise FedbiomedValueError(msg)
@@ -576,7 +576,7 @@ class FederatedWorkflow(ABC):
         elif isinstance(training_data, dict):
             self._fds = FederatedDataSet(training_data)
         else:
-            msg = ErrorNumbers.FB410.value + \
+            msg = ErrorNumbers.FB420.value + \
                 f' `training_data` has incorrect type: {type(training_data)}'
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
@@ -609,7 +609,7 @@ class FederatedWorkflow(ABC):
                 logger.warning(f'`experimentation_folder` was sanitized from '
                                f'{experimentation_folder} to {sanitized_folder}')
         else:
-            msg = ErrorNumbers.FB410.value + \
+            msg = ErrorNumbers.FB420.value + \
                 f' `experimentation_folder` : {type(experimentation_folder)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -640,7 +640,7 @@ class FederatedWorkflow(ABC):
         elif isinstance(secagg, SecureAggregation):
             self._secagg = secagg
         else:
-            msg = f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or `SecureAggregation`, " \
+            msg = f"{ErrorNumbers.FB420.value}: Expected `secagg` argument bool or `SecureAggregation`, " \
                   f"but got {type(secagg)}"
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
@@ -666,7 +666,7 @@ class FederatedWorkflow(ABC):
             self._save_breakpoints = save_breakpoints
             # no warning if done during experiment, we may change breakpoint policy at any time
         else:
-            msg = ErrorNumbers.FB410.value + f' `save_breakpoints` : {type(save_breakpoints)}'
+            msg = ErrorNumbers.FB420.value + f' `save_breakpoints` : {type(save_breakpoints)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -724,7 +724,7 @@ class FederatedWorkflow(ABC):
         except (OSError, PermissionError, ValueError, TypeError, RecursionError) as e:
             # - OSError: heuristic for catching open() and write() errors
             # - see json.dump() documentation for documented errors for this call
-            msg = ErrorNumbers.FB413.value + f' - save failed with message {str(e)}'
+            msg = ErrorNumbers.FB421.value + f' - save failed with message {str(e)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg) from e
 
@@ -753,7 +753,7 @@ class FederatedWorkflow(ABC):
         # check parameters type
         if not isinstance(breakpoint_folder_path, str) and breakpoint_folder_path is not None:
             msg = (
-                f"{ErrorNumbers.FB413.value}: load failed, `breakpoint_folder_path`"
+                f"{ErrorNumbers.FB421.value}: load failed, `breakpoint_folder_path`"
                 f" has bad type {type(breakpoint_folder_path)}"
             )
             logger.critical(msg)
@@ -770,14 +770,14 @@ class FederatedWorkflow(ABC):
         except (json.JSONDecodeError, OSError) as exc:
             # OSError: heuristic for catching file access issues
             msg = (
-                f"{ErrorNumbers.FB413.value}: load failed,"
+                f"{ErrorNumbers.FB421.value}: load failed,"
                 f" reading breakpoint file failed with message {exc}"
             )
             logger.critical(msg)
             raise FedbiomedExperimentError(msg) from exc
         if not isinstance(saved_state, dict):
             msg = (
-                f"{ErrorNumbers.FB413.value}: load failed, breakpoint file seems"
+                f"{ErrorNumbers.FB421.value}: load failed, breakpoint file seems"
                 f" corrupted. Type should be `dict` not {type(saved_state)}"
             )
             logger.critical(msg)
@@ -786,7 +786,7 @@ class FederatedWorkflow(ABC):
         # First, check version of breakpoints
         bkpt_version = saved_state.get('breakpoint_version', __default_version__)
         raise_for_version_compatibility(bkpt_version, __breakpoints_version__,
-                                        f"{ErrorNumbers.FB413.value}: Breakpoint "
+                                        f"{ErrorNumbers.FB421.value}: Breakpoint "
                                         "file was generated with version %s "
                                         f"which is incompatible with the current version %s.")
 
