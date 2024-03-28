@@ -108,10 +108,3 @@ class FederatedDataSet:
             shapes_dict[node_id] = node_data_size
 
         return shapes_dict
-
-    def fiter_nodes_from_ids(self,
-                             nodes_to_keep: List[str]) -> List[str]:
-        """Removes nodes that are not in nodes_to_keep from data and returns new list of node ids"""
-        self._data = {node_id: metadata for node_id, metadata in self._data if node_id in nodes_to_keep}
-        return self.node_ids()
-

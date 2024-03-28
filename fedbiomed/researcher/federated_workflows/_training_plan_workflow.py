@@ -92,17 +92,20 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                 f"{ErrorNumbers.FB410.value}: bad type for argument `training_plan_class`."
                 f" It is not subclass of supported training plans {TRAINING_PLAN_TYPES}")
 
-        # __training_plan_class determines the life-cycle of the training plan:
+        # _training_plan_class determines the life-cycle of the training plan:
         # if training_plass_class changes, then the training plan must be reinitialized
-        self.__training_plan_class = None
+        self._training_plan_class = None
         # model args is also tied to the life-cycle of training plan:
         # if model_args changes, the training plan must be reinitialized
         self._model_args = None
-        # The __training_plan attribute represents the *actual instance*
-        # of a __training_plan_class that is currently
+        # The _training_plan attribute represents the *actual instance*
+        # of a _training_plan_class that is currently
         # being used in the workflow. The training plan cannot be modified by the user.
-        self.__training_plan = None
+        self._training_plan = None
         self._training_args: Optional[TrainingArgs] = None  # FIXME: is it ok to have this here?
+        # The _training_plan_file attribute represents the path of the file where the training plan is saved.
+        # It cannot be modified by the user
+        self._training_plan_file = None
 
         # initialize object
         super().__init__(*args, **kwargs)
@@ -111,14 +114,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         self.set_model_args(model_args)
         self.set_training_plan_class(training_plan_class)
 
-    def _instantiate_training_plan(self) -> BaseTrainingPlan:
+    def _instantiate_training_plan(self) -> Tuple[BaseTrainingPlan, str]:
         """Instantiates training plan class
 
         Args:
             training_plan_class: Training plan class
 
         Returns:
-            an initialized training plan object
+            a tuple of an initialized training plan object, and the path of the file
+                where the training plan is saved
         """
 
         # FIXME: Following actions can be part of training plan class
@@ -147,13 +151,13 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             initialize_optimizer=False
         )
 
-        return training_plan
+        return training_plan, training_plan_file
 
 
     @exp_exceptions
-    def _reset_training_plan(self,
-                             keep_weights: bool = True) -> None:
-        """Private utility function that resets the training plan according to the value
+    def _update_training_plan(self,
+                              keep_weights: bool = True) -> None:
+        """Private utility function that updates the training plan according to the value
         of training plan class.
 
         If training plan class is None, then sets the training plan to None.
@@ -161,11 +165,12 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         instance of training plan class.
         """
 
-        if self.__training_plan_class is None:
-            self.__training_plan = None
+        if self._training_plan_class is None:
+            self._training_plan = None
+            self._training_plan_file = None
         else:
             with self._keep_weights(keep_weights):
-                self.__training_plan = self._instantiate_training_plan()
+                self._training_plan, self._training_plan_file = self._instantiate_training_plan()
 
 
     @exp_exceptions
@@ -179,7 +184,43 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             training_plan_class: the class type of the training plan.
         """
 
-        return self.__training_plan_class
+        return self._training_plan_class
+
+
+    @exp_exceptions
+    def training_plan_file(self, display: bool = True) -> str:
+        """Retrieves the path of the file where the training plan is saved, and optionally displays it.
+
+        Args:
+            display: If `True`, prints the content of the training plan file. Default is `True`
+
+        Returns:
+            Path to the training plan file
+
+        Raises:
+            FedbiomedExperimentError: bad argument type, or cannot read training plan file content
+        """
+        if not isinstance(display, bool):
+            # bad type
+            msg = ErrorNumbers.FB410.value + \
+                f', in method `training_plan_file` param `display` : type {type(display)}'
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
+        if display and self._training_plan_file is not None:
+            try:
+                with open(self._training_plan_file) as file:
+                    content = file.read()
+                    file.close()
+                    print(content)
+            except OSError as e:
+                # cannot read training plan file content
+                msg = ErrorNumbers.FB412.value + \
+                    f', in method `training_plan_file` : error when reading training plan file - {e}'
+                logger.critical(msg)
+                raise FedbiomedExperimentError(msg)
+
+        return self._training_plan_file
 
 
     @exp_exceptions
@@ -207,7 +248,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         Returns:
             training plan: the training plan instance
         """
-        return self.__training_plan
+        return self._training_plan
 
     @exp_exceptions
     def model_args(self) -> dict:
@@ -258,7 +299,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         ])
         info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
-            self.__training_plan_class,
+            self._training_plan_class,
             self._model_args,
             self._training_args
         ]])
@@ -268,7 +309,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     def _check_missing_objects(self, missing_objects: Optional[Dict[Any, str]] = None) -> str:
         """Checks if some objects required for running the `run` method are not set"""
         # definitions of elements that are needed (paramount) for running the experiment
-        _not_runnable_if_missing = {'Training Plan Class' : self.__training_plan_class}
+        _not_runnable_if_missing = {'Training Plan Class' : self._training_plan_class}
 
         missing: str = ''
         missing += super()._check_missing_objects(_not_runnable_if_missing)
@@ -332,12 +373,12 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             FedbiomedExperimentError : bad training_plan_class type
         """
         if training_plan_class is None:
-            self.__training_plan_class = None
+            self._training_plan_class = None
         elif inspect.isclass(training_plan_class):
             # training_plan_class must be a subclass of a valid training plan
             if issubclass(training_plan_class, TRAINING_PLAN_TYPES):
                 # valid class
-                self.__training_plan_class = training_plan_class
+                self._training_plan_class = training_plan_class
             else:
                 # bad class
                 msg = ErrorNumbers.FB410.value + f' `training_plan_class` : {training_plan_class} class'
@@ -349,9 +390,9 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
-        self._reset_training_plan(keep_weights)  # resets the training plan attribute
+        self._update_training_plan(keep_weights)  # resets the training plan attribute
 
-        return self.__training_plan_class
+        return self._training_plan_class
 
     @exp_exceptions
     def set_model_args(self,
@@ -384,7 +425,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
         # self._model_args always exist at this point
 
-        self._reset_training_plan(keep_weights)  # resets the training plan attribute
+        self._update_training_plan(keep_weights)  # resets the training plan attribute
 
         return self._model_args
 
@@ -462,7 +503,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         state.update({
             'model_args': self._model_args,
-            'training_plan_class_name': self.__training_plan_class.__name__,
+            'training_plan_class_name': self._training_plan_class.__name__,
             'training_args': self._training_args.dict(),
         })
 
@@ -571,11 +612,11 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             keep_weights: If True tries to keep the weights as non-changed.
         """
 
-        if keep_weights and self.__training_plan is not None:
-            weights = self.__training_plan.get_model_params(exclude_buffers=False)
+        if keep_weights and self._training_plan is not None:
+            weights = self._training_plan.get_model_params(exclude_buffers=False)
             yield
             try:
-                self.__training_plan.set_model_params(weights)
+                self._training_plan.set_model_params(weights)
             except Exception as e:
                 msg = f"{ErrorNumbers.FB410.value}. Attempting to keep same weights even though model has changed " \
                       f"failed with the following error message \n{e}\n Your model is now in an inconsistent state. " \
