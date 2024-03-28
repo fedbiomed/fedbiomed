@@ -299,12 +299,12 @@ class MyTrainingPlan(FedSGDClassifier):
 ## 3. `declearn` optimizer on Researcher side (`FedOpt`)
 
 `Fed-BioMed` provides a way to use  **Adaptive Federated Optimization**, introduced as [`FedOpt` in this paper](https://arxiv.org/pdf/2003.00295.pdf). In the paper, authors considered the difference of the global model weights between 2 successive `Rounds` as a *pseudo gradient*, paving the way to the possbility to have `Optimizers` on `Researcher` side, optimizing the updates of the global model.
-To do so, `fedbiomed.researcher.experiment.Experiment` has a method to set the `Researcher Optimizer`: [`Experiment.set_agg_optimizer`](../../developer/api/researcher/experiment/#fedbiomed.researcher.experiment.Experiment.set_agg_optimizer)
+To do so, `fedbiomed.researcher.federated_workflows.Experiment` has a method to set the `Researcher Optimizer`: [`Experiment.set_agg_optimizer`](../../developer/api/researcher/experiment/#fedbiomed.researcher.federated_workflows.Experiment.set_agg_optimizer)
 
 Below an example using the `set_agg_optimizer` with `FedYogi`:
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators import FedAverage
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.common.optimizers.declearn  import YogiModule as FedYogi
@@ -332,7 +332,7 @@ exp.run(increase=True)
 One can also pass directly the `agg_optimizer` in the `Experiment` object constructor:
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators import FedAverage
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.common.optimizers.declearn import YogiModule as FedYogi
@@ -403,7 +403,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 This is how `Experiment` can be designed (on the `Researcher` side)
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators import FedAverage
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from declearn.optimizer.modules import ScaffoldServerModule

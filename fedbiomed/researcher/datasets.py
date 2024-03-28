@@ -114,4 +114,3 @@ class FederatedDataSet:
         """Removes nodes that are not in nodes_to_keep from data and returns new list of node ids"""
         self._data = {node_id: metadata for node_id, metadata in self._data if node_id in nodes_to_keep}
         return self.node_ids()
-

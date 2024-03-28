@@ -116,7 +116,7 @@ the FL round fails. Please refer to the researcher secure aggregation interface 
 
 !!! note "Researcher"
     Researcher configuration file does not have parameter regarding secure aggregation activation. However,
-    secure aggregation context is managed through [Experiment][fedbiomed.researcher.experiment] interface (class).
+    secure aggregation context is managed through [Experiment][fedbiomed.researcher.federated_workflows] interface (class).
 
 
 ### MP-SPDZ Network Parameters
