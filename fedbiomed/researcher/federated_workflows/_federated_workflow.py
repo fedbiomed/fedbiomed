@@ -398,7 +398,6 @@ class FederatedWorkflow(ABC):
 
         _not_runable_if_missing = {
             'Training Data': self._fds,
-            # 'Tags': self._tags #
         }
 
         if missing_objects:
