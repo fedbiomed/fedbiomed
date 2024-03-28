@@ -94,7 +94,7 @@ arguments in the training arguments and pass them to the experiment.
 
 ```python
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 training_args = {
     #....
     'optimizer_args': {
@@ -122,7 +122,7 @@ experiment should be created in advance.
 
 ```python
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 
 training_args = {
     'optimizer_args': {
