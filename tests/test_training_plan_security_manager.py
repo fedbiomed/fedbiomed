@@ -465,7 +465,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         msg = {
             'researcher_id': 'ssss',
             'request_id': 'request_id',
-            'job_id': 'xxx',
+            'experiment_id': 'xxx',
             'training_plan': 'class TestTrainingPlan:\n\tpass',
             'command': 'training-plan-status'
         }

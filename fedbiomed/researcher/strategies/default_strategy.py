@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Implementation of thedefault strategy
+Implementation of the default strategy
 
 This strategy is used then user does not provide its own
 """
@@ -28,30 +28,21 @@ class DefaultStrategy(Strategy):
     - raise an error is one node returns an error
     """
 
-    def __init__(self, data: FederatedDataSet):
-        """ Constructor of Default Strategy
-
-        Args:
-            data: Object that includes all active nodes and the meta-data of the dataset that is going to be
-                used for federated training. Should be passed to `super().__init__` to initialize parent class
-        """
-
-        super().__init__(data)
-
-    def sample_nodes(self, round_i: int) -> List[str]:
+    def sample_nodes(self, from_nodes: List[str], round_i: int) -> List[str]:
         """ Samples and selects nodes on which to train local model. In this strategy we will consider all existing
         nodes
 
         Args:
+            from_nodes: the node ids which may be sampled
             round_i: number of round.
 
         Returns:
             node_ids: list of all node ids considered for training during
                 this round `round_i`.
         """
-        self._sampling_node_history[round_i] = self._fds.node_ids()
+        self._sampling_node_history[round_i] = from_nodes
 
-        return self._fds.node_ids()
+        return from_nodes
 
     def refine(
             self,

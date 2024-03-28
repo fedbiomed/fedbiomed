@@ -38,7 +38,7 @@ message FeedbackMessage {
     // Tensorboard scalar values
     message Scalar {
         string node_id = 1;
-        string job_id = 2;
+        string experiment_id = 2;
         bool train = 3;
         bool test = 4;
         bool test_on_local_updates = 5;

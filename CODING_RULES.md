@@ -183,7 +183,7 @@ Not part of the caption anymore etc.
 ```
   - links to classes in docstrings
 ```bash
-[\`Experiment\`][fedbiomed.researcher.experiment]
+[\`Experiment\`][fedbiomed.researcher.federated_workflows]
 ```
 
 

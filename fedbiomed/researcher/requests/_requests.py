@@ -431,7 +431,8 @@ class Requests(metaclass=SingletonMeta):
             self,
             training_plan: BaseTrainingPlan,
             description: str = "no description provided",
-            nodes: Optional[List[str]] = None
+            nodes: Optional[List[str]] = None,
+            policies: Optional[List] = None
     ) -> dict:
         """Send a training plan and a ApprovalRequest message to node(s).
 
@@ -451,7 +452,7 @@ class Requests(metaclass=SingletonMeta):
             to the "approval queue" on the node side.
         """
 
-        training_plan_instance = training_plan()
+        training_plan_instance = training_plan
         training_plan_module = 'model_' + str(uuid.uuid4())
         with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmp_dir:
             training_plan_file = os.path.join(tmp_dir, training_plan_module + '.py')
@@ -463,7 +464,7 @@ class Requests(metaclass=SingletonMeta):
 
             try:
                 _, training_plan_instance = import_class_object_from_file(
-                    training_plan_file, training_plan.__name__)
+                    training_plan_file, training_plan.__class__.__name__)
                 tp_source = training_plan_instance.source()
             except Exception as e:
                 logger.error(f"Cannot instantiate the training plan: {e}")
@@ -489,7 +490,7 @@ class Requests(metaclass=SingletonMeta):
             'training_plan': tp_source,
             'command': 'approval'})
 
-        with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
+        with self.send(message, nodes, policies=policies) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
             results = {req.node.id: False for req in federated_req.requests}

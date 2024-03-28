@@ -28,8 +28,10 @@ class MockRequestModule:
 
         self.mock_federated_request = MagicMock(spec=FederatedRequest)
         self.mock_policy  = MagicMock(spec=PolicyController)
+        self.fake_search_reply = {}
         type(self.mock_federated_request).policy  = PropertyMock(return_value=self.mock_policy)
         self.mock_requests.return_value.send.return_value = self.mock_federated_request
+        self.mock_requests.return_value.search.return_value = self.fake_search_reply
         self.mock_policy.has_stopped_any.return_value = False
         self.mock_federated_request.__enter__.return_value = self.mock_federated_request
 

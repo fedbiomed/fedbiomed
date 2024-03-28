@@ -5,7 +5,7 @@ import os
 
 import inspect
 
-from fedbiomed.common.constants import BiprimeType 
+from fedbiomed.common.constants import BiprimeType, __secagg_element_version__
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 
@@ -124,14 +124,18 @@ class TestBaseSecaggManager(unittest.TestCase):
         # preparation
         managers = [SecaggServkeyManager, SecaggBiprimeManager]
         entries_list = [
-            [[], 'my_dummy_job_id'],
-            [[{'job_id': 'my_dummy_job_id'}], 'my_dummy_job_id'],
-            [[{'job_id': 33, 'some_more_field': 3}], 33],
+            [[], 'my_dummy_experiment_id'],
+            [
+                [{'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}],
+                'my_dummy_experiment_id'],
+            [
+                [{'secagg_version': str(__secagg_element_version__), 'experiment_id': 33, 'some_more_field': 3}],
+                33],
         ]
 
         # action
         for m in managers:
-            for entries, job_id in entries_list:
+            for entries, experiment_id in entries_list:
                 # preparation (continued)
                 manager = m('/path/to/dummy/file')
                 # should not be accessing private variable, but got no getter + avoid writing a specific fake class
@@ -143,7 +147,7 @@ class TestBaseSecaggManager(unittest.TestCase):
                 else:
                     expected_entries = None
                 if m == SecaggServkeyManager:
-                    kwargs = {'job_id': job_id}
+                    kwargs = {'experiment_id': experiment_id}
                 else:
                     kwargs = {}
 
@@ -161,13 +165,21 @@ class TestBaseSecaggManager(unittest.TestCase):
         # preparation
         managers = [SecaggServkeyManager, SecaggBiprimeManager]
         entries_list = [
-            [True, [{'job_id': 'my_dummy_job_id'}, {'job_id': 'my_dummy_job_id'} ], 'my_dummy_job_id'],
-            [False, [{'job_id': 'my_dummy_job_id'}], 'another_job_id'],
+            [True,
+             [
+                 {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'},
+                 {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}
+             ],
+             'my_dummy_experiment_id'],
+            [False,
+             [
+                 {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}],
+             'another_experiment_id'],
         ]
 
         # action
         for m in managers:
-            for test_for_biprime, entries, job_id in entries_list:
+            for test_for_biprime, entries, experiment_id in entries_list:
                 # preparation (continued)
                 if not test_for_biprime and m == SecaggBiprimeManager:
                     continue
@@ -178,7 +190,7 @@ class TestBaseSecaggManager(unittest.TestCase):
                 manager._db.db_table.entries = entries
 
                 if m == SecaggServkeyManager:
-                    kwargs = {'job_id': job_id}
+                    kwargs = {'experiment_id': experiment_id}
                 else:
                     kwargs = {}
 
@@ -194,9 +206,9 @@ class TestBaseSecaggManager(unittest.TestCase):
 
         # preparation
         entries_list = [
-            [{}],
-            [{'type': BiprimeType.DEFAULT.value}],
-            [{'other': BiprimeType.DYNAMIC.value}],
+            [{'secagg_version': str(__secagg_element_version__)}],
+            [{'secagg_version': str(__secagg_element_version__), 'type': BiprimeType.DEFAULT.value}],
+            [{'secagg_version': str(__secagg_element_version__), 'other': BiprimeType.DYNAMIC.value}],
         ]
 
         # action
@@ -216,13 +228,13 @@ class TestBaseSecaggManager(unittest.TestCase):
         # preparation
         managers = [SecaggServkeyManager, SecaggBiprimeManager]
         entries_list = [
-            [[{'job_id': 'my_dummy_job_id'}], 'my_dummy_job_id'],
-            [[{'job_id': 245, 'another': 'field'}], 245],
+            [[{'experiment_id': 'my_dummy_experiment_id'}], 'my_dummy_experiment_id'],
+            [[{'experiment_id': 245, 'another': 'field'}], 245],
         ]
 
         # action
         for m in managers:
-            for entries, job_id in entries_list:
+            for entries, experiment_id in entries_list:
                 # preparation (continued)
                 manager = m('/path/to/dummy/file')
                 # should not be accessing private variable, but avoids writing a specific fake class
@@ -230,7 +242,7 @@ class TestBaseSecaggManager(unittest.TestCase):
                 manager._db.db_table.exception_search = True
 
                 if m == SecaggServkeyManager:
-                    kwargs = {'job_id': job_id}
+                    kwargs = {'experiment_id': experiment_id}
                 else:
                     kwargs = {}
 
@@ -246,7 +258,7 @@ class TestBaseSecaggManager(unittest.TestCase):
         parties_list = [['r', 'n1', 'n2'], ['r', 'n1', 'n2', 'n3', 'n4', 'n5'], 111, []]
 
         specific_list = [
-            [SecaggServkeyManager, {'job_id': 'my_job_id_dummy', 'context': '123456789'}, {'job_id': 'my_job_id_dummy'}],
+            [SecaggServkeyManager, {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'}, {'experiment_id': 'my_experiment_id_dummy'}],
             [SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'}, {}],
         ]
 
@@ -257,7 +269,11 @@ class TestBaseSecaggManager(unittest.TestCase):
                     # preparation (continued)
                     manager = m('/path/to/dummy/file')
                     expected_entries = copy.deepcopy(specific)
-                    expected_entries.update({'secagg_id': secagg_id, 'parties': parties})
+                    expected_entries.update({
+                        'secagg_version': str(__secagg_element_version__),
+                        'secagg_id': secagg_id,
+                        'parties': parties}
+                    )
 
                     # action
                     manager.add(secagg_id, parties, **specific)
@@ -292,9 +308,9 @@ class TestBaseSecaggManager(unittest.TestCase):
         specific_list = [
             [
                 SecaggServkeyManager,
-                {'job_id': 'my_job_id_dummy', 'context': '123456789'},
-                {'job_id': 'my_job__alternate_id_dummy', 'context': '987654321'},
-                {'job_id': 'my_job_id_dummy'}
+                {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
+                {'experiment_id': 'my_experiment__alternate_id_dummy', 'context': '987654321'},
+                {'experiment_id': 'my_experiment_id_dummy'}
             ],
             [
                 SecaggBiprimeManager,
@@ -328,8 +344,13 @@ class TestBaseSecaggManager(unittest.TestCase):
         parties_list = [['r', 'n1', 'n2'], ['r', 'n1', 'n2', 'n3', 'n4', 'n5'], 111, []]
 
         specific_list = [
-            [SecaggServkeyManager, {'job_id': 'my_job_id_dummy', 'context': '123456789'}, {'job_id': 'my_job_id_dummy'}],
-            [SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'}, {}],
+            [
+                SecaggServkeyManager,
+                {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
+                {'experiment_id': 'my_experiment_id_dummy'}],
+            [
+                SecaggBiprimeManager,
+                {'context': 'a_long_dummy_biprime'}, {}],
         ]
 
         # action
@@ -374,7 +395,7 @@ class TestBaseSecaggManager(unittest.TestCase):
         # checks are done accordingly to default_biprimes dir content
         self.assertEqual(
             bpm._table.entries,
-            [{'secagg_id': 'dummy_biprime', 'parties': None, 'type': 'default',
+            [{'secagg_version': str(__secagg_element_version__), 'secagg_id': 'dummy_biprime', 'parties': None, 'type': 'default',
                 'context': {'biprime': 12345678, 'max_keysize': 33}}]
         )
 

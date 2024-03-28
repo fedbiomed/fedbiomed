@@ -68,8 +68,8 @@ def get_class_source(cls: Callable) -> str:
         codes = "".join(inspect.linecache.getlines(file))
         class_code = extract_symbols(codes, cls.__name__)[0][0]
         return class_code
-    else:
-        return inspect.getsource(cls)
+
+    return inspect.getsource(cls)
 
 
 def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:
@@ -91,7 +91,7 @@ def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[An
             raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Expected argument type is string but got '{type(arg)}'")
 
     module, train_class = import_class_from_file(module_path, class_name)
-    
+
     try:
         train_class_instance = train_class()
     except Exception as e:

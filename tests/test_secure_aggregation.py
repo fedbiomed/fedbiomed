@@ -54,16 +54,16 @@ class TestSecureAggregation(ResearcherTestCase):
 
         self.secagg._configure_round(
             parties=[environ["ID"], "node-1", "node-2"],
-            job_id="exp-id-1",
+            experiment_id="exp-id-1",
         )
 
         self.assertListEqual(self.secagg.parties, [environ["ID"], "node-1", "node-2"])
-        self.assertEqual(self.secagg.job_id, "exp-id-1")
+        self.assertEqual(self.secagg.experiment_id, "exp-id-1")
 
         # Add new paty
         self.secagg.setup(
             parties=[environ["ID"], "node-1", "node-2", "new_party"],
-            job_id="exp-id-1",
+            experiment_id="exp-id-1",
         )
 
         self.assertListEqual(self.secagg._biprime.parties, [environ["ID"], "node-1", "node-2", "new_party"])
@@ -75,7 +75,7 @@ class TestSecureAggregation(ResearcherTestCase):
         """Test getters for secagg biprime and servkey context ids"""
         self.secagg.setup(
             parties=[environ["ID"], "node-1", "node-2", "new_party"],
-            job_id="exp-id-1",
+            experiment_id="exp-id-1",
         )
 
         s_id = self.secagg.servkey
@@ -101,28 +101,28 @@ class TestSecureAggregation(ResearcherTestCase):
 
         with self.assertRaises(FedbiomedSecureAggregationError):
             self.secagg.setup(parties="oops",
-                              job_id="exp-id-1")
+                              experiment_id="exp-id-1")
 
         with self.assertRaises(FedbiomedSecureAggregationError):
             self.secagg.setup(parties=[environ["ID"], "node-1", "node-2", "new_party"],
-                              job_id=1345)
+                              experiment_id=1345)
 
         # iterate twice with same incorrect arguments
         with self.assertRaises(FedbiomedSecaggError):
             self.secagg.setup(parties=["oops"],
-                              job_id="exp-id-1")
+                              experiment_id="exp-id-1")
         with self.assertRaises(FedbiomedSecureAggregationError):
             self.secagg.setup(parties=["oops"],
-                              job_id="exp-id-1")
+                              experiment_id="exp-id-1")
 
         # Execute setup
         self.secagg.setup(parties=[environ["ID"], "node-1", "node-2", "new_party"],
-                          job_id="exp-id-1")
+                          experiment_id="exp-id-1")
 
     def test_secure_aggregation_07_train_arguments(self):
 
         self.secagg.setup(parties=[environ["ID"], "node-1", "node-2", "new_party"],
-                          job_id="exp-id-1")
+                          experiment_id="exp-id-1")
 
         args = self.secagg.train_arguments()
 
@@ -141,7 +141,7 @@ class TestSecureAggregation(ResearcherTestCase):
         # Configure for round
         self.secagg.setup(
             parties=[environ["ID"], "node-1", "node-2", "new_party"],
-            job_id="exp-id-1",
+            experiment_id="exp-id-1",
         )
 
         # Raises since biprime and servkey status are False
@@ -201,26 +201,26 @@ class TestSecureAggregation(ResearcherTestCase):
         # Configure for round
         self.secagg.setup(
             parties=[environ["ID"], "node-1", "node-2", "new_party"],
-            job_id="exp-id-1",
+            experiment_id="exp-id-1",
         )
 
         state = self.secagg.save_state_breakpoint()
 
         self.assertEqual(state["class"], "SecureAggregation")
         self.assertEqual(state["module"], "fedbiomed.researcher.secagg._secure_aggregation")
-        self.assertEqual(list(state["attributes"].keys()), ['_biprime', '_servkey', '_job_id', '_parties'])
+        self.assertEqual(list(state["attributes"].keys()), ['_biprime', '_servkey', '_experiment_id', '_parties'])
         self.assertEqual(list(state["arguments"].keys()), ['active', 'clipping_range'])
 
         pass
 
     def test_secure_aggregation_10_load_state_breakpoint(self):
-        job_id = "exp-id-1"
+        experiment_id = "exp-id-1"
         parties = [environ["ID"], "node-1", "node-2", "new_party"]
 
         # Configure for round
         self.secagg.setup(
             parties=parties,
-            job_id="exp-id-1",
+            experiment_id="exp-id-1",
         )
 
         biprime_id = self.secagg.biprime.secagg_id
@@ -233,7 +233,7 @@ class TestSecureAggregation(ResearcherTestCase):
 
         self.assertEqual(secagg.biprime.secagg_id, biprime_id)
         self.assertEqual(secagg.servkey.secagg_id, servkey_id)
-        self.assertEqual(secagg.job_id, job_id)
+        self.assertEqual(secagg.experiment_id, experiment_id)
         self.assertListEqual(secagg.parties, parties)
 
         pass

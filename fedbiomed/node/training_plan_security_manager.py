@@ -522,7 +522,7 @@ class TrainingPlanSecurityManager:
             'researcher_id': msg['researcher_id'],
             'request_id': msg['request_id'],
             'node_id': environ['NODE_ID'],
-            'job_id': msg['job_id'],
+            'experiment_id': msg['experiment_id'],
             'approval_obligation': True,
             'training_plan': msg['training_plan'],
             'command': 'training-plan-status'

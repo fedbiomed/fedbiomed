@@ -162,7 +162,10 @@ class DeclearnOptimizer(BaseOptimizer):
         # Therefore, it is necessary to disable the sklearn internal optimizer beforehand
         # otherwise, computation will be incorrect
         grad = declearn.model.api.Vector.build(self._model.get_gradients())
-        weights = declearn.model.api.Vector.build(self._model.get_weights())
+        weights = declearn.model.api.Vector.build(self._model.get_weights(
+            only_trainable=False,
+            exclude_buffers=True
+        ))
         updates = self.optimizer.step(grad, weights)
         self._model.apply_updates(updates.coefs)
 

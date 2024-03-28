@@ -66,6 +66,7 @@ When the new node is created without any specified configuration file or any opt
 hashing_algorithm = SHA256
 allow_default_training_plans = True
 training_plan_approval = False
+# other security parameters
 
 [researcher]
 # parameters for grpc

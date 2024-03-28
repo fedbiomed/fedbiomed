@@ -1,1 +1,1 @@
-::: fedbiomed.researcher.experiment
+::: fedbiomed.researcher.federated_workflows

@@ -24,7 +24,7 @@ class TestHistoryMonitor(NodeTestCase):
         self.send = MagicMock()
 
         try:
-            self.history_monitor = HistoryMonitor(job_id='1234',
+            self.history_monitor = HistoryMonitor(experiment_id='1234',
                                                   researcher_id='researcher-id',
                                                   send=self.send
                                                   )
