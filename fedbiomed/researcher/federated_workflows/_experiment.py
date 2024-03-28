@@ -81,7 +81,7 @@ class Experiment(TrainingPlanWorkflow):
         """Constructor of the class.
 
         Args:
-            aggregator: object or class defining the method for aggregating
+            aggregator: object defining the method for aggregating
                 local updates. Default to None (use
                 [`FedAverage`][fedbiomed.researcher.aggregators.FedAverage] for aggregation)
 
@@ -89,7 +89,7 @@ class Experiment(TrainingPlanWorkflow):
                 to refine aggregated model updates prior to their application. If None,
                 merely apply the aggregated updates.
 
-            node_selection_strategy: object or class defining how nodes are sampled at
+            node_selection_strategy: object defining how nodes are sampled at
                 each round for training, and how non-responding nodes are managed.
                 Defaults to None:
                 - use [`DefaultStrategy`][fedbiomed.researcher.strategies.DefaultStrategy]
@@ -364,7 +364,7 @@ class Experiment(TrainingPlanWorkflow):
         Ensures consistency with the training data.
 
         Args:
-            aggregator: Object or class defining the method for aggregating local updates. Default to None
+            aggregator: Object defining the method for aggregating local updates. Default to None
                 (use `FedAverage` for aggregation)
 
         Returns:
@@ -417,7 +417,6 @@ class Experiment(TrainingPlanWorkflow):
             # update the aggregator's training data
             self._aggregator.set_fds(self._fds)
         if self._node_state_agent is not None and self._fds is not None:
-
             # update the node state agent (member of FederatedWorkflow)
             self._node_state_agent.update_node_states(self.all_federation_nodes())
         return self._fds
@@ -459,7 +458,7 @@ class Experiment(TrainingPlanWorkflow):
         """Sets for `node_selection_strategy` + verification on arguments type
 
         Args:
-            node_selection_strategy: object or class defining how nodes are sampled at each round for training, and
+            node_selection_strategy: object defining how nodes are sampled at each round for training, and
                 how non-responding nodes are managed. Defaults to None:
                 - use `DefaultStrategy` if training_data is initialized
                 - else strategy is None (cannot be initialized), experiment cannot

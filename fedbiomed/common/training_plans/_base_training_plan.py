@@ -315,15 +315,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             FedBiomed [`Optimizers`][`fedbiomed.common.optimizers.Optimizer`]
         """
 
-    def optimizer_args(self) -> Dict:
-        """Retrieves optimizer arguments (to be overridden
-        by children classes)
-
-        Returns:
-            Empty dictionary: (to be overridden in children classes)
-        """
-        return {}
-
     def add_preprocess(
             self,
             method: Callable,

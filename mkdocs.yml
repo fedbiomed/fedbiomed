@@ -65,7 +65,7 @@ nav:
     - 'User Guide':
       - Glossary: './user-guide/glossary.md'
       - Deployment:
-          - Introduction: './user-guide/deployment/deployment.md'
+          - "Introduction": './user-guide/deployment/deployment.md'
           - "VPN Deployment": './user-guide/deployment/deployment-vpn.md'
           - "Network matrix": './user-guide/deployment/matrix.md'
           - "Security model": './user-guide/deployment/security-model.md'
@@ -76,11 +76,10 @@ nav:
         - "Using GPU" : './user-guide/nodes/using-gpu.md'
         - "Node GUI" : './user-guide/nodes/node-gui.md'
       - Researcher:
-        - "Configuring Researcher": './user-guide/researcher/configuring-researcher.md'
         - "Training Plan": './user-guide/researcher/training-plan.md'
         - "Training Data": './user-guide/researcher/training-data.md'
-        - Experiment: './user-guide/researcher/experiment.md'
-        - Aggregation: './user-guide/researcher/aggregation.md'
+        - "Experiment": './user-guide/researcher/experiment.md'
+        - "Aggregation": './user-guide/researcher/aggregation.md'
         - "Listing Datasets and Selecting Nodes" : './user-guide/researcher/listing-datasets-and-selecting-nodes.md'
         - "Model Validation on the Node Side": './user-guide/researcher/model-testing-during-federated-training.md'
         - "Tensorboard" : './user-guide/researcher/tensorboard.md'
@@ -121,9 +120,8 @@ nav:
                 - Aggregators: './developer/api/researcher/aggregators.md'
                 - Datasets: './developer/api/researcher/datasets.md'
                 - Experiment: './developer/api/researcher/experiment.md'
-                - Jobs: './developer/api/researcher/jobs.md'
-                - Experiment: './developer/api/researcher/experiment.md'
                 - Filetools: './developer/api/researcher/filetools.md'
+                - Jobs: './developer/api/researcher/jobs.md'
                 - Monitor: './developer/api/researcher/monitor.md'
                 - NodeStateAgent: './developer/api/researcher/node_state_agent.md'
                 - Requests: './developer/api/researcher/requests.md'
