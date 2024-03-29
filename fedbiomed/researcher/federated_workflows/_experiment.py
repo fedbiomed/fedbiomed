@@ -501,7 +501,7 @@ class Experiment(TrainingPlanWorkflow):
             Round limit for experiment of federated learning
 
         Raises:
-            FedbiomedExperimentError : bad rounds type or value
+            FedbiomedValueError : bad rounds type or value
         """
         # at this point round_current exists and is an int >= 0
 
@@ -1269,14 +1269,15 @@ class Experiment(TrainingPlanWorkflow):
         """
         node_ids = self.all_federation_nodes()
         if before_training:
-            return self._node_state_agent.update_node_states(node_ids)
+            self._node_state_agent.update_node_states(node_ids)
+            return
 
-            # extract last node state
+        # extract last node state
         if training_replies is None:
             raise FedbiomedValueError(
                 f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
                 "replies form Node(s) has(ve) been recieved!")
-        return self._node_state_agent.update_node_states(node_ids, training_replies)
+        self._node_state_agent.update_node_states(node_ids, training_replies)
 
     @staticmethod
     @exp_exceptions
@@ -1398,7 +1399,6 @@ class Experiment(TrainingPlanWorkflow):
         rounds = set(bkpt_training_replies.keys())
         for round_ in rounds:
             # reload parameters from file params_path
-            print("HERE")
             for node in bkpt_training_replies[round_].values():
                 node["params"] = Serializer.load(node["params_path"])
             bkpt_training_replies[int(round_)] = bkpt_training_replies.pop(round_)
