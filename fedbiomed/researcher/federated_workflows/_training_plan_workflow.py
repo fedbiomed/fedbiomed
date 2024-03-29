@@ -547,7 +547,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
                 content (corrupted)
         """
-        loaded_exp, saved_state = super().load_breakpoint()
+        loaded_exp, saved_state = super().load_breakpoint(breakpoint_folder_path)
 
         # Define type for pylint
         loaded_exp: TrainingPlanWorkflow

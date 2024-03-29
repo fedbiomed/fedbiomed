@@ -725,11 +725,11 @@ class Experiment(TrainingPlanWorkflow):
             raise FedbiomedExperimentError(ErrorNumbers.FB411.value + ': missing one or several object needed for'
                                            ' starting the `Experiment`. Details:\n' + missing)
         # Sample nodes for training
+
         training_nodes = self._node_selection_strategy.sample_nodes(
             from_nodes=self.filtered_federation_nodes(),
             round_i=self._round_current
         )
-
         # Setup Secure Aggregation (it's a noop if not active)
         secagg_arguments = self.secagg_setup(training_nodes)
 
@@ -1106,7 +1106,7 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
                 content (corrupted)
         """
-        loaded_exp, saved_state = super().load_breakpoint()
+        loaded_exp, saved_state = super().load_breakpoint(breakpoint_folder_path)
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args)
