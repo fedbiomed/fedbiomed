@@ -156,7 +156,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
     @exp_exceptions
     def _update_training_plan(self,
-                             keep_weights: bool = True) -> None:
+                              keep_weights: bool = True) -> None:
         """Private utility function that updates the training plan according to the value
         of training plan class.
 
