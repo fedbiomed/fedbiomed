@@ -13,4 +13,4 @@ dependencies:
       - mkdocs-material ==9.1.11
       - mkdocs-jupyter ==0.24.1
       - mkdocs-minify-plugin ==0.6.4
-      - mkdocstrings-python ==1.5.0
+      - mkdocstrings-python ==1.9.0
