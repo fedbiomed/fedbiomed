@@ -9,11 +9,11 @@ while some of them don't, and some others don't support secure aggregation. Ther
 
 ### Activation
 
-By default, secure aggregation is deactivated in [`Experiment`][fedbiomed.researcher.experiment.Experiment] class. It can
+By default, secure aggregation is deactivated in [`Experiment`][fedbiomed.researcher.federated_workflows.Experiment] class. It can
 be activated by setting the `secagg` as `True`.
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 Experiment(
     secagg=True
 )
@@ -24,7 +24,7 @@ with default arguments as [`timeout`](#timeout) and [`clipping_range`](#clipping
 to create a secure aggregation instance by providing desired argument values.
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.secagg import SecureAggregation
 Experiment(
     #...
@@ -91,7 +91,7 @@ It is possible to access the secagg instance through the experiment object in or
 aggregation context by providing a list of parties and the experiment `experiment_id`.
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.environ import environ
 
 exp = Experiment(secagg=True,

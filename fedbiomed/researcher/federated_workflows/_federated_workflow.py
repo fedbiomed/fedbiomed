@@ -110,17 +110,10 @@ class FederatedWorkflow(ABC):
     Additionally, it provides the basis for the breakpoint functionality, and manages some backend functionalities such
     as the temporary directory, the experiment ID, etc...
 
-    The attributes `training_data`, `tags` and `nodes` are co-dependent. Attempting to modify one of those may result
+    The attributes `training_data` and `tags` are co-dependent. Attempting to modify one of those may result
     in side effects modifying the other, according to the following rules:
-    - setting any of those to None leaves the others untouched, potentially leaving the class in an inconsistent state
-    - modifying tags or nodes when training data is None will simply set the intended value
-    - modifying tags if training data is not None will reset the training data based on the
-        current nodes and the new tags, and afterwards the nodes will be updated according to the new training data
-    - modifying nodes if training data is not None will reset the training data based on the
-        current tags and the new nodes, and then the nodes will be updated again according to the new training data
-    - modifying the training data from tags will update the nodes, while modifying the training data from an object
-        resets the tags to None and updates the nodes
-
+    - modifying tags if training data is not None will reset the training data based on the new tags
+    - modifying the training data using a FederatedDataset object or a dict will set tags to None
     """
     @exp_exceptions
     def __init__(
@@ -511,7 +504,7 @@ class FederatedWorkflow(ABC):
 
         | New value of `training_data` | `from_tags` | Outcome |
         | --- | --- | --- |
-        | dict or FederatedDataset | True  | fail because user is attempting to set from tags but also providing a training_data argument|
+        | dict or FederatedDataset | True  | fail because cannot set from tags and also provide training_data argument |
         | dict or FederatedDataset | False | set fds attribute, set tags to None |
         | None | True | fail if tags are not set, else set fds attribute based tags |
         | None | False | set tags to None and keep same value and tags |

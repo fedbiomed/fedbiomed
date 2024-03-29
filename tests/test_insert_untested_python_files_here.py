@@ -83,6 +83,8 @@ import fedbiomed.researcher.cli
 import fedbiomed.researcher.datasets
 import fedbiomed.researcher.environ
 import fedbiomed.researcher.experiment
+import fedbiomed.researcher.federated_workflows.__init__
+import fedbiomed.researcher.federated_workflows.jobs.__init__
 import fedbiomed.researcher.filetools
 import fedbiomed.researcher.monitor
 import fedbiomed.researcher.requests

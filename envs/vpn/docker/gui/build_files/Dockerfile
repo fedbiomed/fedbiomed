@@ -76,7 +76,7 @@ RUN conda env update --file ./envs/vpn/conda/fedbiomed-gui.yaml && \
 # need clean/purge to be in the same command line to shrink image
  
 # `data-folder` and `config` are not used when doing `install-only`
-RUN ./scripts/fedbiomed_run gui data-folder /data config DUMMY install-only start
+RUN ./scripts/fedbiomed_run node gui data-folder /data config DUMMY install-only start
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

@@ -196,7 +196,7 @@ training_args = {
     'dry_run': False,  
 }
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#MNIST', '#dataset']

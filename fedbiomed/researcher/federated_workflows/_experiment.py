@@ -82,7 +82,7 @@ class Experiment(TrainingPlanWorkflow):
         """Constructor of the class.
 
         Args:
-            aggregator: object or class defining the method for aggregating
+            aggregator: object defining the method for aggregating
                 local updates. Default to None (use
                 [`FedAverage`][fedbiomed.researcher.aggregators.FedAverage] for aggregation)
 
@@ -90,7 +90,7 @@ class Experiment(TrainingPlanWorkflow):
                 to refine aggregated model updates prior to their application. If None,
                 merely apply the aggregated updates.
 
-            node_selection_strategy: object or class defining how nodes are sampled at
+            node_selection_strategy: object defining how nodes are sampled at
                 each round for training, and how non-responding nodes are managed.
                 Defaults to None:
                 - use [`DefaultStrategy`][fedbiomed.researcher.strategies.DefaultStrategy]
@@ -160,7 +160,8 @@ class Experiment(TrainingPlanWorkflow):
     def aggregator(self) -> Aggregator:
         """Retrieves aggregator class that will be used for aggregating model parameters.
 
-        To set or update aggregator: [`set_aggregator`][fedbiomed.researcher.federated_workflows.Experiment.set_aggregator].
+        To set or update aggregator:
+        [`set_aggregator`][fedbiomed.researcher.federated_workflows.Experiment.set_aggregator].
 
         Returns:
             A class or an object that is an instance of [Aggregator][fedbiomed.researcher.aggregators.Aggregator]
@@ -185,8 +186,8 @@ class Experiment(TrainingPlanWorkflow):
     def strategy(self) -> Union[Strategy, None]:
         """Retrieves the class that represents the node selection strategy.
 
-        Please see also [`set_strategy`][fedbiomed.researcher.federated_workflows.Experiment.set_strategy] to set or update
-        node selection strategy.
+        Please see also [`set_strategy`][fedbiomed.researcher.federated_workflows.Experiment.set_strategy]
+        to set or update node selection strategy.
 
         Returns:
             A class or object as an instance of [`Strategy`][fedbiomed.researcher.strategies.Strategy]. `None` if
@@ -199,8 +200,8 @@ class Experiment(TrainingPlanWorkflow):
     def round_limit(self) -> Union[int, None]:
         """Retrieves the round limit from the experiment object.
 
-        Please see  also [`set_round_limit`][fedbiomed.researcher.federated_workflows.Experiment.set_round_limit] to change
-        or set round limit.
+        Please see  also [`set_round_limit`][fedbiomed.researcher.federated_workflows.Experiment.set_round_limit]
+        to change or set round limit.
 
         Returns:
             Round limit that shows maximum number of rounds that can be performed. `None` if it isn't declared yet.
@@ -248,8 +249,8 @@ class Experiment(TrainingPlanWorkflow):
     def test_metric_args(self) -> Dict[str, Any]:
         """Retrieves the metric argument for the metric function that is going to be used.
 
-        Please see also [`set_test_metric`][fedbiomed.researcher.federated_workflows.Experiment.set_test_metric] to change/set
-        `test_metric` and get more information on the arguments can be used.
+        Please see also [`set_test_metric`][fedbiomed.researcher.federated_workflows.Experiment.set_test_metric]
+        to change/set `test_metric` and get more information on the arguments can be used.
 
         Returns:
             A dictionary that contains arguments for metric function. See [`set_test_metric`]
@@ -347,13 +348,13 @@ class Experiment(TrainingPlanWorkflow):
         ])
         info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
-                self._aggregator.aggregator_name if self._aggregator is not None else None,
-                self._node_selection_strategy,
-                self._agg_optimizer,
-                self._round_current,
-                self._round_limit,
-                self._save_breakpoints,
-            ]])
+            self._aggregator.aggregator_name if self._aggregator is not None else None,
+            self._node_selection_strategy,
+            self._agg_optimizer,
+            self._round_current,
+            self._round_limit,
+            self._save_breakpoints,
+        ]])
 
         missing = self._check_missing_objects()
         return super().info(info, missing)
@@ -365,7 +366,7 @@ class Experiment(TrainingPlanWorkflow):
         Ensures consistency with the training data.
 
         Args:
-            aggregator: Object or class defining the method for aggregating local updates. Default to None
+            aggregator: Object defining the method for aggregating local updates. Default to None
                 (use `FedAverage` for aggregation)
 
         Returns:
@@ -401,7 +402,9 @@ class Experiment(TrainingPlanWorkflow):
             Union[FederatedDataSet, None]:
         """Sets training data for federated training + verification on arguments type
 
-        See [`FederatedWorkflow.set_training_data`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_data] for more information.
+        See
+        [`FederatedWorkflow.set_training_data`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_data]
+        for more information.
 
         Ensures consistency also with the Experiment's aggregator and node state agent
 
@@ -418,7 +421,6 @@ class Experiment(TrainingPlanWorkflow):
             # update the aggregator's training data
             self._aggregator.set_fds(self._fds)
         if self._node_state_agent is not None and self._fds is not None:
-
             # update the node state agent (member of FederatedWorkflow)
             self._node_state_agent.update_node_states(self.all_federation_nodes())
         return self._fds
@@ -442,8 +444,8 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError: if `optimizer` is of unproper type.
         """
         if not (
-            agg_optimizer is None
-            or isinstance(agg_optimizer, Optimizer)
+            agg_optimizer is None or
+            isinstance(agg_optimizer, Optimizer)
         ):
             raise FedbiomedExperimentError(
                 f"{ErrorNumbers.FB410.value}: 'agg_optimizer' must be an "
@@ -460,7 +462,7 @@ class Experiment(TrainingPlanWorkflow):
         """Sets for `node_selection_strategy` + verification on arguments type
 
         Args:
-            node_selection_strategy: object or class defining how nodes are sampled at each round for training, and
+            node_selection_strategy: object defining how nodes are sampled at each round for training, and
                 how non-responding nodes are managed. Defaults to None:
                 - use `DefaultStrategy` if training_data is initialized
                 - else strategy is None (cannot be initialized), experiment cannot
@@ -701,7 +703,7 @@ class Experiment(TrainingPlanWorkflow):
         # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
-                  f', in method `run_once` param `increase` : type {type(increase)}'
+                f', in method `run_once` param `increase` : type {type(increase)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -956,7 +958,7 @@ class Experiment(TrainingPlanWorkflow):
             pass
         else:
             msg = ErrorNumbers.FB410.value + \
-                    f', in method `run` param `rounds` : value {rounds}'
+                f', in method `run` param `rounds` : value {rounds}'
             self._check_round_value_consistancy(rounds, msg)
 
         # check increase is a boolean
@@ -1151,12 +1153,12 @@ class Experiment(TrainingPlanWorkflow):
         # check arguments type, though is should have been done before
         if not isinstance(aggregated_params_init, dict):
             msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                  f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
+                f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         if not isinstance(breakpoint_path, str):
             msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                  f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
+                f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1164,8 +1166,8 @@ class Experiment(TrainingPlanWorkflow):
         for round_, params_dict in aggregated_params_init.items():
             if not isinstance(params_dict, dict):
                 msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                      f'Bad type for aggregated params item {str(round_)}, ' + \
-                      f'should be `dict` not {type(params_dict)}'
+                    f'Bad type for aggregated params item {str(round_)}, ' + \
+                    f'should be `dict` not {type(params_dict)}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
 
