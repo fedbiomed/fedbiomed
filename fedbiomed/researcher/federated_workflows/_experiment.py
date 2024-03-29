@@ -18,7 +18,8 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError,
     FedbiomedNodeStateAgentError,
-    FedbiomedTypeError
+    FedbiomedTypeError,
+    FedbiomedValueError
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
@@ -500,7 +501,7 @@ class Experiment(TrainingPlanWorkflow):
             Round limit for experiment of federated learning
 
         Raises:
-            FedbiomedExperimentError : bad rounds type or value
+            FedbiomedValueError : bad rounds type or value
         """
         # at this point round_current exists and is an int >= 0
 
@@ -511,8 +512,11 @@ class Experiment(TrainingPlanWorkflow):
             self._check_round_value_consistancy(round_limit, "round_limit")
             if round_limit < self._round_current:
                 # self._round_limit can't be less than current round
-                logger.error(f'cannot set `round_limit` to less than the number of already run rounds '
-                             f'({self._round_current})')
+                msg = f'cannot set `round_limit` to less than the number of already run rounds ' \
+                    f'({self._round_current})'
+                logger.critical(msg)
+                raise FedbiomedValueError(msg)
+
             else:
                 self._round_limit = round_limit
 
@@ -1197,17 +1201,12 @@ class Experiment(TrainingPlanWorkflow):
             raise FedbiomedExperimentError(msg)
 
         # JSON converted all keys from int to string, need to revert
-        try:
-            for key in list(aggregated_params):
-                aggregated_params[int(key)] = aggregated_params.pop(key)
-        except (TypeError, ValueError):
-            msg = ErrorNumbers.FB413.value + ' - load failed. ' + \
-                f'Bad key {str(key)} in aggregated params, should be convertible to int'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
 
-        for aggreg in aggregated_params.values():
-            aggreg['params'] = Serializer.load(aggreg['params_path'])
+        rounds = set(aggregated_params.keys())
+        for round_  in rounds:
+            aggregated_params[round_]['params'] = \
+                Serializer.load(aggregated_params[round_]['params_path'])
+            aggregated_params[int(round_)] = aggregated_params.pop(round_)
 
         return aggregated_params
 
@@ -1249,9 +1248,11 @@ class Experiment(TrainingPlanWorkflow):
         state = Serializer.load(state_path)
         return Optimizer.load_state(state)
 
-    def _update_nodes_states_agent(self,
-                                   before_training: bool = True,
-                                   training_replies: Optional[Dict] = None):
+    def _update_nodes_states_agent(
+        self,
+        before_training: bool = True,
+        training_replies: Optional[Dict] = None
+    ) -> None:
         """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
         state_id coming from `Nodes` contained among all `Nodes` within
         [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet].
@@ -1269,12 +1270,14 @@ class Experiment(TrainingPlanWorkflow):
         node_ids = self.all_federation_nodes()
         if before_training:
             self._node_state_agent.update_node_states(node_ids)
-        else:
-            # extract last node state
-            if training_replies is None:
-                raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
-                                                   "replies form Node(s) has(ve) been recieved!")
-            self._node_state_agent.update_node_states(node_ids, training_replies)
+            return
+
+        # extract last node state
+        if training_replies is None:
+            raise FedbiomedValueError(
+                f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
+                "replies form Node(s) has(ve) been recieved!")
+        self._node_state_agent.update_node_states(node_ids, training_replies)
 
     @staticmethod
     @exp_exceptions
@@ -1398,9 +1401,7 @@ class Experiment(TrainingPlanWorkflow):
             # reload parameters from file params_path
             for node in bkpt_training_replies[round_].values():
                 node["params"] = Serializer.load(node["params_path"])
-
-            bkpt_training_replies[int(round_)] = bkpt_training_replies[round_]
-            del bkpt_training_replies[round_]
+            bkpt_training_replies[int(round_)] = bkpt_training_replies.pop(round_)
 
         self._training_replies = bkpt_training_replies
 
