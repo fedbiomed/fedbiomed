@@ -509,7 +509,7 @@ class Experiment(TrainingPlanWorkflow):
             # no limit for training rounds
             self._round_limit = None
         else:
-            self._check_round_value_consistancy(round_limit, "round_limit")
+            self._check_round_value_consistency(round_limit, "round_limit")
             if round_limit < self._round_current:
                 # self._round_limit can't be less than current round
                 msg = f'cannot set `round_limit` to less than the number of already run rounds ' \
@@ -537,7 +537,7 @@ class Experiment(TrainingPlanWorkflow):
         Raises:
             FedbiomedExperimentError : bad round_current type or value
         """
-        self._check_round_value_consistancy(round_current, "round_current")
+        self._check_round_value_consistency(round_current, "round_current")
         #
         if self._round_limit is not None and round_current > self._round_limit:
             # cannot set a round over the round_limit (when it is not None)
@@ -959,7 +959,7 @@ class Experiment(TrainingPlanWorkflow):
         else:
             msg = ErrorNumbers.FB410.value + \
                 f', in method `run` param `rounds` : value {rounds}'
-            self._check_round_value_consistancy(rounds, msg)
+            self._check_round_value_consistency(rounds, msg)
 
         # check increase is a boolean
         if not isinstance(increase, bool):
