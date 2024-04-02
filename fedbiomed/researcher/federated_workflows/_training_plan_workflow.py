@@ -439,7 +439,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         Returns:
             Training plan status for answering nodes
         """
-        if self.training_data is None:
+        if self.training_data() is None:
             msg = f"{ErrorNumbers.FB410.value}. Cannot check training plan status: training data is not defined." \
                   f"Please either use the `set_tags` or `set_training_data` method to fix this."
             logger.critical(msg)
@@ -573,7 +573,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         return loaded_exp, saved_state
 
-    def _check_round_value_consistancy(
+    def _check_round_value_consistency(
         self,
         round_current: int,
         variable_name: str

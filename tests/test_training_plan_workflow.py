@@ -10,8 +10,9 @@ from testsupport.base_mocks import MockRequestModule
 #############################################################
 
 import fedbiomed
+from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
+from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.federated_workflows import TrainingPlanWorkflow
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob, TrainingPlanApproveJob, TrainingPlanCheckJob
@@ -46,12 +47,27 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
 
 
     def test_training_plan_workflow_01_initialization(self):
-        """Test initialization of training plan workflow, only cases where correct parameters are provided"""
+        """Test initialization of training plan workflow, only cases
+        where correct parameters are provided"""
+
+        def DummyMethod():
+            pass
+
+        with self.assertRaises(SystemExit):
+            TrainingPlanWorkflow(training_plan_class=DummyMethod)
+
+        class MyTrainingPlan(dict):
+            pass
+
+        with self.assertRaises(SystemExit):
+            TrainingPlanWorkflow(training_plan_class=MyTrainingPlan)
+
         exp = TrainingPlanWorkflow()
         self.assertIsNone(exp.training_plan_class())
         self.assertIsNone(exp.model_args())
         self.assertIsNone(exp.training_plan())
         self.assertIsNotNone(exp.training_args())
+
 
         # Test all possible combinations of init arguments
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
@@ -127,6 +143,17 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertIsNone(exp.training_plan_class())
         self.assertIsNone(exp.training_plan())
 
+        # If training plan class is not subclass of training plan classes
+        class DummyInvalidTPClass:
+            pass
+
+        with self.assertRaises(SystemExit):
+            exp.set_training_plan_class(DummyInvalidTPClass)
+
+        # Type invalid type of training plan class
+        with self.assertRaises(SystemExit):
+            exp.set_training_plan_class("Invalid")
+
     def test_training_plan_workflow_03_set_model_args(self):
         exp = TrainingPlanWorkflow()
         exp.set_training_plan_class(FakeTorchTrainingPlan)
@@ -147,6 +174,11 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.mock_tp.set_model_params.assert_called_once_with(
             {'model': 'new-params'}
         )
+
+        # Invalid model args type
+        with self.assertRaises(SystemExit):
+            exp.set_model_args('invalid-type')
+
 
     def test_training_plan_workflow_04_approval(self):
         """"""
@@ -179,6 +211,12 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
 
         status = exp.check_training_plan_status()
         mock_approval_job.execute.assert_called_once_with()
+
+
+        # Error cases where training data is no
+        exp._fds = None
+        with self.assertRaises(SystemExit):
+            exp.check_training_plan_status()
 
     @patch('fedbiomed.common.serializer.Serializer.dump')
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.FederatedWorkflow.breakpoint')
@@ -270,6 +308,82 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertTrue(exp.training_args()['num_updates'] == 42)
         exp.set_training_args(TrainingArgs({'epochs': 42}))
         self.assertTrue(exp.training_args()['epochs'] == 42)
+
+        # Invalid type of training args argument
+
+        with self.assertRaises(SystemExit):
+            exp.set_training_args(True)
+
+    @patch('builtins.open')
+    def test_training_plan_workflow_09_training_plan_file(self, mock_open):
+        """Test training plan file method"""
+
+        exp = TrainingPlanWorkflow()
+        exp._training_plan_file = 'path/to/training-plan.py'
+
+        file = exp.training_plan_file()
+        self.assertEqual(file, 'path/to/training-plan.py')
+
+        with self.assertRaises(SystemExit):
+            file = exp.training_plan_file(display='invalid-type')
+
+        file = exp.training_plan_file(display=True)
+        mock_open.assert_called()
+
+        mock_open.side_effect = OSError
+        with self.assertRaises(SystemExit):
+            file = exp.training_plan_file(display=True)
+
+    def test_training_plan_workflow_10_info(self):
+        """Covers training plan info method"""
+        exp = TrainingPlanWorkflow()
+        result = exp.info()
+        self.assertIsNotNone(result)
+
+    def test_training_plan_workflow_11_check_missing_objects(self):
+        """Test training plan workflow object checks"""
+
+        tpw = TrainingPlanWorkflow()
+        result = tpw._check_missing_objects()
+        self.assertTrue('Training Plan' in result)
+
+
+    def test_training_plan_workflow_12_check_round_value_consistency(self):
+        """Tests checking round value consistency"""
+
+        exp = TrainingPlanWorkflow()
+
+        with self.assertRaises(FedbiomedExperimentError):
+            exp._check_round_value_consistency(round_current='invalid', variable_name='round')
+
+        with self.assertRaises(FedbiomedExperimentError):
+            exp._check_round_value_consistency(round_current=-1, variable_name='round')
+
+        result = exp._check_round_value_consistency(round_current=12, variable_name='round')
+        self.assertTrue(result)
+
+
+    def test_training_plan_workflow_13_keep_weights(self):
+        """Tests training plan keep weigths functionality"""
+
+        exp = TrainingPlanWorkflow()
+        training_plan = MagicMock(spec=BaseTrainingPlan)
+        exp._training_plan = training_plan
+
+        def dummy_yield():
+            pass
+
+        # Check correct case
+        with exp._keep_weights(True):
+            dummy_yield()
+        training_plan.set_model_params.assert_called_once()
+
+        # Check set_model_params raises an expection
+
+        training_plan.set_model_params.side_effect = Exception
+        with self.assertRaises(FedbiomedExperimentError):
+            with exp._keep_weights(True):
+                dummy_yield()
 
 
 if __name__ == '__main__':  # pragma: no cover
