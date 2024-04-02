@@ -67,10 +67,10 @@ class Job(ABC):
         ```
         nodes = ['node_1', 'node_2']
         job = Job(nodes, file)
-        with job._timer():
+        with job._timer() as my_timer:
             # ... send some request
 
-        job._timer.get_timer()
+        my_timer
         # {node_1: 2.22, node_2: 2.21} # request time for each Node in second
         ```
         """
@@ -91,8 +91,6 @@ class Job(ABC):
             self._timer.update({node_id: time.perf_counter() - self._timer[node_id] for node_id in self._timer.keys()})
             return self._timer
 
-        def get_timer(self) -> Dict:
-            return self._timer
 
     @abstractmethod
     def execute(self) -> Any:

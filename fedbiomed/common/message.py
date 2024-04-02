@@ -331,7 +331,7 @@ class ApprovalRequest(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: id of the researcher that sends the request
         description: description of the training plan
-        training_plan_url: URL where TrainingPlan is available
+        training_plan: The training plan that is going to be checked for approval
         command: request command string
 
     Raises:
@@ -350,9 +350,11 @@ class ApprovalReply(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that will receive the reply
+        message: currently unused (empty string)
         node_id: Node id that replys the request
-        status: status code received after uploading the training plan (usually HTTP status)
+        status: status code for the request (obsolete, always 0)
         command: Reply command string
+        success: Request was successfully sumbitted to node (not yet approved)
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -445,7 +447,7 @@ class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: Id of the researcher that sends the request
         experiment_id: ID related to the experiment.
-        training_plan_url: The training plan that is going to be checked for approval
+        training_plan: The training plan that is going to be checked for approval
         command: Request command string
 
     Raises:
@@ -471,9 +473,9 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
             if any exception occurs
         approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
             in the node for training.
-        is_approved: True, if the requested training plan is one of the approved training plan by the node
+        status: a `TrainingPlanApprovalStatus` value describing the approval status 
         msg: Message from node based on state of the reply
-        training_plan_url: The training plan that has been checked for approval
+        training_plan: The training plan that has been checked for approval
         command: Reply command string
 
     Raises:
