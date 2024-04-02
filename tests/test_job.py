@@ -9,7 +9,9 @@ from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_training_plan import FakeTorchTrainingPlan
 from testsupport import fake_training_plan
 
-from fedbiomed.common.message import TrainReply,ErrorMessage
+from fedbiomed.common.constants import TrainingPlanApprovalStatus
+from fedbiomed.common.message import \
+    TrainReply,ErrorMessage, TrainingPlanStatusReply
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
 
@@ -314,9 +316,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
 
         mock_policy_dot = MagicMock(spec=DiscardOnTimeout)
 
-        # Initializing a training plan instance via Job must call:
-        # 1) the training plan's default constructor
-        # 2) training plan's post init
         mock_tp_class = MagicMock()
         mock_tp_class.return_value = MagicMock(spec=BaseTrainingPlan)
         mock_tp_class.__name__ = 'mock_tp_class'
@@ -367,12 +366,113 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                 self.assertDictEqual(approval_replies, self.mock_requests.return_value.training_plan_approve.return_value)
 
 
+    @patch('fedbiomed.researcher.federated_workflows.jobs._training_plan_approval_job.DiscardOnTimeout')
+    def test_job_05_training_plan_check_job(self,
+                                            mock_policy_dot):
+
+        mock_policy_dot = MagicMock(spec=DiscardOnTimeout)
+
+        mock_tp_class = MagicMock()
+        mock_tp_class.return_value = MagicMock(spec=BaseTrainingPlan)
+        mock_tp_class.__name__ = 'mock_tp_class'
+
+        mock_tp = mock_tp_class()
+        mock_tp.get_model_params.return_value = MagicMock(spec=dict)
+        mock_tp.source.return_value = MagicMock(spec=str)
+
+        error_status_all = [
+            {'alice': True, 'bob': True},
+            {'alice': True, 'bob': False},
+            {'alice': False, 'bob': True},
+            {'alice': False, 'bob': False},
+        ]
+
+        success_status_all = [
+            {'alice': True, 'bob': True},
+            {'alice': True, 'bob': False},
+            {'alice': False, 'bob': True},
+            {'alice': False, 'bob': False},
+        ]
+
+        # test for a matrx of cases / scenarios
+        for error_status in error_status_all:
+            for approval_obligation in [True, False]:
+                for success_status in success_status_all:
+                    for alice_approval_status in TrainingPlanApprovalStatus:
+                        for bob_approval_status in TrainingPlanApprovalStatus:
+                            # initialize TrainingJob
+                            with tempfile.TemporaryDirectory() as fp:
+                                job = TrainingPlanCheckJob(
+                                    experiment_id='any_unused_id',
+                                    training_plan=mock_tp,
+                                    nodes = ['alice', 'bob'],
+                                    keep_files_dir=fp
+                                )
+
+                                err = {}
+                                ret = {}
+                                approval_status = {
+                                    'alice': alice_approval_status,
+                                    'bob': bob_approval_status,
+                                }
+
+                                self.mock_federated_request.errors.return_value = {}
+                                self.mock_federated_request.replies.return_value = {
+                                    'alice': TrainingPlanStatusReply(**self._get_status_reply(
+                                        mock_tp,
+                                        'alice',
+                                        success_status['alice'],
+                                        approval_obligation,
+                                        alice_approval_status.value)),
+                                    'bob': TrainingPlanStatusReply(**self._get_status_reply(
+                                        mock_tp,
+                                        'bob',
+                                        success_status['bob'],
+                                        approval_obligation,
+                                        bob_approval_status.value)),
+                                }
+                                for node in ['alice', 'bob']:
+                                    if error_status[node]:
+                                        err[node] = ErrorMessage(**self._get_error_message(node))
+                                    else:
+                                        ret[node] = TrainingPlanStatusReply(**self._get_status_reply(
+                                            mock_tp,
+                                            node,
+                                            success_status[node],
+                                            approval_obligation,
+                                            approval_status[node].value)
+                                        )
+
+                                self.mock_federated_request.errors.return_value = err
+                                self.mock_federated_request.replies.return_value = ret
+
+                                # execute tested payload
+                                with patch("time.perf_counter") as mock_perf_counter:
+                                    mock_perf_counter.return_value = 0
+                                    check_replies = job.execute()
+
+                                # checks
+                                self.mock_requests.return_value.send.called_once_with(
+                                    [
+                                        (
+                                            {'alice': self._get_status_request(mock_tp),
+                                             'bob': self._get_status_request(mock_tp)},
+                                            ['alice', 'bob']
+                                        )
+                                    ]
+                                )
+
+                                self.assertDictEqual(check_replies, self.mock_federated_request.replies.return_value)
+
+                                # we lack a test using the errors but no obvious test for this case
+
+
     def _get_train_request(self,
-                 mock_tp,
-                 secagg_arguments,
-                 node_id,
-                 state_ids,
-                 data):
+                           mock_tp,
+                           secagg_arguments,
+                           node_id,
+                           state_ids,
+                           data):
         return {
             'request_id': 'this_request',
             'researcher_id': environ['RESEARCHER_ID'],
@@ -430,14 +530,34 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'command': 'error',
         }
 
-    def _get_approval_request(self,
-                              mock_tp):
+    def _get_status_request(self,
+                            mock_tp,
+                            ):
         return {
             'request_id': 'this_request',
             'researcher_id': environ['RESEARCHER_ID'],
-            'description': 'any arbitrary message',
+            'experiment_id': 'some_id',
             'training_plan': mock_tp.source(),
-            'command': 'approval',
+            'command': 'training-plan-status',
+        }
+
+    def _get_status_reply(self,
+                          mock_tp,
+                          node_id,
+                          success=True,
+                          approval_obligation=True,
+                          status='the TP approval status'):
+        return {
+            'request_id': 'this_request',
+            'researcher_id': environ['RESEARCHER_ID'],
+            'node_id': node_id,
+            'experiment_id': 'some_id',
+            'success': success,
+            'approval_obligation': approval_obligation,
+            'status': status,
+            'msg': 'my arbitrary message',
+            'training_plan': mock_tp.source(),
+            'command': 'training-plan-status',
         }
 
 
