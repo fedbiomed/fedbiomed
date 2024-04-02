@@ -57,6 +57,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         job = MinimalJob(nodes=nodes, keep_files_dir=files_dir)
         self.assertIsNotNone(job._keep_files_dir)  # must be initialized by Job
         self.assertTrue(isinstance(job._nodes, list) and len(job._nodes) == 0)  # nodes must be empty list by default
+
         # Job can take nodes and keep_files_dir as arguments
         mynodes = ['first-node', 'second-node']
         job = MinimalJob(
@@ -65,6 +66,24 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         )
         self.assertEqual(job._keep_files_dir, 'keep_files_dir')
         self.assertTrue(all(x == y for x, y in zip(job._nodes, mynodes)))
+
+        # use and check timer
+        with job.RequestTimer(mynodes) as t1:
+            pass
+
+        for node in mynodes:
+            self.assertTrue(node in t1)
+            self.assertTrue(isinstance(t1[node], float))
+            self.assertAlmostEqual(t1[node], 0, delta=10**-3)
+
+        # use and check getters
+        n = job.nodes
+        self.assertEqual(n, mynodes)
+
+        r = job.requests
+        # need to access the private member
+        self.assertEqual(r, job._reqs)
+
 
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
     def test_job_02_training_job_successful(self, mock_uuid):
