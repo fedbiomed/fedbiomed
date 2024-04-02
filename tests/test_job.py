@@ -15,7 +15,9 @@ from fedbiomed.common.training_plans import BaseTrainingPlan
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.federated_workflows.jobs import Job, TrainingJob
+from fedbiomed.researcher.requests import DiscardOnTimeout
+from fedbiomed.researcher.federated_workflows.jobs import \
+    Job, TrainingJob, TrainingPlanApproveJob, TrainingPlanCheckJob
 
 
 class TestJob(ResearcherTestCase, MockRequestModule):
@@ -146,13 +148,14 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                     self.mock_requests.return_value.send.called_once_with(
                         [
                             (
-                                {'alice': self._get_msg(
+                                {'alice': self._get_train_request(
                                     mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()),
-                                 'bob': self._get_msg(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
+                                 'bob': self._get_train_request(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
                                 ['alice', 'bob']
                             )
                         ]
                     )
+
                     # populate expected replies
                     expected_replies = {}
                     for node_id, r in self.mock_federated_request.replies.return_value.items():
@@ -281,9 +284,9 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                     self.mock_requests.return_value.send.called_once_with(
                         [
                             (
-                                {'alice': self._get_msg(
+                                {'alice': self._get_train_request(
                                     mock_tp, {}, 'alice', fake_node_state_ids, self.fds.data()),
-                                 'bob': self._get_msg(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
+                                 'bob': self._get_train_request(mock_tp, {}, 'bob', fake_node_state_ids, self.fds.data())},
                                 ['alice', 'bob']
                             )
                         ]
@@ -306,7 +309,65 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                     self.mock_federated_request.reset_mock()
 
 
-    def _get_msg(self,
+    @patch('fedbiomed.researcher.federated_workflows.jobs._training_plan_approval_job.DiscardOnTimeout')
+    def test_job_04_training_plan_approve_job(self, mock_policy_dot):
+
+        mock_policy_dot = MagicMock(spec=DiscardOnTimeout)
+
+        # Initializing a training plan instance via Job must call:
+        # 1) the training plan's default constructor
+        # 2) training plan's post init
+        mock_tp_class = MagicMock()
+        mock_tp_class.return_value = MagicMock(spec=BaseTrainingPlan)
+        mock_tp_class.__name__ = 'mock_tp_class'
+
+        mock_tp = mock_tp_class()
+        mock_tp.get_model_params.return_value = MagicMock(spec=dict)
+        mock_tp.source.return_value = MagicMock(spec=str)
+
+        success_status_all =[
+            {'alice': True, 'bob': True},
+            {'alice': True, 'bob': False},
+            {'alice': False, 'bob': True},
+            {'alice': False, 'bob': False},
+        ]
+
+
+        for success_status in success_status_all:
+            # initialize TrainingJob
+            with tempfile.TemporaryDirectory() as fp:
+                job = TrainingPlanApproveJob(
+                    training_plan=mock_tp,
+                    description='my test TP',
+                    nodes = ['alice', 'bob'],
+                    keep_files_dir=fp
+                )
+
+                # prepare mocked node answers
+                self.mock_requests.return_value.training_plan_approve.return_value = success_status
+
+                # execute the tested payload
+                with patch("time.perf_counter") as mock_perf_counter:
+                    mock_perf_counter.return_value = 0
+                    approval_replies = job.execute()
+
+                # check call of message sending to nodes
+                self.mock_requests.return_value.training_plan_approve.called_once_with(
+                    [
+                        (
+                            mock_tp,
+                            'any arbitrary message',
+                            ['alice', 'bob'],
+                            None
+                        )
+                    ]
+                )
+
+                # check received the expected answers
+                self.assertDictEqual(approval_replies, self.mock_requests.return_value.training_plan_approve.return_value)
+
+
+    def _get_train_request(self,
                  mock_tp,
                  secagg_arguments,
                  node_id,
@@ -368,6 +429,17 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'extra_msg': 'a dummy message',
             'command': 'error',
         }
+
+    def _get_approval_request(self,
+                              mock_tp):
+        return {
+            'request_id': 'this_request',
+            'researcher_id': environ['RESEARCHER_ID'],
+            'description': 'any arbitrary message',
+            'training_plan': mock_tp.source(),
+            'command': 'approval',
+        }
+
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()
