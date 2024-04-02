@@ -18,7 +18,8 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError,
     FedbiomedNodeStateAgentError,
-    FedbiomedTypeError
+    FedbiomedTypeError,
+    FedbiomedValueError
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
@@ -159,7 +160,8 @@ class Experiment(TrainingPlanWorkflow):
     def aggregator(self) -> Aggregator:
         """Retrieves aggregator class that will be used for aggregating model parameters.
 
-        To set or update aggregator: [`set_aggregator`][fedbiomed.researcher.federated_workflows.Experiment.set_aggregator].
+        To set or update aggregator:
+        [`set_aggregator`][fedbiomed.researcher.federated_workflows.Experiment.set_aggregator].
 
         Returns:
             A class or an object that is an instance of [Aggregator][fedbiomed.researcher.aggregators.Aggregator]
@@ -184,8 +186,8 @@ class Experiment(TrainingPlanWorkflow):
     def strategy(self) -> Union[Strategy, None]:
         """Retrieves the class that represents the node selection strategy.
 
-        Please see also [`set_strategy`][fedbiomed.researcher.federated_workflows.Experiment.set_strategy] to set or update
-        node selection strategy.
+        Please see also [`set_strategy`][fedbiomed.researcher.federated_workflows.Experiment.set_strategy]
+        to set or update node selection strategy.
 
         Returns:
             A class or object as an instance of [`Strategy`][fedbiomed.researcher.strategies.Strategy]. `None` if
@@ -198,8 +200,8 @@ class Experiment(TrainingPlanWorkflow):
     def round_limit(self) -> Union[int, None]:
         """Retrieves the round limit from the experiment object.
 
-        Please see  also [`set_round_limit`][fedbiomed.researcher.federated_workflows.Experiment.set_round_limit] to change
-        or set round limit.
+        Please see  also [`set_round_limit`][fedbiomed.researcher.federated_workflows.Experiment.set_round_limit]
+        to change or set round limit.
 
         Returns:
             Round limit that shows maximum number of rounds that can be performed. `None` if it isn't declared yet.
@@ -247,8 +249,8 @@ class Experiment(TrainingPlanWorkflow):
     def test_metric_args(self) -> Dict[str, Any]:
         """Retrieves the metric argument for the metric function that is going to be used.
 
-        Please see also [`set_test_metric`][fedbiomed.researcher.federated_workflows.Experiment.set_test_metric] to change/set
-        `test_metric` and get more information on the arguments can be used.
+        Please see also [`set_test_metric`][fedbiomed.researcher.federated_workflows.Experiment.set_test_metric]
+        to change/set `test_metric` and get more information on the arguments can be used.
 
         Returns:
             A dictionary that contains arguments for metric function. See [`set_test_metric`]
@@ -346,13 +348,13 @@ class Experiment(TrainingPlanWorkflow):
         ])
         info['Values'].extend(['\n'.join(findall('.{1,60}',
                                          str(e))) for e in [
-                self._aggregator.aggregator_name if self._aggregator is not None else None,
-                self._node_selection_strategy,
-                self._agg_optimizer,
-                self._round_current,
-                self._round_limit,
-                self._save_breakpoints,
-            ]])
+            self._aggregator.aggregator_name if self._aggregator is not None else None,
+            self._node_selection_strategy,
+            self._agg_optimizer,
+            self._round_current,
+            self._round_limit,
+            self._save_breakpoints,
+        ]])
 
         missing = self._check_missing_objects()
         return super().info(info, missing)
@@ -400,7 +402,9 @@ class Experiment(TrainingPlanWorkflow):
             Union[FederatedDataSet, None]:
         """Sets training data for federated training + verification on arguments type
 
-        See [`FederatedWorkflow.set_training_data`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_data] for more information.
+        See
+        [`FederatedWorkflow.set_training_data`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_data]
+        for more information.
 
         Ensures consistency also with the Experiment's aggregator and node state agent
 
@@ -440,8 +444,8 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError: if `optimizer` is of unproper type.
         """
         if not (
-            agg_optimizer is None
-            or isinstance(agg_optimizer, Optimizer)
+            agg_optimizer is None or
+            isinstance(agg_optimizer, Optimizer)
         ):
             raise FedbiomedExperimentError(
                 f"{ErrorNumbers.FB410.value}: 'agg_optimizer' must be an "
@@ -497,7 +501,7 @@ class Experiment(TrainingPlanWorkflow):
             Round limit for experiment of federated learning
 
         Raises:
-            FedbiomedExperimentError : bad rounds type or value
+            FedbiomedValueError : bad rounds type or value
         """
         # at this point round_current exists and is an int >= 0
 
@@ -508,8 +512,11 @@ class Experiment(TrainingPlanWorkflow):
             self._check_round_value_consistancy(round_limit, "round_limit")
             if round_limit < self._round_current:
                 # self._round_limit can't be less than current round
-                logger.error(f'cannot set `round_limit` to less than the number of already run rounds '
-                             f'({self._round_current})')
+                msg = f'cannot set `round_limit` to less than the number of already run rounds ' \
+                    f'({self._round_current})'
+                logger.critical(msg)
+                raise FedbiomedValueError(msg)
+
             else:
                 self._round_limit = round_limit
 
@@ -696,7 +703,7 @@ class Experiment(TrainingPlanWorkflow):
         # check increase is a boolean
         if not isinstance(increase, bool):
             msg = ErrorNumbers.FB410.value + \
-                  f', in method `run_once` param `increase` : type {type(increase)}'
+                f', in method `run_once` param `increase` : type {type(increase)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -722,11 +729,11 @@ class Experiment(TrainingPlanWorkflow):
             raise FedbiomedExperimentError(ErrorNumbers.FB411.value + ': missing one or several object needed for'
                                            ' starting the `Experiment`. Details:\n' + missing)
         # Sample nodes for training
+
         training_nodes = self._node_selection_strategy.sample_nodes(
             from_nodes=self.filtered_federation_nodes(),
             round_i=self._round_current
         )
-
         # Setup Secure Aggregation (it's a noop if not active)
         secagg_arguments = self.secagg_setup(training_nodes)
 
@@ -951,7 +958,7 @@ class Experiment(TrainingPlanWorkflow):
             pass
         else:
             msg = ErrorNumbers.FB410.value + \
-                    f', in method `run` param `rounds` : value {rounds}'
+                f', in method `run` param `rounds` : value {rounds}'
             self._check_round_value_consistancy(rounds, msg)
 
         # check increase is a boolean
@@ -1103,7 +1110,7 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
                 content (corrupted)
         """
-        loaded_exp, saved_state = super().load_breakpoint()
+        loaded_exp, saved_state = super().load_breakpoint(breakpoint_folder_path)
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args)
@@ -1146,12 +1153,12 @@ class Experiment(TrainingPlanWorkflow):
         # check arguments type, though is should have been done before
         if not isinstance(aggregated_params_init, dict):
             msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                  f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
+                f'Bad type for aggregated params, should be `dict` not {type(aggregated_params_init)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
         if not isinstance(breakpoint_path, str):
             msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                  f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
+                f'Bad type for breakpoint path, should be `str` not {type(breakpoint_path)}'
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -1159,8 +1166,8 @@ class Experiment(TrainingPlanWorkflow):
         for round_, params_dict in aggregated_params_init.items():
             if not isinstance(params_dict, dict):
                 msg = ErrorNumbers.FB413.value + ' - save failed. ' + \
-                      f'Bad type for aggregated params item {str(round_)}, ' + \
-                      f'should be `dict` not {type(params_dict)}'
+                    f'Bad type for aggregated params item {str(round_)}, ' + \
+                    f'should be `dict` not {type(params_dict)}'
                 logger.critical(msg)
                 raise FedbiomedExperimentError(msg)
 
@@ -1194,17 +1201,12 @@ class Experiment(TrainingPlanWorkflow):
             raise FedbiomedExperimentError(msg)
 
         # JSON converted all keys from int to string, need to revert
-        try:
-            for key in list(aggregated_params):
-                aggregated_params[int(key)] = aggregated_params.pop(key)
-        except (TypeError, ValueError):
-            msg = ErrorNumbers.FB413.value + ' - load failed. ' + \
-                f'Bad key {str(key)} in aggregated params, should be convertible to int'
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
 
-        for aggreg in aggregated_params.values():
-            aggreg['params'] = Serializer.load(aggreg['params_path'])
+        rounds = set(aggregated_params.keys())
+        for round_  in rounds:
+            aggregated_params[round_]['params'] = \
+                Serializer.load(aggregated_params[round_]['params_path'])
+            aggregated_params[int(round_)] = aggregated_params.pop(round_)
 
         return aggregated_params
 
@@ -1246,9 +1248,11 @@ class Experiment(TrainingPlanWorkflow):
         state = Serializer.load(state_path)
         return Optimizer.load_state(state)
 
-    def _update_nodes_states_agent(self,
-                                   before_training: bool = True,
-                                   training_replies: Optional[Dict] = None):
+    def _update_nodes_states_agent(
+        self,
+        before_training: bool = True,
+        training_replies: Optional[Dict] = None
+    ) -> None:
         """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
         state_id coming from `Nodes` contained among all `Nodes` within
         [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet].
@@ -1266,12 +1270,14 @@ class Experiment(TrainingPlanWorkflow):
         node_ids = self.all_federation_nodes()
         if before_training:
             self._node_state_agent.update_node_states(node_ids)
-        else:
-            # extract last node state
-            if training_replies is None:
-                raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
-                                                   "replies form Node(s) has(ve) been recieved!")
-            self._node_state_agent.update_node_states(node_ids, training_replies)
+            return
+
+        # extract last node state
+        if training_replies is None:
+            raise FedbiomedValueError(
+                f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
+                "replies form Node(s) has(ve) been recieved!")
+        self._node_state_agent.update_node_states(node_ids, training_replies)
 
     @staticmethod
     @exp_exceptions
@@ -1395,9 +1401,7 @@ class Experiment(TrainingPlanWorkflow):
             # reload parameters from file params_path
             for node in bkpt_training_replies[round_].values():
                 node["params"] = Serializer.load(node["params_path"])
-
-            bkpt_training_replies[int(round_)] = bkpt_training_replies[round_]
-            del bkpt_training_replies[round_]
+            bkpt_training_replies[int(round_)] = bkpt_training_replies.pop(round_)
 
         self._training_replies = bkpt_training_replies
 

@@ -391,7 +391,6 @@ class FederatedWorkflow(ABC):
 
         _not_runable_if_missing = {
             'Training Data': self._fds,
-            # 'Tags': self._tags #
         }
 
         if missing_objects:
@@ -505,7 +504,7 @@ class FederatedWorkflow(ABC):
 
         | New value of `training_data` | `from_tags` | Outcome |
         | --- | --- | --- |
-        | dict or FederatedDataset | True  | fail because user is attempting to set from tags but also providing a training_data argument|
+        | dict or FederatedDataset | True  | fail because cannot set from tags and also provide training_data argument |
         | dict or FederatedDataset | False | set fds attribute, set tags to None |
         | None | True | fail if tags are not set, else set fds attribute based tags |
         | None | False | set tags to None and keep same value and tags |

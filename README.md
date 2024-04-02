@@ -363,14 +363,13 @@ cd ${FEDBIOMED_DIR}
 
 ## Using Tensorboard
 
-To enable tensorboard during training routine to see loss values, you need to set `tensorboard` parameter to `true` while initializing Experiment class.
+To enable tensorboard during training routine to see loss values, you need to set `tensorboard` parameter to `True` while initializing Experiment class.
 
 ```
 exp = Experiment(tags=tags,
                  #nodes=None,
-                 model_path=model_file,
                  model_args=model_args,
-                 training_plan_class='MyTrainingPlan',
+                 training_plan_class=MyTrainingPlan,
                  training_args=training_args,
                  round_limit=round_limit,
                  aggregator=FedAverage(),
