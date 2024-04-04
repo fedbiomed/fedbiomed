@@ -117,19 +117,41 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         with self.assertRaises(SystemExit):  # FedbiomedTypeError
             exp.set_tags(15)
 
+        with self.assertRaises(SystemExit):
+            exp.set_tags(['x', 'y', 15])
 
     def test_federated_workflow_03_set_nodes(self):
         exp = FederatedWorkflow()
         exp.set_nodes(None)
+
         self.assertIsNone(exp.nodes())
         exp.set_nodes(['first', 'second'])
         self.assertEqual(exp.nodes(), ['first', 'second'])
+
+        # Invalid arguments
+        with self.assertRaises(SystemExit):
+            exp.set_nodes(['node-1', 'node-2', 15])
+
+        with self.assertRaises(SystemExit):
+            exp.set_nodes('invalid_type')
+
 
     def test_federated_workflow_04_set_training_data(self):
         exp = FederatedWorkflow()
 
         with self.assertRaises(SystemExit):
             exp.set_training_data(None, from_tags=False)
+
+        # Invalid from_tags argument
+        with self.assertRaises(SystemExit):
+            exp.set_training_data(None, from_tags='invalid-type')
+
+        with self.assertRaises(SystemExit):
+            exp.set_training_data('not-none', from_tags=True)
+
+        # Invalid training_data argument
+        with self.assertRaises(SystemExit):
+            exp.set_training_data('not-none', from_tags=False)
 
         self.assertIsNone(exp.training_data())
 
@@ -144,8 +166,10 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertEqual(exp.training_data(), _training_data)
 
     def test_federated_workflow_05_set_experimentation_folder(self):
+
         exp = FederatedWorkflow()
-        with patch('fedbiomed.researcher.federated_workflows._federated_workflow.create_exp_folder') as mock_exp_folder_creat:
+        with patch('fedbiomed.researcher.federated_workflows'
+                    '._federated_workflow.create_exp_folder') as mock_exp_folder_creat:
             exp.set_experimentation_folder()
             mock_exp_folder_creat.assert_called_once_with()
             self.assertIsNotNone(exp.experimentation_folder())
@@ -153,6 +177,11 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
             mock_exp_folder_creat.reset_mock()
             exp.set_experimentation_folder('new-name')
             mock_exp_folder_creat.assert_called_once_with('new-name')
+
+            mock_exp_folder_creat.side_effect = lambda x: x
+            # Invalid argument type
+            with self.assertRaises(SystemExit):
+                result = exp.set_experimentation_folder(15)
 
     def test_federated_workflow_07_set_secagg(self):
         exp = FederatedWorkflow()
@@ -162,6 +191,9 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
         exp.set_secagg(_secagg)
         self.assertEqual(exp.secagg, _secagg)
+
+        with self.assertRaises(SystemExit):
+            exp.set_secagg('invalid')
 
     def test_federated_workflow_08_consistency_fds_tags(self):
 
@@ -249,7 +281,8 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
             training_data=_training_data,
         )
         exp.breakpoint(state={}, bkpt_number=1)
-        # This also validates the breakpoint scheme: if this fails, please consider updating the breakpoints version
+        # This also validates the breakpoint scheme: if this fails, please
+        # consider updating the breakpoints version
         mock_json_dump.assert_called_once_with(
             {
                 'id': exp.id,
@@ -264,6 +297,13 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
             mock_open.return_value.__enter__.return_value
         )
 
+        mock_open.side_effect = OSError
+
+        with self.assertRaises(SystemExit):
+            exp.breakpoint(state={}, bkpt_number=1)
+
+
+
     @patch('fedbiomed.researcher.federated_workflows._federated_workflow.open')
     @patch('fedbiomed.researcher.federated_workflows._federated_workflow.json.load')
     @patch('fedbiomed.researcher.federated_workflows._federated_workflow.find_breakpoint_path',
@@ -277,6 +317,12 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
                                                    mock_json_load,
                                                    mock_open
                                                    ):
+
+        # Invalid argument should be string or None
+        with self.assertRaises(SystemExit):
+            exp, _ = FederatedWorkflow.load_breakpoint(breakpoint_folder_path=15)
+
+        # Normal test case
         mock_secagg_load.return_value = MagicMock(spec=SecureAggregation)
         mock_node_state_load.return_value = MagicMock(spec=fedbiomed.researcher.node_state_agent.NodeStateAgent)
         mock_json_load.return_value = {
@@ -304,6 +350,94 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertDictEqual(saved_state['secagg'], {'secagg': 'bkpt'})
         self.assertDictEqual(saved_state['node_state'], {'node_state': 'bkpt'})
         self.assertEqual(saved_state['downstream'], 'bkpt')
+
+
+        # Test error cases
+
+        # If open raises an exception
+        mock_open.side_effect = OSError
+        with self.assertRaises(SystemExit):
+            exp, _ = FederatedWorkflow.load_breakpoint()
+        mock_open.side_effect  = None
+
+        # If saved state is not dict
+
+        mock_json_load.return_value = ['list']
+        with self.assertRaises(SystemExit):
+            exp, _ = FederatedWorkflow.load_breakpoint()
+
+
+
+    def test_federated_workflow_06_all_federation_nodes(self):
+        """Tests retrieving nodes"""
+
+        ff = FederatedWorkflow()
+        ff._fds = FederatedDataSet({'node-1': {}, 'node-2': {}})
+        nodes = ff.all_federation_nodes()
+        self.assertListEqual(['node-1', 'node-2'], nodes)
+
+    def test_federated_workflow_07_filtered_federation_nodes(self):
+        """Tests filereted federation nodes method"""
+
+        ff = FederatedWorkflow()
+        ff._nodes_filter = ['node-1']
+        ff._fds = FederatedDataSet({'node-1': {}, 'node-2': {}})
+
+        # Check filtered nodes
+        nodes = ff.filtered_federation_nodes()
+        self.assertListEqual(nodes, ['node-1'])
+
+        # Check when there is no filter
+        ff._nodes_filter = None
+        nodes = ff.all_federation_nodes()
+        self.assertListEqual(['node-1', 'node-2'], nodes)
+
+
+    def test_federated_workflow_08_experimentation_path(self):
+        """Test retrieving experimentation path"""
+
+        ff = FederatedWorkflow()
+        path = ff.experimentation_path()
+        self.assertTrue('experiment' in path)
+
+
+    def test_federated_workflow_09_create_default_info_structure(self):
+        """Tests creating default info structure"""
+        ff = FederatedWorkflow()
+        structure = ff._create_default_info_structure()
+        self.assertDictEqual(structure, {'Arguments': [], 'Values': []})
+
+    def test_federated_workflow_10_info(self):
+        """Tests printing experiment info"""
+        ff = FederatedWorkflow()
+        info, missing = ff.info()
+
+        self.assertListEqual(
+            info['Arguments'],
+            ['Tags', 'Nodes filter', 'Training Data',
+             'Experiment folder',  'Experiment Path',  'Secure Aggregation'])
+
+        ff.info(missing='test')
+
+    def test_federated_workflow_11_check_missing_objects(self):
+        """Test missing objects"""
+
+        fw = FederatedWorkflow()
+        fw._training_ags = None
+        missing = fw._check_missing_objects({'Training Args': None})
+        self.assertEqual(missing, '- Training Data\n- Training Args\n')
+
+
+    def test_federated_workflow_12_set_save_breakpoints(self):
+        """Tests activating breakpoint"""
+
+        fw = FederatedWorkflow()
+        fw.set_save_breakpoints(True)
+
+        # Invalid argument
+        with self.assertRaises(SystemExit):
+            fw.set_save_breakpoints('invalid')
+
 
 
 if __name__ == '__main__':  # pragma: no cover

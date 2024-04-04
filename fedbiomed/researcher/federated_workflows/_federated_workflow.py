@@ -343,7 +343,7 @@ class FederatedWorkflow(ABC):
 
         Returns:
             dictionary containing all pieces of information, with 2 entries: `Arguments` mapping a list
-            of all argument, and `Values` mapping a list copntaining all the values.
+            of all argument, and `Values` mapping a list containing all the values.
         """
         if info is None:
             info = self._create_default_info_structure()
@@ -351,7 +351,6 @@ class FederatedWorkflow(ABC):
             'Tags',
             'Nodes filter',
             'Training Data',
-            'Training Arguments',
             'Experiment folder',
             'Experiment Path',
             'Secure Aggregation'
@@ -361,7 +360,6 @@ class FederatedWorkflow(ABC):
             self._tags,
             self._nodes_filter,
             self._fds,
-            self._training_args,
             self._experimentation_folder,
             self.experimentation_path(),
             f'- Using: {self._secagg}\n- Active: {self._secagg.active}'
@@ -504,7 +502,7 @@ class FederatedWorkflow(ABC):
 
         | New value of `training_data` | `from_tags` | Outcome |
         | --- | --- | --- |
-        | dict or FederatedDataset | True  | fail because cannot set from tags and also provide training_data argument |
+        | dict or FederatedDataset | True  | fail because user is attempting to set from tags but also providing a training_data argument|
         | dict or FederatedDataset | False | set fds attribute, set tags to None |
         | None | True | fail if tags are not set, else set fds attribute based tags |
         | None | False | set tags to None and keep same value and tags |
