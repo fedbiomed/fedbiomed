@@ -396,6 +396,7 @@ class TestTorchnn(unittest.TestCase):
         tp._model = model
 
         tp._optimizer = optimizer_wrapper
+        tp._training_args = TrainingArgs(only_required=False)
         # Create custom test data and set data loader for training plan
         test_dataset = TestTorchnn.CustomDataset()
         data_loader = DataLoader(test_dataset, batch_size=len(test_dataset))
@@ -466,6 +467,7 @@ class TestTorchnn(unittest.TestCase):
         optimizer_wrapper = MagicMock(spec=NativeTorchOptimizer)
         tp._model = model
         tp._optimizer = optimizer_wrapper
+        tp._training_args = TrainingArgs(only_required=False)
 
         tp.set_data_loaders(test_data_loader=data_loader, train_data_loader=data_loader)
         tp.testing_routine(metric=MetricTypes.ACCURACY,

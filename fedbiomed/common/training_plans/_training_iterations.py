@@ -17,6 +17,7 @@ TBaseTrainingPlan = TypeVar(
     bound="BaseTrainingPlan"
 )
 
+
 class MiniBatchTrainingIterationsAccountant:
     """Accounting class for keeping track of training iterations.
 
