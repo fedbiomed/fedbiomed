@@ -6,52 +6,58 @@ from fedbiomed.common.data import DataManager
 from fedbiomed.common.constants import ProcessTypes
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-from torch.utils.data import Dataset
-import pandas as pd
 class MyTrainingPlan(TorchTrainingPlan):
-    
-    # Model 
-    def init_model(self, model_args):    
-        model = self.Net(model_args)
-        return model 
-    
-    
-    # Dependencies
+
+    # Defines and return model
+    def init_model(self, model_args):
+        return self.Net(model_args = model_args)
+
+    # Defines and return optimizer
+    def init_optimizer(self, optimizer_args):
+        return torch.optim.Adam(self.model().parameters(), lr = optimizer_args["lr"])
+
+    # Declares and return dependencies
     def init_dependencies(self):
-        # Here we define the custom dependencies that will be needed by our custom Dataloader
-        # In this case, we need the torch Dataset and DataLoader classes
-        # We need pandas to read the local .csv file at the node side
-        deps = ["from torch.utils.data import Dataset",
-                "import pandas as pd"]
-        
+        deps = ["from torchvision import datasets, transforms"]
         return deps
-    
+
     class Net(nn.Module):
         def __init__(self, model_args):
             super().__init__()
-            # should match the model arguments dict passed below to the experiment class
-            self.fc1 = nn.Linear(model_args['in_features'], 5)
-            self.fc2 = nn.Linear(5, model_args['out_features'])
+            self.conv1 = nn.Conv2d(1, 32, 3, 1)
+            self.conv2 = nn.Conv2d(32, 64, 3, 1)
+            self.dropout1 = nn.Dropout(0.25)
+            self.dropout2 = nn.Dropout(0.5)
+            self.fc1 = nn.Linear(9216, 128)
+            self.fc2 = nn.Linear(128, 10)
 
         def forward(self, x):
+            x = self.conv1(x)
+            x = F.relu(x)
+            x = self.conv2(x)
+            x = F.relu(x)
+            x = F.max_pool2d(x, 2)
+            x = self.dropout1(x)
+            x = torch.flatten(x, 1)
             x = self.fc1(x)
             x = F.relu(x)
+            x = self.dropout2(x)
             x = self.fc2(x)
-            return x
 
-    def training_step(self, data, target):
-        output = self.model().forward(data).float()
-        criterion = torch.nn.MSELoss()
-        loss   = criterion(output, target.unsqueeze(1))
-        return loss
+
+            output = F.log_softmax(x, dim=1)
+            return output
 
     def training_data(self):
-        df = pd.read_csv(self.dataset_path, sep=';', index_col=False)
-        x_dim = self.model_args()['in_features']
-        x_train = df.iloc[:,:x_dim].values
-        y_train = df.iloc[:,-1].values
-        train_kwargs = {'shuffle': True}
-        
-        data_manager = DataManager(dataset=x_train , target=y_train, **train_kwargs)
-        
-        return data_manager
+        # Custom torch Dataloader for MNIST data
+        transform = transforms.Compose([transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))])
+        dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
+        loader_arguments = { 'shuffle': True}
+        return DataManager(dataset=dataset1, **loader_arguments)
+
+    def training_step(self, data, target):
+        output = self.model().forward(data)
+        loss   = torch.nn.functional.nll_loss(output, target)
+        return loss
+
