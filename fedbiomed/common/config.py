@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import configparser
-import os 
-import uuid 
+import os
+import uuid
 
 from abc import ABCMeta, abstractmethod
 from typing import Any, Optional, Dict
@@ -87,9 +87,10 @@ class Config(metaclass=ABCMeta):
         """Returns value for given ket and section"""
 
         return self._cfg.get(section, key)
-    
-    
+
+
     def set(self, section, key, value) -> Any:
+        """Sets config section values"""
         self._cfg.set(section, key, value)
         return value
 
@@ -156,8 +157,8 @@ class Config(metaclass=ABCMeta):
 
         # Generate self-signed certificates
         key_file, pem_file = generate_certificate(
-            root=self.root, 
-            component_id=component_id, 
+            root=self.root,
+            component_id=component_id,
             prefix=MPSPDZ_certificate_prefix)
 
         self._cfg['mpspdz'] = {
@@ -203,8 +204,8 @@ class Config(metaclass=ABCMeta):
     def _register_default_biprime(self, db_path: str):
         """Registers default biprime into database
 
-        Args: 
-            db_path: The path to component's DB file. 
+        Args:
+            db_path: The path to component's DB file.
         """
 
         df_biprimes = self._cfg.get('mpspdz', 'allow_default_biprimes')
@@ -217,7 +218,7 @@ class Config(metaclass=ABCMeta):
             f"ALLOW_DEFAULT_BIPRIMES : {df_biprimes}\n"
             f"DEFAULT_BIPRIMES_DIR   : {biprimes_dir}\n"
         )
- 
+
         BPrimeManager = SecaggBiprimeManager(db_path)
         BPrimeManager.update_default_biprimes(df_biprimes, biprimes_dir)
 
