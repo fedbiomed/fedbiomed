@@ -81,8 +81,7 @@ class Aggregator:
         aggregated_params = aggregate(params=params)
 
         # Convert model params
-        model = training_plan._model
-
+        model = training_plan.get_model_wrapper_class()
         model_params = model.unflatten(aggregated_params)
 
         return model_params

@@ -102,7 +102,7 @@ EOF
         gui)
             cat <<EOF
 
-gui     : Fed-BioMed Node GUI options. Please run 'fedbiomed_run gui -h' for details.
+gui     : Fed-BioMed Node GUI options. Please run 'fedbiomed_run node gui -h' for details.
 EOF
         ;;
 

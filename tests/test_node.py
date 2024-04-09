@@ -197,7 +197,7 @@ class TestNode(NodeTestCase):
             'researcher_id': 'researcher_id_1234',
             'secagg_id': 'my_test_secagg_id',
             'element': 0,
-            'job_id': 'a_dummy_job_id',
+            'experiment_id': 'a_dummy_experiment_id',
         }
 
         skm.return_value.return_value.remove.return_value = True
@@ -212,7 +212,7 @@ class TestNode(NodeTestCase):
                 'success': True,
                 'msg': 'Delete request is successful'
             })
-        del secagg_delete_reply['job_id']
+        del secagg_delete_reply['experiment_id']
         del secagg_delete_reply['element']
         # checks
         self.grpc_send_mock.assert_called_once()
@@ -405,7 +405,7 @@ class TestNode(NodeTestCase):
             'training': True,
             'training_plan': 'dummy_plan',
             'training_plan_class': 'my_test_training_plan',
-            'job_id': 'job_id_1234',
+            'experiment_id': 'experiment_id_1234',
             'researcher_id': 'researcher_id_1234',
             'dataset_id': 'dataset_id_1234',
         }
@@ -443,7 +443,7 @@ class TestNode(NodeTestCase):
             'training_plan': 'TP',
             'training_plan_class': 'my_test_training_plan',
             'params': {"x": 0},
-            'job_id': 'job_id_1234',
+            'experiment_id': 'experiment_id_1234',
             'researcher_id': resid,
             'dataset_id': 'dataset_id_1234',
             'request_id': 'request-id',
@@ -478,13 +478,13 @@ class TestNode(NodeTestCase):
 
         # defining arguments
         dict_msg_1_dataset = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             'model_args': {'lr': 0.1},
             'training_args': {'some_value': 1234},
             'training_plan': 'TP',
             'training_plan_class': 'my_test_training_plan',
             'params': {"x": 0},
-            'job_id': 'job_id_1234',
+            'experiment_id': 'experiment_id_1234',
             'state_id': None,
             "secagg_biprime_id": None,
             "secagg_servkey_id": None,
@@ -517,7 +517,7 @@ class TestNode(NodeTestCase):
             training=True, 
             dataset=self.database_id, 
             params=dict_msg_1_dataset['params'], 
-            job_id=dict_msg_1_dataset['job_id'], 
+            experiment_id=dict_msg_1_dataset['experiment_id'], 
             researcher_id=dict_msg_1_dataset['researcher_id'], 
             history_monitor=unittest.mock.ANY, 
             aggregator_args=None, 
@@ -539,14 +539,14 @@ class TestNode(NodeTestCase):
 
         # defining arguments
         dict_msg_1_dataset = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             "model_args": {"lr": 0.1},
             "training_args": {"some_value": 1234},
             "training": True,
             "training_plan": "TP",
             "training_plan_class": "my_test_training_plan",
             "params": {"x": 0},
-            "job_id": "job_id_1234",
+            "experiment_id": "experiment_id_1234",
             "state_id": None,
             "researcher_id": "researcher_id_1234",
             "secagg_biprime_id": None,
@@ -579,7 +579,7 @@ class TestNode(NodeTestCase):
             training=True, 
             dataset=self.database_id, 
             params=dict_msg_1_dataset['params'], 
-            job_id=dict_msg_1_dataset['job_id'], 
+            experiment_id=dict_msg_1_dataset['experiment_id'], 
             researcher_id=dict_msg_1_dataset['researcher_id'], 
             history_monitor=unittest.mock.ANY, 
             aggregator_args=None, 
@@ -633,7 +633,7 @@ class TestNode(NodeTestCase):
             "training_plan": "https://link.to.somewhere.where.my.model",
             "training_plan_class": "my_test_training_plan",
             "params": {"x": 0},
-            "job_id": "job_id_1234",
+            "experiment_id": "experiment_id_1234",
             "researcher_id": "researcher_id_1234",
             "command": "train",
             "secagg_id": None,
@@ -674,7 +674,7 @@ class TestNode(NodeTestCase):
             "training_plan": "TP",
             "training_plan_class": "my_test_training_plan",
             "params": {"x": 0},
-            "job_id": "job_id_1234",
+            "experiment_id": "experiment_id_1234",
             "researcher_id": "researcher_id_1234",
             "command": "train",
             "secagg_id": None,
@@ -716,7 +716,7 @@ class TestNode(NodeTestCase):
             "researcher_id": "my_test_researcher",
             "secagg_id": "my_test_secagg",
             "element": 33,
-            "job_id": "my_job",
+            "experiment_id": "my_experiment",
             "parties": [],
             "command": "secagg"
         }
@@ -778,7 +778,7 @@ class TestNode(NodeTestCase):
         n3 = Node(dataset_manager, self.model_manager_mock)
 
         search_msg = {
-            "protocol_version": '99.99',
+            "protocol_version": str(__messaging_protocol_version__),
             'command': 'search',
             'researcher_id': 'researcher_id_1234',
             'request_id': 'request_id',
@@ -797,12 +797,12 @@ class TestNode(NodeTestCase):
     ):
         """Tests `_task_secagg` normal (successful) case"""
 
-        req = {"protocol_version": '99.99',
+        req = {"protocol_version": str(__messaging_protocol_version__),
                'researcher_id': 'party1',
                'request_id': 'request',
                'secagg_id': 'my_dummy_secagg_id',
                'element': 0,
-               'job_id': 'my_test_job',
+               'experiment_id': 'my_test_experiment',
                'parties': ['party1', 'party2', 'party3'],
                'command': 'secagg'}
         # Create request
@@ -856,7 +856,7 @@ class TestNode(NodeTestCase):
                'secagg_id': 'my_dummy_secagg_id',
                'request_id': 'request',
                'element': 11,
-               'job_id': 'my_test_job',
+               'experiment_id': 'my_test_experiment',
                'command': 'secagg-delete'}
         # Create request
         request = NodeMessages.format_incoming_message(req)

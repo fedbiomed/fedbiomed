@@ -1,10 +1,10 @@
 """ This file contains dummy Classes for unit testing. It fakes Experiment class
-(from fedbiomed.researcher.experiment)
+(from fedbiomed.researcher.federated_workflows._experiment)
 """
 from typing import List, Optional, Type, TypeVar, Union
 
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.researcher.experiment import SecureAggregation
+from fedbiomed.researcher.federated_workflows._experiment import SecureAggregation
 
 # need those types defined
 FederatedDataSet = TypeVar("FederatedDataSet")
@@ -56,11 +56,6 @@ class ExperimentMock:
         self._model_args = model_args
         self._training_args = TrainingArgs(only_required=False)
         self.aggregator_args = {}
-        class Job:
-            def load_state_breakpoint(self, saved_state):
-                self._saved_state = saved_state
-
-        self._job = Job() # minimal
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
         self._monitor = tensorboard # minimal

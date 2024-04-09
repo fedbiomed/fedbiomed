@@ -184,7 +184,7 @@ class TestRequests(ResearcherTestCase):
         mock_print_node_log_message.assert_called_once_with(msg_logger.get_dict())
 
         msg_monitor = {'node_id': 'DummyNodeID',
-                       'job_id': 'DummyJobID',
+                       'experiment_id': 'DummyExperimentID',
                        'metric': {"loss": 12},
                        'train': True,
                        'test': False,
@@ -378,7 +378,11 @@ class TestRequests(ResearcherTestCase):
         self.assertIsNone(self.requests._monitor_message_callback, "Monitor callback hasn't been removed")
 
     @patch('fedbiomed.researcher.requests.Requests.send')
+    @patch('fedbiomed.researcher.requests._requests.import_class_object_from_file')
+    @patch('fedbiomed.researcher.requests._requests.minify', return_value='hello')
     def test_request_13_training_plan_approve(self,
+                                              mock_minify,
+                                              mock_import,
                                               send):
         """ Testing training_plan_approve method """
 
@@ -406,7 +410,9 @@ class TestRequests(ResearcherTestCase):
             'researcher_id': "id",
             "status": True})}
 
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
+        tp = MagicMock(spec=FakeTorchTrainingPlan2)
+        mock_import.return_value = ('dummy', tp)
+        result = self.requests.training_plan_approve(tp,
                                                      "test-training-plan-1",
                                                      nodes=["dummy-id-1"]
                                                      )

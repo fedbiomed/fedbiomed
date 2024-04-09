@@ -83,7 +83,7 @@ ${FEDBIOMED_DIR}/var/experiments
 
 Result files and breakpoints for each experiment are saved in a distinct folder under `${FEDBIOMED_DIR}/var/experiments`. By default, each experiment is assigned a folder named `Experiment_{num}` with a unique increasing *num*. When an experiment saves breakpoint, breakpoint for round *round* is saved under `Experiment_{num}/breakpoint_{round}`.
 
-When loading last breakpoint of last experiment, it selects the highest existing *num* experiment and then the highest *round* for this experiment. In this examples, automatic selection of last breakpoint fails because last experiment (`Experiment_3`) has not saved breakpoints or could not complete its first round.
+When loading last breakpoint of last experiment, it selects the highest existing *num* experiment and then the highest *round* for this experiment. In this example, automatic selection of last breakpoint fails because last experiment (`Experiment_3`) has not saved breakpoints or could not complete its first round.
 
 To load a specific breakpoint, indicate the path for this breakpoint (absolute or relative to the current directory). For example to load breakpoint after round 1 for `Experiment_1`, with current running directory `${FEDBIOMED_DIR}/notebooks` :
 
@@ -111,7 +111,7 @@ then adapt the relative path accordingly.
 For example if the experiment is launched from the `${FEDBIOMED_DIR}` directory :
 ```bash
 cd ${FEDBIOMED_DIR}
-python ./notebooks/my_example.py`
+python ./notebooks/my_example.py  # script from where the model is launched
 ```
 
 then the current directory needs to be relative to `${FEDBIOMED_DIR}` :
