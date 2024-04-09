@@ -169,7 +169,7 @@ class Scaffold(Aggregator):
                 attached to it.
         """
         # Gather the learning rates used by nodes, updating `self.nodes_lr`.
-        self.set_nodes_learning_rate_after_training(training_plan, training_replies, n_round)
+        self.set_nodes_learning_rate_after_training(training_plan, training_replies)
         # At round 0, initialize zero-valued correction states.
         if n_round == 0:
             self.init_correction_states(global_model)
@@ -342,12 +342,6 @@ class Scaffold(Aggregator):
             raise FedbiomedAggregatorError(
                 "Federated Dataset not provided, but needed for Scaffold. Please use setter `set_fds()`."
             )
-        if not isinstance(training_plan.optimizer(), NativeTorchOptimizer):
-            raise FedbiomedAggregatorError(f"Cannot run Scaffold with {training_plan.optimizer()} optimizers. Please use declearn specific Optimizer"
-                                           " (ScaffoldServerModule and ScaffoldClientModule with `FedAverage` aggregator) or use a native PyTorch Optimizer instead.")
-        if hasattr(training_plan, "_optimizer") and training_plan.type() is TrainingPlans.TorchTrainingPlan:
-            if not isinstance(training_plan._optimizer.optimizer, torch.optim.SGD):
-                logger.warning(f"Found optimizer {training_plan._optimizer.optimizer}, but SCAFFOLD requieres SGD optimizer. Results may be inconsistants")
 
         return True
 
@@ -355,7 +349,6 @@ class Scaffold(Aggregator):
         self,
         training_plan: BaseTrainingPlan,
         training_replies: Dict,
-        n_round: int
     ) -> Dict[str, List[float]]:
         """Gets back learning rate of optimizer from Node (if learning rate scheduler is used)
 
@@ -363,7 +356,6 @@ class Scaffold(Aggregator):
             training_plan: training plan instance
             training_replies: training replies that must contain am `optimizer_args`
                 entry and a learning rate
-            n_round: number of rounds already performed
 
         Raises:
             FedbiomedAggregatorError: raised when setting learning rate has been unsuccessful
@@ -373,13 +365,16 @@ class Scaffold(Aggregator):
                 the number of layers contained in the model (in Pytroch, each layer can have a specific learning rate).
         """
 
-        n_model_layers = len(training_plan.get_model_params())
+        n_model_layers = len(training_plan.get_model_params(
+            only_trainable=False,
+            exclude_buffers=True)
+        )
         for node_id in self._fds.node_ids():
             lrs: Dict[str, float] = {}
 
-            node = training_replies[n_round].get(node_id, None)
+            node = training_replies.get(node_id, None)
             if node is not None:
-                lrs = training_replies[n_round][node_id]["optimizer_args"].get('lr')
+                lrs = training_replies[node_id]["optimizer_args"].get('lr')
 
             if node is None or lrs is None:
                 # fall back to default value if no lr information was provided
