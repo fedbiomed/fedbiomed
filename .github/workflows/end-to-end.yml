@@ -4,9 +4,7 @@ permissions: write-all
 on:
   schedule:
     - cron: '30 1 * * *'
-
   workflow_dispatch:
-
   push:
     branches:
       - 'develop'
@@ -25,14 +23,14 @@ jobs:
     steps:
       - name: Checkout of head
         id: e2e-checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Clear environment and re-install
         id: env-reinstall
         run: |
           source ~/.bashrc
-          conda env remove --name fedbiomed-researcher
-          conda env remove --name fedbiomed-node
+          # conda remove -n fedbiomed-researcher --all -y
+          # conda remove -n fedbiomed-node --all -y
           conda env update -f ./envs/development/conda/fedbiomed-researcher.yaml
           conda env update -f ./envs/development/conda/fedbiomed-node.yaml
         shell: bash -l {0}

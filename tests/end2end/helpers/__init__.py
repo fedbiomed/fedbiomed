@@ -7,14 +7,16 @@ from ._helpers import (
     clear_experiment_data,
     execute_script,
     execute_python,
-    execute_ipython
+    execute_ipython,
+    configure_secagg,
+    secagg_certificate_registration
 )
 
 from ._execution import (
     fedbiomed_run,
     collect_output_in_parallel,
     shell_process,
-    collect
+    collect,
 )
 
 

@@ -1,3 +1,8 @@
+"""
+Helper methods for end2end tests
+"""
+
+import platform
 import importlib
 import shutil
 import tempfile
@@ -6,50 +11,22 @@ import asyncio
 import os
 import threading
 import multiprocessing
+
+from typing import Dict, List, Any
+
 import psutil
-import ctypes
-
-from ._execution import (
-    shell_process,
-    fedbiomed_run,
-    collect_output_in_parallel
-)
-from .constants import CONFIG_PREFIX, End2EndError
-
 
 from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME, ComponentType
 from fedbiomed.common.config import Config
 from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR
 from fedbiomed.researcher.experiment import Experiment
 
-
-def create_component(
-    component_type: ComponentType,
-    config_name:str
-) -> Config:
-    """Creates component configuration
-
-    Args:
-        component_type: Component type researcher or node
-        config_name: name of the config file. Prefix will be added automatically
-
-    Returns:
-        config object after prefix added for end to end tests
-    """
-
-    if component_type == ComponentType.NODE:
-        config = importlib.import_module("fedbiomed.node.config").NodeConfig
-    elif component_type == ComponentType.RESEARCHER:
-        config = importlib.import_module("fedbiomed.researcher.config").ResearcherConfig
-
-    config_name = f"{CONFIG_PREFIX}{config_name}"
-
-    config = config(name=config_name, auto_generate=False)
-
-    config.generate()
-
-
-    return config
+from ._execution import (
+    shell_process,
+    fedbiomed_run,
+    collect_output_in_parallel
+)
+from .constants import CONFIG_PREFIX, FEDBIOMED_SCRIPTS, End2EndError
 
 
 def add_dataset_to_node(
@@ -64,8 +41,7 @@ def add_dataset_to_node(
         json.dump(dataset, file)
 
     command = ["node", "--config", config.name, "dataset", "add", "--file", d_file]
-    process = fedbiomed_run(command, wait=True)
-
+    _ = fedbiomed_run(command, wait=True)
     tempdir_.cleanup()
 
     return True
@@ -89,6 +65,31 @@ def start_nodes(
     t.start()
 
     return processes, t
+
+
+def configure_secagg():
+    """Configures secure aggregation environment"""
+
+    # Darwin does long installation therefore if shamir protocol is already
+    # complied do not do other compilation.
+    if platform.system() == 'Darwin':
+        MP_SPDZ_BASEDIR = os.path.join(FEDBIOMED_SCRIPTS, '..', 'modules', 'MP-SPDZ')
+        if os.path.isfile(os.path.join(MP_SPDZ_BASEDIR, 'shamir-party.x')):
+            print("MP-SDPZ is already configured")
+            return
+
+    script = os.path.join(FEDBIOMED_SCRIPTS, 'fedbiomed_configure_secagg')
+    _ = shell_process(
+        [f"HOMEBREW_NO_INSTALL_FROM_API=1", script, 'node'],
+        wait=True
+    )
+
+
+def secagg_certificate_registration():
+    """Registers certificates of all components whose configs are available"""
+
+    return fedbiomed_run(['certificate-dev-setup'], wait=True)
+
 
 def kill_subprocesses(processes):
     """Kills given processes
@@ -117,16 +118,15 @@ def execute_script(file: str, activate: str = 'researcher'):
 
     raise End2EndError('Unsopported file file. Please use .py or .ipynb')
 
+
 def execute_python(file: str, activate: str):
     """Executes given python file in a process"""
 
-    print("Pytohn script execution")
     return shell_process(
         command=["python", f'{file}'],
         activate=activate,
         wait=True
     )
-
 
 def execute_ipython(file: str, activate: str):
     """Executes given ipython file in a process"""
@@ -167,7 +167,7 @@ def clear_node_data(config: Config):
     """
     node_id = config.get('default', 'id')
     # remove node's state
-    _node_state_dir = os.path.join(VAR_DIR, "node_state_%s" % node_id)
+    _node_state_dir = os.path.join(VAR_DIR, f"node_state_{node_id}")
 
     if os.path.lexists(_node_state_dir):
         print("[INFO] Removing folder ", _node_state_dir)
@@ -233,37 +233,6 @@ def _clear_config_file_component(config: Config):
           f"{config.get('default', 'id')} has been cleared")
 
 
-def stop_grpc_thread(thread):
-
-    """Stops the thread of grpc server"""
-
-    # returns id of the respective thread
-    if hasattr(thread, '_thread_id'):
-       thread_id = thread._thread_id
-
-    else:
-        for id, thread_ in threading._active.items():
-            if thread_ is thread:
-                thread_id = id
-
-    print("The thread ID")
-    print(thread_id)
-
-    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
-        thread_id, ctypes.py_object(asyncio.CancelledError)
-    )
-    print(res)
-    if res > 1:
-        print("Stopping thread")
-        ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
-
-
-    tasks = asyncio.all_tasks()
-
-    print("Tasks")
-    for task in tasks:
-        task.cancel()
-
 def clear_experiment_data(exp: Experiment):
     """Clears data relative to an Experiment execution, mainly:
     - `ROOT/experiments/Experiment_xx` folder
@@ -284,7 +253,6 @@ def clear_experiment_data(exp: Experiment):
         exp._reqs._grpc_server._server.stop(10),
         exp._reqs._grpc_server._server._loop
     )
-
     future.result()
 
     # Need to remove request
@@ -308,3 +276,44 @@ def clear_experiment_data(exp: Experiment):
 
     print("[INFO] Removing breakpoints", current_experimentation_folder)
     shutil.rmtree(current_experimentation_folder)
+
+
+def create_component(
+    component_type: ComponentType,
+    config_name: str,
+    config_sections: Dict[str, Dict[str, Any]] = None
+) -> Config:
+    """Creates component configuration
+
+    Args:
+        component_type: Component type researcher or node
+        config_name: name of the config file. Prefix will be added automatically
+        config_sections: To overwrite some default configurations in config files.
+    Returns:
+        config object after prefix added for end to end tests
+    """
+
+    if component_type == ComponentType.NODE:
+        config = importlib.import_module("fedbiomed.node.config").NodeConfig
+    elif component_type == ComponentType.RESEARCHER:
+        config = importlib.import_module("fedbiomed.researcher.config").ResearcherConfig
+
+    config_name = f"{CONFIG_PREFIX}{config_name}"
+    config = config(name=config_name, auto_generate=False)
+
+    # If there is already a component created first clear everything and recreate
+    if os.path.isfile(os.path.join(CONFIG_DIR, config_name)):
+        config.generate()
+        clear_component_data(config)
+
+    config.generate()
+
+    if config_sections:
+        for section, value in config_sections.items():
+            if not section in config.sections():
+                raise ValueError(f'Section is not in config sections {section}')
+            for key, val in value.items():
+                config.set(section, key, val)
+        # Rewrite after modification
+        config.write()
+    return config
