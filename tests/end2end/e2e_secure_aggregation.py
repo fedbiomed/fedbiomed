@@ -9,6 +9,7 @@ from helpers import (
     start_nodes,
     kill_subprocesses,
     clear_node_data,
+    clear_researcher_data,
     clear_experiment_data)
 
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
@@ -73,7 +74,7 @@ def setup(request):
         clear_node_data(node_1)
         clear_node_data(node_2)
 
-        #clear_researcher_data(researcher)
+        clear_researcher_data(researcher)
 
     # Good to wait 3 second to give time to nodes start
     print("Sleep 5 seconds. Giving some time for nodes to start")

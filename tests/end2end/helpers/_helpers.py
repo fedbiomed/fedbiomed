@@ -12,14 +12,15 @@ import os
 import threading
 import multiprocessing
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 
 import psutil
 
 from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME, ComponentType
 from fedbiomed.common.config import Config
 from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
+from fedbiomed.researcher.environ import environ
 
 from ._execution import (
     shell_process,
@@ -147,15 +148,11 @@ def clear_component_data(config: Config):
 
     if _component_type == ComponentType.NODE.name:
 
-       clear_node_data(config)
+        clear_node_data(config)
 
     elif _component_type == ComponentType.RESEARCHER.name:
 
-        # remove Researcher database
-        # researcher_db_file = os.path.join()
-
-        # remove Researcher config file
-        pass
+        clear_researcher_data(config)
 
 
 def clear_node_data(config: Config):
@@ -212,11 +209,56 @@ def clear_node_data(config: Config):
 
 def clear_researcher_data(config: Config):
     """Clears data relative to Researcher"""
-    # TODO: continue implementing this method
-    raise NotImplementedError
+    # ATTENTION: breakpoints should be removed when using
+    # Experiment cleaning methods
+
+    # remove Researcher database (should be done before deleting configuration file)
+    _database_file_path = config.get('default', 'db')
+    if os.path.lexists(_database_file_path):
+        os.remove(os.path.join(VAR_DIR, _database_file_path))
+
+    # remove Researcher mpspdz material
+
+    # remove Researcher certficates and keys 
+    _certificate_materials = ('pem', 'key',)
+    _mpspdz_material = ('private_key', 'public_key',)
+
+    for section, materials in zip(('server', 'mpspdz',), (_certificate_materials, _mpspdz_material,)):
+        _clear_files(config, section, materials)
+        # for material in materials:
+        #     _path_to_material = os.path.join(CONFIG_DIR, 
+        #                                     config.get(section, material))
+
+        #     if os.path.lexists(_path_to_material):
+                
+        #         print("[INFO] Removing file ", _path_to_material)
+        #         os.remove(_path_to_material)
+
+        #     _default_folder = os.path.dirname(_path_to_material)
+        #     if os.path.lexists(_default_folder) and not os.listdir(_default_folder):
+        #         # remove default folder containing certificates (if empty)
+        #         print("[INFO] Removing folder ", _default_folder)
+        #         shutil.rmtree(_default_folder)
+
     # remove Researcher config file
     _clear_config_file_component(config)
 
+
+def _clear_files(config: Config, section: str, materials: Tuple[str]):
+    for material in materials:
+        _path_to_material = os.path.join(CONFIG_DIR, 
+                                         config.get(section, material))
+
+        if os.path.lexists(_path_to_material):
+            
+            print("[INFO] Removing file ", _path_to_material)
+            os.remove(_path_to_material)
+
+        _default_folder = os.path.dirname(_path_to_material)
+        if os.path.lexists(_default_folder) and not os.listdir(_default_folder):
+            # remove default folder containing certificates (if empty)
+            print("[INFO] Removing folder ", _default_folder)
+            shutil.rmtree(_default_folder)
 
 def _clear_config_file_component(config: Config):
     """Clears configuration file of a Component (either Node or Researcher)
@@ -310,7 +352,7 @@ def create_component(
 
     if config_sections:
         for section, value in config_sections.items():
-            if not section in config.sections():
+            if section not in config.sections():
                 raise ValueError(f'Section is not in config sections {section}')
             for key, val in value.items():
                 config.set(section, key, val)
