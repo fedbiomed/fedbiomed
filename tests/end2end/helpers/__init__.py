@@ -3,6 +3,7 @@ from ._helpers import (
     add_dataset_to_node,
     kill_subprocesses,
     clear_node_data,
+    clear_researcher_data,
     start_nodes,
     clear_experiment_data,
     execute_script,
