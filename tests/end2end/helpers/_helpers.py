@@ -404,3 +404,34 @@ def create_component(
         # Rewrite after modification
         config.write()
     return config
+
+
+def training_plan_operation(
+    config: Config,
+    operation: str,
+    training_plan_id: str
+):
+    """Applies approve or reject operation on given config of node
+
+    Args:
+        config: Configuration of component, should be node
+        operation: One of approve, reject
+        training_plan_id: Id of the training plan that the operation will be applied to
+    """
+
+
+    if not operation in ['approve', 'reject']:
+        raise ValueError('The argument operation should be one of apprive or reject')
+
+
+    command = ["node", "--config", config.name, "training-plan",
+               operation, "--id", training_plan_id]
+    _ = fedbiomed_run(command, wait=True)
+
+
+
+
+
+
+
+
