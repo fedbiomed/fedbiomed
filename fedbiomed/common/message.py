@@ -360,6 +360,7 @@ class ApprovalReply(RequestReply, RequiresProtocolVersion):
         FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
+    training_plan_id: str | None
     message: str
     node_id: str
     status: int
@@ -473,7 +474,7 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
             if any exception occurs
         approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
             in the node for training.
-        status: a `TrainingPlanApprovalStatus` value describing the approval status 
+        status: a `TrainingPlanApprovalStatus` value describing the approval status
         msg: Message from node based on state of the reply
         training_plan: The training plan that has been checked for approval
         command: Reply command string
@@ -492,6 +493,7 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
     msg: str
     training_plan: str
     command: str
+    training_plan_id: str | None = None
 
 
 # Ping messages

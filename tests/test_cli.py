@@ -13,9 +13,9 @@ import fedbiomed
 import fedbiomed.node.cli_utils
 
 from fedbiomed.node.cli import (
-    NodeCLI, 
-    NodeControl, 
-    DatasetArgumentParser, 
+    NodeCLI,
+    NodeControl,
+    DatasetArgumentParser,
     TrainingPlanArgumentParser,
     start_node
 )
@@ -54,7 +54,8 @@ class TestTrainingPlanArgumentParser(NodeTestCase):
 
         self.tp_arg_pars.initialize()
 
-        self.tp_arg_pars.delete()
+        args = self.parser.parse_args(['training-plan', 'delete'])
+        self.tp_arg_pars.delete(args)
         cli_utils.return_value.delete_training_plan.assert_called_once()
 
         self.tp_arg_pars.list()
@@ -66,7 +67,8 @@ class TestTrainingPlanArgumentParser(NodeTestCase):
         self.tp_arg_pars.register()
         cli_utils.return_value.register_training_plan.assert_called_once()
 
-        self.tp_arg_pars.reject()
+        args = self.parser.parse_args(['training-plan', 'reject'])
+        self.tp_arg_pars.reject(args)
         cli_utils.return_value.reject_training_plan.assert_called_once()
 
         self.tp_arg_pars.update()
@@ -150,7 +152,7 @@ class TestNodeControl(NodeTestCase):
 
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
-        self.control = NodeControl(self.subparsers) 
+        self.control = NodeControl(self.subparsers)
 
     def test_01_node_control_initialize(self):
         """Tests intialize"""
