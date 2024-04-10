@@ -209,7 +209,7 @@ class FederatedRequest:
         """Returns replies of each request
 
         Returns:
-            A dict of replies `Message` received for this request, indexed by node ID 
+            A dict of replies `Message` received for this request, indexed by node ID
         """
 
         return {req.node.id: req.reply for req in self._requests if req.reply}
@@ -218,7 +218,7 @@ class FederatedRequest:
         """Returns errors of each request
 
         Returns:
-            A dict of error `Message` received for this request, indexed by node ID         
+            A dict of error `Message` received for this request, indexed by node ID
         """
 
         return {req.node.id: req.error for req in self._requests if req.error}
@@ -499,7 +499,7 @@ class Requests(metaclass=SingletonMeta):
             for node_id, error in errors.items():
                 logger.info(f"Node ({node_id}) has returned error {error.errnum}, {error.extra_msg}")
 
-        return results | {id: rep.success for id, rep in replies.items()}
+        return {id: rep.get_dict() for id, rep in replies.items()}
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
         """ Adds callback function for monitor messages

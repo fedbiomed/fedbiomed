@@ -1919,6 +1919,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             node_id='titi',
             message="xxx",
+            training_plan_id='id-xxx',
             status=200,
             success=True,
             command='do_it')
@@ -2032,6 +2033,7 @@ class TestMessage(unittest.TestCase):
             "status": 200,
             "message": "xxx",
             "success": True,
+            "training_plan_id": 'id-xxxx',
             "command": "approval"
 
         }

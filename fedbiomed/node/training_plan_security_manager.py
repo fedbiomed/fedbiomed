@@ -446,6 +446,7 @@ class TrainingPlanSecurityManager:
         is_existant = False
         training_plan_name = "training_plan_" + str(uuid.uuid4())
         training_plan = msg["training_plan"]
+        reply.update({'training_plan_id': training_plan_name})
 
         try:
             # check if training plan has already been registered into database
@@ -525,6 +526,7 @@ class TrainingPlanSecurityManager:
             'experiment_id': msg['experiment_id'],
             'approval_obligation': True,
             'training_plan': msg['training_plan'],
+            'training_plan_id': None,
             'command': 'training-plan-status'
         }
 
@@ -532,10 +534,15 @@ class TrainingPlanSecurityManager:
             training_plan = self.get_training_plan_from_database(msg['training_plan'])
             if training_plan is not None:
                 training_plan_status = training_plan.get('training_plan_status', 'Not Registered')
+                reply.update({'training_plan_id': training_plan.get('training_plan_id', None)})
             else:
                 training_plan_status = 'Not Registered'
 
-            reply.update({'success': True, 'status': training_plan_status})
+
+            reply.update(
+                {'success': True,
+                 'status': training_plan_status}
+            )
             if environ["TRAINING_PLAN_APPROVAL"]:
                 if training_plan_status == TrainingPlanApprovalStatus.APPROVED.value:
                     msg = "Training plan has been approved by the node, training can start"
@@ -908,7 +915,11 @@ class TrainingPlanSecurityManager:
                 logger.warning(f"Field {sort_by} is not available in dataset")
 
         if verbose:
-            print(tabulate(training_plans, headers='keys'))
+            training_plans_verbose = training_plans.copy()
+            for tp in training_plans_verbose:
+                tp.pop('training_plan')
+
+            print(tabulate(training_plans_verbose, headers='keys'))
 
         return training_plans
 
