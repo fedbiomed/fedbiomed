@@ -208,7 +208,12 @@ def clear_node_data(config: Config):
 
 
 def clear_researcher_data(config: Config):
-    """Clears data relative to Researcher"""
+    """Clears data relative to Researcher, mainly Researcher database, Researcher configuration file
+    and files relative to secure aggregation and certificates
+
+    Args:
+        config: configuration object of Researcher
+    """
     # ATTENTION: breakpoints should be removed when using
     # Experiment cleaning methods
 
@@ -217,40 +222,37 @@ def clear_researcher_data(config: Config):
     if os.path.lexists(_database_file_path):
         os.remove(os.path.join(VAR_DIR, _database_file_path))
 
-    # remove Researcher mpspdz material
-
-    # remove Researcher certficates and keys 
+    # Remove Researcher mpspdz material
+    # Remove Researcher certificates and keys
     _certificate_materials = ('pem', 'key',)
     _mpspdz_material = ('private_key', 'public_key',)
 
     for section, materials in zip(('server', 'mpspdz',), (_certificate_materials, _mpspdz_material,)):
         _clear_files(config, section, materials)
-        # for material in materials:
-        #     _path_to_material = os.path.join(CONFIG_DIR, 
-        #                                     config.get(section, material))
-
-        #     if os.path.lexists(_path_to_material):
-                
-        #         print("[INFO] Removing file ", _path_to_material)
-        #         os.remove(_path_to_material)
-
-        #     _default_folder = os.path.dirname(_path_to_material)
-        #     if os.path.lexists(_default_folder) and not os.listdir(_default_folder):
-        #         # remove default folder containing certificates (if empty)
-        #         print("[INFO] Removing folder ", _default_folder)
-        #         shutil.rmtree(_default_folder)
 
     # remove Researcher config file
     _clear_config_file_component(config)
 
 
 def _clear_files(config: Config, section: str, materials: Tuple[str]):
+    """Clears files detailed in a config file, for a given section and a tuple of items
+    stored in that section, that correspond to a path pointing to a file.
+
+    If the method has cleared all element of a folder (ie the folder has became empty),
+    delete the empty folder.
+
+    Args:
+        config: Configuration of the component
+        section: Section in config
+        materials: Keys in section
+
+    """
     for material in materials:
-        _path_to_material = os.path.join(CONFIG_DIR, 
+        _path_to_material = os.path.join(CONFIG_DIR,
                                          config.get(section, material))
 
         if os.path.lexists(_path_to_material):
-            
+
             print("[INFO] Removing file ", _path_to_material)
             os.remove(_path_to_material)
 
@@ -262,15 +264,18 @@ def _clear_files(config: Config, section: str, materials: Tuple[str]):
 
 def _clear_config_file_component(config: Config):
     """Clears configuration file of a Component (either Node or Researcher)
+
+    Args:
+        config: Configuration of the component.
     """
     _component_type = config.get('default', 'component')
+
     # remove config file
     if config.is_config_existing():
         print("[INFO] Removing file ", config.path)
         os.remove(config.path)
 
-    # TODO: remove temporary file created when using
-    # notebook (located in ./var/tmp_xxx)
+    # TODO: remove temporary file created when using notebook (located in ./var/tmp_xxx)
     print(f"[INFO] {_component_type} with id"
           f"{config.get('default', 'id')} has been cleared")
 
@@ -286,10 +291,9 @@ def clear_experiment_data(exp: Experiment):
     # removing only big files created by Researcher (for now)
     # remove tensorboard logs (if any)
 
-
     print("Stopping gRPC server started by the test function")
-
     print("Will wait 10 seconds to cancel current RPC requests")
+
     # Stop GRPC server and remove request object for next experiments
     future = asyncio.run_coroutine_threadsafe(
         exp._reqs._grpc_server._server.stop(10),
@@ -311,9 +315,6 @@ def clear_experiment_data(exp: Experiment):
 
     # remove breakpoints folder created during experimentation from the default folder (if any)
     _exp_dir = os.path.join(VAR_DIR, "experiments")
-    # _nb_exp_folders = len(os.listdir(_exp_folder))
-    # current_experimentation_folder = "Experiment_" + str("{:04d}".format(_nb_exp_folders - 1))
-    # current_experimentation_folder = os.path.join(_exp_folder, current_experimentation_folder)
     current_experimentation_folder = os.path.join(_exp_dir, exp._experimentation_folder)
 
     print("[INFO] Removing breakpoints", current_experimentation_folder)

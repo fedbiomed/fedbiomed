@@ -9,6 +9,7 @@ import subprocess
 class End2EndErrorExit(SystemExit):
     pass
 
+
 FEDBIOMED_RUN = os.path.abspath(
     os.path.join(__file__, "..", "..", "..", "..", "scripts", "fedbiomed_run")
 )
