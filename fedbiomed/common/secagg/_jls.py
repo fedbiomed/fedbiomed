@@ -28,8 +28,9 @@ import gmpy2
 from gmpy2 import mpz, gcd
 import numpy as np
 
-from fedbiomed.common.constants import VEParameters
+from fedbiomed.common.constants import VEParameters, ErrorNumbers
 from fedbiomed.common.logger import logger
+from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 
 
 def _check_clipping_range(
@@ -117,7 +118,15 @@ def divide(xs: List[int], k: int) -> List[int]:
     Returns:
         List of divided integers
     """
-    xs = np.array(xs, dtype=np.uint32)
+
+    # CAVEAT: `dtype` must to allow bigger values than each nodes's weighted value
+    # This implementation allows at most 2**32 nodes (as weighted value uses uint32)
+    max_val = np.iinfo(np.uint64).max
+    if any([v > max_val for v in xs]):
+        # TODO RAISE ERROR
+        raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624.value}: Cannot divide, values exceed maximum number")
+
+    xs = np.array(xs, dtype=np.uint64)
     return (xs / k).tolist()
 
 
