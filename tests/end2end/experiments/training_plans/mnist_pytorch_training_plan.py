@@ -45,16 +45,11 @@ class MyTrainingPlan(TorchTrainingPlan):
             x = self.dropout2(x)
             x = self.fc2(x)
 
-
             output = F.log_softmax(x, dim=1)
             return output
 
     def training_data(self):
         # Custom torch Dataloader for MNIST data
-
-#        import sys
-#        sys.exit(12)
-
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
         dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)

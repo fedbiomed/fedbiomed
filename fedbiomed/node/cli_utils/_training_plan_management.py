@@ -103,12 +103,12 @@ def update_training_plan():
             logger.error('Invalid option. Please, try again.')
 
 
-def approve_training_plan(sort_by_date: bool = True, id: Optional[str] = None):
+def approve_training_plan(id: Optional[str] = None, *, sort_by_date: bool = True):
     """Approves a given training plan that has either Pending or Rejected status
 
     Args:
         sort_by_date: whether to sort by last modification date. Defaults to True.
-        name: Name of the training plan
+        id: unique if of the training plan to be approved. Providing an id will trigger non-interactive approval.
     """
 
     def approve(training_plan_id):

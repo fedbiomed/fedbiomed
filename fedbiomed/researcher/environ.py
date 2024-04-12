@@ -22,7 +22,7 @@ import os
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, \
-    TENSORBOARD_FOLDER_NAME
+    TENSORBOARD_FOLDER_NAME, TRACEBACK_LIMIT
 from fedbiomed.common.environ import Environ
 from fedbiomed.researcher.config import ResearcherConfig
 
@@ -87,7 +87,7 @@ class ResearcherEnviron(Environ):
         logger.info("type = " + str(self._values['COMPONENT_TYPE']))
 
 
-sys.tracebacklimit = 20
+sys.tracebacklimit = TRACEBACK_LIMIT
 
 # Global dictionary which contains all environment for the RESEARCHER
 environ = ResearcherEnviron()
