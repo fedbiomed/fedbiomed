@@ -36,7 +36,6 @@ def collect(process) -> bool:
         if returncode != 0:
             raise End2EndErrorExit(f"Error: Processes failed. Please check the outputs")
 
-
     return True
 
 def default_on_exit(process: subprocess.Popen):
@@ -45,7 +44,7 @@ def default_on_exit(process: subprocess.Popen):
     if process.returncode not in [0, -9]:
         raise End2EndErrorExit(f"Processes has stopped with error. {process.stdout.readline()}")
 
-    print("Process is finshed!")
+    print("Process is finished!")
 
 
 def collect_output_in_parallel(

@@ -3,7 +3,7 @@
 
 """Fed-BioMed constants/enums"""
 import sys
-import os 
+import os
 
 from packaging.version import Version as FBM_Component_Version
 from fedbiomed.common.exceptions import FedbiomedError
@@ -43,6 +43,7 @@ EXPERIMENT_PREFIX = 'exper_'
 CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 """FOLDER name for Certs directory"""
 
+TRACEBACK_LIMIT = 10
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 SERVER_certificate_prefix = "server_certificate"

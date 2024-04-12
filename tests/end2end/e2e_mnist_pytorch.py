@@ -13,7 +13,7 @@ from helpers import (
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 
 from fedbiomed.common.constants import ComponentType
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
 
@@ -50,7 +50,7 @@ def setup(request):
     def clear():
         kill_subprocesses(node_processes)
 
-        print("Cleareaniing component data")
+        print("Clearing component data")
         clear_node_data(node_1)
         clear_node_data(node_2)
         clear_researcher_data(researcher)

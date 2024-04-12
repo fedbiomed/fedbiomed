@@ -84,15 +84,23 @@ class Config(metaclass=ABCMeta):
         return True
 
     def get(self, section, key, fallback=None) -> str:
-        """Returns value for given ket and section"""
+        """Returns value for given key and section"""
 
         return self._cfg.get(section, key, fallback=fallback)
 
 
-    def set(self, section, key, value) -> Any:
-        """Sets config section values"""
+    def set(self, section, key, value) -> None:
+        """Sets config section values
+
+        Args:
+            section: the name of the config file section as defined by the `ini` standard
+            key: the name of the attribute to be set
+            value: the value of the attribute to be set
+
+        Returns:
+            value: the value of the attribute that was just set
+        """
         self._cfg.set(section, key, value)
-        return value
 
     def sections(self) -> list:
         """Returns sections of the config"""
