@@ -50,11 +50,23 @@ class TestSecaggCrypter(unittest.TestCase):
     def test_secagg_crypter_03_apply_average(self):
         """Tests quantized divide"""
 
+        # Test successful division
+
         vector = [4, 8, 12]
         result = self.secagg_crypter._apply_average(vector, 2)
 
-        # Test division
         self.assertListEqual(result, [v / 2 for v in vector])
+
+        # Test division with overflow
+
+        vectors = [
+            [-1],
+            [2**64],
+        ]
+        for vector in vectors:
+            with self.assertRaises(FedbiomedSecaggCrypterError):
+                self.secagg_crypter._apply_average(vector, 2)
+
 
     def test_secagg_crypter_03_encrypt(self):
         """Tests encryption"""

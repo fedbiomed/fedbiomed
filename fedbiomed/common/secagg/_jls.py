@@ -124,8 +124,8 @@ def divide(xs: List[int], k: int) -> List[int]:
     # CAVEAT: `dtype` must to allow bigger values than each nodes's weighted value
     # This implementation allows at most 2**32 nodes (as weighted value uses uint32)
     max_val = np.iinfo(np.uint64).max
-    if any([v > max_val for v in xs]):
-        raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624.value}: Cannot divide, values exceed maximum number")
+    if any([v > max_val or v < 0 for v in xs]):
+        raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624.value}: Cannot divide, values outside of bounds")
 
     xs = np.array(xs, dtype=np.uint64)
     return (xs / k).tolist()
@@ -152,7 +152,7 @@ def reverse_quantize(
 
     # CAVEAT: there should not be any weight received that does not fit in `uint64`
     max_val = np.iinfo(np.uint64).max
-    if any([v > max_val for v in weights]):
+    if any([v > max_val or v < 0 for v in weights]):
         raise FedbiomedSecaggCrypterError(
             f"{ErrorNumbers.FB624.value}: Cannot reverse quantize, received values exceed maximum number"
         )
