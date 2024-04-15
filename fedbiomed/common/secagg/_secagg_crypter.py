@@ -4,7 +4,7 @@
 
 import time
 
-from typing import List, Union
+from typing import List, Union, Optional
 from gmpy2 import mpz
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
@@ -62,7 +62,7 @@ class SecaggCrypter:
             key: int,
             biprime: int,
             clipping_range: Union[int, None] = None,
-            weight: int = None,
+            weight: Optional[int] = None,
     ) -> List[int]:
         """Encrypts model parameters.
 
@@ -107,7 +107,8 @@ class SecaggCrypter:
         params = quantize(weights=params,
                           clipping_range=clipping_range)
 
-        # we multiply the parameters with the weight, and we get params in the range [0, 2^(VEParameters.TARGET_RANGE + VEParameters.MAX_WEIGHT_RANGE)]
+        # we multiply the parameters with the weight, and we get params in
+        # the range [0, 2^(VEParameters.TARGET_RANGE + VEParameters.MAX_WEIGHT_RANGE)]
         # check if weight if num_bits of weight is less than VEParameters.WEIGHT_RANGE
         if weight is not None:
             if 2**weight.bit_length() > VEParameters.WEIGHT_RANGE:
@@ -206,7 +207,6 @@ class SecaggCrypter:
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624.value}: The aggregation of encrypted parameters "
                                               f"is not successful: {e}")
 
-        # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
         logger.info(f"Aggregating {len(params)} parameters from {num_nodes} nodes.")
         aggregated_params = self._apply_average(sum_of_weights, total_sample_size)

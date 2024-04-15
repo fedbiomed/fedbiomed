@@ -79,15 +79,17 @@ def quantize(
 
     _check_clipping_range(weights, clipping_range)
 
+    # CAVEAT: ensure to be converting from `float` to `uint64`` (no intermediate `int64`)
+    # Process ensures an to compute an `int`` in the range [0, target_range -1]
+    # This enables to use at most 2**64 as target_range (max value of `uint` - 1)
     f = np.vectorize(
         lambda x: min(
             target_range - 1,
-            (sorted((-clipping_range, x, clipping_range))[1] + clipping_range) *
-            target_range /
-            (2 * clipping_range),
-        )
+            (sorted((-clipping_range, x, clipping_range))[1] + clipping_range) * target_range / (2 * clipping_range),
+        ),
+        otypes=[np.uint64]
     )
-    quantized_list = f(weights).astype(int)
+    quantized_list = f(weights)
 
     return quantized_list.tolist()
 
@@ -123,7 +125,6 @@ def divide(xs: List[int], k: int) -> List[int]:
     # This implementation allows at most 2**32 nodes (as weighted value uses uint32)
     max_val = np.iinfo(np.uint64).max
     if any([v > max_val for v in xs]):
-        # TODO RAISE ERROR
         raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624.value}: Cannot divide, values exceed maximum number")
 
     xs = np.array(xs, dtype=np.uint64)
@@ -149,15 +150,25 @@ def reverse_quantize(
     if clipping_range is None:
         clipping_range = VEParameters.CLIPPING_RANGE
 
+    # CAVEAT: there should not be any weight received that does not fit in `uint64`
+    max_val = np.iinfo(np.uint64).max
+    if any([v > max_val for v in weights]):
+        raise FedbiomedSecaggCrypterError(
+            f"{ErrorNumbers.FB624.value}: Cannot reverse quantize, received values exceed maximum number"
+        )
+
     max_range = clipping_range
     min_range = -clipping_range
     step_size = (max_range - min_range) / (target_range - 1)
+    # Compute as input type (`np.uint64` then convert to `np.float64`)
     f = np.vectorize(
-        lambda x: (min_range + step_size * x)
+        lambda x: (min_range + step_size * x),
+        otypes=[np.float64]
     )
 
-    weights = np.array(weights)
-    reverse_quantized_list = f(weights.astype(float))
+    # TODO: we could check that received values are in the range
+    weights = np.array(weights, dtype=np.uint64)
+    reverse_quantized_list = f(weights)
 
     return reverse_quantized_list.tolist()
 
