@@ -110,7 +110,7 @@ EOF
             cat <<EOF
 
 certificate-dev-setup : prepares development environment by registering certificates of each component created
-            in a single clone of Fed-BioMed. This is only for development purposes and it is required to
+            in a single clone of Fed-BioMed. This is only for development purposes and requires
             fedbiomed-researcher conda environment installed for this option.
 EOF
         ;;
