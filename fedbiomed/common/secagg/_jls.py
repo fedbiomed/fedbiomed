@@ -105,8 +105,8 @@ def multiply(xs: List[int], k: int) -> List[int]:
     Returns:
         List of multiplied integers
     """
-    xs = np.array(xs, dtype=np.uint32)
-    return (xs * k).tolist()
+    # Quicker than converting to/from numpy
+    return [e * k for e in xs]
 
 
 def divide(xs: List[int], k: int) -> List[int]:
@@ -120,15 +120,8 @@ def divide(xs: List[int], k: int) -> List[int]:
     Returns:
         List of divided integers
     """
-
-    # CAVEAT: `dtype` must to allow bigger values than each nodes's weighted value
-    # This implementation allows at most 2**32 nodes (as weighted value uses uint32)
-    max_val = np.iinfo(np.uint64).max
-    if any([v > max_val or v < 0 for v in xs]):
-        raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624.value}: Cannot divide, values outside of bounds")
-
-    xs = np.array(xs, dtype=np.uint64)
-    return (xs / k).tolist()
+    # Quicker than converting to/from numpy
+    return [e / k for e in xs]
 
 
 def reverse_quantize(

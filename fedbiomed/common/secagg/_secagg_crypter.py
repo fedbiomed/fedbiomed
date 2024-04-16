@@ -107,9 +107,9 @@ class SecaggCrypter:
         params = quantize(weights=params,
                           clipping_range=clipping_range)
 
-        # we multiply the parameters with the weight, and we get params in
-        # the range [0, 2^(VEParameters.TARGET_RANGE + VEParameters.MAX_WEIGHT_RANGE)]
-        # check if weight if num_bits of weight is less than VEParameters.WEIGHT_RANGE
+        # We multiply the parameters with the weight, and we get params in
+        # the range [0, 2^(log2(VEParameters.TARGET_RANGE) + log2(VEParameters.WEIGHT_RANGE)) - 1]
+        # Check if weight if num_bits of weight is less than VEParameters.WEIGHT_RANGE
         if weight is not None:
             if 2**weight.bit_length() > VEParameters.WEIGHT_RANGE:
                 raise FedbiomedSecaggCrypterError(
@@ -234,6 +234,11 @@ class SecaggCrypter:
         Returns:
             List of averaged parameters
         """
+        # Check that quantized model weights are unsigned integers, for robustness sake
+        if any([v < 0 for v in params]):
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB624.value}: Cannot compute weighted average, values outside of bounds")
+
         return divide(params, total_weight)
 
     @staticmethod
@@ -250,7 +255,16 @@ class SecaggCrypter:
         Returns:
             List of weighted parameters
         """
-        return multiply(params, weight)
+        m = multiply(params, weight)
+
+        # Check that quantized model weights are in the correct range, for robustness sake
+        max_val = VEParameters.TARGET_RANGE - 1
+        if any([v > max_val or v < 0 for v in params]):
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB624.value}: Cannot apply weight to parameters, values outside of bounds"
+            )
+
+        return m
 
     @staticmethod
     def _convert_to_encrypted_number(
