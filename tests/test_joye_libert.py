@@ -4,7 +4,10 @@ from math import ceil, log2
 from gmpy2 import mpz
 from unittest.mock import patch
 from fedbiomed.common.constants import VEParameters
-from fedbiomed.common.secagg._jls import PublicParam, JoyeLibert, FDH, EncryptedNumber, UserKey, BaseKey, ServerKey
+from fedbiomed.common.secagg._jls import PublicParam, JoyeLibert, FDH, \
+    EncryptedNumber, UserKey, BaseKey, ServerKey, \
+    quantize, reverse_quantize
+from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 
 
 class TestFDH(unittest.TestCase):
@@ -379,3 +382,120 @@ class TestJoyeLibert(unittest.TestCase):
                                     num_expected_params=len(plaintext))
 
             self.assertListEqual(agg, [2 * el for el in plaintext])
+
+
+class TestQuantization(unittest.TestCase):
+
+    def setUp(self) -> None:
+        pass
+
+    def tearDown(self) -> None:
+        pass
+
+    def test_quantize_01_success(self):
+        """Tests quantize function with correct numbers"""
+
+        for weights, clipping_range, target_range, ref_quantized_list in [
+            [
+                [-10, -5, -1.5, 0, 2.5, 5, 10],
+                5,
+                10,
+                [0, 0, 3, 5, 7, 9, 9],
+            ],
+            [
+                [-4, -3, -1, 0, 3, 5],
+                None,
+                5,
+                [0, 0, 1, 2, 4, 4],
+            ],
+            [
+                [-5, 0, 5],
+                5,
+                2**64,
+                [0, (2**64 - 1) / 2, 2**64 - 1],
+            ],
+        ]:
+
+            quantized_list = quantize(weights, clipping_range, target_range)
+
+            self.assertEqual(quantized_list, ref_quantized_list)
+
+
+    def test_quantize_02_overflow(self):
+        """Tests quantize with faulty numbers """
+
+        for weights, clipping_range, target_range in [
+            # target_range excessive > np.uint64
+            [
+                [7],
+                7,
+                2**64 + 1,
+            ],
+            [
+                [0],
+                None,
+                2**65,
+            ],
+
+        ]:
+
+            with self.assertRaises(OverflowError):
+                quantize(weights, clipping_range, target_range)
+
+    def test_reverse_quantize_03_success(self):
+        """Tests reverse_quantize function with correct numbers"""
+
+        for weights, clipping_range, target_range, ref_reverse_quantized_list in [
+            [
+                [0, 5, 10],
+                5,
+                11,
+                [-5, 0, 5],
+            ],
+            [
+                [0, 1, 3, 8],
+                2,
+                9,
+                [-2, -1.5, -0.5, 2],
+            ],
+            [
+                [0, 6],
+                None,
+                7,
+                [-3, 3],
+            ],
+            [
+                [0, 2**63, 2**64 - 1],
+                10,
+                2**64,
+                [-10, 0, 10]
+            ],
+        ]:
+
+            reverse_quantized_list = reverse_quantize(weights, clipping_range, target_range)
+
+            self.assertAlmostEqual(ref_reverse_quantized_list, reverse_quantized_list)
+
+    def test_reverse_quantize_04_failure(self):
+        """Tests reverse_quantize function with faulty numbers"""
+
+        for weights, clipping_range, target_range in [
+            [
+                [-1],
+                None,
+                2**64,
+            ],
+            [
+                [2**64],
+                None,
+                2**64,
+            ],
+            [
+                [2**64],
+                2,
+                10,
+            ],
+        ]:
+
+            with self.assertRaises(FedbiomedSecaggCrypterError):
+                reverse_quantize(weights, clipping_range, target_range)
