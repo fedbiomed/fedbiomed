@@ -78,7 +78,7 @@ def shell_process(
     """
 
     if activate:
-        if not activate in ["node", "researcher"]:
+        if activate not in ["node", "researcher"]:
             ValueError(f"Please select 'node' or 'researcher' not '{activate}'")
 
         command[:0] = ["source", FEDBIOMED_ENVIRONMENT, activate, ";"]
@@ -109,5 +109,3 @@ def fedbiomed_run(command: list[str], wait: bool = False):
     """
     command.insert(0, FEDBIOMED_RUN)
     return shell_process(command=command, wait=wait)
-
-

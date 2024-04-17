@@ -6,7 +6,6 @@ import os
 import inspect
 import importlib.util
 import re
-import uuid
 
 from collections.abc import Iterable
 from typing import Callable, Iterator, List, Optional, Union, Any, Tuple
@@ -68,7 +67,6 @@ def get_class_source(cls: Callable) -> str:
         codes = "".join(inspect.linecache.getlines(file))
         class_code = extract_symbols(codes, cls.__name__)[0][0]
         return class_code
-
     return inspect.getsource(cls)
 
 
@@ -86,6 +84,7 @@ def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[An
         FedbiomedError: bad argument type
         FedbiomedError: cannot instantiate object
     """
+
     for arg in [module_path, class_name]:
         if not isinstance(arg, str):
             raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Expected argument type is string but got '{type(arg)}'")

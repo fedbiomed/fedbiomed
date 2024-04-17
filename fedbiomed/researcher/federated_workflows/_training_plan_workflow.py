@@ -124,7 +124,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             a tuple of an initialized training plan object, and the path of the file
                 where the training plan is saved
         """
-
         # FIXME: Following actions can be part of training plan class
         # create TrainingPlan instance
         training_plan_class = self.training_plan_class()
@@ -152,7 +151,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         )
 
         return training_plan, training_plan_file
-
 
     @exp_exceptions
     def _update_training_plan(self,

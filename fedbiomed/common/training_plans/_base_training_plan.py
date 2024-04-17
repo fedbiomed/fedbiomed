@@ -208,7 +208,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._add_dependency(dependencies)
 
     def source(self) -> str:
-
         try:
             class_source = get_class_source(self.__class__)
         except FedbiomedError as exc:

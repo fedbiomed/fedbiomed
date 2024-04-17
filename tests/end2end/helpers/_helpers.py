@@ -132,11 +132,23 @@ def execute_python(file: str, activate: str):
 def execute_ipython(file: str, activate: str):
     """Executes given ipython file in a process"""
 
+    #convert=$(jupyter nbconvert --output-dir=/tmp --output=$output --to script $script )
+
     return shell_process(
-        command=["ipython", "-c", f'"%run {file}"'],
+        #command=["ipython", "-c", f'"%run {file}"'],
+        command=["jupyter execute", "--JupyterApp.log_level=10", f"{file}",],
         activate=activate,
         wait=True
     )
+    # return shell_process(
+    #     command=["jupyter nbconvert",
+    #              "--output-dir=/tmp",
+    #              f"--output={output_file}",
+    #              f"--to script {file};"
+    #         "ipython", "-c", f'"%run /tmp/{output_file}.py"'],
+    #     activate=activate,
+    #     wait=True
+    # )
 
 
 def clear_component_data(config: Config):
