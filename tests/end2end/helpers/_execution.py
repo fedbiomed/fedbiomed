@@ -2,7 +2,12 @@
 
 import os
 import subprocess
+import multiprocessing
 
+from typing import Optional, Callable, List
+
+import psutil
+import pytest
 
 # TODO: When it is raised should exit from
 # subprocess and parent process
@@ -19,8 +24,7 @@ FEDBIOMED_ENVIRONMENT = os.path.abspath(
 )
 
 
-
-def collect(process) -> bool:
+def collect(process, on_failure: Optional[Callable] = None) -> bool:
     """Collects process results. Waits until processes finishes and
     checks returncode
 
@@ -33,38 +37,65 @@ def collect(process) -> bool:
     except Exception as e:
         print(f"Error raised while waiting for the process to finish: {e}")
     else:
-        if returncode != 0:
-            raise End2EndErrorExit(f"Error: Processes failed. Please check the outputs")
+        # -9 is for killing the process Ctrl-z or psutil.kill
+        if returncode not in [0, -9]:
+            if on_failure:
+                on_failure(process)
+            # Other exceptions are caught by pytest
+            pytest.exit(f"Error: Processes failed {process}. "
+                         "Please check the outputs.")
 
     return True
 
-def default_on_exit(process: subprocess.Popen):
-    """Default function to execute when the process is on exit"""
-
-    if process.returncode not in [0, -9]:
-        raise End2EndErrorExit(f"Processes has stopped with error. {process.stdout.readline()}")
-
-    print("Process is finished!")
-
-
-def collect_output_in_parallel(
-    processes: subprocess.Popen,
-    on_exit = default_on_exit
+def execute_in_paralel(
+    processes: List[subprocess.Popen],
+    on_failure: Callable | None = None,
+    interrupt_all_on_fail: bool = True
 ):
     """Execute commands in parallel"""
+    def error_callback(err):
+        if interrupt_all_on_fail:
+            kill_subprocesses(processes)
+        print("One of the parallel processes has faild. {err}")
 
-    while processes:
-        for p in processes:
-            line = p.stdout.readline().strip()
-            print(line)
-            if p.poll() != None:
-                processes.remove(p)
-                on_exit(p)
+    def collect_result(process):
+        collect(process, on_failure)
+
+    with multiprocessing.pool.ThreadPool(100) as pool:
+        r = pool.map_async(collect_result, processes, error_callback=error_callback)
+        try:
+            r.get()
+        except Exception as e:
+            raise End2EndErrorExit(
+                f'Exception raised in one of subprocess. {e}'
+            ) from e
+
+def kill_subprocesses(processes):
+    """Kills given processes
+
+    Args:
+        processes: List of subprocesses to kill
+    """
+    for p in processes:
+
+        if not psutil.pid_exists(p.pid):
+            continue
+
+        parent = psutil.Process(p.pid)
+        print("PARENT")
+        print(parent.cmdline())
+        for child in parent.children(recursive=True):
+            print(child.cmdline())
+            child.kill()
+        parent.kill()
+
+
 
 def shell_process(
     command: list,
     activate: str = None,
     wait: bool = False,
+    pipe: bool = True,
 ):
     """Executes shell process
 
@@ -83,12 +114,18 @@ def shell_process(
 
         command[:0] = ["source", FEDBIOMED_ENVIRONMENT, activate, ";"]
 
+    pipe_ = True
+
+    if wait:
+        pipe_ = False
+    elif not pipe:
+        pipe_ = False
 
     print(f"Executing command: {' '.join(command)}")
     process = subprocess.Popen( " ".join(command),
                                 shell=True,
-                                stdout=subprocess.PIPE if not wait else None,
-                                stderr=subprocess.STDOUT if not wait else None,
+                                stdout=subprocess.PIPE if pipe else None,
+                                stderr=subprocess.STDOUT if pipe else None,
                                 bufsize=1,
                                 close_fds=True,
                                 universal_newlines=True
@@ -100,7 +137,7 @@ def shell_process(
     return process
 
 
-def fedbiomed_run(command: list[str], wait: bool = False):
+def fedbiomed_run(command: list[str], wait: bool = False, pipe: bool = True):
     """Executes given command using fedbiomed_run
 
     Args:
@@ -108,4 +145,4 @@ def fedbiomed_run(command: list[str], wait: bool = False):
         wait: Wait until command is completed (blocking or non-blocking option)
     """
     command.insert(0, FEDBIOMED_RUN)
-    return shell_process(command=command, wait=wait)
+    return shell_process(command=command, wait=wait, pipe=pipe)
