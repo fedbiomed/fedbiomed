@@ -124,8 +124,8 @@ def shell_process(
     print(f"Executing command: {' '.join(command)}")
     process = subprocess.Popen( " ".join(command),
                                 shell=True,
-                                stdout=subprocess.PIPE if pipe else None,
-                                stderr=subprocess.STDOUT if pipe else None,
+                                stdout=subprocess.PIPE if pipe_ else None,
+                                stderr=subprocess.STDOUT if pipe_ else None,
                                 bufsize=1,
                                 close_fds=True,
                                 universal_newlines=True
