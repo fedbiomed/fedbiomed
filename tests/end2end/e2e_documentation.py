@@ -37,7 +37,7 @@ def setup(request):
     time.sleep(1)
 
     # Starts the nodes
-    node_processes, _ = start_nodes([node_1, node_2])
+    node_processes, _ = start_nodes([node_1, ])
 
     dataset = {
         "name": "MNIST",
