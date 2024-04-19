@@ -186,3 +186,21 @@ def test_experiment_run_01():
     clear_experiment_data(exp)
 
 ```
+
+### Dataset Description
+
+The datasets are described as Python dict, and converted to JSON afterwasds to be pass it to CLI command `dataset add --file`.
+
+```
+{
+    "name": "Mednist data",
+    "description": "Mednist",
+    "tags": "mednist",
+    "data_type": "images",
+    "path": "$HOME/tmp/MedNIST"
+}
+```
+
+You can use OS environment variables in this script via `os.environ`.
+
+
