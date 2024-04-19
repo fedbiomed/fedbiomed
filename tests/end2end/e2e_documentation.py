@@ -28,14 +28,16 @@ def setup(request):
     """Setup fixture for the module"""
 
     print("Creating components ---------------------------------------------")
-    node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
     
-    researcher = create_component(ComponentType.RESEARCHER, config_name="res.ini")
+    researcher = create_component(ComponentType.RESEARCHER, config_name="config_researcher.ini")
+    node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
+    node_2 = create_component(ComponentType.NODE, config_name="config_n2.ini")
+    
 
     time.sleep(1)
 
     # Starts the nodes
-    node_processes, _ = start_nodes([node_1, ])
+    node_processes, _ = start_nodes([node_1, node_2])
 
     dataset = {
         "name": "MNIST",
@@ -51,7 +53,7 @@ def setup(request):
 
         print("Clearing component data")
         clear_node_data(node_1)
-
+        clear_node_data(node_2)
         clear_researcher_data(researcher)
 
     # Good to wait 3 second to give time to nodes start
@@ -59,7 +61,7 @@ def setup(request):
     time.sleep(5)
 
     request.addfinalizer(clear)
-    node_2 = None
+
     return node_1, node_2, researcher
 
 #############################################
@@ -82,7 +84,7 @@ def test_documentation_01_pytorch_mnist_basic_example(setup):
 def test_documentation_02_create_your_custom_training_plan(setup):
     # FIXME: in this test, we assume that the first cell has already been 
     # executed
-    from fedbiomed.researcher.environ import environ
+    #from fedbiomed.researcher.environ import environ
     parent_dir = os.path.join(environ["ROOT_DIR"], "notebooks", "data", "Celeba")
     # download and unzip
     url_celeba = "https://drive.google.com/drive/folders/0B7EVK8r0v71pWEZsZE9oNnFzTm8?resourcekey=0-5BR16BdXnb8hVj6CNHKzLg"
