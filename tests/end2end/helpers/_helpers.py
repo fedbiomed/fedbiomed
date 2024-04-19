@@ -11,23 +11,42 @@ import asyncio
 import os
 import threading
 import multiprocessing
+import subprocess
 
-from typing import Dict, List, Any, Tuple
-
-import psutil
+from typing import Dict, Any, Tuple, Callable
 
 from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME, ComponentType
 from fedbiomed.common.config import Config
-from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR, CACHE_DIR, TMP_DIR
+from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR
 from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.environ import environ
 
 from ._execution import (
     shell_process,
     fedbiomed_run,
-    collect_output_in_parallel
+    execute_in_paralel,
 )
 from .constants import CONFIG_PREFIX, FEDBIOMED_SCRIPTS, End2EndError
+
+
+
+class PytestThread(threading.Thread):
+    """Extension of Thread for PyTest to be able to fail thread properly"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.exception = None
+
+    def run(self):
+        try:
+            super().run()
+        except BaseException as e:
+            self.exception = e
+
+    def join(self, timeout=None):
+        super().join(timeout)
+        if self.exception:
+            raise self.exception
 
 
 def add_dataset_to_node(
@@ -48,8 +67,14 @@ def add_dataset_to_node(
     return True
 
 
+def default_on_failure(process: subprocess.Popen):
+    """Default function to execute when the process is on exit"""
+    print(f"On failure callback: Process has failed!, {process}")
+
 def start_nodes(
-    configs: list[Config]
+    configs: list[Config],
+    interrupt_all_on_fail: bool = True,
+    on_failure: Callable = default_on_failure
 ) -> multiprocessing.Process:
     """Starts the nodes by given list of configs
 
@@ -59,10 +84,24 @@ def start_nodes(
 
     processes = []
     for c in configs:
-        processes.append(fedbiomed_run(["node", "--config", c.name, "start"]))
+        # Keep it for debugging purposes
+        if 'fail' in c.name:
+            processes.append(
+                fedbiomed_run(
+                    ['node', "--config", c.name, 'unkown-commnad'], pipe=False))
+        else:
+            processes.append(
+                fedbiomed_run(
+                    ["node", "--config", c.name, "start"], pipe=False))
 
-     # Listen outputs in parallel
-    t = threading.Thread(target=collect_output_in_parallel, args=(processes,))
+    t = PytestThread(
+        target=execute_in_paralel,
+        kwargs={
+            'processes': processes,
+            'interrupt_all_on_fail': interrupt_all_on_fail,
+            'on_failure': on_failure})
+
+    t.daemon = True
     t.start()
 
     return processes, t
@@ -90,19 +129,6 @@ def secagg_certificate_registration():
     """Registers certificates of all components whose configs are available"""
 
     return fedbiomed_run(['certificate-dev-setup'], wait=True)
-
-
-def kill_subprocesses(processes):
-    """Kills given processes
-
-    Args:
-        processes: List of subprocesses to kill
-    """
-    for p in processes:
-        parent = psutil.Process(p.pid)
-        for child in parent.children(recursive=True):
-            child.kill()
-        parent.kill()
 
 
 def execute_script(file: str, activate: str = 'researcher'):

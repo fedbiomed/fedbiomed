@@ -1,7 +1,6 @@
 from ._helpers import (
     create_component,
     add_dataset_to_node,
-    kill_subprocesses,
     clear_node_data,
     clear_researcher_data,
     start_nodes,
@@ -16,9 +15,10 @@ from ._helpers import (
 
 from ._execution import (
     fedbiomed_run,
-    collect_output_in_parallel,
+    execute_in_paralel,
     shell_process,
     collect,
+    kill_subprocesses
 )
 
 

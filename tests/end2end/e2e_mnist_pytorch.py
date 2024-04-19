@@ -44,12 +44,12 @@ def setup(request):
     time.sleep(1)
 
     # Starts the nodes
-    node_processes, _ = start_nodes([node_1, node_2])
+    node_processes, thread = start_nodes([node_1, node_2])
 
     # Clear files and processes created for the tests
     def clear():
         kill_subprocesses(node_processes)
-
+        thread.join()
         print("Clearing component data")
         clear_node_data(node_1)
         clear_node_data(node_2)
