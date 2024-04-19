@@ -27,7 +27,11 @@ def setup(request):
     node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
     node_2 = create_component(ComponentType.NODE, config_name="config_n2.ini")
 
-    researcher = create_component(ComponentType.RESEARCHER, config_name="res.ini")
+    researcher = create_component(
+        ComponentType.RESEARCHER,
+        config_name="config_researcher.ini"
+    )
+
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",

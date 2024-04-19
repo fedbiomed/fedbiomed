@@ -50,7 +50,9 @@ def setup(request):
 
 
     print("Creating researcher component ---------------------------------------------")
-    researcher = create_component(ComponentType.RESEARCHER, config_name="res.ini")
+    researcher = create_component(
+        ComponentType.RESEARCHER,
+        config_name="config_researcher.ini")
 
 
     print("Register certificates ---------------------------------------------")
@@ -169,6 +171,8 @@ def test_experiment_02_secagg_breakpoint():
     loaded_exp = Experiment.load_breakpoint()
     print("Running training round after loading the params")
     loaded_exp.run(rounds=2, increase=True)
+
+    # Clear
     clear_experiment_data(loaded_exp)
 
 

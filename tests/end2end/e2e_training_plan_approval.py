@@ -51,7 +51,9 @@ def setup(request):
 
 
     print("Creating researcher component ---------------------------------------------")
-    researcher = create_component(ComponentType.RESEARCHER, config_name="res.ini")
+    researcher = create_component(
+        ComponentType.RESEARCHER,
+        config_name="config_researcher.ini")
 
 
 
@@ -98,9 +100,13 @@ training_args = {
     'dry_run': False,
 }
 
+print('Running training plan end2end tests ----------------')
+
 def test_experiment_run_01(setup):
     """Tests running training mnist with basic configuration"""
 
+
+    print("Running test_experiment_run_01")
     node_1, node_2, researcher = setup
 
     exp = Experiment(
