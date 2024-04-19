@@ -28,11 +28,19 @@ def setup(request):
     """Setup fixture for the module"""
 
     print("Creating components ---------------------------------------------")
+<<<<<<< HEAD
     
     researcher = create_component(ComponentType.RESEARCHER, config_name="config_researcher.ini")
     node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
     node_2 = create_component(ComponentType.NODE, config_name="config_n2.ini")
     
+=======
+
+    researcher = create_component(ComponentType.RESEARCHER, config_name="config_researcher.ini")
+    node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
+    node_2 = create_component(ComponentType.NODE, config_name="config_n2.ini")
+
+>>>>>>> 4f7d350c (Solves stucked end-to-end test)
 
     time.sleep(1)
 
@@ -68,7 +76,6 @@ def setup(request):
 ### Start writing tests
 ### Nodes will stay up till end of the tests
 #############################################
-
 def test_documentation_01_pytorch_mnist_basic_example(setup):
     node_1, node_2, researcher = setup
     execute_script(os.path.join(environ['ROOT_DIR'],
@@ -82,20 +89,20 @@ def test_documentation_01_pytorch_mnist_basic_example(setup):
 
 
 def test_documentation_02_create_your_custom_training_plan(setup):
-    # FIXME: in this test, we assume that the first cell has already been 
+    # FIXME: in this test, we assume that the first cell has already been
     # executed
     #from fedbiomed.researcher.environ import environ
     parent_dir = os.path.join(environ["ROOT_DIR"], "notebooks", "data", "Celeba")
     # download and unzip
     url_celeba = "https://drive.google.com/drive/folders/0B7EVK8r0v71pWEZsZE9oNnFzTm8?resourcekey=0-5BR16BdXnb8hVj6CNHKzLg"
-    
+
     # import gdown
     # zip_path = os.path.join(parent_dir, 'img_align_celeba.zip')
     # gdown.download(url_celeba, parent_dir, quiet=False)
     # with zipfile.ZipFile(zip_path, "r") as f:
     #     f.extractall(parent_dir)
 
-    #url_anno_celeba = 
+    #url_anno_celeba =
     # first cell (cut and pasted)
 
     # import pandas as pd
@@ -105,7 +112,7 @@ def test_documentation_02_create_your_custom_training_plan(setup):
 
 
     # # Celeba folder
-     
+
     # celeba_raw_folder = os.path.join("Celeba_raw", "raw")
     # img_dir = os.path.join(parent_dir, celeba_raw_folder, 'img_align_celeba') + os.sep
     # out_dir = os.path.join(parent_dir, "celeba_preprocessed")
@@ -151,7 +158,7 @@ def test_documentation_02_create_your_custom_training_plan(setup):
 
     # # end of first cell in the notebook
     # node_1, node_2, researcher = setup
-    
+
 
 def test_documentation_03_pytroch_used_cars_dataset_example(setup):
     # TODO: this require to download the used car dataset example (needs to log into a kaggle account)
