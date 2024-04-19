@@ -1,3 +1,4 @@
+import os
 import time
 import pytest
 
@@ -20,17 +21,29 @@ from fedbiomed.researcher.aggregators.scaffold import Scaffold
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(request):
+def setup(port, post_session, request):
     """Setup fixture for the module"""
 
+    print(f"USING PORT {port} for researcher erver")
     print("Creating components ---------------------------------------------")
-    node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
-    node_2 = create_component(ComponentType.NODE, config_name="config_n2.ini")
+    node_1 = create_component(
+        ComponentType.NODE,
+        config_name="config_n1_mnist_pytorch.ini",
+        config_sections={'researcher': {'port': port}}
+    )
+    node_2 = create_component(
+        ComponentType.NODE,
+        config_name="config_n2_mnist_pytorch.ini",
+        config_sections={'researcher': {'port': port}}
+    )
+
 
     researcher = create_component(
         ComponentType.RESEARCHER,
-        config_name="config_researcher.ini"
+        config_name="config_researcher_mnist_pytorch.ini",
+        config_sections={'server': {'port': port}},
     )
+    os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
 
     dataset = {
         "name": "MNIST",

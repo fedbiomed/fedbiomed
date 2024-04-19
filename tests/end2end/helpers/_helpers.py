@@ -18,8 +18,6 @@ from typing import Dict, Any, Tuple, Callable
 from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME, ComponentType
 from fedbiomed.common.config import Config
 from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR
-from fedbiomed.researcher.federated_workflows import Experiment
-from fedbiomed.researcher.environ import environ
 
 from ._execution import (
     shell_process,
@@ -203,16 +201,6 @@ def clear_node_data(config: Config):
         print("[INFO] Removing folder ", _task_queue_dir)
         shutil.rmtree(_task_queue_dir)
 
-    # remove grpc certificate
-    for section in config.sections() :
-        if section.startswith("researcher"):
-            # _certificate_file = environ["RESEARCHERS"][0]['certificate']
-            # if _certificate_file:
-            #     os.remove(os.path.join(CONFIG_DIR, _certificate_file))
-
-            # TODO: find a way or modify environ in order to delete GRPC certificate
-            pass
-
     # remove node's mpspdz material
     _mpspdz_material_files = ('private_key', 'public_key')
     for mpspdz_file in _mpspdz_material_files:
@@ -306,7 +294,7 @@ def _clear_config_file_component(config: Config):
           f"{config.get('default', 'id')} has been cleared")
 
 
-def clear_experiment_data(exp: Experiment):
+def clear_experiment_data(exp: 'Experiment'):
     """Clears data relative to an Experiment execution, mainly:
     - `ROOT/experiments/Experiment_xx` folder
     - `ROOT/runs` folder when activating Tensorboard feature
@@ -350,7 +338,8 @@ def clear_experiment_data(exp: Experiment):
 def create_component(
     component_type: ComponentType,
     config_name: str,
-    config_sections: Dict[str, Dict[str, Any]] = None
+    config_sections: Dict[str, Dict[str, Any]] = None,
+    use_prefix: bool = True
 ) -> Config:
     """Creates component configuration
 
@@ -367,13 +356,13 @@ def create_component(
     elif component_type == ComponentType.RESEARCHER:
         config = importlib.import_module("fedbiomed.researcher.config").ResearcherConfig
 
-    config_name = f"{CONFIG_PREFIX}{config_name}"
+    config_name = f"{CONFIG_PREFIX}{config_name}" if use_prefix else config_name
     config = config(name=config_name, auto_generate=False)
 
     # If there is already a component created first clear everything and recreate
-    if os.path.isfile(os.path.join(CONFIG_DIR, config_name)):
-        config.generate()
-        clear_component_data(config)
+    # if os.path.isfile(os.path.join(CONFIG_DIR, config_name)):
+    #    config.generate()
+    #    clear_component_data(config)
 
     config.generate()
 

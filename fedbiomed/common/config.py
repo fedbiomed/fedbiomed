@@ -39,10 +39,15 @@ class Config(metaclass=ABCMeta):
         auto_generate: bool = True
     ) -> None:
         """Initializes config"""
+
+        # First try to get component specific config file name, then CONFIG_FILE
+        default_config = os.getenv(
+            f'{self._COMPONENT_TYPE}_CONFIG_FILE',
+            os.getenv('CONFIG_FILE', self._DEFAULT_CONFIG_FILE_NAME))
+
         self.root = root
         self._cfg = configparser.ConfigParser()
-        self.name = name if name \
-            else os.getenv("CONFIG_FILE", self._DEFAULT_CONFIG_FILE_NAME)
+        self.name = name if name else default_config
 
         if self.root:
             self.path = os.path.join(self.root, CONFIG_FOLDER_NAME, self.name)

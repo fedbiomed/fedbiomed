@@ -1,3 +1,4 @@
+import os
 import time
 import pytest
 
@@ -30,30 +31,38 @@ dataset = {
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(request):
+def setup(port, post_session, request):
     """Setup fixture for the module"""
 
     # Configure secure aggregation
     print("Configure secure aggregation ---------------------------------------------")
+    print(f"USING PORT {port} for researcher erver")
     configure_secagg()
 
     print("Creating§ components ---------------------------------------------")
     node_1 = create_component(
         ComponentType.NODE,
-        config_name="config_n1.ini",
-        config_sections={'security': {'secure_aggregation': 'True'}})
+        config_name="config_n1_secure_aggregation.ini",
+        config_sections={
+            'security': {'secure_aggregation': 'True'},
+            'researcher': {'port': port}
+        })
 
     node_2 = create_component(
         ComponentType.NODE,
-        config_name="config_n2.ini",
-        config_sections={'security': {'secure_aggregation': 'True'}})
-
+        config_name="config_n2_secure_aggregation.ini",
+        config_sections={
+            'security': {'secure_aggregation': 'True'},
+            'researcher': {'port': port}
+    })
 
     print("Creating researcher component ---------------------------------------------")
     researcher = create_component(
         ComponentType.RESEARCHER,
-        config_name="config_researcher.ini")
-
+        config_name="config_researcher_secure_aggregation.ini",
+        config_sections={'server': {'port': port}},
+    )
+    os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
 
     print("Register certificates ---------------------------------------------")
     secagg_certificate_registration()
@@ -66,12 +75,13 @@ def setup(request):
     time.sleep(1)
 
     # Starts the nodes
-    node_processes, _ = start_nodes([node_1, node_2])
+    node_processes, thread = start_nodes([node_1, node_2])
 
     # Clear files and processes created for the tests
-    def clear():
+    def clear(node_1=node_1, node_2= node_2):
         kill_subprocesses(node_processes)
 
+        thread.join()
         print("Cleareaniing component data")
         clear_node_data(node_1)
         clear_node_data(node_2)
@@ -95,7 +105,8 @@ def extra_node():
         config_sections={
             'security': {
                 'secure_aggregation': 'True',
-                'force_secure_aggregation': 'True'}
+                'force_secure_aggregation': 'True'},
+            'researcher': {'port': '50057'}
         })
 
     add_dataset_to_node(node_3, dataset)
@@ -103,7 +114,7 @@ def extra_node():
     secagg_certificate_registration()
 
     # Starts the nodes
-    node_processes, _ = start_nodes([node_3])
+    node_processes, thread = start_nodes([node_3])
 
     # Give some time to researcher
     time.sleep(10)
@@ -111,6 +122,7 @@ def extra_node():
     yield
 
     kill_subprocesses(node_processes)
+    thread.join()
     clear_node_data(node_3)
 
 

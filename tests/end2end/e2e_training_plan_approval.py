@@ -1,3 +1,4 @@
+import os
 import time
 import pytest
 
@@ -10,6 +11,7 @@ from helpers import (
     kill_subprocesses,
     clear_node_data,
     clear_experiment_data,
+    clear_researcher_data,
     training_plan_operation
 )
 
@@ -31,19 +33,24 @@ dataset = {
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(request):
+def setup_components(port, post_session, request):
     """Setup fixture for the module"""
 
+    print(f"USING PORT {port} for researcher erver")
     print("Creating§ components ---------------------------------------------")
     node_1 = create_component(
         ComponentType.NODE,
-        config_name="config_n1.ini",
-        config_sections={'security': {'training_plan_approval': 'True'}})
+        config_name="config_training_plan_approval_n1.ini",
+        config_sections={
+            'security': {'training_plan_approval': 'True'},
+            'researcher': {'port': port} })
 
     node_2 = create_component(
         ComponentType.NODE,
-        config_name="config_n2.ini",
-        config_sections={'security': {'training_plan_approval': 'True'}})
+        config_name="config_training_plan_approval_n2.ini",
+        config_sections={
+            'security': {'training_plan_approval': 'True'},
+            'researcher': {'port': port} })
 
 
     # Starts the nodes
@@ -53,7 +60,10 @@ def setup(request):
     print("Creating researcher component ---------------------------------------------")
     researcher = create_component(
         ComponentType.RESEARCHER,
-        config_name="config_researcher.ini")
+        config_name="config_researcher_training_plan_approval.ini",
+        config_sections={'server': {'port': port}},
+        )
+    os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
 
 
 
@@ -72,7 +82,7 @@ def setup(request):
         clear_node_data(node_1)
         clear_node_data(node_2)
 
-        #clear_researcher_data(researcher)
+        clear_researcher_data(researcher)
 
     # Good to wait 3 second to give time to nodes start
     print("Sleep 5 seconds. Giving some time for nodes to start")
@@ -100,14 +110,13 @@ training_args = {
     'dry_run': False,
 }
 
-print('Running training plan end2end tests ----------------')
 
-def test_experiment_run_01(setup):
+def test_experiment_training_plan_approval_run_01(setup_components):
     """Tests running training mnist with basic configuration"""
 
 
     print("Running test_experiment_run_01")
-    node_1, node_2, researcher = setup
+    node_1, node_2, researcher = setup_components
 
     exp = Experiment(
         tags=tags,
@@ -136,6 +145,7 @@ def test_experiment_run_01(setup):
     assert status[node_2_id].status == 'Not Registered'
 
 
+    print('Sending approval request')
     reply = exp.training_plan_approve(description="Test training plan")
 
     assert node_1_id in reply

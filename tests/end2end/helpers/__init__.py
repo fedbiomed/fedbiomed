@@ -18,7 +18,8 @@ from ._execution import (
     execute_in_paralel,
     shell_process,
     collect,
-    kill_subprocesses
+    kill_subprocesses,
+    kill_process
 )
 
 
