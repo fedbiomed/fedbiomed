@@ -13,7 +13,7 @@ import threading
 import multiprocessing
 import subprocess
 
-from typing import Dict, Any, Tuple, Callable
+from typing import Dict, Any, List, Tuple, Callable
 
 from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME, ComponentType
 from fedbiomed.common.config import Config
@@ -71,8 +71,10 @@ def default_on_failure(process: subprocess.Popen):
     """Default function to execute when the process is on exit"""
     print(f"On failure callback: Process has failed!, {process}")
 
+
 def start_nodes(
-    configs: list[Config],
+    configs: List[Config],
+    additional_commands: List[List[str]] = None,
     interrupt_all_on_fail: bool = True,
     on_failure: Callable = default_on_failure
 ) -> multiprocessing.Process:
@@ -83,16 +85,19 @@ def start_nodes(
     """
 
     processes = []
-    for c in configs:
+    for i, c in enumerate(configs):
         # Keep it for debugging purposes
         if 'fail' in c.name:
             processes.append(
                 fedbiomed_run(
                     ['node', "--config", c.name, 'unkown-commnad'], pipe=False))
         else:
+            main_command = ["node", "--config", c.name, "start"]
+            if additional_commands and additional_commands[i]:
+                main_command.extend(additional_commands[i])
             processes.append(
                 fedbiomed_run(
-                    ["node", "--config", c.name, "start"], pipe=False))
+                    main_command, pipe=False))
 
     t = PytestThread(
         target=execute_in_paralel,
@@ -160,22 +165,22 @@ def execute_ipython(file: str, activate: str):
 
     #convert=$(jupyter nbconvert --output-dir=/tmp --output=$output --to script $script )
 
-    # return shell_process(
-    #     #command=["ipython", "-c", f'"%run {file}"'],
-    #     command=["jupyter execute", "--JupyterApp.log_level=10", f"{file}",],
-    #     activate=activate,
-    #     wait=True
-    # )
-    output_file = 'myfile.ipynb'
     return shell_process(
-        command=["jupyter nbconvert",
-                 "--output-dir=/tmp",
-                 f"--output={output_file}",
-                 f"--to script {file};"
-            "ipython", "-c", f'"%run /tmp/{output_file}.py"'],
+        #command=["ipython", "-c", f'"%run {file}"'],
+        command=["jupyter execute", "--JupyterApp.log_level=10", f"{file}",],
         activate=activate,
         wait=True
     )
+    # output_file = 'myfile.ipynb'
+    # return shell_process(
+    #     command=["jupyter nbconvert",
+    #              "--output-dir=/tmp",
+    #              f"--output={output_file}",
+    #              f"--to script {file};"
+    #         "ipython", "-c", f'"%run /tmp/{output_file}.py"'],
+    #     activate=activate,
+    #     wait=True
+    # )
 
 
 def clear_component_data(config: Config):

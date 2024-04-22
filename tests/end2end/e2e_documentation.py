@@ -1,5 +1,6 @@
 import copy
 import os
+import tempfile
 import time
 import pytest
 import urllib
@@ -14,6 +15,7 @@ from helpers import (
     clear_experiment_data,
     clear_researcher_data)
 
+from helpers._execution import shell_process
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 
 from fedbiomed.common.constants import ComponentType
@@ -24,7 +26,8 @@ from fedbiomed.researcher.environ import environ
 
 
 # Set up nodes and start
-@pytest.fixture(scope="module", autouse=True)
+#@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture
 def setup(request):
     """Setup fixture for the module"""
 
@@ -65,12 +68,49 @@ def setup(request):
 
     return node_1, node_2, researcher
 
+
+@pytest.fixture(autouse=True)
+def run_around_tests():
+    # this piece of code is run before and after each test
+    # before yield comand, write piece of code to be run before each test 
+    yield
+    # after yield command, write peice of code to be run after each test
+    # remove files that have been created during tests
+    model_file = 'trained_model'
+    if os.path.isfile(model_file):
+        os.remove(model_file)
+
+
+@pytest.fixture
+def extra_node(dataset):
+    """Fixture to add extra node"""
+
+    node_3 = create_component(
+        ComponentType.NODE,
+        config_name="config_n3.ini",
+        )
+
+    add_dataset_to_node(node_3, dataset)
+
+    # Starts the nodes
+    node_processes, _ = start_nodes([node_3])
+
+    # Give some time to researcher
+    time.sleep(10)
+
+    yield
+
+    kill_subprocesses(node_processes)
+    clear_node_data(node_3)
+
 #############################################
 ### Start writing tests
 ### Nodes will stay up till end of the tests
 #############################################
 
 # TODO: remove files created by cells that saves model in a file
+# TODO: skip tests when dataset is not available in local machine
+
 def test_documentation_01_pytorch_mnist_basic_example(setup):
     node_1, node_2, researcher = setup
     execute_script(os.path.join(environ['ROOT_DIR'],
@@ -170,7 +210,41 @@ def test_documentation_02_create_your_custom_training_plan(setup):
 
 def test_documentation_03_pytroch_used_cars_dataset_example(setup):
     # TODO: this require to download the used car dataset example (needs to log into a kaggle account)
-    pass
+    # this test is skipped when dataste os not found
+    
+    _name_dataset_node_1 = 'audi_transformed.csv'
+    _name_dataset_node_2 = 'bmw_transformed.csv'
+    _name_dataset_node_3 = 'ford_transformed.csv'
+
+    _parent_folder_path = os.path.join(environ['ROOT_DIR'], 'notebooks', 'data', 'UsedCars')
+    for path in (_name_dataset_node_1, _name_dataset_node_2, _name_dataset_node_3,):
+        _is_path_existing = os.path.lexists(os.path.join(_parent_folder_path, path))
+        if not _is_path_existing:
+            pytest.skip(f"Cannot find path towards dataset {path}. Skipping test...")
+
+    # TODO: test taht datasets are created when executing first notebook cells before continuing
+    used_cars_dataset_node_1 = {
+        "name": "used cars",
+        "description": "Used Cars DATASET",
+        "tags": "#UsedCars",
+        "data_type": "csv",
+        "path": f"./notebooks/data/UsedCars/{_name_dataset_node_1}"
+    }
+
+    used_cars_dataset_node_2 = copy.deepcopy(used_cars_dataset_node_1)
+    used_cars_dataset_node_2['path'] = f"./notebooks/data/UsedCars/{_name_dataset_node_2}"
+
+    node_1, node_2, reseracher = setup
+
+    add_dataset_to_node(node_1, used_cars_dataset_node_1)
+    add_dataset_to_node(node_2, used_cars_dataset_node_2)
+
+    execute_script(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'pytorch',
+                                '03_PyTorch_Used_Cars_Dataset_Example.ipynb'
+    ))
 
 def test_documentation_04_aggregation_in_fedbiomed():
     # TODO: this test require Flamby dataset (usually installed manually)
@@ -217,11 +291,16 @@ def test_documentation_03_other_scikit_learn_models():
     # Optimizer tutorials
 
 def test_documentation_01_fedopt_and_scaffold(setup):
-    
+    # TODO: download dataset when not available
     node_1, node_2, researcher = setup
     _ci_path = "$HOME/Data/fedbiomed/MedNIST/client_1"
     _local_path = "./notebooks/data/MedNIST/"
     _is_ci = os.path.lexists(_ci_path)
+    _is_local_data = os.path.lexists(_local_path)
+
+    if not _is_local_data:
+        # TODO: download dataset if not found on system (here we are skipping the test)
+        pytest.skip(f"Dataset at {_local_path} not found. Skipping...")
     dataset_mednist_1 = {
         "name": "Mednist part 1",
         "description": "Mednist part 1",
@@ -249,5 +328,65 @@ def test_documentation_01_fedopt_and_scaffold(setup):
                                 'tutorials',
                                 'optimizers',
                                 '01-fedopt-and-scaffold.ipynb'))
+
+######################
+# Advanced tutorials
+def test_documentation_01_in_depth_experiment_configuration(setup):
+    execute_script(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'advanced',
+                                'in-depth-experiment-configuration.ipynb'))
     
-    # TODO: remove folders created while saving tensorboard folders
+
+
+def test_documentation_02_training_with_gpu():
+    researcher = create_component(ComponentType.RESEARCHER, config_name="config_researcher.ini")
+    node_1 = create_component(ComponentType.NODE, config_name="config1.ini")
+    node_2 = create_component(ComponentType.NODE, config_name="config2.ini")
+    node_3 = create_component(ComponentType.NODE, config_name="config3.ini")
+
+    time.sleep(1)
+
+    # Starts the nodes
+    node_processes, _ = start_nodes([node_1, node_2, node_3,],
+                                    [['--gpu'], ['--gpu-only', '--gpunum', '1'], []])
+
+
+    mnist_dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": "./data/"
+    }
+
+    add_dataset_to_node(node_1, mnist_dataset)
+    add_dataset_to_node(node_2, mnist_dataset)
+    add_dataset_to_node(node_3, mnist_dataset)
+    execute_script(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'advanced',
+                                'training-with-gpu.ipynb'))
+    
+    # finish processes and clean
+    kill_subprocesses(node_processes)
+    time.sleep(5)
+    print("Clearing component data")
+    clear_node_data(node_1)
+    clear_node_data(node_2)
+    clear_researcher_data(researcher)
+
+    # TODO: check that node_3 is not used during training
+
+def test_xxx(setup):
+    # download MEDNIST using cli
+    config, _, _ = setup
+    with tempfile.TemporaryDirectory() as temp:
+        shell_process(command=["node", "--config", config.name, "dataset", "add", "\n",
+                                "3","\n",
+                                "y", "\n",
+                                f"./notebooks/data/MedNIST/{temp}", "\n"],
+                                #activate="node",
+                                wait=True)
