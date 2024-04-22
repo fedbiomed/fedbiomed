@@ -1,3 +1,4 @@
+import copy
 import os
 import time
 import pytest
@@ -28,19 +29,11 @@ def setup(request):
     """Setup fixture for the module"""
 
     print("Creating components ---------------------------------------------")
-<<<<<<< HEAD
-    
-    researcher = create_component(ComponentType.RESEARCHER, config_name="config_researcher.ini")
-    node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
-    node_2 = create_component(ComponentType.NODE, config_name="config_n2.ini")
-    
-=======
 
     researcher = create_component(ComponentType.RESEARCHER, config_name="config_researcher.ini")
     node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
     node_2 = create_component(ComponentType.NODE, config_name="config_n2.ini")
 
->>>>>>> 4f7d350c (Solves stucked end-to-end test)
 
     time.sleep(1)
 
@@ -76,6 +69,8 @@ def setup(request):
 ### Start writing tests
 ### Nodes will stay up till end of the tests
 #############################################
+
+# TODO: remove files created by cells that saves model in a file
 def test_documentation_01_pytorch_mnist_basic_example(setup):
     node_1, node_2, researcher = setup
     execute_script(os.path.join(environ['ROOT_DIR'],
@@ -96,22 +91,14 @@ def test_documentation_02_create_your_custom_training_plan(setup):
     # download and unzip
     url_celeba = "https://drive.google.com/drive/folders/0B7EVK8r0v71pWEZsZE9oNnFzTm8?resourcekey=0-5BR16BdXnb8hVj6CNHKzLg"
 
-    # import gdown
-    # zip_path = os.path.join(parent_dir, 'img_align_celeba.zip')
-    # gdown.download(url_celeba, parent_dir, quiet=False)
-    # with zipfile.ZipFile(zip_path, "r") as f:
-    #     f.extractall(parent_dir)
-
-    #url_anno_celeba =
+    # TODO: find a way to download celeba data
     # first cell (cut and pasted)
 
     # import pandas as pd
     # import shutil
 
-    # TODO: find a way to download celeba data
 
-
-    # # Celeba folder
+    # # # Celeba folder
 
     # celeba_raw_folder = os.path.join("Celeba_raw", "raw")
     # img_dir = os.path.join(parent_dir, celeba_raw_folder, 'img_align_celeba') + os.sep
@@ -156,9 +143,30 @@ def test_documentation_02_create_your_custom_training_plan(setup):
     #     shutil.copy(img_dir+im, os.path.join(out_dir, "data_node_3", "data", im))
     # print("data for node 3 succesfully created")
 
-    # # end of first cell in the notebook
-    # node_1, node_2, researcher = setup
+    # end of first cell in the notebook
+    node_1, node_2, researcher = setup
 
+    celeba_dataset_n1 = {
+        "name": "celeba",
+        "description": "celeba DATASET",
+        "tags": "#celeba,#dataset",
+        "data_type": "images",
+        "path": "./notebooks/data/Celeba/celeba_preprocessed/data_node_1"
+    }
+
+    add_dataset_to_node(node_1, celeba_dataset_n1)
+
+    celeba_dataset_n2 = copy.deepcopy(celeba_dataset_n1)
+    celeba_dataset_n2["path"] = "./notebooks/data/Celeba/celeba_preprocessed/data_node_2"
+
+    add_dataset_to_node(node_2, celeba_dataset_n2)
+
+    execute_script(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'pytorch',
+                                '02_Create_Your_Custom_Training_Plan.ipynb'
+    ))
 
 def test_documentation_03_pytroch_used_cars_dataset_example(setup):
     # TODO: this require to download the used car dataset example (needs to log into a kaggle account)
@@ -181,3 +189,65 @@ def test_documentation_01_sklearn_mnist_classification_tutorial(setup):
     ))
 
     # NOTA: MNIST test dataset should be removed since it has been loaded in a temporary folder
+
+def test_documentation_02_sklearn_mnist_classification_tutorial(setup):
+    node_1, _, researcher = setup
+    pseudo_adni_dataset = {
+        "name": "ADNI_dataset",
+        "description": "ADNI DATASET",
+        "tags": "adni",
+        "data_type": "csv",
+        "path": "./notebooks/data/CSV/pseudo_adni_mod.csv"
+    }
+
+    add_dataset_to_node(node_1, pseudo_adni_dataset)
+
+    execute_script(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'scikit-learn',
+                                '02_sklearn_sgd_regressor_tutorial.ipynb'))
+
+
+def test_documentation_03_other_scikit_learn_models():
+    # Should we test this notebook? it hasnot too much content ...
+    pass
+
+    #######################
+    # Optimizer tutorials
+
+def test_documentation_01_fedopt_and_scaffold(setup):
+    
+    node_1, node_2, researcher = setup
+    _ci_path = "$HOME/Data/fedbiomed/MedNIST/client_1"
+    _local_path = "./notebooks/data/MedNIST/"
+    _is_ci = os.path.lexists(_ci_path)
+    dataset_mednist_1 = {
+        "name": "Mednist part 1",
+        "description": "Mednist part 1",
+        "tags": "mednist,#MEDNIST,#dataset",
+        "data_type": "images",
+        "path": _ci_path if _is_ci else _local_path
+    }
+
+    if _is_ci:
+        dataset_mednist_2 = {
+            "name": "Mednist part 2",
+            "description": "Mednist part 2",
+            "tags": "mednist,#MEDNIST,#dataset",
+            "data_type": "images",
+            "path": "$HOME/Data/fedbiomed/MedNIST/client_2"
+        }
+    else:
+        dataset_mednist_2 = dataset_mednist_1
+
+    add_dataset_to_node(node_1, dataset_mednist_1)
+    add_dataset_to_node(node_2, dataset_mednist_2)
+
+    execute_script(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'optimizers',
+                                '01-fedopt-and-scaffold.ipynb'))
+    
+    # TODO: remove folders created while saving tensorboard folders
