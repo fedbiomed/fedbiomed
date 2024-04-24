@@ -5,6 +5,8 @@ import time
 import pytest
 import urllib
 import zipfile
+
+import torch
 from helpers import (
     create_component,
     add_dataset_to_node,
@@ -13,7 +15,9 @@ from helpers import (
     execute_script,
     clear_node_data,
     clear_experiment_data,
-    clear_researcher_data)
+    clear_researcher_data, 
+    configure_secagg, 
+    secagg_certificate_registration)
 
 from helpers._execution import shell_process
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
@@ -24,6 +28,7 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
 from fedbiomed.researcher.environ import environ
 
+from nbclient.exceptions import CellExecutionError
 
 # Set up nodes and start
 #@pytest.fixture(scope="module", autouse=True)
@@ -41,7 +46,7 @@ def setup(request):
     time.sleep(1)
 
     # Starts the nodes
-    node_processes, _ = start_nodes([node_1, ])
+    node_processes, _ = start_nodes([node_1, node_2,])
 
     dataset = {
         "name": "MNIST",
@@ -69,16 +74,11 @@ def setup(request):
     return node_1, node_2, researcher
 
 
-@pytest.fixture(autouse=True)
-def run_around_tests():
-    # this piece of code is run before and after each test
-    # before yield comand, write piece of code to be run before each test 
-    yield
-    # after yield command, write peice of code to be run after each test
-    # remove files that have been created during tests
-    model_file = 'trained_model'
-    if os.path.isfile(model_file):
-        os.remove(model_file)
+def remove_data(path: str):
+    
+    model_file_path = os.path.join(path, 'trained_model')
+    if os.path.isfile(model_file_path):
+        os.remove(model_file_path)
 
 
 @pytest.fixture
@@ -103,6 +103,42 @@ def extra_node(dataset):
     kill_subprocesses(node_processes)
     clear_node_data(node_3)
 
+@pytest.fixture
+def provide_mednist_dataset():
+    _ci_path = "$HOME/Data/fedbiomed/MedNIST/client_1"
+    _local_path = "./notebooks/data/"
+    _is_ci = os.path.lexists(_ci_path)
+
+    # if not _is_local_data:
+    #     # TODO: download dataset if not found on system (here we are skipping the test)
+    #     pytest.skip(f"Dataset at {_local_path} not found. Skipping...")
+    dataset_mednist_1 = {
+        "name": "Mednist part 1",
+        "description": "Mednist part 1",
+        "tags": "mednist,#MEDNIST,#dataset",
+        "data_type": "mednist",
+        "path": _ci_path if _is_ci else _local_path
+    }
+
+    if _is_ci:
+        dataset_mednist_2, dataset_mednist_3 = {}, {}
+        _datasets = (dataset_mednist_2, dataset_mednist_3)
+
+        for i, dataset in enumerate(_datasets):
+            _datasets = {
+                "name": "Mednist part 2",
+                "description": "Mednist part 2",
+                "tags": "mednist,#MEDNIST,#dataset",
+                "data_type": "mednist",
+                "path": f"$HOME/Data/fedbiomed/MedNIST/client_{i+2}"
+            }
+
+    else:
+        dataset_mednist_2, dataset_mednist_3 = dataset_mednist_1, dataset_mednist_1
+
+    
+    return dataset_mednist_1, dataset_mednist_2, dataset_mednist_3
+
 #############################################
 ### Start writing tests
 ### Nodes will stay up till end of the tests
@@ -121,6 +157,11 @@ def test_documentation_01_pytorch_mnist_basic_example(setup):
     ))
 
     # TODO: add another dataset to node during the execution
+
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                                 'docs',
+                                 'tutorials',
+                                 'pytorch',))
 
 
 def test_documentation_02_create_your_custom_training_plan(setup):
@@ -208,6 +249,11 @@ def test_documentation_02_create_your_custom_training_plan(setup):
                                 '02_Create_Your_Custom_Training_Plan.ipynb'
     ))
 
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                                 'docs',
+                                 'tutorials',
+                                 'pytorch',))
+
 def test_documentation_03_pytroch_used_cars_dataset_example(setup):
     # TODO: this require to download the used car dataset example (needs to log into a kaggle account)
     # this test is skipped when dataste os not found
@@ -246,6 +292,12 @@ def test_documentation_03_pytroch_used_cars_dataset_example(setup):
                                 '03_PyTorch_Used_Cars_Dataset_Example.ipynb'
     ))
 
+
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                                 'docs',
+                                 'tutorials',
+                                 'pytorch',))
+
 def test_documentation_04_aggregation_in_fedbiomed():
     # TODO: this test require Flamby dataset (usually installed manually)
     pass
@@ -263,6 +315,10 @@ def test_documentation_01_sklearn_mnist_classification_tutorial(setup):
     ))
 
     # NOTA: MNIST test dataset should be removed since it has been loaded in a temporary folder
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                                 'docs',
+                                 'tutorials',
+                                 'scikit-learn',))
 
 def test_documentation_02_sklearn_mnist_classification_tutorial(setup):
     node_1, _, researcher = setup
@@ -282,6 +338,10 @@ def test_documentation_02_sklearn_mnist_classification_tutorial(setup):
                                 'scikit-learn',
                                 '02_sklearn_sgd_regressor_tutorial.ipynb'))
 
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                                 'docs',
+                                 'tutorials',
+                                 'scikit-learn',))
 
 def test_documentation_03_other_scikit_learn_models():
     # Should we test this notebook? it hasnot too much content ...
@@ -290,35 +350,12 @@ def test_documentation_03_other_scikit_learn_models():
     #######################
     # Optimizer tutorials
 
-def test_documentation_01_fedopt_and_scaffold(setup):
+
+
+def test_documentation_01_fedopt_and_scaffold(setup, provide_mednist_dataset):
     # TODO: download dataset when not available
     node_1, node_2, researcher = setup
-    _ci_path = "$HOME/Data/fedbiomed/MedNIST/client_1"
-    _local_path = "./notebooks/data/MedNIST/"
-    _is_ci = os.path.lexists(_ci_path)
-    _is_local_data = os.path.lexists(_local_path)
-
-    if not _is_local_data:
-        # TODO: download dataset if not found on system (here we are skipping the test)
-        pytest.skip(f"Dataset at {_local_path} not found. Skipping...")
-    dataset_mednist_1 = {
-        "name": "Mednist part 1",
-        "description": "Mednist part 1",
-        "tags": "mednist,#MEDNIST,#dataset",
-        "data_type": "images",
-        "path": _ci_path if _is_ci else _local_path
-    }
-
-    if _is_ci:
-        dataset_mednist_2 = {
-            "name": "Mednist part 2",
-            "description": "Mednist part 2",
-            "tags": "mednist,#MEDNIST,#dataset",
-            "data_type": "images",
-            "path": "$HOME/Data/fedbiomed/MedNIST/client_2"
-        }
-    else:
-        dataset_mednist_2 = dataset_mednist_1
+    dataset_mednist_1, dataset_mednist_2, _ = provide_mednist_dataset
 
     add_dataset_to_node(node_1, dataset_mednist_1)
     add_dataset_to_node(node_2, dataset_mednist_2)
@@ -328,6 +365,10 @@ def test_documentation_01_fedopt_and_scaffold(setup):
                                 'tutorials',
                                 'optimizers',
                                 '01-fedopt-and-scaffold.ipynb'))
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'optimizers',))
 
 ######################
 # Advanced tutorials
@@ -338,7 +379,10 @@ def test_documentation_01_in_depth_experiment_configuration(setup):
                                 'advanced',
                                 'in-depth-experiment-configuration.ipynb'))
     
-
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'advanced',))
 
 def test_documentation_02_training_with_gpu():
     researcher = create_component(ComponentType.RESEARCHER, config_name="config_researcher.ini")
@@ -349,10 +393,19 @@ def test_documentation_02_training_with_gpu():
     time.sleep(1)
 
     # Starts the nodes
-    node_processes, _ = start_nodes([node_1, node_2, node_3,],
-                                    [['--gpu'], ['--gpu-only', '--gpunum', '1'], []])
+    # node_1 with `--gpu` statement
+    # node_2 with `--gpu-only --gpu-num 1` statements
+    # node 3 with no additional statement
 
+    if torch.cuda.is_available():
+        # case where GPU is available
+        node_processes, _ = start_nodes([node_1, node_2, node_3,],
+                                        [['--gpu'], ['--gpu-only', '--gpu-num', '1'], []])
 
+    else:
+        # case where GPu is not available
+        node_processes, _ = start_nodes([node_1, node_2, node_3,],
+                                        [['--gpu'], ['--gpu'], []])
     mnist_dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",
@@ -378,15 +431,207 @@ def test_documentation_02_training_with_gpu():
     clear_node_data(node_2)
     clear_researcher_data(researcher)
 
-    # TODO: check that node_3 is not used during training
+    # TODO: check that node_3 is not used with gpu during training, but node 2 does
 
-def test_xxx(setup):
-    # download MEDNIST using cli
-    config, _, _ = setup
-    with tempfile.TemporaryDirectory() as temp:
-        shell_process(command=["node", "--config", config.name, "dataset", "add", "\n",
-                                "3","\n",
-                                "y", "\n",
-                                f"./notebooks/data/MedNIST/{temp}", "\n"],
-                                #activate="node",
-                                wait=True)
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'advanced',))
+
+############################
+# MONAI specific notebooks
+############################
+
+def test_documentation_01_monai_2d_image_classification(setup, provide_mednist_dataset):
+    node_1, node_2, researcher = setup
+    dataset_mednist_1, dataset_mednist_2, _ = provide_mednist_dataset
+    add_dataset_to_node(node_1, dataset_mednist_1)
+    add_dataset_to_node(node_2, dataset_mednist_2)
+
+    execute_script(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'monai',
+                                '01_monai-2d-image-classification.ipynb'))
+
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'monai',))
+
+
+def test_documentation_02_monai_2d_image_registration(setup, provide_mednist_dataset):
+    node_1, node_2, researcher = setup
+    dataset_mednist_1, dataset_mednist_2, _ = provide_mednist_dataset
+    add_dataset_to_node(node_1, dataset_mednist_1)
+    add_dataset_to_node(node_2, dataset_mednist_2)
+
+    execute_script(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'monai',
+                                '02_monai-2d-image-registration.ipynb'))
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                            'docs',
+                            'tutorials',
+                            'monai',))
+
+    
+
+def test_documentation_medical_medical_image_segmentation_unet_library():
+    # TODO: some cells in the notebook should not be executed... 
+    # TODO: update when non-runable cell tags will be implemented
+    pass
+
+######################
+# security notebooks
+
+def test_documentation_security_differential_privacy_with_opacus_on_fedbiomed(setup):
+    node_1, node_2, researcher = setup
+    execute_script(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'security',
+                                'differential-privacy-with-opacus-on-fedbiomed.ipynb'))
+    
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                            'docs',
+                            'tutorials',
+                            'security',))
+
+
+
+def test_documentation_security_non_private_local_central_dp_monai2d_image_registration(
+                                                                                        provide_mednist_dataset):
+    researcher = create_component(ComponentType.RESEARCHER, config_name="config_researcher.ini")
+    node_1 = create_component(ComponentType.NODE, config_name="config1.ini")
+    node_2 = create_component(ComponentType.NODE, config_name="config2.ini")
+    node_3 = create_component(ComponentType.NODE, config_name="config3.ini")
+
+    time.sleep(1)
+    dataset_mednist_1, dataset_mednist_2, dataset_mednist_3 = provide_mednist_dataset
+
+    add_dataset_to_node(node_1, dataset_mednist_1)
+    add_dataset_to_node(node_2, dataset_mednist_2)
+    add_dataset_to_node(node_3, dataset_mednist_3)
+
+    node_processes, _ = start_nodes([node_1, node_2, node_3,],)
+
+    execute_script(os.path.join(environ['ROOT_DIR'],
+                                'docs',
+                                'tutorials',
+                                'security',
+                                'non-private-local-central-dp-monai-2d-image-registration.ipynb'))
+
+    # finish processes and clean
+    kill_subprocesses(node_processes)
+    time.sleep(5)
+    print("Clearing component data")
+    clear_node_data(node_1)
+    clear_node_data(node_2)
+    clear_researcher_data(researcher)
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                             'docs',
+                             'tutorials',
+                             'security',))
+
+
+def test_documentation_security_secure_aggregation():
+    
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": "./data/"
+    }
+    # Configure secure aggregation
+    print("Configure secure aggregation ---------------------------------------------")
+    configure_secagg()
+
+    print("Creating§ components ---------------------------------------------")
+    node_1 = create_component(
+        ComponentType.NODE,
+        config_name="config_n1.ini",
+        config_sections={'security': {'secure_aggregation': 'True'}})
+
+    node_2 = create_component(
+        ComponentType.NODE,
+        config_name="config_n2.ini",
+        config_sections={'security': {'secure_aggregation': 'True'}})
+
+
+    print("Creating researcher component ---------------------------------------------")
+    researcher = create_component(ComponentType.RESEARCHER, config_name="res.ini")
+
+
+    print("Register certificates ---------------------------------------------")
+    secagg_certificate_registration()
+
+    print("Adding first dataset --------------------------------------------")
+    add_dataset_to_node(node_1, dataset)
+    print("adding second dataset")
+    add_dataset_to_node(node_2, dataset)
+
+    time.sleep(1)
+
+    # Starts the nodes
+    node_processes, _ = start_nodes([node_1, node_2])
+
+
+    # TODO:  finish writing the test
+    kill_subprocesses(node_processes)
+
+    clear_node_data(node_1)
+    clear_node_data(node_2)
+
+    clear_researcher_data(researcher)
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                             'docs',
+                             'tutorials',
+                             'security',))
+
+
+def test_documentation_security_training_with_approved_training_plans():
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": "./data/"
+    }
+    node_1 = create_component(
+        ComponentType.NODE,
+        config_name="config_n1.ini",
+        config_sections={'security': {'training_plan_approval': 'True'}})
+
+    node_2 = create_component(
+        ComponentType.NODE,
+        config_name="config_n2.ini",
+        config_sections={'security': {'training_plan_approval': 'True'}})
+    researcher = create_component(ComponentType.RESEARCHER, config_name="res.ini")
+
+    add_dataset_to_node(node_1, dataset)
+    add_dataset_to_node(node_2, dataset)
+
+    time.sleep(1)
+
+    nodes_processes, _ = start_nodes([node_1, node_2,])
+    # here we will test the first notebook cells till the cell that raises exception
+    
+    with pytest.raises(CellExecutionError):
+        execute_script(os.path.join(environ['ROOT_DIR'],
+                                    'docs',
+                                    'tutorials',
+                                    'security',
+                                    'training-with-approved-training-plans.ipynb'))
+    # TODO: finish writing the test
+
+    kill_subprocesses(nodes_processes)
+    clear_node_data(node_1)
+    clear_node_data(node_2)
+    clear_researcher_data(researcher)
+    remove_data(os.path.join(environ['ROOT_DIR'],
+                             'docs',
+                             'tutorials',
+                             'security',))
