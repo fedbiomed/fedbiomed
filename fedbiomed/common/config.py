@@ -62,9 +62,24 @@ class Config(metaclass=ABCMeta):
         if auto_generate:
             self.generate()
 
+    @classmethod
+    @abstractmethod
+    def _COMPONENT_TYPE(cls):  # pylint: disable=C0103
+        """Abstract method to oblige defining component type"""
+        raise NotImplementedError(
+            "Inherited classes should define _COMPONENT_TYPE attribute."
+        )
+
+    @classmethod
+    @abstractmethod
+    def _CONFIG_VERSION(cls):  # pylint: disable=C0103
+        """Abstract method to oblige defining component type"""
+        raise NotImplementedError(
+            "Inherited classes should define _CONFIG_VERSION attribute."
+        )
 
     def is_config_existing(self) -> bool:
-        """Checks if config file is exsiting
+        """Checks if config file is existing
 
         Returns:
             True if config file is already existing
