@@ -46,7 +46,7 @@ self.addEventListener("message", async (e) => {
  */
 const fetch_search_index = (search_index_json) => {
     return new Promise( (resolve, reject) => {
-        fetch(search_index_json)
+		fetch(search_index_json)
             .then(response => {
                 return(response.json())
             })
@@ -119,30 +119,5 @@ const parse_content = (content) => {
     this.postMessage({type: 'SEARCH_RESULT' , payload: results})
 }
 
-/**
- * Gets already parsed lunr index json if it exists
- * TODO: Did not implemented correctly. Build script should create lunr index json
- * @param version
- * @returns {Promise<unknown>}
- */
-const fetch_lunr_search_index = (version) => {
-    return new Promise((resolve, reject) => {
-        let v = version !== '' ? '/' + version : ''
-        fetch(v + '/search/search_lunr_index.json')
-            .then(response => {
-                 if (response.ok) {
-                     resolve(response.json())
-                 }else{
-                     throw new Error('Can not get `search index for lunr');
-                 }
-            })
-            .then(data => {
-                SEARCH_INDEX = lunr.Index.load(data)
-                resolve(SEARCH_INDEX)
-            })
-            .catch(error => {
-                console.warn("No search index found. Search index will be created")
-                reject(false)
-            })
-    })
-}
+
+
