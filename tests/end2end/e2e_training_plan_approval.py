@@ -111,7 +111,7 @@ training_args = {
 }
 
 
-def test_experiment_training_plan_approval_run_01(setup_components):
+def test_01_training_plan_approval_failure_success_cases(setup_components):
     """Tests running training mnist with basic configuration"""
 
 

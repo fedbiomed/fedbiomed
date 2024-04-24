@@ -143,7 +143,7 @@ training_args = {
     'dry_run': False,
 }
 
-def test_experiment_run_01():
+def test_01_secagg_pytorch_experiment_basic():
     """Tests running training mnist with basic configuration"""
     exp = Experiment(
         tags=tags,
@@ -159,7 +159,7 @@ def test_experiment_run_01():
     exp.run()
     clear_experiment_data(exp)
 
-def test_experiment_02_secagg_breakpoint():
+def test_02_secagg_pytorch_breakpoint():
     """Tests running experiment with breakpoint and loading it while secagg active"""
 
     exp = Experiment(
@@ -188,7 +188,7 @@ def test_experiment_02_secagg_breakpoint():
     clear_experiment_data(loaded_exp)
 
 
-def test_experiment_03_node_force_secagg(extra_node):
+def test_03_secagg_pytorch_force_secagg(extra_node):
     """Tests failure scnarios whereas a node requires secure aggregation
         and researcher does not set it true
     """

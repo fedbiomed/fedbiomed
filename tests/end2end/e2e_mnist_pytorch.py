@@ -85,7 +85,7 @@ def setup(port, post_session, request):
 
 
 
-def test_experiment_run_01():
+def test_01_mnist_pytorch_basic_experiment_run():
     """Tests running training mnist with basic configuration"""
     model_args = {}
     tags = ['#MNIST', '#dataset']
@@ -113,7 +113,7 @@ def test_experiment_run_01():
 
     clear_experiment_data(exp)
 
-def test_experiment_run_02():
+def test_02_mnist_pytorch_experiment_validation():
     """Test but with more advanced configuration"""
 
     model_args = {}
@@ -147,7 +147,7 @@ def test_experiment_run_02():
     clear_experiment_data(exp)
 
 
-def test_experiment_run_03():
+def test_03_mnist_pytorch_experiment_scaffold():
     """Test but with more advanced configuration & Scaffold"""
 
     model_args = {}
