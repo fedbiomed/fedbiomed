@@ -251,6 +251,7 @@ def clear_node_data(config: Config):
     """Clears data relative to Node, such as configuration file, database,
     node state, mpspdz material
     
+
     Args:
         config: configuration object of the Node
     """
@@ -268,16 +269,6 @@ def clear_node_data(config: Config):
     if os.path.lexists(_task_queue_dir):
         print("[INFO] Removing folder ", _task_queue_dir)
         shutil.rmtree(_task_queue_dir)
-
-    # remove grpc certificate 
-    for section in config.sections() :
-        if section.startswith("researcher"):
-            # _certificate_file = environ["RESEARCHERS"][0]['certificate']
-            # if _certificate_file:
-            #     os.remove(os.path.join(CONFIG_DIR, _certificate_file))
-
-            # TODO: find a way or modify environ in order to delete GRPC certificate
-            pass
 
     # remove node's mpspdz material
     _mpspdz_material_files = ('private_key', 'public_key')
@@ -297,6 +288,7 @@ def clear_node_data(config: Config):
     os.remove(os.path.join(VAR_DIR, _database_file_path))
     # remove Node's config file
     _clear_config_file_component(config)
+
 
 def clear_researcher_data(config: Config):
     """Clears data relative to Researcher, mainly Researcher database, Researcher configuration file
@@ -324,6 +316,7 @@ def clear_researcher_data(config: Config):
     # remove Researcher config file
     _clear_config_file_component(config)
     
+
 
 def _clear_files(config: Config, section: str, materials: Tuple[str]):
     """Clears files detailed in a config file, for a given section and a tuple of items
@@ -371,7 +364,7 @@ def _clear_config_file_component(config: Config):
           f"{config.get('default', 'id')} has been cleared")
 
 
-def clear_experiment_data(exp: Experiment):
+def clear_experiment_data(exp: 'Experiment'):
     """Clears data relative to an Experiment execution, mainly:
     - `ROOT/experiments/Experiment_xx` folder
     - `ROOT/runs` folder when activating Tensorboard feature
@@ -379,7 +372,7 @@ def clear_experiment_data(exp: Experiment):
     Args:
         exp: Experiment object used for running experiment
     """
-    # removing only big files created by Researcher (for now) 
+    # removing only big files created by Researcher (for now)
     # remove tensorboard logs (if any)
 
     print("Stopping gRPC server started by the test function")
@@ -415,7 +408,8 @@ def clear_experiment_data(exp: Experiment):
 def create_component(
     component_type: ComponentType,
     config_name: str,
-    config_sections: Dict[str, Dict[str, Any]] = None
+    config_sections: Dict[str, Dict[str, Any]] = None,
+    use_prefix: bool = True
 ) -> Config:
     """Creates component configuration
 
@@ -432,13 +426,13 @@ def create_component(
     elif component_type == ComponentType.RESEARCHER:
         config = importlib.import_module("fedbiomed.researcher.config").ResearcherConfig
 
-    config_name = f"{CONFIG_PREFIX}{config_name}"
+    config_name = f"{CONFIG_PREFIX}{config_name}" if use_prefix else config_name
     config = config(name=config_name, auto_generate=False)
 
     # If there is already a component created first clear everything and recreate
-    if os.path.isfile(os.path.join(CONFIG_DIR, config_name)):
-        config.generate()
-        clear_component_data(config)
+    # if os.path.isfile(os.path.join(CONFIG_DIR, config_name)):
+    #    config.generate()
+    #    clear_component_data(config)
 
     config.generate()
 

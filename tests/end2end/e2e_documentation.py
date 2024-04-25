@@ -485,6 +485,7 @@ def test_documentation_medical_medical_image_segmentation_unet_library():
 
 ######################
 # security notebooks
+#####################
 
 def test_documentation_security_differential_privacy_with_opacus_on_fedbiomed(setup):
     node_1, node_2, researcher = setup

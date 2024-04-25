@@ -2,7 +2,7 @@ site_name: Fed-BioMed
 site_url: https://fedbiomed.org/latest
 site_dir: public
 
-site_description: >- 
+site_description: >-
     Open, Transparent and Trusted Collaborative Learning for Real-world Healthcare Applications
 theme:
   name: material
@@ -38,8 +38,8 @@ nav:
         - 'Create Your Custom Training Plan': './tutorials/pytorch/02_Create_Your_Custom_Training_Plan.ipynb'
         - 'Regression Example with Used Cars Dataset': './tutorials/pytorch/03_PyTorch_Used_Cars_Dataset_Example.ipynb'
         - 'Aggregators in Fed-BioMed': './tutorials/pytorch/04-Aggregation_in_Fed-BioMed.ipynb'
-      - MONAI: 
-        - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb' 
+      - MONAI:
+        - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb'
         - '2D Image Registration with MedNIST': './tutorials/monai/02_monai-2d-image-registration.ipynb'
       - Scikit-Learn:
         - 'MNIST Basic Example': "./tutorials/scikit-learn/01_sklearn_MNIST_classification_tutorial.ipynb"
@@ -228,7 +228,7 @@ extra:
       'workshop_n2':
           name: '3rd Federated Learning Workshop, Sorbonne University Paris'
           desc: 'Fed-BioMed presented at the 3rd Federated Learning Workshop organised by Owkin, Société Française de Statistique (SFdS), and Accenture Labs.'
-          link: 'https://sites.google.com/view/federatedlearning-workshop' 
+          link: 'https://sites.google.com/view/federatedlearning-workshop'
           image: 'assets/img/workshop.jpg'
       'welcome_n3':
           name: 'Welcome to Sergen and Yannick!'
@@ -249,15 +249,14 @@ markdown_extensions:
   - pymdownx.tasklist
   - pymdownx.tabbed
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.arithmatex:
       generic: true
 
 plugins:
   - search:
       lang: en
-      indexing: 'full'
   - mkdocs-jupyter:
       include_source: True
   - mkdocstrings:
