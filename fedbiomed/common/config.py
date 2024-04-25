@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import configparser
-import os 
-import uuid 
+import os
+import uuid
 
 from abc import ABCMeta, abstractmethod
 from typing import Any, Optional, Dict
@@ -39,10 +39,15 @@ class Config(metaclass=ABCMeta):
         auto_generate: bool = True
     ) -> None:
         """Initializes config"""
+
+        # First try to get component specific config file name, then CONFIG_FILE
+        default_config = os.getenv(
+            f'{self._COMPONENT_TYPE}_CONFIG_FILE',
+            os.getenv('CONFIG_FILE', self._DEFAULT_CONFIG_FILE_NAME))
+
         self.root = root
         self._cfg = configparser.ConfigParser()
-        self.name = name if name \
-            else os.getenv("CONFIG_FILE", self._DEFAULT_CONFIG_FILE_NAME)
+        self.name = name if name else default_config
 
         if self.root:
             self.path = os.path.join(self.root, CONFIG_FOLDER_NAME, self.name)
@@ -57,9 +62,18 @@ class Config(metaclass=ABCMeta):
         if auto_generate:
             self.generate()
 
+    @classmethod
+    @abstractmethod
+    def _COMPONENT_TYPE(cls):  # pylint: disable=C0103
+        """Abstract attribute to oblige defining component type"""
+
+    @classmethod
+    @abstractmethod
+    def _CONFIG_VERSION(cls):  # pylint: disable=C0103
+        """Abstract attribute to oblige defining component type"""
 
     def is_config_existing(self) -> bool:
-        """Checks if config file is exsiting
+        """Checks if config file exists
 
         Returns:
             True if config file is already existing
@@ -84,14 +98,23 @@ class Config(metaclass=ABCMeta):
         return True
 
     def get(self, section, key) -> str:
-        """Returns value for given ket and section"""
+        """Returns value for given key and section"""
 
         return self._cfg.get(section, key)
-    
-    
-    def set(self, section, key, value) -> Any:
+
+
+    def set(self, section, key, value) -> None:
+        """Sets config section values
+
+        Args:
+            section: the name of the config file section as defined by the `ini` standard
+            key: the name of the attribute to be set
+            value: the value of the attribute to be set
+
+        Returns:
+            value: the value of the attribute that was just set
+        """
         self._cfg.set(section, key, value)
-        return value
 
     def sections(self) -> list:
         """Returns sections of the config"""
@@ -156,8 +179,8 @@ class Config(metaclass=ABCMeta):
 
         # Generate self-signed certificates
         key_file, pem_file = generate_certificate(
-            root=self.root, 
-            component_id=component_id, 
+            root=self.root,
+            component_id=component_id,
             prefix=MPSPDZ_certificate_prefix)
 
         self._cfg['mpspdz'] = {
@@ -203,8 +226,8 @@ class Config(metaclass=ABCMeta):
     def _register_default_biprime(self, db_path: str):
         """Registers default biprime into database
 
-        Args: 
-            db_path: The path to component's DB file. 
+        Args:
+            db_path: The path to component's DB file.
         """
 
         df_biprimes = self._cfg.get('mpspdz', 'allow_default_biprimes')
@@ -217,7 +240,7 @@ class Config(metaclass=ABCMeta):
             f"ALLOW_DEFAULT_BIPRIMES : {df_biprimes}\n"
             f"DEFAULT_BIPRIMES_DIR   : {biprimes_dir}\n"
         )
- 
+
         BPrimeManager = SecaggBiprimeManager(db_path)
         BPrimeManager.update_default_biprimes(df_biprimes, biprimes_dir)
 

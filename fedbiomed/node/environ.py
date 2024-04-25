@@ -22,7 +22,11 @@ import os
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedEnvironError
-from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms
+from fedbiomed.common.constants import (
+    ComponentType,
+    ErrorNumbers,
+    HashingAlgorithms,
+    TRACEBACK_LIMIT)
 from fedbiomed.common.environ import Environ
 from fedbiomed.node.config import NodeConfig
 
@@ -132,7 +136,7 @@ class NodeEnviron(Environ):
         logger.info("allow_default_training_plans   = " + str(self._values['ALLOW_DEFAULT_TRAINING_PLANS']))
 
 
-sys.tracebacklimit = 3
+sys.tracebacklimit = TRACEBACK_LIMIT
 
 
 # # global dictionary which contains all environment for the NODE

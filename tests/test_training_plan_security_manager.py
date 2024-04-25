@@ -63,7 +63,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         # DB patch start
         self.db_patch = patch('fedbiomed.node.training_plan_security_manager.DBTable', autospec=True)
-        
+
         self.db_mock = self.db_patch.start()
 
         # handle case where previous test did not properly clean
@@ -142,7 +142,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         training_plan_path = os.path.join(self.testdir, 'test-training-plan-1.txt')
         # test 1 : test case where training plan file has not been found
 
-        # action 
+        # action
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
             self.tp_security_manager._create_hash("a/path/that/should/not/exist/on/your/computer")
 
@@ -180,7 +180,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
     @patch("fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.register_training_plan",
            autospec=True)
-    @patch("fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._check_training_plan_not_existing", 
+    @patch("fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._check_training_plan_not_existing",
            autospec=True)
     def test_training_plan_manager_06_update_default_hashes_when_algo_is_changed(
         self,
@@ -201,7 +201,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
             {"name": "pytorch-mnist.txt", "algorithm": "SHA51211", }
         ]
         self.db_mock.return_value.get.return_value = {"name": "pytorch-mnist.txt",
-                                                      "algorithm": "SHA512", 
+                                                      "algorithm": "SHA512",
                                                       "training_plan_id": "test-id"}
         self.tp_security_manager.register_update_default_training_plans()
 
@@ -215,9 +215,9 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         self.db_mock.return_value.search.return_value = [
             {"name": "pytorch-deleted-mnist.txt", "algorithm": "SHA51211", }
         ]
-        self.db_mock.return_value.get.return_value = ("", 
+        self.db_mock.return_value.get.return_value = ("",
                                                       Document({"name": "pytorch-deleted-mnist.txt",
-                                                                "algorithm": "SHA512", 
+                                                                "algorithm": "SHA512",
                                                                 "training_plan_id": "test-id"}, doc_id=1))
         self.tp_security_manager.register_update_default_training_plans()
 
@@ -233,7 +233,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
             {"name": "pytorch-mnist.txt", "algorithm": "SHA51211", }
         ]
         self.db_mock.return_value.get.return_value = {"name": "pytorch-mnist.txt",
-                                                      "algorithm": "SHA512", 
+                                                      "algorithm": "SHA512",
                                                       "training_plan_id": "test-id"}
         self.tp_security_manager.register_update_default_training_plans()
 
@@ -250,7 +250,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
             {"name": "pytorch-mnist.txt", "algorithm": "SHA256", }
         ]
         self.db_mock.return_value.get.return_value = {"name": "pytorch-mnist.txt",
-                                                      "algorithm": "SHA256", 
+                                                      "algorithm": "SHA256",
                                                       "training_plan_id": "test-id",
                                                       "hash": "dummy",
                                                       "date_modified": "12-12-1999 12:12:12.123"}
@@ -263,7 +263,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         self.db_mock.return_value.update.side_effect = None
 
 
-    @patch("fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._check_training_plan_not_existing", 
+    @patch("fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._check_training_plan_not_existing",
            autospec=True)
     def test_training_plan_manager_10_register_training_plan(
         self,
@@ -280,7 +280,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
             training_plan_type='registered',
             description='desc'
         )
-   
+
         # Wrong training plan type
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
             self.tp_security_manager.register_training_plan(
@@ -326,11 +326,11 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         self.tp_security_manager.register_update_default_training_plans()
 
         self.db_mock.return_value.search.return_value = (
-            [{"name": "test-1", 
+            [{"name": "test-1",
               "training_plan": "test-source-1",
               "training_plan_id": "tp-id-1",
               "algorithm": "opps"},
-             {"name": "test-2", 
+             {"name": "test-2",
               "training_plan": "test-source-2",
               "training_plan_id": "tp-id-2",
               "algorithm": "opps"}],
@@ -351,38 +351,38 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
             self.tp_security_manager.check_hashes_for_registered_training_plans()
             self.db_mock.return_value.search.side_effect = None
 
-    @patch("fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._check_training_plan_not_existing", 
+    @patch("fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._check_training_plan_not_existing",
         autospec=True)
     def test_training_plan_manager_15_update_training_plan(
         self,
-        check_training_plan_not_existing 
+        check_training_plan_not_existing
     ):
         """Tests method `update_training_plan_hash` in the normal case scenario"""
 
 
-        self.db_mock.return_value.get.return_value = {"training_plan": "test", 
+        self.db_mock.return_value.get.return_value = {"training_plan": "test",
                                                       "training_plan_id": "test-training-plan-id",
-                                                      "hash": "dummy-hash", 
+                                                      "hash": "dummy-hash",
                                                       "training_plan_type": "registered" }
         # action
         default_training_plan_file_2 = os.path.join(self.testdir, 'test-training-plan-2.txt')
         self.tp_security_manager.update_training_plan_hash('test-training-plan-id', default_training_plan_file_2)
 
 
-        # default training plan 
-        self.db_mock.return_value.get.return_value = {"training_plan": "test", 
+        # default training plan
+        self.db_mock.return_value.get.return_value = {"training_plan": "test",
                                                       "training_plan_id": "test-training-plan-id",
-                                                      "hash": "dummy-hash", 
+                                                      "hash": "dummy-hash",
                                                       "training_plan_type": "default" }
         # action
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
             default_training_plan_file_2 = os.path.join(self.testdir, 'test-training-plan-2.txt')
             self.tp_security_manager.update_training_plan_hash('test-training-plan-id', default_training_plan_file_2)
 
-        # Back to normal 
-        self.db_mock.return_value.get.return_value = {"training_plan": "test", 
+        # Back to normal
+        self.db_mock.return_value.get.return_value = {"training_plan": "test",
                                                       "training_plan_id": "test-training-plan-id",
-                                                      "hash": "dummy-hash", 
+                                                      "hash": "dummy-hash",
                                                       "training_plan_type": "registered" }
 
         # Db get raises
@@ -428,8 +428,8 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
 
         self.db_mock.return_value.search.return_value = [
-            {"training_plan_name": "dummy-plan"}, 
-            {"training_plan_name": "dummy_plan-2"}
+            {"training_plan_name": "dummy-plan", "training_plan": "source_code"},
+            {"training_plan_name": "dummy_plan-2", "training_plan": "source_code"}
             ]
 
         self.tp_security_manager.list_training_plans(
@@ -472,15 +472,16 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
 
         TestTrainingPlanSecurityManager.env["TRAINING_PLAN_APPROVAL"] = True
 
-        self.db_mock.return_value.get.return_value = {"training_plan_status": "approved"}
+        self.db_mock.return_value.get.return_value = {
+            "training_plan_status": "approved", "training_plan": "source_code", "training_plan_id": "id"}
         result = self.tp_security_manager.reply_training_plan_status_request(msg)
         self.assertEqual(result.get_param('status'), 'approved')
 
-        self.db_mock.return_value.get.return_value = {"training_plan_status": "rejected"}
+        self.db_mock.return_value.get.return_value = {"training_plan_status": "rejected", "training_plan": "source_code", "training_plan_id": "id"}
         result = self.tp_security_manager.reply_training_plan_status_request(msg)
         self.assertEqual(result.get_param('status'), 'rejected')
 
-        self.db_mock.return_value.get.return_value = {"training_plan_status": "pending"}
+        self.db_mock.return_value.get.return_value = {"training_plan_status": "pending", "training_plan": "source_code", "training_plan_id": "id"}
         result = self.tp_security_manager.reply_training_plan_status_request(msg)
         self.assertEqual(result.get_param('status'), 'pending')
 
@@ -565,7 +566,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         """Test `get_training_plan_by_id` function """
 
         tp = "class TrainingPlan:\n\tpass"
-        self.db_mock.return_value.get.return_value = {"name": "tp", 
+        self.db_mock.return_value.get.return_value = {"name": "tp",
                                                       'training_plan': 'test',
                                                       'hash': "hash",
                                                       'date_modified': 1,
@@ -607,45 +608,45 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         self.assertFalse(result.get_param('success'))
 
         msg.update({'training_plan': "class TrainingPlan:\n\tpass"})
-        self.db_mock.return_value.get.side_effect = [None, 
+        self.db_mock.return_value.get.side_effect = [None,
                                                      {"name": "tp"}]
         result = self.tp_security_manager.reply_training_plan_approval_request(msg)
         self.assertTrue(result.get_param('success'))
 
         self.db_mock.return_value.get.side_effect = [None,
-                                                     None, 
+                                                     None,
                                                      {"name": "tp"}]
         result = self.tp_security_manager.reply_training_plan_approval_request(msg)
         self.assertTrue(result.get_param('success'))
 
         self.db_mock.return_value.get.side_effect = [None,
-                                                     None, 
+                                                     None,
                                                      None]
         result = self.tp_security_manager.reply_training_plan_approval_request(msg)
         self.assertTrue(result.get_param('success'))
-        self.db_mock.return_value.get.side_effect = None 
+        self.db_mock.return_value.get.side_effect = None
 
     def test_training_plan_manager_29_update_training_plan_status(self):
         """Test training plan manager `_update_training_plan_status` function.
         """
 
-        self.db_mock.return_value.get.return_value = None 
+        self.db_mock.return_value.get.return_value = None
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
-            self.tp_security_manager._update_training_plan_status('id', 
-                                                                  TrainingPlanApprovalStatus.REJECTED, 
+            self.tp_security_manager._update_training_plan_status('id',
+                                                                  TrainingPlanApprovalStatus.REJECTED,
                                                                   'new_notes')
 
         self.db_mock.return_value.get.return_value = {'training_plan_status': 'rejected'}
         result = self.tp_security_manager._update_training_plan_status(
-            'id', 
-            TrainingPlanApprovalStatus.REJECTED, 
+            'id',
+            TrainingPlanApprovalStatus.REJECTED,
             'new_notes')
         self.assertTrue(result)
 
         self.db_mock.return_value.get.return_value = {'training_plan_status': 'approve'}
         result = self.tp_security_manager._update_training_plan_status(
-            'id', 
-            TrainingPlanApprovalStatus.REJECTED, 
+            'id',
+            TrainingPlanApprovalStatus.REJECTED,
             'new_notes')
         self.assertTrue(result)
 
@@ -658,7 +659,7 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         key_sensible = 'hash'
         key_notsensible = 'training_plan_id'
 
-        doc = { 
+        doc = {
             key_sensible: 'valeur clef',
             key_notsensible: 'autre valeur'
         }

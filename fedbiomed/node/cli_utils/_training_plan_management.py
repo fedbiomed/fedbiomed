@@ -1,15 +1,20 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+import sys
 import os
 import shutil
 import tkinter.messagebox
 import warnings
 import uuid
+
+from typing import Optional
+
 from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import Terminal256Formatter
-# from fedbiomed.node.environ import environ
+
+
 from fedbiomed.common.logger import logger
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.common.constants import TrainingPlanApprovalStatus, TrainingPlanStatus
@@ -98,16 +103,29 @@ def update_training_plan():
             logger.error('Invalid option. Please, try again.')
 
 
-def approve_training_plan(sort_by_date: bool = True):
+def approve_training_plan(id: Optional[str] = None, *, sort_by_date: bool = True):
     """Approves a given training plan that has either Pending or Rejected status
 
     Args:
         sort_by_date: whether to sort by last modification date. Defaults to True.
+        id: unique if of the training plan to be approved. Providing an id will trigger non-interactive approval.
     """
+
+    def approve(training_plan_id):
+        tp_security_manager.approve_training_plan(training_plan_id)
+        logger.info(f"Training plan {training_plan_id} has been approved. "
+                    "Researchers can now train the Training Plan "
+                    "on this node.")
+
+    # If id is already provided
+    if id:
+        return approve(id)
+
     if sort_by_date:
         sort_by = 'date_modified'
     else:
         sort_by = None
+
     non_approved_training_plans = tp_security_manager.list_training_plans(
         sort_by=sort_by,
         select_status=[TrainingPlanApprovalStatus.PENDING,
@@ -130,18 +148,22 @@ def approve_training_plan(sort_by_date: bool = True):
             opt_idx = int(input(msg)) - 1
             assert opt_idx in range(len(non_approved_training_plans))
             training_plan_id = non_approved_training_plans[opt_idx]['training_plan_id']
-            tp_security_manager.approve_training_plan(training_plan_id)
-            logger.info(f"Training plan {training_plan_id} has been approved. Researchers can now train the Training Plan" +
-                        " on this node.")
-            return
-
+            return approve(training_plan_id)
         except (ValueError, IndexError, AssertionError):
             logger.error('Invalid option. Please, try again.')
 
 
-def reject_training_plan():
+def reject_training_plan(id: Optional[str] = None, notes: Optional[str] = None):
     """Rejects a given training plan that has either Pending or Approved status
     """
+
+    def reject(training_plan_id, notes):
+        tp_security_manager.reject_training_plan(training_plan_id, notes)
+        logger.info(f"Training plan {training_plan_id} has been rejected. "
+                     "Researchers can not train training plan "
+                     "on this node anymore")
+
+
     approved_training_plans = tp_security_manager.list_training_plans(
         select_status=[TrainingPlanApprovalStatus.APPROVED,
                        TrainingPlanApprovalStatus.PENDING],
@@ -149,6 +171,10 @@ def reject_training_plan():
 
     if not approved_training_plans:
         logger.warning("All training plans have already been rejected or no training plan has been registered... aborting")
+        return
+
+    if id:
+        reject(id, notes)
         return
 
     options = [m['name'] + '\t Training plan ID ' + m['training_plan_id'] + '\t training plan status ' +
@@ -164,23 +190,30 @@ def reject_training_plan():
             assert opt_idx in range(len(approved_training_plans))
             training_plan_id = approved_training_plans[opt_idx]['training_plan_id']
             notes = input("Please give a note to explain why training plan has been rejected: \n")
-            tp_security_manager.reject_training_plan(training_plan_id, notes)
-            logger.info(f"Training plan {training_plan_id} has been rejected. Researchers can not train training plan" +
-                        " on this node anymore")
+            reject(training_plan_id, notes)
             return
 
         except (ValueError, IndexError, AssertionError):
             logger.error('Invalid option. Please, try again.')
 
 
-def delete_training_plan():
+def delete_training_plan(id: Optional[str] = None):
     """Deletes an authorized training plan in the database interactively from the CLI.
 
     Does not modify or delete training plan file.
 
     Deletes only registered and requested training_plans. For default training plans, files
     should be removed directly from the file system.
+
+    Args:
+        name: Name of the training plan that will be removed.
     """
+
+    def delete(training_plan_id):
+        # Delete training plan
+        tp_security_manager.delete_training_plan(training_plan_id)
+        logger.info('Training plan has been removed. Here your other training plans')
+        tp_security_manager.list_training_plans(verbose=True)
 
     training_plans = tp_security_manager.list_training_plans(verbose=False)
     training_plans = [m for m in training_plans if m['training_plan_type'] in [TrainingPlanStatus.REGISTERED.value,
@@ -188,6 +221,10 @@ def delete_training_plan():
     if not training_plans:
         logger.warning('No training plans to delete')
         return
+
+    if id:
+        return delete(id)
+
 
     options = [m['name'] + '\t Training plan ID ' + m['training_plan_id'] + '\t Training plan type ' +
                m['training_plan_type'] + '\tTraining plan status ' + m['training_plan_status'] for m in training_plans]
@@ -197,7 +234,6 @@ def delete_training_plan():
 
     while True:
         try:
-
             opt_idx = int(input(msg)) - 1
             assert opt_idx in range(len(training_plans))
             training_plan_id = training_plans[opt_idx]['training_plan_id']
@@ -205,12 +241,7 @@ def delete_training_plan():
             if not training_plan_id:
                 logger.warning('No matching training plan to delete')
                 return
-            # Delete training plan
-            tp_security_manager.delete_training_plan(training_plan_id)
-            logger.info('Training plan has been removed. Here your other training plans')
-            tp_security_manager.list_training_plans(verbose=True)
-
-            return
+            return delete(training_plan_id)
 
         except (ValueError, IndexError, AssertionError):
             logger.error('Invalid option. Please, try again.')

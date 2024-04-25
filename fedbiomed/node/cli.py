@@ -5,6 +5,7 @@
 Command line user interface for the node component
 """
 
+import argparse
 import json
 import os
 import signal
@@ -281,7 +282,7 @@ class DatasetArgumentParser(CLIArgumentParser):
         elif elements[0]:
             # p is relative (does not start with /)
             # prepend with topdir
-            environ = importlib.import_module("fedbiomed.node.environ.environ")
+            environ = importlib.import_module("fedbiomed.node.environ").environ
             elements = [environ["ROOT_DIR"]] + elements
 
         # rebuild the path with these (eventually) new elements
@@ -310,6 +311,17 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
         training_plan_suparsers = self._parser.add_subparsers()
         self._parser.set_defaults(func=self.default)
 
+
+        common_reject_approve = argparse.ArgumentParser(add_help=False)
+        common_reject_approve.add_argument(
+            '--id',
+            type=str,
+            nargs='?',
+            required=False,
+            help='ID of the training plan that will be processed.'
+        )
+
+
         update = training_plan_suparsers.add_parser(
             "update", help="Updates training plan"
         )
@@ -325,25 +337,40 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
         list.set_defaults(func=self.list)
 
         delete = training_plan_suparsers.add_parser(
-            "delete", help="Deletes interactively selected training plan from the database.")
+            "delete",
+            parents=[common_reject_approve],
+            help="Deletes interactively selected training plan from the database.")
         delete.set_defaults(func=self.delete)
 
         approve = training_plan_suparsers.add_parser(
-            "approve", help="Approves interactively selected training plans.")
+            "approve",
+            parents=[common_reject_approve],
+            help="Approves interactively selected training plans.")
         approve.set_defaults(func=self.approve)
 
         reject = training_plan_suparsers.add_parser(
-            "reject", help="Rejects interactively selected training plans.")
-        reject.set_defaults(func=self.list)
+            "reject",
+            parents=[common_reject_approve],
+            help="Rejects interactively selected training plans.")
+
+        reject.add_argument(
+            "--notes",
+            type=str,
+            nargs="?",
+            required=False,
+            default="No notes provided.",
+            help="Note to explain why training plan is rejected."
+        )
+        reject.set_defaults(func=self.reject)
 
         view = training_plan_suparsers.add_parser(
             "view", help="View interactively selected training plans.")
         view.set_defaults(func=self.view)
 
-    def delete(self):
+    def delete(self, args):
         """Deletes training plan"""
         delete_training_plan = imp_cli_utils().delete_training_plan
-        delete_training_plan()
+        delete_training_plan(id=args.id)
 
     def register(self):
         """Registers training plan"""
@@ -360,15 +387,15 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
         view_training_plan = imp_cli_utils().view_training_plan
         view_training_plan()
 
-    def approve(self):
+    def approve(self, args):
         """Approves training plan"""
         approve_training_plan = imp_cli_utils().approve_training_plan
-        approve_training_plan()
+        approve_training_plan(id=args.id)
 
-    def reject(self):
+    def reject(self, args):
         """Approves training plan"""
         reject_training_plan = imp_cli_utils().reject_training_plan
-        reject_training_plan()
+        reject_training_plan(id=args.id, notes=args.notes)
 
     def update(self):
         """Updates training plan"""
