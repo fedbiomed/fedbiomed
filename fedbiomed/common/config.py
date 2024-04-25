@@ -39,10 +39,15 @@ class Config(metaclass=ABCMeta):
         auto_generate: bool = True
     ) -> None:
         """Initializes config"""
+
+        # First try to get component specific config file name, then CONFIG_FILE
+        default_config = os.getenv(
+            f'{self._COMPONENT_TYPE}_CONFIG_FILE',
+            os.getenv('CONFIG_FILE', self._DEFAULT_CONFIG_FILE_NAME))
+
         self.root = root
         self._cfg = configparser.ConfigParser()
-        self.name = name if name \
-            else os.getenv("CONFIG_FILE", self._DEFAULT_CONFIG_FILE_NAME)
+        self.name = name if name else default_config
 
         if self.root:
             self.path = os.path.join(self.root, CONFIG_FOLDER_NAME, self.name)
@@ -57,9 +62,18 @@ class Config(metaclass=ABCMeta):
         if auto_generate:
             self.generate()
 
+    @classmethod
+    @abstractmethod
+    def _COMPONENT_TYPE(cls):  # pylint: disable=C0103
+        """Abstract attribute to oblige defining component type"""
+
+    @classmethod
+    @abstractmethod
+    def _CONFIG_VERSION(cls):  # pylint: disable=C0103
+        """Abstract attribute to oblige defining component type"""
 
     def is_config_existing(self) -> bool:
-        """Checks if config file is exsiting
+        """Checks if config file exists
 
         Returns:
             True if config file is already existing
@@ -83,10 +97,10 @@ class Config(metaclass=ABCMeta):
 
         return True
 
-    def get(self, section, key, fallback=None) -> str:
+    def get(self, section, key) -> str:
         """Returns value for given key and section"""
 
-        return self._cfg.get(section, key, fallback=fallback)
+        return self._cfg.get(section, key)
 
 
     def set(self, section, key, value) -> None:

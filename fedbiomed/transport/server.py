@@ -418,7 +418,9 @@ class GrpcServer(_GrpcAsyncServer):
                 f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
 
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628.value}: Communication client is not initialized.")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628.value}: Can not send message. "
+                "Communication client is not initialized.")
 
         self._run_threadsafe(super().send(message, node_id))
 
@@ -438,7 +440,9 @@ class GrpcServer(_GrpcAsyncServer):
                 f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
 
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Can not broadcast given message. "
+                "Communication client is not initialized.")
 
         self._run_threadsafe(super().broadcast(message))
 
@@ -452,7 +456,9 @@ class GrpcServer(_GrpcAsyncServer):
             FedbiomedCommunicationError: server is not started
         """
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Error while getting all nodes "
+                "connected:  Communication client is not initialized.")
 
         return self._run_threadsafe(super().get_all_nodes())
 
@@ -469,7 +475,9 @@ class GrpcServer(_GrpcAsyncServer):
             FedbiomedCommunicationError: server is not started
         """
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Error while getting node '{node_id}':"
+                "Communication client is not initialized.")
 
         return self._run_threadsafe(super().get_node(node_id))
 
@@ -485,7 +493,9 @@ class GrpcServer(_GrpcAsyncServer):
             FedbiomedCommunicationError: server is not started
         """
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Can not check if thread is alive."
+                "Communication client is not initialized.")
 
         # TODO: more tests about gRPC server and task status ?
         return False if not isinstance(self._thread, threading.Thread) else self._thread.is_alive()

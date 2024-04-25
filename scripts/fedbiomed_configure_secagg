@@ -126,10 +126,14 @@ configure_darwin() {
     exit 1
   fi
 
-  if ! cd $mpspdz_basedir && git submodule update --init deps/simde; then
+  echo  "Adding simde submodule"
+  cd $mpspdz_basedir
+  if ! git submodule update --init deps/simde; then
 	echo -e "${RED}ERROR:${NC}"
     echo -e "${BOLD}Can not build MP-SPDZ. Can not add simde submodule"
+	exit 1
   fi
+  cd $basedir
 
   echo -e "\n${YLW}------------------Building from source distribution---------------------------${NC}"
 

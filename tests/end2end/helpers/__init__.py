@@ -1,3 +1,7 @@
+from .constants import (
+    CONFIG_PREFIX
+)
+
 from ._helpers import (
     create_component,
     add_dataset_to_node,
@@ -18,8 +22,6 @@ from ._execution import (
     execute_in_paralel,
     shell_process,
     collect,
-    kill_subprocesses
+    kill_subprocesses,
+    kill_process
 )
-
-
-

@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+import os
+>>>>>>> ea6163ed7f2f9f3525d585a549c685e5a2d65c50
 import time
 import pytest
 
@@ -20,14 +24,30 @@ from fedbiomed.researcher.aggregators.scaffold import Scaffold
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(request):
+def setup(port, post_session, request):
     """Setup fixture for the module"""
 
+    print(f"USING PORT {port} for researcher erver")
     print("Creating components ---------------------------------------------")
-    node_1 = create_component(ComponentType.NODE, config_name="config_n1.ini")
-    node_2 = create_component(ComponentType.NODE, config_name="config_n2.ini")
+    node_1 = create_component(
+        ComponentType.NODE,
+        config_name="config_n1_mnist_pytorch.ini",
+        config_sections={'researcher': {'port': port}}
+    )
+    node_2 = create_component(
+        ComponentType.NODE,
+        config_name="config_n2_mnist_pytorch.ini",
+        config_sections={'researcher': {'port': port}}
+    )
 
-    researcher = create_component(ComponentType.RESEARCHER, config_name="res.ini")
+
+    researcher = create_component(
+        ComponentType.RESEARCHER,
+        config_name="config_researcher_mnist_pytorch.ini",
+        config_sections={'server': {'port': port}},
+    )
+    os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
+
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",
@@ -68,7 +88,7 @@ def setup(request):
 
 
 
-def test_experiment_run_01():
+def test_01_mnist_pytorch_basic_experiment_run():
     """Tests running training mnist with basic configuration"""
     model_args = {}
     tags = ['#MNIST', '#dataset']
@@ -96,7 +116,7 @@ def test_experiment_run_01():
 
     clear_experiment_data(exp)
 
-def test_experiment_run_02():
+def test_02_mnist_pytorch_experiment_validation():
     """Test but with more advanced configuration"""
 
     model_args = {}
@@ -130,7 +150,7 @@ def test_experiment_run_02():
     clear_experiment_data(exp)
 
 
-def test_experiment_run_03():
+def test_03_mnist_pytorch_experiment_scaffold():
     """Test but with more advanced configuration & Scaffold"""
 
     model_args = {}

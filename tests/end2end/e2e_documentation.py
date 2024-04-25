@@ -105,10 +105,15 @@ def extra_node(dataset):
 
 @pytest.fixture
 def provide_mednist_dataset():
-    _ci_path = "$HOME/Data/fedbiomed/MedNIST/client_1"
     _local_path = "./notebooks/data/"
-    _is_ci = os.path.lexists(_ci_path)
+    _mednist_path = os.environ.get('FEDBIOMED_E2E_DATA_PATH')
 
+    if _mednist_path:
+        _mednist_path = f"{_mednist_path}/MedMIST/client_1"
+    else:
+        _mednist_path = os.path.join(_local_path, 'MedNIST')
+        os.makedirs(_mednist_path, exist_ok=True)
+        
     # if not _is_local_data:
     #     # TODO: download dataset if not found on system (here we are skipping the test)
     #     pytest.skip(f"Dataset at {_local_path} not found. Skipping...")
@@ -117,10 +122,11 @@ def provide_mednist_dataset():
         "description": "Mednist part 1",
         "tags": "mednist,#MEDNIST,#dataset",
         "data_type": "mednist",
-        "path": _ci_path if _is_ci else _local_path
+        "path": _mednist_path
     }
 
-    if _is_ci:
+    if os.environ.get('FEDBIOMED_E2E_DATA_PATH'):
+        # there are several mednist files on the CI, for 3 clients
         dataset_mednist_2, dataset_mednist_3 = {}, {}
         _datasets = (dataset_mednist_2, dataset_mednist_3)
 
@@ -130,7 +136,7 @@ def provide_mednist_dataset():
                 "description": "Mednist part 2",
                 "tags": "mednist,#MEDNIST,#dataset",
                 "data_type": "mednist",
-                "path": f"$HOME/Data/fedbiomed/MedNIST/client_{i+2}"
+                "path": f" {_mednist_path}/MedNIST/client_{i+2}"
             }
 
     else:
@@ -168,7 +174,7 @@ def test_documentation_02_create_your_custom_training_plan(setup):
     # FIXME: in this test, we assume that the first cell has already been
     # executed
     #from fedbiomed.researcher.environ import environ
-    parent_dir = os.path.join(environ["ROOT_DIR"], "notebooks", "data", "Celeba")
+    parent_dir = os.path.join(environ["ROOT_DIR"], "data", "Celeba")
     # download and unzip
     url_celeba = "https://drive.google.com/drive/folders/0B7EVK8r0v71pWEZsZE9oNnFzTm8?resourcekey=0-5BR16BdXnb8hVj6CNHKzLg"
 
@@ -225,6 +231,8 @@ def test_documentation_02_create_your_custom_training_plan(setup):
     # print("data for node 3 succesfully created")
 
     # end of first cell in the notebook
+
+    # TODO: copy or skip test if dataset is not found
     node_1, node_2, researcher = setup
 
     celeba_dataset_n1 = {
@@ -261,7 +269,8 @@ def test_documentation_03_pytroch_used_cars_dataset_example(setup):
     _name_dataset_node_1 = 'audi_transformed.csv'
     _name_dataset_node_2 = 'bmw_transformed.csv'
     _name_dataset_node_3 = 'ford_transformed.csv'
-
+    # TODO: should we copy dataset from ROOT_DIR/data -> ROOT_DIR/notebooks/data/UsedCars ? instead 
+    # of skipping test
     _parent_folder_path = os.path.join(environ['ROOT_DIR'], 'notebooks', 'data', 'UsedCars')
     for path in (_name_dataset_node_1, _name_dataset_node_2, _name_dataset_node_3,):
         _is_path_existing = os.path.lexists(os.path.join(_parent_folder_path, path))
@@ -320,17 +329,26 @@ def test_documentation_01_sklearn_mnist_classification_tutorial(setup):
                                  'tutorials',
                                  'scikit-learn',))
 
-def test_documentation_02_sklearn_mnist_classification_tutorial(setup):
-    node_1, _, researcher = setup
-    pseudo_adni_dataset = {
-        "name": "ADNI_dataset",
-        "description": "ADNI DATASET",
-        "tags": "adni",
-        "data_type": "csv",
-        "path": "./notebooks/data/CSV/pseudo_adni_mod.csv"
-    }
+def test_documentation_02_sklearn_sgd_regression_tutorial(setup):
+    # test fails: i dont know why
+    node_1, node_2 , researcher = setup
+    path_adni_dataset = os.environ.get('FEDBIOMED_E2E_DATA_PATH', os.path.join(environ['ROOT_DIR'],
+                                                                                'data' ))
+    
+    pseudo_adni_datasets = []
+    for n_client in range(1,4):
+        pseudo_adni_dataset = {
+            "name": "ADNI_dataset",
+            "description": "ADNI DATASET",
+            "tags": "adni",
+            "data_type": "csv",
+            "path": f"{path_adni_dataset}/adni/adni_client{n_client}.csv"
+        }
+        pseudo_adni_datasets.append(pseudo_adni_dataset)
 
-    add_dataset_to_node(node_1, pseudo_adni_dataset)
+    
+    add_dataset_to_node(node_1, pseudo_adni_datasets.pop(0))
+    add_dataset_to_node(node_2, pseudo_adni_datasets.pop(0))
 
     execute_script(os.path.join(environ['ROOT_DIR'],
                                 'docs',
@@ -485,6 +503,7 @@ def test_documentation_medical_medical_image_segmentation_unet_library():
 
 ######################
 # security notebooks
+#####################
 
 def test_documentation_security_differential_privacy_with_opacus_on_fedbiomed(setup):
     node_1, node_2, researcher = setup
@@ -537,7 +556,7 @@ def test_documentation_security_non_private_local_central_dp_monai2d_image_regis
 
 
 def test_documentation_security_secure_aggregation():
-    
+    # TODO; test not working...
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",
@@ -593,6 +612,8 @@ def test_documentation_security_secure_aggregation():
 
 
 def test_documentation_security_training_with_approved_training_plans():
+    # test not working because an exception is raised in the notebook, and 
+    # in cannot figure out a way to catch exceptions from a notebook cell
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",

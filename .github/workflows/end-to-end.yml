@@ -10,12 +10,12 @@ on:
       - 'develop'
       - 'master'
       - 'feature/end-to-end-test-machinery'
+      - 'feature/ubuntu-e2e-fail-debug'
 
 jobs:
   e2e-test-auto:
     name: e2e tests
     strategy:
-      fail-fast: false # Importance ?
       matrix:
         os: [ubuntu-22-04, fedora38, macosx-m1]
     runs-on: ${{ matrix.os }}
@@ -39,6 +39,8 @@ jobs:
         id: e2e-tests-with-pytest
         run: |
           echo "Launching end-to-end tests" # to check from time to time
-          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher pytest -rfp -s -v tests/end2end/e2e_*.py
+          source ~/.bashrc
+          source ./scripts/fedbiomed_environment researcher
+          pytest -rfp -s -v tests/end2end/e2e_*.py
         shell: bash -l {0}
 
