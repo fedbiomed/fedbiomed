@@ -9,7 +9,7 @@ import pytest
 import psutil
 
 
-from helpers import kill_process
+from helpers import kill_process, CONFIG_PREFIX
 
 _PORT = 50052
 
@@ -32,11 +32,11 @@ def post_session(request):
         except psutil.Error:
             continue
         else:
-            if any([re.search(r'^end2end_.*\.ini$', cmd) for cmd in cmdline]):
+            if any([re.search(fr'^{CONFIG_PREFIX}.*\.ini$', cmd) for cmd in cmdline]):
                 print(f'Found a processes not killed: "{cmdline}"')
                 kill_process(process)
 
     print('#### Checking processes has fininshed.')
-    print('Module tests hves finished --------------------------------------------')
+    print('Module tests have finished --------------------------------------------')
 
 

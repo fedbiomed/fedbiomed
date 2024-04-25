@@ -494,7 +494,7 @@ class GrpcServer(_GrpcAsyncServer):
         """
         if not self._is_started.is_set():
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Can not chekc if thread is alive."
+                f"{ErrorNumbers.FB628}: Can not check if thread is alive."
                 "Communication client is not initialized.")
 
         # TODO: more tests about gRPC server and task status ?

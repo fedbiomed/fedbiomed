@@ -16,7 +16,6 @@ jobs:
   e2e-test-auto:
     name: e2e tests
     strategy:
-      fail-fast: false # Importance ?
       matrix:
         os: [ubuntu-22-04, fedora38, macosx-m1]
     runs-on: ${{ matrix.os }}
