@@ -506,6 +506,29 @@ class TrainingArgs:
         ta = deepcopy(self._ta)
         return ta
 
+    def get_state_breakpoint(self):
+        """Returns JSON serializable dict as state for breakpoints"""
+
+        # TODO: This method is a temporary solution for JSON
+        # serialize error during breakpoint save operation
+        args = self.dict()
+        test_metric = args.get('test_metric')
+
+        if test_metric and isinstance(test_metric, MetricTypes):
+            args['test_metric'] = test_metric.name
+
+        return args
+
+    @classmethod
+    def load_state_breakpoint(cls, state: Dict) -> 'TrainingArgs':
+        """Loads training arguments state"""
+        if state.get('test_metric'):
+            state.update(
+                {'test_metric': MetricTypes.get_metric_type_by_name(
+                                                state.get('test_metric'))})
+
+        return cls(state)
+
     def get(self, key: str, default: Any = None) -> Any:
         """Mimics the get() method of dict, provided for backward compatibility.
 
