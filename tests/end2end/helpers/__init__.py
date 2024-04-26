@@ -14,7 +14,10 @@ from ._helpers import (
     execute_ipython,
     configure_secagg,
     secagg_certificate_registration,
-    training_plan_operation
+    training_plan_operation,
+    create_researcher,
+    get_data_folder,
+    create_multiple_nodes
 )
 
 from ._execution import (

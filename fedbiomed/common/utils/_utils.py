@@ -136,7 +136,7 @@ def import_class_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]
         class_ = getattr(module, class_name)
     except AttributeError as exp:
         raise FedbiomedError(f"{ErrorNumbers.FB627}, Attribute error while loading the class "
-                             f"{class_name} from {module_path}") from exp
+                             f"{class_name} from {module_path}. Error: {exp}") from exp
     sys.path.pop(0)
 
     return module, class_

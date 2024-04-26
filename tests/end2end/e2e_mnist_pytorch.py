@@ -14,6 +14,7 @@ from helpers import (
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 
 from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
@@ -176,7 +177,7 @@ def test_03_mnist_pytorch_experiment_scaffold():
     exp.set_test_ratio(0.1)
     exp.set_test_on_local_updates(True)
     exp.set_test_on_global_updates(True)
-
+    exp.set_test_metric(MetricTypes.ACCURACY)
     exp.run()
     clear_experiment_data(exp)
 

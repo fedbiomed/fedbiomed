@@ -4,12 +4,17 @@ Module for global PyTest configuration and fixtures
 """
 
 import re
-
+import uuid
 import pytest
 import psutil
 
 
-from helpers import kill_process, CONFIG_PREFIX
+from helpers import  (
+    kill_process,
+    CONFIG_PREFIX
+)
+
+from fedbiomed.common.constants import ComponentType
 
 _PORT = 50052
 
