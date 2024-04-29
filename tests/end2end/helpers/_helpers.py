@@ -465,7 +465,7 @@ def create_multiple_nodes(port, num_nodes, config_sections: Dict | List[Dict] = 
 
     if config_sections:
         if isinstance(config_sections, dict):
-            config_sections = [config_section] * num_nodes
+            config_sections = [config_sections] * num_nodes
         elif isinstance(config_sections, list) and len(config_sections) != num_nodes:
             raise ValueError(
                 f"Number of nodes {num_nodes} is not equal number of config "

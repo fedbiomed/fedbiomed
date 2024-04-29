@@ -1,3 +1,14 @@
+"""
+End to End test module for testing  Sklearn training plans using:
+
+- Different sklearn models
+- Breakpoints
+- Training and validation
+- Declearn optimizer (on the node side)
+- Secure aggregation
+
+"""
+
 import os
 import time
 import pytest
@@ -12,7 +23,9 @@ from helpers import (
     clear_researcher_data,
     create_researcher,
     get_data_folder,
-    create_multiple_nodes
+    create_multiple_nodes,
+    configure_secagg,
+    secagg_certificate_registration
 )
 
 from experiments.training_plans.sklearn import (
@@ -35,7 +48,7 @@ import numpy as np
 def setup(port, post_session, request):
     """Setup fixture for the module"""
 
-    with create_multiple_nodes(port, 3) as nodes:
+    with create_multiple_nodes(port, 3, {'security': {'secure_aggregation': 'True'}}) as nodes:
         node_1, node_2, node_3 = nodes
 
         # Create researcher component
@@ -119,7 +132,7 @@ def generate_sklearn_classification_dataset():
     p3 = os.path.join(path , 'c3.csv')
 
     # If there is path stop generating the data again
-    if os.path.isdir(path):
+    if all(os.path.isfile(p) for p in (p1, p2, p3)):
         return p1, p2, p3
 
     X,y = datasets.make_classification(
@@ -156,6 +169,16 @@ def generate_sklearn_classification_dataset():
 
     return p1, p2, p3
 
+
+
+RANDOM_SEED = 1234
+regressor_model_args = {
+    'max_iter':2000,
+    'tol': 1e-5,
+    'eta0':0.05,
+    'n_features': 6,
+    'random_state': RANDOM_SEED
+}
 
 def test_01_sklearn_perceptron():
     """Tests sklearn perceptron"""
@@ -196,14 +219,6 @@ def test_01_sklearn_perceptron():
 def test_02_sklean_sgdregressor():
     """Test SGDRegressor using Adni dataset"""
 
-    _seed = 1234
-    model_args = {
-        'max_iter':2000,
-        'tol': 1e-5,
-        'eta0':0.05,
-        'n_features': 6,
-        'random_state': _seed
-    }
 
     training_args = {
         'epochs': 5,
@@ -219,7 +234,7 @@ def test_02_sklean_sgdregressor():
 
     # select nodes participating to this experiment
     exp = Experiment(tags=tags,
-                     model_args=model_args,
+                     model_args=regressor_model_args,
                      training_plan_class=SGDRegressorTrainingPlan,
                      training_args=training_args,
                      round_limit=rounds,
@@ -310,37 +325,28 @@ def test_04_sklearn_mnist_perceptron_with_declearn_optimizer():
     loaded_exp.run_once(increase=True)
     clear_experiment_data(loaded_exp)
 
-
+# Define paramters
+regressor_training_args = {
+    'epochs': 5,
+    'loader_args': { 'batch_size': 32, },
+    'test_ratio':.3,
+    'test_metric': MetricTypes.MEAN_SQUARE_ERROR,
+    'test_on_local_updates': True,
+    'test_on_global_updates': True
+}
 
 def test_05_sklearn_adni_regressor_with_declearn_optimizer():
     """Tests declearn optimizer with sgd regressor"""
 
-    RANDOM_SEED = 1234
-    model_args = {
-        'max_iter':2000,
-        'tol': 1e-5,
-        'eta0':0.05,
-        'n_features': 6,
-        'random_state': RANDOM_SEED
-    }
-
-    training_args = {
-        'epochs': 5,
-        'loader_args': { 'batch_size': 32, },
-        'test_ratio':.3,
-        'test_metric': MetricTypes.MEAN_SQUARE_ERROR,
-        'test_on_local_updates': True,
-        'test_on_global_updates': True
-    }
 
     tags =  ['#adni']
     rounds = 5
 
     # select nodes participating to this experiment
     exp = Experiment(tags=tags,
-                     model_args=model_args,
+                     model_args=regressor_model_args,
                      training_plan_class=SGDRegressorTrainingPlanDeclearn,
-                     training_args=training_args,
+                     training_args=regressor_training_args,
                      round_limit=rounds,
                      aggregator=FedAverage(),
                      node_selection_strategy=None)
@@ -348,3 +354,31 @@ def test_05_sklearn_adni_regressor_with_declearn_optimizer():
     exp.run()
 
     clear_experiment_data(exp)
+
+
+
+def test_06_seklearn_adni_regressor_with_secureaggregation():
+    """Test SGDRegressor by activating secure aggregation"""
+
+    # Configure secure aggregation setup
+    configure_secagg()
+
+
+    print("Register certificates ---------------------------------------------")
+    secagg_certificate_registration()
+
+
+    # select nodes participating to this experiment
+    exp = Experiment(tags=['#adni'],
+                     model_args=regressor_model_args,
+                     training_plan_class=SGDRegressorTrainingPlanDeclearn,
+                     training_args=regressor_training_args,
+                     round_limit=5,
+                     aggregator=FedAverage(),
+                     secagg=True,
+                     node_selection_strategy=None)
+
+    exp.run()
+
+    clear_experiment_data(exp)
+
