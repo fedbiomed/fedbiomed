@@ -1,7 +1,7 @@
 
 import time
 import os
-from typing import Callable, Iterable, Any, Coroutine, Dict, Optional, List
+from typing import Callable, Iterable, Any, Coroutine, Optional, List
 import threading
 
 import asyncio
@@ -22,7 +22,7 @@ from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 
 # Maximum time in seconds for sending a message, before considering it should be discarded.
-MAX_SEND_DURATION = 10
+MAX_SEND_DURATION = 300
 
 # timeout in seconds for server to establish connections with nodes and initialize
 
@@ -98,6 +98,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                 if first_send_time + MAX_SEND_DURATION > time.time():
                     break
                 else:
+                    task = None
                     logger.warning(f"Message to send is older than {MAX_SEND_DURATION} seconds. Discard message.")
 
             task_bytes = Serializer.dumps(task.get_dict())
@@ -122,7 +123,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                     # This is not fully coherent with upper layers (Requests) that may trigger an application
                     # level failure in the while, but it is mitigated by the MAX_SEND_DURATION
                     if retry_count < MAX_SEND_RETRIES:
-                        await node_agent.send_async([task, retry_count + 1, first_send_time])
+                        await node_agent.send_async(
+                            message=task, on_reply=None, retry_count=retry_count + 1, first_send_time=first_send_time
+                        )
                     else:
                         logger.warning(f"Message cannot be sent after {MAX_SEND_RETRIES} retries. Discard message.")
                     await node_agent.change_node_status_after_task()
@@ -130,10 +133,12 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                     return
 
         except asyncio.CancelledError:
-            if task is not None:
+            if task is not None and retry_count is not None and first_send_time is not None:
                 # schedule resend if task was pulled from queue
                 if retry_count < MAX_SEND_RETRIES:
-                    await node_agent.send_async([task, retry_count + 1, first_send_time])
+                    await node_agent.send_async(
+                        message=task, on_reply=None, retry_count=retry_count + 1, first_send_time=first_send_time
+                    )
                 else:
                     logger.warning(f"Message cannot be sent after {MAX_SEND_RETRIES} retries. Discard message.")
         finally:
