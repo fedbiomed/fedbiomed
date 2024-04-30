@@ -486,6 +486,18 @@ class Sender(Listener):
         self._retry_msg = None
         self._stub_type = _StubType.NO_STUB
 
+    async def _handle_send_error(self, post_handle_function: Callable):
+        """
+        """
+        if self._retry_count < MAX_SEND_RETRIES:
+            await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+            await self._channels.connect(self._stub_type)
+            self._retry_count += 1
+        else:
+            await self._on_status_change(ClientStatus.FAILED)
+            post_handle_function()
+
+
     async def _listen(self, callback: Optional[Callable] = None) -> None:
         """Listens for the messages that are going to be sent to researcher.
 
@@ -507,7 +519,7 @@ class Sender(Listener):
                         logger.warning(
                             "Researcher not answering after timeout, looks like server failure or disconnect. "
                             "Discard message.")
-                        self._queue.task_done()
+                        self._acknowledge_task()
                         self._retry_count = 0
                     case grpc.StatusCode.UNAVAILABLE:
                         await self._on_status_change(ClientStatus.DISCONNECTED)
@@ -517,24 +529,23 @@ class Sender(Listener):
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
                         await self._channels.connect(self._stub_type)
                         self._retry_count += 1
-                    case grpc.StatusCode.UNKNOWN:
-                        await self._on_status_change(ClientStatus.FAILED)
+                    case (grpc.StatusCode.UNKNOWN, _):
                         logger.error("Unexpected error raised by researcher gRPC server. This is probably due to "
                                      f"bug on the researcher side: {exp}")
-                    case _:
-                        await self._on_status_change(ClientStatus.FAILED)
 
-            except Exception as exp:
-                await self._on_status_change(ClientStatus.FAILED)
-                raise FedbiomedCommunicationError(
-                    f"{ErrorNumbers.FB628}: Sender has stopped due to unknown reason: "
-                    f"{type(exp).__name__} {exp}") from exp
+                        def post_handle_pass():
+                            pass
+                        await self._handle_send_error(post_handle_pass)
 
-            except GeneratorExit as exp:
-                await self._on_status_change(ClientStatus.FAILED)
-                raise FedbiomedCommunicationError(
-                    f"{ErrorNumbers.FB628}: Sender has stopped due to unexpected gRPC abort: {exp}") from exp
+            except (Exception, GeneratorExit) as exp:
+                logger.error(f"Unexpected error raised by node gRPC client: {type(exp).__name__} : {exp}")
 
+                def post_handle_raise():
+                    nonlocal exp
+                    raise FedbiomedCommunicationError(
+                        f"{ErrorNumbers.FB628}: Sender has stopped due to unknown reason: "
+                        f"{type(exp).__name__} : {exp}") from exp
+                await self._handle_send_error(post_handle_raise)
 
     async def _get(self, callback: Optional[Callable] = None) -> None:
         """Gets task result from the queue.
