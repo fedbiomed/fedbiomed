@@ -21,11 +21,15 @@ from helpers import  (
 from fedbiomed.common.constants import ComponentType, ComponentType
 from fedbiomed.common.utils import CONFIG_DIR
 
-_PORT = 50052
 
-@pytest.fixture(scope='session')
+pytest.server_port = 50052
+
+
+@pytest.fixture(scope='module')
 def port():
-    return str(_PORT + 1)
+    """Increases and return port for researcher server"""
+    pytest.server_port += 1
+    return str(pytest.server_port)
 
 
 @pytest.fixture(scope='module', autouse=True)
