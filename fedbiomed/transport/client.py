@@ -356,7 +356,7 @@ class Listener:
 
 
     @abc.abstractmethod
-    def _listen(self, callback: Optional[Callable] = None):
+    async def _listen(self, callback: Optional[Callable] = None):
         pass
 
 
@@ -419,7 +419,7 @@ class TaskListener(Listener):
                         await self._channels.connect(_StubType.LISTENER_TASK_STUB)
                     case _:
                         await self._on_status_change(ClientStatus.FAILED)
-                        logger.error("Unhandled gRPC call status {exp.code()}. Exception: {exp}. Will retry connect in "
+                        logger.error(f"Unhandled gRPC call status {exp.code()}. Exception: {exp}. Will retry connect in "
                                      f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
                         await self._channels.connect(_StubType.LISTENER_TASK_STUB)
@@ -437,33 +437,32 @@ class TaskListener(Listener):
         Args:
             callback: Callback to execute once a task is arrived
         """
-        while True:
-            logger.debug("Sending new task request to researcher")
-            await self._on_status_change(ClientStatus.CONNECTED)
-            request_stub = await self._channels.stub(_StubType.LISTENER_TASK_STUB)
-            iterator = request_stub.GetTaskUnary(
-                TaskRequest(node=f"{self._node_id}").to_proto(), timeout=GRPC_CLIENT_TASK_REQUEST_TIMEOUT
-            )
-            # Prepare reply
-            reply = bytes()
-            async for answer in iterator:
-                reply += answer.bytes_
-                if answer.size != answer.iteration:
-                    continue
-                else:
-                    # Execute callback
-                    logger.debug("New task received from researcher")
-                    task = Serializer.loads(reply)
+        logger.debug("Sending new task request to researcher")
+        await self._on_status_change(ClientStatus.CONNECTED)
+        request_stub = await self._channels.stub(_StubType.LISTENER_TASK_STUB)
+        iterator = request_stub.GetTaskUnary(
+            TaskRequest(node=f"{self._node_id}").to_proto(), timeout=GRPC_CLIENT_TASK_REQUEST_TIMEOUT
+        )
+        # Prepare reply
+        reply = bytes()
+        async for answer in iterator:
+            reply += answer.bytes_
+            if answer.size != answer.iteration:
+                continue
+            else:
+                # Execute callback
+                logger.debug("New task received from researcher")
+                task = Serializer.loads(reply)
 
-                    # Guess ID of connected researcher, for un-authenticated connection
-                    await self._update_id(task["researcher_id"])
+                # Guess ID of connected researcher, for un-authenticated connection
+                await self._update_id(task["researcher_id"])
 
-                    if isinstance(callback, Callable):
-                        # we could check the callback prototype
-                        callback(task)
+                if isinstance(callback, Callable):
+                    # we could check the callback prototype
+                    callback(task)
 
-                    # Reset reply
-                    reply = bytes()
+                # Reset reply
+                reply = bytes()
 
 
 class Sender(Listener):
@@ -544,56 +543,55 @@ class Sender(Listener):
             callback: Callback to execute once a task is received
         """
 
-        while True:
-            # initialize in case of early failure
-            self._stub_type = _StubType.NO_STUB
+        # initialize in case of early failure
+        self._stub_type = _StubType.NO_STUB
 
-            if self._retry_count > MAX_SEND_RETRIES:
-                logger.warning(
-                    f"Message can not be sent to researcher after {MAX_SEND_RETRIES} retries. Discard message.")
-                self._queue.task_done()
-                self._retry_count = 0
-
-            if self._retry_count == 0:
-                # only pick a new message if not retrying to send
-                self._retry_msg = await self._queue.get()
-            msg = self._retry_msg
-
-            self._stub_type = msg["stub"]
-            if self._stub_type == _StubType.SENDER_FEEDBACK_STUB:
-                feedback_stub = await self._channels.stub(_StubType.SENDER_FEEDBACK_STUB)
-                stub_function = feedback_stub.Feedback
-            elif self._stub_type == _StubType.SENDER_TASK_STUB:
-                task_stub = await self._channels.stub(_StubType.SENDER_TASK_STUB)
-                stub_function = task_stub.ReplyTask
-            else:
-                raise FedbiomedCommunicationError(
-                    f"Unknown type of stub in gRPC Sender listener {msg['stub']}"
-                )
-
-            # If it is a Unary-Unary RPC call
-            if isinstance(stub_function, grpc.aio.UnaryUnaryMultiCallable):
-                await stub_function(msg["message"])
-
-            elif isinstance(stub_function, grpc.aio.StreamUnaryMultiCallable):
-                stream_call = stub_function()
-
-                for reply in self._stream_reply(msg["message"]):
-                    await stream_call.write(reply)
-
-                await stream_call.done_writing()
-
-                if isinstance(callback, Callable):
-                    # we could check the callback prototype
-                    callback(msg["message"])
-
-            else:
-                raise FedbiomedCommunicationError(
-                    f"Unknown type of stub built from gRPC Sender listener {msg['stub']}"
-                )
-
+        if self._retry_count > MAX_SEND_RETRIES:
+            logger.warning(
+                f"Message can not be sent to researcher after {MAX_SEND_RETRIES} retries. Discard message.")
             self._queue.task_done()
             self._retry_count = 0
+
+        if self._retry_count == 0:
+            # only pick a new message if not retrying to send
+            self._retry_msg = await self._queue.get()
+        msg = self._retry_msg
+
+        self._stub_type = msg["stub"]
+        if self._stub_type == _StubType.SENDER_FEEDBACK_STUB:
+            feedback_stub = await self._channels.stub(_StubType.SENDER_FEEDBACK_STUB)
+            stub_function = feedback_stub.Feedback
+        elif self._stub_type == _StubType.SENDER_TASK_STUB:
+            task_stub = await self._channels.stub(_StubType.SENDER_TASK_STUB)
+            stub_function = task_stub.ReplyTask
+        else:
+            raise FedbiomedCommunicationError(
+                f"Unknown type of stub in gRPC Sender listener {msg['stub']}"
+            )
+
+        # If it is a Unary-Unary RPC call
+        if isinstance(stub_function, grpc.aio.UnaryUnaryMultiCallable):
+            await stub_function(msg["message"])
+
+        elif isinstance(stub_function, grpc.aio.StreamUnaryMultiCallable):
+            stream_call = stub_function()
+
+            for reply in self._stream_reply(msg["message"]):
+                await stream_call.write(reply)
+
+            await stream_call.done_writing()
+
+            if isinstance(callback, Callable):
+                # we could check the callback prototype
+                callback(msg["message"])
+
+        else:
+            raise FedbiomedCommunicationError(
+                f"Unknown type of stub built from gRPC Sender listener {msg['stub']}"
+            )
+
+        self._queue.task_done()
+        self._retry_count = 0
 
 
     def _stream_reply(self, message: Message) -> Iterable:
