@@ -405,7 +405,7 @@ class TaskListener(Listener):
                     case grpc.StatusCode.UNAVAILABLE:
                         await self._on_status_change(ClientStatus.DISCONNECTED)
                         logger.info(
-                            "Researcher server is not available, will retry connect in "
+                            "Researcher server is not available to task listener, will retry connect in "
                             f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
                         await self._channels.connect(_StubType.LISTENER_TASK_STUB)
@@ -486,17 +486,41 @@ class Sender(Listener):
         self._retry_msg = None
         self._stub_type = _StubType.NO_STUB
 
-    async def _handle_send_error(self, post_handle_function: Callable):
+    async def _handle_after_send(self, status: ClientStatus, want_retry: bool, post_noretry_function: Callable, *args):
+        """Actions after tentative to send a message, whether is succeeds or not
+
+        Args:
+            status: new gRPC client status to set
+            want_retry: True if message should be re-sent, if MAX_SEND_RETRIES is not exceeded
+            post_noretry_function: final function to execute if message is not re-sent
+            args: arguments for `post_noretry_function`
         """
-        """
-        if self._retry_count < MAX_SEND_RETRIES:
+        await self._on_status_change(status)
+
+        if want_retry and self._retry_count < MAX_SEND_RETRIES:
             await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
             await self._channels.connect(self._stub_type)
             self._retry_count += 1
         else:
-            await self._on_status_change(ClientStatus.FAILED)
-            post_handle_function()
+            if self._retry_count >= MAX_SEND_RETRIES:
+                logger.warning(
+                    f"Message can not be sent to researcher after {MAX_SEND_RETRIES} retries. Discard message.")
+            self._queue.task_done()
+            self._retry_count = 0
+            self._stub_type = _StubType.NO_STUB
 
+            if not args:
+                await post_noretry_function()
+            else:
+                await post_noretry_function(*args)
+
+    async def _post_discard_pass(self):
+        pass
+
+    async def _post_discard_raise(self, exp):
+        raise FedbiomedCommunicationError(
+            f"{ErrorNumbers.FB628}: Sender has stopped due to unknown reason: "
+            f"{type(exp).__name__} : {exp}") from exp
 
     async def _listen(self, callback: Optional[Callable] = None) -> None:
         """Listens for the messages that are going to be sent to researcher.
@@ -515,37 +539,25 @@ class Sender(Listener):
             except grpc.aio.AioRpcError as exp:
                 match exp.code():
                     case grpc.StatusCode.DEADLINE_EXCEEDED:
-                        await self._on_status_change(ClientStatus.DISCONNECTED)
                         logger.warning(
                             "Researcher not answering after timeout, looks like server failure or disconnect. "
                             "Discard message.")
-                        self._acknowledge_task()
-                        self._retry_count = 0
+                        await self._handle_after_send(ClientStatus.DISCONNECTED, False, self._post_discard_pass)
                     case grpc.StatusCode.UNAVAILABLE:
-                        await self._on_status_change(ClientStatus.DISCONNECTED)
                         logger.info(
-                            "Researcher server is not available, will retry connect in "
+                            "Researcher server is not available to sender, will retry connect in "
                             f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
-                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-                        await self._channels.connect(self._stub_type)
-                        self._retry_count += 1
+                        await self._handle_after_send(ClientStatus.DISCONNECTED, True, self._post_discard_pass)
                     case (grpc.StatusCode.UNKNOWN, _):
                         logger.error("Unexpected error raised by researcher gRPC server. This is probably due to "
                                      f"bug on the researcher side: {exp}")
-
-                        def post_handle_pass():
-                            pass
-                        await self._handle_send_error(post_handle_pass)
+                        await self._handle_after_send(ClientStatus.FAILED, True, self._post_discard_pass)
 
             except (Exception, GeneratorExit) as exp:
                 logger.error(f"Unexpected error raised by node gRPC client: {type(exp).__name__} : {exp}")
-
-                def post_handle_raise():
-                    nonlocal exp
-                    raise FedbiomedCommunicationError(
-                        f"{ErrorNumbers.FB628}: Sender has stopped due to unknown reason: "
-                        f"{type(exp).__name__} : {exp}") from exp
-                await self._handle_send_error(post_handle_raise)
+                await self._handle_after_send(ClientStatus.FAILED, True, self._post_discard_raise, exp)
+            else:
+                await self._handle_after_send(ClientStatus.CONNECTED, False, self._post_discard_pass)
 
     async def _get(self, callback: Optional[Callable] = None) -> None:
         """Gets task result from the queue.
@@ -553,16 +565,6 @@ class Sender(Listener):
         Args:
             callback: Callback to execute once a task is received
         """
-
-        # initialize in case of early failure
-        self._stub_type = _StubType.NO_STUB
-
-        if self._retry_count > MAX_SEND_RETRIES:
-            logger.warning(
-                f"Message can not be sent to researcher after {MAX_SEND_RETRIES} retries. Discard message.")
-            self._queue.task_done()
-            self._retry_count = 0
-
         if self._retry_count == 0:
             # only pick a new message if not retrying to send
             self._retry_msg = await self._queue.get()
@@ -600,9 +602,6 @@ class Sender(Listener):
             raise FedbiomedCommunicationError(
                 f"Unknown type of stub built from gRPC Sender listener {msg['stub']}"
             )
-
-        self._queue.task_done()
-        self._retry_count = 0
 
 
     def _stream_reply(self, message: Message) -> Iterable:
