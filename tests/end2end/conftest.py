@@ -4,17 +4,22 @@ Module for global PyTest configuration and fixtures
 """
 
 import re
-import uuid
+import os
+import glob
+import importlib
+
 import pytest
 import psutil
-
+import configparser
 
 from helpers import  (
     kill_process,
-    CONFIG_PREFIX
+    CONFIG_PREFIX,
+    clear_component_data
 )
 
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.constants import ComponentType, ComponentType
+from fedbiomed.common.utils import CONFIG_DIR
 
 _PORT = 50052
 
@@ -41,7 +46,29 @@ def post_session(request):
                 print(f'Found a processes not killed: "{cmdline}"')
                 kill_process(process)
 
+
+
+    # Clear remaining component data if existing
+    configs = glob.glob( os.path.join( CONFIG_DIR, f"{CONFIG_PREFIX}*.ini"))
+
+    for path in configs:
+        cfg = configparser.ConfigParser()
+        cfg.read(path)
+        component_type = cfg.get('default', 'component')
+        print(f"Clearing remaining component files  for {path}")
+        if component_type == ComponentType.NODE.name:
+            config = importlib.import_module("fedbiomed.node.config").NodeConfig
+        elif component_type == ComponentType.RESEARCHER.name:
+            config = importlib.import_module("fedbiomed.researcher.config").ResearcherConfig
+        config = config(name=os.path.basename(path))
+        clear_component_data(config)
+
+        del cfg
+        del config
+
+
     print('#### Checking processes has fininshed.')
     print('Module tests have finished --------------------------------------------')
+
 
 

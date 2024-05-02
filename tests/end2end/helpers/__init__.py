@@ -5,6 +5,7 @@ from .constants import (
 from ._helpers import (
     create_component,
     add_dataset_to_node,
+    clear_component_data,
     clear_node_data,
     clear_researcher_data,
     start_nodes,
