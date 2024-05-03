@@ -31,12 +31,15 @@ from experiments.training_plans.sklearn import (
     SGDRegressorTrainingPlan,
     SGDClassifierTrainingPlan,
     SkLearnClassifierTrainingPlanDeclearn,
-    SGDRegressorTrainingPlanDeclearn
+    SGDRegressorTrainingPlanDeclearn,
+    SGDRegressorTrainingPlanDeclearnScaffold
 )
 
 from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.optimizers.optimizer import Optimizer
+from fedbiomed.common.optimizers.declearn import YogiModule as FedYogi, ScaffoldServerModule
 
 from sklearn import datasets
 import numpy as np
@@ -275,35 +278,31 @@ def test_03_sklearn_sgdclassfier():
     exp.run()
     clear_experiment_data(exp)
 
+declearn_model_args = {
+    'n_features': 28*28,
+    'n_classes' : 10,
+    'eta0':1e-6,
+    'random_state':1234,
+    'alpha':0.1 }
+
+declearn_training_args = {
+    'epochs': 3,
+    'batch_maxnum': 20,
+    'optimizer_args': {
+        "lr" : 1e-3 },
+    'loader_args': { 'batch_size': 4, },
+}
+
 
 def test_04_sklearn_mnist_perceptron_with_declearn_optimizer():
     """Tests SGD classifier with Declearn optimizers"""
 
-
-    model_args = {'n_features': 28*28,
-                  'n_classes' : 10,
-                  'eta0':1e-6,
-                  'random_state':1234,
-                  'alpha':0.1 }
-
-    training_args = {
-        'epochs': 3,
-        'batch_maxnum': 20,
-        'optimizer_args': {
-            "lr" : 1e-3
-        },
-        'loader_args': { 'batch_size': 4, },
-    }
-
-    tags =  ['#MNIST', '#dataset']
-    rounds = 4
-
     # select nodes participating in this experiment
-    exp = Experiment(tags=tags,
-                     model_args=model_args,
+    exp = Experiment(tags=["#MNIST", "#dataset"],
+                     model_args=declearn_model_args,
                      training_plan_class=SkLearnClassifierTrainingPlanDeclearn,
-                     training_args=training_args,
-                     round_limit=rounds,
+                     training_args=declearn_training_args,
+                     round_limit=4,
                      aggregator=FedAverage(),
                      node_selection_strategy=None,
                      save_breakpoints=True
@@ -319,6 +318,26 @@ def test_04_sklearn_mnist_perceptron_with_declearn_optimizer():
     loaded_exp.run_once(increase=True)
     clear_experiment_data(loaded_exp)
 
+
+def test_05_sklearn_mnist_perceptron_with_declearn_optimizer_on_researcher_side():
+    """Test declearn optimizer on researcher side"""
+
+    exp = Experiment(
+        tags=["#MNIST", "#dataset"],
+        model_args=declearn_model_args,
+        training_plan_class=SkLearnClassifierTrainingPlanDeclearn,
+        training_args=declearn_training_args,
+        round_limit=4,
+        aggregator=FedAverage(),
+        agg_optimizer=Optimizer(lr=.8, modules=[FedYogi()]),
+        node_selection_strategy=None,
+        save_breakpoints=True
+    )
+
+    exp.run()
+    clear_experiment_data(exp)
+
+
 # Define paramters
 regressor_training_args = {
     'epochs': 5,
@@ -329,9 +348,10 @@ regressor_training_args = {
     'test_on_global_updates': True
 }
 
-def test_05_sklearn_adni_regressor_with_declearn_optimizer():
-    """Tests declearn optimizer with sgd regressor"""
 
+
+def test_06_sklearn_adni_regressor_with_declearn_optimizer():
+    """Tests declearn optimizer with sgd regressor"""
 
     tags =  ['#adni']
     rounds = 5
@@ -349,9 +369,31 @@ def test_05_sklearn_adni_regressor_with_declearn_optimizer():
 
     clear_experiment_data(exp)
 
+def test_07_sklearn_adni_regressor_with_scaffold():
+    """Tests sgd regressor training plan using declearn scaffold"""
+
+    tags =  ['#adni']
+    rounds = 5
+
+    regressor_training_args.update({'optimizer_args': {'lr': 0.001}})
+    # select nodes participating to this experiment
+    exp = Experiment(
+        tags=tags,
+        model_args=regressor_model_args,
+        training_plan_class=SGDRegressorTrainingPlanDeclearnScaffold,
+        training_args=regressor_training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        agg_optimizer=Optimizer(lr=.8, modules=[ScaffoldServerModule()]),
+        node_selection_strategy=None)
+
+    exp.run()
+
+    clear_experiment_data(exp)
 
 
-def test_06_seklearn_adni_regressor_with_secureaggregation():
+
+def test_08_seklearn_adni_regressor_with_secureaggregation():
     """Test SGDRegressor by activating secure aggregation"""
 
     # Configure secure aggregation setup
