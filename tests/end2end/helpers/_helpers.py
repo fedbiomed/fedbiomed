@@ -393,15 +393,17 @@ def create_component(
 
 def create_researcher(
     port: str,
-    config_name: str,
-    config_sections: dict
+    config_sections: Dict | None = None
 ) -> Config:
     """Creates researcher component"""
 
+    config_sections = config_sections or {}
+    config_sections.update({'server': {'port': port}})
+
     researcher = create_component(
         ComponentType.RESEARCHER,
-        config_name="config_researcher_mnist_pytorch.ini",
-        config_sections={'server': {'port': port}},
+        config_name=f"config_researcher_{uuid.uuid4()}.ini",
+        config_sections=config_sections,
     )
 
     os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
@@ -432,12 +434,17 @@ def training_plan_operation(
 
 
 def get_data_folder(path):
-    """Gets path to save datasets, and creates folder if not existing"""
-    ci_data_path = os.environ.get('FEDBIOMED_CI_DATA_PATH')
+    """Gets path to save datasets, and creates folder if not existing
+
+
+    Args:
+
+    """
+    ci_data_path = os.environ.get('FEDBIOMED_E2E_DATA_PATH')
     if ci_data_path:
         folder = os.path.join(ci_data_path, path)
     else:
-        folder = os.path.join('data', path)
+        folder = os.path.join(ROOT_DIR, 'data', path)
 
     if not os.path.isdir(folder):
         print(f"Data folder for {path} is not existing. Creating folder...")
@@ -463,7 +470,7 @@ def create_multiple_nodes(
     port: int,
     num_nodes: int,
     config_sections: Dict | List[Dict] = None
-) -> None:
+) -> Tuple:
     """Creates multiple node in a context manager"""
 
 

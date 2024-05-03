@@ -3,13 +3,16 @@ import time
 import pytest
 
 from helpers import (
-    create_component,
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
     clear_node_data,
     clear_experiment_data,
-    clear_researcher_data)
+    clear_researcher_data,
+    get_data_folder,
+    create_node,
+    create_researcher
+)
 
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 
@@ -27,31 +30,18 @@ def setup(port, post_session, request):
 
     print(f"USING PORT {port} for researcher erver")
     print("Creating components ---------------------------------------------")
-    node_1 = create_component(
-        ComponentType.NODE,
-        config_name="config_n1_mnist_pytorch.ini",
-        config_sections={'researcher': {'port': port}}
-    )
-    node_2 = create_component(
-        ComponentType.NODE,
-        config_name="config_n2_mnist_pytorch.ini",
-        config_sections={'researcher': {'port': port}}
-    )
 
+    node_1 = create_node(port=port)
+    node_2 = create_node(port=port)
+    researcher = create_researcher(port=port)
 
-    researcher = create_component(
-        ComponentType.RESEARCHER,
-        config_name="config_researcher_mnist_pytorch.ini",
-        config_sections={'server': {'port': port}},
-    )
-    os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
-
+    data = get_data_folder('MNIST-e2e-test')
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",
         "tags": "#MNIST,#dataset",
         "data_type": "default",
-        "path": "./data/"
+        "path": data
     }
 
     print("Adding first dataset --------------------------------------------")

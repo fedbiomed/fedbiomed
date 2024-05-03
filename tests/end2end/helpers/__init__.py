@@ -16,6 +16,7 @@ from ._helpers import (
     secagg_certificate_registration,
     training_plan_operation,
     create_researcher,
+    create_node,
     get_data_folder,
     create_multiple_nodes
 )

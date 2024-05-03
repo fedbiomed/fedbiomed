@@ -14,11 +14,9 @@ import time
 import pytest
 
 from helpers import (
-    create_component,
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
-    clear_node_data,
     clear_experiment_data,
     clear_researcher_data,
     create_researcher,
@@ -49,15 +47,11 @@ def setup(port, post_session, request):
     """Setup fixture for the module"""
 
     with create_multiple_nodes(port, 3, {'security': {'secure_aggregation': 'True'}}) as nodes:
-        node_1, node_2, node_3 = nodes
+
+        node_1, node_2, node_3 = nodes  # pylint: disable=unbalanced-tuple-unpacking
 
         # Create researcher component
-        researcher = create_researcher(
-            port=port,
-            config_name="config_researcher_sklearn.ini",
-            config_sections={'server': {'port': port}},
-        )
-
+        researcher = create_researcher(port=port)
         # Starts the nodes
         node_processes, thread = start_nodes([node_1, node_2, node_3])
 
@@ -79,7 +73,8 @@ def setup(port, post_session, request):
 
 
         # Add MNIST dataset
-        datafolder = get_data_folder('')
+        datafolder = get_data_folder('MNIST-e2e-test')
+
         dataset = {
             "name": "MNIST",
             "description": "MNIST DATASET",
