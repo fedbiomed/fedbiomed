@@ -431,7 +431,7 @@ class Listener:
                                                          want_retry=self._want_retry_grpc_error,
                                                          want_reconnect=True)
 
-                    case (grpc.StatusCode.UNKNOWN, _):
+                    case grpc.StatusCode.UNKNOWN | _:
                         logger.error(f"Unexpected error raised by researcher gRPC server in {self._task_name}: {exp}. "
                                      f"Will retry connect in {GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await self._handle_after_process(ClientStatus.FAILED,
