@@ -15,7 +15,8 @@ from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceS
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskRequest, TaskResult, FeedbackMessage
-from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH, MAX_SEND_RETRIES, ErrorNumbers
+from fedbiomed.common.constants import MAX_MESSAGE_BYTES_LENGTH, MAX_SEND_RETRIES, \
+    MAX_RETRIEVE_ERROR_RETRIES, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 
 
@@ -343,11 +344,59 @@ class Listener:
         """
         self._channels = channels
 
+        self.task_name = "generic listener"
+        self._want_retry_grpc_error = False
+
+    @abc.abstractmethod
+    async def _handle_after_process(self,
+                                    status: ClientStatus,
+                                    want_retry: bool = False,
+                                    want_reconnect: bool = False,
+                                    want_detailed_log: bool = False,
+                                    post_noretry_function: Optional[Callable] = None,
+                                    *args
+                                    ):
+        """Actions after each call to the researcher, successful or not
+
+        Args:
+            status: new gRPC client status to set
+            want_retry: want to retry same action, if applicable
+            want_reconnect: want to redo connection to server, if applicable
+            want_detailed_log: want to do more detailed logging, if applicable
+            post_noretry_function: optional final function to execute, if applicable
+            args: arguments for `post_noretry_function`
+        """
+
+    @abc.abstractmethod
+    def _message_deadline_exceeded(self):
+        """Logger message to issue when deadline is exceeded in call to researcher
+        """
+
+    @abc.abstractmethod
+    async def _call_researcher(self, callback: Optional[Callable] = None) -> None:
+        """Requests tasks from Researcher
+
+        Args:
+            callback: Callback to execute once a task is submitted
+        """
+
+
+    async def _post_handle_raise(self, task: str, exp: BaseException):
+        """Raise a tansformed exception from a base exception.
+
+        To be called as final function after handling process in a listener task
+
+        """
+        raise FedbiomedCommunicationError(
+            f"{ErrorNumbers.FB628}: {task} has stopped due to unknown reason: "
+            f"{type(exp).__name__} : {exp}") from exp
+
+
     def listen(self, callback: Optional[Callable] = None) -> Awaitable[Optional[Callable]]:
         """Listens for tasks from given channels
 
         Args:
-            callback: Callback function
+            callback: Callback function to execute once a task is processed
 
         Returns:
             Asyncio task to run task listener
@@ -355,9 +404,48 @@ class Listener:
         return asyncio.create_task(self._listen(callback))
 
 
-    @abc.abstractmethod
-    async def _listen(self, callback: Optional[Callable] = None):
-        pass
+    async def _listen(self, callback: Optional[Callable] = None) -> None:
+        """"Starts the loop for the listening task
+
+        Args:
+            callback: Callback function to execute once a task is processed
+
+        Raises:
+            FedbiomedCommunicationError: communication error with researcher
+        """
+
+        while True:
+            try:
+                await self._call_researcher(callback)
+            except grpc.aio.AioRpcError as exp:
+                match exp.code():
+                    case grpc.StatusCode.DEADLINE_EXCEEDED:
+                        self._message_deadline_exceeded()
+                        await self._handle_after_process(ClientStatus.DISCONNECTED)
+                    case grpc.StatusCode.UNAVAILABLE:
+                        await self._on_status_change(ClientStatus.DISCONNECTED)
+                        logger.debug(
+                            f"Researcher server is not available to {self._task_name}, will retry connect in "
+                            f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
+                        await self._handle_after_process(ClientStatus.DISCONNECTED,
+                                                         want_retry=self._want_retry_grpc_error,
+                                                         want_reconnect=True)
+
+                    case (grpc.StatusCode.UNKNOWN, _):
+                        logger.error(f"Unexpected error raised by researcher gRPC server in {self._task_name}: {exp}. "
+                                     f"Will retry connect in {GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
+                        await self._handle_after_process(ClientStatus.FAILED,
+                                                         want_retry=self._want_retry_grpc_error,
+                                                         want_reconnect=True,
+                                                         want_detailed_log=True)
+
+            except (Exception, GeneratorExit) as exp:
+                logger.error(
+                    f"Unexpected error raised by node gRPC client in {self._task_name}: {type(exp).__name__} : {exp}")
+                await self._handle_after_process(ClientStatus.FAILED, True, False, True,
+                                                 self._post_handle_raise, self._task_name, exp)
+            else:
+                await self._handle_after_process(ClientStatus.CONNECTED)
 
 
 class TaskListener(Listener):
@@ -383,62 +471,64 @@ class TaskListener(Listener):
         self._node_id = node_id
         self._on_status_change = on_status_change
         self._update_id = update_id
+        self._retry_count = 0
+        self._task_name = "task listener"
 
-    async def _listen(self, callback: Optional[Callable] = None) -> None:
-        """"Starts the loop for listening task
+
+    async def _handle_after_process(self,
+                                    status: ClientStatus,
+                                    want_retry: bool = False,
+                                    want_reconnect: bool = False,
+                                    want_detailed_log: bool = False,
+                                    post_noretry_function: Optional[Callable] = None,
+                                    *args
+                                    ):
+        """Actions after each tentative to retrieve a task, successful or not
 
         Args:
-            callback: Callback to execute once a task is received
-
-        Raises:
-            FedbiomedCommunicationError: communication error with researcher
+            status: new gRPC client status to set
+            want_retry: if True (and MAX_RETRIEVE_ERROR_RETRIES is not exceeded) then retry to get a task
+            want_reconnect: if True and `want_retry` is False, then redo connection to server
+            want_detailed_log: unused
+            post_noretry_function: optional final function to execute if not retrying to get a task.
+                If None, no final function is executed
+            args: arguments for `post_noretry_function`
         """
+        await self._on_status_change(status)
 
-        while True:
-            try:
-                await self._request(callback)
-            except grpc.aio.AioRpcError as exp:
-                match exp.code():
-                    case grpc.StatusCode.DEADLINE_EXCEEDED:
-                        logger.debug(
-                            "Researcher did not request executing a task before timeout. Send new task request")
-                    case grpc.StatusCode.UNAVAILABLE:
-                        await self._on_status_change(ClientStatus.DISCONNECTED)
-                        logger.debug(
-                            "Researcher server is not available to task listener, will retry connect in "
-                            f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
-                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-                        await self._channels.connect(_StubType.LISTENER_TASK_STUB)
+        if want_retry and self._retry_count < MAX_RETRIEVE_ERROR_RETRIES:
+            await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+            await self._channels.connect(_StubType.LISTENER_TASK_STUB)
+            self._retry_count += 1
+        else:
+            if want_reconnect:
+                await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                await self._channels.connect(_StubType.LISTENER_TASK_STUB)
+            self._retry_count = 0
 
-                    case grpc.StatusCode.UNKNOWN:
-                        await self._on_status_change(ClientStatus.FAILED)
-                        logger.error("Unexpected error raised by researcher gRPC server. This is probably due to "
-                                     f"bug on the researcher side: {exp}. Will retry connect in "
-                                     f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
-                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-                        await self._channels.connect(_StubType.LISTENER_TASK_STUB)
-                    case _:
-                        await self._on_status_change(ClientStatus.FAILED)
-                        logger.error(f"Unhandled gRPC call status {exp.code()}. Exception: {exp}. Will retry connect in "
-                                     f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
-                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-                        await self._channels.connect(_StubType.LISTENER_TASK_STUB)
-
-            except Exception as exp:
-                await self._on_status_change(ClientStatus.FAILED)
-                raise FedbiomedCommunicationError(
-                    f"{ErrorNumbers.FB628}: Task listener has stopped due to unknown reason: "
-                    f"{type(exp).__name__} {exp}") from exp
+            if post_noretry_function:
+                # works only if args are provided
+                await post_noretry_function(*args)
 
 
-    async def _request(self, callback: Optional[Callable] = None) -> None:
+    def _message_deadline_exceeded(self):
+        """Task listener issues debug message when researcher does not submit task before deadline
+        """
+        logger.debug(
+            "Researcher did not request executing a task before timeout. Send new task request")
+
+
+    async def _call_researcher(self, callback: Optional[Callable] = None) -> None:
         """Requests tasks from Researcher
 
         Args:
             callback: Callback to execute once a task is arrived
         """
         logger.debug("Sending new task request to researcher")
+        # TODO: improve status management. At this point it is not sure we are CONNECTED to server
+        # but setting later will leave the client DISCONNECTED when waiting for initial task
         await self._on_status_change(ClientStatus.CONNECTED)
+
         request_stub = await self._channels.stub(_StubType.LISTENER_TASK_STUB)
         iterator = request_stub.GetTaskUnary(
             TaskRequest(node=f"{self._node_id}").to_proto(), timeout=GRPC_CLIENT_TASK_REQUEST_TIMEOUT
@@ -485,19 +575,24 @@ class Sender(Listener):
         self._retry_count = 0
         self._retry_msg = None
         self._stub_type = _StubType.NO_STUB
+        self._task_name = "sender"
+        self._want_retry_grpc_error = True
 
-    async def _handle_after_send(self,
-                                 status: ClientStatus,
-                                 want_retry: bool,
-                                 want_detailed_log: bool = False,
-                                 post_noretry_function: Optional[Callable] = None,
-                                 *args
-                                 ):
+
+    async def _handle_after_process(self,
+                                    status: ClientStatus,
+                                    want_retry: bool = False,
+                                    want_reconnect: bool = False,
+                                    want_detailed_log: bool = False,
+                                    post_noretry_function: Optional[Callable] = None,
+                                    *args
+                                    ):
         """Actions after each tentative to send a message, successful or not
 
         Args:
             status: new gRPC client status to set
             want_retry: if True (and MAX_SEND_RETRIES is not exceeded) then re-send message
+            want_reconnect: unused
             want_detailed_log: if True (or MAX_SEND_RETRIES is exceeded) then log details about this message
             post_noretry_function: optional final function to execute if message is not re-sent.
                 If None, no final function is executed
@@ -542,49 +637,16 @@ class Sender(Listener):
                 # works only if args are provided
                 await post_noretry_function(*args)
 
-    async def _post_discard_raise(self, exp):
-        raise FedbiomedCommunicationError(
-            f"{ErrorNumbers.FB628}: Sender has stopped due to unknown reason: "
-            f"{type(exp).__name__} : {exp}") from exp
 
-    async def _listen(self, callback: Optional[Callable] = None) -> None:
-        """Listens for the messages that are going to be sent to researcher.
-
-        Args:
-            callback: Callback to execute once a task is received
-
-        Raises:
-            FedbiomedCommunicationError: communication error with researcher
+    def _message_deadline_exceeded(self):
+        """Sender issues warning when researcher does not complete request before deadline
         """
+        logger.warning(
+            "Researcher not answering after timeout, looks like server failure or disconnect. "
+            "Discard message.")
 
-        # While loop retries to send if first one fails to send the result
-        while True:
-            try:
-                await self._get(callback)
-            except grpc.aio.AioRpcError as exp:
-                match exp.code():
-                    case grpc.StatusCode.DEADLINE_EXCEEDED:
-                        logger.warning(
-                            "Researcher not answering after timeout, looks like server failure or disconnect. "
-                            "Discard message.")
-                        await self._handle_after_send(ClientStatus.DISCONNECTED, False)
-                    case grpc.StatusCode.UNAVAILABLE:
-                        logger.debug(
-                            "Researcher server is not available to sender, will retry connect in "
-                            f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
-                        await self._handle_after_send(ClientStatus.DISCONNECTED, True)
-                    case (grpc.StatusCode.UNKNOWN, _):
-                        logger.error("Unexpected error raised by researcher gRPC server : {exp}. "
-                                     f"Will retry connect in {GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
-                        await self._handle_after_send(ClientStatus.FAILED, True, True)
 
-            except (Exception, GeneratorExit) as exp:
-                logger.error(f"Unexpected error raised by node gRPC client: {type(exp).__name__} : {exp}")
-                await self._handle_after_send(ClientStatus.FAILED, True, True, self._post_discard_raise, exp)
-            else:
-                await self._handle_after_send(ClientStatus.CONNECTED, False)
-
-    async def _get(self, callback: Optional[Callable] = None) -> None:
+    async def _call_researcher(self, callback: Optional[Callable] = None) -> None:
         """Gets task result from the queue.
 
         Args:
@@ -648,6 +710,7 @@ class Sender(Listener):
                 iteration=iter_,
                 bytes_=reply[start:stop]
             ).to_proto()
+
 
     async def send(self, message: Message) -> None:
         """Send a message to peer researcher.

@@ -74,6 +74,9 @@ MAX_MESSAGE_BYTES_LENGTH = 4000000 - sys.getsizeof(bytes("", encoding="UTF-8")) 
 # Max number of retries for sending message (node and researcher side)
 MAX_SEND_RETRIES = 5
 
+# Max number of retries for retrieving a task when error occurs (on the node)
+MAX_RETRIEVE_ERROR_RETRIES = 5
+
 
 class _BaseEnum(Enum):
     """
