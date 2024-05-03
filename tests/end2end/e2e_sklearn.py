@@ -183,7 +183,6 @@ regressor_model_args = {
 def test_01_sklearn_perceptron():
     """Tests sklearn perceptron"""
 
-    print("In the test")
     n_features = 20
     n_classes = 2
 
@@ -321,7 +320,7 @@ def test_04_sklearn_mnist_perceptron_with_declearn_optimizer():
 
     loaded_exp = Experiment.load_breakpoint(os.path.join(exp_folder, 'breakpoint_0001'))
 
-    # Run starting from a breakpoints
+    # Run starting from a breakpoint
     loaded_exp.run_once(increase=True)
     clear_experiment_data(loaded_exp)
 

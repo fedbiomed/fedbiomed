@@ -459,7 +459,11 @@ def create_node(port, config_sections:Dict | None = None):
 
 
 @contextmanager
-def create_multiple_nodes(port, num_nodes, config_sections: Dict | List[Dict] = None):
+def create_multiple_nodes(
+    port: int,
+    num_nodes: int,
+    config_sections: Dict | List[Dict] = None
+) -> None:
     """Creates multiple node in a context manager"""
 
 

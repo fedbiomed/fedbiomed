@@ -54,7 +54,7 @@ def setup_components(port, post_session, request):
 
 
     # Starts the nodes
-    node_processes, _ = start_nodes([node_1, node_2])
+    node_processes, thread = start_nodes([node_1, node_2])
 
 
     print("Creating researcher component ---------------------------------------------")
@@ -77,6 +77,7 @@ def setup_components(port, post_session, request):
     # Clear files and processes created for the tests
     def clear():
         kill_subprocesses(node_processes)
+        thread.join()
 
         print("Cleareaniing component data")
         clear_node_data(node_1)

@@ -66,8 +66,10 @@ def setup(port, post_session, request):
 
     # Clear files and processes created for the tests
     def clear():
+
         kill_subprocesses(node_processes)
         thread.join()
+
         print("Clearing component data")
         clear_node_data(node_1)
         clear_node_data(node_2)
