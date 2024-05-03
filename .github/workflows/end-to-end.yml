@@ -42,6 +42,6 @@ jobs:
           echo "Launching end-to-end tests" # to check from time to time
           source ~/.bashrc
           source ./scripts/fedbiomed_environment researcher
-          pytest -rfp -s -v tests/end2end/e2e_*.py
+          FEDBIOMED_E2E_DATA_PATH=/Data/fedbiomed pytest -rfp -s -v tests/end2end/e2e_*.py
         shell: bash -l {0}
 
