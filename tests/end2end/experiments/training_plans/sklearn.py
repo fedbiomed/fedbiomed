@@ -9,6 +9,10 @@ from fedbiomed.common.data import DataManager
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.optimizers.declearn import AdamModule, FedProxRegularizer, ScaffoldClientModule
 
+import numpy as np
+from sklearn.metrics import hinge_loss
+
+
 
 class PerceptronTraining(FedPerceptron):
     def training_data(self):
@@ -18,6 +22,43 @@ class PerceptronTraining(FedPerceptron):
         y = dataset.iloc[:,NUMBER_COLS]
         return DataManager(dataset=X,target=y.values, shuffle=True)
 
+
+class SkLearnClassifierTrainingPlanCustomTesting(FedPerceptron):
+    def init_dependencies(self):
+        return ["from torchvision import datasets, transforms",
+                "from torch.utils.data import DataLoader",
+                "from sklearn.metrics import hinge_loss"]
+
+    def compute_accuracy_for_specific_digit(self, data, target, digit: int):
+        idx_data_equal_to_digit = (target.squeeze() == digit)
+
+        predicted = self.model().predict(data[idx_data_equal_to_digit])
+        well_predicted_label = np.sum(predicted == digit) / np.sum(idx_data_equal_to_digit)
+        return well_predicted_label
+
+    def training_data(self):
+        # Custom torch Dataloader for MNIST data
+        transform = transforms.Compose([transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))])
+        dataset = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
+
+        train_kwargs = { 'shuffle': True}  # number of data passed to classifier
+        X_train = dataset.data.numpy()
+        X_train = X_train.reshape(-1, 28*28)
+        Y_train = dataset.targets.numpy()
+
+        return DataManager(dataset=X_train, target=Y_train)
+
+    def testing_step(self, data, target):
+        # hinge loss
+        distance_from_hyperplan = self.model().decision_function(data)
+        loss = hinge_loss(target, distance_from_hyperplan)
+
+        # get the accuracy only on images representing digit 1
+        well_predicted_label_1 = self.compute_accuracy_for_specific_digit(data, target, 1)
+
+        # Returning results as dict
+        return {'Hinge Loss': loss, 'Well Predicted Label 1' : well_predicted_label_1}
 
 class SGDRegressorTrainingPlan(FedSGDRegressor):
     def training_data(self):

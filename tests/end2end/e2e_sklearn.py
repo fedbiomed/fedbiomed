@@ -32,7 +32,8 @@ from experiments.training_plans.sklearn import (
     SGDClassifierTrainingPlan,
     SkLearnClassifierTrainingPlanDeclearn,
     SGDRegressorTrainingPlanDeclearn,
-    SGDRegressorTrainingPlanDeclearnScaffold
+    SGDRegressorTrainingPlanDeclearnScaffold,
+    SkLearnClassifierTrainingPlanCustomTesting
 )
 
 from fedbiomed.researcher.federated_workflows import Experiment
@@ -178,34 +179,30 @@ regressor_model_args = {
     'random_state': RANDOM_SEED
 }
 
+per_model_args = {
+    'max_iter':1000,
+    'tol': 1e-3 ,
+    'n_features' : 20,
+    'n_classes' : 2
+}
+
+per_training_args = {
+    'epochs': 5,
+    'loader_args': { 'batch_size': 1 }
+}
+
+
+
 def test_01_sklearn_perceptron():
     """Tests sklearn perceptron"""
 
-    n_features = 20
-    n_classes = 2
-
-    model_args = {
-        'max_iter':1000,
-        'tol': 1e-3 ,
-        'n_features' : n_features,
-        'n_classes' : n_classes
-    }
-
-    training_args = {
-        'epochs': 5,
-        'loader_args': { 'batch_size': 1 }
-    }
-
-    tags =  ['#csv-dataset-classification']
-    rounds = 2
-
     # search for corresponding datasets across nodes datasets
     exp = Experiment(
-        tags=tags,
-        model_args=model_args,
+        tags=['#csv-dataset-classification'],
+        model_args=per_model_args,
         training_plan_class=PerceptronTraining,
-        training_args=training_args,
-        round_limit=rounds,
+        training_args=per_training_args,
+        round_limit=2,
         aggregator=FedAverage(),
         node_selection_strategy=None)
 
@@ -213,7 +210,32 @@ def test_01_sklearn_perceptron():
 
     clear_experiment_data(exp)
 
-def test_02_sklean_sgdregressor():
+def test_02_sklearn_perceptron_custom_testing():
+    """Tests sklearn perceptron using custom testing function in training plan"""
+
+    per_training_args.update(
+        {
+        'test_ratio': .3,
+        'test_on_local_updates': True,
+        'test_on_global_updates': True
+        }
+    )
+
+    exp = Experiment(
+        tags=['#csv-dataset-classification'],
+        model_args=per_model_args,
+        training_plan_class=PerceptronTraining,
+        training_args=per_training_args,
+        round_limit=2,
+        aggregator=FedAverage(),
+        node_selection_strategy=None)
+
+    exp.run()
+
+    clear_experiment_data(exp)
+
+
+def test_03_sklean_sgdregressor():
     """Test SGDRegressor using Adni dataset"""
 
 
@@ -250,7 +272,7 @@ def test_02_sklean_sgdregressor():
     clear_experiment_data(loaded_exp)
 
 
-def test_03_sklearn_sgdclassfier():
+def test_04_sklearn_sgdclassfier():
     """Tests SGDClassifier"""
 
     n_features = 20
@@ -294,7 +316,7 @@ declearn_training_args = {
 }
 
 
-def test_04_sklearn_mnist_perceptron_with_declearn_optimizer():
+def test_05_sklearn_mnist_perceptron_with_declearn_optimizer():
     """Tests SGD classifier with Declearn optimizers"""
 
     # select nodes participating in this experiment
@@ -319,7 +341,7 @@ def test_04_sklearn_mnist_perceptron_with_declearn_optimizer():
     clear_experiment_data(loaded_exp)
 
 
-def test_05_sklearn_mnist_perceptron_with_declearn_optimizer_on_researcher_side():
+def test_06_sklearn_mnist_perceptron_with_declearn_optimizer_on_researcher_side():
     """Test declearn optimizer on researcher side"""
 
     exp = Experiment(
@@ -350,7 +372,7 @@ regressor_training_args = {
 
 
 
-def test_06_sklearn_adni_regressor_with_declearn_optimizer():
+def test_07_sklearn_adni_regressor_with_declearn_optimizer():
     """Tests declearn optimizer with sgd regressor"""
 
     tags =  ['#adni']
@@ -369,7 +391,7 @@ def test_06_sklearn_adni_regressor_with_declearn_optimizer():
 
     clear_experiment_data(exp)
 
-def test_07_sklearn_adni_regressor_with_scaffold():
+def test_08_sklearn_adni_regressor_with_scaffold():
     """Tests sgd regressor training plan using declearn scaffold"""
 
     tags =  ['#adni']
@@ -393,7 +415,7 @@ def test_07_sklearn_adni_regressor_with_scaffold():
 
 
 
-def test_08_seklearn_adni_regressor_with_secureaggregation():
+def test_09_seklearn_adni_regressor_with_secureaggregation():
     """Test SGDRegressor by activating secure aggregation"""
 
     # Configure secure aggregation setup
