@@ -1,7 +1,6 @@
 import unittest
 import asyncio
-import threading
-import grpc 
+import grpc
 
 
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -12,8 +11,9 @@ from fedbiomed.transport.client import GrpcClient, \
     Sender, \
     Channels, \
     _StubType
+from fedbiomed.common.constants import MAX_RETRIEVE_ERROR_RETRIES, MAX_SEND_RETRIES
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
-from fedbiomed.common.message import SearchReply, FeedbackMessage, Log
+from fedbiomed.common.message import SearchReply, FeedbackMessage, Log, Scalar
 from fedbiomed.transport.protocols.researcher_pb2 import TaskResponse
 from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
 from testsupport.mock import AsyncMock
@@ -54,7 +54,7 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
         self.stub_patch.stop()
         self.sender_patch.stop()
         self.task_listener_patch.stop()
-        pass 
+        pass
 
 
     async def test_grpc_client_01_start(self):
@@ -87,14 +87,14 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(FedbiomedCommunicationError):
             await self.client._update_id(id_='test-malicious')
 
-        pass 
+        pass
 
 
 class TestTaskListener(unittest.IsolatedAsyncioTestCase):
 
 
     def setUp(self):
-        
+
         self.serializer_patch = patch('fedbiomed.transport.client.Serializer')
         self.serializer_mock = self.serializer_patch.start()
         self.node_id = "test-node-id"
@@ -112,37 +112,36 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
 
     def tearDown(self) -> None:
         self.serializer_patch.stop()
-        pass 
+        pass
 
 
     async def test_task_listener_01_listen(self):
 
-
-        self.on_status_change.side_effect = [None, asyncio.CancelledError]
         self.serializer_mock.load.return_value = {'researcher_id': 'test-researcher-id'}
 
         async def async_iterator(items):
             for item in items:
                 yield item
 
-        # Run with cancel to be able to stop the loop ---------------------
-        self.on_status_change.side_effect = [None, asyncio.CancelledError]
-        task = self.task_listener.listen(self.callback)
-
         request_stub = MagicMock()
         self.channels.stub = AsyncMock()
         self.channels.stub.return_value = request_stub
-        request_stub.GetTaskUnary.return_value = async_iterator([
-            TaskResponse(bytes_= b'test-1', iteration=0, size=1),
-            TaskResponse(bytes_= b'test-2', iteration=1, size=1)
-        ])
+        # Run with cancel to be able to stop the loop ---------------------
+        request_stub.GetTaskUnary.side_effect = [
+            async_iterator([
+                TaskResponse(bytes_= b'test-1', iteration=0, size=1),
+                TaskResponse(bytes_= b'test-2', iteration=1, size=1)
+            ]),
+            asyncio.CancelledError
+        ]
+        task = self.task_listener.listen(self.callback)
 
         with self.assertRaises(asyncio.CancelledError):
             await task
 
         # self.callback.assert_called_once()
         self.serializer_mock.loads.assert_called_once()
-        request_stub.GetTaskUnary.assert_called_once()
+        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
         self.update_id.assert_called_once()
 
         # Cancel the task for next test
@@ -150,36 +149,43 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
 
 
     @patch('fedbiomed.transport.client.asyncio.sleep')
-    async def test_task_listener_02_listen_exceptions(self, sleep):  
+    async def test_task_listener_02_listen_grpc_exceptions(self, sleep):
 
         request_stub = MagicMock()
         self.channels.stub = AsyncMock()
         self.channels.stub.return_value = request_stub
 
         # deadline exceeded
-        request_stub.GetTaskUnary.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.DEADLINE_EXCEEDED,
-                                                                   trailing_metadata=grpc.aio.Metadata(('test', 'test')),
-                                                                   initial_metadata=grpc.aio.Metadata(('test', 'test'))), 
-                                              asyncio.CancelledError]
+        request_stub.GetTaskUnary.side_effect = [
+            grpc.aio.AioRpcError(code=grpc.StatusCode.DEADLINE_EXCEEDED,
+                                 trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                 initial_metadata=grpc.aio.Metadata(('test', 'test'))),
+            asyncio.CancelledError]
 
         task = self.task_listener.listen(self.callback)
         with self.assertRaises(asyncio.CancelledError):
             await task
-        # Cancel the task for next test
+        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
+        # Cancel and reset the task for next test
         task.cancel()
+        request_stub.reset_mock()
 
         # unavailable
-        request_stub.GetTaskUnary.side_effect = [grpc.aio.AioRpcError(code=grpc.StatusCode.UNAVAILABLE,
-                                                                   trailing_metadata=grpc.aio.Metadata(('test', 'test')),
-                                                                   initial_metadata=grpc.aio.Metadata(('test', 'test'))), 
-                                              asyncio.CancelledError]
+        request_stub.GetTaskUnary.side_effect = [
+            grpc.aio.AioRpcError(code=grpc.StatusCode.UNAVAILABLE,
+                                 trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                 initial_metadata=grpc.aio.Metadata(('test', 'test'))),
+            asyncio.CancelledError]
 
         task = self.task_listener.listen(self.callback)
         with self.assertRaises(asyncio.CancelledError):
             await task
-        # Cancel the task for next test
+        sleep.assert_called_once()
+        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
+        # Cancel and reset the task for next test
         task.cancel()
-        sleep.assert_called()
+        request_stub.reset_mock()
+        sleep.reset_mock()
 
         # unknown
         request_stub.GetTaskUnary.side_effect = [
@@ -191,11 +197,14 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         task = self.task_listener.listen(self.callback)
         with self.assertRaises(asyncio.CancelledError):
             await task
-        sleep.assert_called()
-        # Cancel the task for next test
+        sleep.assert_called_once()
+        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
+        # Cancel and reset the task for next test
         task.cancel()
+        request_stub.reset_mock()
+        sleep.reset_mock()
 
-        # For all others
+        # For all others gRPC errors
         request_stub.GetTaskUnary.side_effect = [
             grpc.aio.AioRpcError(
                 code=grpc.StatusCode.ABORTED,
@@ -206,9 +215,67 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         task = self.task_listener.listen(self.callback)
         with self.assertRaises(asyncio.CancelledError):
             await task
-        sleep.assert_called()
-        # Cancel the task for next test
+        sleep.assert_called_once()
+        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
+
+        # Cancel and reset the task for next test
         task.cancel()
+        request_stub.reset_mock()
+        sleep.reset_mock()
+
+
+    @patch('fedbiomed.transport.client.asyncio.sleep')
+    async def test_task_listener_03_listen_non_grpc_exceptions(self, sleep):
+
+        request_stub = MagicMock()
+        self.channels.stub = AsyncMock()
+        self.channels.stub.return_value = request_stub
+
+        async def async_iterator(items):
+            for item in items:
+                yield item
+
+        # Wrap to count calls
+        self.task_listener._post_handle_raise = MagicMock(wraps=self.task_listener._post_handle_raise)
+
+        # Test with increasing number of error until over the maximum authorized (MAX + 3 to test more cases)
+        for exception in [RuntimeError, Exception, GeneratorExit]:
+            for nb_errors in range(1, MAX_RETRIEVE_ERROR_RETRIES + 5):
+                request_stub.GetTaskUnary.side_effect = [exception] * nb_errors + [asyncio.CancelledError]
+
+                task = self.task_listener.listen(self.callback)
+                if nb_errors <= MAX_RETRIEVE_ERROR_RETRIES:
+                    signal = asyncio.CancelledError
+                else:
+                    signal = FedbiomedCommunicationError
+                with self.assertRaises(signal):
+                    await task
+                self.assertEqual(sleep.call_count, min(nb_errors, MAX_RETRIEVE_ERROR_RETRIES))
+                self.assertEqual(request_stub.GetTaskUnary.call_count, min(nb_errors + 1, MAX_RETRIEVE_ERROR_RETRIES + 1))
+                self.assertEqual(self.task_listener._post_handle_raise.call_count,
+                                 max(0, nb_errors - MAX_RETRIEVE_ERROR_RETRIES))
+
+                # Cancel the task
+                task.cancel()
+
+                # Need a successful task retrieve to reset the retry counters
+                request_stub.GetTaskUnary.side_effect = [
+                    async_iterator([
+                        TaskResponse(bytes_= b'test-1', iteration=0, size=1),
+                        TaskResponse(bytes_= b'test-2', iteration=1, size=1)
+                    ]),
+                    asyncio.CancelledError
+                ]
+                task = self.task_listener.listen(self.callback)
+
+                with self.assertRaises(asyncio.CancelledError):
+                    await task
+
+                # Cancel the task and reset for next test
+                task.cancel()
+                request_stub.reset_mock()
+                sleep.reset_mock()
+            self.task_listener._post_handle_raise.reset_mock()
 
 
 class TestSender(unittest.IsolatedAsyncioTestCase):
@@ -232,6 +299,25 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
             )
     )
 
+    message_scalar = FeedbackMessage(
+        researcher_id='test',
+        scalar=Scalar(
+            node_id='test',
+            experiment_id = 'my_exp',
+            train=True,
+            test=False,
+            test_on_local_updates=False,
+            test_on_global_updates=False,
+            metric={},
+            total_samples=3,
+            batch_samples=2,
+            num_batches=1,
+            iteration=1,
+            epoch=2,
+            num_samples_trained=3
+        )
+    )
+
     def setUp(self):
 
         self.serializer_patch = patch('fedbiomed.transport.client.Serializer')
@@ -249,7 +335,7 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
 
     def tearDown(self) -> None:
         self.serializer_patch.stop()
-        pass 
+        pass
 
 
     async def test_sender_01_send(self):
@@ -261,7 +347,11 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
 
         await self.sender.send(message=self.message_log)
         item = await self.sender._queue.get()
-        self.assertEqual(item, {'stub': _StubType.SENDER_FEEDBACK_STUB, 'message': self.message_log.to_proto()})
+        self.assertEqual(item, {'stub': _StubType.SENDER_FEEDBACK_STUB, 'message': self.message_log})
+
+        await self.sender.send(message=self.message_scalar)
+        item = await self.sender._queue.get()
+        self.assertEqual(item, {'stub': _StubType.SENDER_FEEDBACK_STUB, 'message': self.message_scalar})
 
 
     async def test_sender_02_listen(self):
@@ -278,6 +368,8 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
         task = self.sender.listen()
         with self.assertRaises(asyncio.CancelledError):
             await task
+        self.assertEqual(self.channels.feedback_stub.Feedback.call_count, 2)
+
         task.cancel()
 
         stream_call = AsyncMock()
@@ -291,8 +383,9 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
             await task
 
         task.cancel()
-        stream_call.write.assert_called()
-        stream_call.done_writing.assert_called()
+        self.assertEqual(self.channels.task_stub.ReplyTask.call_count, 2)
+        stream_call.write.assert_called_once()
+        stream_call.done_writing.assert_called_once()
 
     @patch('fedbiomed.transport.client.asyncio.sleep')
     async def test_sender_02_listen_exceptions(self, sleep):
@@ -304,72 +397,163 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
                                  initial_metadata=grpc.aio.Metadata(('test', 'test'))),
             grpc.aio.AioRpcError(code=grpc.StatusCode.ABORTED,
                                  trailing_metadata=grpc.aio.Metadata(('test', 'test')),
-                                 initial_metadata=grpc.aio.Metadata(('test', 'test'))),       
+                                 initial_metadata=grpc.aio.Metadata(('test', 'test'))),
         ]
-        for code in codes:
-            self.channels.stub.return_value = self.channels.feedback_stub
-            self.channels.feedback_stub.Feedback.side_effect = [
-                code,
-                asyncio.CancelledError]
-            await self.sender.send(message=self.message_log)
-            await self.sender.send(message=self.message_log)
+        for message in [self.message_log, self.message_scalar]:
+            for code in codes:
+                for retry in range(1, MAX_SEND_RETRIES + 5):
+                    self.channels.stub.return_value = self.channels.feedback_stub
+                    self.channels.feedback_stub.Feedback.side_effect = [code] * retry + [asyncio.CancelledError]
 
-            task = self.sender.listen()
-            with self.assertRaises(asyncio.CancelledError):
-                await task
-            task.cancel()
+                    await self.sender.send(message=message)
+                    await self.sender.send(message=message)
+                    task = self.sender.listen()
 
-        # Other exceptions
-        codes = [
-            Exception,
-            GeneratorExit,
-        ]
-        for code in codes:
-            self.channels.stub.return_value = self.channels.feedback_stub
-            self.channels.feedback_stub.Feedback.side_effect = [code]
-            await self.sender.send(message=self.message_log)
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+                    self.assertEqual(self.channels.feedback_stub.Feedback.call_count, retry + 1)
+                    self.assertEqual(sleep.call_count, retry - int((retry - 1) / MAX_SEND_RETRIES))
 
-            task = self.sender.listen()
-            with self.assertRaises(FedbiomedCommunicationError):
-                await task
-            task.cancel()
+                    # Cancel the task
+                    task.cancel()
+
+                    # Need a successful task retrieve to reset the retry counters
+                    future = asyncio.Future()
+                    future.set_result('x')
+                    self.channels.feedback_stub.Feedback.side_effect = [future, asyncio.CancelledError]
+                    self.channels.stub.return_value = self.channels.feedback_stub
+                    await self.sender.send(message=message)
+                    await self.sender.send(message=message)
+                    task = self.sender.listen()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+
+                    # Cancel and reset the task for next test
+                    task.cancel()
+                    self.channels.feedback_stub.reset_mock()
+                    sleep.reset_mock()
+
 
         # Unavailable
-        retry = self.sender._retry_count 
-        self.channels.stub.return_value = self.channels.feedback_stub
-        self.channels.feedback_stub.Feedback.side_effect = [
-            grpc.aio.AioRpcError(code=grpc.StatusCode.UNAVAILABLE,
-                                 trailing_metadata=grpc.aio.Metadata(('test', 'test')),
-                                 initial_metadata=grpc.aio.Metadata(('test', 'test'))),
-            asyncio.CancelledError]
-        
-        await self.sender.send(message=self.message_log)
-        await self.sender.send(message=self.message_log)
+        for message in [self.message_log, self.message_scalar]:
+            for retry in range(1, MAX_SEND_RETRIES + 5):
+                self.channels.stub.return_value = self.channels.feedback_stub
+                self.channels.feedback_stub.Feedback.side_effect = [
+                    grpc.aio.AioRpcError(code=grpc.StatusCode.UNAVAILABLE,
+                                         trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                         initial_metadata=grpc.aio.Metadata(('test', 'test')))
+                ] * retry + [asyncio.CancelledError]
 
-        task = self.sender.listen()
-        with self.assertRaises(asyncio.CancelledError):
-            await task
-        task.cancel()
-        sleep.assert_called()
-        self.assertEqual(self.sender._retry_count, retry+1)
+                await self.sender.send(message=message)
+                await self.sender.send(message=message)
+                task = self.sender.listen()
+
+                with self.assertRaises(asyncio.CancelledError):
+                    await task
+                self.assertEqual(self.channels.feedback_stub.Feedback.call_count, retry + 1)
+                self.assertEqual(sleep.call_count, retry - int((retry - 1) / MAX_SEND_RETRIES))
+
+                # Cancel the task
+                task.cancel()
+
+                # Need a successful task retrieve to reset the retry counters
+                future = asyncio.Future()
+                future.set_result('x')
+                self.channels.feedback_stub.Feedback.side_effect = [future, asyncio.CancelledError]
+                self.channels.stub.return_value = self.channels.feedback_stub
+                await self.sender.send(message=message)
+                await self.sender.send(message=message)
+                task = self.sender.listen()
+                with self.assertRaises(asyncio.CancelledError):
+                    await task
+
+                # Cancel the task
+                task.cancel()
+                self.channels.feedback_stub.reset_mock()
+                sleep.reset_mock()
 
 
         # Deadline
-        retry = self.sender._retry_count 
-        self.channels.stub.return_value = self.channels.feedback_stub
-        self.channels.feedback_stub.Feedback.side_effect = [
-            grpc.aio.AioRpcError(code=grpc.StatusCode.DEADLINE_EXCEEDED,
-                                 trailing_metadata=grpc.aio.Metadata(('test', 'test')),
-                                 initial_metadata=grpc.aio.Metadata(('test', 'test'))),
-            asyncio.CancelledError]
+        for message in [self.message_log, self.message_scalar]:
+            for retry in range(1, MAX_SEND_RETRIES + 5):
+                self.channels.stub.return_value = self.channels.feedback_stub
+                self.channels.feedback_stub.Feedback.side_effect = [
+                    grpc.aio.AioRpcError(code=grpc.StatusCode.DEADLINE_EXCEEDED,
+                                         trailing_metadata=grpc.aio.Metadata(('test', 'test')),
+                                         initial_metadata=grpc.aio.Metadata(('test', 'test')))
+                ] * retry + [asyncio.CancelledError]
 
-        await self.sender.send(message=self.message_log)
-        await self.sender.send(message=self.message_log)
+                await self.sender.send(message=message)
+                await self.sender.send(message=message)
+                task = self.sender.listen()
 
-        task = self.sender.listen()
-        with self.assertRaises(asyncio.CancelledError):
-            await task
-        task.cancel()
+                with self.assertRaises(asyncio.CancelledError):
+                    await task
+                self.assertEqual(self.channels.feedback_stub.Feedback.call_count, retry + 1)
+                sleep.assert_not_called()
+
+                # Cancel the task
+                task.cancel()
+
+                # Need a successful task retrieve to reset the retry counters
+                future = asyncio.Future()
+                future.set_result('x')
+                self.channels.feedback_stub.Feedback.side_effect = [future, asyncio.CancelledError]
+                self.channels.stub.return_value = self.channels.feedback_stub
+                await self.sender.send(message=message)
+                await self.sender.send(message=message)
+                task = self.sender.listen()
+                with self.assertRaises(asyncio.CancelledError):
+                    await task
+
+                task.cancel()
+                self.channels.feedback_stub.reset_mock()
+                sleep.reset_mock()
+
+
+        # Other exceptions
+        codes = [
+            RuntimeError,
+            Exception,
+            GeneratorExit,
+        ]
+        for message in [self.message_log, self.message_scalar]:
+            for code in codes:
+                for retry in range(1, MAX_SEND_RETRIES + 5):
+                    self.channels.stub.return_value = self.channels.feedback_stub
+                    self.channels.feedback_stub.Feedback.side_effect = [code] * retry + [asyncio.CancelledError]
+
+                    await self.sender.send(message=message)
+                    await self.sender.send(message=message)
+                    task = self.sender.listen()
+                    if retry <= MAX_SEND_RETRIES:
+                        signal = asyncio.CancelledError
+                    else:
+                        signal = FedbiomedCommunicationError
+
+                    with self.assertRaises(signal):
+                        await task
+                    self.assertEqual(self.channels.feedback_stub.Feedback.call_count, min(retry + 1, MAX_SEND_RETRIES + 1))
+                    self.assertEqual(sleep.call_count, min(retry, MAX_SEND_RETRIES))
+
+                    # Cancel the task
+                    task.cancel()
+
+                    # Need a successful task retrieve to reset the retry counters
+                    future = asyncio.Future()
+                    future.set_result('x')
+                    self.channels.feedback_stub.Feedback.side_effect = [future, asyncio.CancelledError]
+                    self.channels.stub.return_value = self.channels.feedback_stub
+                    await self.sender.send(message=message)
+                    await self.sender.send(message=message)
+                    task = self.sender.listen()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+
+                    # Cancel and reset the task for next test
+                    task.cancel()
+                    self.channels.feedback_stub.reset_mock()
+                    sleep.reset_mock()
 
 
 class TestChannels(unittest.IsolatedAsyncioTestCase):
