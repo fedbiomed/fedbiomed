@@ -504,7 +504,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         state.update({
             'model_args': self._model_args,
             'training_plan_class_name': self._training_plan_class.__name__,
-            'training_args': self._training_args.dict(),
+            'training_args': self._training_args.get_state_breakpoint(),
         })
 
         breakpoint_path, breakpoint_file_name = \
@@ -560,7 +560,9 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         loaded_exp.set_model_args(saved_state["model_args"])
         loaded_exp.set_training_plan_class(tp_class)
-        loaded_exp.set_training_args(saved_state.get('training_args'))
+        loaded_exp.set_training_args(
+            TrainingArgs.load_state_breakpoint(
+                saved_state.get('training_args')))
         training_plan = loaded_exp.training_plan()
         if training_plan is None:
             msg = ErrorNumbers.FB413.value + ' - load failed, ' + \
