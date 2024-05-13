@@ -343,16 +343,13 @@ class Listener:
             channels: Keeps channels and stubs.
         """
         self._channels = channels
-
-        self.task_name = "generic listener"
-        self._want_retry_grpc_error = False
+        self._retry_on_error = False
 
     @abc.abstractmethod
     async def _handle_after_process(self,
                                     status: ClientStatus,
-                                    want_retry: bool = False,
-                                    want_reconnect: bool = False,
-                                    want_detailed_log: bool = False,
+                                    retry: bool = False,
+                                    reconnect: bool = False,
                                     post_noretry_function: Optional[Callable] = None,
                                     *args
                                     ):
@@ -360,9 +357,8 @@ class Listener:
 
         Args:
             status: new gRPC client status to set
-            want_retry: want to retry same action, if applicable
-            want_reconnect: want to redo connection to server, if applicable
-            want_detailed_log: want to do more detailed logging, if applicable
+            retry: want to retry same action, if applicable
+            reconnect: want to redo connection to server, if applicable
             post_noretry_function: optional final function to execute, if applicable
             args: arguments for `post_noretry_function`
         """
@@ -381,14 +377,16 @@ class Listener:
         """
 
 
-    async def _post_handle_raise(self, task: str, exp: BaseException):
+    async def _post_handle_raise(self, exp: BaseException):
         """Raise a tansformed exception from a base exception.
 
         To be called as final function after handling process in a listener task
 
+        Args:
+            exp: Base exception to use
         """
         raise FedbiomedCommunicationError(
-            f"{ErrorNumbers.FB628}: {task} has stopped due to unknown reason: "
+            f"{ErrorNumbers.FB628}: {self.__class__.__name__} has stopped due to unknown reason: "
             f"{type(exp).__name__} : {exp}") from exp
 
 
@@ -425,25 +423,27 @@ class Listener:
                     case grpc.StatusCode.UNAVAILABLE:
                         await self._on_status_change(ClientStatus.DISCONNECTED)
                         logger.debug(
-                            f"Researcher server is not available to {self._task_name}, will retry connect in "
+                            f"Researcher server is not available to {self.__class__.__name__}, will retry connect in "
                             f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await self._handle_after_process(ClientStatus.DISCONNECTED,
-                                                         want_retry=self._want_retry_grpc_error,
-                                                         want_reconnect=True)
+                                                         retry=self._retry_on_error,
+                                                         reconnect=True)
 
                     case grpc.StatusCode.UNKNOWN | _:
-                        logger.error(f"Unexpected error raised by researcher gRPC server in {self._task_name}: {exp}. "
+                        logger.error("Unexpected error raised by researcher gRPC server in "
+                                     f"{self.__class__.__name__}: {exp}. "
                                      f"Will retry connect in {GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds")
                         await self._handle_after_process(ClientStatus.FAILED,
-                                                         want_retry=self._want_retry_grpc_error,
-                                                         want_reconnect=True,
-                                                         want_detailed_log=True)
+                                                         retry=self._retry_on_error,
+                                                         reconnect=True)
 
             except (Exception, GeneratorExit) as exp:
-                logger.error(
-                    f"Unexpected error raised by node gRPC client in {self._task_name}: {type(exp).__name__} : {exp}")
-                await self._handle_after_process(ClientStatus.FAILED, True, False, True,
-                                                 self._post_handle_raise, self._task_name, exp)
+                logger.error(f"Unexpected error raised by node gRPC client in {self.__class__.__name__}: "
+                             f"{type(exp).__name__} : {exp}")
+                await self._handle_after_process(ClientStatus.FAILED,
+                                                 True,
+                                                 False,
+                                                 self._post_handle_raise, exp)
             else:
                 await self._handle_after_process(ClientStatus.CONNECTED)
 
@@ -472,14 +472,12 @@ class TaskListener(Listener):
         self._on_status_change = on_status_change
         self._update_id = update_id
         self._retry_count = 0
-        self._task_name = "task listener"
 
 
     async def _handle_after_process(self,
                                     status: ClientStatus,
-                                    want_retry: bool = False,
-                                    want_reconnect: bool = False,
-                                    want_detailed_log: bool = False,
+                                    retry: bool = False,
+                                    reconnect: bool = False,
                                     post_noretry_function: Optional[Callable] = None,
                                     *args
                                     ):
@@ -487,21 +485,20 @@ class TaskListener(Listener):
 
         Args:
             status: new gRPC client status to set
-            want_retry: if True (and MAX_RETRIEVE_ERROR_RETRIES is not exceeded) then retry to get a task
-            want_reconnect: if True and `want_retry` is False, then redo connection to server
-            want_detailed_log: unused
+            retry: if True (and MAX_RETRIEVE_ERROR_RETRIES is not exceeded) then retry to get a task
+            reconnect: if True and `retry` is False, then redo connection to server
             post_noretry_function: optional final function to execute if not retrying to get a task.
                 If None, no final function is executed
             args: arguments for `post_noretry_function`
         """
         await self._on_status_change(status)
 
-        if want_retry and self._retry_count < MAX_RETRIEVE_ERROR_RETRIES:
+        if retry and self._retry_count < MAX_RETRIEVE_ERROR_RETRIES:
             await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
             await self._channels.connect(_StubType.LISTENER_TASK_STUB)
             self._retry_count += 1
         else:
-            if want_reconnect:
+            if reconnect:
                 await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
                 await self._channels.connect(_StubType.LISTENER_TASK_STUB)
             self._retry_count = 0
@@ -573,17 +570,15 @@ class Sender(Listener):
         self._queue = asyncio.Queue()
         self._on_status_change = on_status_change
         self._retry_count = 0
-        self._retry_msg = None
+        self._retry_item = None
         self._stub_type = _StubType.NO_STUB
-        self._task_name = "sender"
-        self._want_retry_grpc_error = True
+        self._retry_on_error = True
 
 
     async def _handle_after_process(self,
                                     status: ClientStatus,
-                                    want_retry: bool = False,
-                                    want_reconnect: bool = False,
-                                    want_detailed_log: bool = False,
+                                    retry: bool = False,
+                                    reconnect: bool = False,
                                     post_noretry_function: Optional[Callable] = None,
                                     *args
                                     ):
@@ -591,36 +586,34 @@ class Sender(Listener):
 
         Args:
             status: new gRPC client status to set
-            want_retry: if True (and MAX_SEND_RETRIES is not exceeded) then re-send message
-            want_reconnect: unused
-            want_detailed_log: if True (or MAX_SEND_RETRIES is exceeded) then log details about this message
+            retry: if True (and MAX_SEND_RETRIES is not exceeded) then re-send message
+            reconnect: unused
             post_noretry_function: optional final function to execute if message is not re-sent.
                 If None, no final function is executed
             args: arguments for `post_noretry_function`
         """
         await self._on_status_change(status)
 
-        if want_detailed_log or self._retry_count >= MAX_SEND_RETRIES:
-            # Extract useful information for detailed log without assumption on message structures
-            # to cover possible bug cases
-            if isinstance(self._retry_msg, dict) and {'stub', 'message'} <= self._retry_msg.keys():
-                msg = self._retry_msg['message']
-                if hasattr(msg, 'command'):
-                    command = msg.get_param('command')
-                elif hasattr(msg, 'log') and msg.get_param('log'):
-                    command = 'feedback-log'
-                elif hasattr(msg, 'scalar') and msg.get_param('scalar'):
-                    command = 'feedback-scalar'
-                else:
-                    command = '?'
-                logger.debug(
-                    f"Message details: stub={self._retry_msg['stub']} "
-                    f"researcher_id={msg.get_param('researcher_id') if hasattr(msg, 'researcher_id') else '?'} "
-                    f"node_id={msg.get_param('node_id') if hasattr(msg, 'node_id') else '?'} "
-                    f"command={command} "
-                )
+        # Extract useful information for detailed log without assumption on message structures
+        # to cover possible bug cases
+        if isinstance(self._retry_item, dict) and {'stub', 'message'} <= self._retry_item.keys():
+            msg = self._retry_item['message']
+            if hasattr(msg, 'command'):
+                command = msg.get_param('command')
+            elif hasattr(msg, 'log') and msg.get_param('log'):
+                command = 'feedback-log'
+            elif hasattr(msg, 'scalar') and msg.get_param('scalar'):
+                command = 'feedback-scalar'
+            else:
+                command = '?'
+            logger.debug(
+                f"Message details: stub={self._retry_item['stub']} "
+                f"researcher_id={msg.get_dict().get('researcher_id', '?')} "
+                f"node_id={msg.get_dict().get('researcher_id', '?')} "
+                f"command={command} "
+            )
 
-        if want_retry and self._retry_count < MAX_SEND_RETRIES:
+        if retry and self._retry_count < MAX_SEND_RETRIES:
             await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
             await self._channels.connect(self._stub_type)
             self._retry_count += 1
@@ -630,7 +623,7 @@ class Sender(Listener):
                     f"Message can not be sent to researcher after {MAX_SEND_RETRIES} retries. Discard message.")
             self._queue.task_done()
             self._retry_count = 0
-            self._retry_msg = None
+            self._retry_item = None
             self._stub_type = _StubType.NO_STUB
 
             if post_noretry_function:
@@ -654,10 +647,10 @@ class Sender(Listener):
         """
         if self._retry_count == 0:
             # only pick a new message if not retrying to send
-            self._retry_msg = await self._queue.get()
-        msg = self._retry_msg
+            self._retry_item = await self._queue.get()
+        item = self._retry_item
 
-        self._stub_type = msg["stub"]
+        self._stub_type = item["stub"]
         if self._stub_type == _StubType.SENDER_FEEDBACK_STUB:
             feedback_stub = await self._channels.stub(_StubType.SENDER_FEEDBACK_STUB)
             stub_function = feedback_stub.Feedback
@@ -666,28 +659,28 @@ class Sender(Listener):
             stub_function = task_stub.ReplyTask
         else:
             raise FedbiomedCommunicationError(
-                f"Unknown type of stub in gRPC Sender listener {msg['stub']}"
+                f"Unknown type of stub in gRPC Sender listener {item['stub']}"
             )
 
         # If it is a Unary-Unary RPC call
         if isinstance(stub_function, grpc.aio.UnaryUnaryMultiCallable):
-            await stub_function(msg["message"].to_proto())
+            await stub_function(item["message"].to_proto())
 
         elif isinstance(stub_function, grpc.aio.StreamUnaryMultiCallable):
             stream_call = stub_function()
 
-            for reply in self._stream_reply(msg["message"]):
+            for reply in self._stream_reply(item["message"]):
                 await stream_call.write(reply)
 
             await stream_call.done_writing()
 
             if isinstance(callback, Callable):
                 # we could check the callback prototype
-                callback(msg["message"])
+                callback(item["message"])
 
         else:
             raise FedbiomedCommunicationError(
-                f"Unknown type of stub built from gRPC Sender listener {msg['stub']}"
+                f"Unknown type of stub built from gRPC Sender listener {item['stub']}"
             )
 
 
