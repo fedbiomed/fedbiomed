@@ -108,6 +108,7 @@ def shell_process(
     activate: str = None,
     wait: bool = False,
     pipe: bool = True,
+    on_failure: Callable | None = None
 ):
     """Executes shell process
 
@@ -144,12 +145,17 @@ def shell_process(
         )
 
     if wait:
-        return collect(process)
+        return collect(process, on_failure)
 
     return process
 
 
-def fedbiomed_run(command: list[str], wait: bool = False, pipe: bool = True):
+def fedbiomed_run(
+    command: list[str],
+    wait: bool = False,
+    pipe: bool = True,
+    on_failure: Callable | None = None
+) -> subprocess.Popen:
     """Executes given command using fedbiomed_run
 
     Args:
@@ -157,6 +163,6 @@ def fedbiomed_run(command: list[str], wait: bool = False, pipe: bool = True):
         wait: Wait until command is completed (blocking or non-blocking option)
     """
     command.insert(0, FEDBIOMED_RUN)
-    return shell_process(command=command, wait=wait, pipe=pipe)
+    return shell_process(command=command, wait=wait, pipe=pipe, on_failure=on_failure)
 
 

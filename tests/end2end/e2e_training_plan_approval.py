@@ -1,26 +1,22 @@
-import os
 import time
 import pytest
 
 from helpers import (
-    configure_secagg,
-    secagg_certificate_registration,
-    create_component,
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
     clear_node_data,
     clear_experiment_data,
     clear_researcher_data,
-    training_plan_operation
+    training_plan_operation,
+    create_node,
+    create_researcher
 )
 
 from experiments.training_plans.mnist_model_approval import TrainingPlanApprovalTP
 
-from fedbiomed.common.constants import ComponentType
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.aggregators.scaffold import Scaffold
 
 
 dataset = {
@@ -38,34 +34,24 @@ def setup_components(port, post_session, request):
 
     print(f"USING PORT {port} for researcher erver")
     print("Creating§ components ---------------------------------------------")
-    node_1 = create_component(
-        ComponentType.NODE,
-        config_name="config_training_plan_approval_n1.ini",
+    node_1 = create_node(
+        port=port,
         config_sections={
             'security': {'training_plan_approval': 'True'},
             'researcher': {'port': port} })
 
-    node_2 = create_component(
-        ComponentType.NODE,
-        config_name="config_training_plan_approval_n2.ini",
+    node_2 = create_node(
+        port=port,
         config_sections={
             'security': {'training_plan_approval': 'True'},
             'researcher': {'port': port} })
-
 
     # Starts the nodes
-    node_processes, _ = start_nodes([node_1, node_2])
+    node_processes, thread = start_nodes([node_1, node_2])
 
 
     print("Creating researcher component ---------------------------------------------")
-    researcher = create_component(
-        ComponentType.RESEARCHER,
-        config_name="config_researcher_training_plan_approval.ini",
-        config_sections={'server': {'port': port}},
-        )
-    os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
-
-
+    researcher = create_researcher(port=port)
 
     print("Adding first dataset --------------------------------------------")
     add_dataset_to_node(node_1, dataset)
@@ -77,6 +63,7 @@ def setup_components(port, post_session, request):
     # Clear files and processes created for the tests
     def clear():
         kill_subprocesses(node_processes)
+        thread.join()
 
         print("Cleareaniing component data")
         clear_node_data(node_1)
