@@ -596,7 +596,7 @@ class Sender(Listener):
 
         # Extract useful information for detailed log without assumption on message structures
         # to cover possible bug cases
-        if isinstance(self._retry_item, dict) and {'stub', 'message'} <= self._retry_item.keys():
+        if isinstance(self._retry_item, dict):
             msg = self._retry_item['message']
             if hasattr(msg, 'command'):
                 command = msg.get_param('command')
