@@ -9,11 +9,16 @@ import tempfile
 import json
 import asyncio
 import os
+import uuid
 import threading
 import multiprocessing
 import subprocess
+import functools
 
-from typing import Dict, Any, List, Tuple, Callable
+from contextlib import contextmanager
+from typing import Dict, Any, Tuple, Callable, List
+
+import pytest
 
 from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME, ComponentType
 from fedbiomed.common.config import Config
@@ -61,7 +66,7 @@ def add_dataset_to_node(
         json.dump(dataset, file)
 
     command = ["node", "--config", config.name, "dataset", "add", "--file", d_file]
-    _ = fedbiomed_run(command, wait=True)
+    _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
     tempdir_.cleanup()
 
     return True
@@ -70,6 +75,8 @@ def add_dataset_to_node(
 def default_on_failure(process: subprocess.Popen):
     """Default function to execute when the process is on exit"""
     print(f"On failure callback: Process has failed!, {process}")
+    raise End2EndError(f"Porcesses has failed! command: {process.args}")
+
 
 
 def start_nodes(
@@ -133,7 +140,7 @@ def configure_secagg():
 def secagg_certificate_registration():
     """Registers certificates of all components whose configs are available"""
 
-    return fedbiomed_run(['certificate-dev-setup'], wait=True)
+    return fedbiomed_run(['certificate-dev-setup'], wait=True, on_failure=default_on_failure)
 
 
 def execute_script(file: str, activate: str = 'researcher'):
@@ -157,7 +164,8 @@ def execute_python(file: str, activate: str):
     return shell_process(
         command=["python", f'{file}'],
         activate=activate,
-        wait=True
+        wait=True,
+        on_failure=default_on_failure
     )
 
 def execute_ipython(file: str, activate: str):
@@ -169,7 +177,8 @@ def execute_ipython(file: str, activate: str):
         #command=["ipython", "-c", f'"%run {file}"'],
         command=["jupyter execute", "--JupyterApp.log_level=10", f"{file}",],
         activate=activate,
-        wait=True
+        wait=True,
+        on_failure=default_on_failure
     )
     # output_file = 'myfile.ipynb'
     # return shell_process(
@@ -379,11 +388,15 @@ def clear_experiment_data(exp: 'Experiment'):
     print("Will wait 10 seconds to cancel current RPC requests")
 
     # Stop GRPC server and remove request object for next experiments
-    future = asyncio.run_coroutine_threadsafe(
-        exp._reqs._grpc_server._server.stop(10),
-        exp._reqs._grpc_server._server._loop
-    )
-    future.result()
+
+    if not exp._reqs._grpc_server._server._loop.is_closed():
+
+        future = asyncio.run_coroutine_threadsafe(
+            exp._reqs._grpc_server._server.stop(10),
+            exp._reqs._grpc_server._server._loop
+        )
+
+        future.result()
 
     # Need to remove request
     print("Removing request object")
@@ -402,7 +415,8 @@ def clear_experiment_data(exp: 'Experiment'):
     current_experimentation_folder = os.path.join(_exp_dir, exp._experimentation_folder)
 
     print("[INFO] Removing breakpoints", current_experimentation_folder)
-    shutil.rmtree(current_experimentation_folder)
+    if os.path.isdir(current_experimentation_folder):
+        shutil.rmtree(current_experimentation_folder)
 
 
 def create_component(
@@ -447,6 +461,25 @@ def create_component(
     return config
 
 
+def create_researcher(
+    port: str,
+    config_sections: Dict | None = None
+) -> Config:
+    """Creates researcher component"""
+
+    config_sections = config_sections or {}
+    config_sections.update({'server': {'port': port}})
+
+    researcher = create_component(
+        ComponentType.RESEARCHER,
+        config_name=f"config_researcher_{uuid.uuid4()}.ini",
+        config_sections=config_sections,
+    )
+
+    os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
+
+    return researcher
+
 def training_plan_operation(
     config: Config,
     operation: str,
@@ -467,12 +500,74 @@ def training_plan_operation(
 
     command = ["node", "--config", config.name, "training-plan",
                operation, "--id", training_plan_id]
-    _ = fedbiomed_run(command, wait=True)
+    _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
 
 
+def get_data_folder(path):
+    """Gets path to save datasets, and creates folder if not existing
 
 
+    Args:
 
+    """
+    ci_data_path = os.environ.get('FEDBIOMED_E2E_DATA_PATH')
+    if ci_data_path:
+        folder = os.path.join(ci_data_path, path)
+    else:
+        folder = os.path.join(ROOT_DIR, 'data', path)
+
+    if not os.path.isdir(folder):
+        print(f"Data folder for {path} is not existing. Creating folder...")
+        os.makedirs(folder)
+
+    return folder
+
+def create_node(port, config_sections:Dict | None = None):
+    """Creates node component"""
+
+    c_com = functools.partial(create_component,
+        component_type=ComponentType.NODE,
+        config_name=f"config_e2e_{uuid.uuid4()}.ini")
+
+    config_sections = config_sections or {}
+    config_sections.update({'researcher': {'port': port}})
+
+    return c_com(config_sections=config_sections)
+
+
+@contextmanager
+def create_multiple_nodes(
+    port: int,
+    num_nodes: int,
+    config_sections: Dict | List[Dict] = None
+) -> Tuple:
+    """Creates multiple node in a context manager"""
+
+
+    if config_sections:
+        if isinstance(config_sections, dict):
+            config_sections = [config_sections] * num_nodes
+        elif isinstance(config_sections, list) and len(config_sections) != num_nodes:
+            raise ValueError(
+                f"Number of nodes {num_nodes} is not equal number of config "
+                f"sections {len(config_sections)}")
+        else:
+            raise TypeError(f'Invalid config_sections type {type(config_sections)}')
+
+    # Create nodes
+    nodes = []
+    for n in range(num_nodes):
+        if config_sections:
+            nodes.append(create_node(port, config_sections[n]))
+        else:
+            nodes.append(create_node(port))
+
+    yield tuple(nodes)
+
+
+    # Clear node data
+    for node in nodes:
+        clear_node_data(node)
 
 
 

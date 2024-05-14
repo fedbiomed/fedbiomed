@@ -1,24 +1,24 @@
-import os
 import time
 import pytest
 
 from helpers import (
     configure_secagg,
     secagg_certificate_registration,
-    create_component,
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
     clear_node_data,
     clear_researcher_data,
-    clear_experiment_data)
+    clear_experiment_data,
+    create_multiple_nodes,
+    create_node,
+    create_researcher
+)
 
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 
-from fedbiomed.common.constants import ComponentType
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.aggregators.scaffold import Scaffold
 
 
 dataset = {
@@ -39,74 +39,53 @@ def setup(port, post_session, request):
     print(f"USING PORT {port} for researcher erver")
     configure_secagg()
 
-    print("Creating§ components ---------------------------------------------")
-    node_1 = create_component(
-        ComponentType.NODE,
-        config_name="config_n1_secure_aggregation.ini",
+    print("Creating components ---------------------------------------------")
+    with create_multiple_nodes(
+        port=port,
+        num_nodes=2,
         config_sections={
             'security': {'secure_aggregation': 'True'},
             'researcher': {'port': port}
-        })
+        }) as nodes:
 
-    node_2 = create_component(
-        ComponentType.NODE,
-        config_name="config_n2_secure_aggregation.ini",
-        config_sections={
-            'security': {'secure_aggregation': 'True'},
-            'researcher': {'port': port}
-    })
+        node_1, node_2 = nodes
 
-    print("Creating researcher component ---------------------------------------------")
-    researcher = create_component(
-        ComponentType.RESEARCHER,
-        config_name="config_researcher_secure_aggregation.ini",
-        config_sections={'server': {'port': port}},
-    )
-    os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
+        # Starts the nodes
+        node_processes, thread = start_nodes([node_1, node_2])
 
-    print("Register certificates ---------------------------------------------")
-    secagg_certificate_registration()
+        print("Creating researcher component -------------------------------------------")
+        researcher = create_researcher(port=port)
 
-    print("Adding first dataset --------------------------------------------")
-    add_dataset_to_node(node_1, dataset)
-    print("adding second dataset")
-    add_dataset_to_node(node_2, dataset)
+        print("Register certificates ---------------------------------------------")
+        secagg_certificate_registration()
 
-    time.sleep(1)
+        print("Adding first dataset --------------------------------------------")
+        add_dataset_to_node(node_1, dataset)
+        print("adding second dataset")
+        add_dataset_to_node(node_2, dataset)
 
-    # Starts the nodes
-    node_processes, thread = start_nodes([node_1, node_2])
+        time.sleep(1)
 
-    # Clear files and processes created for the tests
-    def clear(node_1=node_1, node_2= node_2):
+        yield node_1, node_2, researcher
+
+        # Clear files and processes created for the tests
         kill_subprocesses(node_processes)
-
         thread.join()
+
         print("Cleareaniing component data")
-        clear_node_data(node_1)
-        clear_node_data(node_2)
-
         clear_researcher_data(researcher)
-
-    # Good to wait 3 second to give time to nodes start
-    print("Sleep 5 seconds. Giving some time for nodes to start")
-    time.sleep(5)
-
-    request.addfinalizer(clear)
 
 
 @pytest.fixture
-def extra_node():
+def extra_node(port):
     """Fixture to add extra node"""
 
-    node_3 = create_component(
-        ComponentType.NODE,
-        config_name="config_n3.ini",
+    node_3 = create_node(
+        port=port,
         config_sections={
             'security': {
                 'secure_aggregation': 'True',
                 'force_secure_aggregation': 'True'},
-            'researcher': {'port': '50057'}
         })
 
     add_dataset_to_node(node_3, dataset)

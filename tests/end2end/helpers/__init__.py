@@ -5,6 +5,7 @@ from .constants import (
 from ._helpers import (
     create_component,
     add_dataset_to_node,
+    clear_component_data,
     clear_node_data,
     clear_researcher_data,
     start_nodes,
@@ -14,7 +15,11 @@ from ._helpers import (
     execute_ipython,
     configure_secagg,
     secagg_certificate_registration,
-    training_plan_operation
+    training_plan_operation,
+    create_researcher,
+    create_node,
+    get_data_folder,
+    create_multiple_nodes
 )
 
 from ._execution import (
