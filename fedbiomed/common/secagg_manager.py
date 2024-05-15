@@ -86,7 +86,9 @@ class BaseSecaggManager(ABC):
             element = entries[0]
             raise_for_version_compatibility(
                 element.get('secagg_version', __default_version__),
-                __secagg_element_version__
+                __secagg_element_version__,
+                f"{ErrorNumbers.FB625.value}: Incompatible versions  (found %s but expected %s) for "
+                f"secagg element {secagg_id} in database {self._table}"
             )
         else:
             element = None
