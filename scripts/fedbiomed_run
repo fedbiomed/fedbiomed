@@ -102,7 +102,7 @@ EOF
         gui)
             cat <<EOF
 
-gui     : Fed-BioMed Node GUI options. Please run 'fedbiomed_run gui -h' for details.
+gui     : Fed-BioMed Node GUI options. Please run 'fedbiomed_run node gui -h' for details.
 EOF
         ;;
 
@@ -110,7 +110,7 @@ EOF
             cat <<EOF
 
 certificate-dev-setup : prepares development environment by registering certificates of each component created
-            in a single clone of Fed-BioMed. This is only for development purposes and it is required to
+            in a single clone of Fed-BioMed. This is only for development purposes and requires
             fedbiomed-researcher conda environment installed for this option.
 EOF
         ;;
@@ -176,6 +176,7 @@ EOF
 RED='\033[0;31m' #red
 YLW='\033[1;33m' #yellow
 NC='\033[0m' #no color
+BLD='\033[1m'
 
 # Error function
 function error(){
@@ -190,18 +191,20 @@ function forward_command_to_python_cli(){
 
     COMPONENT=$1
     EXTRA_PARAMS=$2
-    IP_ADDRESS=$3
 
     if [ -z "$EXTRA_PARAMS" ]; then
       error "Please provide a command. See fedbiomed_run $COMPONENT -h"
     fi
 
-    source "$basedir"/scripts/fedbiomed_environment "$COMPONENT" "$IP_ADDRESS"
-
     # dont write error message in this case, cli already does it
     python -m fedbiomed."$COMPONENT".cli $EXTRA_PARAMS
 
 }
+
+function deprecation_warning(){
+    echo -e "\n${BLD}${YLW}DEPRECATION WARNING!:${NC}\n$1" | tr -s ' '
+}
+
 
 #
 # argument decoding
@@ -209,12 +212,17 @@ function forward_command_to_python_cli(){
 case $1 in
 
     gui)
+        deprecation_warning "fedbiomed_run gui is deprecated and will be removed in\
+         the future releases please use ${BLD}fedbiomed_run node gui${NC} "
+
         # Get params starting from second
         EXTRA_PARAMS=${@:2}
         eval "$basedir/scripts/fedbiomed_gui $EXTRA_PARAMS"
       ;;
 
     node)
+
+        CONFIG_FILE=config_node.ini
         while true ; do
             case $2 in
                 # handle optional parameters : config file, researcher ip, training plan approval and allow default training plans
@@ -223,11 +231,20 @@ case $1 in
                         echo "ERROR: missing config file name"
                         exit 1
                     fi
+                    deprecation_warning "${BLD}config${NC} option is no longer supported please use '--config' instead."
                     export CONFIG_FILE=$3
+                    CONFIG_FILE=$3
                     shift
                     shift
                 ;;
                 ip_address)
+                    deprecation_warning "The option ${BLD}ip_address${NC} is deprecated and will be removed in future releases\
+                        please use/set environment variable ${BLD}'export RESEARCHER_SERVER_HOST'${NC} or \
+                        ${BLD}'export RESEARCHER_SERVER_PORT'${NC}\
+                        before executing command.\n\
+                        ${BLD}WARNING:${NC} 'export RESEARCHER_SERVER_PORT' is only valid when generating a new \
+                        configuration file (will not be interpreted otherwise)."
+
                     if [ $# -lt 3 ] ; then
                         echo "ERROR: missing researcher ip"
                         exit 1
@@ -237,27 +254,40 @@ case $1 in
                     shift
                 ;;
                 enable-training-plan-approval|--enable-training-plan-approval|-tmp)
+                    deprecation_warning "The option ${BLD}enable-training-plan-approval${NC} is deprecated\
+                        and will be removed in future releases. Please use/set environment variable\
+                        ${BLD}'ENABLE_TRAINING_PLAN_APPROVAL=True'${NC} or update configuration file to\
+                        enable training plan approval."
+
                     export ENABLE_TRAINING_PLAN_APPROVAL=True
                     shift
                 ;;
                 disable-training-plan-approval|--disable-training-plans-approval|-dtpa)
+                    deprecation_warning "The option ${BLD}disable-training-plan-approval${NC} is deprecated\
+                        and will be removed in the future releases. Please use/set environment variable\
+                        ${BLD}'ENABLE_TRAINING_PLAN_APPROVAL=False'${NC} or update configuration file to\
+                        disable training plan approval."
+
                     export ENABLE_TRAINING_PLAN_APPROVAL=False
                     shift
                 ;;
                 allow-default-training-plans|--allow-default-training-plans|-adtps )
+                    deprecation_warning "The option ${BLD}allow-default-training-plans${NC} is deprecated\
+                        and will be removed in future releases. Please use/set environment variable\
+                        ${BLD}'ALLOW_DEFAULT_TRAINING_PLANS=True'${NC} or update the configuration file."
+
                     export ALLOW_DEFAULT_TRAINING_PLANS=True
                     shift
                 ;;
                 disable-default-training-plans|--disable-default-training-plans|-ddtps )
+                    deprecation_warning "The option ${BLD}disable-default-training-plans${NC} is deprecated\
+                        and will be removed in future releases. Please use/set environment variable\
+                        ${BLD}'ALLOW_DEFAULT_TRAINING_PLANS=False'${NC} or update the configuration file."
+
                     export ALLOW_DEFAULT_TRAINING_PLANS=False
                     shift
                 ;;
-
-                help|-h|--help)
-                    usage node
-                    ;;
                 *)
-
                     break
                 ;;
             esac
@@ -271,96 +301,153 @@ case $1 in
             export PARAMS=
         fi
 
-        # TODO : better test with python module loading attempt and try/except
-#        source ${basedir}/scripts/fedbiomed_environment node "$IP_ADDRESS" -v
-
-        # silently initialize environment before any command
-        if ! forward_command_to_python_cli node "configuration create" "$IP_ADDRESS" >/dev/null; then
-            echo -e "${RED}ERROR:${NC}"
-            echo -e "${BOLD}Error while generating the configuration (config) file. Please check the error message above."
-            exit 1
-        fi
+         # Activate node envirenment
+        source "$basedir"/scripts/fedbiomed_environment node "$IP_ADDRESS"
 
         # Get params starting from second
         EXTRA_PARAMS=${@:2}
 
-        if [ -f "./fedbiomed/node/cli.py" ]
-        then
-            case $2 in
+        case $2 in
 
-                list|--list|-l)
-                    python -m fedbiomed.node.cli --list $PARAMS
-                    ;;
-
-                del|delete|--del|--delete|-d)
-                    python -m fedbiomed.node.cli --delete $PARAMS
-                    ;;
-
-                del-all|delete-all|--del-all|--delete-all|-da)
-                    python -m fedbiomed.node.cli --delete-all $PARAMS
-                    ;;
-
-                delete-mnist|--delete-mnist|-dm)
-                    python -m fedbiomed.node.cli --delete-mnist $PARAMS
-                    ;;
-
-                add|--add|-a)
-                    python -m fedbiomed.node.cli --add $PARAMS
-                    ;;
-
-                add-mnist|--add-mnist|-am)
-                    python -m fedbiomed.node.cli --add-mnist $PARAMS
-                    ;;
-
-                add-dataset-from-file|--add-dataset-from-file|-adff)
-                    python -m fedbiomed.node.cli -adff $PARAMS
-                    ;;
-
-                register-training-plan|--register-training-plan|-rtp)
-                    python -m fedbiomed.node.cli --register-training-plan $PARAMS
-                    ;;
-
-                approve-training-plan|--approve-training-plan|-atp)
-                    python -m fedbiomed.node.cli --approve-training-plan $PARAMS
-                    ;;
-
-                reject-training-plan|--reject-training-plan|-rjtp)
-                    python -m fedbiomed.node.cli --reject-training-plan $PARAMS
-                    ;;
-                update-training-plan|--update-training-plan|-utp)
-                    python -m fedbiomed.node.cli --update-training-plan $PARAMS
-                    ;;
-
-                list-training-plans|--list-training-plans|-ltps)
-                    python -m fedbiomed.node.cli --list-training-plans $PARAMS
-                    ;;
-
-                delete-training-plan|--delete-training-plan|-dtp)
-                    python -m fedbiomed.node.cli --delete-training-plan $PARAMS
-                    ;;
-
-                view-training-plan|--view-training-plan|-vtp)
-                    python -m fedbiomed.node.cli --view-training-plan $PARAMS
-                    ;;
-
-                start|--start|-s)
-                    python -m fedbiomed.node.cli --start $PARAMS
-                    ;;
-
-                *)
-                  forward_command_to_python_cli "node" "$EXTRA_PARAMS" "$IP_ADDRESS"
-
+            list|--list|-l)
+                deprecation_warning "fedbiomed_run node list is deprecated. \
+                        This command will be removed in the future releases. \
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset list${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset list
+                exit 0
                 ;;
-            esac
+            del|delete|--del|--delete|-d)
+                deprecation_warning "fedbiomed_run node delete is deprecated. \
+                        This command will be removed in the future releases. \
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset delete${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset delete
+                exit 0
+                ;;
+            del-all|delete-all|--del-all|--delete-all|-da)
+                deprecation_warning "fedbiomed_run node delete-all | del-all | --del-all is deprecated.\
+                        This command will be removed in the future releases. \
+                        Please ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset delete --all${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset delete --all
+                exit 0
+                ;;
+
+            delete-mnist|--delete-mnist|-dm)
+                deprecation_warning "fedbiomed_run node delete-mnist | --delete-mnist is deprecated.\
+                        This command will be removed in the future releases. \
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset delete --mnist${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset delete --mnist
+                exit 0    
+                ;;
+            add|--add|-a)
+                deprecation_warning "fedbiomed_run node add | --add | -a is deprecated.\
+                        This command will be removed in the future releases. \
+                       Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset add${NC}"
+                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset add
+                exit 0
+                ;;
+            add-mnist|--add-mnist|-am)
+                deprecation_warning "fedbiomed_run node add-mnist | -am is deprecated.\
+                        This command will be removed in the future releases. \
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset add --mnist [PATH_TO_MNIST]${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset add --mnist $PARAMS
+                exit 0
+                ;;
+
+            add-dataset-from-file|--add-dataset-from-file|-adff)
+                deprecation_warning "fedbiomed_run node add-dataset-from-file is deprecated.\
+                        This command will be removed in the future releases. \
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset add --file [PATH_TO_FILE]${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset add --file $PARAMS
+                exit 0
+                ;;
+
+            register-training-plan|--register-training-plan|-rtp)
+                deprecation_warning "fedbiomed_run node register-training-plan is deprecated.\
+                        This command will be removed in the future releases. \
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan register${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan register
+                exit 0
+                ;;
+
+            approve-training-plan|--approve-training-plan|-atp)
+                deprecation_warning "fedbiomed_run node approve-training-plan is deprecated.\
+                        This command will be removed in the future releases. \
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan approve${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan approve
+                exit 0
+                ;;
+
+            reject-training-plan|--reject-training-plan|-rjtp)
+                deprecation_warning "fedbiomed_run node reject-training-plan is deprecated.\
+                        This command will be removed in the future releases. \
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan reject${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan reject
+                exit 0
+                ;;
+            update-training-plan|--update-training-plan|-utp)
+                deprecation_warning "fedbiomed_run node update-training-plan is deprecated.\
+                        This command will be removed in the future releases. \
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan update${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan update
+                exit 0
+                ;;
+
+            list-training-plans|--list-training-plans|-ltps)
+                deprecation_warning "fedbiomed_run node list-training-plans is deprecated.\
+                        This command will be removed in the future releases. \
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan list${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan list
+                exit 0
+                ;; 
+            delete-training-plan|--delete-training-plan|-dtp)
+                deprecation_warning "fedbiomed_run node delete-training-plan is deprecated.\
+                        This command will be removed in the future releases. \
+                        Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan delete${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan delete
+                exit 0
+                ;;
+
+            view-training-plan|--view-training-plan|-vtp)
+                 deprecation_warning "fedbiomed_run node view-training-plan is deprecated.\
+                        This command will be removed in the future releases. \
+                       Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan view${NC}"
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan view
+                exit 0
+                ;;
+
+            start|--start|-s)
+                PARAMS=${@:3:$#-2}
+                $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" start $PARAMS
+                exit 0
+                ;;
+        esac
+
+        if [ $# -ge 2 ]
+        then
+            export PARAMS=${@:3:$#-2}
         else
-            echo "INFO: no fedbiomed.node.cli yet in this version, skipping command"
+            export PARAMS=
         fi
+        
+        # All unkown arguments goes to node cli
+        EXTRA_PARAMS=${@:2}
+        $basedir/scripts/fedbiomed node $EXTRA_PARAMS
+
         ;;
 
     researcher)
         while true ; do
             case $2 in
                 ip_address)
+                    deprecation_warning "The option ${BLD}ip_address${NC} is deprecated and will be removed in future releases\
+                        please use/set environment variable ${BLD}'export RESEARCHER_SERVER_HOST'${NC} or \
+                        ${BLD}'export RESEARCHER_SERVER_PORT'${NC}\
+                        before executing command.\
+                        \n${BLD}WARNING:${NC} ${BLD}ip_address${NC} and ${BLD}'export RESEARCHER_SERVER_HOST'${NC} \
+                        are only valid when generating a \
+                        new researcher configuration because is is included in the generated certificate \
+                        used as server CN (will not be overwritten afterwards)."
+
                     if [ $# -lt 3 ] ; then
                         echo "ERROR: missing researcher ip"
                         exit 1
@@ -387,10 +474,11 @@ case $1 in
 
         # Execution -------------------------------------------------------------------------------------------------
         # Activate conda environment
+         # Activate node envirenment
+        source "$basedir"/scripts/fedbiomed_environment researcher "$IP_ADDRESS"
+
         case $2 in
             start)
-                source "$basedir"/scripts/fedbiomed_environment researcher $IP_ADDRESS
-                cd notebooks
                 # Windows WSL and others cannot handle using redirect file for securing notebook launch
                 # https://jupyter-notebook.readthedocs.io/en/stable/config.html (section NotebookApp.use_redirect_file)
                 NB_OPTS=
@@ -399,46 +487,36 @@ case $1 in
                 then
                     NB_OPTS='--NotebookApp.use_redirect_file=false'
                 fi
-
-                if ! forward_command_to_python_cli researcher "configuration create" "$IP_ADDRESS"; then
-                    echo -e "${RED}ERROR:${NC}"
-                    echo -e "${BOLD}Error related to configuration (config) file. Please check you have valid config file for researcher"
-                    exit 1
-                fi
-
-                jupyter notebook $NB_OPTS
-
+                PARAMS=${@:3:$#-2}
+                cd $basedir/notebooks
+                $basedir/scripts/fedbiomed researcher start $PARAMS
+                exit 0
             ;;
             help|-h|--help)
-                usage researcher
+                $basedir/scripts/fedbiomed researcher -h
+                exit 0
             ;;
             *)
-              forward_command_to_python_cli "researcher" "$EXTRA_PARAMS" "$IP_ADDRESS"
+              $basedir/scripts/fedbiomed researcher $EXTRA_PARAMS
             ;;
         esac
         ;;
 
     help|-h|--help)
-        case $2 in
-            node) usage node;;
-            researcher) usage researcher;;
-            gui) usage gui;;
-            certificate-dev-setup)
-                source "$basedir"/scripts/fedbiomed_environment node $IP_ADDRESS
-                python -m fedbiomed.common.cli $2 '-h' $PARAMS
-            ;;
-            *) usage;;
-        esac
+        source "$basedir"/scripts/fedbiomed_environment researcher
+        $basedir/scripts/fedbiomed -h
         ;;
 
     *)
-      PARAMS=${@}
-      if [ -z "$1" ]; then
-        echo "Please specify a command/option with fedbiomed_run. Please see fedbiomed_run --help"
-        exit 1
+      # Hack to fix temporarly issue 929
+      CONDA_ENVIRON=researcher
+      if [ "$1" = 'environ-node' ] ; then
+        CONDA_ENVIRON=node
+        shift
       fi
 
-      source "$basedir"/scripts/fedbiomed_environment researcher $IP_ADDRESS
-      python -m fedbiomed.common.cli $PARAMS
+      PARAMS=${@}
+      source "$basedir"/scripts/fedbiomed_environment $CONDA_ENVIRON $IP_ADDRESS
+      $basedir/scripts/fedbiomed $PARAMS
       ;;
 esac

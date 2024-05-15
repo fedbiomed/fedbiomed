@@ -249,13 +249,13 @@ Run this for all launches of the container :
 [user@node-container $] eval "$(conda shell.bash hook)"
 [user@node-container $] conda activate fedbiomed-node
 # example : add MNIST dataset using persistent (mounted) /data
-[user@node-container $] ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli -am /data
+[user@node-container $] ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli dataset add --mnist /data
 # start the node
 # - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
 # - start with training plan approval enabled and default training plans allowed
-[user@node-container $] ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli --start --gpu
+[user@node-container $] ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli start  --gpu
 # alternative: start the node in background
-# [user@node-container $] nohup python -m fedbiomed.node.cli  -s >./fedbiomed_node.out &
+# [user@node-container $] nohup python -m fedbiomed.node.cli  start >./fedbiomed_node.out &
 ```
 
 #### using the node
@@ -284,7 +284,7 @@ my_training_plan.txt
 ```
 - register a new training plan with :
 ```bash
-[user@node-container $] ./scripts/fedbiomed_run node --register-training-plan
+[user@node-container $] ./scripts/fedbiomed_run node training-plan register
 ```
 - when prompted for the path of the training plan, indicate the `.txt` export of the training plan file (`/data/my_training_plan.txt` in our example)
 
@@ -428,6 +428,7 @@ Run this for all launches of the container :
 [user@researcher-container $] eval "$(conda shell.bash hook)"
 [user@researcher-container $] conda activate fedbiomed-researcher
 # ... or any other command
+[user@researcher-container $] jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb
 [user@researcher-container $] ./notebooks/101_getting-started.py
 ```
 

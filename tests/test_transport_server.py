@@ -1,13 +1,13 @@
 import unittest
 import asyncio 
+import time
 
 
-
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock, AsyncMock, PropertyMock, Mock
 
 
 from fedbiomed.transport.node_agent import AgentStore
-from fedbiomed.transport.server import GrpcServer, _GrpcAsyncServer, ResearcherServicer, NodeAgent
+from fedbiomed.transport.server import SSLCredentials, GrpcServer, _GrpcAsyncServer, ResearcherServicer, NodeAgent
 from fedbiomed.transport.node_agent import NodeActiveStatus
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import SearchRequest, SearchReply
@@ -34,6 +34,7 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
 
+
         self.request = TaskRequest(
             node="node-1",
             protocol_version="x"
@@ -46,7 +47,7 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
 
         self.servicer = ResearcherServicer(
             agent_store=self.agent_store,
-            on_message=self.on_message
+            on_message=self.on_message,
         )
         return super().setUp()
 
@@ -57,9 +58,8 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
     async def test_researcher_servicer_01_GetTaskUnary(self):
 
         node_agent = AsyncMock()
-        node_agent.set_context = MagicMock()
         node_agent.task_done = MagicMock()
-        node_agent.get_task.return_value = example_task
+        node_agent.get_task.return_value = [example_task, 0 , time.time()]
 
         self.agent_store.retrieve.return_value = node_agent
         async for r in self.servicer.GetTaskUnary(request=self.request, context=self.context):
@@ -100,9 +100,31 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, Empty())
 
 
+    @patch('fedbiomed.transport.server.TaskResponse')
+    async def test_researcher_servicer_04_GetTaskUnary_exceptions(self, task_response):
+
+        for exception in [GeneratorExit, asyncio.CancelledError]:
+            node_agent = AsyncMock()
+            node_agent.task_done = MagicMock()
+            node_agent.send_async = AsyncMock()
+            self.agent_store.retrieve.return_value = node_agent
+
+            node_agent.get_task.return_value = [example_task, 0 , time.time()]
+            task_response.side_effect = exception
+
+            async for r in self.servicer.GetTaskUnary(request=self.request, context=self.context):
+                self.assertEqual(r, None)
+            node_agent.send_async.assert_called_once()
+
+
 class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
+
+
+        ssl_credentials = MagicMock()
+        type(ssl_credentials).private_key = PropertyMock(return_value=b'test')
+        type(ssl_credentials).certificate = PropertyMock(return_value=b'test')
 
         self.server_patch = patch('fedbiomed.transport.server.grpc.aio.server')
         self.node_agent_patch = patch('fedbiomed.transport.server.NodeAgent', autospec=True)
@@ -119,6 +141,7 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
         self.grpc_server = _GrpcAsyncServer(
             host='localhost',
             port="50051",
+            ssl=ssl_credentials,
             on_message=self.on_message,
             debug=False
         )
@@ -188,6 +211,11 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
 
+        self.ssl_credentials = MagicMock()
+        type(self.ssl_credentials).private_key = PropertyMock(return_value=b'test')
+        type(self.ssl_credentials).certificate = PropertyMock(return_value=b'test')
+
+
         self.async_server_patch = patch('fedbiomed.transport.server._GrpcAsyncServer')
         self.server_patch = patch('fedbiomed.transport.server.grpc.aio.server')
         self.node_agent_patch = patch('fedbiomed.transport.server.NodeAgent', autospec=True)
@@ -209,6 +237,7 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         self.grpc_server = GrpcServer(
             host='localhost',
             port="50051",
+            ssl=self.ssl_credentials,
             on_message=self.on_message,
             debug=False
         )
@@ -230,6 +259,7 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         self.grpc_server = GrpcServer(
             host='localhost',
             port="50051",
+            ssl=self.ssl_credentials,
             on_message=self.on_message,
             debug=False
         )

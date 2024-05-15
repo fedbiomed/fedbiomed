@@ -19,47 +19,51 @@ print(environ['NODE_ID'])
 
 import sys
 import os
-import uuid
 
 from fedbiomed.common.logger import logger
-from fedbiomed.common.constants import __node_config_version__ as __config_version__
 from fedbiomed.common.exceptions import FedbiomedEnvironError
-from fedbiomed.common.constants import ComponentType, ErrorNumbers, HashingAlgorithms, DB_PREFIX, NODE_PREFIX
+from fedbiomed.common.constants import (
+    ComponentType,
+    ErrorNumbers,
+    HashingAlgorithms,
+    TRACEBACK_LIMIT)
 from fedbiomed.common.environ import Environ
-from fedbiomed.transport.client import ResearcherCredentials
+from fedbiomed.node.config import NodeConfig
 
 
 class NodeEnviron(Environ):
 
-    def __init__(self, root_dir: str = None):
+    def __init__(
+        self,
+        root_dir: str = None,
+        autoset: bool = True
+    ):
         """Constructs NodeEnviron object """
         super().__init__(root_dir=root_dir)
+
+        self._root_dir = root_dir
+
         logger.setLevel("INFO")
         self._values["COMPONENT_TYPE"] = ComponentType.NODE
-        # Setup environment variables
-        self.setup_environment()
 
-    def default_config_file(self) -> str:
-        """Sets config file path """
+        if autoset:
+            self.set_environment()
 
-        return os.path.join(self._values['CONFIG_DIR'], 'config_node.ini')
 
-    def _check_config_version(self):
-        """Check if config version is compatible and set config version"""
-
-        self.check_and_set_config_file_version(__config_version__)
-
-    def _set_component_specific_variables(self):
+    def set_environment(self):
         """Initializes environment variables """
 
-        node_id = self.from_config('default', 'id')
-        self._values['NODE_ID'] = os.getenv('NODE_ID', node_id)
-        self._values['ID'] = self._values['NODE_ID']
+        self._config = NodeConfig(self._root_dir)
+
+        # Sets common variable
+        super().set_environment()
+
+        node_id = self._config.get('default', 'id')
+        self._values['ID'] = node_id
+        self._values['NODE_ID'] = node_id
 
         self._values['MESSAGES_QUEUE_DIR'] = os.path.join(self._values['VAR_DIR'],
                                                           f'queue_manager_{self._values["NODE_ID"]}')
-        self._values['DB_PATH'] = os.path.join(self._values['VAR_DIR'],
-                                               f'{DB_PREFIX}{self._values["NODE_ID"]}.json')
 
         self._values['DEFAULT_TRAINING_PLANS_DIR'] = os.path.join(self._values['ROOT_DIR'],
                                                                   'envs', 'common', 'default_training_plans')
@@ -73,17 +77,17 @@ class NodeEnviron(Environ):
             # create training plan directory
             os.mkdir(self._values['TRAINING_PLANS_DIR'])
 
-        allow_dtp = self.from_config('security', 'allow_default_training_plans')
+        allow_dtp = self._config.get('security', 'allow_default_training_plans')
 
         self._values['ALLOW_DEFAULT_TRAINING_PLANS'] = os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', allow_dtp) \
             .lower() in ('true', '1', 't', True)
 
-        tp_approval = self.from_config('security', 'training_plan_approval')
+        tp_approval = self._config.get('security', 'training_plan_approval')
 
         self._values['TRAINING_PLAN_APPROVAL'] = os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', tp_approval) \
             .lower() in ('true', '1', 't', True)
 
-        hashing_algorithm = self.from_config('security', 'hashing_algorithm')
+        hashing_algorithm = self._config.get('security', 'hashing_algorithm')
         if hashing_algorithm in HashingAlgorithms.list():
             self._values['HASHING_ALGORITHM'] = hashing_algorithm
         else:
@@ -91,11 +95,11 @@ class NodeEnviron(Environ):
             logger.critical(_msg)
             raise FedbiomedEnvironError(_msg)
 
-        secure_aggregation = self.from_config('security', 'secure_aggregation')
+        secure_aggregation = self._config.get('security', 'secure_aggregation')
         self._values["SECURE_AGGREGATION"] = os.getenv('SECURE_AGGREGATION',
                                                        secure_aggregation).lower() in ('true', '1', 't', True)
 
-        force_secure_aggregation = self.from_config('security', 'force_secure_aggregation')
+        force_secure_aggregation = self._config.get('security', 'force_secure_aggregation')
         self._values["FORCE_SECURE_AGGREGATION"] = os.getenv(
             'FORCE_SECURE_AGGREGATION',
             force_secure_aggregation).lower() in ('true', '1', 't', True)
@@ -104,7 +108,7 @@ class NodeEnviron(Environ):
 
 
         # Parse each researcher ip and port
-        researcher_sections = [section for section in self.sections() if section.startswith("researcher")]
+        researcher_sections = [section for section in self._config.sections() if section.startswith("researcher")]
         self._values['RESEARCHERS'] = os.getenv('NODE_RESEARCHERS')
         if os.getenv('RESEARCHER_SERVER_HOST'):
             # Environ variables currently permit to specify only 1 researcher
@@ -119,37 +123,10 @@ class NodeEnviron(Environ):
             self._values["RESEARCHERS"] = []
             for section in researcher_sections:
                 self._values["RESEARCHERS"].append({
-                    'port': self.from_config(section, "port"),
-                    'ip': self.from_config(section, "ip"),
+                    'port': self._config.get(section, "port"),
+                    'ip': self._config.get(section, "ip"),
                     'certificate': None
                 })
-
-    def _set_component_specific_config_parameters(self):
-        """Updates config file with Node specific parameters"""
-
-        # TODO: We may remove node_id in the future (to simplify the code)
-        node_id = os.getenv('NODE_ID', NODE_PREFIX + str(uuid.uuid4()))
-
-        self._cfg['default'] = {
-            'id': node_id,
-            'component': "NODE",
-            'version': __config_version__
-        }
-
-        # Security variables
-        self._cfg['security'] = {
-            'hashing_algorithm': HashingAlgorithms.SHA256.value,
-            'allow_default_training_plans': os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', True),
-            'training_plan_approval': os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', False),
-            'secure_aggregation': os.getenv('SECURE_AGGREGATION', True),
-            'force_secure_aggregation': os.getenv('FORCE_SECURE_AGGREGATION', False)
-        }
-
-        # gRPC server host and port
-        self._cfg["researcher"] = {
-            'ip': os.getenv('RESEARCHER_SERVER_HOST', 'localhost'),
-            'port': os.getenv('RESEARCHER_SERVER_PORT', '50051')
-        }
 
     def info(self):
         """Print useful information at environment creation"""
@@ -159,9 +136,8 @@ class NodeEnviron(Environ):
         logger.info("allow_default_training_plans   = " + str(self._values['ALLOW_DEFAULT_TRAINING_PLANS']))
 
 
-sys.tracebacklimit = 3
-
+sys.tracebacklimit = TRACEBACK_LIMIT
 
 
 # # global dictionary which contains all environment for the NODE
-environ = NodeEnviron()
+environ = NodeEnviron(autoset=True)

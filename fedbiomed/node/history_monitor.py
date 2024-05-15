@@ -16,17 +16,17 @@ class HistoryMonitor:
     """
 
     def __init__(self,
-                 job_id: str,
+                 experiment_id: str,
                  researcher_id: str,
                  send: Callable):
         """Simple constructor for the class.
 
         Args:
-            job_id: TODO
+            experiment_id: TODO
             researcher_id: TODO
             client: TODO
         """
-        self.job_id = job_id
+        self.experiment_id = experiment_id
         self.researcher_id = researcher_id
         self.send = send
 
@@ -61,20 +61,21 @@ class HistoryMonitor:
             test_on_local_updates: TODO
 
         """
-        logger.debug("Send is executed!")
         self.send(
-            FeedbackMessage(researcher_id=self.researcher_id, scalar=Scalar(**{
-            'node_id': environ['NODE_ID'],
-            'job_id': self.job_id,
-            'train': train,
-            'test': test,
-            'test_on_global_updates': test_on_global_updates,
-            'test_on_local_updates': test_on_local_updates,
-            'metric': metric,
-            'iteration': iteration,
-            'epoch': epoch,
-            'num_samples_trained': num_samples_trained,
-            'total_samples': total_samples,
-            'batch_samples': batch_samples,
-            'num_batches': num_batches,
-        })))
+            FeedbackMessage(researcher_id=self.researcher_id,
+                            scalar=Scalar(**{
+                                'node_id': environ['NODE_ID'],
+                                'experiment_id': self.experiment_id,
+                                'train': train,
+                                'test': test,
+                                'test_on_global_updates': test_on_global_updates,
+                                'test_on_local_updates': test_on_local_updates,
+                                'metric': metric,
+                                'iteration': iteration,
+                                'epoch': epoch,
+                                'num_samples_trained': num_samples_trained,
+                                'total_samples': total_samples,
+                                'batch_samples': batch_samples,
+                                'num_batches': num_batches}
+                            ))
+        )

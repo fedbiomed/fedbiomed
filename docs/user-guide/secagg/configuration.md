@@ -17,7 +17,7 @@ Fed-BioMed provides pre-compiled MP-SPDZ protocols and scripts for Linux-based o
 for Darwin-based operating systems, MP-SPDZ must be compiled from its source code. Fed-BioMed provides a script
 that eases this process by distinguishing the operating system and performing the installation.
 
-To install or configure existing pre-compiled MP-SPDZ scripts for a `Node compoent`, please run following command.
+To install or configure existing pre-compiled MP-SPDZ scripts for a `Node component`, please run following command.
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg node
@@ -51,7 +51,7 @@ a database file and certificates.
 The command below creates a component with a configuration file named `config-n1.ini`.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run node config config-n1.ini configuration create
+${FEDBIOMED_DIR}/scripts/fedbiomed_run environ-node configuration create --component node --name config-n1.ini
 ```
 
 Other node components can be created by replacing `config-n1.in`i` with any desired unique name.
@@ -62,7 +62,7 @@ with default configuration file name.
 
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run researcher configuration create
+${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create --component researcher
 ```
 
 ### Updating existing configuration
@@ -116,7 +116,7 @@ the FL round fails. Please refer to the researcher secure aggregation interface 
 
 !!! note "Researcher"
     Researcher configuration file does not have parameter regarding secure aggregation activation. However,
-    secure aggregation context is managed through [Experiment][fedbiomed.researcher.experiment] interface (class).
+    secure aggregation context is managed through [Experiment][fedbiomed.researcher.federated_workflows] interface (class).
 
 
 ### MP-SPDZ Network Parameters
@@ -138,7 +138,7 @@ any desired time. If a certificate has already been generated, the command shoul
 -f option.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run node config config-n1.ini certificate generate -f
+${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini certificate generate -f
 ```
 or
 
@@ -171,7 +171,7 @@ starting a Fed-BioMed component. This option does not re-write configuration fil
 value during the component lifetime.
 
 ```shell
-MPSDPZ_IP=<ip-address> MPSDPZ_PORT=<port> ${FEDBIOMED_DIR}/scripts/fedbiomed_run node config config-n1.ini start
+MPSDPZ_IP=<ip-address> MPSDPZ_PORT=<port> ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini start
 ```
 
 or for researcher

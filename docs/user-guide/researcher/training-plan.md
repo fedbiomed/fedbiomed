@@ -364,20 +364,41 @@ to control the training process by changing these arguments. Modifying the train
 ```
 
 
-## Saving and Loading Model
+## Exporting and importing model
 
-Each training plan provides save and load functionality. These are required for loading and saving model parameters 
-into the file system after or before the training in the nodes and the researcher part. Consequently, 
-[experiment](../../researcher/experiment) can upload and download the model parameters. Indeed, each framework
-has its own way to load and save models.
+Each training plan provides export and import functionality.
 
-You can access these classes from the `fedbiomed/common` directory to see them in more detail. 
+- Export facility is used for saving model parameters to a file after training the model in Fed-BioMed, so it can be used in another software (eg for inference).
+- Import facility is used for loading model parameters from a file, for example to specialize with Fed-BioMed a model pre-trained with another software (transfer learning) or a previous Fed-BioMed run.
 
-!!! warning "Overriding `load` and `save` is discouraged"
-    Both PyTorch and scikit-learn training plans already implement `load` and `save`. Overriding this default
-    routines is strongly discouraged, and you may do so only at your own risk.
+**Exports** and **imports** are handled through the [`Experiment`](../../researcher/experiment) interface. [`Experiment`](../../researcher/experiment) interface will initialize the model for you, by calling internally `Training Plan` methods `init_method` and `post_init`. See example below for an instantiated `Experiment` object named `exp`.
+
+To save model to file `/path/to/file` use:
+
+```python
+exp.training_plan().export_model('/path/to_file')
+```
 
 
+To load model from file `/path/to/file` use:
+
+```python
+exp.training_plan().import_model('/path/to_file')
+```
+
+Of course, loaded model needs to be identical to the training plan's model.
 
 
+!!! info "`export_model()` and `import_model()` actions depends on framework"
+    With PyTorch, these methods save and load the model parameters (`model.state_dict()`) with `torch.save()`/`torch.load()` as it is a [common practice](https://pytorch.org/tutorials/beginner/saving_loading_models.html)
 
+    With scikit-learn, these methods save and load the whole model with `joblib.dump()`/`joblib.load()` as it is also a [common practice](https://scikit-learn.org/stable/model_persistence.html)
+
+!!! warning "Security notice"
+    Only use `import_model()` with a trusted model file (trained by a trusted source, transmitted via secure channel).
+
+    In both PyTorch and scikit-learn, the model saving and loading facility are based on [pickle](https://docs.python.org/3/library/pickle.html). While it is the recommended way of saving models in these frameworks, a malicious pickle model can execute arbitrary code on your machine when loaded. Thus make sure you are loading a model from a reliable source.
+
+!!! warning "Usage through `Experiment`"
+    Both **exports** and **imports** must be used through [Experiment](../../researcher/experiment) interface. Indeed, `Experiment` class has methods to load Training Plans and for initializing Model. Once the Model is initialized, you can
+    use both `export_model` and `import_model` for saving model into a file and respectively load it from a file.

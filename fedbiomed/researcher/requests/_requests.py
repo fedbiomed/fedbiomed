@@ -22,7 +22,7 @@ from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.utils import import_class_object_from_file
 
-from fedbiomed.transport.server import GrpcServer
+from fedbiomed.transport.server import GrpcServer, SSLCredentials
 from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
 
 from fedbiomed.researcher.environ import environ
@@ -209,7 +209,7 @@ class FederatedRequest:
         """Returns replies of each request
 
         Returns:
-            A dict of replies `Message` received for this request, indexed by node ID 
+            A dict of replies `Message` received for this request, indexed by node ID
         """
 
         return {req.node.id: req.reply for req in self._requests if req.reply}
@@ -218,7 +218,7 @@ class FederatedRequest:
         """Returns errors of each request
 
         Returns:
-            A dict of error `Message` received for this request, indexed by node ID         
+            A dict of error `Message` received for this request, indexed by node ID
         """
 
         return {req.node.id: req.error for req in self._requests if req.error}
@@ -257,7 +257,11 @@ class Requests(metaclass=SingletonMeta):
         self._grpc_server = GrpcServer(
             host=environ["SERVER_HOST"],
             port=environ["SERVER_PORT"],
-            on_message=self.on_message
+            on_message=self.on_message,
+            ssl=SSLCredentials(
+                key=environ['SERVER_SSL_KEY'],
+                cert=environ['SERVER_SSL_CERT'])
+
         )
         self.start_messaging()
 
@@ -427,7 +431,8 @@ class Requests(metaclass=SingletonMeta):
             self,
             training_plan: BaseTrainingPlan,
             description: str = "no description provided",
-            nodes: Optional[List[str]] = None
+            nodes: Optional[List[str]] = None,
+            policies: Optional[List] = None
     ) -> dict:
         """Send a training plan and a ApprovalRequest message to node(s).
 
@@ -447,7 +452,7 @@ class Requests(metaclass=SingletonMeta):
             to the "approval queue" on the node side.
         """
 
-        training_plan_instance = training_plan()
+        training_plan_instance = training_plan
         training_plan_module = 'model_' + str(uuid.uuid4())
         with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmp_dir:
             training_plan_file = os.path.join(tmp_dir, training_plan_module + '.py')
@@ -459,7 +464,7 @@ class Requests(metaclass=SingletonMeta):
 
             try:
                 _, training_plan_instance = import_class_object_from_file(
-                    training_plan_file, training_plan.__name__)
+                    training_plan_file, training_plan.__class__.__name__)
                 tp_source = training_plan_instance.source()
             except Exception as e:
                 logger.error(f"Cannot instantiate the training plan: {e}")
@@ -485,7 +490,7 @@ class Requests(metaclass=SingletonMeta):
             'training_plan': tp_source,
             'command': 'approval'})
 
-        with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
+        with self.send(message, nodes, policies=policies) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
             results = {req.node.id: False for req in federated_req.requests}
@@ -494,7 +499,7 @@ class Requests(metaclass=SingletonMeta):
             for node_id, error in errors.items():
                 logger.info(f"Node ({node_id}) has returned error {error.errnum}, {error.extra_msg}")
 
-        return results | {id: rep.success for id, rep in replies.items()}
+        return {id: rep.get_dict() for id, rep in replies.items()}
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
         """ Adds callback function for monitor messages

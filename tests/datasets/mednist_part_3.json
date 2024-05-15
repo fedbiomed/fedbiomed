@@ -1,7 +1,0 @@
-{
-    "name": "Mednist part 3",
-    "description": "Mednist part 3",
-    "tags": "mednist,#MEDNIST,#dataset",
-    "data_type": "images",
-    "path": "$HOME/Data/fedbiomed/MedNIST/client_3"
-}

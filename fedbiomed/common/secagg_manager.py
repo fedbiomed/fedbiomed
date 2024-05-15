@@ -11,13 +11,15 @@ import copy
 import json
 from tinydb import TinyDB, Query
 
-from fedbiomed.common.constants import ErrorNumbers, BiprimeType
+from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
+from fedbiomed.common.constants import ErrorNumbers, BiprimeType, __secagg_element_version__
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError, SchemeValidator
 
 _DefaultBiprimeValidator = SchemeValidator({
+    'secagg_version': {"rules": [str], "required": True},
     'secagg_id': {"rules": [str], "required": True},
     'biprime': {"rules": [int], "required": True},
     'max_keysize': {"rules": [int], "required": True},
@@ -82,13 +84,17 @@ class BaseSecaggManager(ABC):
             raise FedbiomedSecaggError(errmess)
         elif len(entries) == 1:
             element = entries[0]
+            raise_for_version_compatibility(
+                element.get('secagg_version', __default_version__),
+                __secagg_element_version__
+            )
         else:
             element = None
 
         return element
 
     @abstractmethod
-    def get(self, secagg_id: str, job_id: Union[str, None]):
+    def get(self, secagg_id: str, experiment_id: Union[str, None]):
         """Search for a data entry in component secagg element database"""
 
     def _add_generic(self, secagg_id: str, parties: List[str], specific: dict):
@@ -111,7 +117,11 @@ class BaseSecaggManager(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        specific.update({'secagg_id': secagg_id, 'parties': parties})
+        specific.update({
+            'secagg_version': str(__secagg_element_version__),
+            'secagg_id': secagg_id,
+            'parties': parties
+        })
         try:
             self._table.insert(specific)
         except Exception as e:
@@ -121,7 +131,7 @@ class BaseSecaggManager(ABC):
             raise FedbiomedSecaggError(errmess)
 
     @abstractmethod
-    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], job_id: Union[str, None]):
+    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: Union[str, None]):
         """Add a new data entry in component secagg element database"""
 
     def _remove_generic(self, secagg_id: str) -> bool:
@@ -156,7 +166,7 @@ class BaseSecaggManager(ABC):
         return True
 
     @abstractmethod
-    def remove(self, secagg_id: str, job_id: Union[str, None]) -> bool:
+    def remove(self, secagg_id: str, experiment_id: Union[str, None]) -> bool:
         """Remove a data entry from component secagg element database"""
 
 
@@ -176,37 +186,37 @@ class SecaggServkeyManager(BaseSecaggManager):
         # (eg when mixing CLI commands with a GUI session)
         self._table = self._db.table(name='SecaggServkey', cache_size=0)
 
-    def get(self, secagg_id: str, job_id: str) -> Union[dict, None]:
+    def get(self, secagg_id: str, experiment_id: str) -> Union[dict, None]:
         """Search for data entry with given `secagg_id`
 
         Check that there is at most one entry with this unique secagg ID.
 
-        If there is an entry for this `secagg_id`, check it is associated with job `job_id`
+        If there is an entry for this `secagg_id`, check it is associated with experiment `experiment_id`
 
         Args:
             secagg_id: secure aggregation ID key to search
-            job_id: the job ID associated with the secagg entry
+            experiment_id: the experiment ID associated with the secagg entry
 
         Returns:
             A dict containing all values for the secagg element for this `secagg_id` if it exists,
                 or None if no element exists for this `secagg_id`
 
         Raises:
-            FedbiomedSecaggError: the entry is associated with another job
+            FedbiomedSecaggError: the entry is associated with another experiment
         """
 
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         element = self._get_generic(secagg_id)
-        if element is not None and element['job_id'] != job_id:
+        if element is not None and element['experiment_id'] != experiment_id:
             errmess = f'{ErrorNumbers.FB623.value}: error getting servkey element: ' \
                       f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
-                      f'current job job_id={job_id}'
+                      f'current experiment experiment_id={experiment_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
         return element
 
-    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], job_id: str):
+    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: str):
         """Add a new data entry for a context element in the servkey table 
 
         Check that no entry exists yet for this `secagg_id` in the table.
@@ -214,7 +224,7 @@ class SecaggServkeyManager(BaseSecaggManager):
         Args:
             secagg_id: secure aggregation ID key of the entry
             parties: list of parties participating in this secagg context element
-            job_id: ID of the job to which this secagg context element is attached
+            experiment_id: ID of the experiment to which this secagg context element is attached
             context: server key part held by this party
         """
 
@@ -222,33 +232,33 @@ class SecaggServkeyManager(BaseSecaggManager):
         self._add_generic(
             secagg_id,
             parties,
-            {'job_id': job_id, 'context': context}
+            {'experiment_id': experiment_id, 'context': context}
         )
 
-    def remove(self, secagg_id: str, job_id: str) -> bool:
+    def remove(self, secagg_id: str, experiment_id: str) -> bool:
         """Remove data entry for this `secagg_id` from the server key table
 
-        Check that the job ID for the table entry and the current job match  
+        Check that the experiment ID for the table entry and the current experiment match  
 
         Args:
             secagg_id: secure aggregation ID key of the entry
-            job_id: job ID of the current job
+            experiment_id: experiment ID of the current experiment
 
         Returns:
             True if an entry existed (and was removed) for this `secagg_id`,
                 False if no entry existed for this `secagg_id`
 
         Raises:
-            FedbiomedSecaggError: database entry does not belong to `job_id`
+            FedbiomedSecaggError: database entry does not belong to `experiment_id`
         """
 
         # Trust argument type and value check from calling class for `secagg_id` (`SecaggSetup`, but not `Node`)
-        # Don't trust `Node` for `job_id` type (may give `None`) but this is not an issue
+        # Don't trust `Node` for `experiment_id` type (may give `None`) but this is not an issue
         element = self._get_generic(secagg_id)
-        if element is not None and element['job_id'] != job_id:
+        if element is not None and element['experiment_id'] != experiment_id:
             errmess = f'{ErrorNumbers.FB623.value}: error removing servkey element: ' \
                       f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
-                      f'current job job_id={job_id}'
+                      f'current experiment experiment_id={experiment_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -273,14 +283,14 @@ class SecaggBiprimeManager(BaseSecaggManager):
 
         self._v = Validator()
 
-    def get(self, secagg_id: str, job_id: None = None) -> Union[dict, None]:
+    def get(self, secagg_id: str, experiment_id: None = None) -> Union[dict, None]:
         """Search for data entry with given `secagg_id` in the biprime table
 
         Check that there is at most one entry with this unique secagg ID.
 
         Args:
             secagg_id: secure aggregation ID key to search
-            job_id: unused argument.
+            experiment_id: unused argument.
         Returns:
             A dict containing all values for the secagg element for this `secagg_id` if it exists,
                 or None if no element exists for this `secagg_id`
@@ -300,7 +310,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             secagg_id: str,
             parties: List[str],
             context: Dict[str, int],
-            job_id: None = None
+            experiment_id: None = None
     ) -> None:
         """Add a new data entry for a context element in the biprime table 
 
@@ -310,7 +320,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             secagg_id: secure aggregation ID key of the entry
             parties: list of parties participating in this secagg context element
             context: the (full) biprime number shared with other parties
-            job_id: unused argument
+            experiment_id: unused argument
         """
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         self._add_generic(
@@ -322,12 +332,12 @@ class SecaggBiprimeManager(BaseSecaggManager):
             }
         )
 
-    def remove(self, secagg_id: str, job_id: None = None) -> bool:
+    def remove(self, secagg_id: str, experiment_id: None = None) -> bool:
         """Remove data entry for this `secagg_id` from the biprime table
 
         Args:
             secagg_id: secure aggregation ID key of the entry
-            job_id: unused argument
+            experiment_id: unused argument
         Returns:
             True if an entry existed (and was removed) for this `secagg_id`,
                 False if no entry existed for this `secagg_id`
@@ -440,6 +450,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             try:
                 self._table.upsert(
                     {
+                        'secagg_version': bp['secagg_version'],
                         'secagg_id': bp['secagg_id'],
                         'parties': None,
                         'type': BiprimeType.DEFAULT.value,

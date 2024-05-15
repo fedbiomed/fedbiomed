@@ -4,7 +4,7 @@
 
 import time
 
-from typing import List, Union
+from typing import List, Union, Optional
 from gmpy2 import mpz
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
@@ -18,9 +18,6 @@ from ._jls import JoyeLibert, \
     FDH, \
     PublicParam, \
     quantize, \
-    reverse_quantize, \
-    multiply, \
-    divide,\
     reverse_quantize, \
     multiply, \
     divide
@@ -65,7 +62,7 @@ class SecaggCrypter:
             key: int,
             biprime: int,
             clipping_range: Union[int, None] = None,
-            weight: int = None,
+            weight: Optional[int] = None,
     ) -> List[int]:
         """Encrypts model parameters.
 
@@ -110,15 +107,15 @@ class SecaggCrypter:
         params = quantize(weights=params,
                           clipping_range=clipping_range)
 
-        # we multiply the parameters with the weight, and we get params in the range [0, 2^(VEParameters.TARGET_RANGE + VEParameters.MAX_WEIGHT_RANGE)]
-        # check if weight if num_bits of weight is less than VEParameters.WEIGHT_RANGE
+        # We multiply the parameters with the weight, and we get params in
+        # the range [0, 2^(log2(VEParameters.TARGET_RANGE) + log2(VEParameters.WEIGHT_RANGE)) - 1]
+        # Check if weight if num_bits of weight is less than VEParameters.WEIGHT_RANGE
         if weight is not None:
             if 2**weight.bit_length() > VEParameters.WEIGHT_RANGE:
                 raise FedbiomedSecaggCrypterError(
                     f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
                     f"{VEParameters.WEIGHT_RANGE}."
                 )
-        if weight is not None:
             params = self._apply_weighing(params, weight)
 
 
@@ -153,7 +150,8 @@ class SecaggCrypter:
             key: int,
             biprime: int,
             total_sample_size: int,
-            clipping_range: Union[int, None] = None
+            clipping_range: Union[int, None] = None,
+            num_expected_params: int = 1
     ) -> List[float]:
         """Decrypt given parameters
 
@@ -166,6 +164,7 @@ class SecaggCrypter:
             total_sample_size: sum of number of samples from all nodes
             clipping_range: Clipping range for reverse-quantization, should be the
                 same clipping range used for quantization
+            num_expected_params: number of parameters to decode from the `params`
         Returns:
             Aggregated parameters decrypted and structured
 
@@ -201,13 +200,13 @@ class SecaggCrypter:
             sum_of_weights = self._jls.aggregate(
                 sk_0=key,
                 tau=current_round,  # The time period \\(\\tau\\)
-                list_y_u_tau=params
+                list_y_u_tau=params,
+                num_expected_params=num_expected_params
             )
         except (ValueError, TypeError) as e:
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624.value}: The aggregation of encrypted parameters "
                                               f"is not successful: {e}")
 
-        # TODO implement weighted averaging here or in `self._jls.aggregate`
         # Reverse quantize and division (averaging)
         logger.info(f"Aggregating {len(params)} parameters from {num_nodes} nodes.")
         aggregated_params = self._apply_average(sum_of_weights, total_sample_size)
@@ -231,10 +230,15 @@ class SecaggCrypter:
         Args:
             params: List of parameters
             total_weight: Total weight to divide
-        
+
         Returns:
             List of averaged parameters
         """
+        # Check that quantized model weights are unsigned integers, for robustness sake
+        if any([v < 0 for v in params]):
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB624.value}: Cannot compute weighted average, values outside of bounds")
+
         return divide(params, total_weight)
 
     @staticmethod
@@ -247,12 +251,21 @@ class SecaggCrypter:
         Args:
             params: List of parameters
             weight: Weight to multiply
-        
+
         Returns:
             List of weighted parameters
         """
-        return multiply(params, weight)
-    
+        m = multiply(params, weight)
+
+        # Check that quantized model weights are in the correct range, for robustness sake
+        max_val = VEParameters.TARGET_RANGE - 1
+        if any([v > max_val or v < 0 for v in params]):
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB624.value}: Cannot apply weight to parameters, values outside of bounds"
+            )
+
+        return m
+
     @staticmethod
     def _convert_to_encrypted_number(
             params: List[List[int]],

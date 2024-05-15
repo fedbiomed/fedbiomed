@@ -61,7 +61,7 @@ On the node component (`node` + `gui` ):
 
 | dir | source machine | destination machine | destination port | service   | type     | status    | comment  |
 | --  | ------------   | -----------------   | --------------   | -----     | ------   | --------  | ------   |
-| out | node           | researcher             | TCP/50051     | HTTP      | backend  | mandatory |          |
+| out | node           | researcher             | TCP/50051     | gRPC/TLS  | backend  | mandatory | node-researcher communications |
 | out | node           | *other nodes* + researcher | TCP/14000+ | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *other nodes* + researcher | node      | TCP/14000+       | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *localhost*    | gui                 | TCP/8484         | HTTP      | user     | optional  | node GUI |
@@ -75,7 +75,7 @@ On the researcher component (`researcher`):
 
 | dir | source machine | destination machine | destination port | service   | type     | status    | comment     |
 | --  | ------------   | -----------------   | --------------   | -----     | ------   | --------  | -----       |
-| out | *nodes*        | researcher          | TCP/50051        | HTTP      | backend  | mandatory |             |
+| in  | *nodes*        | researcher          | TCP/50051        | gRPC/TLS  | backend  | mandatory | node-researcher communications|
 | out | researcher     | *nodes*             | TCP/14000+       | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *nodes*        | researcher          | TCP/14000+       | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *localhost*    | researcher          | TCP/8888         | HTTP      | user     | optional  | Jupyter     |

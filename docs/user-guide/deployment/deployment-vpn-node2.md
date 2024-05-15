@@ -101,7 +101,7 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 * do initial node configuration
 
     ```bash
-    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14002 && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node configuration create'
+    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14002 && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run environ-node configuration create --component NODE --use-current'
     ```
 
 Optionally launch the node GUI :
@@ -144,7 +144,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
         ```bash
         [user@node $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-        [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export PYTHONPATH=/fedbiomed && export FEDBIOMED_NO_RESET=1 && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
+        [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export PYTHONPATH=/fedbiomed && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
         ```
 
     * start the Fed-BioMed node, for example in background:
@@ -156,8 +156,8 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):
 
         ```bash
-        [user@node2-container $] ./scripts/fedbiomed_run node -am /data
-        [user@node2-container $] ./scripts/fedbiomed_run node add
+        [user@node2-container $] ./scripts/fedbiomed_run node dataset add -m /data
+        [user@node2-container $] ./scripts/fedbiomed_run node dataset add
         ```
 
 Example of a few more possible commands:
@@ -165,13 +165,13 @@ Example of a few more possible commands:
 * optionally list shared datasets:
 
     ```bash
-    [user@node2-container $] ./scripts/fedbiomed_run node list
+    [user@node2-container $] ./scripts/fedbiomed_run node dataset list
     ```        
 
 * optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node2/run_mounts/data/my_training_plan.txt`
 
     ```bash
-    [user@node2-container $] ./scripts/fedbiomed_run node --register-training-plan
+    [user@node2-container $] ./scripts/fedbiomed_run node training-plan register
     ```
     Indicate `/data/my_training_plan.txt` as path of the training plan file.
 

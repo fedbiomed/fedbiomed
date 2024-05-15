@@ -1,6 +1,7 @@
 
 import time
-from typing import Callable, Iterable, Any, Coroutine, Dict, Optional, List
+import os
+from typing import Callable, Iterable, Any, Coroutine, Optional, List
 import threading
 
 import asyncio
@@ -9,10 +10,10 @@ from google.protobuf.message import Message as ProtoBufMessage
 
 from fedbiomed.transport.protocols.researcher_pb2 import Empty
 import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
-from fedbiomed.transport.client import GRPC_CLIENT_CONN_RETRY_TIMEOUT
+from fedbiomed.transport.client import GRPC_CLIENT_CONN_RETRY_TIMEOUT, GRPC_CLIENT_TASK_REQUEST_TIMEOUT
 from fedbiomed.transport.node_agent import AgentStore, NodeAgent
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, MAX_SEND_RETRIES
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
@@ -20,13 +21,35 @@ from fedbiomed.common.message import Message, TaskResponse, TaskRequest, Feedbac
 from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 
+# Maximum time in seconds for sending a message, before considering it should be discarded.
+MAX_SEND_DURATION = 300
+
 # timeout in seconds for server to establish connections with nodes and initialize
-GPRC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + 1
-MAX_GRPC_SERVER_SETUP_TIMEOUT = 20
+
+server_setup_timeout = int(os.getenv('GRPC_SERVER_SETUP_TIMEOUT', 1))
+
+GRPC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + server_setup_timeout
+MAX_GRPC_SERVER_SETUP_TIMEOUT = 20 * server_setup_timeout
+
+
+class SSLCredentials:
+    """Contains credentials for SSL certifcate of the gRPC server"""
+    def __init__(self, key: str, cert: str):
+        """Reads private key and cert file
+
+        Args:
+            key: path to private key
+            cert: path to certificate
+        """
+        with open(key, 'rb') as f:
+            self.private_key = f.read()
+        with open(cert, 'rb') as f:
+            self.certificate = f.read()
 
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     """RPC Servicer """
+
 
     def __init__(
             self,
@@ -55,34 +78,71 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             request: RPC request
             context: RPC peer context
         """
-
         task_request = TaskRequest.from_proto(request).get_dict()
         logger.debug(f"Node: {task_request.get('node')} polling for the tasks")
 
-        node_agent = await self._agent_store.retrieve(
-            node_id=task_request["node"],
-            context=context
-        )
+        node_agent = await self._agent_store.retrieve(node_id=task_request["node"])
 
         # Update node active status as active
         await node_agent.set_active()
 
-        task = await node_agent.get_task()
+        task = None
+        try:
+            while True:
+                task, retry_count, first_send_time = await node_agent.get_task()
 
-        # Choice: be simple, mark task as de-queued as soon as retrieved
-        node_agent.task_done()
+                # Choice: mark task as de-queued as soon only if really sent
+                node_agent.task_done()
 
-        task = Serializer.dumps(task.get_dict())
+                # discard if message too old
+                if first_send_time + MAX_SEND_DURATION > time.time():
+                    break
+                else:
+                    task = None
+                    logger.warning(f"Message to send is older than {MAX_SEND_DURATION} seconds. Discard message.")
 
-        chunk_range = range(0, len(task), MAX_MESSAGE_BYTES_LENGTH)
-        for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
-            stop = start + MAX_MESSAGE_BYTES_LENGTH
+            task_bytes = Serializer.dumps(task.get_dict())
 
-            yield TaskResponse(
-                size=len(chunk_range),
-                iteration=iter_,
-                bytes_=task[start:stop]
-            ).to_proto()
+            chunk_range = range(0, len(task_bytes), MAX_MESSAGE_BYTES_LENGTH)
+            for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
+                stop = start + MAX_MESSAGE_BYTES_LENGTH
+
+                try:
+                    yield TaskResponse(
+                        size=len(chunk_range),
+                        iteration=iter_,
+                        bytes_=task_bytes[start:stop]
+                    ).to_proto()
+                except GeneratorExit:
+                    # schedule resend if task sending could not be completed
+                    # => retry send as long as (1) send not successful
+                    # (2) max retries not reached
+                    # => else discard message
+                    #
+                    # Note: if node is disconnected then back online, message is retried after reconnection.
+                    # This is not fully coherent with upper layers (Requests) that may trigger an application
+                    # level failure in the while, but it is mitigated by the MAX_SEND_DURATION
+                    if retry_count < MAX_SEND_RETRIES:
+                        await node_agent.send_async(
+                            message=task, on_reply=None, retry_count=retry_count + 1, first_send_time=first_send_time
+                        )
+                    else:
+                        logger.warning(f"Message cannot be sent after {MAX_SEND_RETRIES} retries. Discard message.")
+                    await node_agent.change_node_status_after_task()
+                    # need return here to avoid RuntimeError
+                    return
+
+        except asyncio.CancelledError:
+            if task is not None and retry_count is not None and first_send_time is not None:
+                # schedule resend if task was pulled from queue
+                if retry_count < MAX_SEND_RETRIES:
+                    await node_agent.send_async(
+                        message=task, on_reply=None, retry_count=retry_count + 1, first_send_time=first_send_time
+                    )
+                else:
+                    logger.warning(f"Message cannot be sent after {MAX_SEND_RETRIES} retries. Discard message.")
+        finally:
+            await node_agent.change_node_status_after_task()
 
 
     async def ReplyTask(
@@ -147,6 +207,7 @@ class _GrpcAsyncServer:
             host: str,
             port: str,
             on_message: Callable,
+            ssl: SSLCredentials,
             debug: bool = False,
     ) -> None:
         """Class constructor
@@ -155,12 +216,13 @@ class _GrpcAsyncServer:
             host: server DNS name or IP address
             port: server TCP port
             on_message: Callback function to execute once a message received from the nodes
+            ssl: Ssl credentials.
             debug: Activate debug mode for gRPC asyncio
         """
 
         # inform all threads whether server is started
         self._is_started = threading.Event()
-
+        self._ssl = ssl
         self._host = host
         self._port = port
 
@@ -179,6 +241,29 @@ class _GrpcAsyncServer:
             options=[
                 ("grpc.max_send_message_length", 100 * 1024 * 1024),
                 ("grpc.max_receive_message_length", 100 * 1024 * 1024),
+                #
+                # Some references for configuring gRPC keepalive:
+                # https://github.com/grpc/proposal/blob/master/A8-client-side-keepalive.md
+                # https://github.com/grpc/proposal/blob/master/A9-server-side-conn-mgt.md
+                # https://github.com/grpc/grpc/blob/master/doc/keepalive.md
+                # https://github.com/grpc/grpc/blob/master/examples/python/keep_alive/greeter_client.py
+                # https://github.com/grpc/grpc/blob/master/examples/python/keep_alive/greeter_server.py
+                # https://www.evanjones.ca/grpc-is-tricky.html
+                # https://www.evanjones.ca/tcp-connection-timeouts.html
+                # Be sure to keep client-server configuration coherent
+                ("grpc.keepalive_time_ms", 30 * GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
+                ("grpc.keepalive_timeout_ms", 2 * 1000),
+                ("grpc.http2.min_ping_interval_without_data_ms", 0.9 * GRPC_CLIENT_CONN_RETRY_TIMEOUT * 1000),
+                ("grpc.max_connection_idle_ms", (GRPC_CLIENT_TASK_REQUEST_TIMEOUT + 2) * 1000),
+                ("grpc.max_connection_age_ms", (GRPC_CLIENT_TASK_REQUEST_TIMEOUT + 5) * 1000),
+                ("grpc.max_connection_age_grace_ms", 2 * 1000),
+                ("grpc.http2.max_pings_without_data", 0),
+                ("grpc.keepalive_permit_without_calls", 1),
+                #
+                ("grpc.http2.max_ping_strikes", 100),
+                #
+                # Prevent multiple servers on same port
+                ('grpc.so_reuseport', 0),
             ])
 
         self._loop = asyncio.get_running_loop()
@@ -191,7 +276,15 @@ class _GrpcAsyncServer:
             server=self._server
         )
 
-        self._server.add_insecure_port(self._host + ':' + str(self._port))
+        # TODO: current version does not require or check client certificate
+        # In other words: hardcoded policy that researcher does not check node identity yet.
+        # To be extended in a future version.
+        server_credentials = grpc.ssl_server_credentials(
+            ( (self._ssl.private_key, self._ssl.certificate), )
+        )
+
+        self._server.add_secure_port(self._host + ':' + str(self._port), server_credentials)
+        # self._server.add_insecure_port(self._host + ':' + str(self._port))
 
         # Starts async gRPC server
         await self._server.start()
@@ -199,11 +292,11 @@ class _GrpcAsyncServer:
         self._is_started.set()
         try:
             if self._debug:
-                logger.debug("Waiting for termination")
+                logger.debug("Waiting for gRPC server termination")
             await self._server.wait_for_termination()
         finally:
             if self._debug:
-                logger.debug("Done starting the server")
+                logger.debug("gRPC server has stopped")
 
 
     async def send(self, message: Message, node_id: str) -> None:
@@ -290,17 +383,18 @@ class GrpcServer(_GrpcAsyncServer):
         logger.info("Starting researcher service...")
 
 
-        logger.info(f'Waiting {GPRC_SERVER_SETUP_TIMEOUT}s for nodes to connect...')
-        time.sleep(GPRC_SERVER_SETUP_TIMEOUT)
+        logger.info(f'Waiting {GRPC_SERVER_SETUP_TIMEOUT}s for nodes to connect...')
+        time.sleep(GRPC_SERVER_SETUP_TIMEOUT)
 
         sleep_ = 0
         while len(self.get_all_nodes()) == 0:
 
             if sleep_ == 0:
-                logger.info(f"No nodes found, server will wait {MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT} "
+                logger.info(f"No nodes found, server will wait "
+                            f"{MAX_GRPC_SERVER_SETUP_TIMEOUT - GRPC_SERVER_SETUP_TIMEOUT} "
                             "more seconds until a node creates connection.")
 
-            if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GPRC_SERVER_SETUP_TIMEOUT:
+            if sleep_ > MAX_GRPC_SERVER_SETUP_TIMEOUT - GRPC_SERVER_SETUP_TIMEOUT:
                 if len(self.get_all_nodes()) == 0:
                     logger.warning("Server has not received connection from any remote nodes in "
                                    f"MAX_GRPC_SERVER_SETUP_TIMEOUT: {MAX_GRPC_SERVER_SETUP_TIMEOUT} "
@@ -329,9 +423,12 @@ class GrpcServer(_GrpcAsyncServer):
                 f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
 
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628.value}: Communication client is not initialized.")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628.value}: Can not send message. "
+                "Communication client is not initialized.")
 
         self._run_threadsafe(super().send(message, node_id))
+
 
     def broadcast(self, message: Message) -> None:
         """Broadcast message to all known and reachable nodes
@@ -348,7 +445,9 @@ class GrpcServer(_GrpcAsyncServer):
                 f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
 
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Can not broadcast given message. "
+                "Communication client is not initialized.")
 
         self._run_threadsafe(super().broadcast(message))
 
@@ -362,7 +461,9 @@ class GrpcServer(_GrpcAsyncServer):
             FedbiomedCommunicationError: server is not started
         """
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Error while getting all nodes "
+                "connected:  Communication client is not initialized.")
 
         return self._run_threadsafe(super().get_all_nodes())
 
@@ -379,7 +480,9 @@ class GrpcServer(_GrpcAsyncServer):
             FedbiomedCommunicationError: server is not started
         """
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Error while getting node '{node_id}':"
+                "Communication client is not initialized.")
 
         return self._run_threadsafe(super().get_node(node_id))
 
@@ -395,7 +498,9 @@ class GrpcServer(_GrpcAsyncServer):
             FedbiomedCommunicationError: server is not started
         """
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628}: Can not check if thread is alive."
+                "Communication client is not initialized.")
 
         # TODO: more tests about gRPC server and task status ?
         return False if not isinstance(self._thread, threading.Thread) else self._thread.is_alive()

@@ -95,13 +95,15 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_weights(self, only_trainable: bool = False) -> Dict[str, DT]:
+    def get_weights(self, only_trainable: bool = False, exclude_buffers: bool = True) -> Dict[str, DT]:
         """Return a copy of the model's trainable weights.
 
         Args:
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
+            exclude_buffers: Whether to ignore buffers (the default), or 
+                include them.
 
         Returns:
             Model weights, as a dict mapping parameters' names to their value.
@@ -126,8 +128,17 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def flatten(self) -> List[float]:
+    def flatten(self,
+                only_trainable: bool = False,
+                exclude_buffers: bool = True) -> List[float]:
         """Flattens model weights
+
+        Args:
+            only_trainable: Whether to ignore non-trainable model parameters
+                from outputs (e.g. frozen neural network layers' parameters),
+                or include all model parameters (the default).
+            exclude_buffers: Whether to ignore buffers (the default), or 
+                include them.
 
         Returns:
             List of model weights as float.
@@ -148,6 +159,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
             as part of the federated learning process.
         """
 
+    @abstractmethod
     def reload(self, filename: str) -> None:
         """Import and replace the wrapped model from a dump file.
 
@@ -163,27 +175,6 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         Raises:
             FedbiomedModelError: if the reloaded instance is of unproper type.
         """
-        model = self._reload(filename)
-        if not isinstance(model, self._model_type):
-            err_msg = (
-                f"{ErrorNumbers.FB622.value}: unproper type for imported model"
-                f": expected '{self._model_type}', but 'got {type(model)}'."
-            )
-            logger.critical(err_msg)
-            raise FedbiomedModelError(err_msg)
-        self.model = model
-
-    @abstractmethod
-    def _reload(self, filename: str) -> _MT:
-        """Model-class-specific backend to the `reload` method.
-
-        Args:
-            filename: path to the file where the model has been exported.
-
-        Returns:
-            model: reloaded model instance to be wrapped, that will be type-
-                checked as part of the calling `reload` method.
-        """
 
     @staticmethod
     def _assert_dict_inputs(params: Dict[str, Any]) -> None:
@@ -197,12 +188,19 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
     @abstractmethod
     def unflatten(
             self,
-            weights_vector: List[float]
+            weights_vector: List[float],
+            only_trainable: bool = False,
+            exclude_buffers: bool = True
     ) -> None:
         """Revert flatten model weights back model-dict form.
 
         Args:
             weights_vector: Vectorized model weights to convert dict
+            only_trainable: Whether to ignore non-trainable model parameters
+                from outputs (e.g. frozen neural network layers' parameters),
+                or include all model parameters (the default).
+            exclude_buffers: Whether to ignore buffers (the default), or 
+                include them.
 
         Returns:
             Model dictionary

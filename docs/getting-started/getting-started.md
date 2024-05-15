@@ -4,7 +4,7 @@
 
 
 ## `Node`
-In Federated Learning, a `Node` is a component on which sensitive data are stored. To run a node, nothing simpler! From `Fed-BioMed` repository, enter the following command on a terminal:
+In Collaborative Learning, a `Node` is a component on which sensitive data are stored. To run a node, nothing simpler! From `Fed-BioMed` repository, enter the following command on a terminal:
 
 
 ```shell
@@ -196,7 +196,7 @@ training_args = {
     'dry_run': False,  
 }
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#MNIST', '#dataset']
@@ -211,6 +211,9 @@ exp = Experiment(tags=tags,
                  aggregator=FedAverage(),
                  node_selection_strategy=None)
 exp.run()
+
+# model saving
+exp.training_plan().export_model('./my_trained_model')
 ```
 
 <p>&nbsp;</p>
