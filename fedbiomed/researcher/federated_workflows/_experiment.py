@@ -24,7 +24,11 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.optimizers import Optimizer
+from fedbiomed.common.optimizers import (
+    EncryptedAuxVar,
+    Optimizer,
+    unflatten_auxvar_after_secagg,
+)
 from fedbiomed.common.serializer import Serializer
 
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
@@ -772,45 +776,59 @@ class Experiment(TrainingPlanWorkflow):
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
-        training_replies, nodes_aux_vars = job.execute()
+        # Collect training replies and (opt.) optimizer auxiliary variables.
+        training_replies, nodes_aux_var = job.execute()
 
-        # update node states with node answers + when used node list has changed during the round
+        # Update node states with node answers + when used node list has changed during the round.
         self._update_nodes_states_agent(before_training=False, training_replies=training_replies)
 
-        # refining/normalizing model weights received from nodes
-        model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
-            training_replies, self._round_current)
+        # If no Optimizer is used but auxiliary variables were received, raise.
+        if (self._agg_optimizer is None) and nodes_aux_var:
+            raise FedbiomedExperimentError(
+                "Received auxiliary variables from 1+ node Optimizer, but "
+                "no `agg_optimizer` was set for this Experiment to process "
+                "them.\nThese variables come from the following plug-in "
+                f"modules: {set(key for aux in nodes_aux_var for key in aux)}."
+            )
 
+        # Collect and refine/normalize model weights received from nodes.
+        model_params, weights, total_sample_size, encryption_factors = (
+            self._node_selection_strategy.refine(
+                training_replies, self._round_current
+            )
+        )
+
+        # (Secure-)Aggregate model parameters and optimizer auxiliary variables.
         if self._secagg.active:
-            flatten_params = self._secagg.aggregate(
-                round_=self._round_current,
-                encryption_factors=encryption_factors,
-                total_sample_size=total_sample_size,
-                model_params=model_params,
-                num_expected_params=len(self.training_plan().get_model_wrapper_class().flatten(
-                    exclude_buffers = not self.training_args()['share_persistent_buffers']))
+            aggregated_params, aggregated_auxvar = (
+                self._aggregate_encrypted_model_params_and_optim_auxvar(
+                    model_params, nodes_aux_var, encryption_factors, total_sample_size
+                )
             )
-            # FIXME: Access TorchModel through non-private getter once it is implemented
-            aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
-                self.training_plan().get_model_wrapper_class().unflatten(
-                    flatten_params, exclude_buffers = not self.training_args()['share_persistent_buffers'])
+        else:
+            aggregated_params = self._aggregator.aggregate(
+                model_params,
+                weights,
+                global_model=model_params_before_round,
+                training_plan=self.training_plan(),
+                training_replies=training_replies,
+                node_ids=job.nodes,
+                n_updates=self._training_args.get('num_updates'),
+                n_round=self._round_current,
+            )
+            aggregated_auxvar = (
+                self._aggregate_cleartext_optim_auxvar(nodes_aux_var)
+                if nodes_aux_var else None
             )
 
-        else:
-            # aggregate models from nodes to a global model
-            aggregated_params = self._aggregator.aggregate(model_params,
-                                                           weights,
-                                                           global_model=model_params_before_round,
-                                                           training_plan=self.training_plan(),
-                                                           training_replies=training_replies,
-                                                           node_ids=job.nodes,
-                                                           n_updates=self._training_args.get('num_updates'),
-                                                           n_round=self._round_current)
+        # Process optimizer auxiliary variables if any.
+        if aggregated_auxvar:
+            self._agg_optimizer.set_aux(aggregated_auxvar)
 
         # Optionally refine the aggregated updates using an Optimizer.
-        self._process_optim_aux_var(nodes_aux_vars)
-        aggregated_params = self._run_agg_optimizer(self.training_plan(),
-                                                    aggregated_params)
+        aggregated_params = self._run_agg_optimizer(
+            self.training_plan(), aggregated_params
+        )
 
         # Update the training plan with the aggregated parameters
         self.training_plan().set_model_params(aggregated_params)
@@ -848,55 +866,158 @@ class Experiment(TrainingPlanWorkflow):
         return 1
 
     def _collect_optim_aux_var(
-            self,
+        self,
     ) -> Optional[Dict[str, AuxVar]]:
         """Collect auxiliary variables of the held Optimizer, if any."""
         if self._agg_optimizer is None:
             return None
         return self._agg_optimizer.get_aux()
 
-    def _process_optim_aux_var(
+    def _aggregate_cleartext_optim_auxvar(
         self,
-        nodes_aux_var: List[Dict[str, AuxVar]],
-    ) -> None:
-        """Process Optimizer auxiliary variables received during last round.
-
-        Raises:
-            FedbiomedExperimentError: if auxiliary variables were received,
-                but `agg_optimizer` is None and thus cannot process them.
-            FedbiomedOptimizerError: if the received auxiliary variables do
-                not match the expectations of the `agg_optimizer` (Aggregation) Optimizer.
-        """
-        # If an Optimizer is used, pass it the auxiliary variables (if any).
-        if self._agg_optimizer is not None:
-            aggregated_aux_var = self._aggregate_optim_aux_var(nodes_aux_var)
-            self._agg_optimizer.set_aux(aggregated_aux_var)
-        # If no Optimizer is used but auxiliary variables were received, raise.
-        elif nodes_aux_var:
-            raise FedbiomedExperimentError(
-                "Received auxiliary variables from 1+ node Optimizer, but "
-                "no `agg_optimizer` was set for this Experiment to process "
-                "them.\nThese variables come from the following plug-in "
-                f"modules: {set(key for aux in nodes_aux_var for key in aux)}."
-            )
-
-    def _aggregate_optim_aux_var(
-        self,
-        nodes_aux_var: List[Dict[str, AuxVar]],
+        nodes_auxvar: Dict[str, Dict[str, AuxVar]],
     ) -> Dict[str, AuxVar]:
-        """Aggregate node-wise optimizer auxiliary variables.
+        """Aggregate clear-text node-wise optimizer auxiliary variables.
+
         Args:
-            nodes_aux_var: List of node-wise optimizer auxiliary variables,
-                with format `[{module_name: module_aux_var}, ...]`.
+            nodes_auxvar: Dict of node-wise optimizer auxiliary variables,
+                with format `{node_name: {module_name: module_auxvar}}`.
+
         Returns:
             Aggregated optimizer auxiliary variables, with format
-            `{module_name: module_aux_var}`.
+            `{module_name: module_auxvar}`.
+
+        Raises:
+            FedbiomedExperimentError: If any node sent unproper-type data.
         """
-        aux_var = {}  # type: Dict[str, AuxVar]
-        for node_dict in nodes_aux_var:
-            for module, mod_aux in node_dict.items():
-                aux_var[module] = aux_var.get(module, 0) + mod_aux
-        return aux_var
+        failed = []  # type: List[str]
+        auxvar = {}  # type: Dict[str, AuxVar]
+        for node_name, node_dict in nodes_auxvar.values():
+            if not isinstance(node_dict, dict):
+                failed.append(node_name)
+            elif not failed:
+                for mod_name, mod_auxv in node_dict.items():
+                    auxvar[mod_name] = auxvar.get(mod_name, 0) + mod_auxv
+        if failed:
+            raise FedbiomedExperimentError(
+                "Received unproper-type optimizer auxiliary variables from "
+                "1+ nodes.\nNodes that sent invalid data are the following: "
+                f"{failed}."
+            )
+        return auxvar
+
+    def _aggregate_encrypted_model_params_and_optim_auxvar(
+        self,
+        model_params: Dict[str, List[int]],
+        optim_auxvar: Dict[str, EncryptedAuxVar],
+        encryption_factors: Optional[Dict[str, List[int]]],
+        total_sample_size: int,
+    ) -> Tuple[
+        Dict[str, Union[np.ndarray, torch.Tensor]],
+        Optional[Dict[str, AuxVar]],
+    ]:
+        """Secure-aggregate nodes' model parameters and (opt.) optimizer auxiliary variables.
+
+        Args:
+            model_params: Dict of node-wise flattened encrypted model parameters.
+            optim_auxvar: Dict of node-wise encrypted optimizer auxiliary variables.
+                May be empty.
+            encryption_factors: Optional dict of node-wise encryption factors, used
+                to verify that SecAgg was properly conducted.
+            total_sample_size: Total number of training samples used by nodes.
+
+        Returns:
+            aggregated_params: Aggregated model parameters, unflattened into a dict
+                mapping parameters' names to their values.
+            aggregated_auxvar: Optional aggregated optimizer auxiliary variables,
+                unflattened into a dict mapping modules' names to `AuxVar` objects
+                they are meant to receive and process.
+        """
+        # Gather parameters that need aggregate-decryption.
+        if not optim_auxvar:
+            encrypted = model_params
+            encrypted_auxvar = None  # type: Optional[EncryptedAuxVar]
+            aggregated_auxvar = None  # type: Optional[Dict[str, AuxVar]]
+        else:
+            # Ensure auxiliary variables have the same node-order as model
+            # parameters, type-check and pre-aggregate them.
+            encrypted_auxvar = self._preaggregate_encrypted_optim_auxvar(
+                {node: optim_auxvar[node] for node in model_params}
+            )
+            # Concatenate model parameters and optimizer auxiliary variables.
+            encrypted = {}
+            for idx, node in enumerate(model_params):
+                encrypted[node] = (
+                    model_params[node] + encrypted_auxvar.encrypted[idx]
+                )
+        # Perform secure aggregation of all encrypted parameters.
+        exclude_buffers = not self.training_args()['share_persistent_buffers']
+        num_expected_params = len(
+            self.training_plan().get_model_wrapper_class().flatten(
+                exclude_buffers=exclude_buffers
+            )
+        )
+        flattened = self._secagg.aggregate(
+            round_=self._round_current,
+            encryption_factors=encryption_factors,
+            total_sample_size=total_sample_size,
+            model_params=encrypted,
+            num_expected_params=num_expected_params,
+        )
+        # Split out aggregated auxiliary variables (if any) and unflatten them.
+        if encrypted_auxvar:
+            # Separate auxiliary variables from model parameters.
+            n_aux_var = len(encrypted_auxvar.encrypted[0])
+            flattened, flat_auxv = flattened[:-n_aux_var], flattened[-n_aux_var:]
+            # Undo normalization by total number of samples.
+            flat_auxv = [x * total_sample_size for x in flat_auxv]
+            # Recover cleartext AuxVar instances from values and specs.
+            aggregated_auxvar = unflatten_auxvar_after_secagg(
+                decrypted=flat_auxv,
+                enc_specs=encrypted_auxvar.enc_specs,
+                cleartext=encrypted_auxvar.cleartext,
+                clear_cls=encrypted_auxvar.clear_cls,
+            )
+        # Unflatten aggregated model parameters.
+        aggregated_params: Dict[str, Union[torch.Tensor, np.ndarray]] = (
+            self.training_plan().get_model_wrapper_class().unflatten(
+                flattened, exclude_buffers=exclude_buffers
+            )
+        )
+        # Return aggregated model parameters and optimizer auxiliary variables.
+        return aggregated_params, aggregated_auxvar
+
+    def _preaggregate_encrypted_optim_auxvar(
+        self,
+        nodes_auxvar: Dict[str, EncryptedAuxVar],
+    ) -> EncryptedAuxVar:
+        """Pre-aggregate encrypted node-wise optimizer auxiliary variables.
+
+        Args:
+            nodes_auxvar: Dict of node-wise optimizer auxiliary variables,
+                wrapped as `EncryptedAuxVar` instances.
+
+        Returns:
+            Pre-aggregated optimizer auxiliary variables, as a single
+            `EncryptedAuxVar` instance that still needs decryption.
+
+        Raises:
+            FedbiomedExperimentError: If any node sent non-encrypted data.
+        """
+        failed = []  # type: List[str]
+        auxvar = []  # type: List[EncryptedAuxVar]
+        for node_name, node_data in nodes_auxvar.items():
+            if isinstance(node_data, EncryptedAuxVar):
+                auxvar.append(node_data)
+            else:
+                failed.append(node_name)
+        if failed:
+            raise FedbiomedExperimentError(
+                "Received non-encrypted optimizer auxiliary variables from "
+                "1+ nodes, in spite of SecAgg being active.\nNodes that sent "
+                f"cleartext data are the following: {failed}."
+            )
+        return sum(auxvar[1:], start=auxvar[0])
 
     def _run_agg_optimizer(
         self,
