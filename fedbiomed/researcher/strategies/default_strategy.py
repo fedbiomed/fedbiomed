@@ -48,8 +48,8 @@ class DefaultStrategy(Strategy):
             self,
             training_replies: Dict,
             round_i: int
-    ) -> Tuple[Dict[str, float],
-               Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
+    ) -> Tuple[Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
+               Dict[str, float],
                int,
                Dict[str, List[int]]]:
         """
@@ -68,8 +68,6 @@ class DefaultStrategy(Strategy):
             round_i: Current round of experiment
 
         Returns:
-            weights: Proportions list, each element of this list represents a dictionary with its only key as
-                the node_id and its value the proportion of lines the node has with respect to the whole,
             model_params: list with each element representing a dictionary. Its only key represents the node_id
                 and the corresponding value is a dictionary containing list of weight matrices of every node : [{"n1":{"layer1":m1,"layer2":m2},{"layer3":"m3"}},{"n2": ...}]
                 Including the node_id is useful for the proper functioning of some strategies like Scaffold :
@@ -77,6 +75,8 @@ class DefaultStrategy(Strategy):
                 The computation of correction states at round i is dependant to client states and correction states of round i-1.
                 Since training_replies can potentially order the node replies differently from round to round, the bridge between
                 all these parameters is represented by the node_id.
+            weights: Proportions list, each element of this list represents a dictionary with its only key as
+                the node_id and its value the proportion of lines the node has with respect to the whole,
             total_rows: sum of number of samples used by all nodes
             encryption_factors: encryption factors from the participating nodes
 
