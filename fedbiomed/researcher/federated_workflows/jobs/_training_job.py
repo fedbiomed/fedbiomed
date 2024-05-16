@@ -7,11 +7,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from declearn.optimizer.modules import AuxVar
 
+from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, TrainReply, TrainRequest
+from fedbiomed.common.optimizers import EncryptedAuxVar
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
-from fedbiomed.common.logger import logger
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.requests import MessagesByNode
 
@@ -125,14 +126,18 @@ class TrainingJob(Job):
 
         return timings
 
-    def execute(self) -> Tuple[Dict[str, TrainReply], List[Dict[str, AuxVar]]]:
+    def execute(self) -> Tuple[
+        Dict[str, TrainReply],
+        Union[Dict[str, Dict[str, AuxVar]], Dict[str, EncryptedAuxVar]],
+    ]:
         """ Sends training request to nodes and waits for the responses
 
         Returns:
             A tuple of
               * training replies for this round
-              * List of node-wise optimizer auxiliary variables, with format
-                `[{module_name: module_aux_var}, ...]` (may be empty).
+              * node-wise optimizer auxiliary variables, as a dict with format
+                `{node_name: encrypted_aux_var}` is secagg is used, and
+                `{node_name: {module_name: module_aux_var}}` otherwise.
         """
 
         # Populate request message
@@ -186,7 +191,7 @@ class TrainingJob(Job):
         if self._do_training:
             aux_vars = self._extract_received_optimizer_aux_var_from_round(training_replies)
         else:
-            aux_vars = []
+            aux_vars = {}
         return training_replies, aux_vars
 
     def _log_round_info(self, node: str, training: bool) -> None:
@@ -210,16 +215,20 @@ class TrainingJob(Job):
 
     @staticmethod
     def _extract_received_optimizer_aux_var_from_round(
-        training_replies: Dict
-    ) -> List[Dict[str, AuxVar]]:
+        training_replies: Dict[str, TrainReply],
+    ) -> Union[
+        Dict[str, Dict[str, AuxVar]],
+        Dict[str, EncryptedAuxVar],
+    ]:
         """Restructure the received auxiliary variables (if any) from a round.
 
         Args:
             training_replies: training replies received for this job
 
         Returns:
-            List of node-wise optimizer auxiliary variables, with format
-            `[{module_name: module_aux_var}, ...]`.
+            Dict of node-wise optimizer auxiliary variables, with format
+            `{node_name: {module_name: module_aux_var}}` if secagg is not used,
+            or `{node_name: encrypted_aux_var}` if it is used.
         """
         return [
             reply.get("optim_aux_var", {})
