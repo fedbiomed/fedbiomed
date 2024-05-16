@@ -59,6 +59,7 @@ nav:
           - 'Local and Central DP Example': './tutorials/security/non-private-local-central-dp-monai-2d-image-registration.ipynb'
           - 'Training with Approved Model Files' : './tutorials/security/training-with-approved-training-plans.ipynb'
           - 'Secure Aggregation': './tutorials/security/secure-aggregation.ipynb'
+          - 'End-to-end Privacy Preserving Training and Inference on Medical Data': './tutorials/concrete-ml/concrete-ml.ipynb'
       - Biomedical data:
           - 'Brain image segmentation using IXI dataset': './tutorials/medical/medical-image-segmentation-unet-library.ipynb'
     - 'User Guide':
