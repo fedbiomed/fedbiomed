@@ -2,24 +2,28 @@ import os
 import shutil
 import tempfile
 import unittest
-from unittest.mock import MagicMock, create_autospec, patch
+from unittest.mock import MagicMock, call, create_autospec, patch
+
+from declearn.optimizer.modules import AuxVar
 
 from testsupport.base_case import ResearcherTestCase  # Import ResearcherTestCase before importing any FedBioMed Module
 from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_training_plan import FakeTorchTrainingPlan
-from testsupport import fake_training_plan
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.message import \
+from fedbiomed.common.message import (
     TrainReply,ErrorMessage, TrainingPlanStatusReply
+)
+from fedbiomed.common.optimizers import EncryptedAuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import DiscardOnTimeout
-from fedbiomed.researcher.federated_workflows.jobs import \
+from fedbiomed.researcher.federated_workflows.jobs import (
     Job, TrainingJob, TrainingPlanApproveJob, TrainingPlanCheckJob
+)
 
 
 class TestJob(ResearcherTestCase, MockRequestModule):
@@ -105,15 +109,8 @@ class TestJob(ResearcherTestCase, MockRequestModule):
         }
 
         optim_aux_vars = [
-            {
-                'shared': {},
-                'node-specific': {
-                    'alice': 'node-specific',
-                    'bob': 'node-specific'
-                }
-            },
-            {}
-
+            None,
+            {"module": create_autospec(AuxVar, instance=True)},
         ]
         for optim_aux_var in optim_aux_vars:
             for do_training in [True, False]:
@@ -162,9 +159,9 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                     # Following line tests if aux_vars from training replies extracted correctly
                     # aux_vars are set only if traning is done
                     if do_training:
-                        self.assertDictEqual(aux_vars, {'module': {'alice': 'params_alice', 'bob': 'params_bob'}})
+                        self.assertDictEqual(aux_vars, {'alice': {'module': 'params_alice'}, 'bob': {'module': 'params_bob'}})
                     else:
-                        self.assertEqual(aux_vars, None)
+                        self.assertEqual(aux_vars, {})
 
                     self.mock_requests.return_value.send.called_once_with(
                         [
@@ -187,7 +184,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                             }
                         })
                     self.assertDictEqual(training_replies, expected_replies)
-
 
     @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
     def test_job_03_training_job_failed(self, mock_uuid):
@@ -298,8 +294,8 @@ class TestJob(ResearcherTestCase, MockRequestModule):
                     # aux_vars are set only if traning is done
                     expected_aux_vars = {}
                     for node in ['alice', 'bob']:
-                        if not error_status[node] and success_status[node]:
-                            expected_aux_vars.setdefault('module', {})[node] = aux_var_return[node]['module']
+                        if not error_status[node]:
+                            expected_aux_vars[node] = aux_var_return[node]
                     self.assertDictEqual(aux_vars, expected_aux_vars)
 
                     self.mock_requests.return_value.send.called_once_with(
@@ -485,6 +481,74 @@ class TestJob(ResearcherTestCase, MockRequestModule):
 
                                 # we lack a test using the errors but no obvious test for this case
 
+    def test_job_06_training_job_encrypted_aux_var(self):
+        """Test that (mock) encrypted auxiliary variables are properly parsed."""
+        # Set up a mock TrainingPlan.
+        mock_tp = create_autospec(spec=BaseTrainingPlan, instance=True)
+        mock_tp.get_model_params.return_value = MagicMock(spec=dict)
+        mock_tp.source.return_value = MagicMock(spec=str)
+        # Set up stub node state ids.
+        fake_node_state_ids = {
+            'node-1': 'node-1_nsid',
+            'node-2': 'node-2_nsid'
+        }
+        # Set up a mock dataset.
+        self.fds.data = MagicMock(return_value={
+            'node-1': {'dataset_id': 'node-1_data'},
+            'node-2': {'dataset_id': 'node-2_data'},
+        })
+        self.mock_federated_request.errors.return_value = {}
+        # Patch train replies to mock encrypted optimizer auxiliary variables.
+        reply_1 = self._get_train_reply(
+            'node-1',
+            self.fds.data()['node-1']['dataset_id'],
+            optim_aux_var={"mock": "node-1"},  # mock encrypted dump
+        )
+        reply_1["encrypted"] = True
+        reply_2 = self._get_train_reply(
+            'node-2',
+            self.fds.data()['node-2']['dataset_id'],
+            optim_aux_var={"mock": "node-2"},  # mock encrypted dump
+        )
+        reply_2["encrypted"] = True
+        self.mock_federated_request.replies.return_value = {
+            'node-1': TrainReply(**reply_1),
+            'node-2': TrainReply(**reply_2),
+        }
+        # Set up mock EncryptedAuxVar instances.
+        aux_var_1 = create_autospec(EncryptedAuxVar, instance=True)
+        aux_var_2 = create_autospec(EncryptedAuxVar, instance=True)
+        # Instantiate and execute a Job, mocking most operations.
+        with tempfile.TemporaryDirectory() as fp:
+            job = TrainingJob(
+                experiment_id='experiment_id',
+                round_=1,
+                training_plan=mock_tp,
+                training_args=TrainingArgs({}, only_required=False),
+                model_args=None,
+                data=self.fds,  # mocked FederatedDataSet class
+                nodes_state_ids=fake_node_state_ids,
+                nodes=['node-1', 'node-2'],
+                aggregator_args={},
+                do_training=True,
+                optim_aux_var=None,
+                keep_files_dir=fp
+            )
+            with patch(
+                "fedbiomed.common.optimizers.EncryptedAuxVar.from_dict",
+                side_effect=[aux_var_1, aux_var_2]
+            ) as patch_encrypted_auxvar_from_dict:
+                with patch("time.perf_counter") as mock_perf_counter:
+                    mock_perf_counter.return_value = 0
+                    _, aux_var = job.execute()
+        # Verify that ouput auxiliary variables match expectations.
+        expected = {"node-1": aux_var_1, "node-2": aux_var_2}
+        assert aux_var == expected
+        #self.assertDictEqual(aux_var, expected)
+        # Verify that expected calls occured.
+        patch_encrypted_auxvar_from_dict.assert_has_calls(
+            [call(reply_1["optim_aux_var"]), call(reply_2["optim_aux_var"])]
+        )
 
     def _get_train_request(self,
                            mock_tp,
