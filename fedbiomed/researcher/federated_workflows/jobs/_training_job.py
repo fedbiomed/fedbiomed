@@ -234,6 +234,8 @@ class TrainingJob(Job):
         for reply in training_replies.values():
             node_id = reply.node_id
             node_av = reply.optim_aux_var or {}
+            if not node_av:
+                continue
             if reply.encrypted:
                 node_av = EncryptedAuxVar.from_dict(node_av)
             nodes_aux_var[node_id] = node_av
