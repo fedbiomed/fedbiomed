@@ -891,7 +891,7 @@ class Experiment(TrainingPlanWorkflow):
         """
         failed = []  # type: List[str]
         auxvar = {}  # type: Dict[str, AuxVar]
-        for node_name, node_dict in nodes_auxvar.values():
+        for node_name, node_dict in nodes_auxvar.items():
             if not isinstance(node_dict, dict):
                 failed.append(node_name)
             elif not failed:
