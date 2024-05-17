@@ -66,10 +66,16 @@ def generate_scaffold_aux_var(n_feats: int = 32) -> Dict[str, AuxVar]:
     declearn.utils.set_device_policy(gpu=False)
     # Run a mock training step using a Scaffold optimizer.
     gradients = declearn.model.torch.TorchVector(
-        {"kernel": torch.randn((n_feats, 1)), "bias": torch.randn((1,))}
+        {
+            "kernel": torch.clamp(torch.randn((n_feats, 1)), -2.5, 2.5),
+            "bias": torch.clamp(torch.randn((1,)), -2.5, 2.5),
+        }
     )
     weights = declearn.model.torch.TorchVector(
-        {"kernel": torch.randn((n_feats, 1)), "bias": torch.randn((1,))}
+        {
+            "kernel": torch.clamp(torch.randn((n_feats, 1)), 5.0, 5.0),
+            "bias": torch.clamp(torch.randn((1,)), 5.0, 5.0),
+        }
     )
     optimizer = Optimizer(lr=0.001, modules=[ScaffoldClientModule()])
     optimizer.step(gradients, weights)
@@ -302,6 +308,7 @@ class TestAuxVarSecAgg(unittest.TestCase):
                 num_nodes=2,
                 current_round=1,
                 biprime=biprime,
+                clipping_range=5,
             )
 
         def sum_decrypt(
@@ -317,6 +324,7 @@ class TestAuxVarSecAgg(unittest.TestCase):
                 num_nodes=2,
                 current_round=1,
                 biprime=biprime,
+                clipping_range=5,
                 num_expected_params=n_params,
             )
             return [value * 2 for value in averaged]
