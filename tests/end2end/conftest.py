@@ -25,7 +25,8 @@ _PORT = 50052
 
 @pytest.fixture(scope='session')
 def port():
-    return str(_PORT + 1)
+    _PORT += 1
+    return str(_PORT)
 
 
 @pytest.fixture(scope='module', autouse=True)

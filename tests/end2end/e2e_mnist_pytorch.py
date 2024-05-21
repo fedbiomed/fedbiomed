@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 import os
->>>>>>> ea6163ed7f2f9f3525d585a549c685e5a2d65c50
 import time
 import pytest
 
