@@ -56,10 +56,7 @@ def setup(port, post_session, request):
 
         # Create researcher component
         researcher = create_researcher(port=port)
-        # Starts the nodes
-        node_processes, thread = start_nodes([node_1, node_2, node_3])
-
-        # Generate datasets
+                # Generate datasets
         p1, p2, p3 = generate_sklearn_classification_dataset()
         dataset = {
             "name": "MNIST",
@@ -103,12 +100,11 @@ def setup(port, post_session, request):
         add_dataset_to_node(node_2, dataset)
         add_dataset_to_node(node_3, dataset)
 
-        time.sleep(1)
-
+        # Starts the nodes
+        node_processes, thread = start_nodes([node_1, node_2, node_3])
         # Good to wait 3 second to give time to nodes start
         print("Sleep 5 seconds. Giving some time for nodes to start")
         time.sleep(5)
-
 
         # Run tests
         yield node_1, node_2, node_3, researcher
