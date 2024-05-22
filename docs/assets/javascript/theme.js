@@ -21,9 +21,9 @@ let is_docs = check_is_docs()
 
 /**
  * Joins base and given relative path
- * @param {string} base 
- * @param {string} path 
- * @returns 
+ * @param {string} base
+ * @param {string} path
+ * @returns
  */
 function joinUrl (base, path) {
     if (path.substring(0, 1) === "/") {
@@ -203,7 +203,7 @@ $(document).ready(async function(){
         let version_url
 
         if( deprecated_versions.includes(version) ){
-            version_url = abs_url.replace(v, version) 
+            version_url = abs_url.replace(v, version)
             window.location.replace( version_url);
         }else{
             if (!v){
@@ -372,8 +372,11 @@ $(document).ready(async function(){
     console.log('Current version: ', version )
 
     // Indexing
+
+	let index_url = window.location.pathname  + search_index_json
+	index_url = index_url.replace('//', '/')
     const SearchWorker = new Worker(search_worker_js);
-    SearchWorker.postMessage({type: 'INDEX', payload: {search_index_json: search_index_json}})
+    SearchWorker.postMessage({type: 'INDEX', payload: {search_index_json: index_url}})
 
     // Search worker event listener
     SearchWorker.onmessage = (message) => {

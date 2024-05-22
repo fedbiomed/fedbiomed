@@ -159,17 +159,17 @@ We may also provide two test file for the same purpose. The choice depend on the
 
 ### How to mock environ in a test
 
-Environ for the components are mocked by the classes `NodeTestCase` and `ResearcherTestCase`. 
+Environ for the components are mocked by the classes `NodeTestCase` and `ResearcherTestCase`.
 Please use `NodeTestCase` for the classes that uses `environ` on the node side adn `ResearcherTestCase`
 for the classes on researcher side. Your test class should inherit one of them. Example:
 
 ```python
 
 class TestDatasetManager(NodeTestCase):
-  
+
     #......
-    
-    
+
+
 if __name__ == '__main__':
     unittest.main()
 ```
@@ -178,7 +178,7 @@ NodeTestCase or ResearcherTestCase should be imported before importing any other
 
 **Note:** `cls.env` can be used in order to modify/remove environ variable values.
 
-**IMPORTANT**: It is required to add `super().setUpClass()` in child's `setUpClass` method if it is added into test 
+**IMPORTANT**: It is required to add `super().setUpClass()` in child's `setUpClass` method if it is added into test
 class. Same for `tearDownClass()`
 
 
@@ -273,91 +273,3 @@ unit test is provided for the file.
 
 Of course, this is a temporary situation, waiting for all files to be tested properly.
 
-
-## Running an end-to-end test
-
-### global explanation
-
-We provide the script **scripts/run_end_to_end_test** to ease the launching of
-tests during the development process.
-
-The script usage is:
-
-```
-Usage: run_end_to_end_test -s file -d dataset.json
-
-  -h, --help                  this help
-  -s, --script  <file>        script to run (.py or .ipynb)
-  -t, --timeout <integer>     max execution time (default = 900)
-  -d, --dataset <json-file>   dataset description
-
-Remark: only dataset availability is checked. Coherence between
-provided script and dataset is not validated by this launcher
-```
-
-The script algorithm is:
-- start one separate node for each provided dataset
-- start the researcher component
-- stop and clean all components
-- the status exit of the script is 0 is everything ran well
-
-The script deals with python scripts or with notebooks.
-
-### dataset description
-
-The datasets are described in a json file, which looks like:
-
-```
-{
-    "name": "Mednist data",
-    "description": "Mednist",
-    "tags": "mednist",
-    "data_type": "images",
-    "path": "$HOME/tmp/MedNIST"
-}
-```
-
-You can use OS environment variables in this script (e.g. $HOME in the given example)
-
-We provide some example datasets in **tests/datasets**, you may need to adjust them to comply with your own installation directories.
-
-
-### Examples of use
-
-#### MNIST tutorial
-
-```
-$ ./scripts/run_end_to_end_test -s ./notebooks/101_getting-started.ipynb \
-                                 -d ./tests/datasets/mnist.json
-```
-
-This will run the first tutorial of Fed-BioMed with one calculation node.
-
-
-#### monai notebook tutorial with 3 nodes
-
-```
-$ ./scripts/run_end_to_end_test \
-   -s ./notebooks/monai-2d-image-classification.ipynb \
-   -d ./tests/datasets/mednist_part_1.json \
-   -d ./tests/datasets/mednist_part_2.json \
-   -d ./tests/datasets/mednist_part_3.json \
-   -t 3600
-```
-
-This will run the monai-2d-image-classification.ipynb notebook, with thres nodes, each of
-them using a part of mednist dataset (which has been splitted in three parts).
-
-You may launch this tutorial in a jupyter notebook for more informations.
-
-#### sklear perceptron tutorial with 3 nodes
-
-First, create the c1.csv. c2.csv, c3.csv files as described in the notebook, then:
-
-```
-../scripts/run_end_to_end_test \
-  -s ../notebooks/sklearn-perceptron.ipynb \
-  -d ./datasets/sklearn_perceptron_1.json \
-  -d datasets/sklearn_perceptron_2.json \
-  -d datasets/sklearn_perceptron_3.json
-```

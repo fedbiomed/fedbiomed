@@ -213,6 +213,7 @@ while [[ $# -gt 0 ]]; do
         ;;
     help|-h|--help)
         shift
+        USAGE_ACTIVE=1
         usage gui
         ;;
     * )
@@ -220,6 +221,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+echo $1
 case $1 in
     start)
       if [ -n "$2" ]; then
@@ -227,8 +229,13 @@ case $1 in
       fi
       start_gui
       ;;
+    help|--help|-h)
+      usage
+      ;;
     *)
-      error "Node GUI command should be used with start. Please make sure that your command is correct"
+      if [ -z "$USAGE_ACTIVE" ]; then
+        error "Node GUI command should be used with start. Please make sure that your command is correct"
+      fi
       ;;
 esac
 

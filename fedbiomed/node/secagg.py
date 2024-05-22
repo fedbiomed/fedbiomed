@@ -35,14 +35,15 @@ class BaseSecaggSetup(ABC):
             researcher_id: str,
             secagg_id: str,
             parties: List[str],
-            job_id: Union[str, None] = None,
+            experiment_id: Union[str, None] = None,
     ):
         """Constructor of the class.
 
         Args:
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
-            job_id: ID of the job to which this secagg context element is attached (empty string if no attached job)
+            experiment_id: ID of the experiment to which this secagg context element
+                is attached (empty string if no attached experiment)
             parties: List of parties participating in the secagg context element setup
 
         Raises:
@@ -64,7 +65,7 @@ class BaseSecaggSetup(ABC):
         # assign argument values
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
-        self._job_id = job_id
+        self._experiment_id = experiment_id
         self._parties = parties
         self._element = None
 
@@ -97,13 +98,13 @@ class BaseSecaggSetup(ABC):
         return self._secagg_id
 
     @property
-    def job_id(self) -> Union[str, None]:
-        """Getter for `job_id`
+    def experiment_id(self) -> Union[str, None]:
+        """Getter for `experiment_id`
 
         Returns:
-            ID of the job to which this secagg context element is attached (empty string if no attached job)
+            ID of the experiment to which this secagg context element is attached (empty string if no attached experiment)
         """
-        return self._job_id
+        return self._experiment_id
 
     @property
     def element(self) -> Enum:
@@ -156,7 +157,7 @@ class BaseSecaggSetup(ABC):
             message to return to the researcher after the setup
         """
         try:
-            context = self._secagg_manager.get(self._secagg_id, self._job_id)
+            context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
         except FedbiomedError as e:
             logger.debug(f"{e}")
             return self._create_secagg_reply(
@@ -183,7 +184,8 @@ class BaseSecaggSetup(ABC):
                     f'Secagg element context for {self._secagg_id} exists but parties do not match',
                     False)
 
-            message = f"Node secagg context element for {self._secagg_id} is already existing for job {self._job_id}"
+            message = f"Node secagg context element for {self._secagg_id} is " \
+                f"already existing for experiment {self._experiment_id}"
             logger.info(message)
             return self._create_secagg_reply(message, True)
 
@@ -204,26 +206,26 @@ class SecaggServkeySetup(BaseSecaggSetup):
             researcher_id: str,
             secagg_id: str,
             parties: List[str],
-            job_id: str,
+            experiment_id: str,
     ):
         """Constructor of the class.
 
         Args:
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
-            job_id: ID of the job to which this secagg context element is attached
+            experiment_id: ID of the experiment to which this secagg context element is attached
             parties: List of parties participating to the secagg context element setup
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(researcher_id, secagg_id, parties, job_id)
+        super().__init__(researcher_id, secagg_id, parties, experiment_id)
 
         self._element = SecaggElementTypes.SERVER_KEY
         self._secagg_manager = SKManager
 
-        if not self._job_id or not isinstance(self._job_id, str):
-            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `job_id` must be a non empty string'
+        if not self._experiment_id or not isinstance(self._experiment_id, str):
+            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `experiment_id` must be a non empty string'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -274,7 +276,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
             )
 
         context = {'server_key': int(key_share)}
-        self._secagg_manager.add(self._secagg_id, self._parties, context, self._job_id)
+        self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
         logger.info(
             "Server key share successfully created for "
             f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
@@ -289,14 +291,14 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
             researcher_id: str,
             secagg_id: str,
             parties: List[str],
-            job_id: None = None):
+            experiment_id: None = None):
 
         """Constructor of the class.
 
         Args:
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
-            job_id: unused argument
+            experiment_id: unused argument
             parties: List of parties participating to the secagg context element setup
 
         Raises:
@@ -307,8 +309,8 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
         self._element = SecaggElementTypes.BIPRIME
         self._secagg_manager = BPrimeManager
 
-        if job_id is not None:
-            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `job_id` must be None'
+        if experiment_id is not None:
+            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `experiment_id` must be None'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 

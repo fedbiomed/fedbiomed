@@ -22,7 +22,7 @@ class TestBaseSecaggSetup(NodeTestCase):
         self.args = {
                 'researcher_id': 'my researcher',
                 'secagg_id': "my secagg",
-                'job_id': '123345',
+                'experiment_id': '123345',
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
         }
 
@@ -57,7 +57,7 @@ class TestBaseSecaggSetup(NodeTestCase):
 
         self.assertEqual(self.base_secagg_setup.researcher_id, self.args["researcher_id"])
         self.assertEqual(self.base_secagg_setup.secagg_id, self.args["secagg_id"])
-        self.assertEqual(self.base_secagg_setup.job_id, self.args["job_id"])
+        self.assertEqual(self.base_secagg_setup.experiment_id, self.args["experiment_id"])
         self.assertEqual(self.base_secagg_setup.element, None)
 
     def test_base_secagg_setup_03_create_secagg_reply(self):
@@ -115,7 +115,7 @@ class TestSecaggServkey(SecaggTestCase):
         self.args = {
             'researcher_id': "my researcher",
             'secagg_id': "my secagg",
-            'job_id': 'my_job_id',
+            'experiment_id': 'my_experiment_id',
             'parties': ['my researcher', environ["ID"], 'my node2', 'my node3'],
         }
         self.secagg_servkey = SecaggServkeySetup(**self.args)
@@ -124,14 +124,14 @@ class TestSecaggServkey(SecaggTestCase):
         super().tearDown()
 
     def test_secagg_servkey_setup_01_init(self):
-        """Tests failing due to job id"""
+        """Tests failing due to experiment id"""
 
         args = deepcopy(self.args)
-        args["job_id"] = None
+        args["experiment_id"] = None
         with self.assertRaises(FedbiomedSecaggError):
             SecaggServkeySetup(**args)
 
-        args["job_id"] = ''
+        args["experiment_id"] = ''
         with self.assertRaises(FedbiomedSecaggError):
             SecaggServkeySetup(**args)
 
@@ -213,7 +213,7 @@ class TestSecaggBiprime(SecaggTestCase):
         self.args = {
             'researcher_id': "my researcher",
             'secagg_id': "my secagg",
-            'job_id': None,
+            'experiment_id': None,
             'parties': ['my researcher', environ["ID"], 'my node2', 'my node3'],
         }
         self.secagg_bprime = SecaggBiprimeSetup(**self.args)
@@ -222,9 +222,9 @@ class TestSecaggBiprime(SecaggTestCase):
         super().tearDown()
 
     def test_secagg_biprime_setup_01_init(self):
-        """Tests init with bad job_id"""
+        """Tests init with bad experiment_id"""
         args = deepcopy(self.args)
-        args["job_id"] = "non-empty-string"
+        args["experiment_id"] = "non-empty-string"
 
         with self.assertRaises(FedbiomedSecaggError):
             SecaggBiprimeSetup(**args)
@@ -267,7 +267,7 @@ class TestSecaggSetup(NodeTestCase):
 
         args = {
             "researcher_id": "r-1",
-            "job_id": "job-id",
+            "experiment_id": "experiment-id",
             "element": 0,
             "secagg_id": "secagg-id",
             "parties": ["r-1", "node-1", "node-2"]
@@ -280,25 +280,25 @@ class TestSecaggSetup(NodeTestCase):
 
         # Test biprime setup
         args["element"] = 1
-        del args["job_id"]
+        del args["experiment_id"]
         secagg_setup = SecaggSetup(**args)()
         self.assertIsInstance(secagg_setup, SecaggBiprimeSetup)
 
-        # Test forcing checking job_id None if Secagg setup is Biprime
+        # Test forcing checking experiment_id None if Secagg setup is Biprime
         args["element"] = 1
-        args["job_id"] = 12
+        args["experiment_id"] = 12
         with self.assertRaises(FedbiomedSecaggError):
             secagg_setup = SecaggSetup(**args)()
 
         # Raise element type
         args["element"] = 2
-        args["job_id"] = ""
+        args["experiment_id"] = ""
         with self.assertRaises(FedbiomedSecaggError):
             SecaggSetup(**args)()
 
         # Raise element type
         args["element"] = 0
-        args["job_id"] = 1234
+        args["experiment_id"] = 1234
         with self.assertRaises(FedbiomedSecaggError):
             SecaggSetup(**args)()
 

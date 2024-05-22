@@ -94,7 +94,7 @@ arguments in the training arguments and pass them to the experiment.
 
 ```python
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 training_args = {
     #....
     'optimizer_args': {
@@ -122,7 +122,7 @@ experiment should be created in advance.
 
 ```python
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 
 training_args = {
     'optimizer_args': {
@@ -143,10 +143,10 @@ exp.set_test_metric_args({'average': 'macro'})
 Setters allow updating validation arguments from one round to others.
 
 ```python
-exp.run(rounds=2)
+exp.run(rounds=2, increase=True)
 exp.set_test_ratio(0.35)
 exp.set_set_test_metric(MetricTypes.ACCURACY)
-exp.run(rounds=2)
+exp.run(rounds=2, increase=True)
 ```
 
 

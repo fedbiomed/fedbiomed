@@ -26,7 +26,8 @@ class TasksQueue:
             tmp_dir: indicates where temporary files should be stored.
         """
         try:
-            self.queue = persistqueue.Queue(messages_queue_dir, tempdir=tmp_dir)
+            # small chunksize to limit un-needed use of disk space
+            self.queue = persistqueue.Queue(messages_queue_dir, tempdir=tmp_dir, chunksize=1)
         except ValueError as e:
             msg = ErrorNumbers.FB603.value + ": cannot create queue (" + str(e) + ")"
             logger.critical(msg)

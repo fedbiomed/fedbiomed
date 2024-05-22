@@ -261,6 +261,7 @@ class FedPerceptron(FedSGDClassifier):
             model_args: Dict[str, Any],
             training_args: Dict[str, Any],
             aggregator_args: Optional[Dict[str, Any]] = None,
+            **kwargs
         ) -> None:
         # get default values of Perceptron model (different from SGDClassifier model default values)
         perceptron_default_values = Perceptron().get_params()

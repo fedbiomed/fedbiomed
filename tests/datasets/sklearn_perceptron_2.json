@@ -1,7 +1,0 @@
-{
-    "name": "CVS files for classification",
-    "description": "CVS DATASET CLASSIFICATION",
-    "tags": "perp",
-    "data_type": "csv",
-    "path": "$HOME/Data/fedbiomed/perceptron/c2.csv"
-}

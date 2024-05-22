@@ -10,33 +10,31 @@ keywords: parameter aggregation,aggregation,federated average, Fed-BioMed experi
 
 ## Introduction
 
-Fed-BioMed provides a way to perform Federated Learning, that is a model training process over multiple nodes where the datasets are stored and models get trained. The experiment is in charge of
-orchestrating the training process on available nodes. Orchestrating means;
+The `Experiment` class in Fed-BioMed is in charge of orchestrating the federated learning process on available nodes. 
+Specifically, it takes care of:
 
 - Searching the datasets on active nodes, based on specific tags given by a researcher and used by the nodes to identify the dataset.
-- Uploading the training plan file created by the researcher and sending the file URL to the nodes.
-- Sending model and training arguments to the nodes.
-- Tracking training process in the nodes during all training rounds.
-- Checking the nodes responses to make sure that each round is successfully completed in every node.
-- Downloading the local model parameters after every round of training.
-- Aggregating the local model parameters based on the specified federated approach, and eventually sending the aggregated parameters to the selected nodes for the next round.
+- Sending model, training plan and training arguments to the nodes.
+- Tracking the training process on the nodes during all training rounds.
+- Checking the nodes' responses to handle possible failures.
+- Receiving the local model parameters after every round of training.
+- Aggregating the local model parameters based on the specified federated approach.
+- Sending the aggregated parameters to the selected nodes for the next round.
 - Optimizing the global model (i.e. the aggregated model).
 
-Please see the following Figure 1 to understand what experiment does after its declaration.
-
 ![ExperimentWorkFlow](../../assets/img/diagrams/ExperimentWorkFlow.jpg#img-centered-lr)
-*Figure 1 - Experiment workflow on the researcher component*
 
 
 ## Defining an experiment
 
-The code snippet below shows a basic experiment initialization for federated training. These arguments have to be passed to the experiment to
-tune the experiment based on user preferences.
+You may configure an `Experiment` by providing arguments to its constructor, as shown below.
 
 ```python
+from fedbiomed.researcher.federated_workflows import Experiment
+
 exp = Experiment(tags=tags,
                  nodes=None,
-                 training_plan_class=Net,
+                 training_plan_class=MyTrainingPlan,
                  training_args=training_args,
                  round_limit=rounds,
                  aggregator=FedAverage(),
@@ -49,20 +47,22 @@ exp = Experiment(tags=tags,
     Please visit the tutorial [In depth experiment configuration](../../tutorials/advanced/in-depth-experiment-configuration.ipynb) to find out more about
     declaring an experiment step by step
 
-When you first initialize your experiment by providing all the arguments as it is shown in the code snippet above, it creates a `FederatedDataSet` by searching
-the datasets in nodes based on the given list of `tags`. Afterwards, it initializes a `Job` object with `training_plan_class`, `training_arguments`,
-`model_args`, and the training plan code to manage federated training rounds on all participating nodes. However, it also creates the strategy to select the nodes for each training round.
+Under the hood, the `Experiment` class takes care of a lot of heavy lifting for you.
+For example, when you initialize an experiment with the `tags` argument, it uses them to automatically create a 
+`FederatedDataSet` by querying the federation.
+Afterwards, `Experiment` initializes several internal variables to manage federated training on all participating nodes. 
+Finally, it also creates the strategy to select the nodes for each training round.
 When the `node_selection_strategy` is set to `None`, the experiment uses the default strategy which is `DefaultStrategy`.
 
-### Looking for a specific dataset using Tags
+### Setting the training data
 
-Nodes can deploy multiple datasets. It means that on each node, each dataset should have a unique dataset id. Since the dataset ids might change from one node to another,
-there should be another identifier which will be global for the datasets which are deployed for a specific training plan. This identifier is called "Tags".
+#### Setting the training data by setting the tags
+
+Each dataset deployed on the nodes is identified by tags.
 Tags allow researchers to select the same dataset registered under a given tag (or list of tags) on each node for the training.
 
-The argument `tags` of the experiment is used for dataset search request. It can be a list of tags which are of type `string` or single tag as of type `string`.
-It can be declared at the first definition of experiment or using the setter of the experiment, as illustrated in the code snippet below: in this example, each stanza can be used to retrieve default dataset (tagged using `#MNIST` and `#dataset`).
-
+The argument `tags` of the experiment is used for dataset search request. 
+It can be a list of tags which are of type `string`, or single tag of type `string`.
 
 ```python
 exp = Experiment()
@@ -70,6 +70,11 @@ exp.set_tags(tags=['#MNIST', '#dataset'])
 #or
 exp.set_tags(tags='#MNIST')
 ```
+
+!!! warning "Setting tags also sets the `Experiment`'s training data"
+    Whenever the `set_tags` method is called, a query is **always** issued to identify all nodes in the federation
+    that have datasets with matching tags. 
+    Consequently, the training data of `Experiment` is changed to match the results from the query.
 
 You can check your tags in your experiment as follows:
 
@@ -80,17 +85,28 @@ print(tags)
 # > ['#MNIST', '#dataset']
 ```
 
-<div class="note-custom">
-    <p>
-    An <code>Experiment</code> object must have <strong>one unique</strong> dataset per node. Object creation fails if this is not the case when trying to instantiate the <code>FederatedDataSet</code> object. This is done to ensure that training for an <code>Experiment</code> uses only a single dataset for each node.
-    </p>
-</div>
+!!! warning "Tags matching multiple datasets" 
+    An `Experiment` object must have **one unique** dataset per node. 
+    Object creation fails if this is not the case when trying to instantiate the `FederatedDataSet` object.
+    This is done to ensure that training for an `Experiment` uses only a single dataset for each node.
 
 As a consequence, `tags` specified for an `Experiment` should not be ambiguous, which means they cannot match multiple datasets on one node.
 
 For example if you instantiate `Experiment(tags='#dataset')` and a node has registered one dataset with tags `['#dataset', '#MNIST']` and another dataset with tags `['#dataset', '#foo']` then experiment creation fails.
 
+#### Setting the training data by providing the metadata directly
 
+The dataset metadata can be provided directly using the `set_training_data` method. 
+The metadata can be a `FederatedDataSet` object or a nested `dict` with format `{node_id: {metadata_key: metadata_value}}`.
+
+When you provide a metadata object directly, the `Experiment`'s tags attribute is set to `None`.
+
+#### Under-the-hood consistency with all members of `Experiment`
+
+When you change the training data (either through `set_tags` or `set_training_data`), the `Experiment` class
+performs a lot of operations to ensure that consistency is maintained for all of its attributes that use the
+training data. 
+In particular, the `aggregator` and `node_state_agent` classes are updated with the new training data.
 
 ### Selecting specific Nodes for the training
 
@@ -101,20 +117,20 @@ and you want to perform federated training on specific ones. `nodes` argument is
 nodes = ['node-id-1', 'node-id-2']
 exp.set_nodes(nodes=nodes)
 ```
-By default, `nodes` argument is `None` which means that each node that a has registered dataset matching all the tags will be part of the federated training.
+
+By default, `nodes` argument is `None` which means that each node that has a registered dataset matching all the tags 
+will be part of the federated training.
 
 ```python
 exp.set_nodes(nodes=None)
 ```
 
-!!! note 
-        Setting nodes doesn't mean sending another dataset search request to the nodes. If the training data has been already set for the experiment,
-        you need to run `exp.set_training_data(training_data=None, from_tags=True)`
-        to update <code>FederatedDataset</code> after changing the nodes.
-        This command will send search request to specified nodes (to all if `nodes` is `None`) and update training data
-        (`FederatedDataset`)
-
-
+!!! note "Node filtering happens at training time"
+    Setting nodes doesn't mean sending another dataset search request to the nodes. 
+    Node filtering happens dynamically each time a training request is sent to nodes. 
+    In other words, if you search again for datasets after setting `nodes` by running
+    `exp.set_training_data(training_data=None, from_tags=True)` you select in your `FederatedDataset`
+    the same nodes as with `nodes=None`.
 
 
 ### Load your Training Plan: Training Plan Class
@@ -153,18 +169,29 @@ training_plan_class = exp.training_plan_class()
 
 ### Model Arguments
 
-The `model_args` is a dictionary with the arguments related to the model (e.g. number of layers, layer arguments and dimensions, etc.). This will be passed to the `init_model` method during model setup.
-For example, the number of features that are going to be used in network layers can be passed with `model_args`.
-An example is shown below.
+The `model_args` is a dictionary with the arguments related to the model 
+(e.g. number of layers, layer arguments and dimensions, etc.). 
+This will be passed to the `init_model` method during model setup.
+An example for passing the number of input adn output features for a model is shown below.
 
 ```python
-{
-    "in_features"   : 15
+model_args = {
+    "in_features"   : 15,
     "out_features"  : 1
 }
+exp.set_model_args(model_args=model_args)
 ```
 
-These parameters can then be used within a `TrainingPlan` as in the example below,
+!!! warning "Incompatible `model_args`"
+    If you try to set new `model_args` that are incompatible with the current model weights, the 
+    function will raise an exception and the `Experiment` class will be left in an **inconsistent state**.
+    To rectify this, immediately re-execute `set_model_args` with additional keyword argument `keep_weights=False`
+    as in the example below:
+    ```python
+    exp.set_model_args(model_args, keep_weights=False)
+    ```
+
+Modela arguments can then be used within a `TrainingPlan` as in the example below,
 
 ```python
 class MyTrainingPlan(TorchTrainingPlan):
@@ -183,7 +210,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 ```
 
-!!! warning "Special model arguments for scikit-learn experiments"
+!!! info "Special model arguments for scikit-learn experiments"
     In scikit-learn experiments, you are required to provide additional special arguments in the `model_args`
     dictionary. For classification tasks, you must provide **both** a `n_features` and an `n_classes` field,
     while for regression tasks you are only required to provide a `n_features` field.
@@ -338,6 +365,13 @@ training_args = {
     'dry_run': False,
 }
 ```
+
+#### Sharing persistent buffers
+
+In Pytorch experiments, you may include the argument `share_persistent_buffers`. When set to `True` (default), nodes will share the full `state_dict()` of the Pytorch module, which contains both the learnable parameters and the persistent buffers (defined as invariant in the network, like batchnorm’s `running_mean` and `running_var`). When set to `False`, nodes will only share learnable parameters.
+
+This argument will be ignored for scikit-learn experiments, as the notion of persistent buffers is specific to Pytorch.
+
 ### Aggregator
 
 An aggregator is one of the required arguments for the experiment. It is used on the researcher for aggregating model parameters that are received from the nodes after
@@ -352,11 +386,11 @@ When you pass the aggregator argument as `None` it will use `FedAverage` aggrega
 exp.set_aggregator(aggregator=None)
 ```
 
-or you can directly pass an aggregator class
+or you can directly pass an aggregator instance
 
 ```python
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
-exp.set_aggregator(aggregator=FedAverage)
+exp.set_aggregator(aggregator=FedAverage())
 ```
 
 !!! info ""
@@ -464,7 +498,8 @@ Running an experiment means starting the training process by sending train reque
 ```json
 {
   "researcher_id": "researcher id that sends training command",
-  "job_id": "created job id by experiment",
+  "experiment_id": "created experiment id by experiment",
+  "state_id": "state id for this round this experiment on this node",
   "training_args": {
     "loader_args": {
       "batch_size": 32
@@ -476,14 +511,20 @@ Running an experiment means starting the training process by sending train reque
     "dry_run": false,
     "batch_maxnum": 100
   },
+  "dataset_id": "id of the used dataset on this node",
+  "training": True,
   "model_args": <args>,
+  "params": <model weigths>,
+  "training_plan": "<training plan code>",
+  "training_plan_class": "MyTrainingPlan",
   "command": "train",
-  "training_plan_url": "<training plan url>",
-  "params_url": "<model_parameter_url>",
-  "training_plan_class": "Net",
-  "training_data": {
-    "node_id": [
-      "dataset_id"
+  "round": <round_number>,
+  "aggregator_args": <args>,
+  "aux_vars": [list of auxiliary variables],
+  "secagg_servkey_id": "secure aggregation server key id",
+  "secagg_biprime_id": "secure aggregation biprime key id", 
+  "secagg_random": <random number>,
+  "secagg_clipping_range": 3 
     ]
   }
 }
@@ -497,17 +538,19 @@ an example of `training_reply` from a node.
 ```python
 {
    "researcher_id":"researcher id that sends the training command",
-   "job_id":"job id that creates training job",
+   "experiment_id":"experiment id that creates training request",
    "success":True,
    "node_id":"ID of the node that completes the training ",
    "dataset_id":"dataset_dcf88a68-7f66-4b60-9b65-db09c6d970ee",
-   "params_url":"URL of the model parameters' file obtained after training",
    "timing":{
       "rtime_training":87.74385611899197,
       "ptime_training":330.388954968
    },
    "msg":"",
-   "command":"train"
+   "command":"train",
+  "state_id": "state id for new round this experiment on this node",
+  "params": <model weigths>,
+  ...
 }
 
 ```

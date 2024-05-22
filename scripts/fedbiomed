@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
+
+import importlib
+from fedbiomed.common.cli import CommonCLI
+
+
+# class ConfigNameAction(argparse.Action):
+#     """Action for the argument config"""
+#     def __call__(self, parser, namespace, values, option_string=None):
+#         print(f'Executing CLI for configraution {values}')
+#         os.environ["CONFIG_FILE"] = values
+
+
+cli = CommonCLI()
+
+cli.initialize_optional()
+
+
+# Add node and researcher options
+node_p = cli.subparsers.add_parser(
+    "node",
+    add_help=False,
+    help="Command for managing Node component")
+researcher_p = cli.subparsers.add_parser(
+    "researcher",
+    add_help=False,
+    help="Command for managing Researcher component")
+
+
+def node(args):
+    """Forwards node CLI"""
+    NodeCLI = importlib.import_module('fedbiomed.node.cli').NodeCLI
+    cli = NodeCLI()
+    cli.parse_args(args)
+
+
+def researcher(args):
+    """Forwards researcher CLI"""
+    ResearcherCLI = importlib.import_module('fedbiomed.researcher.cli').ResearcherCLI
+    cli = ResearcherCLI()
+    cli.parse_args(args)
+
+
+node_p.set_defaults(func=node)
+researcher_p.set_defaults(func=researcher)
+
+
+if __name__ == "__main__":
+
+    # This part executes know arguments
+    args, extra = cli.parser.parse_known_args()
+    # Forward arguments to Node or Researcher CLI
+    if hasattr(args, "func") and args.func in [node, researcher]:
+        args.func(extra)
+    elif hasattr(args, "func"):
+        args.func(args)
+    # If there is no command provided
+    else:
+        cli.parse_args(['--help'])

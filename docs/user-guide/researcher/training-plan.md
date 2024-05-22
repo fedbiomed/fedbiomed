@@ -389,14 +389,6 @@ exp.training_plan().import_model('/path/to_file')
 Of course, loaded model needs to be identical to the training plan's model.
 
 
-After loading model in an [Experiment](../../researcher/experiment) it is needed to also update the model in `Job()` class:
-
-```python
-exp.training_plan().import_model('/path/to/file')
-exp.job().update_parameters(exp.training_plan().get_model_params())
-```
-
-
 !!! info "`export_model()` and `import_model()` actions depends on framework"
     With PyTorch, these methods save and load the model parameters (`model.state_dict()`) with `torch.save()`/`torch.load()` as it is a [common practice](https://pytorch.org/tutorials/beginner/saving_loading_models.html)
 

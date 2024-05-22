@@ -1,0 +1,47 @@
+name: New End-to-End Test
+run-name: fedbiomed-e2e-tests
+permissions: write-all
+on:
+  schedule:
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - 'develop'
+      - 'master'
+      - 'feature/end-to-end-test-machinery'
+      - 'feature/ubuntu-e2e-fail-debug'
+
+jobs:
+  e2e-test-auto:
+    name: e2e tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22-04, fedora38, macosx-m1]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout of head
+        id: e2e-checkout
+        uses: actions/checkout@v4
+
+      - name: Clear environment and re-install
+        id: env-reinstall
+        run: |
+          source ~/.bashrc
+          # conda remove -n fedbiomed-researcher --all -y
+          # conda remove -n fedbiomed-node --all -y
+          conda env update -f ./envs/development/conda/fedbiomed-researcher.yaml
+          conda env update -f ./envs/development/conda/fedbiomed-node.yaml
+        shell: bash -l {0}
+
+      - name: Run end-to-end tests
+        id: e2e-tests-with-pytest
+        run: |
+          echo "Launching end-to-end tests" # to check from time to time
+          source ~/.bashrc
+          source ./scripts/fedbiomed_environment researcher
+          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed pytest -rfp -s -v tests/end2end/e2e_*.py
+        shell: bash -l {0}
+

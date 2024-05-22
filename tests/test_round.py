@@ -76,9 +76,6 @@ class TestRound(NodeTestCase):
         # logs messages
         history_monitor = MagicMock()
 
-        self.atexit_patcher = patch('fedbiomed.node.round.atexit')
-        self.atexit_mock = self.atexit_patcher.start()
-
         self.state_manager_patch = patch('fedbiomed.node.round.NodeStateManager')
         self.ic_from_spec_patch = patch("fedbiomed.node.round.utils.import_class_from_spec")
         self.ic_from_file_patch = patch("fedbiomed.node.round.utils.import_class_object_from_file")
@@ -106,7 +103,7 @@ class TestRound(NodeTestCase):
                         researcher_id="researcher-id",
                         history_monitor=history_monitor,
                         dataset={"path": 'ssss'},
-                        job_id="job_id",
+                        experiment_id="experiment_id",
                         training=True,
                         node_args={},
                         aggregator_args={})
@@ -114,7 +111,7 @@ class TestRound(NodeTestCase):
         params = {'path': 'my/dataset/path',
                   'dataset_id': 'id_1234'}
         self.r1.dataset = params
-        self.r1.job_id = '1234'
+        self.r1.experiment_id = '1234'
         self.r1.researcher_id = '1234'
         dummy_monitor = MagicMock()
         self.r1.history_monitor = dummy_monitor
@@ -127,7 +124,7 @@ class TestRound(NodeTestCase):
                         researcher_id="researcher-id",
                         history_monitor=history_monitor,
                         dataset={"path": 'ssss'},
-                        job_id="job_id",
+                        experiment_id="experiment_id",
                         training=True,
                         node_args={},
                         aggregator_args={})
@@ -135,7 +132,6 @@ class TestRound(NodeTestCase):
         self.r2.history_monitor = dummy_monitor
 
     def tearDown(self):
-        self.atexit_patcher.stop() 
         self.ic_from_file_patch.stop()
         self.ic_from_spec_patch.stop()
         self.state_manager_patch.stop()
@@ -585,7 +581,7 @@ class TestRound(NodeTestCase):
         self.r1.training_kwargs = {'optimizer_args': {'lr': .1234}}
 
         self.r1.researcher_id = 'researcher_id_1234'
-        self.r1.job_id = 'job_id_1234'
+        self.r1.experiment_id = 'experiment_id_1234'
 
         # configure optimizer
         lr = .1234
@@ -606,6 +602,7 @@ class TestRound(NodeTestCase):
 
 
         # action
+        self.r1.initialize_arguments()
         rnd_reply = self.r1.run_model_training()
 
         self.assertIn("TrainingPlan Optimizer failed to ingest the provided auxiliary variables",
@@ -759,7 +756,7 @@ class TestRound(NodeTestCase):
                                        serializer_patch,
                                        ):
 
-        self.r1.job_id = 1234
+        self.r1.experiment_id = 1234
         state_id = 'state_id_1234'
         path_state = '/path/to/state'
 
@@ -801,7 +798,7 @@ class TestRound(NodeTestCase):
                                                logger_patch
                                                ):
 
-        self.r1.job_id = 1234
+        self.r1.experiment_id = 1234
         state_id = 'state_id_1234'
         path_state = '/path/to/state'
 
@@ -841,7 +838,7 @@ class TestRound(NodeTestCase):
                                        get_optim_patch,
                                        serializer_patch):
         
-        self.r1.job_id = '1234'
+        self.r1.experiment_id = '1234'
         self.r1._round = 34
         
         optim_path = 'path/to/folder/containing/state/files'
@@ -882,9 +879,9 @@ class TestRound(NodeTestCase):
     def test_round_29_save_round_state_failure_saving_optimizer(self,
                                                                 get_optim_patch,
                                                                 ):
-        self.r1.job_id = '1234'
+        self.r1.experiment_id = '1234'
         self.r1._round = 34
-        #r = Round(job_id=job_id, round_number=round_nb)
+        #r = Round(experiment_id=experiment_id, round_number=round_nb)
         get_optim_patch.return_value = MagicMock(save_state=MagicMock(return_value=None))
         
 
@@ -914,9 +911,9 @@ class TestRound(NodeTestCase):
         self.state_manager_mock.return_value.get_node_state_base_dir.return_value = "/path/to/base/dir"
 
         uuid_patch.return_value = FakeUuid()
-        job_id = _id = FakeUuid.VALUE
+        experiment_id = _id = FakeUuid.VALUE
         state_id = f'node_state_{_id}'
-        path = "/path/to/base/dir" + f"/job_id_{job_id}/" + NodeStateFileName.OPTIMIZER.value % (0, state_id)
+        path = "/path/to/base/dir" + f"/experiment_id_{experiment_id}/" + NodeStateFileName.OPTIMIZER.value % (0, state_id)
         
         # first create state
         self.r1.training_plan = training_plan_mock
@@ -926,7 +923,7 @@ class TestRound(NodeTestCase):
         print(state)
         self.r1._load_round_state('test-state-id')
         
-        self.state_manager_mock.return_value.get.assert_called_once_with(str(job_id), 'test-state-id')
+        self.state_manager_mock.return_value.get.assert_called_once_with(str(experiment_id), 'test-state-id')
         self.state_manager_mock.return_value.add.assert_called_once()
 
 

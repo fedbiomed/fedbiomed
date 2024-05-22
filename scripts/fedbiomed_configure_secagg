@@ -57,7 +57,7 @@ if [ "$2" != "clone" ] ; then
   echo -e "${BOLD}Updating MP-SPDZ submodule${NC}\n"
   git submodule update --init modules/MP-SPDZ
 else
-  # Clone repository and point to correct commit 
+  # Clone repository and point to correct commit
   # Should be used only in case there is no submodule defined for MP-SPDZ
   if [ -n "$MPSPDZ_URL" -a -z "$(ls -A $mpspdz_basedir)" ] ; then
     echo -e "${BOLD}Cloning MP-SPDZ repository${NC}\n"
@@ -73,7 +73,7 @@ else
     if ! git checkout "$MPSPDZ_COMMIT" ; then
       echo -e "${RED}ERROR:${NC}"
       echo -e "${BOLD} Please make sure that MP-SPDZ is already cloned and '$MPSPDZ_COMMIT' is an existing commit."
-      exit 1    
+      exit 1
     fi
   fi
 fi
@@ -126,7 +126,16 @@ configure_darwin() {
     exit 1
   fi
 
-  echo -e "\n${YLW}--------------------------------Building from source distribution---------------------------${NC}"
+  echo  "Adding simde submodule"
+  cd $mpspdz_basedir
+  if ! git submodule update --init deps/simde; then
+	echo -e "${RED}ERROR:${NC}"
+    echo -e "${BOLD}Can not build MP-SPDZ. Can not add simde submodule"
+	exit 1
+  fi
+  cd $basedir
+
+  echo -e "\n${YLW}------------------Building from source distribution---------------------------${NC}"
 
   echo -e "${GRN}\nRunning make clean ...${NC}"
   if ! make -C "$mpspdz_basedir" clean; then

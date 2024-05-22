@@ -81,7 +81,7 @@ Afterwards, you need to pass the `nodes` list while you are initializing the exp
 The experiment will send a search request to the nodes in the `nodes` list for datasets deployed with the given tags.
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#MNIST', '#dataset']

@@ -16,17 +16,17 @@ class HistoryMonitor:
     """
 
     def __init__(self,
-                 job_id: str,
+                 experiment_id: str,
                  researcher_id: str,
                  send: Callable):
         """Simple constructor for the class.
 
         Args:
-            job_id: TODO
+            experiment_id: TODO
             researcher_id: TODO
             client: TODO
         """
-        self.job_id = job_id
+        self.experiment_id = experiment_id
         self.researcher_id = researcher_id
         self.send = send
 
@@ -65,7 +65,7 @@ class HistoryMonitor:
             FeedbackMessage(researcher_id=self.researcher_id,
                             scalar=Scalar(**{
                                 'node_id': environ['NODE_ID'],
-                                'job_id': self.job_id,
+                                'experiment_id': self.experiment_id,
                                 'train': train,
                                 'test': test,
                                 'test_on_global_updates': test_on_global_updates,

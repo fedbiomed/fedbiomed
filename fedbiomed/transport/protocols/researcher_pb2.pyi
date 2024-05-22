@@ -6,28 +6,28 @@ from typing import ClassVar as _ClassVar, Mapping as _Mapping, Optional as _Opti
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Empty(_message.Message):
-    __slots__ = []
+    __slots__ = ()
     def __init__(self) -> None: ...
 
 class ProtocolVersion(_message.Message):
-    __slots__ = ["protocol_version"]
+    __slots__ = ("protocol_version",)
     PROTOCOL_VERSION_FIELD_NUMBER: _ClassVar[int]
     protocol_version: str
     def __init__(self, protocol_version: _Optional[str] = ...) -> None: ...
 
 class FeedbackMessage(_message.Message):
-    __slots__ = ["protocol_version", "researcher_id", "scalar", "log"]
+    __slots__ = ("protocol_version", "researcher_id", "scalar", "log")
     class Scalar(_message.Message):
-        __slots__ = ["node_id", "job_id", "train", "test", "test_on_local_updates", "test_on_global_updates", "metric", "epoch", "total_samples", "batch_samples", "num_batches", "num_samples_trained", "iteration"]
+        __slots__ = ("node_id", "experiment_id", "train", "test", "test_on_local_updates", "test_on_global_updates", "metric", "epoch", "total_samples", "batch_samples", "num_batches", "num_samples_trained", "iteration")
         class MetricEntry(_message.Message):
-            __slots__ = ["key", "value"]
+            __slots__ = ("key", "value")
             KEY_FIELD_NUMBER: _ClassVar[int]
             VALUE_FIELD_NUMBER: _ClassVar[int]
             key: str
             value: float
             def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
         NODE_ID_FIELD_NUMBER: _ClassVar[int]
-        JOB_ID_FIELD_NUMBER: _ClassVar[int]
+        EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
         TRAIN_FIELD_NUMBER: _ClassVar[int]
         TEST_FIELD_NUMBER: _ClassVar[int]
         TEST_ON_LOCAL_UPDATES_FIELD_NUMBER: _ClassVar[int]
@@ -40,7 +40,7 @@ class FeedbackMessage(_message.Message):
         NUM_SAMPLES_TRAINED_FIELD_NUMBER: _ClassVar[int]
         ITERATION_FIELD_NUMBER: _ClassVar[int]
         node_id: str
-        job_id: str
+        experiment_id: str
         train: bool
         test: bool
         test_on_local_updates: bool
@@ -52,9 +52,9 @@ class FeedbackMessage(_message.Message):
         num_batches: int
         num_samples_trained: int
         iteration: int
-        def __init__(self, node_id: _Optional[str] = ..., job_id: _Optional[str] = ..., train: bool = ..., test: bool = ..., test_on_local_updates: bool = ..., test_on_global_updates: bool = ..., metric: _Optional[_Mapping[str, float]] = ..., epoch: _Optional[int] = ..., total_samples: _Optional[int] = ..., batch_samples: _Optional[int] = ..., num_batches: _Optional[int] = ..., num_samples_trained: _Optional[int] = ..., iteration: _Optional[int] = ...) -> None: ...
+        def __init__(self, node_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., train: bool = ..., test: bool = ..., test_on_local_updates: bool = ..., test_on_global_updates: bool = ..., metric: _Optional[_Mapping[str, float]] = ..., epoch: _Optional[int] = ..., total_samples: _Optional[int] = ..., batch_samples: _Optional[int] = ..., num_batches: _Optional[int] = ..., num_samples_trained: _Optional[int] = ..., iteration: _Optional[int] = ...) -> None: ...
     class Log(_message.Message):
-        __slots__ = ["node_id", "level", "msg"]
+        __slots__ = ("node_id", "level", "msg")
         NODE_ID_FIELD_NUMBER: _ClassVar[int]
         LEVEL_FIELD_NUMBER: _ClassVar[int]
         MSG_FIELD_NUMBER: _ClassVar[int]
@@ -73,7 +73,7 @@ class FeedbackMessage(_message.Message):
     def __init__(self, protocol_version: _Optional[str] = ..., researcher_id: _Optional[str] = ..., scalar: _Optional[_Union[FeedbackMessage.Scalar, _Mapping]] = ..., log: _Optional[_Union[FeedbackMessage.Log, _Mapping]] = ...) -> None: ...
 
 class TaskRequest(_message.Message):
-    __slots__ = ["node", "protocol_version"]
+    __slots__ = ("node", "protocol_version")
     NODE_FIELD_NUMBER: _ClassVar[int]
     PROTOCOL_VERSION_FIELD_NUMBER: _ClassVar[int]
     node: str
@@ -81,7 +81,7 @@ class TaskRequest(_message.Message):
     def __init__(self, node: _Optional[str] = ..., protocol_version: _Optional[str] = ...) -> None: ...
 
 class TaskResponse(_message.Message):
-    __slots__ = ["size", "iteration", "bytes_"]
+    __slots__ = ("size", "iteration", "bytes_")
     SIZE_FIELD_NUMBER: _ClassVar[int]
     ITERATION_FIELD_NUMBER: _ClassVar[int]
     BYTES__FIELD_NUMBER: _ClassVar[int]
@@ -91,7 +91,7 @@ class TaskResponse(_message.Message):
     def __init__(self, size: _Optional[int] = ..., iteration: _Optional[int] = ..., bytes_: _Optional[bytes] = ...) -> None: ...
 
 class TaskResult(_message.Message):
-    __slots__ = ["size", "iteration", "bytes_"]
+    __slots__ = ("size", "iteration", "bytes_")
     SIZE_FIELD_NUMBER: _ClassVar[int]
     ITERATION_FIELD_NUMBER: _ClassVar[int]
     BYTES__FIELD_NUMBER: _ClassVar[int]
@@ -99,9 +99,3 @@ class TaskResult(_message.Message):
     iteration: int
     bytes_: bytes
     def __init__(self, size: _Optional[int] = ..., iteration: _Optional[int] = ..., bytes_: _Optional[bytes] = ...) -> None: ...
-
-class TaskResponseUnary(_message.Message):
-    __slots__ = ["bytes_"]
-    BYTES__FIELD_NUMBER: _ClassVar[int]
-    bytes_: bytes
-    def __init__(self, bytes_: _Optional[bytes] = ...) -> None: ...
