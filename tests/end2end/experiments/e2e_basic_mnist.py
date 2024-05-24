@@ -1,7 +1,7 @@
 
 from training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 
 
 # Dfine the experiment
@@ -17,7 +17,7 @@ training_args = {
     'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
 }
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 tags =  ['#MNIST', '#dataset']

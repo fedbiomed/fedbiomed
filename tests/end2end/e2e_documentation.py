@@ -25,16 +25,10 @@ from helpers import (
     secagg_certificate_registration
 )
 
-from helpers._execution import shell_process
-from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.utils import ROOT_DIR
-from fedbiomed.researcher.experiment import Experiment
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.aggregators.scaffold import Scaffold
 from fedbiomed.researcher.environ import environ
-
 from nbclient.exceptions import CellExecutionError
 
 
