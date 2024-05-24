@@ -25,7 +25,12 @@ _PORT = 50052
 
 @pytest.fixture(scope='session')
 def port():
-    _PORT += 1
+    global _PORT
+    if _PORT not in globals():
+
+        _PORT = 50052
+    else:
+        _PORT += 1
     return str(_PORT)
 
 
