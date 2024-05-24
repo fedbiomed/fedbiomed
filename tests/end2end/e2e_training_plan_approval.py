@@ -60,7 +60,7 @@ def setup_components(port, post_session, request):
     node_processes, thread = start_nodes([node_1, node_2])
     # Good to wait 3 second to give time to nodes start
     print("Sleep 5 seconds. Giving some time for nodes to start")
-    time.sleep(5)
+    time.sleep(10)
 
     # Clear files and processes created for the tests
     def clear():

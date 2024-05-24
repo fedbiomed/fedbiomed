@@ -104,7 +104,7 @@ def setup(port, post_session, request):
         node_processes, thread = start_nodes([node_1, node_2, node_3])
         # Good to wait 3 second to give time to nodes start
         print("Sleep 5 seconds. Giving some time for nodes to start")
-        time.sleep(5)
+        time.sleep(10)
 
         # Run tests
         yield node_1, node_2, node_3, researcher

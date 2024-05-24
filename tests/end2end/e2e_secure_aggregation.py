@@ -50,7 +50,7 @@ def setup(port, post_session, request):
 
         node_1, node_2 = nodes
 
-               print("Creating researcher component -------------------------------------------")
+        print("Creating researcher component -------------------------------------------")
         researcher = create_researcher(port=port)
 
         print("Register certificates ---------------------------------------------")
@@ -63,7 +63,7 @@ def setup(port, post_session, request):
 
         # Starts the nodes
         node_processes, thread = start_nodes([node_1, node_2])
-        time.sleep(8)
+        time.sleep(10)
 
         yield node_1, node_2, researcher
 
