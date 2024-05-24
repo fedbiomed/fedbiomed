@@ -25,16 +25,10 @@ from helpers import (
     secagg_certificate_registration
 )
 
-from helpers._execution import shell_process
-from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.utils import ROOT_DIR
-from fedbiomed.researcher.experiment import Experiment
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.aggregators.scaffold import Scaffold
 from fedbiomed.researcher.environ import environ
-
 from nbclient.exceptions import CellExecutionError
 
 
@@ -83,6 +77,40 @@ def setup(port, post_session, request):
         kill_subprocesses(node_processes)
         clear_researcher_data(researcher)
 
+
+@pytest.fixture
+def provide_mednist_dataset():
+    mednist_dataset_path = get_data_folder('MedNist_e2e')
+    
+
+    # if not _is_local_data:
+    #     # TODO: download dataset if not found on system (here we are skipping the test)
+    #     pytest.skip(f"Dataset at {_local_path} not found. Skipping...")
+    mednist_dataset = {
+        "name": "Mednist part 1",
+        "description": "Mednist part 1",
+        "tags": "mednist,#MEDNIST,#dataset",
+        "data_type": "mednist",
+        "path": mednist_dataset_path
+    }
+
+    if all((os.path.exists(f"$HOME/Data/fedbiomed/MedNIST/client_{i+2}") for i in range(1, 4))):
+        mednist_1, mednist_2, mednist_3 = {}, {}, {}
+
+        for i, dataset in enumerate((mednist_1, mednist_2, mednist_3,)):
+            dataset = {
+                "name": f"Mednist part {i+1}",
+                "description": f"Mednist part {i+1}",
+                "tags": "mednist,#MEDNIST,#dataset",
+                "data_type": "mednist",
+                "path": f"$HOME/Data/fedbiomed/MedNIST/client_{i+1}"
+            }
+
+    else:
+        mednist_1, mednist_2, mednist_3 = mednist_dataset, mednist_dataset, mednist_dataset
+
+
+    return mednist_1, mednist_2, mednist_3
 
 def remove_data(path: str):
     """Remove some generated data during tests"""

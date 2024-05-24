@@ -68,7 +68,7 @@ from helpers import (
     clear_experiment_data)
 
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_worflows import Experiment
 
 @pytest.fixture(scope="module", autouse=True)
 def setup(request):
