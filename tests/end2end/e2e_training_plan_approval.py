@@ -37,17 +37,14 @@ def setup_components(port, post_session, request):
     node_1 = create_node(
         port=port,
         config_sections={
-            'security': {'training_plan_approval': 'True'},
-            'researcher': {'port': port} })
+            'security': {'training_plan_approval': 'True'}
+        })
 
     node_2 = create_node(
         port=port,
         config_sections={
-            'security': {'training_plan_approval': 'True'},
-            'researcher': {'port': port} })
-
-    # Starts the nodes
-    node_processes, thread = start_nodes([node_1, node_2])
+            'security': {'training_plan_approval': 'True'}
+        })
 
 
     print("Creating researcher component ---------------------------------------------")
@@ -58,7 +55,12 @@ def setup_components(port, post_session, request):
     print("adding second dataset")
     add_dataset_to_node(node_2, dataset)
 
-    time.sleep(1)
+
+    # Starts the nodes
+    node_processes, thread = start_nodes([node_1, node_2])
+    # Good to wait 3 second to give time to nodes start
+    print("Sleep 5 seconds. Giving some time for nodes to start")
+    time.sleep(10)
 
     # Clear files and processes created for the tests
     def clear():
@@ -70,10 +72,6 @@ def setup_components(port, post_session, request):
         clear_node_data(node_2)
 
         clear_researcher_data(researcher)
-
-    # Good to wait 3 second to give time to nodes start
-    print("Sleep 5 seconds. Giving some time for nodes to start")
-    time.sleep(5)
 
     request.addfinalizer(clear)
 
