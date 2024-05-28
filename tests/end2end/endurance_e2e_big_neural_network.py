@@ -78,7 +78,8 @@ def test_01_mnist_pytorch_big_model_training_dry_run():
         training_args=training_args,
         round_limit=rounds,
         aggregator=FedAverage(),
-        node_selection_strategy=None,)
+        node_selection_strategy=None,
+        retain_full_history=False)
 
     exp.run()
 

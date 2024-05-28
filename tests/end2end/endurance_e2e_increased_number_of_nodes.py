@@ -96,7 +96,8 @@ def test_01_sklearn_many_nodes_testing():
         aggregator=FedAverage(),
         node_selection_strategy=None,
         save_breakpoints=True,
-        secagg=True
+        secagg=True,
+        retain_full_history=False
         )
 
     exp.run()
