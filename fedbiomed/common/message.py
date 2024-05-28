@@ -219,8 +219,8 @@ class OverlayMessage(Message):
         dest_node_id: Id of the destination node of the overlay message
         overlay: payload of the message to be forwarded unchanged to the destination node
     """
-    researcher_id: str  # Needed for node side message handling
-    dest_node_id: str
+    researcher_id: str  # Needed for source and destination node side message handling
+    dest_node_id: str  # Needed for researcher side message handling
     overlay: bytes
 
 
@@ -231,16 +231,22 @@ class InnerMessage(Message):
     Node to node messages are sent as inner message (payload) of an overlay message
 
     Attributes:
-        request_id: unique identifier of this request
         node_id: Id of the source node sending the mess
         dest_node_id: Id of the destination node of the overlay message
     """
-    request_id: str
     # Needed by destination node for easily identifying source node.
-    # Not needed for security if message is signed by source node.
+    # Not needed for security if message is securely signed by source node.
     node_id: str
     # Needed for security if we `encrypt(sign(message))` to link signed message to identity of destination node
+    # and prevent replay of message by a malicious node to another node
+    # https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
     dest_node_id: str
+
+
+@dataclass(kw_only=True)
+class InnerRequestReply(InnerMessage):
+    """Common attribute for Request and Reply Inner Message"""
+    request_id: Optional[str] = None
 
 
 @dataclass(kw_only=True)
@@ -349,7 +355,7 @@ class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class KeyRequest(InnerMessage, RequiresProtocolVersion):
+class KeyRequest(InnerRequestReply, RequiresProtocolVersion):
     """Message for starting a new exchange for creating crypto key material.
 
     Currently only Diffie-Hellman key exchange is supported
@@ -366,7 +372,7 @@ class KeyRequest(InnerMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class KeyReply(InnerMessage, RequiresProtocolVersion):
+class KeyReply(InnerRequestReply, RequiresProtocolVersion):
     """Message for continuing an exchange for creating crypto key material.
 
     Currently only Diffie-Hellman key exchange is supported
@@ -513,7 +519,7 @@ class OverlaySend(OverlayMessage, RequiresProtocolVersion):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
-    node_id: str        # Needed for server side message handling
+    node_id: str        # Needed for server side message handling (receiving a `ReplyTask`)
     command: str
 
 

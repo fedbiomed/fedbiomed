@@ -208,7 +208,7 @@ class Node:
         if overlay_msg['dest_node_id'] != environ['NODE_ID']:
             logger.error(
                 f"{ErrorNumbers.FB324}: node {environ['NODE_ID']} received an overlay message "
-                f"sent to {overlay_msg['dest_node_id']}"
+                f"sent to {overlay_msg['dest_node_id']}. Maybe malicious activity. Ignore message."
             )
             return
 
