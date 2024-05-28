@@ -150,6 +150,8 @@ class TrainingJob(Job):
             'secagg_biprime_id': self._secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': self._secagg_arguments.get('secagg_random'),
             'secagg_clipping_range': self._secagg_arguments.get('secagg_clipping_range'),
+            'secagg_scheme': self._secagg_arguments.get('secagg_scheme'),
+            'node_ids': self._nodes,
             'command': 'train',
             'aggregator_args': {},
         }

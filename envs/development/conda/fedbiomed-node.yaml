@@ -29,6 +29,8 @@ dependencies:
   # these two have to be aligned
   - cryptography ~=40.0.0
   - pyopenssl ~=23.1.1
+  - pycryptodome ~= 3.20.0 
+
   #
   - joblib >=1.2.0,<1.3.0
   # other

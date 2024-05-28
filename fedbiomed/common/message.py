@@ -715,11 +715,13 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     command: str
     round: int
     aggregator_args: Dict
+    node_ids: list
     aux_vars: Optional[list] = None
     secagg_servkey_id: Optional[str] = None
     secagg_biprime_id: Optional[str] = None
     secagg_random: Optional[float] = None
     secagg_clipping_range: Optional[int] = None
+    secagg_scheme: Optional[str] = None
 
 
 @catch_dataclass_exception
@@ -735,6 +737,7 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
         dataset_id: id of the dataset that is used for training
         params_url: URL of parameters uploaded by node
         timing: Timing statistics
+        communication: Communication statistics
         msg: Custom message
         command: Reply command string
 
@@ -747,6 +750,7 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
     node_id: str
     dataset_id: str
     timing: dict
+    communication: dict
     msg: str
     command: str
     state_id: Optional[str] = None

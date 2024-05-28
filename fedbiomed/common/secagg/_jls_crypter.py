@@ -23,7 +23,7 @@ from ._jls import JoyeLibert, \
     divide
 
 
-class SecaggCrypter:
+class JLSCrypter:
     """Secure aggregation encryption and decryption manager.
 
     This class is responsible for encrypting model parameters using Joye-Libert secure
@@ -140,7 +140,7 @@ class SecaggCrypter:
         time_elapsed = time.process_time() - start
         logger.debug(f"Encryption of the parameters took {time_elapsed} seconds.")
 
-        return [int(e_p) for e_p in encrypted_params]
+        return [int(e_p) for e_p in encrypted_params], time_elapsed
 
     def aggregate(
             self,

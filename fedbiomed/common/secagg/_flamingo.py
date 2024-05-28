@@ -73,7 +73,9 @@ class Flamingo:
         """
         TODO: Add docstring
         """
+        print("min, max", min(params), max(params))
         params = np.array(params, dtype=self.vector_dtype)
+        print("min, max", min(params), max(params))
         vec = np.zeros(len(params), dtype=self.vector_dtype)
         for node_id in node_ids:
             if node_id == self.my_node_id:

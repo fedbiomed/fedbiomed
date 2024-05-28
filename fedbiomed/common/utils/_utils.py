@@ -246,6 +246,20 @@ def convert_to_python_float(value: Union[torch.Tensor, np.integer, np.floating, 
 
     return float(value)
 
+def get_list_size_in_mb(lst):
+    """Get size of list in megabytes
+
+    Args:
+        lst: List object to get size of
+
+    Returns:
+        Size of list in megabytes
+    """
+    total_size = sys.getsizeof(lst)  # size of the list object itself
+    for item in lst:
+        total_size += sys.getsizeof(item)  # add the size of each element in the list
+    return total_size / (1024 * 1024)  # convert bytes to megabytes
+
 
 def convert_iterator_to_list_of_python_floats(iterator: Iterator) -> List[float]:
     """Converts numerical values of array-like object to float

@@ -12,6 +12,7 @@ from ._utils import (
     convert_to_python_float,
     convert_iterator_to_list_of_python_floats,
     compute_dot_product,
+    get_list_size_in_mb,
 )
 
 
@@ -51,6 +52,7 @@ __all__ = [
     "get_ipython_class_file",
     "get_method_spec",
     "convert_to_python_float",
+    "get_list_size_in_mb",
     "convert_iterator_to_list_of_python_floats",
     "compute_dot_product",
     # _config_utils

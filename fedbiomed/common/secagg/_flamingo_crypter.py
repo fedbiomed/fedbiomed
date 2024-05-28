@@ -97,7 +97,6 @@ class FlamingoCrypter:
         """
         TODO: Add docstring
         """
-        print(params)
         start = time.process_time()
 
         if len(params) != num_nodes:

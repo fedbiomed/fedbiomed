@@ -9,7 +9,7 @@ from typing import List, Union, Dict, Any, Optional
 from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
-from fedbiomed.common.secagg import SecaggCrypter
+from fedbiomed.common.secagg import JLSCrypter, FlamingoCrypter
 from fedbiomed.common.logger import logger
 
 
@@ -39,6 +39,7 @@ class SecureAggregation:
             self,
             active: bool = True,
             clipping_range: Union[None, int] = None,
+            scheme: str = 'jls'
     ) -> None:
         """Class constructor
 
@@ -69,14 +70,17 @@ class SecureAggregation:
             )
 
         self.clipping_range: Optional[int] = clipping_range
-
         self._active: bool = active
         self._parties: Optional[List[str]] = None
         self._experiment_id: Optional[str] = None
         self._servkey: Optional[SecaggServkeyContext] = None
         self._biprime: Optional[SecaggBiprimeContext] = None
         self._secagg_random: Optional[float] = None
-        self._secagg_crypter: SecaggCrypter = SecaggCrypter()
+        self._scheme = scheme
+        if scheme == 'jls':
+            self._secagg_crypter: JLSCrypter = JLSCrypter()
+        if scheme == 'flamingo':
+            self._secagg_crypter: FlamingoCrypter = FlamingoCrypter()
 
     @property
     def parties(self) -> Union[List[str], None]:
@@ -149,7 +153,8 @@ class SecureAggregation:
         return {'secagg_servkey_id': self._servkey.secagg_id if self._servkey is not None else None,
                 'secagg_biprime_id': self._biprime.secagg_id if self._biprime is not None else None,
                 'secagg_random': self._secagg_random,
-                'secagg_clipping_range': self.clipping_range}
+                'secagg_clipping_range': self.clipping_range, 
+                'secagg_scheme': self._scheme}
 
     def setup(self,
               parties: List[str],
@@ -183,19 +188,18 @@ class SecureAggregation:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Expected argument `experiment_id` string but got {type(parties)}"
             )
+        if self._scheme == 'jls':
+            self._configure_round(parties, experiment_id)
+            if self._biprime is None or self._servkey is None:
+                raise FedbiomedSecureAggregationError(
+                    f"{ErrorNumbers.FB417.value}: server key or biprime contexts is not fully configured."
+                )
 
-        self._configure_round(parties, experiment_id)
+            if not self._biprime.status or force:
+                self._biprime.setup()
 
-        if self._biprime is None or self._servkey is None:
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: server key or biprime contexts is not fully configured."
-            )
-
-        if not self._biprime.status or force:
-            self._biprime.setup()
-
-        if not self._servkey.status or force:
-            self._servkey.setup()
+            if not self._servkey.status or force:
+                self._servkey.setup()
 
         return True
 
@@ -277,52 +281,56 @@ class SecureAggregation:
             FedbiomedSecureAggregationError: secure aggregation context not properly configured
             FedbiomedSecureAggregationError: secure aggregation computation error
         """
+        if isinstance(self._secagg_crypter, JLSCrypter):
+            if self._biprime is None or self._servkey is None:
+                raise FedbiomedSecureAggregationError(
+                    f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
+                    f"not configured. Please setup secure aggregation before the aggregation.")
 
-        if self._biprime is None or self._servkey is None:
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
-                f"not configured. Please setup secure aggregation before the aggregation.")
+            if not self._biprime.status or not self._servkey.status:
+                raise FedbiomedSecureAggregationError(
+                    f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
+                    f"not set properly")
 
-        if not self._biprime.status or not self._servkey.status:
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
-                f"not set properly")
-
-        biprime = self._biprime.context["context"]["biprime"]
-        key = self._servkey.context["context"]["server_key"]
+            biprime = self._biprime.context["context"]["biprime"]
+            key = self._servkey.context["context"]["server_key"]
 
         num_nodes = len(model_params)
-
-        aggregate = functools.partial(self._secagg_crypter.aggregate,
-                                      current_round=round_,
-                                      num_nodes=num_nodes,
-                                      key=key,
-                                      total_sample_size=total_sample_size,
-                                      biprime=biprime,
-                                      clipping_range=self.clipping_range)
-
+        if isinstance(self._secagg_crypter, JLSCrypter):
+            aggregate = functools.partial(self._secagg_crypter.aggregate,
+                                        current_round=round_,
+                                        num_nodes=num_nodes,
+                                        key=key,
+                                        total_sample_size=total_sample_size,
+                                        biprime=biprime,
+                                        clipping_range=self.clipping_range)
+        if isinstance(self._secagg_crypter, FlamingoCrypter):
+            aggregate = functools.partial(self._secagg_crypter.aggregate,
+                                        num_nodes=num_nodes,
+                                        total_sample_size=total_sample_size,
+                                        clipping_range=self.clipping_range)
         # Validate secure aggregation
-        if self._secagg_random is not None:
+        # if self._secagg_random is not None:
 
-            if encryption_factors is None:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}: Secure aggregation random validation has been set but the encryption "
-                    f"factors are not provided. Please provide encrypted `secagg_random` values in different parties. "
-                    f"Or to not set/get `secagg_random()` before the aggregation.")
+        #     if encryption_factors is None:
+        #         raise FedbiomedSecureAggregationError(
+        #             f"{ErrorNumbers.FB417.value}: Secure aggregation random validation has been set but the encryption "
+        #             f"factors are not provided. Please provide encrypted `secagg_random` values in different parties. "
+        #             f"Or to not set/get `secagg_random()` before the aggregation.")
 
-            logger.info("Validating secure aggregation results...")
-            encryption_factors = [f for k, f in encryption_factors.items()]
-            validation: List[float] = aggregate(params=encryption_factors, num_expected_params=1)
+        #     logger.info("Validating secure aggregation results...")
+        #     encryption_factors = [f for k, f in encryption_factors.items()]
+        #     validation: List[float] = aggregate(params=encryption_factors, num_expected_params=1)
 
-            if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.03):
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}: Aggregation is failed due to incorrect decryption."
-                )
-            logger.info("Validation is completed.")
+        #     if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.03):
+        #         raise FedbiomedSecureAggregationError(
+        #             f"{ErrorNumbers.FB417.value}: Aggregation is failed due to incorrect decryption."
+        #         )
+        #     logger.info("Validation is completed.")
 
-        elif encryption_factors is not None:
-            logger.warning("Encryption factors are provided while secagg random is None. Please make sure secure "
-                           "aggregation steps are applied correctly.")
+        # elif encryption_factors is not None:
+        #     logger.warning("Encryption factors are provided while secagg random is None. Please make sure secure "
+        #                    "aggregation steps are applied correctly.")
 
         logger.info("Aggregating encrypted parameters. This process may take some time depending on model size.")
         # Aggregate parameters

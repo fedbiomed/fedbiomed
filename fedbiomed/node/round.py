@@ -26,7 +26,7 @@ from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common import utils
-from fedbiomed.common.secagg import SecaggCrypter
+from fedbiomed.common.secagg import JLSCrypter, FlamingoCrypter
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -54,6 +54,7 @@ class Round:
         history_monitor: HistoryMonitor,
         aggregator_args: Dict[str, Any],
         node_args: Dict,
+        node_ids: List[str],
         round_number: int = 0,
         dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None,
         aux_vars: Optional[List[str]] = None,
@@ -100,6 +101,7 @@ class Round:
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
         self.training_kwargs = training_kwargs
         self.model_arguments = model_kwargs
+        self.node_ids = node_ids
 
         # Class attributes
         self.tp_security_manager = TrainingPlanSecurityManager()
@@ -107,8 +109,8 @@ class Round:
         self.testing_arguments = None
         self.loader_arguments = None
         self.training_arguments = None
-        self._secagg_crypter = SecaggCrypter()
         self._secagg_clipping_range = None
+        self._secagg_crypter = None
         self._round = round_number
         self._biprime = None
         self._servkey = None
@@ -235,13 +237,20 @@ class Round:
         """
         # Validate secagg status. Raises error if the training request is not compatible with
         # secure aggregation settings
+        print("here first")
         try:
             secagg_arguments = {} if secagg_arguments is None else secagg_arguments
             self._use_secagg = self._configure_secagg(
                 secagg_servkey_id=secagg_arguments.get('secagg_servkey_id'),
                 secagg_biprime_id=secagg_arguments.get('secagg_biprime_id'),
-                secagg_random=secagg_arguments.get('secagg_random')
+                secagg_random=secagg_arguments.get('secagg_random'),
             )
+            self._use_secagg = secagg_arguments.get('secagg_scheme') is not None
+            if self._use_secagg:
+                if secagg_arguments.get('secagg_scheme') == 'jls': 
+                    self._secagg_crypter = JLSCrypter()
+                elif secagg_arguments.get('secagg_scheme') == 'flamingo':
+                    self._secagg_crypter = FlamingoCrypter()
         except FedbiomedRoundError as e:
             return self._send_round_reply(success=False, message=str(e))
 
@@ -408,26 +417,43 @@ class Round:
 
             results["encrypted"] = False
             model_weights = self.training_plan.after_training_params(flatten=self._use_secagg)
-
+            # compute mega bytes of the model is a python list of float
+            ptxt_model_size = utils.get_list_size_in_mb(model_weights)
+            ctxt_model_size = 0
+            time_encrypt = 0
             if self._use_secagg:
 
                 logger.info("Encrypting model parameters. This process can take some time depending on model size.",
                             researcher_id=self.researcher_id)
-
-                encrypt = functools.partial(
-                    self._secagg_crypter.encrypt,
-                    num_nodes=len(self._servkey["parties"]) - 1,  # -1: don't count researcher
-                    current_round=self._round,
-                    key=self._servkey["context"]["server_key"],
-                    biprime=self._biprime["context"]["biprime"],
-                    weight=results["sample_size"],
-                    clipping_range=secagg_arguments.get('secagg_clipping_range')
-                )
-                model_weights = encrypt(params=model_weights)
+                if isinstance(self._secagg_crypter, JLSCrypter):
+                    # if server is key is JL
+                    encrypt = functools.partial(
+                        self._secagg_crypter.encrypt,
+                        num_nodes=len(self._servkey["parties"]) - 1,  # -1: don't count researcher
+                        current_round=self._round,
+                        key=self._servkey["context"]["server_key"],
+                        biprime=self._biprime["context"]["biprime"],
+                        weight=results["sample_size"],
+                        # clipping_range=secagg_arguments.get('secagg_clipping_range')
+                    )
+                else:
+                    encrypt = functools.partial(
+                        self._secagg_crypter.encrypt,
+                        current_round=self._round,
+                        my_node_id = environ["NODE_ID"],
+                        node_ids = self.node_ids,
+                        weight=results["sample_size"],
+                        # clipping_range=secagg_arguments.get('secagg_clipping_range')
+                    )
+                logger.info(f"Min and Max of the model weights: {min(model_weights)} and {max(model_weights)}", researcher_id=self.researcher_id)
+                model_weights, time_encrypt = encrypt(params=model_weights)
+                ctxt_model_size = utils.get_list_size_in_mb(model_weights)
                 results["encrypted"] = True
-                results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
+                # results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
                 logger.info("Encryption is completed!",
                             researcher_id=self.researcher_id)
+                logger.info(f"Sample size: {results['sample_size']}", researcher_id=self.researcher_id)
+                
 
             results['params'] = model_weights
             results['optimizer_args'] = self.training_plan.optimizer_args()
@@ -448,7 +474,10 @@ class Round:
 
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,
-                                                  'ptime_training': ptime_after - ptime_before},
+                                                  'ptime_training': ptime_after - ptime_before,
+                                                  'time_encrypt': time_encrypt},
+                                            communication={'ptxt_model_size': ptxt_model_size,
+                                                           'ctxt_model_size': ctxt_model_size},
                                           extend_with=results)
         else:
             # Only for validation
@@ -461,6 +490,7 @@ class Round:
             message: str = '',
             extend_with: Optional[Dict] = None,
             timing: dict = {},
+            communication: dict = {}
     ) -> None:
         """Sends reply to researcher after training/validation.
 
@@ -471,6 +501,7 @@ class Round:
             message: Message regarding the process.
             extend_with: Extends the train reply
             timing: Timing statistics
+            communication: Communication statistics
         """
 
         if extend_with is None:
@@ -487,6 +518,7 @@ class Round:
              'dataset_id': self.dataset['dataset_id'] if success else '',
              'msg': message,
              'timing': timing,
+            'communication': communication,
              **extend_with})
 
 
