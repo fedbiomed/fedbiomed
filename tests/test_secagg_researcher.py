@@ -69,7 +69,7 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
         self.abstract_methods_patcher = patch.multiple(SecaggContext, __abstractmethods__=set())
         self.abstract_methods_patcher.start()
         self.secagg_context = SecaggContext(parties=[environ["ID"], 'party2', 'party3'],
-                                            job_id="job-id")
+                                            experiment_id="experiment-id")
 
     def tearDown(self) -> None:
         super().tearDown()
@@ -81,49 +81,49 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
         # Succeeded with various secagg_id
         for secagg_id in (None, 'one secagg id string', 'x'):
             context = SecaggContext(parties=[environ["ID"], 'party2', 'party3'],
-                                    job_id="job-id",
+                                    experiment_id="experiment-id",
                                     secagg_id=secagg_id)
         self.assertEqual(context.secagg_id, secagg_id)
 
         # First party not matching researcher
         with self.assertRaises(FedbiomedSecaggError):
             SecaggContext(parties=['party1', 'party2', 'party3'],
-                          job_id="job-id")
+                          experiment_id="experiment-id")
 
         # Less than 3 parties
         with self.assertRaises(FedbiomedSecaggError):
             SecaggContext(parties=[environ["ID"], 'party2'],
-                          job_id="job-id")
+                          experiment_id="experiment-id")
 
         # Invalid type parties
         with self.assertRaises(FedbiomedSecaggError):
             SecaggContext(parties=[environ["ID"], 12, 12],
-                          job_id="job-id")
+                          experiment_id="experiment-id")
 
-        # Job id is not string
+        # experiment id is not string
         with self.assertRaises(FedbiomedSecaggError):
             SecaggContext(parties=[environ["ID"], 'party2', 'party3'],
-                          job_id=111)
+                          experiment_id=111)
 
         # Failed with bad secagg_id
         for secagg_id in ("", 3, ["not a string"]):
             with self.assertRaises(FedbiomedSecaggError):
                 SecaggContext(parties=[environ["ID"], 'party2', 'party3'],
-                              job_id='a job id', secagg_id=secagg_id)
+                              experiment_id='a experiment id', secagg_id=secagg_id)
 
     def test_secagg_context_02_getters_setters(self):
         """Tests setters and getters """
 
-        self.assertEqual(self.secagg_context.job_id, "job-id")
+        self.assertEqual(self.secagg_context.experiment_id, "experiment-id")
         self.assertIsInstance(self.secagg_context.secagg_id, str)
         self.assertFalse(self.secagg_context.status)
         self.assertIsNone(self.secagg_context.context)
 
-        self.secagg_context.set_job_id("new-job-id")
-        self.assertEqual(self.secagg_context.job_id, "new-job-id")
+        self.secagg_context.set_experiment_id("new-experiment-id")
+        self.assertEqual(self.secagg_context.experiment_id, "new-experiment-id")
 
         with self.assertRaises(FedbiomedSecaggError):
-            self.secagg_context.set_job_id(1111)
+            self.secagg_context.set_experiment_id(1111)
 
 
     def test_secagg_context_03_secagg_round(self):
@@ -164,7 +164,7 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
             'module': self.secagg_context.__module__,
             "arguments": {
                 'secagg_id': self.secagg_context.secagg_id,
-                'job_id': self.secagg_context.job_id,
+                'experiment_id': self.secagg_context.experiment_id,
                 'parties': self.secagg_context.parties,
             },
             "attributes": {
@@ -187,7 +187,7 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
             'arguments': {
                 'secagg_id': 'my_secagg_id',
                 'parties': [environ['ID'], 'TWO_PARTIES', 'THREE_PARTIES'],
-                'job_id': 'my_job_id',
+                'experiment_id': 'my_experiment_id',
             },
             'attributes': {
                 '_researcher_id': environ['ID'],
@@ -200,7 +200,7 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
 
         self.assertEqual(state['attributes']['_status'], secagg_context.status)
         self.assertEqual(state['arguments']['secagg_id'], secagg_context.secagg_id)
-        self.assertEqual(state['arguments']['job_id'], secagg_context.job_id)
+        self.assertEqual(state['arguments']['experiment_id'], secagg_context.experiment_id)
         self.assertEqual(state['attributes']['_context'], secagg_context.context)
 
 
@@ -211,18 +211,18 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
 
         self.mock_skmanager.get.return_value = None
         self.srvkey_context = SecaggServkeyContext(parties=[environ["ID"], 'party2', 'party3'],
-                                                   job_id="job-id")
+                                                   experiment_id="experiment-id")
 
     def tearDown(self) -> None:
         super().tearDown()
 
     def test_servkey_context_01_init(self):
-        """Tests failed init scenarios with bad_job_id"""
+        """Tests failed init scenarios with bad_experiment_id"""
 
-        for job_id in (None, "", 3, ["not a string"]):
+        for experiment_id in (None, "", 3, ["not a string"]):
             with self.assertRaises(FedbiomedSecaggError):
                 SecaggServkeyContext(parties=[environ["ID"], 'party2', 'party3'],
-                                     job_id=job_id)
+                                     experiment_id=experiment_id)
 
     @patch('fedbiomed.researcher.secagg.SecaggServkeyContext._payload_create')
     def test_secagg_02_payload(self, patch_payload_create):
@@ -252,7 +252,7 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
         ):
             self.mock_skmanager.get.side_effect = [return_value, context]
             srvkey_context = SecaggServkeyContext(parties=[environ["ID"], 'party2', 'party3'],
-                                                  job_id="job-id")
+                                                  experiment_id="experiment-id")
 
             payload_context, payload_value = srvkey_context._payload()
             self.assertEqual(payload_context, context)

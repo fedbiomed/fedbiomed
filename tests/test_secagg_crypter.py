@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from gmpy2 import mpz
 
+from fedbiomed.common.constants import VEParameters
 from fedbiomed.common.secagg import SecaggCrypter, EncryptedNumber
 from fedbiomed.common.secagg._jls import PublicParam
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
@@ -50,11 +51,50 @@ class TestSecaggCrypter(unittest.TestCase):
     def test_secagg_crypter_03_apply_average(self):
         """Tests quantized divide"""
 
+        # Test successful division
+
         vector = [4, 8, 12]
         result = self.secagg_crypter._apply_average(vector, 2)
 
-        # Test division
         self.assertListEqual(result, [v / 2 for v in vector])
+
+        # Test division with overflow
+
+        vectors = [
+            [-1],
+            [1, 1, -1],
+            [-1, 1, 1],
+            [1, -1, 1],
+        ]
+        for vector in vectors:
+            with self.assertRaises(FedbiomedSecaggCrypterError):
+                self.secagg_crypter._apply_average(vector, 2)
+
+    def test_secagg_crypter_04_apply_weighing(self):
+        """Tests quantized multiply"""
+
+        # Test successful multiply
+
+        vector = [4, 8, 12]
+        result = self.secagg_crypter._apply_weighing(vector, 2)
+
+        self.assertListEqual(result, [v * 2 for v in vector])
+
+        # Test multiply with overflow
+
+        vectors = [
+            [-1],
+            [1, 1, -1],
+            [-1, 1, 1],
+            [1, -1, 1],
+            [VEParameters.TARGET_RANGE],
+            [2 * VEParameters.TARGET_RANGE],
+            [0, VEParameters.TARGET_RANGE, 0],
+            [0, 0, VEParameters.TARGET_RANGE],
+        ]
+        for vector in vectors:
+            with self.assertRaises(FedbiomedSecaggCrypterError):
+                self.secagg_crypter._apply_weighing(vector, 2)
 
     def test_secagg_crypter_03_encrypt(self):
         """Tests encryption"""
@@ -130,9 +170,9 @@ class TestSecaggCrypter(unittest.TestCase):
                                                params=[node_1, node_2],
                                                biprime=TestSecaggCrypter.biprime,
                                                key=-20,
-                                               total_sample_size=8)
+                                               total_sample_size=8,
+                                               num_expected_params=len(params))
 
-        print(result)
         self.assertEqual(len(result), len(params))
         self.assertTrue(result[0] > 0.4 or result[0] < 0.6,
                         "Secure aggregation result is not closer to expected avereage")

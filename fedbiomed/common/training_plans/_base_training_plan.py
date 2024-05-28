@@ -55,8 +55,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         testing_data_loader: Data loader used in the validation routine.
     """
 
-    _model: Model
-    _optimizer: BaseOptimizer
+    _model: Optional[Model]
+    _optimizer: Optional[BaseOptimizer]
 
     def __init__(self) -> None:
         """Construct the base training plan."""
@@ -74,16 +74,28 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._training_args: Dict[str, Any] = None
         
         self._error_msg_import_model: str = f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n" +\
-                                            "To %s a model, you should do it through `fedbiomed.researcher.experiment.Experiment`'s interface" +\
+                                            "To %s a model, you should do it through `fedbiomed.researcher.federated_workflows.Experiment`'s interface" +\
                                             " and not directly from Training Plan"
 
     @abstractmethod
     def model(self):
         """Gets model instance of the training plan"""
 
+    # FIXME: re-implement Model as a subclass of Torch.nn.module, SGDClassifier, etc.
+    # to avoid having a distinct getter for the class, see #1049
+
+    def get_model_wrapper_class(self) -> Optional[Model]:
+        """Gets training plan's model wrapper class.
+
+        Returns:
+            the wrapper class for the model, or None
+            if model is not instantiated.
+        """
+        return self._model
+
     @property
     def dependencies(self):
-            return self._dependencies
+        return self._dependencies
 
     def optimizer(self) -> Optional[BaseOptimizer]:
         """Get the BaseOptimizer wrapped by this training plan.
@@ -106,6 +118,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             model_args: Dict[str, Any],
             training_args: Dict[str, Any],
             aggregator_args: Optional[Dict[str, Any]] = None,
+            initialize_optimizer: bool = True
         ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -116,6 +129,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 Please see [`TrainingArgs`][fedbiomed.common.training_args.TrainingArgs]
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
+            initialize_optimizer: whether to initialize the optimizer or not. Defaults
+                to True.
         """
 
         # Store various arguments provided by the researcher
@@ -256,7 +271,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
-    def get_model_params(self, only_trainable: bool = False,) -> Dict[str, Any]:
+    def get_model_params(self,
+                         only_trainable: bool = False,
+                         exclude_buffers: bool = True) -> Dict[str, Any]:
         """Return a copy of the model's trainable weights.
 
         The type of data structure used to store weights depends on the actual
@@ -266,11 +283,13 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
+            exclude_buffers: Whether to ignore buffers (the default), or 
+                include them.
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their value.
         """
-        return self._model.get_weights(only_trainable=only_trainable)
+        return self._model.get_weights(only_trainable=only_trainable, exclude_buffers=exclude_buffers)
 
     def set_model_params(self, params: Dict[str, Any]) -> None:
         """Assign new values to the model's trainable parameters.
@@ -609,9 +628,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             The trained parameters to aggregate.
         """
+        exclude_buffers = not self._training_args['share_persistent_buffers']
         if flatten:
-            return self._model.flatten()
-        return self.get_model_params()
+            return self._model.flatten(exclude_buffers=exclude_buffers)
+        return self.get_model_params(exclude_buffers=exclude_buffers)
 
     def export_model(self, filename: str) -> None:
         """Export the wrapped model to a dump file.
@@ -622,7 +642,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Raises:
             FedBiomedTrainingPlanError: raised if model has not be initialized through the 
             `post_init` method. If you need to export the model, you must do it through
-            [`Experiment`][`fedbiomed.researcher.experiment.Experiment`]'s interface.
+            [`Experiment`][`fedbiomed.researcher.federated_workflows.Experiment`]'s interface.
 
         !!! info "Notes":
             This method is designed to save the model to a local dump
@@ -649,7 +669,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Raises:
             FedBiomedTrainingPlanError: raised if model has not be initialized through the 
             `post_init` method. If you need to export the model from the Training Plan, you
-            must do it through [`Experiment`][`fedbiomed.researcher.experiment.Experiment`]'s
+            must do it through [`Experiment`][`fedbiomed.researcher.federated_workflows.Experiment`]'s
             interface.
 
         !!! info "Notes":

@@ -1,7 +1,0 @@
-{
-    "name": "MNIST",
-    "description": "MNIST DATASET",
-    "tags": "#MNIST,#dataset",
-    "data_type": "default",
-    "path": "./data/"
-}

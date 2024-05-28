@@ -7,7 +7,7 @@ Continuous integration uses [GitHub Actions](https://github.com/fedbiomed/fedbio
 CI tests are triggered automatically by GitHub on a:
 
 - pull request to `develop` or `master` branch
-- push in `develop`, `master`, `feature/test_ci` branches (eg: after a merge, pushing a fix directly to this branch)
+- push in `develop` or `master` branches (eg: after a merge, pushing a fix directly to this branch)
 
 
 The pull request can not be completed before CI pipeline succeeds
@@ -18,14 +18,12 @@ The pull request can not be completed before CI pipeline succeeds
 CI pipeline currently contains :
 
 - running unit tests
-    - update conda envs for `network` and `researcher`
-    - launch nework
+    - update conda envs for `researcher`
     - run unit tests
 
-- running a simplenet + federated average training, on a few batches of a MNIST dataset, with 1 node. For that, CI launches `./scripts/run_test_mnist` (an also be launched on localhost)
+- running a simplenet + federated average training, on a few batches of a MNIST dataset, with 2 nodes. For that, CI launches `./scripts/run_test_mnist` (an also be launched on localhost)
     - update conda env for `node` (rely on unit tests for others)
-    - activate conda and environments, launch network and node.
-    - choose an existing git branch for running the test for each of the repos, by decreasing preference order : source branch of the PR, target branch of the PR, `develop`
+    - activate conda and environments, launch nodes.
     - convert with `jupyter nbconvert` the notebook `./notebooks/101_getting-started.ipynb` to the python script `./notebooks/101_getting-started.py`
     - launch the `fedbiomed` script `./notebooks/101_getting-started.py`
     - succeed if the script completes without failure.
@@ -33,7 +31,7 @@ CI pipeline currently contains :
 - running test build process for documentation 
 
 
-!!! "note" Execution exceptions 
+!!! note "Execution exceptions"
     CI build tests are run if a file related to the build is changed. For example, if the changes (difference between base and feature branch) in a pull request are only made in the gui directory or docs, the CI action for unit tests will be skipped. Please see the exceptions in `.gihub/workflows/*.yml`
 
 ## Displaying Outputs and Results
@@ -67,11 +65,3 @@ Please see [GitHub actions](https://github.com/features/actions) documentation f
 ### CI slaves
 
 CI slaves are located on `ci.inria.fr`. To be able to add extra configuration and installation you have to connect with your account on `ci.inria.fr`. You need to be approved by one member of the Fed-BioMed CI project or to be a member of Inria to be able get an account on `ci.inria.fr`. You can request the Fed-BioMed team to become a member of the Fed-BioMed CI project.
-
-
-## Testing
-
-Using branch `feature/test_ci` can be useful when testing/debugging the CI setup (triggers CI on every push, not only on pull request).
-
-
-More integration tests run on a nightly basis. They need a conda environment `fedbiomed-ci.yaml` which can be found in `./envs/ci/conda`

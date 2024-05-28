@@ -6,7 +6,7 @@ Top class for strategy implementation
 """
 
 
-from typing import Dict, Any
+from typing import Any, Dict, List, Tuple
 
 from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
@@ -19,25 +19,29 @@ class Strategy:
     """
     Default Strategy as Parent class. Custom strategy classes must inherit from this parent class.
 
+    !!! warning "Inconsistent history"
+        The Strategy class keeps a history of sampled and successful nodes. No attempt is made to keep this history
+        consistent when the `_fds` member is modified.
+
     """
 
-    def __init__(self, data: FederatedDataSet):
+    def __init__(self):
         """
 
         Args:
             data: Object that includes all active nodes and the meta-data of the dataset that is going to be
                 used for federated training.
         """
-        self._fds = data
         self._sampling_node_history = {}
         self._success_node_history = {}
         self._parameters = None
 
-    def sample_nodes(self, round_i: int):
+    def sample_nodes(self, from_nodes: List[str], round_i: int):
         """
         Abstract method that must be implemented by child class
 
         Args:
+            from_nodes: the node ids which may be sampled
             round_i: Current round of experiment
         """
         msg = ErrorNumbers.FB402.value + \
@@ -45,7 +49,7 @@ class Strategy:
         logger.critical(msg)
         raise FedbiomedStrategyError(msg)
 
-    def refine(self, training_replies: Dict, round_i: int) -> tuple[list, list]:
+    def refine(self, training_replies: Dict, round_i: int) -> Tuple[list, list]:
         """
         Abstract method that must be implemented by child class
 
@@ -79,11 +83,10 @@ class Strategy:
             "class": type(self).__name__,
             "module": self.__module__,
             "parameters": self._parameters,
-            "fds": self._fds.data()
         }
         return state
 
-    def load_state_breakpoint(self, state: Dict[str, Any] = None, **kwargs):
+    def load_state_breakpoint(self, state: Dict[str, Any] = None):
         """
         Method for loading strategy state from breakpoint state
 
@@ -91,5 +94,4 @@ class Strategy:
             state: The state that will be loaded
         """
         # fds may be modified and diverge from Experiment
-        self._fds = FederatedDataSet(state.get('fds'))
         self._parameters = state['parameters']

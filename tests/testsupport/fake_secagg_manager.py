@@ -7,13 +7,13 @@ class FakeSecaggManager:
 
 
 class FakeSecaggServkeyManager(FakeSecaggManager):
-    def get(self, secagg_id: str, job_id: str) -> Union[dict, None]:
+    def get(self, secagg_id: str, experiment_id: str) -> Union[dict, None]:
         return None
 
-    def add(self, secagg_id: str, parties: List[str], job_id: str, servkey_share: str):
+    def add(self, secagg_id: str, parties: List[str], experiment_id: str, servkey_share: str):
         pass
 
-    def remove(self, secagg_id: str, job_id: str) -> bool:
+    def remove(self, secagg_id: str, experiment_id: str) -> bool:
         return True
 
 
