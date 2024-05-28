@@ -318,7 +318,9 @@ class _GrpcAsyncServer:
             'command': 'overlay-forward',
         })
 
-        # caveat: if using `self.send()` it uses `GrpcServer.send()`, if using `super().send()` it's less generic
+        # caveat: intentionally use `_GrpcAyncServer.send()`
+        # if using `self.send()` it uses `GrpcServer.send()`, normally used from another thread
+        # if using `super().send()` it's less explicit
         await _GrpcAsyncServer.send(self, message_forward, m['dest_node_id'])
 
 
