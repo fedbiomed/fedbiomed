@@ -81,8 +81,7 @@ class Aggregator:
         aggregated_params = aggregate(params=params)
 
         # Convert model params
-        model = training_plan._model
-
+        model = training_plan.get_model_wrapper_class()
         model_params = model.unflatten(aggregated_params)
 
         return model_params
@@ -154,7 +153,7 @@ class Aggregator:
 
     def _save_arg_to_file(self, breakpoint_path: str, arg_name: str, node_id: str, arg: Any) -> str:
 
-        filename = os.path.join(breakpoint_path, f"{arg_name}_{node_id}.mpk")
+        filename = os.path.join(breakpoint_path, f"{arg_name}_{str(node_id)[0:11]}_{uuid.uuid4()}.mpk")
         Serializer.dump(arg, filename)
         return filename
 

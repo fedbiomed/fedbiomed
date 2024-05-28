@@ -1,5 +1,6 @@
 
 import os
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
@@ -174,7 +175,7 @@ class TestScaffold(ResearcherTestCase):
             weights=weights,
             global_model=copy.deepcopy(self.zero_model.state_dict()),
             training_plan=training_plan,
-            training_replies=self.replies,
+            training_replies=self.replies[0],
             n_round=n_round
         )
         aggregated_model_params_fedavg = FedAverage().aggregate(
@@ -255,8 +256,6 @@ class TestScaffold(ResearcherTestCase):
             self.assertTrue(agg_args[node_id].get('aggregator_name', False))
             self.assertDictEqual(agg_args[node_id].get('aggregator_correction'), agg.nodes_deltas[node_id])
 
-
-
     @patch('uuid.uuid4')
     def test_7_save_state_breakpoint(self, uuid_patch):
         uuid_patch.return_value = FakeUuid()
@@ -299,61 +298,43 @@ class TestScaffold(ResearcherTestCase):
         self.assertEqual(load_patch.call_count, 2,
                          f"'Serializer.load' should be called 2, for global model and parameters")
 
-
-    def test_10_set_nodes_learning_rate_after_training(self):
-
+    def test_9_set_nodes_learning_rate_after_training(self):
         n_rounds = 3
-
         # test case were learning rates change from one layer to another
         lr = {'layer-1': .1,
               'layer-2': .2,
               'layer-3': .3}
         n_model_layer = len(lr)  # number of layers model contains
-
-        training_replies = [
-            {node_id: {'node_id': node_id, 'optimizer_args': {'lr': lr}}
-                for node_id in self.node_ids }  for r in range(n_rounds)
-        ]
-        print(training_replies)
-        # assert n_model_layer == len(lr), "error in test: n_model_layer must be equal to the length of list of learning rate"
+        training_replies = {node_id: {'node_id': node_id, 'optimizer_args': {'lr': lr}} for node_id in self.node_ids}
         training_plan = MagicMock()
         get_model_params_mock = MagicMock()
-
         get_model_params_mock.__len__ = MagicMock(return_value=n_model_layer)
         training_plan.get_model_params.return_value = get_model_params_mock
-
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
         scaffold = Scaffold(fds=fds)
         for n_round in range(n_rounds):
             node_lr = scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan,
-                                                                      training_replies=training_replies,
-                                                                      n_round=n_round)
+                                                                      training_replies=training_replies)
             test_node_lr = {node_id: lr for node_id in self.node_ids}
-
             self.assertDictEqual(node_lr, test_node_lr)
 
-        # same test with a mix of nodes present in training_replies and non present
-
+        # same test with a mix of present and absent nodes in training_replies
         fds = FederatedDataSet({node_id: {} for node_id in self.node_ids + ['node_99']})
         optim_w = MagicMock(spec=NativeTorchOptimizer)
         optim_w.get_learning_rate = MagicMock(return_value=lr)
         training_plan.optimizer = MagicMock(return_value=optim_w)
-        # training_plan.get_learning_rate = MagicMock(return_value=lr)
         scaffold = Scaffold(fds=fds)
         for n_round in range(n_rounds):
             node_lr = scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan,
-                                                                      training_replies=training_replies,
-                                                                      n_round=n_round)
+                                                                      training_replies=training_replies)
 
         # test case where len(lr) != n_model_layer
         lr.update({'layer-4': .333})
         training_plan.get_learning_rate = MagicMock(return_value=lr)
-
         for n_round in range(n_rounds):
             with self.assertRaises(FedbiomedAggregatorError):
                 scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan,
-                                                                training_replies=training_replies,
-                                                                n_round=n_round)
+                                                                training_replies=training_replies)
                 
                 
 class TestIntegrationScaffold(unittest.TestCase):
@@ -447,7 +428,7 @@ class TestIntegrationScaffold(unittest.TestCase):
             # create training replies
             replies = {0: {}}
             for node_id in self.node_ids:
-                replies.update({
+                replies[0].update({
                     node_id: {
                         'node_id': node_id, 
                         'optimizer_args': {
@@ -471,6 +452,94 @@ class TestIntegrationScaffold(unittest.TestCase):
             for node_id in self.node_ids:
                 # checking that `nodes_lr` have been populated accordingly
                 self.assertDictEqual(scaffold.nodes_lr[node_id], tp.optimizer().get_learning_rate())
+          
+    def test_2_bug_977_key_error(self):
+        # this bug happens when training a model with scaffold: train it, then save and load it from a breakpoint,
+        # and resume the training: a key error happen, complaining that node_id doesnot exist in dictionary
+        # this test intent to reproduce the error
+        tp = TestIntegrationScaffold.FakeModelTorch()
+        training_args = TrainingArgs({}, only_required=False)
+        tp.post_init({}, training_args , {})
+        n_updates = 10
+        server_lr = 1
+        # step 1: do some training 
+        replies = {0: {}}
+        for node_id in self.node_ids:
+            replies[0].update({
+                node_id: {
+                    'node_id': node_id, 
+                    'optimizer_args': {
+                        'lr' : tp.optimizer().get_learning_rate()}
+                }
+            })
+
+        global_params = tp.after_training_params()
+        local_models = {node_id: copy.deepcopy(tp.after_training_params()) for i, node_id in enumerate(self.node_ids)}
+        scaffold = Scaffold(server_lr =server_lr)
+        
+        scaffold.set_fds(self.fds)
+        agg_params = scaffold.aggregate(local_models,
+                                        self.weights,
+                                        global_model=global_params,
+                                        training_plan=tp,
+                                        training_replies=replies,
+                                        node_ids=self.node_ids, 
+                                        n_updates=n_updates,
+                                        n_round=0)
+
+        # step 2: save breakpoint
+        with tempfile.TemporaryDirectory() as tmp_path:
+            saved_state = scaffold.save_state_breakpoint(
+                tmp_path,
+                global_params, 
+            )
+
+            del scaffold, global_params, local_models
+            
+            # step 3: load scaffold from breakpoint
+            ## re-instantiate scaffold
+            loaded_scaffold = Scaffold(server_lr =.00123)
+            loaded_scaffold.set_fds(self.fds)
+            loaded_scaffold.load_state_breakpoint(saved_state)
+
+        # step 4: simulate the execution of another round 
+        replies[1] = {}
+        for node_id in self.node_ids:
+            replies.update({
+                    node_id: {
+                        'node_id': node_id, 
+                        'optimizer_args': {
+                            'lr' : tp.optimizer().get_learning_rate()}
+                    }
+                })
+        
+        global_params = tp.after_training_params()
+        local_models = {node_id: copy.deepcopy(tp.after_training_params()) for i, node_id in enumerate(self.node_ids)}
+        
+        agg_params_2 = loaded_scaffold.aggregate(local_models,
+                                                 self.weights,
+                                                 global_model=global_params,
+                                                 training_plan=tp,
+                                                 training_replies=replies,
+                                                 node_ids=self.node_ids, 
+                                                 n_updates=n_updates,
+                                                 n_round=1)
+
+        # checks that parameters are reloaded accordingly
+        for (k_g, v_g) in loaded_scaffold.global_state.items():
+            
+            # tests that `c = 1/N sum_{i=1}^n c_i`
+            self.assertTrue(torch.isclose(v_g * len(self.node_ids),
+                                          torch.mean(torch.stack(
+                                              [loaded_scaffold.nodes_states[node_id][k_g] for node_id in self.node_ids]
+                                          ))).all())
+        # delta_i = (c_i - c)
+        for node_id in self.node_ids:
+            for (k_ns, v_ns), (k_d, v_d) in zip(loaded_scaffold.nodes_states[node_id].items(),
+                                                loaded_scaffold.nodes_deltas[node_id].items()):
+                self.assertTrue(torch.isclose(
+                    v_d, v_ns - loaded_scaffold.global_state[k_ns]).all())
+
 
 # TODO:
 # ideas for further tests:

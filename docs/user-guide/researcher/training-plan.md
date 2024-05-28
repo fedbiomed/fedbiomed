@@ -364,36 +364,29 @@ to control the training process by changing these arguments. Modifying the train
 ```
 
 
-## Exporting and importing model 
+## Exporting and importing model
 
 Each training plan provides export and import functionality.
 
 - Export facility is used for saving model parameters to a file after training the model in Fed-BioMed, so it can be used in another software (eg for inference).
 - Import facility is used for loading model parameters from a file, for example to specialize with Fed-BioMed a model pre-trained with another software (transfer learning) or a previous Fed-BioMed run.
 
+**Exports** and **imports** are handled through the [`Experiment`](../../researcher/experiment) interface. [`Experiment`](../../researcher/experiment) interface will initialize the model for you, by calling internally `Training Plan` methods `init_method` and `post_init`. See example below for an instantiated `Experiment` object named `exp`.
 
 To save model to file `/path/to/file` use:
 
-```
-MyTrainingPlan().export_model('/path/to_file')
+```python
+exp.training_plan().export_model('/path/to_file')
 ```
 
 
 To load model from file `/path/to/file` use:
 
-```
-MyTrainingPlan().import_model('/path/to_file')
+```python
+exp.training_plan().import_model('/path/to_file')
 ```
 
 Of course, loaded model needs to be identical to the training plan's model.
-
-
-After loading model in an [Experiment](../../researcher/experiment) it is needed to also update the model in `Job()` class. For example for an `Experiment` named `exp` use:
-
-```
-exp.training_plan().import_model('/path/to/file')
-exp.job().update_parameters(exp.training_plan().get_model_params())
-```
 
 
 !!! info "`export_model()` and `import_model()` actions depends on framework"
@@ -406,6 +399,6 @@ exp.job().update_parameters(exp.training_plan().get_model_params())
 
     In both PyTorch and scikit-learn, the model saving and loading facility are based on [pickle](https://docs.python.org/3/library/pickle.html). While it is the recommended way of saving models in these frameworks, a malicious pickle model can execute arbitrary code on your machine when loaded. Thus make sure you are loading a model from a reliable source.
 
-
-
-
+!!! warning "Usage through `Experiment`"
+    Both **exports** and **imports** must be used through [Experiment](../../researcher/experiment) interface. Indeed, `Experiment` class has methods to load Training Plans and for initializing Model. Once the Model is initialized, you can
+    use both `export_model` and `import_model` for saving model into a file and respectively load it from a file.

@@ -9,11 +9,11 @@ while some of them don't, and some others don't support secure aggregation. Ther
 
 ### Activation
 
-By default, secure aggregation is deactivated in [`Experiment`][fedbiomed.researcher.experiment.Experiment] class. It can
+By default, secure aggregation is deactivated in [`Experiment`][fedbiomed.researcher.federated_workflows.Experiment] class. It can
 be activated by setting the `secagg` as `True`.
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 Experiment(
     secagg=True
 )
@@ -24,7 +24,7 @@ with default arguments as [`timeout`](#timeout) and [`clipping_range`](#clipping
 to create a secure aggregation instance by providing desired argument values.
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.secagg import SecureAggregation
 Experiment(
     #...
@@ -88,10 +88,10 @@ takes longer.
 ### I want to set secure aggregation context without re-running a round.
 
 It is possible to access the secagg instance through the experiment object in order to reset the secure
-aggregation context by providing a list of parties and the experiment `job_id`.
+aggregation context by providing a list of parties and the experiment `experiment_id`.
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.environ import environ
 
 exp = Experiment(secagg=True,
@@ -99,16 +99,16 @@ exp = Experiment(secagg=True,
                  )
 
 exp.secagg.setup(
-    parties= parties=[environ["ID"]] + exp.job().nodes,
-    job_id=exp.job().id
+    parties= parties=[environ["ID"]] + exp.filtered_federation_nodes(),
+    experiment_id=exp.id
 )
 
 ```
 If a context has already been set, you can use the force argument to forcefully recreate the context.
 ```python
 exp.secagg.setup(
-    parties= parties=[environ["ID"]] + exp.job().nodes,
-    job_id=exp.job().id,
+    parties= parties=[environ["ID"]] + exp.filtered_federation_nodes(),
+    experiment_id=exp.id,
     force=True
 )
 ```

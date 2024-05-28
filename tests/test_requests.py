@@ -184,7 +184,7 @@ class TestRequests(ResearcherTestCase):
         mock_print_node_log_message.assert_called_once_with(msg_logger.get_dict())
 
         msg_monitor = {'node_id': 'DummyNodeID',
-                       'job_id': 'DummyJobID',
+                       'experiment_id': 'DummyExperimentID',
                        'metric': {"loss": 12},
                        'train': True,
                        'test': False,
@@ -196,7 +196,7 @@ class TestRequests(ResearcherTestCase):
                        'iteration': 1,
                        'epoch': 5,
                        'iteration': 15}
-        
+
         msg_monitor = Scalar(**msg_monitor)
         monitor_callback = MagicMock(return_value=None)
         # Add callback for monitoring
@@ -285,10 +285,10 @@ class TestRequests(ResearcherTestCase):
 
         fed_req = MagicMock()
         fed_req.replies.return_value = replies
-        fed_req.errors.return_value = {'node-3': ErrorMessage(researcher_id="r", 
-                                                              node_id="node-3",  
-                                                              errnum="x", 
-                                                              extra_msg="x", 
+        fed_req.errors.return_value = {'node-3': ErrorMessage(researcher_id="r",
+                                                              node_id="node-3",
+                                                              errnum="x",
+                                                              extra_msg="x",
                                                               command="err" )}
 
         send.return_value.__enter__.return_value = fed_req
@@ -298,7 +298,7 @@ class TestRequests(ResearcherTestCase):
         search_result = self.requests.search(tags=tags)
         self.assertTrue('node-2' in search_result.keys())
         self.assertTrue('node-1' in search_result.keys())
-     
+
 
 
     @patch('tabulate.tabulate')
@@ -334,10 +334,10 @@ class TestRequests(ResearcherTestCase):
 
         fed_req = MagicMock()
         fed_req.replies.return_value = replies
-        fed_req.errors.return_value = {'node-3': ErrorMessage(researcher_id="r", 
-                                                              node_id="node-3",  
-                                                              errnum="x", 
-                                                              extra_msg="x", 
+        fed_req.errors.return_value = {'node-3': ErrorMessage(researcher_id="r",
+                                                              node_id="node-3",
+                                                              errnum="x",
+                                                              extra_msg="x",
                                                               command="err" )}
 
         send.return_value.__enter__.return_value = fed_req
@@ -378,7 +378,11 @@ class TestRequests(ResearcherTestCase):
         self.assertIsNone(self.requests._monitor_message_callback, "Monitor callback hasn't been removed")
 
     @patch('fedbiomed.researcher.requests.Requests.send')
+    @patch('fedbiomed.researcher.requests._requests.import_class_object_from_file')
+    @patch('fedbiomed.researcher.requests._requests.minify', return_value='hello')
     def test_request_13_training_plan_approve(self,
+                                              mock_minify,
+                                              mock_import,
                                               send):
         """ Testing training_plan_approve method """
 
@@ -391,10 +395,10 @@ class TestRequests(ResearcherTestCase):
 
         fed_req = MagicMock()
         send.return_value.__enter__.return_value = fed_req
-        fed_req.errors.return_value = {'node-3': ErrorMessage(researcher_id="r", 
-                                                              node_id="node-3",  
-                                                              errnum="x", 
-                                                              extra_msg="x", 
+        fed_req.errors.return_value = {'node-3': ErrorMessage(researcher_id="r",
+                                                              node_id="node-3",
+                                                              errnum="x",
+                                                              extra_msg="x",
                                                               command="err" )}
 
 
@@ -402,11 +406,14 @@ class TestRequests(ResearcherTestCase):
             'command': 'approval',
             'node_id': 'dummy-id-1',
             'success': True,
+            'training_plan_id': 'id-xx',
             'message': "hello",
             'researcher_id': "id",
             "status": True})}
 
-        result = self.requests.training_plan_approve(FakeTorchTrainingPlan2,
+        tp = MagicMock(spec=FakeTorchTrainingPlan2)
+        mock_import.return_value = ('dummy', tp)
+        result = self.requests.training_plan_approve(tp,
                                                      "test-training-plan-1",
                                                      nodes=["dummy-id-1"]
                                                      )

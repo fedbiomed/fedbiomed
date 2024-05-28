@@ -28,8 +28,9 @@ import gmpy2
 from gmpy2 import mpz, gcd
 import numpy as np
 
-from fedbiomed.common.constants import VEParameters
+from fedbiomed.common.constants import VEParameters, ErrorNumbers
 from fedbiomed.common.logger import logger
+from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 
 
 def _check_clipping_range(
@@ -78,15 +79,17 @@ def quantize(
 
     _check_clipping_range(weights, clipping_range)
 
+    # CAVEAT: ensure to be converting from `float` to `uint64`` (no intermediate `int64`)
+    # Process ensures an to compute an `int`` in the range [0, target_range -1]
+    # This enables to use at most 2**64 as target_range (max value of `uint` - 1)
     f = np.vectorize(
         lambda x: min(
             target_range - 1,
-            (sorted((-clipping_range, x, clipping_range))[1] + clipping_range) *
-            target_range /
-            (2 * clipping_range),
-        )
+            (sorted((-clipping_range, x, clipping_range))[1] + clipping_range) * target_range / (2 * clipping_range),
+        ),
+        otypes=[np.uint64]
     )
-    quantized_list = f(weights).astype(int)
+    quantized_list = f(weights)
 
     return quantized_list.tolist()
 
@@ -102,8 +105,8 @@ def multiply(xs: List[int], k: int) -> List[int]:
     Returns:
         List of multiplied integers
     """
-    xs = np.array(xs, dtype=np.uint32)
-    return (xs * k).tolist()
+    # Quicker than converting to/from numpy
+    return [e * k for e in xs]
 
 
 def divide(xs: List[int], k: int) -> List[int]:
@@ -117,8 +120,8 @@ def divide(xs: List[int], k: int) -> List[int]:
     Returns:
         List of divided integers
     """
-    xs = np.array(xs, dtype=np.uint32)
-    return (xs / k).tolist()
+    # Quicker than converting to/from numpy
+    return [e / k for e in xs]
 
 
 def reverse_quantize(
@@ -140,15 +143,25 @@ def reverse_quantize(
     if clipping_range is None:
         clipping_range = VEParameters.CLIPPING_RANGE
 
+    # CAVEAT: there should not be any weight received that does not fit in `uint64`
+    max_val = np.iinfo(np.uint64).max
+    if any([v > max_val or v < 0 for v in weights]):
+        raise FedbiomedSecaggCrypterError(
+            f"{ErrorNumbers.FB624.value}: Cannot reverse quantize, received values exceed maximum number"
+        )
+
     max_range = clipping_range
     min_range = -clipping_range
     step_size = (max_range - min_range) / (target_range - 1)
+    # Compute as input type (`np.uint64` then convert to `np.float64`)
     f = np.vectorize(
-        lambda x: (min_range + step_size * x)
+        lambda x: (min_range + step_size * x),
+        otypes=[np.float64]
     )
 
-    weights = np.array(weights)
-    reverse_quantized_list = f(weights.astype(float))
+    # TODO: we could check that received values are in the range
+    weights = np.array(weights, dtype=np.uint64)
+    reverse_quantized_list = f(weights)
 
     return reverse_quantized_list.tolist()
 
@@ -279,23 +292,27 @@ class VES:
     def decode(
             self,
             E: List[int],
-            add_ops: int
+            add_ops: int,
+            v_expected: int
     ) -> List[int]:
         """Decode a vector back to original size vector
 
         Args:
-            E: ?
+            E: encoded parameters to decode
             add_ops: ?
+            v_expected: number of parameters to decode from the encoded parameters
         Returns:
             Decoded vector
         """
 
-        element_size, _ = self._get_elements_size_and_compression_ratio(add_ops)
+        element_size, comp_ratio = self._get_elements_size_and_compression_ratio(add_ops)
         V = []
 
         for e in E:
-            for v in self._debatch(e, element_size):
+            v_number = min(v_expected, comp_ratio)
+            for v in self._debatch(e, element_size, v_number):
                 V.append(v)
+            v_expected -= v_number
         return V
 
     @staticmethod
@@ -313,7 +330,8 @@ class VES:
     @staticmethod
     def _debatch(
             b: int,
-            element_size: int
+            element_size: int,
+            element_number: int
     ) -> List[int]:
         """
         """
@@ -324,7 +342,7 @@ class VES:
             mask <<= 1
             mask |= bit
 
-        while b != 0:
+        for _ in range(element_number):
             v = mask & b
             V.append(int(v))
             b >>= element_size
@@ -812,7 +830,8 @@ class JoyeLibert:
             self,
             sk_0: ServerKey,
             tau: int,
-            list_y_u_tau: List[List[EncryptedNumber]]
+            list_y_u_tau: List[List[EncryptedNumber]],
+            num_expected_params: int
     ) -> List[int]:
         """Aggregates users protected inputs with the server's secret key
 
@@ -830,6 +849,7 @@ class JoyeLibert:
             sk_0: The server's secret key \\(sk_0\\)
             tau: The time period \\(\\tau\\)
             list_y_u_tau: A list of the users' protected inputs \\(\\{y_{u,\\tau}\\}_{u \\in \\{1,..,n\\}}\\)
+            num_expected_params: Number of parameters to decode from the decrypted vectors
 
         Returns:
             The sum of the users' inputs of type `int`
@@ -853,7 +873,7 @@ class JoyeLibert:
 
         decrypted_vector = sk_0.decrypt(sum_of_vectors, tau)
 
-        return self._vector_encoder.decode(decrypted_vector, add_ops=n_user)
+        return self._vector_encoder.decode(decrypted_vector, add_ops=n_user, v_expected=num_expected_params)
 
 
 class FDH:

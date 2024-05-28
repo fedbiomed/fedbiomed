@@ -27,7 +27,7 @@ class SecureAggregation:
 
         _biprime: Biprime-key context setup instance.
         _parties: Nodes and researcher that participates federated training
-        _job_id: ID of the current Job launched by the experiment.
+        _experiment_id: ID of the current experiment.
         _servkey: Server-key context setup instance.
         _secagg_crypter: Secure aggregation encrypter and decrypter to decrypt encrypted model
             parameters.
@@ -72,7 +72,7 @@ class SecureAggregation:
 
         self._active: bool = active
         self._parties: Optional[List[str]] = None
-        self._job_id: Optional[str] = None
+        self._experiment_id: Optional[str] = None
         self._servkey: Optional[SecaggServkeyContext] = None
         self._biprime: Optional[SecaggBiprimeContext] = None
         self._secagg_random: Optional[float] = None
@@ -88,13 +88,13 @@ class SecureAggregation:
         return self._parties
 
     @property
-    def job_id(self) -> Union[str, None]:
-        """Gets secagg associated job_id
+    def experiment_id(self) -> Union[str, None]:
+        """Gets secagg associated experiment_id
 
         Returns:
-            str of associated job_id if it exists, or None
+            str of associated experiment_id if it exists, or None
         """
-        return self._job_id
+        return self._experiment_id
 
     @property
     def active(self) -> bool:
@@ -153,18 +153,18 @@ class SecureAggregation:
 
     def setup(self,
               parties: List[str],
-              job_id: str,
+              experiment_id: str,
               force: bool = False):
         """Setup secure aggregation instruments.
 
-        Requires setting `parties` and `job_id` if they are not set in previous secagg
+        Requires setting `parties` and `experiment_id` if they are not set in previous secagg
         setups. It is possible to execute without any argument if SecureAggregation
-        has already `parties` and `job_id` defined. This feature provides researcher
+        has already `parties` and `experiment_id` defined. This feature provides researcher
         execute `secagg.setup()` if any connection issue
 
         Args:
             parties: Parties that participates secure aggregation
-            job_id: The id of the job of experiment
+            experiment_id: The id of the experiment
             force: Forces secagg setup even context is already existing
 
         Returns:
@@ -179,12 +179,12 @@ class SecureAggregation:
                 f"{ErrorNumbers.FB417.value}: Expected argument `parties` list but got {type(parties)}"
             )
 
-        if not isinstance(job_id, str):
+        if not isinstance(experiment_id, str):
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Expected argument `job_id` string but got {type(parties)}"
+                f"{ErrorNumbers.FB417.value}: Expected argument `experiment_id` string but got {type(parties)}"
             )
 
-        self._configure_round(parties, job_id)
+        self._configure_round(parties, experiment_id)
 
         if self._biprime is None or self._servkey is None:
             raise FedbiomedSecureAggregationError(
@@ -199,21 +199,21 @@ class SecureAggregation:
 
         return True
 
-    def _set_secagg_contexts(self, parties: List[str], job_id: Union[str, None] = None) -> None:
+    def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
         """Creates secure aggregation context classes.
 
-        This function should be called after `job_id` and `parties` are set
+        This function should be called after `experiment_id` and `parties` are set
 
         Args:
             parties: Parties that participates secure aggregation
-            job_id: The id of the job of experiment
+            experiment_id: The id of the experiment
         """
 
         self._parties = parties
 
-        # Updates job id if it is provided
-        if job_id is not None:
-            self._job_id = job_id
+        # Updates experiment id if it is provided
+        if experiment_id is not None:
+            self._experiment_id = experiment_id
 
         # TODO: support other options than using `default_biprime0`
         self._biprime = SecaggBiprimeContext(
@@ -223,13 +223,13 @@ class SecureAggregation:
 
         self._servkey = SecaggServkeyContext(
             parties=self._parties,
-            job_id=self._job_id
+            experiment_id=self._experiment_id
         )
 
     def _configure_round(
             self,
             parties: List[str],
-            job_id: str
+            experiment_id: str
     ) -> None:
         """Configures secure aggregation for each round.
 
@@ -239,18 +239,18 @@ class SecureAggregation:
 
         Args:
             parties: Nodes that participates federated training
-            job_id: The id of the job of experiment
+            experiment_id: The id of the experiment
         """
 
         # For each round it generates new secagg random float
         self._secagg_random = round(random.uniform(0, 1), 3)
 
-        if self._parties is None or self._job_id != job_id:
-            self._set_secagg_contexts(parties, job_id)
+        if self._parties is None or self._experiment_id != experiment_id:
+            self._set_secagg_contexts(parties, experiment_id)
 
         elif set(self._parties) != set(parties):
             logger.info(f"Parties of the experiment has changed. Re-creating secure "
-                        f"aggregation context creation for the experiment {self._job_id}")
+                        f"aggregation context creation for the experiment {self._experiment_id}")
             self._set_secagg_contexts(parties)
 
     def aggregate(
@@ -259,6 +259,7 @@ class SecureAggregation:
             total_sample_size: int,
             model_params: Dict[str, List[int]],
             encryption_factors: Union[Dict[str, List[int]], None] = None,
+            num_expected_params: int = 1
     ) -> List[float]:
         """Aggregates given model parameters
 
@@ -267,6 +268,7 @@ class SecureAggregation:
             total_sample_size: sum of number of samples used by all nodes
             model_params: model parameters from the participating nodes
             encryption_factors: encryption factors from the participating nodes
+            num_expected_params: number of decrypted parameters to decode from the model parameters
 
         Returns:
             Aggregated parameters
@@ -310,7 +312,7 @@ class SecureAggregation:
 
             logger.info("Validating secure aggregation results...")
             encryption_factors = [f for k, f in encryption_factors.items()]
-            validation: List[float] = aggregate(params=encryption_factors)
+            validation: List[float] = aggregate(params=encryption_factors, num_expected_params=1)
 
             if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.03):
                 raise FedbiomedSecureAggregationError(
@@ -325,7 +327,7 @@ class SecureAggregation:
         logger.info("Aggregating encrypted parameters. This process may take some time depending on model size.")
         # Aggregate parameters
         params = [p for _, p in model_params.items()]
-        aggregated_params = aggregate(params=params)
+        aggregated_params = aggregate(params=params, num_expected_params=num_expected_params)
 
         return aggregated_params
 
@@ -346,7 +348,7 @@ class SecureAggregation:
             "attributes": {
                 "_biprime": self._biprime.save_state_breakpoint() if self._biprime is not None else None,
                 "_servkey": self._servkey.save_state_breakpoint() if self._servkey is not None else None,
-                "_job_id": self._job_id,
+                "_experiment_id": self._experiment_id,
                 "_parties": self._parties
             }
         }

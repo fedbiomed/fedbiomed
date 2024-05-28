@@ -242,7 +242,7 @@ class Node:
 
         try:
             status = secagg_manager.remove(secagg_id=secagg_id,
-                                           job_id=msg.get_param('job_id'))
+                                           experiment_id=msg.get_param('experiment_id'))
             if status:
                 message = 'Delete request is successful'
             else:
@@ -291,7 +291,7 @@ class Node:
         """
         round_ = None
         # msg becomes a TrainRequest object
-        hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
+        hist_monitor = HistoryMonitor(experiment_id=msg.get_param('experiment_id'),
                                       researcher_id=msg.get_param('researcher_id'),
                                       send=self._grpc_client.send)
 
@@ -321,7 +321,7 @@ class Node:
                            training=msg.get_param('training') or False,
                            dataset=data,
                            params=msg.get_param('params'),
-                           job_id=msg.get_param('job_id'),
+                           experiment_id=msg.get_param('experiment_id'),
                            researcher_id=msg.get_param('researcher_id'),
                            history_monitor=hist_monitor,
                            aggregator_args=msg.get_param('aggregator_args') or None,
@@ -354,7 +354,8 @@ class Node:
             self._tasks_queue.task_done()
 
             logger.info(f"[TASKS QUEUE] Task received by task manager: Command: "
-                        f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}")
+                        f"{item['command']} Researcher: {item['researcher_id']} "
+                        f"Experiment: {item.get('experiment_id')}")
 
             try:
 
@@ -391,6 +392,10 @@ class Node:
                             )
                             msg.request_id = item.request_id
                             self._grpc_client.send(msg)
+
+                            # clean out `Round` objects (eg temporary files)
+                            # don't wait for garbage collection
+                            del round
                     except Exception as e:
                         # send an error message back to network if something
                         # wrong occured

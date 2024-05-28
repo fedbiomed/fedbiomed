@@ -17,6 +17,7 @@ import numpy as np
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.ipython import is_ipython
 
 
 def read_file(path):
@@ -67,27 +68,9 @@ def get_class_source(cls: Callable) -> str:
         codes = "".join(inspect.linecache.getlines(file))
         class_code = extract_symbols(codes, cls.__name__)[0][0]
         return class_code
-    else:
-        return inspect.getsource(cls)
 
+    return inspect.getsource(cls)
 
-def is_ipython() -> bool:
-    """
-    Function that checks whether the codes (function itself) is executed in ipython kernel or not
-
-    Returns:
-        True, if python interpreter is IPython
-    """
-
-    ipython_shells = ['ZMQInteractiveShell', 'TerminalInteractiveShell']
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell in ipython_shells:
-            return True
-        else:
-            return False
-    except NameError:
-        return False
 
 def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:
     """Import a module from a file and create an instance of a specified class of the module.
@@ -108,7 +91,7 @@ def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[An
             raise FedbiomedError(f"{ErrorNumbers.FB627.value}: Expected argument type is string but got '{type(arg)}'")
 
     module, train_class = import_class_from_file(module_path, class_name)
-    
+
     try:
         train_class_instance = train_class()
     except Exception as e:
@@ -153,7 +136,7 @@ def import_class_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]
         class_ = getattr(module, class_name)
     except AttributeError as exp:
         raise FedbiomedError(f"{ErrorNumbers.FB627}, Attribute error while loading the class "
-                             f"{class_name} from {module_path}") from exp
+                             f"{class_name} from {module_path}. Error: {exp}") from exp
     sys.path.pop(0)
 
     return module, class_

@@ -121,7 +121,7 @@ class TestMonitor(ResearcherTestCase):
         self.monitor.on_message_handler({
             'researcher_id': '123123',
             'node_id': 'asd123',
-            'job_id': '1233',
+            'experiment_id': '1233',
             'train': False,
             'test': True,
             'test_on_local_updates': True,
@@ -145,7 +145,7 @@ class TestMonitor(ResearcherTestCase):
         self.monitor.on_message_handler({
             'researcher_id': '123123',
             'node_id': 'asd123',
-            'job_id': '1233',
+            'experiment_id': '1233',
             'train': True,
             'test': False,
             'test_on_local_updates': True,
@@ -169,7 +169,7 @@ class TestMonitor(ResearcherTestCase):
         self.monitor.on_message_handler({
             'researcher_id': '123123',
             'node_id': 'asd123',
-            'job_id': '1233',
+            'experiment_id': '1233',
             'train': False,
             'test': True,
             'test_on_local_updates': True,
@@ -191,7 +191,7 @@ class TestMonitor(ResearcherTestCase):
         self.monitor.on_message_handler({
             'researcher_id': '123123',
             'node_id': 'asd123',
-            'job_id': '1233',
+            'experiment_id': '1233',
             'train': False,
             'test': True,
             'test_on_local_updates': True,

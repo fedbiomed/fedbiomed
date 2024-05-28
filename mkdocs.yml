@@ -2,7 +2,7 @@ site_name: Fed-BioMed
 site_url: https://fedbiomed.org/latest
 site_dir: public
 
-site_description: >- 
+site_description: >-
     Open, Transparent and Trusted Collaborative Learning for Real-world Healthcare Applications
 theme:
   name: material
@@ -36,11 +36,10 @@ nav:
       - PyTorch:
         - 'MNIST Basic Example': './tutorials/pytorch/01_PyTorch_MNIST_Single_Node_Tutorial.ipynb'
         - 'Create Your Custom Training Plan': './tutorials/pytorch/02_Create_Your_Custom_Training_Plan.ipynb'
-        - 'Federated Model vs Local Model': './tutorials/pytorch/03_PyTorch_MNIST_local_vs_Federated.ipynb'
-        - 'Regression Example with Used Cars Dataset': './tutorials/pytorch/04_PyTorch_Used_Cars_Dataset_Example.ipynb'
-        - 'Aggregators in Fed-BioMed': './tutorials/pytorch/05-Aggregation_in_Fed-BioMed.ipynb'
-      - MONAI: 
-        - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb' 
+        - 'Regression Example with Used Cars Dataset': './tutorials/pytorch/03_PyTorch_Used_Cars_Dataset_Example.ipynb'
+        - 'Aggregators in Fed-BioMed': './tutorials/pytorch/04-Aggregation_in_Fed-BioMed.ipynb'
+      - MONAI:
+        - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb'
         - '2D Image Registration with MedNIST': './tutorials/monai/02_monai-2d-image-registration.ipynb'
       - Scikit-Learn:
         - 'MNIST Basic Example': "./tutorials/scikit-learn/01_sklearn_MNIST_classification_tutorial.ipynb"
@@ -60,12 +59,13 @@ nav:
           - 'Local and Central DP Example': './tutorials/security/non-private-local-central-dp-monai-2d-image-registration.ipynb'
           - 'Training with Approved Model Files' : './tutorials/security/training-with-approved-training-plans.ipynb'
           - 'Secure Aggregation': './tutorials/security/secure-aggregation.ipynb'
+          - 'End-to-end Privacy Preserving Training and Inference on Medical Data': './tutorials/concrete-ml/concrete-ml.ipynb'
       - Biomedical data:
           - 'Brain image segmentation using IXI dataset': './tutorials/medical/medical-image-segmentation-unet-library.ipynb'
     - 'User Guide':
       - Glossary: './user-guide/glossary.md'
       - Deployment:
-          - Introduction: './user-guide/deployment/deployment.md'
+          - "Introduction": './user-guide/deployment/deployment.md'
           - "VPN Deployment": './user-guide/deployment/deployment-vpn.md'
           - "Network matrix": './user-guide/deployment/matrix.md'
           - "Security model": './user-guide/deployment/security-model.md'
@@ -76,11 +76,10 @@ nav:
         - "Using GPU" : './user-guide/nodes/using-gpu.md'
         - "Node GUI" : './user-guide/nodes/node-gui.md'
       - Researcher:
-        - "Configuring Researcher": './user-guide/researcher/configuring-researcher.md'
         - "Training Plan": './user-guide/researcher/training-plan.md'
         - "Training Data": './user-guide/researcher/training-data.md'
-        - Experiment: './user-guide/researcher/experiment.md'
-        - Aggregation: './user-guide/researcher/aggregation.md'
+        - "Experiment": './user-guide/researcher/experiment.md'
+        - "Aggregation": './user-guide/researcher/aggregation.md'
         - "Listing Datasets and Selecting Nodes" : './user-guide/researcher/listing-datasets-and-selecting-nodes.md'
         - "Model Validation on the Node Side": './user-guide/researcher/model-testing-during-federated-training.md'
         - "Tensorboard" : './user-guide/researcher/tensorboard.md'
@@ -122,7 +121,7 @@ nav:
                 - Datasets: './developer/api/researcher/datasets.md'
                 - Experiment: './developer/api/researcher/experiment.md'
                 - Filetools: './developer/api/researcher/filetools.md'
-                - Job: './developer/api/researcher/job.md'
+                - Jobs: './developer/api/researcher/jobs.md'
                 - Monitor: './developer/api/researcher/monitor.md'
                 - NodeStateAgent: './developer/api/researcher/node_state_agent.md'
                 - Requests: './developer/api/researcher/requests.md'
@@ -142,6 +141,11 @@ nav:
 
 extra:
   NewsPosts:
+      'WAICF-2024':
+          name: 'Fed-BioMed @ WAICF 2024'
+          desc: 'Fed-BioMed at WAICF 2024 on February 8-9'
+          link: '/news/waicf-2024'
+          image: 'assets/img/waicf2024.png'
       'Release-12-2023':
           name: 'A new release of Fed-BioMed (v5.0) is out!'
           desc: 'A new release of Fed-BioMed is now available, introducing gRPC communication layer !'
@@ -225,7 +229,7 @@ extra:
       'workshop_n2':
           name: '3rd Federated Learning Workshop, Sorbonne University Paris'
           desc: 'Fed-BioMed presented at the 3rd Federated Learning Workshop organised by Owkin, Société Française de Statistique (SFdS), and Accenture Labs.'
-          link: 'https://sites.google.com/view/federatedlearning-workshop' 
+          link: 'https://sites.google.com/view/federatedlearning-workshop'
           image: 'assets/img/workshop.jpg'
       'welcome_n3':
           name: 'Welcome to Sergen and Yannick!'
@@ -246,15 +250,14 @@ markdown_extensions:
   - pymdownx.tasklist
   - pymdownx.tabbed
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.arithmatex:
       generic: true
 
 plugins:
   - search:
       lang: en
-      indexing: 'full'
   - mkdocs-jupyter:
       include_source: True
   - mkdocstrings:

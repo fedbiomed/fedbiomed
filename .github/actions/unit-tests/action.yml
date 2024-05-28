@@ -16,24 +16,24 @@ runs:
   using: "composite"
   steps:
     - name: Install researcher dependencies
-      run: | 
+      run: |
         source ~/.bashrc
         conda clean -i -y
         ./scripts/configure_conda researcher
       shell: bash -l {0}
 
-    - name: Run unit tests 
+    - name: Run unit tests
       run: |
-          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher pytest -v --cov=fedbiomed --cov-report term --cov-report xml:${{ inputs.test-dir }}/coverage.xml ${{ inputs.test-dir }}
+          PYTHONPATH=${PYTHONPATH:-$PWD} conda run -n fedbiomed-researcher pytest -v --ignore=tests/end2end --cov=fedbiomed --cov-report term --cov-report xml:${{ inputs.test-dir }}/coverage.xml ${{ inputs.test-dir }}
       shell: bash  -l {0}
-      
+
     - name: Get coverage rate
       id: coverage-rate
       run: |
         COVERAGE=$(python -c \
           "import xml.etree.ElementTree as ET;tree=ET.parse('${{ inputs.test-dir }}/coverage.xml');\
           root=tree.getroot();print(root.attrib['line-rate'])")
-        echo $COVERAGE 
+        echo $COVERAGE
         echo "coverage=$(echo $COVERAGE)" >> $GITHUB_OUTPUT
       shell: bash -l {0}
 
