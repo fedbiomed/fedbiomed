@@ -59,7 +59,7 @@ SERVER_certificate_prefix = "server_certificate"
 # 2. bump the version below: if your change breaks backward compatibility you must increase the
 # major version, else the minor version. Micro versions are supported but their use is currently discouraged.
 
-__version__ = FBM_Component_Version('5.1.0')  # Fed-BioMed software version
+__version__ = FBM_Component_Version('5.2.0')  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version('2')  # researcher config file version
 __node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('2')  # node state version
