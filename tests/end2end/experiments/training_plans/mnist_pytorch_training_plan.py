@@ -86,8 +86,8 @@ class BigModelMyTrainingPlan(TorchTrainingPlan):
             self.conv2 = nn.Conv2d(32, 64, 3, 1)
             self.dropout1 = nn.Dropout(0.25)
             self.dropout2 = nn.Dropout(0.5)
-            self.fc1 = nn.Linear(9216, 12800)
-            self.fc2 = nn.Linear(12800, 10)
+            self.fc1 = nn.Linear(9216, 2**14)
+            self.fc2 = nn.Linear(2**14, 10)
 
         def forward(self, x):
             x = self.conv1(x)

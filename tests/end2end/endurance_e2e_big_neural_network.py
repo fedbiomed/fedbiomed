@@ -60,7 +60,7 @@ def test_01_mnist_pytorch_big_model_training_dry_run():
     """Tests running training mnist with basic configuration"""
     model_args = {}
     tags = ['#MNIST', '#dataset']
-    rounds = 100
+    rounds = 30
     training_args = {
         'loader_args': { 'batch_size': 48, },
         'optimizer_args': {

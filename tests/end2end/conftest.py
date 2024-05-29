@@ -22,14 +22,15 @@ from fedbiomed.common.constants import ComponentType, ComponentType
 from fedbiomed.common.utils import CONFIG_DIR
 
 
-pytest.server_port = 50052
-
+_PORT = 50052
 
 @pytest.fixture(scope='module')
 def port():
     """Increases and return port for researcher server"""
-    pytest.server_port += 1
-    return str(pytest.server_port)
+    global _PORT
+
+    _PORT += 1
+    return str(_PORT)
 
 
 @pytest.fixture(scope='module', autouse=True)

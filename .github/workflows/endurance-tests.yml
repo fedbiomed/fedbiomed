@@ -3,14 +3,12 @@ run-name: endurance-tests
 
 on:
   schedule:
-    - cron: "0 1 * * 6,0" # Run everyweekend at 1 am
+    - cron: "0 1 * * 6" # Run everyweekend at 1 am
   workflow_dispatch:
   push:
     branches:
       - 'develop'
       - 'master'
-      - 'feature/long-running-e2e-test'
-
 
 jobs:
   endurance-test:
@@ -42,6 +40,12 @@ jobs:
           FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed pytest -rfp -s -v tests/end2end/endurance_e2e_*.py
         shell: bash -l {0}
 
+      - name: Archive Test Results
+        if: always()
+        continue-on-error: true
+        run: |
+          source ./scripts/fedbiomed_environment clean
+        shell: bash -l {0}
 
 
 
