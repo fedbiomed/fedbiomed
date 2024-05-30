@@ -127,31 +127,6 @@ class Node:
                      'databases': databases,
                      'count': len(databases)}))
 
-                # TODO: remove, temporary test
-                #
-                for tag in msg['tags']:
-                    # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
-                    message_inner = NodeToNodeMessages.format_outgoing_message(
-                        {
-                            'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
-                            'node_id': environ['NODE_ID'],
-                            'dest_node_id': tag,
-                            'dummy': f"DUMMY INNER from {environ['NODE_ID']}",
-                            'command': 'key-request'
-                        })
-
-                    message_overlay = NodeMessages.format_outgoing_message(
-                        {
-                            'researcher_id': msg['researcher_id'],
-                            'node_id': environ['NODE_ID'],
-                            'dest_node_id': tag,
-                            'overlay': format_outgoing_overlay(message_inner),
-                            'command': 'overlay-send'
-                        })
-                    print(f"SENDING OVERLAY message to {tag}: {message_overlay}")
-                    self._grpc_client.send(message_overlay)
-                #
-
             elif command == 'list':
                 # Get list of all datasets
                 databases = self.dataset_manager.list_my_data(verbose=False)
@@ -211,11 +186,37 @@ class Node:
                 f"sent to {overlay_msg['dest_node_id']}. Maybe malicious activity. Ignore message."
             )
             return
+        inner_msg = format_incoming_overlay(overlay_msg['overlay'])
 
         # TODO: implement payload for overlay in sub-function
         #
         logger.info(f"RECEIVED OVERLAY MESSAGE {overlay_msg}")
-        logger.info(f"RECEIVED INNER MESSAGE {format_incoming_overlay(overlay_msg['overlay'])}")
+        logger.info(f"RECEIVED INNER MESSAGE {inner_msg}")
+        #
+
+        # TODO: remove, temporary test
+        #
+        if inner_msg.get_param('command') == 'key-request':
+            # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
+            inner_resp = NodeToNodeMessages.format_outgoing_message(
+                {
+                    'request_id': inner_msg.get_param('request_id'),
+                    'node_id': environ['NODE_ID'],
+                    'dest_node_id': inner_msg.get_param('node_id'),
+                    'dummy': f"DUMMY INNER KEY REPLY from {environ['NODE_ID']}",
+                    'command': 'key-reply'
+                })
+
+            overlay_resp = NodeMessages.format_outgoing_message(
+                {
+                    'researcher_id': overlay_msg['researcher_id'],
+                    'node_id': environ['NODE_ID'],
+                    'dest_node_id': inner_msg.get_param('node_id'),
+                    'overlay': format_outgoing_overlay(inner_resp),
+                    'command': 'overlay-send'
+                })
+            logger.info(f"SENDING OVERLAY message to {inner_msg.get_param('node_id')}: {overlay_resp}")
+            self._grpc_client.send(overlay_resp)
         #
 
     def _task_secagg_delete(self, msg: SecaggDeleteRequest) -> None:
@@ -263,6 +264,10 @@ class Node:
             msg: `SecaggRequest` message object to parse
         """
         setup_arguments = {key: value for (key, value) in msg.get_dict().items()}
+
+        # DUMMY TEST FOR OVERLAY MESSAGES
+        setup_arguments['grpc_client'] = self._grpc_client
+        # END OF DUMMY TEST FOR OVERLAY MESSAGES
 
         try:
             secagg = SecaggSetup(**setup_arguments)()

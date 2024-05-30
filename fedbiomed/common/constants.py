@@ -254,6 +254,7 @@ class SecaggElementTypes(_BaseEnum):
     """
     SERVER_KEY: int = 0
     BIPRIME: int = 1
+    DUMMY: int = 2
 
 
 class VEParameters:
