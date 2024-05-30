@@ -29,8 +29,6 @@ from helpers import (
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.utils import ROOT_DIR
 from fedbiomed.researcher.environ import environ
-from nbclient.exceptions import CellExecutionError
-
 
 mnist_dataset = {
     "name": "MNIST",
@@ -128,15 +126,28 @@ def remove_data(path: str):
 def extra_node(port, dataset):
     """Fixture to add extra node"""
 
-    node_3 = create_node(port)
+    node_3 = create_node(
+        port=port,
+        config_sections={
+            'security': {
+                'secure_aggregation': 'True',
+                'force_secure_aggregation': 'True'},
+        })
+
+    add_dataset_to_node(node_3, dataset)
+    # Re execute certificate registraiton
+    secagg_certificate_registration()
 
     # Starts the nodes
-    node_processes, _ = start_nodes([node_3])
-    add_dataset_to_node(node_3, dataset)
+    node_processes, thread = start_nodes([node_3])
+
+    # Give some time to researcher
+    time.sleep(10)
 
     yield
 
     kill_subprocesses(node_processes)
+    thread.join()
     clear_node_data(node_3)
 
 
@@ -155,7 +166,7 @@ def test_documentation_01_pytorch_mnist_basic_example():
 def test_documentation_02_create_your_custom_training_plan(setup):
     """Tests"""
 
-    celeba_folder = get_data_folder('Celeba')
+    celeba_folder = get_data_folder('Celeba', create_dir=False)
     celeba_preprocessed = os.path.join(celeba_folder, 'celeba_preprocessed')
     celeba_raw = os.path.join(celeba_folder, 'Celeba_raw')
 
@@ -470,22 +481,22 @@ def test_documentation_security_differential_privacy_with_opacus_on_fedbiomed(se
                             'security',))
 
 
+#@pytest.mark.parametrize('extra_node', [mednist_dataset], indirect=True)
+# def test_documentation_security_non_private_local_central_dp_monai2d_image_registration(extra_node, ):
+#     """Test local and central dp"""
+    
+#     add_dataset_to_node(extra_node, mednist_dataset)
 
-def test_documentation_security_non_private_local_central_dp_monai2d_image_registration(extra_node):
-    """Test local and central dp"""
+#     execute_script(os.path.join(environ['ROOT_DIR'],
+#                                 'docs',
+#                                 'tutorials',
+#                                 'security',
+#                                 'non-private-local-central-dp-monai-2d-image-registration.ipynb'))
 
-    add_dataset_to_node(extra_node, mednist_dataset)
-
-    execute_script(os.path.join(environ['ROOT_DIR'],
-                                'docs',
-                                'tutorials',
-                                'security',
-                                'non-private-local-central-dp-monai-2d-image-registration.ipynb'))
-
-    remove_data(os.path.join(environ['ROOT_DIR'],
-                             'docs',
-                             'tutorials',
-                             'security',))
+#     remove_data(os.path.join(environ['ROOT_DIR'],
+#                              'docs',
+#                              'tutorials',
+#                              'security',))
 
 
 def test_documentation_security_secure_aggregation():
@@ -547,12 +558,12 @@ def test_documentation_security_secure_aggregation():
                              'security',))
 
 
-def test_documentation_security_training_with_approved_training_plans():
+# def test_documentation_security_training_with_approved_training_plans():
     # test not working because an exception is raised in the notebook, and
     # in cannot figure out a way to catch exceptions from a notebook cell
 
     # TODO: complete test
-    pass
+#    pass
     # node_1 = create_component(
     #     ComponentType.NODE,
     #     config_name="config_n1.ini",

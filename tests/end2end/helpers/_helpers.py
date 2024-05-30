@@ -293,8 +293,9 @@ def clear_node_data(config: Config):
     # remove database
     # FIXME: below we assume database is in the `VAR_DIR` folder
     _database_file_path = config.get('default', 'db')
-    
-    os.remove(os.path.join(VAR_DIR, _database_file_path))
+    _database_file_path = os.path.join(VAR_DIR, _database_file_path)
+    if os.path.lexists(_database_file_path):
+        os.remove(_database_file_path)
     # remove Node's config file
     _clear_config_file_component(config)
 
@@ -503,7 +504,7 @@ def training_plan_operation(
     _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
 
 
-def get_data_folder(path):
+def get_data_folder(path: str, create_dir: bool = True):
     """Gets path to save datasets, and creates folder if not existing
 
 
@@ -517,7 +518,10 @@ def get_data_folder(path):
         folder = os.path.join(ROOT_DIR, 'data', path)
 
     if not os.path.isdir(folder):
-        print(f"Data folder for {path} is not existing. Creating folder...")
+        if not create_dir:
+            return
+        else:
+            print(f"Data folder for {path} is not existing. Creating folder...")
         os.makedirs(folder)
 
     return folder
