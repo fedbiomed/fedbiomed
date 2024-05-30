@@ -2,6 +2,10 @@ from .constants import (
     CONFIG_PREFIX
 )
 
+from ._datasets import (
+   generate_sklearn_classification_dataset
+)
+
 from ._helpers import (
     create_component,
     add_dataset_to_node,

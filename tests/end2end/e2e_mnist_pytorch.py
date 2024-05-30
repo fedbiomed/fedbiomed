@@ -67,7 +67,7 @@ def setup(port, post_session, request):
 
     # Good to wait 3 second to give time to nodes start
     print("Sleep 5 seconds. Giving some time for nodes to start")
-    time.sleep(5)
+    time.sleep(10)
 
     request.addfinalizer(clear)
 

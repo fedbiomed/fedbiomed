@@ -21,16 +21,15 @@ from helpers import  (
 from fedbiomed.common.constants import ComponentType, ComponentType
 from fedbiomed.common.utils import CONFIG_DIR
 
+
 _PORT = 50052
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def port():
+    """Increases and return port for researcher server"""
     global _PORT
-    if _PORT not in globals():
 
-        _PORT = 50052
-    else:
-        _PORT += 1
+    _PORT += 1
     return str(_PORT)
 
 
@@ -66,7 +65,7 @@ def remove_remaining_configs():
     """Removes configuration files that are not removed  due to errors in
     end 2 end test
     """
- # Clear remaining component data if existing
+    # Clear remaining component data if existing
     configs = glob.glob( os.path.join( CONFIG_DIR, f"{CONFIG_PREFIX}*.ini"))
 
     for path in configs:
@@ -83,5 +82,3 @@ def remove_remaining_configs():
 
         del cfg
         del config
-
-

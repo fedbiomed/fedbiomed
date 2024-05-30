@@ -118,8 +118,6 @@ def setup(post_session, port, request):
     with create_multiple_nodes(port, 2) as nodes:
         node_1, node_2 = nodes
 
-        # Starts the nodes
-        node_processes, _ = start_nodes([node_1, node_2])
         researcher = create_researcher(port=port)
 
         dataset = {
@@ -142,7 +140,11 @@ def setup(post_session, port, request):
         dataset["dataset_parameters"].update(
             {"tabular_file": os.path.join(data_folder, "Hospital-Centers", "HH", "train", 'participants.csv')})
         add_dataset_to_node(node_2, dataset)
-        time.sleep(1)
+
+        # start nodes and give some time to start
+        node_processes, _ = start_nodes([node_1, node_2])
+        time.sleep(10)
+
 
         yield
 

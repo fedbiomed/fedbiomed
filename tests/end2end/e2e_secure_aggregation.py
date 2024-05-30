@@ -50,9 +50,6 @@ def setup(port, post_session, request):
 
         node_1, node_2 = nodes
 
-        # Starts the nodes
-        node_processes, thread = start_nodes([node_1, node_2])
-
         print("Creating researcher component -------------------------------------------")
         researcher = create_researcher(port=port)
 
@@ -64,7 +61,9 @@ def setup(port, post_session, request):
         print("adding second dataset")
         add_dataset_to_node(node_2, dataset)
 
-        time.sleep(1)
+        # Starts the nodes
+        node_processes, thread = start_nodes([node_1, node_2])
+        time.sleep(10)
 
         yield node_1, node_2, researcher
 
