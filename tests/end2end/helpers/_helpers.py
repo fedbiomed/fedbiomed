@@ -246,8 +246,9 @@ def clear_component_data(config: Config):
         # remove database
         # FIXME: below we assume database is in the `VAR_DIR` folder
         _database_file_path = config.get('default', 'db')
-
-        os.remove(os.path.join(VAR_DIR, _database_file_path))
+        _database_file_path = os.path.join(VAR_DIR, _database_file_path)
+        if os.path.lexists(_database_file_path):
+            os.remove(_database_file_path)
         clear_node_data(config)
         
         
