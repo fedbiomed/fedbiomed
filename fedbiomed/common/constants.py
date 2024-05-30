@@ -350,6 +350,7 @@ class ErrorNumbers(_BaseEnum):
     FB626 = "FB626: Fed-BioMed optimizer error"
     FB627 = "FB627: Utility function error"
     FB628 = "FB628: Communication error"
+    FB629 = "FB629: Diffie-Hellman KA error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 
