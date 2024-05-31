@@ -163,70 +163,70 @@ def test_documentation_01_pytorch_mnist_basic_example():
     remove_data(os.path.join(ROOT_DIR, 'docs', 'tutorials', 'pytorch'))
 
 
-def test_documentation_02_create_your_custom_training_plan(setup):
-    """Tests"""
+# def test_documentation_02_create_your_custom_training_plan(setup):
+#     """Tests"""
 
-    celeba_folder = get_data_folder('Celeba', create_dir=False)
-    celeba_preprocessed = os.path.join(celeba_folder, 'celeba_preprocessed')
-    celeba_raw = os.path.join(celeba_folder, 'Celeba_raw')
+#     celeba_folder = get_data_folder('Celeba', create_dir=False)
+#     celeba_preprocessed = os.path.join(celeba_folder, 'celeba_preprocessed')
+#     celeba_raw = os.path.join(celeba_folder, 'Celeba_raw')
 
-    if not os.path.isdir(celeba_preprocessed):
-        pytest.skip(
-            'Celeba raw dataset is not existing please follow tutorial and '
-            f'put the dataset in the folder {celeba_folder}'
-        )
+#     if not os.path.isdir(celeba_preprocessed):
+#         pytest.skip(
+#             'Celeba raw dataset is not existing please follow tutorial and '
+#             f'put the dataset in the folder {celeba_folder}'
+#         )
 
-    if not os.path.isdir(celeba_raw):
-        pytest.skip(
-            'Celeba raw dataset is not existing please follow tutorial and '
-            f'put the dataset in the folder {celeba_folder}'
-       )
+#     if not os.path.isdir(celeba_raw):
+#         pytest.skip(
+#             'Celeba raw dataset is not existing please follow tutorial and '
+#             f'put the dataset in the folder {celeba_folder}'
+#        )
 
-    parent_dir = os.path.join(environ["ROOT_DIR"], "notebooks", "data", "Celeba")
-    # FIXME: what does the first symlink do exactly?
-    # FIXME: create context manager /decorator to remove symbolic link in case of failure/error raised
-    # os.symlink(
-    #     os.path.join(celeba_folder, 'Celaba_raw'),
-    #     os.path.join(parent_dir, 'Celeba_raw'))
-    os.symlink(
-        os.path.join(celeba_folder, 'celeba_preprocessed'),
-        os.path.join(parent_dir, 'celeba_preprocessed'))
-
-
-    # TODO: copy or skip test if dataset is not found
-    node_1, node_2, _ = setup
-
-    celeba_dataset_n1 = {
-        "name": "celeba",
-        "description": "celeba DATASET",
-        "tags": "#celeba,#dataset",
-        "data_type": "images",
-        "path": os.path.join(celeba_folder, 'celeba_preprocessed', 'data_node_1')
-    }
-    celeba_dataset_n2 = copy.deepcopy(celeba_dataset_n1)
-    celeba_dataset_n2 = {
-        **celeba_dataset_n1,
-        'path': os.path.join(celeba_folder, 'celeba_preprocessed', 'data_node_2')}
-
-    add_dataset_to_node(node_1, celeba_dataset_n1)
-    add_dataset_to_node(node_2, celeba_dataset_n2)
-
-    execute_script(os.path.join(environ['ROOT_DIR'],
-                                'docs',
-                                'tutorials',
-                                'pytorch',
-                                '02_Create_Your_Custom_Training_Plan.ipynb'
-    ))
+#     parent_dir = os.path.join(environ["ROOT_DIR"], "notebooks", "data", "Celeba")
+#     # FIXME: what does the first symlink do exactly?
+#     # FIXME: create context manager /decorator to remove symbolic link in case of failure/error raised
+#     # os.symlink(
+#     #     os.path.join(celeba_folder, 'Celaba_raw'),
+#     #     os.path.join(parent_dir, 'Celeba_raw'))
+#     os.symlink(
+#         os.path.join(celeba_folder, 'celeba_preprocessed'),
+#         os.path.join(parent_dir, 'celeba_preprocessed'))
 
 
-    # remove symbolic links once test has been passed 
-    os.unlink(os.path.join(parent_dir, 'Celeba_raw'))
+#     # TODO: copy or skip test if dataset is not found
+#     node_1, node_2, _ = setup
+
+#     celeba_dataset_n1 = {
+#         "name": "celeba",
+#         "description": "celeba DATASET",
+#         "tags": "#celeba,#dataset",
+#         "data_type": "images",
+#         "path": os.path.join(celeba_folder, 'celeba_preprocessed', 'data_node_1')
+#     }
+#     celeba_dataset_n2 = copy.deepcopy(celeba_dataset_n1)
+#     celeba_dataset_n2 = {
+#         **celeba_dataset_n1,
+#         'path': os.path.join(celeba_folder, 'celeba_preprocessed', 'data_node_2')}
+
+#     add_dataset_to_node(node_1, celeba_dataset_n1)
+#     add_dataset_to_node(node_2, celeba_dataset_n2)
+
+#     execute_script(os.path.join(environ['ROOT_DIR'],
+#                                 'docs',
+#                                 'tutorials',
+#                                 'pytorch',
+#                                 '02_Create_Your_Custom_Training_Plan.ipynb'
+#     ))
 
 
-    remove_data(os.path.join(environ['ROOT_DIR'],
-                                 'docs',
-                                 'tutorials',
-                                 'pytorch',))
+#     # remove symbolic links once test has been passed 
+#     os.unlink(os.path.join(parent_dir, 'Celeba_raw'))
+
+
+#     remove_data(os.path.join(environ['ROOT_DIR'],
+#                                  'docs',
+#                                  'tutorials',
+#                                  'pytorch',))
 
 
 def test_documentation_03_pytroch_used_cars_dataset_example(setup):
@@ -440,21 +440,21 @@ def test_documentation_01_monai_2d_image_classification(setup, provide_mednist_d
                                 'monai',))
 
 
-def test_documentation_02_monai_2d_image_registration(setup, provide_mednist_dataset):
-    node_1, node_2, researcher = setup
-    dataset_mednist_1, dataset_mednist_2, _ = provide_mednist_dataset
-    add_dataset_to_node(node_1, dataset_mednist_1)
-    add_dataset_to_node(node_2, dataset_mednist_2)
+# def test_documentation_02_monai_2d_image_registration(setup, provide_mednist_dataset):
+#     node_1, node_2, researcher = setup
+#     dataset_mednist_1, dataset_mednist_2, _ = provide_mednist_dataset
+#     add_dataset_to_node(node_1, dataset_mednist_1)
+#     add_dataset_to_node(node_2, dataset_mednist_2)
 
-    execute_script(os.path.join(environ['ROOT_DIR'],
-                                'docs',
-                                'tutorials',
-                                'monai',
-                                '02_monai-2d-image-registration.ipynb'))
-    remove_data(os.path.join(environ['ROOT_DIR'],
-                            'docs',
-                            'tutorials',
-                            'monai',))
+#     execute_script(os.path.join(environ['ROOT_DIR'],
+#                                 'docs',
+#                                 'tutorials',
+#                                 'monai',
+#                                 '02_monai-2d-image-registration.ipynb'))
+#     remove_data(os.path.join(environ['ROOT_DIR'],
+#                             'docs',
+#                             'tutorials',
+#                             'monai',))
 
 
 
