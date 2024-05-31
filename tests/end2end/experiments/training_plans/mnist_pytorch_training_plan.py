@@ -86,8 +86,9 @@ class BigModelMyTrainingPlan(TorchTrainingPlan):
             self.conv2 = nn.Conv2d(32, 64, 3, 1)
             self.dropout1 = nn.Dropout(0.25)
             self.dropout2 = nn.Dropout(0.5)
-            self.fc1 = nn.Linear(9216, 2**14)
-            self.fc2 = nn.Linear(2**14, 10)
+            self.fc1 = nn.Linear(9216, 2**12)
+            self.fc2 = nn.Linear(2**12, 2**9)
+            self.fc3 = nn.Linear(2**9, 10)
 
         def forward(self, x):
             x = self.conv1(x)
@@ -101,6 +102,8 @@ class BigModelMyTrainingPlan(TorchTrainingPlan):
             x = F.relu(x)
             x = self.dropout2(x)
             x = self.fc2(x)
+            x = F.relu(x)
+            x = self.fc3(x)
 
             output = F.log_softmax(x, dim=1)
             return output
