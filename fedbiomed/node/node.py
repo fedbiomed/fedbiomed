@@ -5,13 +5,12 @@
 Core code of the node component.
 '''
 from typing import Optional, Union, Callable
-import uuid
 
 from fedbiomed.common.constants import ErrorNumbers, REQUEST_PREFIX
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, \
-    TrainRequest, ErrorMessage, NodeToNodeMessages, OverlayMessage
+    TrainRequest, ErrorMessage
 from fedbiomed.common.tasks_queue import TasksQueue
 
 from fedbiomed.transport.controller import GrpcController
@@ -24,7 +23,7 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-from fedbiomed.node.overlay import format_outgoing_overlay, format_incoming_overlay
+from fedbiomed.node.protocol_manager import ProtocolManager
 
 
 class Node:
@@ -56,6 +55,7 @@ class Node:
             researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
             on_message=self.on_message,
         )
+        self._protocol_manager = ProtocolManager(self._grpc_client)
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
 
@@ -180,44 +180,7 @@ class Node:
         Args:
             msg: Dict of an overlay forward message
         """
-        if overlay_msg['dest_node_id'] != environ['NODE_ID']:
-            logger.error(
-                f"{ErrorNumbers.FB324}: node {environ['NODE_ID']} received an overlay message "
-                f"sent to {overlay_msg['dest_node_id']}. Maybe malicious activity. Ignore message."
-            )
-            return
-        inner_msg = format_incoming_overlay(overlay_msg['overlay'])
-
-        # TODO: implement payload for overlay in sub-function
-        #
-        logger.info(f"RECEIVED OVERLAY MESSAGE {overlay_msg}")
-        logger.info(f"RECEIVED INNER MESSAGE {inner_msg}")
-        #
-
-        # TODO: remove, temporary test
-        #
-        if inner_msg.get_param('command') == 'key-request':
-            # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
-            inner_resp = NodeToNodeMessages.format_outgoing_message(
-                {
-                    'request_id': inner_msg.get_param('request_id'),
-                    'node_id': environ['NODE_ID'],
-                    'dest_node_id': inner_msg.get_param('node_id'),
-                    'dummy': f"DUMMY INNER KEY REPLY from {environ['NODE_ID']}",
-                    'command': 'key-reply'
-                })
-
-            overlay_resp = NodeMessages.format_outgoing_message(
-                {
-                    'researcher_id': overlay_msg['researcher_id'],
-                    'node_id': environ['NODE_ID'],
-                    'dest_node_id': inner_msg.get_param('node_id'),
-                    'overlay': format_outgoing_overlay(inner_resp),
-                    'command': 'overlay-send'
-                })
-            logger.info(f"SENDING OVERLAY message to {inner_msg.get_param('node_id')}: {overlay_resp}")
-            self._grpc_client.send(overlay_resp)
-        #
+        self._protocol_manager.submit(overlay_msg)
 
     def _task_secagg_delete(self, msg: SecaggDeleteRequest) -> None:
         """Parse a given secagg delete task message and execute secagg delete task.
@@ -422,6 +385,10 @@ class Node:
                     errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
                     logger.error(errmess)
                     self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
+
+    def start_protocol(self) -> None:
+        """xxx"""
+        self._protocol_manager.start()
 
     def start_messaging(self, on_finish: Optional[Callable] = None):
         """Calls the start method of messaging class.
