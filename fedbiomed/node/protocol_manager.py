@@ -24,13 +24,23 @@ class _ProtocolAsyncManager:
     def __init__(self, grpc_controller: GrpcController) -> None:
         """xxx"""
         self._grpc_controller = grpc_controller
-        self._active_tasks = {}
         self._queue = asyncio.Queue(MAX_PROTOCOL_MANAGER_QUEUE_SIZE)
         self._loop = None
+        self._active_tasks = {}
+
+        # exclusive access to `self._active_tasks`
+        self._active_tasks_lock = asyncio.Lock()
 
     def _clean_finished_task(self, task: asyncio.Task) -> None:
         """xxx"""
-        del self._active_tasks[task.get_name()]
+        asyncio.create_task(self._change_active_after_task(task))
+
+    async def _change_active_after_task(self, task: asyncio.Task) -> None:
+        """xxx"""
+        async with self._active_tasks_lock:
+            logger.debug(f"===== BEFORE {self._active_tasks}")
+            del self._active_tasks[task.get_name()]
+            logger.debug(f"===== AFTER {self._active_tasks}")
 
     async def _start(self) -> None:
         """xxx"""
@@ -40,13 +50,14 @@ class _ProtocolAsyncManager:
             msg = await self._queue.get()
             self._queue.task_done()
 
-            logger.debug(f"******* ACTIVE TASKS {list(self._active_tasks.keys())}")
+            async with self._active_tasks_lock:
+                logger.debug(f"******* ACTIVE TASKS {list(self._active_tasks.keys())}")
 
-            task_msg = asyncio.create_task(self._overlay_message_process(msg))
-            # TODO `time` to be used for timeouts
-            self._active_tasks[task_msg.get_name()] = time.time()
-            #
-            task_msg.add_done_callback(self._clean_finished_task)
+                task_msg = asyncio.create_task(self._overlay_message_process(msg))
+                # TODO `time` to be used for timeouts
+                self._active_tasks[task_msg.get_name()] = time.time()
+                #
+                task_msg.add_done_callback(self._clean_finished_task)
 
     async def _submit(self, msg) -> None:
         try:
