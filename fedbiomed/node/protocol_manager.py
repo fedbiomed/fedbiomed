@@ -6,11 +6,13 @@ import asyncio
 import time
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, NodeToNodeMessages
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.overlay import format_outgoing_overlay, format_incoming_overlay
+from fedbiomed.node.pending_requests import PendingRequests
 
 from fedbiomed.transport.controller import GrpcController
 
@@ -21,9 +23,11 @@ MAX_PROTOCOL_MANAGER_QUEUE_SIZE = 1000
 class _ProtocolAsyncManager:
     """xxx"""
 
-    def __init__(self, grpc_controller: GrpcController) -> None:
+    def __init__(self, grpc_controller: GrpcController, pending_requests: PendingRequests) -> None:
         """xxx"""
         self._grpc_controller = grpc_controller
+        self._pending_requests = pending_requests
+
         self._queue = asyncio.Queue(MAX_PROTOCOL_MANAGER_QUEUE_SIZE)
         self._loop = None
         self._active_tasks = {}
@@ -39,7 +43,12 @@ class _ProtocolAsyncManager:
         """xxx"""
         async with self._active_tasks_lock:
             logger.debug(f"===== BEFORE {self._active_tasks}")
-            del self._active_tasks[task.get_name()]
+            task_name = task.get_name()
+            if task.get_name() in self._active_tasks:
+                del self._active_tasks[task_name]
+            else:
+                # don't raise exception
+                logger.error(f"{ErrorNumbers.FB324}: task already finished {task_name}")
             logger.debug(f"===== AFTER {self._active_tasks}")
 
     async def _start(self) -> None:
@@ -50,12 +59,18 @@ class _ProtocolAsyncManager:
             msg = await self._queue.get()
             self._queue.task_done()
 
+            # TODO : add timeout to tasks. Cancel task + issue warning message
+            # that message could not be fully processed before timeout
+
             async with self._active_tasks_lock:
-                logger.debug(f"******* ACTIVE TASKS {list(self._active_tasks.keys())}")
+                logger.debug(f"===== ACTIVE TASKS {list(self._active_tasks.keys())}")
 
                 task_msg = asyncio.create_task(self._overlay_message_process(msg))
                 # TODO `time` to be used for timeouts
-                self._active_tasks[task_msg.get_name()] = time.time()
+                self._active_tasks[task_msg.get_name()] = {
+                    'start_time': time.time(),
+                    'task': task_msg,
+                }
                 #
                 task_msg.add_done_callback(self._clean_finished_task)
 
@@ -82,11 +97,11 @@ class _ProtocolAsyncManager:
 
             # TODO: implement payload for overlay in sub-function
             #
-            logger.info(f"RECEIVED OVERLAY MESSAGE {overlay_msg}")
-            logger.info(f"RECEIVED INNER MESSAGE {inner_msg}")
+            logger.info(f"===== RECEIVED OVERLAY MESSAGE {overlay_msg}")
+            logger.info(f"===== RECEIVED INNER MESSAGE {inner_msg}")
 
             #
-            # TODO: remove, temporary test
+            # TODO: remove, temporary test - replace with parent/child class per message type
             #
             if inner_msg.get_param('command') == 'key-request':
 
@@ -94,7 +109,7 @@ class _ProtocolAsyncManager:
                 import random
                 delay = random.randrange(1, 20)
                 for i in range(delay):
-                    logger.debug(f"*** WAIT 1 SECOND {i+1}/{delay}")
+                    logger.debug(f"===== WAIT 1 SECOND IN PROTOCOL MANAGER {i+1}/{delay}")
                     await asyncio.sleep(1)
 
                 # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
@@ -117,6 +132,9 @@ class _ProtocolAsyncManager:
                 logger.info(f"SENDING OVERLAY message to {inner_msg.get_param('node_id')}: {overlay_resp}")
                 self._grpc_controller.send(overlay_resp)
 
+            if inner_msg.get_param('command') == 'key-reply':
+                self._pending_requests.add_reply(inner_msg.get_param('request_id'), inner_msg)
+
         except Exception as e:
             logger.critical(
                 f"Failed processing overlay message. Exception: {type(e).__name__}. Error message: {e}. "
@@ -127,9 +145,9 @@ class _ProtocolAsyncManager:
 class ProtocolManager(_ProtocolAsyncManager):
     """xxx"""
 
-    def __init__(self, grpc_controller: GrpcController) -> None:
+    def __init__(self, grpc_controller: GrpcController, pending_requests: PendingRequests) -> None:
         """xxx"""
-        super().__init__(grpc_controller)
+        super().__init__(grpc_controller, pending_requests)
 
         self._thread = Thread(target=self._run, args=(), daemon=True)
 
@@ -149,12 +167,17 @@ class ProtocolManager(_ProtocolAsyncManager):
         self._thread.start()
 
 
-    def submit(self, msg) -> None:
+    def submit(self, msg: dict) -> None:
         """xxx"""
+        # Protocol manager currently handles only node2node messages
+        # TODO: extend for other messages during node redesign
+        if not isinstance(msg, dict) or 'command' not in msg or msg['command'] != 'overlay-forward':
+            raise FedbiomedNodeToNodeError(
+                f'{ErrorNumbers.FB324.value}: protocol manager needs a node to node message')
+
         try:
             asyncio.run_coroutine_threadsafe(self._submit(msg), self._loop)
         except Exception as e:
             logger.critical(
                 f"Failed submitting message to protocol manager. Exception: {type(e).__name__}. Error message: {e}")
             raise e
-
