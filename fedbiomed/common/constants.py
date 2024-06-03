@@ -80,6 +80,8 @@ MAX_SEND_RETRIES = 5
 # Max number of retries for retrieving a task when error occurs (on the node)
 MAX_RETRIEVE_ERROR_RETRIES = 5
 
+# Timeout for a node to node request
+TIMEOUT_NODE_TO_NODE_REQUEST = 10
 
 class _BaseEnum(Enum):
     """

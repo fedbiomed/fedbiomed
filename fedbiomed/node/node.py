@@ -24,6 +24,7 @@ from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
 from fedbiomed.node.protocol_manager import ProtocolManager
+from fedbiomed.node.pending_requests import PendingRequests
 
 
 class Node:
@@ -55,7 +56,8 @@ class Node:
             researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
             on_message=self.on_message,
         )
-        self._protocol_manager = ProtocolManager(self._grpc_client)
+        self._pending_requests = PendingRequests()
+        self._protocol_manager = ProtocolManager(self._grpc_client, self._pending_requests)
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
 
@@ -230,6 +232,7 @@ class Node:
 
         # DUMMY TEST FOR OVERLAY MESSAGES
         setup_arguments['grpc_client'] = self._grpc_client
+        setup_arguments['pending_requests'] = self._pending_requests
         # END OF DUMMY TEST FOR OVERLAY MESSAGES
 
         try:
