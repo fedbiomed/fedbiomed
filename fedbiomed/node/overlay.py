@@ -1,10 +1,18 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
+from typing import List
 
-from fedbiomed.common.message import Message, InnerMessage, NodeToNodeMessages
+from fedbiomed.common.message import Message, InnerMessage, InnerRequestReply, \
+    NodeMessages, NodeToNodeMessages
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
+
+from fedbiomed.transport.controller import GrpcController
+
+from fedbiomed.node.environ import environ
+from fedbiomed.node.pending_requests import PendingRequests
 
 
 def format_outgoing_overlay(message: Message) -> bytes:
@@ -40,3 +48,33 @@ def format_incoming_overlay(payload: bytes) -> InnerMessage:
     """
     # decode and ensure only node2node (inner) messages are received
     return NodeToNodeMessages.format_incoming_message(Serializer.loads(payload))
+
+
+def send_overlay_message(
+        grpc_client: GrpcController,
+        pending_requests: PendingRequests,
+        researcher_id: str,
+        nodes: List[str],
+        messages: List[InnerRequestReply]) -> int:
+    """xxx"""
+    request_ids = []
+
+    for node, message in zip(nodes, messages):
+        # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
+        message_overlay = NodeMessages.format_outgoing_message(
+            {
+                'researcher_id': researcher_id,
+                'node_id': environ['NODE_ID'],
+                'dest_node_id': node,
+                'overlay': format_outgoing_overlay(message),
+                'command': 'overlay-send'
+            })
+
+        logger.debug(f"SECAGG DUMMY: SENDING OVERLAY message to {node}: {message_overlay}")
+        request_ids += [message.get_param('request_id')]
+        grpc_client.send(message_overlay)
+
+    print(f"PENDING REQUESTS {pending_requests}")
+    listener_id = pending_requests.add_listener(request_ids)
+
+    return listener_id

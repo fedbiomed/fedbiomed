@@ -107,7 +107,7 @@ class _ProtocolAsyncManager:
 
                 # TEST: implement arbitrary delay
                 import random
-                delay = random.randrange(1, 20)
+                delay = random.randrange(1, 15)
                 for i in range(delay):
                     logger.debug(f"===== WAIT 1 SECOND IN PROTOCOL MANAGER {i+1}/{delay}")
                     await asyncio.sleep(1)
