@@ -11,8 +11,8 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, NodeToNodeMessages
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.overlay import format_outgoing_overlay, format_incoming_overlay
-from fedbiomed.node.pending_requests import PendingRequests
+from ._overlay import format_outgoing_overlay, format_incoming_overlay
+from ._pending_requests import PendingRequests
 
 from fedbiomed.transport.controller import GrpcController
 
@@ -64,6 +64,8 @@ class _ProtocolAsyncManager:
 
             async with self._active_tasks_lock:
                 logger.debug(f"===== ACTIVE TASKS {list(self._active_tasks.keys())}")
+
+                # TODO: test for maximum number of tasks ?
 
                 task_msg = asyncio.create_task(self._overlay_message_process(msg))
                 # TODO `time` to be used for timeouts
@@ -118,7 +120,8 @@ class _ProtocolAsyncManager:
                         'request_id': inner_msg.get_param('request_id'),
                         'node_id': environ['NODE_ID'],
                         'dest_node_id': inner_msg.get_param('node_id'),
-                        'dummy': f"DUMMY INNER KEY REPLY from {environ['NODE_ID']}",
+                        'dummy': f"KEY REPLY INNER from {environ['NODE_ID']}",
+                        'secagg_id': inner_msg.get_param('secagg_id'),
                         'command': 'key-reply'
                     })
                 overlay_resp = NodeMessages.format_outgoing_message(
@@ -134,6 +137,9 @@ class _ProtocolAsyncManager:
 
             if inner_msg.get_param('command') == 'key-reply':
                 self._pending_requests.add_reply(inner_msg.get_param('request_id'), inner_msg)
+
+            if inner_msg.get_param('command') == 'dummy-inner':
+                logger.debug(f"GOT A dummy-request {inner_msg}")
 
         except Exception as e:
             logger.critical(
