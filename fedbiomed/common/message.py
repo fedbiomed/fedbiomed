@@ -368,6 +368,7 @@ class KeyRequest(InnerRequestReply, RequiresProtocolVersion):
         FedbiomedMessageError: triggered if message's fields validation failed
     """
     dummy: str     # Temporary dummy payload
+    secagg_id: str
     command: str
 
 
@@ -384,7 +385,16 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
-    # TODO: add request_id
+    dummy: str     # Temporary dummy payload
+    secagg_id: str
+    command: str
+
+
+@catch_dataclass_exception
+@dataclass
+class DummyInner(InnerMessage, RequiresProtocolVersion):
+    """DUMMY MESSAGE FOR PoC !!!
+    """
     dummy: str     # Temporary dummy payload
     command: str
 
@@ -1001,6 +1011,7 @@ class NodeToNodeMessages(MessageFactory):
     """
     INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'key-request': KeyRequest,
                                           'key-reply': KeyReply,
+                                          'dummy-inner': DummyInner,
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = INCOMING_MESSAGE_TYPE_TO_CLASS_MAP

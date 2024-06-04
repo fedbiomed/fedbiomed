@@ -12,8 +12,8 @@ from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.common.message import NodeToNodeMessages
 from fedbiomed.node.environ import environ
-from fedbiomed.node.overlay import send_overlay_message
-from fedbiomed.node.pending_requests import PendingRequests
+from fedbiomed.node.requests._overlay import send_overlay_message
+from fedbiomed.node.requests._pending_requests import PendingRequests
 
 
 # DUMMY TEST FOR OVERLAY MESSAGES
@@ -36,8 +36,31 @@ class SecaggDummySetup:
 
     def setup(self):
         other_nodes = [ e for e in self._parties[1:] if e != environ['NODE_ID'] ]
-        other_nodes_messages = []
 
+        # An example of a non request-reply message
+
+        other_nodes_messages = []
+        for node in other_nodes:
+            # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
+            other_nodes_messages += [
+                NodeToNodeMessages.format_outgoing_message({
+                    'node_id': environ['NODE_ID'],
+                    'dest_node_id': node,
+                    'dummy': f"TEST MESSAGE DUMMY FROM {environ['NODE_ID']}",
+                    'command': 'dummy-inner'
+                })
+            ]
+        listener_id = send_overlay_message(
+            self._grpc_client,
+            self._pending_requests,
+            self._researcher_id,
+            other_nodes,
+            other_nodes_messages,
+        )
+
+        # The real key request-reply
+
+        other_nodes_messages = []
         for node in other_nodes:
             # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
             other_nodes_messages += [
@@ -45,7 +68,8 @@ class SecaggDummySetup:
                     'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
                     'node_id': environ['NODE_ID'],
                     'dest_node_id': node,
-                    'dummy': f"DUMMY INNER from {environ['NODE_ID']}",
+                    'dummy': f"KEY REQUEST INNER from {environ['NODE_ID']}",
+                    'secagg_id': self._secagg_id,
                     'command': 'key-request'
                 })
             ]
@@ -60,7 +84,6 @@ class SecaggDummySetup:
         all_received, messages = self._pending_requests.wait(listener_id, TIMEOUT_NODE_TO_NODE_REQUEST)
         logger.debug(f"SECAGG DUMMY: ALL RECEIVED ? {all_received}")
         logger.debug(f"SECAGG DUMMY: RECEIVED MESSAGES {messages}")
-
 
         return {
             'researcher_id': self._researcher_id,
