@@ -104,7 +104,7 @@ class PendingRequests:
             if listener_id not in self._pending_listeners:
                 # don't raise exception ?
                 logger.error("TODO CORRECT ERROR CODE: node tries to wait for replies "
-                             f"of a non existing request: {listener_id}")
+                             f"of a non existing request-reply: {listener_id}")
                 return False, []
 
             # Retrieve event object for this listener
@@ -132,4 +132,3 @@ class PendingRequests:
                 del self._pending_listeners[listener_id]
 
         return all_received, messages
-

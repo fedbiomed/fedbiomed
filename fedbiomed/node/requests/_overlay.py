@@ -1,6 +1,6 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-from typing import List
+from typing import List, Optional
 
 from fedbiomed.common.message import Message, InnerMessage, InnerRequestReply, \
     NodeMessages, NodeToNodeMessages
@@ -12,7 +12,7 @@ from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.pending_requests import PendingRequests
+from ._pending_requests import PendingRequests
 
 
 def format_outgoing_overlay(message: Message) -> bytes:
@@ -55,7 +55,7 @@ def send_overlay_message(
         pending_requests: PendingRequests,
         researcher_id: str,
         nodes: List[str],
-        messages: List[InnerRequestReply]) -> int:
+        messages: List[InnerMessage]) -> Optional[int]:
     """xxx"""
     request_ids = []
 
@@ -71,10 +71,17 @@ def send_overlay_message(
             })
 
         logger.debug(f"SECAGG DUMMY: SENDING OVERLAY message to {node}: {message_overlay}")
-        request_ids += [message.get_param('request_id')]
         grpc_client.send(message_overlay)
 
-    print(f"PENDING REQUESTS {pending_requests}")
-    listener_id = pending_requests.add_listener(request_ids)
+        if isinstance(message, InnerRequestReply):
+            request_ids += [message.get_param('request_id')]
+
+    if request_ids:
+        # at least one message is request-reply
+        print(f"ADDED PENDING REQUESTS {pending_requests}")
+        listener_id = pending_requests.add_listener(request_ids)
+    else:
+        print(f"NOT ADDED PENDING REQUESTS {pending_requests}")
+        listener_id = None
 
     return listener_id

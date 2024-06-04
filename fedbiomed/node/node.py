@@ -23,8 +23,8 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-from fedbiomed.node.protocol_manager import ProtocolManager
-from fedbiomed.node.pending_requests import PendingRequests
+from fedbiomed.node.requests._protocol_manager import ProtocolManager
+from fedbiomed.node.requests._pending_requests import PendingRequests
 
 
 class Node:
@@ -56,6 +56,8 @@ class Node:
             researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
             on_message=self.on_message,
         )
+        # Note: `PendingRequests` `ProtocolManager` and `GrpcController` should not be singleton.
+        # When implementing multiple researchers, they will probably be one per researcher.
         self._pending_requests = PendingRequests()
         self._protocol_manager = ProtocolManager(self._grpc_client, self._pending_requests)
         self.dataset_manager = dataset_manager
