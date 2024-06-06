@@ -24,8 +24,8 @@ dependencies:
   - git ~=2.40.1
   - packaging ~=23.1
   # these two have to be aligned
-  - cryptography ~=39.0
-  - pyopenssl ~=23.0
+  - cryptography ~=40.0.0
+  - pyopenssl ~=23.1.1  
   # other
   - pip:
       - itk >=5.3.0,<5.4.0
