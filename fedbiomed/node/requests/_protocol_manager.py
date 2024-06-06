@@ -8,11 +8,11 @@ import time
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, NodeToNodeMessages
 
 from fedbiomed.node.environ import environ
-from ._overlay import format_outgoing_overlay, format_incoming_overlay
+from ._overlay import format_incoming_overlay
 from ._pending_requests import PendingRequests
+from ._protocol_handler import ProtocolHandler
 
 from fedbiomed.transport.controller import GrpcController
 
@@ -28,6 +28,8 @@ class _ProtocolAsyncManager:
         self._grpc_controller = grpc_controller
         self._pending_requests = pending_requests
 
+        self._protocol_handler = ProtocolHandler(self._grpc_controller, self._pending_requests)
+
         self._queue = asyncio.Queue(MAX_PROTOCOL_MANAGER_QUEUE_SIZE)
         self._loop = None
         self._active_tasks = {}
@@ -37,6 +39,7 @@ class _ProtocolAsyncManager:
 
     def _clean_finished_task(self, task: asyncio.Task) -> None:
         """xxx"""
+        # needed to perform async operations from `add_done_callback()`
         asyncio.create_task(self._change_active_after_task(task))
 
     async def _change_active_after_task(self, task: asyncio.Task) -> None:
@@ -80,7 +83,7 @@ class _ProtocolAsyncManager:
         try:
             await self._queue.put_nowait(msg)
         except asyncio.QueueFull as e:
-            logger.critical(
+            logger.error(
                 "Failed submitting message to protocol manager. Discard message. "
                 f"Exception: {type(e).__name__}. Error message: {e}")
             # don't raise exception
@@ -102,47 +105,16 @@ class _ProtocolAsyncManager:
             logger.info(f"===== RECEIVED OVERLAY MESSAGE {overlay_msg}")
             logger.info(f"===== RECEIVED INNER MESSAGE {inner_msg}")
 
-            #
-            # TODO: remove, temporary test - replace with parent/child class per message type
-            #
-            if inner_msg.get_param('command') == 'key-request':
+            await self._protocol_handler.handle(overlay_msg, inner_msg)
 
-                # TEST: implement arbitrary delay
-                import random
-                delay = random.randrange(1, 15)
-                for i in range(delay):
-                    logger.debug(f"===== WAIT 1 SECOND IN PROTOCOL MANAGER {i+1}/{delay}")
-                    await asyncio.sleep(1)
-
-                # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
-                inner_resp = NodeToNodeMessages.format_outgoing_message(
-                    {
-                        'request_id': inner_msg.get_param('request_id'),
-                        'node_id': environ['NODE_ID'],
-                        'dest_node_id': inner_msg.get_param('node_id'),
-                        'dummy': f"KEY REPLY INNER from {environ['NODE_ID']}",
-                        'secagg_id': inner_msg.get_param('secagg_id'),
-                        'command': 'key-reply'
-                    })
-                overlay_resp = NodeMessages.format_outgoing_message(
-                    {
-                        'researcher_id': overlay_msg['researcher_id'],
-                        'node_id': environ['NODE_ID'],
-                        'dest_node_id': inner_msg.get_param('node_id'),
-                        'overlay': format_outgoing_overlay(inner_resp),
-                        'command': 'overlay-send'
-                    })
-                logger.info(f"SENDING OVERLAY message to {inner_msg.get_param('node_id')}: {overlay_resp}")
-                self._grpc_controller.send(overlay_resp)
-
-            if inner_msg.get_param('command') == 'key-reply':
-                self._pending_requests.add_reply(inner_msg.get_param('request_id'), inner_msg)
-
-            if inner_msg.get_param('command') == 'dummy-inner':
-                logger.debug(f"GOT A dummy-request {inner_msg}")
+        except asyncio.CancelledError as e:
+            logger.error(
+                f"Task {asyncio.current_task().get_name()} was cancelled before completing. Error message: {e}. "
+                f"Overlay message: {overlay_msg}"
+            )
 
         except Exception as e:
-            logger.critical(
+            logger.error(
                 f"Failed processing overlay message. Exception: {type(e).__name__}. Error message: {e}. "
                 f"Overlay message: {overlay_msg}")
             # don't raise exception
