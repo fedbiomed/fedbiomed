@@ -17,7 +17,11 @@ from ._protocol_handler import ProtocolHandler
 from fedbiomed.transport.controller import GrpcController
 
 
+# Maximum number of pending messages in the protocol manager input queue
 MAX_PROTOCOL_MANAGER_QUEUE_SIZE = 1000
+
+# Maximum duration in seconds of overlay message processing task
+OVERLAY_MESSAGE_PROCESS_TIMEOUT = 5
 
 
 class _ProtocolAsyncManager:
@@ -32,17 +36,19 @@ class _ProtocolAsyncManager:
 
         self._queue = asyncio.Queue(MAX_PROTOCOL_MANAGER_QUEUE_SIZE)
         self._loop = None
-        self._active_tasks = {}
 
+        self._active_tasks = {}
         # exclusive access to `self._active_tasks`
         self._active_tasks_lock = asyncio.Lock()
 
-    def _clean_finished_task(self, task: asyncio.Task) -> None:
+        self._task_clean_active_tasks = None
+
+    def _remove_finished_task(self, task: asyncio.Task) -> None:
         """xxx"""
         # needed to perform async operations from `add_done_callback()`
-        asyncio.create_task(self._change_active_after_task(task))
+        asyncio.create_task(self._remove_finished_task_async(task))
 
-    async def _change_active_after_task(self, task: asyncio.Task) -> None:
+    async def _remove_finished_task_async(self, task: asyncio.Task) -> None:
         """xxx"""
         async with self._active_tasks_lock:
             logger.debug(f"===== BEFORE {self._active_tasks}")
@@ -54,9 +60,38 @@ class _ProtocolAsyncManager:
                 logger.error(f"{ErrorNumbers.FB324}: task already finished {task_name}")
             logger.debug(f"===== AFTER {self._active_tasks}")
 
+    async def _clean_active_tasks(self) -> None:
+        '''xxx TASK METHOD'''
+
+        logger.debug("===== STARTING CLEANING TASK")
+        while True:
+            await asyncio.sleep(1)
+
+            logger.debug(f"===== CLEANING TASK {self._active_tasks}")
+
+            current_time = time.time()
+            async with self._active_tasks_lock:
+                for task_name in self._active_tasks:
+                    if self._active_tasks[task_name]['start_time'] + OVERLAY_MESSAGE_PROCESS_TIMEOUT < current_time and \
+                            not self._active_tasks[task_name]['cancelled']:
+                        # A task is expired: cancel it
+                        # Entry from the table will be cleaned by the `add_done_callback()` if properly handling the cancel
+                        self._active_tasks[task_name]['task'].cancel()
+
+                        # we cannot rely on `task.cancel()` as it may re-cancel a task in its `finally` clause
+                        # if it does not complete it before next loop of this function
+                        # Basically, we want to issue *once* a cancel() to a task
+                        # and then trust it to properly complete
+                        self._active_tasks[task_name]['cancelled'] = True
+
+                        logger.debug(f"===== CANCELLING TASK {task_name}")
+
     async def _start(self) -> None:
         """xxx"""
         self._loop = asyncio.get_running_loop()
+
+        # task for cleaning the active tasks
+        self._task_clean_active_tasks = asyncio.create_task(self._clean_active_tasks())
 
         while True:
             msg = await self._queue.get()
@@ -75,9 +110,10 @@ class _ProtocolAsyncManager:
                 self._active_tasks[task_msg.get_name()] = {
                     'start_time': time.time(),
                     'task': task_msg,
+                    'cancelled': False,
                 }
                 #
-                task_msg.add_done_callback(self._clean_finished_task)
+                task_msg.add_done_callback(self._remove_finished_task)
 
     async def _submit(self, msg) -> None:
         try:
@@ -89,7 +125,7 @@ class _ProtocolAsyncManager:
             # don't raise exception
 
     async def _overlay_message_process(self, overlay_msg: dict) -> None:
-        """xxx"""
+        """xxx TASK METHOD"""
 
         try:
             if overlay_msg['dest_node_id'] != environ['NODE_ID']:
