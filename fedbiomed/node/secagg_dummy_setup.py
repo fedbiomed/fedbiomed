@@ -50,6 +50,29 @@ class SecaggDummySetup:
                     'command': 'dummy-inner'
                 })
             ]
+        send_overlay_message(
+            self._grpc_client,
+            self._pending_requests,
+            self._researcher_id,
+            other_nodes,
+            other_nodes_messages,
+        )
+
+        # The real key request-reply
+
+        other_nodes_messages = []
+        for node in other_nodes:
+            # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
+            other_nodes_messages += [
+                NodeToNodeMessages.format_outgoing_message({
+                    'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
+                    'node_id': environ['NODE_ID'],
+                    'dest_node_id': node,
+                    'dummy': f"KEY REQUEST INNER from {environ['NODE_ID']}",
+                    'secagg_id': self._secagg_id,
+                    'command': 'key-request'
+                })
+            ]
         listener_id = send_overlay_message(
             self._grpc_client,
             self._pending_requests,
@@ -58,34 +81,9 @@ class SecaggDummySetup:
             other_nodes_messages,
         )
 
-        ## The real key request-reply
-#
-        #other_nodes_messages = []
-        #for node in other_nodes:
-        #    # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
-        #    other_nodes_messages += [
-        #        NodeToNodeMessages.format_outgoing_message({
-        #            'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
-        #            'node_id': environ['NODE_ID'],
-        #            'dest_node_id': node,
-        #            'dummy': f"KEY REQUEST INNER from {environ['NODE_ID']}",
-        #            'secagg_id': self._secagg_id,
-        #            'command': 'key-request'
-        #        })
-        #    ]
-        #listener_id = send_overlay_message(
-        #    self._grpc_client,
-        #    self._pending_requests,
-        #    self._researcher_id,
-        #    other_nodes,
-        #    other_nodes_messages,
-        #)
-#
-        #all_received, messages = self._pending_requests.wait(listener_id, TIMEOUT_NODE_TO_NODE_REQUEST)
-        #logger.debug(f"SECAGG DUMMY: ALL RECEIVED ? {all_received}")
-        #logger.debug(f"SECAGG DUMMY: RECEIVED MESSAGES {messages}")
-
-        all_received = True
+        all_received, messages = self._pending_requests.wait(listener_id, TIMEOUT_NODE_TO_NODE_REQUEST)
+        logger.debug(f"SECAGG DUMMY: ALL RECEIVED ? {all_received}")
+        logger.debug(f"SECAGG DUMMY: RECEIVED MESSAGES {messages}")
 
         return {
             'researcher_id': self._researcher_id,
