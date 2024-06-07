@@ -21,7 +21,7 @@ from fedbiomed.transport.controller import GrpcController
 MAX_PROTOCOL_MANAGER_QUEUE_SIZE = 1000
 
 # Maximum duration in seconds of overlay message processing task
-OVERLAY_MESSAGE_PROCESS_TIMEOUT = 5
+OVERLAY_MESSAGE_PROCESS_TIMEOUT = 60
 
 
 class _ProtocolAsyncManager:
@@ -53,7 +53,7 @@ class _ProtocolAsyncManager:
         async with self._active_tasks_lock:
             logger.debug(f"===== BEFORE {self._active_tasks}")
             task_name = task.get_name()
-            if task.get_name() in self._active_tasks:
+            if task_name in self._active_tasks:
                 del self._active_tasks[task_name]
             else:
                 # don't raise exception
@@ -72,17 +72,18 @@ class _ProtocolAsyncManager:
             current_time = time.time()
             async with self._active_tasks_lock:
                 for task_name in self._active_tasks:
-                    if self._active_tasks[task_name]['start_time'] + OVERLAY_MESSAGE_PROCESS_TIMEOUT < current_time and \
-                            not self._active_tasks[task_name]['cancelled']:
+                    if self._active_tasks[task_name]['start_time'] + OVERLAY_MESSAGE_PROCESS_TIMEOUT < current_time \
+                            and not self._active_tasks[task_name]['finally']:
                         # A task is expired: cancel it
-                        # Entry from the table will be cleaned by the `add_done_callback()` if properly handling the cancel
+                        # Entry from the table will be cleaned by the `add_done_callback()`
+                        # after completing task `final()`
                         self._active_tasks[task_name]['task'].cancel()
 
-                        # we cannot rely on `task.cancel()` as it may re-cancel a task in its `finally` clause
+                        # we cannot just rely on `task.cancel()` as it may re-cancel a task in its `final()` clause
                         # if it does not complete it before next loop of this function
                         # Basically, we want to issue *once* a cancel() to a task
                         # and then trust it to properly complete
-                        self._active_tasks[task_name]['cancelled'] = True
+                        self._active_tasks[task_name]['finally'] = True
 
                         logger.debug(f"===== CANCELLING TASK {task_name}")
 
@@ -110,7 +111,7 @@ class _ProtocolAsyncManager:
                 self._active_tasks[task_msg.get_name()] = {
                     'start_time': time.time(),
                     'task': task_msg,
-                    'cancelled': False,
+                    'finally': False,
                 }
                 #
                 task_msg.add_done_callback(self._remove_finished_task)
@@ -128,26 +129,39 @@ class _ProtocolAsyncManager:
         """xxx TASK METHOD"""
 
         try:
-            if overlay_msg['dest_node_id'] != environ['NODE_ID']:
+            try:
+                if overlay_msg['dest_node_id'] != environ['NODE_ID']:
+                    logger.error(
+                        f"{ErrorNumbers.FB324}: node {environ['NODE_ID']} received an overlay message "
+                        f"sent to {overlay_msg['dest_node_id']}. Maybe malicious activity. Ignore message."
+                    )
+                    return
+                inner_msg = format_incoming_overlay(overlay_msg['overlay'])
+
+                # TODO: implement payload for overlay in sub-function
+                #
+                logger.info(f"===== RECEIVED OVERLAY MESSAGE {overlay_msg}")
+                logger.info(f"===== RECEIVED INNER MESSAGE {inner_msg}")
+
+                finally_kwargs = await self._protocol_handler.handle(overlay_msg, inner_msg)
+                # in case nothing is returned from the handler
+                if finally_kwargs is None:
+                    finally_kwargs = {}
+
+                # Prevent cancelling from now on
+                # There won't be a race condition with the `_clean_active_tasks`:
+                # if we get the lock, then it cannot `cancel()` this task, as it need to get 
+                # the lock for that
+                async with self._active_tasks_lock:
+                    self._active_tasks[asyncio.current_task().get_name()]['finally'] = True
+
+            except asyncio.CancelledError as e:
                 logger.error(
-                    f"{ErrorNumbers.FB324}: node {environ['NODE_ID']} received an overlay message "
-                    f"sent to {overlay_msg['dest_node_id']}. Maybe malicious activity. Ignore message."
+                    f"Task {asyncio.current_task().get_name()} was cancelled before completing. Error message: {e}. "
+                    f"Overlay message: {overlay_msg}"
                 )
-                return
-            inner_msg = format_incoming_overlay(overlay_msg['overlay'])
-
-            # TODO: implement payload for overlay in sub-function
-            #
-            logger.info(f"===== RECEIVED OVERLAY MESSAGE {overlay_msg}")
-            logger.info(f"===== RECEIVED INNER MESSAGE {inner_msg}")
-
-            await self._protocol_handler.handle(overlay_msg, inner_msg)
-
-        except asyncio.CancelledError as e:
-            logger.error(
-                f"Task {asyncio.current_task().get_name()} was cancelled before completing. Error message: {e}. "
-                f"Overlay message: {overlay_msg}"
-            )
+            else:
+                await self._protocol_handler.final(inner_msg.get_param('command'), **finally_kwargs)
 
         except Exception as e:
             logger.error(
