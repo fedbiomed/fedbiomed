@@ -1,11 +1,12 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Optional
 import asyncio
+import inspect
 
-from fedbiomed.common.message import InnerMessage
+from fedbiomed.common.message import InnerMessage, OverlaySend, NodeMessages, NodeToNodeMessages
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, NodeToNodeMessages
 
 from fedbiomed.node.environ import environ
 from ._overlay import format_outgoing_overlay
@@ -28,91 +29,110 @@ class ProtocolHandler:
             'dummy-inner': self._HandlerDummyInner,
         }
 
-    async def handle(self, overlay_msg: dict, inner_msg: InnerMessage) -> None:
+        self._command2final = {
+            'key-request': self._FinalKeyRequest,
+            'key-reply': self._FinalKeyReply,
+            'dummy-inner': self._FinalDummyInner,
+        }
+
+    async def handle(self, overlay_msg: dict, inner_msg: InnerMessage) -> Optional[dict]:
         """xxx"""
 
         if inner_msg.get_param('command') in self._command2method:
-            await self._command2method[inner_msg.get_param('command')](overlay_msg, inner_msg)
+            return await self._command2method[inner_msg.get_param('command')](overlay_msg, inner_msg)
         else:
-            await self._HandlerDefault(overlay_msg, inner_msg)
+            return await self._HandlerDefault(overlay_msg, inner_msg)
 
+    async def final(self, command, **kwargs) -> None:
+        """xxx"""
+        if command in self._command2final:
+            # Useful ? Allow omitting some arguments, automatically add them with None value
+            expected_args = dict(inspect.signature(self._command2final[command]).parameters).keys()
+            kwargs.update({arg: None for arg in expected_args if arg not in kwargs})
 
-    # Each handler receives `overlay_msg` and `inner_msg`, returns `None`
-    # It may receive an asyncio.CancelledError and handle it to exit cleanly
-    #
-    #async def _HandlerExample(self, overlay_msg: dict, inner_msg: InnerMessage) -> None:
-    #    try:
-    #        logger.debug("Normal handler code")
-    #    except asyncio.CancelledError:
-    #        logger.debug("To be executed if task is cancelled, eg timeout")
-    #    finally:
-    #        logger.debug("To be executed in any case for finishing cleanly the task")
-
+            await self._command2final[command](**kwargs)
 
     async def _HandlerDefault(self, overlay_msg: dict, inner_msg: InnerMessage) -> None:
         """xxx"""
-        logger.error(f"Failed processing overlay message, unknown inner command {inner_msg.get_param('command')}. Do nothing.")
+        logger.error(
+            f"Failed processing overlay message, unknown inner command {inner_msg.get_param('command')}. Do nothing.")
 
-    async def _HandlerKeyRequest(self, overlay_msg: dict, inner_msg: InnerMessage) -> None:
+    # Each message type must have a handler.
+    # A handler receives `overlay_msg` and `inner_msg`, returns a dict
+    # which will be passed as `**kwargs` to the `final()` - types must match !
+    # It may receive an asyncio.CancelledError
+    #
+    # Each message type optionally has a final.
+    # It executes only if the `handler()` completed without being cancelled
+    # It won't be interrupted by an asyncio.CancelledError
+    # If no `final()` exist, no action is taken after cancelling or completing the `handler()`
+    #
+    # async def _HandlerExample(self, overlay_msg: dict, inner_msg: InnerMessage) -> Any:
+    #     logger.debug("Normal handler code that can be cancelled")
+    #     return { 'value: 3 }
+    # async def _FinalExample(self, value: int) -> None:
+    #         logger.debug(f"Final code than cannot be cancelled. Received {value}")
+
+    async def _HandlerKeyRequest(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
         """xxx"""
-        try:
-            logger.debug("IN HANDLER KEY REQUEST")
+        logger.debug("IN HANDLER KEY REQUEST")
 
-            # TEST: implement arbitrary delay
-            import random
-            delay = random.randrange(1, 15)
-            for i in range(delay):
-                logger.debug(f"===== WAIT 1 SECOND IN PROTOCOL MANAGER {i+1}/{delay}")
-                await asyncio.sleep(1)
+        # TEST: implement arbitrary delay
+        import random
+        delay = random.randrange(1, 15)
+        for i in range(delay):
+            logger.debug(f"===== WAIT 1 SECOND IN PROTOCOL MANAGER {i+1}/{delay}")
+            await asyncio.sleep(1)
 
-            # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
-            inner_resp = NodeToNodeMessages.format_outgoing_message(
-                {
-                    'request_id': inner_msg.get_param('request_id'),
-                    'node_id': environ['NODE_ID'],
-                    'dest_node_id': inner_msg.get_param('node_id'),
-                    'dummy': f"KEY REPLY INNER from {environ['NODE_ID']}",
-                    'secagg_id': inner_msg.get_param('secagg_id'),
-                    'command': 'key-reply'
-                })
-            overlay_resp = NodeMessages.format_outgoing_message(
-                {
-                    'researcher_id': overlay_msg['researcher_id'],
-                    'node_id': environ['NODE_ID'],
-                    'dest_node_id': inner_msg.get_param('node_id'),
-                    'overlay': format_outgoing_overlay(inner_resp),
-                    'command': 'overlay-send'
-                })
-        except asyncio.CancelledError:
-            pass
-        else:
-            logger.info(f"SENDING OVERLAY message to {inner_msg.get_param('node_id')}: {overlay_resp}")
-            self._grpc_controller.send(overlay_resp)
+        # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
+        inner_resp = NodeToNodeMessages.format_outgoing_message(
+            {
+                'request_id': inner_msg.get_param('request_id'),
+                'node_id': environ['NODE_ID'],
+                'dest_node_id': inner_msg.get_param('node_id'),
+                'dummy': f"KEY REPLY INNER from {environ['NODE_ID']}",
+                'secagg_id': inner_msg.get_param('secagg_id'),
+                'command': 'key-reply'
+            })
+        overlay_resp = NodeMessages.format_outgoing_message(
+            {
+                'researcher_id': overlay_msg['researcher_id'],
+                'node_id': environ['NODE_ID'],
+                'dest_node_id': inner_msg.get_param('node_id'),
+                'overlay': format_outgoing_overlay(inner_resp),
+                'command': 'overlay-send'
+            })
 
+        return { 'inner_msg': inner_msg, 'overlay_resp': overlay_resp }
 
-    async def _HandlerKeyReply(self, overlay_msg: dict, inner_msg: InnerMessage) -> None:
+    async def _FinalKeyRequest(self, inner_msg: InnerMessage, overlay_resp: OverlaySend) -> None:
         """xxx"""
-        try:
-            logger.debug("IN HANDLER KEY REPLY")
-        except asyncio.CancelledError:
-            pass
-        finally:
-            self._pending_requests.add_reply(inner_msg.get_param('request_id'), inner_msg)
+        logger.debug(f"FINAL REQUEST {inner_msg} {overlay_resp}")
+        logger.info(f"SENDING OVERLAY message to {inner_msg.get_param('node_id')}: {overlay_resp}")
+        self._grpc_controller.send(overlay_resp)
+
+
+    async def _HandlerKeyReply(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
+        """xxx"""
+        return { 'inner_msg': inner_msg }
+
+    async def _FinalKeyReply(self, inner_msg: InnerMessage) -> None:
+        """xxx"""
+        logger.debug(f"FINAL REPLY {inner_msg}")
+        self._pending_requests.add_reply(inner_msg.get_param('request_id'), inner_msg)
 
 
     async def _HandlerDummyInner(self, overlay_msg: dict, inner_msg: InnerMessage) -> None:
         """xxx"""
-        try:
-            logger.debug("IN HANDLER DUMMY INNER")
+        logger.debug("IN HANDLER DUMMY INNER")
+        logger.debug(f"GOT A dummy-request {inner_msg}")
 
-            logger.debug(f"GOT A dummy-request {inner_msg}")
+        logger.debug("HANDLER DUMMY REQUEST  START")
+        await asyncio.sleep(3600)
+        logger.debug("HANDLER DUMMY REQUEST COMPLETE")
 
-            while True:
-                logger.debug(f"===== WAIT 1 SECOND IN DUMMY INNER")
-                await asyncio.sleep(1)
-        except asyncio.CancelledError:
-            logger.debug("HANDLER DUMMY REQUEST WAS CANCELLED")
-        finally:
-            logger.debug("HANDLER DUMMY REQUEST FINAL ACTION START")
-            await asyncio.sleep(4)
-            logger.debug("HANDLER DUMMY REQUEST FINAL ACTION COMPLETE")
+    async def _FinalDummyInner(self):
+        """xxx"""
+        logger.debug("HANDLER DUMMY REQUEST FINAL ACTION START")
+        await asyncio.sleep(4)
+        logger.debug("HANDLER DUMMY REQUEST FINAL ACTION COMPLETE")
