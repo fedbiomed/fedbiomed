@@ -207,7 +207,11 @@ class ProtoSerializableMessage(Message):
 
 @dataclass(kw_only=True)
 class RequestReply(Message):
-    """Common attribute for Request and Reply Message"""
+    """Common attribute for Request and Reply Message.
+
+    Attributes:
+        request_id: unique ID for this request-reply
+    """
     request_id: Optional[str] = None
 
 
@@ -246,7 +250,11 @@ class InnerMessage(Message):
 
 @dataclass(kw_only=True)
 class InnerRequestReply(InnerMessage):
-    """Common attribute for Request and Reply Inner Message"""
+    """Common attribute for Request and Reply Inner Message.
+
+    Attributes:
+        request_id: unique ID for this request-reply
+    """
     request_id: Optional[str] = None
 
 
@@ -389,14 +397,15 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
     secagg_id: str
     command: str
 
-
-@catch_dataclass_exception
-@dataclass
-class DummyInner(InnerMessage, RequiresProtocolVersion):
-    """DUMMY MESSAGE FOR PoC !!!
-    """
-    dummy: str     # Temporary dummy payload
-    command: str
+# Example of  of one-wway (not request-reply) inner message
+#
+# @catch_dataclass_exception
+# @dataclass
+# class DummyInner(InnerMessage, RequiresProtocolVersion):
+#     """Dummy example of one-wway (not request-reply) inner message
+#     """
+#     dummy: str     # Temporary dummy payload
+#     command: str
 
 
 # --- Node <=> Researcher messages ----------------------------------------------
@@ -521,7 +530,6 @@ class ListReply(RequestReply, RequiresProtocolVersion):
 
 
 # Overlay messages
-
 
 @catch_dataclass_exception
 @dataclass
@@ -1011,7 +1019,8 @@ class NodeToNodeMessages(MessageFactory):
     """
     INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'key-request': KeyRequest,
                                           'key-reply': KeyReply,
-                                          'dummy-inner': DummyInner,
+                                          # Example of  of one-wway (not request-reply) inner message
+                                          # 'dummy-inner': DummyInner,
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = INCOMING_MESSAGE_TYPE_TO_CLASS_MAP

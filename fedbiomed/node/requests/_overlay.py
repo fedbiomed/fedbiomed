@@ -56,11 +56,19 @@ def send_overlay_message(
         researcher_id: str,
         nodes: List[str],
         messages: List[InnerMessage]) -> Optional[int]:
-    """xxx"""
+    """Send message to some other nodes using overlay communications.
+
+        Args:
+            grpc_client: object managing the communication with other components
+            pending_requests: object for receiving overlay node to node reply messages
+
+        Returns:
+            A unique ID of type `int` for retrieving node to node reply messages for this request
+            from the `pending_requests`, or `None` if no message sent to another node is of type request-reply 
+    """
     request_ids = []
 
     for node, message in zip(nodes, messages):
-        # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
         message_overlay = NodeMessages.format_outgoing_message(
             {
                 'researcher_id': researcher_id,
@@ -70,7 +78,6 @@ def send_overlay_message(
                 'command': 'overlay-send'
             })
 
-        logger.debug(f"SECAGG DUMMY: SENDING OVERLAY message to {node}: {message_overlay}")
         grpc_client.send(message_overlay)
 
         if isinstance(message, InnerRequestReply):
@@ -78,10 +85,8 @@ def send_overlay_message(
 
     if request_ids:
         # at least one message is request-reply
-        print(f"ADDED PENDING REQUESTS {pending_requests}")
         listener_id = pending_requests.add_listener(request_ids)
     else:
-        print(f"NOT ADDED PENDING REQUESTS {pending_requests}")
         listener_id = None
 
     return listener_id
