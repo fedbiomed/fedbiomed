@@ -256,7 +256,7 @@ class SecaggElementTypes(_BaseEnum):
     """
     SERVER_KEY: int = 0
     BIPRIME: int = 1
-    DUMMY: int = 2
+    DIFFIE_HELLMAN: int = 2
 
 
 class VEParameters:
@@ -293,7 +293,7 @@ class ErrorNumbers(_BaseEnum):
     FB321 = "FB321: Secure aggregation delete error"
     FB322 = "FB322: Dataset registration error"
     FB323 = "FB323: Node State error"
-    FB324 = "FB324: Node to node overlay error"
+    FB324 = "FB324: Node to node overlay communication error"
 
     # application error on researcher
 

@@ -5,6 +5,7 @@ from typing import Optional
 import asyncio
 import inspect
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.message import InnerMessage, OverlaySend, NodeMessages, NodeToNodeMessages
 from fedbiomed.common.logger import logger
 
@@ -16,27 +17,45 @@ from fedbiomed.transport.controller import GrpcController
 
 
 class ProtocolHandler:
-    """xxx"""
+    """Defines the handler for protocol messages processed by the protocol manager"""
 
     def __init__(self, grpc_controller: GrpcController, pending_requests: PendingRequests) -> None:
-        """xxx"""
+        """Constructor of the class.
+
+        Args:
+            grpc_controller: object managing the communication with other components
+            pending_requests: object for receiving overlay node to node messages
+        """
         self._grpc_controller = grpc_controller
         self._pending_requests = pending_requests
 
         self._command2method = {
             'key-request': self._HandlerKeyRequest,
             'key-reply': self._HandlerKeyReply,
-            'dummy-inner': self._HandlerDummyInner,
+            # 'dummy-inner': self._HandlerDummyInner,
         }
 
         self._command2final = {
             'key-request': self._FinalKeyRequest,
             'key-reply': self._FinalKeyReply,
-            'dummy-inner': self._FinalDummyInner,
+            # 'dummy-inner': self._FinalDummyInner,
         }
 
     async def handle(self, overlay_msg: dict, inner_msg: InnerMessage) -> Optional[dict]:
-        """xxx"""
+        """Calls the handler for processing a received message protocol.
+
+        If it does not exist, call the default handler to trigger an error.
+
+        Main part of the processing which can be interrupted if the processing takes too long.
+
+        Args:
+            overlay_msg: Outer message for node to node communication
+            inner_msg: Unpacked inner message from the outer message
+
+        Returns:
+            A dict of the `kwargs` expected by the corresponding `final()` handler for this message.
+                Empty dict or `None` if no `kwargs` expected of no final handler
+        """
 
         if inner_msg.get_param('command') in self._command2method:
             return await self._command2method[inner_msg.get_param('command')](overlay_msg, inner_msg)
@@ -44,7 +63,16 @@ class ProtocolHandler:
             return await self._HandlerDefault(overlay_msg, inner_msg)
 
     async def final(self, command, **kwargs) -> None:
-        """xxx"""
+        """Calls the final processing for a received message protocol.
+
+        This handler is optional, it may not be declared for a message.
+
+        Should be called only if the handler completed without being interrupted.
+        Cannot be interrupted, thus should not launch treatment that may hang.
+
+        Args:
+            kwargs: Specific arguments for this message final handler
+        """
         if command in self._command2final:
             # Useful ? Allow omitting some arguments, automatically add them with None value
             expected_args = dict(inspect.signature(self._command2final[command]).parameters).keys()
@@ -53,9 +81,20 @@ class ProtocolHandler:
             await self._command2final[command](**kwargs)
 
     async def _HandlerDefault(self, overlay_msg: dict, inner_msg: InnerMessage) -> None:
-        """xxx"""
+        """Handler called if the handler for this message is missing.
+
+        Args:
+            overlay_msg: Outer message for node to node communication
+            inner_msg: Unpacked inner message from the outer message
+
+        Returns:
+            None
+        """
+
         logger.error(
-            f"Failed processing overlay message, unknown inner command {inner_msg.get_param('command')}. Do nothing.")
+            f"{ErrorNumbers.FB324}: Failed processing overlay message, unknown inner command "
+            f"{inner_msg.get_param('command')}. Do nothing."
+        )
 
     # Each message type must have a handler.
     # A handler receives `overlay_msg` and `inner_msg`, returns a dict
@@ -74,17 +113,23 @@ class ProtocolHandler:
     #         logger.debug(f"Final code than cannot be cancelled. Received {value}")
 
     async def _HandlerKeyRequest(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
-        """xxx"""
-        logger.debug("IN HANDLER KEY REQUEST")
+        """Handler called for KeyRequest message.
 
-        # TEST: implement arbitrary delay
+        Args:
+            overlay_msg: Outer message for node to node communication
+            inner_msg: Unpacked inner message from the outer message
+
+        Returns:
+            A `dict` with overlay reply message
+        """
+        # TODO: replace with real payload, waiting for DH key pair to be generated,
+        # then send it.
         import random
         delay = random.randrange(1, 15)
         for i in range(delay):
             logger.debug(f"===== WAIT 1 SECOND IN PROTOCOL MANAGER {i+1}/{delay}")
             await asyncio.sleep(1)
 
-        # For real use: catch FedbiomedNodeToNodeError when calling `format_outgoing_overlay`
         inner_resp = NodeToNodeMessages.format_outgoing_message(
             {
                 'request_id': inner_msg.get_param('request_id'),
@@ -103,36 +148,55 @@ class ProtocolHandler:
                 'command': 'overlay-send'
             })
 
-        return { 'inner_msg': inner_msg, 'overlay_resp': overlay_resp }
+        return { 'overlay_resp': overlay_resp }
 
-    async def _FinalKeyRequest(self, inner_msg: InnerMessage, overlay_resp: OverlaySend) -> None:
-        """xxx"""
-        logger.debug(f"FINAL REQUEST {inner_msg} {overlay_resp}")
-        logger.info(f"SENDING OVERLAY message to {inner_msg.get_param('node_id')}: {overlay_resp}")
+    async def _FinalKeyRequest(self, overlay_resp: OverlaySend) -> None:
+        """Final handler called for KeyRequest message.
+
+        Args:
+            overlay_resp: overlay reply message to send
+        """
         self._grpc_controller.send(overlay_resp)
 
 
     async def _HandlerKeyReply(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
-        """xxx"""
+        """Handler called for KeyReply message.
+
+        Args:
+            overlay_msg: Outer message for node to node communication
+            inner_msg: Unpacked inner message from the outer message
+
+        Returns:
+            A `dict` with received inner message
+        """
         return { 'inner_msg': inner_msg }
 
     async def _FinalKeyReply(self, inner_msg: InnerMessage) -> None:
-        """xxx"""
-        logger.debug(f"FINAL REPLY {inner_msg}")
+        """Final handler called for KeyReply message.
+
+        Args:
+            inner_msg: received inner message
+        """
         self._pending_requests.add_reply(inner_msg.get_param('request_id'), inner_msg)
 
 
-    async def _HandlerDummyInner(self, overlay_msg: dict, inner_msg: InnerMessage) -> None:
-        """xxx"""
-        logger.debug("IN HANDLER DUMMY INNER")
-        logger.debug(f"GOT A dummy-request {inner_msg}")
+    # async def _HandlerDummyInner(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
+    #     """Example handler for dummy-inner message.
+    #
+    #     Args:
+    #         overlay_msg: Outer message for node to node communication
+    #         inner_msg: Unpacked inner message from the outer message
+    #
+    #     Returns:
+    #         A `dict` with an arbitrary int value
+    #     """
+    #     await asyncio.sleep(3600)
+    #     return { 'value': 4 }
 
-        logger.debug("HANDLER DUMMY REQUEST  START")
-        await asyncio.sleep(3600)
-        logger.debug("HANDLER DUMMY REQUEST COMPLETE")
-
-    async def _FinalDummyInner(self):
-        """xxx"""
-        logger.debug("HANDLER DUMMY REQUEST FINAL ACTION START")
-        await asyncio.sleep(4)
-        logger.debug("HANDLER DUMMY REQUEST FINAL ACTION COMPLETE")
+    # async def _FinalDummyInner(self, value: int) -> None:
+    #     """Example final handler for dummy-inner message.
+    #
+    #     Args:
+    #         value: arbitrary value
+    #     """
+    #     await asyncio.sleep(value)
