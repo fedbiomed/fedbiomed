@@ -169,7 +169,6 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             inputs: Batched input features.
             target: Batched target labels.
         """
-        #import remote_pdb; remote_pdb.set_trace()
         values = [self._parse_sample_losses(sample) for sample in stdout]
         losses = np.array(values)
         return float(np.mean(losses))
