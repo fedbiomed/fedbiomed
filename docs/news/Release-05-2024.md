@@ -1,4 +1,4 @@
-## Fed-BioMed v5.0 new release
+## Fed-BioMed v5.2 new release
 
 ![v5.2.0](../assets/img/v5.2.png#img-centered-sm)
 
