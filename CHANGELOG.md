@@ -1,16 +1,18 @@
 # Fed-BioMed changelog
 
-## 2024-05-27 version 5.1.1
+## 2024-05-27 version 5.2.0
 
-- add a [concrete-ml](https://docs.zama.ai/concrete-ml) example
-- robustify and redesign gRPC communication layer
+- redesign `Job` and `Experiment` classes, introducing `federated_workflow` class
 - introduce end-to-end and testing facility
+- fix, robustify and redesign gRPC communication layer
+- add a concrete-ml example
 - improve logging facility
+- fix SecAgg (`Experiment` with more 4 nodes or more was failing)
 - fix quantization process for secure aggregation
-- review notebooks. Remove unrelevant ones
-- fix related to gRPC and SecAgg (`Experiment` with more than 4 Nodes was failing)
-- refactor `Job` and `Experiment` classes, introducing `federated_workflow` class
-- fix and extend `model` class, by handling buffers layers such as batch normalization layers
+- review notebooks. Remove unrelevant ones.
+- fix and extend `model` class, by handling buffers layers such as batch normalization layers.
+- multiple fixes for breakpoint
+- add a [concrete-ml](https://docs.zama.ai/concrete-ml) example
 
 ## 2024-02-19 version 5.1.0
 
