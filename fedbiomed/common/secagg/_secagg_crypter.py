@@ -182,12 +182,12 @@ class SecaggCrypter:
                 "`ParameterEncrypter` has not been set properly before train request.")
 
         if not isinstance(params, list) or not all([isinstance(p, list) for p in params]):
-            raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: The parameters to aggregate should "
+            raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: The parameters to aggregate should be a "
                                               f"list containing list of parameters")
 
         if not all([all([isinstance(p_, int) for p_ in p]) for p in params]):
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: Invalid parameter type. The parameters "
-                                              f"should be type of integers.")
+                                              f"should be of type of integers.")
 
         # TODO provide dynamically created biprime. Biprime that is used
         #  on the node-side should matched the one used for decryption
