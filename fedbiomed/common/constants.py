@@ -247,12 +247,19 @@ class DatasetTypes(_BaseEnum):
     NONE = 'none'
 
 
+class SecureAggregationSchemes(_BaseEnum):
+    """Enumeration class for secure aggregation schemes"""
+    JOYE_LIBERT: int = 0
+    LOM: int = 1
+
+
 class SecaggElementTypes(_BaseEnum):
     """Enumeration class for secure aggregation element types
 
     Attributes:
         SERVER_KEY: server key split between the parties
         BIPRIME: biprime shared between the parties
+        DIFFIE_HELLMAN: one pair of DH key for each node party, public key shared with other node parties
     """
     SERVER_KEY: int = 0
     BIPRIME: int = 1
