@@ -125,7 +125,9 @@ class ProtocolHandler:
         # TODO: replace with real payload, waiting for DH key pair to be generated,
         # then send it.
         import random
-        delay = random.randrange(1, 15)
+        # Use 15 seconds delay to have sometimes success, sometimes failure
+        #delay = random.randrange(1, 15)
+        delay = random.randrange(1, 5)
         for i in range(delay):
             logger.debug(f"===== WAIT 1 SECOND IN PROTOCOL MANAGER {i+1}/{delay}")
             await asyncio.sleep(1)
