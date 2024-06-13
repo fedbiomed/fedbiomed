@@ -12,7 +12,7 @@ import traceback
 import uuid
 from abc import ABC, abstractmethod
 from re import findall
-from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
+from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple, Callable
 
 import tabulate
 from pathvalidate import sanitize_filename
@@ -30,9 +30,16 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_exp_folder, find_breakpoint_path, choose_bkpt_file
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.requests import Requests
-from fedbiomed.researcher.secagg import SecureAggregation, JoyeLibertSecureAggregation
+from fedbiomed.researcher.secagg import SecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation
 
 TFederatedWorkflow = TypeVar("TFederatedWorkflow", bound='FederatedWorkflow')  # only for typing
+
+
+# associate a secure aggregation scheme to its `SecureAggregation` class
+secagg_scheme_to_class = {
+    SecureAggregationSchemes.JOYE_LIBERT: JoyeLibertSecureAggregation,
+    SecureAggregationSchemes.LOM: LomSecureAggregation,
+}
 
 
 # Exception handling at top level for researcher
@@ -641,11 +648,7 @@ class FederatedWorkflow(ABC):
             raise FedbiomedExperimentError(msg)
 
         if isinstance(secagg, bool):
-            if scheme == SecureAggregationSchemes.JOYE_LIBERT:
-                self._secagg = JoyeLibertSecureAggregation(active=secagg)
-            else:
-                # TODO: secagg LOM
-                raise FedbiomedExperimentError("set_secagg LOM: NOT IMPLEMENTED YET !!!")
+            self._secagg = secagg_scheme_to_class[scheme](active=secagg)
         elif isinstance(secagg, SecureAggregation):
             self._secagg = secagg
         else:
