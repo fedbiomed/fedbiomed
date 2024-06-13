@@ -35,6 +35,7 @@ class SecureAggregation(ABC):
         _scheme: Secure aggregation scheme implemented by this class
     """
 
+    @abstractmethod
     def __init__(
             self,
             active: bool = True,
@@ -74,9 +75,8 @@ class SecureAggregation(ABC):
         self._parties: Optional[List[str]] = None
         self._experiment_id: Optional[str] = None
         self._secagg_random: Optional[float] = None
-        self._secagg_crypter: SecaggCrypter = SecaggCrypter()
-        self._secagg_crypter = None
-        self._scheme = None
+        self._secagg_crypter: Optional[SecaggCrypter] = None
+        self._scheme: Optional[SecureAggregationSchemes] = None
 
     @property
     def parties(self) -> Union[List[str], None]:
