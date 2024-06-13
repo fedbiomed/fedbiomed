@@ -83,6 +83,7 @@ MAX_RETRIEVE_ERROR_RETRIES = 5
 # Timeout for a node to node request
 TIMEOUT_NODE_TO_NODE_REQUEST = 10
 
+
 class _BaseEnum(Enum):
     """
     Parent class to pass default methods to enumeration classes

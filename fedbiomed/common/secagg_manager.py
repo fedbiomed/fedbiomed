@@ -468,3 +468,75 @@ class SecaggBiprimeManager(BaseSecaggManager):
                           f'default biprime {bp["secagg_id"]}: {e}'
                 logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
+
+
+class SecaggDhManager(BaseSecaggManager):
+    """Manage the component Diffie Hellman secagg element database table
+    """
+
+    def __init__(self, db_path: str):
+        """Constructor of the class
+
+        Args:
+            db_path: path to the component's secagg database
+        """
+        super().__init__(db_path)
+
+        logger.debug("TODO: ADD REAL PAYLOAD FOR DH DB MANAGER - SecaggDhManager - constructor")
+        self._dummy_context = {}
+
+    def get(self, secagg_id: str, experiment_id: str) -> Union[dict, None]:
+        """Search for data entry with given `secagg_id`
+
+        Check that there is at most one entry with this unique secagg ID.
+
+        If there is an entry for this `secagg_id`, check it is associated with experiment `experiment_id`
+
+        Args:
+            secagg_id: secure aggregation ID key to search
+            experiment_id: the experiment ID associated with the secagg entry
+
+        Returns:
+            A dict containing all values for the secagg element for this `secagg_id` if it exists,
+                or None if no element exists for this `secagg_id`
+
+        Raises:
+            FedbiomedSecaggError: the entry is associated with another experiment
+        """
+        logger.debug("TODO: ADD REAL PAYLOAD FOR DH DB MANAGER - SecaggDhManager - get")
+        return self._dummy_context.get(secagg_id, None)
+
+    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: str):
+        """Add a new data entry for a context element in the servkey table 
+
+        Check that no entry exists yet for this `secagg_id` in the table.
+
+        Args:
+            secagg_id: secure aggregation ID key of the entry
+            parties: list of parties participating in this secagg context element
+            experiment_id: ID of the experiment to which this secagg context element is attached
+            context: server key part held by this party
+        """
+
+        logger.debug("TODO: ADD REAL PAYLOAD FOR DH DB MANAGER - SecaggDhManager - add")
+        self._dummy_context[secagg_id] = context
+
+    def remove(self, secagg_id: str, experiment_id: str) -> bool:
+        """Remove data entry for this `secagg_id` from the server key table
+
+        Check that the experiment ID for the table entry and the current experiment match  
+
+        Args:
+            secagg_id: secure aggregation ID key of the entry
+            experiment_id: experiment ID of the current experiment
+
+        Returns:
+            True if an entry existed (and was removed) for this `secagg_id`,
+                False if no entry existed for this `secagg_id`
+
+        Raises:
+            FedbiomedSecaggError: database entry does not belong to `experiment_id`
+        """
+
+        logger.debug("TODO: ADD REAL PAYLOAD FOR DH DB MANAGER - SecaggDhManager - remove")
+        return True
