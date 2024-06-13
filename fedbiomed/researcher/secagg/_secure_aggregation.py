@@ -7,7 +7,7 @@ import random
 from typing import List, Union, Dict, Any, Optional
 from abc import ABC, abstractmethod
 
-from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext
+from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext, SecaggDhContext
 from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.common.secagg import SecaggCrypter
@@ -322,9 +322,8 @@ class SecureAggregation(ABC):
         return secagg
 
 
-
 class JoyeLibertSecureAggregation(SecureAggregation):
-    """Secure aggregation controller of researcher component.
+    """Secure aggregation controller of researcher component for Joye-Libert.
 
     This class is responsible for;
 
@@ -385,7 +384,7 @@ class JoyeLibertSecureAggregation(SecureAggregation):
         """Gets train arguments for secagg train request
 
         Returns:
-            Arguments that is going tobe attached to the experiment.
+            Arguments that are going to be attached to the experiment.
         """
         arguments = super().train_arguments()
         arguments.update({
@@ -544,5 +543,186 @@ class JoyeLibertSecureAggregation(SecureAggregation):
         if state["attributes"]["_servkey"] is not None:
             state["attributes"]["_servkey"] = SecaggServkeyContext. \
                 load_state_breakpoint(state=state["attributes"]["_servkey"])
+
+        return super().load_state_breakpoint(state)
+
+
+class LomSecureAggregation(SecureAggregation):
+    """Secure aggregation controller of researcher component for Low Overhead Masking.
+
+    This class is responsible for;
+
+    - setting up the context for LOM secure aggregation
+    - Applying secure aggregation after receiving encrypted model parameters from nodes
+
+    Attributes:
+        _dh: Diffie Hellman keypairs per node context setup instance.
+    """
+
+    def __init__(
+            self,
+            active: bool = True,
+            clipping_range: Union[None, int] = None,
+    ) -> None:
+        """Class constructor
+
+        Assigns default values for attributes
+
+        Args:
+            active: True if secure aggregation is activated for the experiment
+            clipping_range: Clipping range that will be used for quantization of model
+                parameters on the node side. The default will be
+                [`VEParameters.CLIPPING_RANGE`][fedbiomed.common.constants.VEParameters].
+                The default value will be automatically set on the node side.
+
+        Raises:
+            FedbiomedSecureAggregationError: bad argument type
+        """
+        super().__init__(active, clipping_range)
+
+        self._dh: Optional[SecaggDhContext] = None
+        # TODO: implement SecaggLomCrypter
+        logger.debug("TODO: ADD REAL PAYLOAD FOR LOM - LomSecureAggregation - constructor")
+
+        self._scheme = SecureAggregationSchemes.LOM
+
+    @property
+    def dh(self) -> Union[None, SecaggDhContext]:
+        """Gets Diffie Hellman keypairs object
+
+        Returns:
+            DH object, None if DH is not setup
+        """
+        return self._dh
+
+    def train_arguments(self) -> Dict:
+        """Gets train arguments for secagg train request
+
+        Returns:
+            Arguments that are going to be attached to the experiment.
+        """
+        arguments = super().train_arguments()
+        arguments.update({
+            'secagg_dh_id': self._dh.secagg_id if self._dh is not None else None,
+        })
+        return arguments
+
+    def setup(self,
+              parties: List[str],
+              experiment_id: str,
+              force: bool = False):
+        """Setup secure aggregation instruments.
+
+        Requires setting `parties` and `experiment_id` if they are not set in previous secagg
+        setups. It is possible to execute without any argument if SecureAggregation
+        has already `parties` and `experiment_id` defined. This feature provides researcher
+        execute `secagg.setup()` if any connection issue
+
+        Args:
+            parties: Parties that participates secure aggregation
+            experiment_id: The id of the experiment
+            force: Forces secagg setup even context is already existing
+
+        Returns:
+            Status of setup
+
+        Raises
+            FedbiomedSecureAggregationError: Invalid argument type
+        """
+        super().setup(parties, experiment_id, force)
+
+        if self._dh is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Diffie Hellman context is not fully configured."
+            )
+
+        if not self._dh.status or force:
+            self._dh.setup()
+
+        return True
+
+    def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
+        """Creates secure aggregation context classes.
+
+        This function should be called after `experiment_id` and `parties` are set
+
+        Args:
+            parties: Parties that participates secure aggregation
+            experiment_id: The id of the experiment
+        """
+        super()._set_secagg_contexts(parties, experiment_id)
+
+        self._dh = SecaggDhContext(
+            parties=self._parties,
+            experiment_id=self._experiment_id
+        )
+
+    def aggregate(
+            self,
+            round_: int,
+            total_sample_size: int,
+            model_params: Dict[str, List[int]],
+            encryption_factors: Union[Dict[str, List[int]], None] = None,
+            num_expected_params: int = 1
+    ) -> List[float]:
+        """Aggregates given model parameters
+
+        Args:
+            round_: current training round number
+            total_sample_size: sum of number of samples used by all nodes
+            model_params: model parameters from the participating nodes
+            encryption_factors: encryption factors from the participating nodes
+            num_expected_params: number of decrypted parameters to decode from the model parameters
+
+        Returns:
+            Aggregated parameters
+
+        Raises:
+            FedbiomedSecureAggregationError: secure aggregation context not properly configured
+        """
+
+        if self._dh is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Diffie Hellman context is "
+                f"not configured. Please setup secure aggregation before the aggregation.")
+
+        if not self._dh.status:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Diffie Hellman context is "
+                f"not set properly")
+
+        # TODO: implement aggregation for LOM
+        raise FedbiomedSecureAggregationError("NOT IMPLEMENTED YET - LomSecureAggregation - aggregate")
+
+    def save_state_breakpoint(self) -> Dict[str, Any]:
+        """Saves state of the secagg
+
+        Returns:
+            The secagg state to be saved
+        """
+        state = super().save_state_breakpoint()
+
+        state["attributes"].update({
+            "_dh": self._dh.save_state_breakpoint() if self._dh is not None else None,
+        })
+
+        return state
+
+    @classmethod
+    def load_state_breakpoint(
+            cls,
+            state: Dict
+    ) -> 'SecureAggregation':
+        """Create a `SecureAggregation` object from a saved state
+
+        Args:
+            state: saved state to restore in the created object
+
+        Returns:
+            The created `SecureAggregation` object
+        """
+        if state["attributes"]["_dh"] is not None:
+            state["attributes"]["_dh"] = SecaggDhContext. \
+                load_state_breakpoint(state=state["attributes"]["_dh"])
 
         return super().load_state_breakpoint(state)
