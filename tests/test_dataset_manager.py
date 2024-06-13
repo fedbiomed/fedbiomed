@@ -850,7 +850,7 @@ class TestDatasetManager(NodeTestCase):
 
         # action
         # Test the load mednist method with input as_dataset False
-        res_dataset_shape = self.dataset_manager.load_mednist_database(self.tempdir,
+        res_dataset_shape, path = self.dataset_manager.load_mednist_database(self.tempdir,
                                                                        as_dataset=False)
 
         # checks
@@ -858,7 +858,7 @@ class TestDatasetManager(NodeTestCase):
 
 
         # Test the load mednist method with input as_dataset True
-        res_dataset = self.dataset_manager.load_mednist_database(self.tempdir,
+        res_dataset, path = self.dataset_manager.load_mednist_database(self.tempdir,
                                                                  as_dataset=True)
 
         for i in range(len(fake_dataset)):
@@ -893,7 +893,7 @@ class TestDatasetManager(NodeTestCase):
         with patch.object(os, 'remove') as os_remove_patch:
             os_remove_patch.return_value = None
             # action
-            res_dataset = self.dataset_manager.load_mednist_database(self.tempdir,
+            res_dataset, pth = self.dataset_manager.load_mednist_database(self.tempdir,
                                                                      as_dataset=True)
         # Tests
         urlretrieve_patch.assert_called_once()
