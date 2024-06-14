@@ -141,6 +141,11 @@ nav:
 
 extra:
   NewsPosts:
+      'Release-5-2024':
+          name: 'A new release of Fed-BioMed (v5.2) is out!'
+          desc: 'A new release of Fed-BioMed is now available, fixing known issues and introducing new end-to-end test facility'
+          link: '/news/Release-05-2024'
+          image: 'assets/img/v5.2.jpg'
       'WAICF-2024':
           name: 'Fed-BioMed @ WAICF 2024'
           desc: 'Fed-BioMed at WAICF 2024 on February 8-9'
