@@ -4,9 +4,12 @@
 
 from ._jls import JoyeLibert, quantize, reverse_quantize
 from ._secagg_crypter import SecaggCrypter, EncryptedNumber
+from ._lom import LOM, PRF
 
 __all__ = [
     "JoyeLibert",
+    "LOM",
+    "PRF",
     "EncryptedNumber",
     "SecaggCrypter",
     "quantize",

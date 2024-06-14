@@ -3,7 +3,7 @@ import unittest
 from math import ceil, log2
 from gmpy2 import mpz
 from unittest.mock import patch
-from fedbiomed.common.constants import VEParameters
+from fedbiomed.common.constants import SAParameters
 from fedbiomed.common.secagg._jls import PublicParam, JoyeLibert, FDH, \
     EncryptedNumber, UserKey, BaseKey, ServerKey, \
     quantize, reverse_quantize
@@ -17,13 +17,13 @@ class TestFDH(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             FDH(
-                bits_size=VEParameters.KEY_SIZE,
+                bits_size=SAParameters.KEY_SIZE,
                 n_modulus="1234"
             )
 
         with self.assertRaises(TypeError):
             FDH(
-                bits_size=VEParameters.KEY_SIZE,
+                bits_size=SAParameters.KEY_SIZE,
                 n_modulus=12123
             )
 
@@ -40,7 +40,7 @@ class TestFDH(unittest.TestCase):
 
         n = mpz(12345)
         fdh = FDH(
-            bits_size=VEParameters.KEY_SIZE,
+            bits_size=SAParameters.KEY_SIZE,
             n_modulus=n
         )
 
@@ -59,14 +59,14 @@ class TestPublicParam(unittest.TestCase):
         self.n_2 = mpz(123456789)
         self.pp_1 = PublicParam(
             n_modulus=self.n_1,
-            bits=VEParameters.KEY_SIZE // 2,
-            hashing_function=FDH(VEParameters.KEY_SIZE, self.n_1 * self.n_1).H
+            bits=SAParameters.KEY_SIZE // 2,
+            hashing_function=FDH(SAParameters.KEY_SIZE, self.n_1 * self.n_1).H
         )
 
         self.pp_2 = PublicParam(
             n_modulus=self.n_2,
-            bits=VEParameters.KEY_SIZE // 2,
-            hashing_function=FDH(VEParameters.KEY_SIZE, self.n_2 * self.n_2).H
+            bits=SAParameters.KEY_SIZE // 2,
+            hashing_function=FDH(SAParameters.KEY_SIZE, self.n_2 * self.n_2).H
         )
         pass
 
@@ -82,7 +82,7 @@ class TestPublicParam(unittest.TestCase):
     def test_public_param_02_getters(self):
         """Tests properties"""
 
-        self.assertEqual(self.pp_1.bits, VEParameters.KEY_SIZE // 2)
+        self.assertEqual(self.pp_1.bits, SAParameters.KEY_SIZE // 2)
         self.assertEqual(self.pp_1.n_modulus, self.n_1)
         self.assertEqual(self.pp_1.n_square, self.n_1 * self.n_1)
 
@@ -100,8 +100,8 @@ class TestEncryptedNumber(unittest.TestCase):
         n = mpz(123457)
         self.public_param = PublicParam(
             n_modulus=n,
-            bits=VEParameters.KEY_SIZE // 2,
-            hashing_function=FDH(VEParameters.KEY_SIZE, n * n).H
+            bits=SAParameters.KEY_SIZE // 2,
+            hashing_function=FDH(SAParameters.KEY_SIZE, n * n).H
         )
 
         self.en = EncryptedNumber(param=self.public_param,
@@ -138,8 +138,8 @@ class TestEncryptedNumber(unittest.TestCase):
         n = mpz(987654123)
         p_other = PublicParam(
             n_modulus=n,
-            bits=VEParameters.KEY_SIZE // 2,
-            hashing_function=FDH(VEParameters.KEY_SIZE, n * n).H
+            bits=SAParameters.KEY_SIZE // 2,
+            hashing_function=FDH(SAParameters.KEY_SIZE, n * n).H
         )
 
         en = EncryptedNumber(param=p_other,
@@ -162,8 +162,8 @@ class TestBaseKey(unittest.TestCase):
         self.key = 191919191919191
         self.public_param = PublicParam(
             n_modulus=self.n,
-            bits=VEParameters.KEY_SIZE // 2,
-            hashing_function=FDH(VEParameters.KEY_SIZE, self.n * self.n).H
+            bits=SAParameters.KEY_SIZE // 2,
+            hashing_function=FDH(SAParameters.KEY_SIZE, self.n * self.n).H
         )
 
         self.base_key = BaseKey(public_param=self.public_param,
@@ -187,8 +187,8 @@ class TestBaseKey(unittest.TestCase):
         key = 19191919191919121
         self.public_param = PublicParam(
             n_modulus=n,
-            bits=VEParameters.KEY_SIZE // 2,
-            hashing_function=FDH(VEParameters.KEY_SIZE, n * n).H
+            bits=SAParameters.KEY_SIZE // 2,
+            hashing_function=FDH(SAParameters.KEY_SIZE, n * n).H
         )
 
         base_key_2 = BaseKey(public_param=self.public_param,
@@ -203,7 +203,7 @@ class TestBaseKey(unittest.TestCase):
     def test_base_key_03_populate_tau(self):
         result = self.base_key._populate_tau(tau=1, len_=10)
         self.assertEqual(len(result), 10)
-        self.assertTrue(all([r.bit_length() <= VEParameters.KEY_SIZE // 8 for r in result]))
+        self.assertTrue(all([r.bit_length() <= SAParameters.KEY_SIZE // 8 for r in result]))
 
 
 class TestUserKey(unittest.TestCase):
@@ -213,8 +213,8 @@ class TestUserKey(unittest.TestCase):
         self.key = 191919191919191
         self.public_param = PublicParam(
             n_modulus=self.n,
-            bits=VEParameters.KEY_SIZE // 2,
-            hashing_function=FDH(VEParameters.KEY_SIZE, self.n * self.n).H
+            bits=SAParameters.KEY_SIZE // 2,
+            hashing_function=FDH(SAParameters.KEY_SIZE, self.n * self.n).H
         )
 
         self.user_key = UserKey(public_param=self.public_param,
@@ -249,8 +249,8 @@ class TestServerKey(unittest.TestCase):
         n = mpz(123457)
         public_param = PublicParam(
             n_modulus=n,
-            bits=VEParameters.KEY_SIZE // 2,
-            hashing_function=FDH(VEParameters.KEY_SIZE, n * n).H
+            bits=SAParameters.KEY_SIZE // 2,
+            hashing_function=FDH(SAParameters.KEY_SIZE, n * n).H
         )
 
         user_key_1 = UserKey(public_param=public_param,
@@ -291,8 +291,8 @@ class TestJoyeLibert(unittest.TestCase):
         n = p * q
         self.public_param = PublicParam(
             n_modulus=n,
-            bits=VEParameters.KEY_SIZE // 2,
-            hashing_function=FDH(VEParameters.KEY_SIZE, n * n).H
+            bits=SAParameters.KEY_SIZE // 2,
+            hashing_function=FDH(SAParameters.KEY_SIZE, n * n).H
         )
 
         self.user_key_1 = UserKey(public_param=self.public_param, key=10)
@@ -337,9 +337,9 @@ class TestJoyeLibert(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             self.jl.protect(public_param=PublicParam(n_modulus=mpz(1111),
-                                                     bits=VEParameters.KEY_SIZE // 2,
+                                                     bits=SAParameters.KEY_SIZE // 2,
                                                      hashing_function=
-                                                     FDH(VEParameters.KEY_SIZE, mpz(1111) * mpz(1111)).H),
+                                                     FDH(SAParameters.KEY_SIZE, mpz(1111) * mpz(1111)).H),
                             user_key=self.user_key_2,
                             tau=1,
                             x_u_tau=plaintext,
