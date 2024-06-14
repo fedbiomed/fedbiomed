@@ -8,7 +8,7 @@ from typing import List, Union, Optional
 from gmpy2 import mpz
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
-from fedbiomed.common.constants import ErrorNumbers, VEParameters
+from fedbiomed.common.constants import ErrorNumbers, SAParameters
 from fedbiomed.common.logger import logger
 
 from ._jls import JoyeLibert, \
@@ -44,7 +44,7 @@ class SecaggCrypter:
             Public parameters
         """
 
-        key_size = VEParameters.KEY_SIZE
+        key_size = SAParameters.KEY_SIZE
         biprime = mpz(biprime)
 
         fdh = FDH(bits_size=key_size,
@@ -111,10 +111,10 @@ class SecaggCrypter:
         # the range [0, 2^(log2(VEParameters.TARGET_RANGE) + log2(VEParameters.WEIGHT_RANGE)) - 1]
         # Check if weight if num_bits of weight is less than VEParameters.WEIGHT_RANGE
         if weight is not None:
-            if 2**weight.bit_length() > VEParameters.WEIGHT_RANGE:
+            if 2**weight.bit_length() > SAParameters.WEIGHT_RANGE:
                 raise FedbiomedSecaggCrypterError(
                     f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
-                    f"{VEParameters.WEIGHT_RANGE}."
+                    f"{SAParameters.WEIGHT_RANGE}."
                 )
             params = self._apply_weighing(params, weight)
 
@@ -258,7 +258,7 @@ class SecaggCrypter:
         m = multiply(params, weight)
 
         # Check that quantized model weights are in the correct range, for robustness sake
-        max_val = VEParameters.TARGET_RANGE - 1
+        max_val = SAParameters.TARGET_RANGE - 1
         if any([v > max_val or v < 0 for v in params]):
             raise FedbiomedSecaggCrypterError(
                 f"{ErrorNumbers.FB624.value}: Cannot apply weight to parameters, values outside of bounds"

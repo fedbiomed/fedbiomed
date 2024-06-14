@@ -28,7 +28,7 @@ import gmpy2
 from gmpy2 import mpz, gcd
 import numpy as np
 
-from fedbiomed.common.constants import VEParameters, ErrorNumbers
+from fedbiomed.common.constants import SAParameters, ErrorNumbers
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 
@@ -59,7 +59,7 @@ def _check_clipping_range(
 def quantize(
     weights: List[float],
     clipping_range: Union[int, None] = None,
-    target_range: int = VEParameters.TARGET_RANGE,
+    target_range: int = SAParameters.TARGET_RANGE,
 ) -> List[int]:
     """Quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
 
@@ -75,7 +75,7 @@ def quantize(
 
     """
     if clipping_range is None:
-        clipping_range = VEParameters.CLIPPING_RANGE
+        clipping_range = SAParameters.CLIPPING_RANGE
 
     _check_clipping_range(weights, clipping_range)
 
@@ -127,7 +127,7 @@ def divide(xs: List[int], k: int) -> List[int]:
 def reverse_quantize(
     weights: List[int],
     clipping_range: Union[int, None] = None,
-    target_range: int = VEParameters.TARGET_RANGE,
+    target_range: int = SAParameters.TARGET_RANGE,
 ) -> List[float]:
     """Reverse quantization step implemented by: https://dl.acm.org/doi/pdf/10.1145/3488659.3493776
 
@@ -141,7 +141,7 @@ def reverse_quantize(
     """
 
     if clipping_range is None:
-        clipping_range = VEParameters.CLIPPING_RANGE
+        clipping_range = SAParameters.CLIPPING_RANGE
 
     # CAVEAT: there should not be any weight received that does not fit in `uint64`
     max_val = np.iinfo(np.uint64).max
@@ -773,8 +773,8 @@ class JoyeLibert:
         equal or less than 2**32
         """
         self._vector_encoder = VES(
-            ptsize=VEParameters.KEY_SIZE // 2,
-            valuesize=ceil(log2(VEParameters.TARGET_RANGE) + log2(VEParameters.WEIGHT_RANGE))
+            ptsize=SAParameters.KEY_SIZE // 2,
+            valuesize=ceil(log2(SAParameters.TARGET_RANGE) + log2(SAParameters.WEIGHT_RANGE))
         )
 
     def protect(self,
