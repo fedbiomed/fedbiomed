@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from gmpy2 import mpz
 
-from fedbiomed.common.constants import VEParameters
+from fedbiomed.common.constants import SAParameters
 from fedbiomed.common.secagg import SecaggCrypter, EncryptedNumber
 from fedbiomed.common.secagg._jls import PublicParam
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
@@ -87,10 +87,10 @@ class TestSecaggCrypter(unittest.TestCase):
             [1, 1, -1],
             [-1, 1, 1],
             [1, -1, 1],
-            [VEParameters.TARGET_RANGE],
-            [2 * VEParameters.TARGET_RANGE],
-            [0, VEParameters.TARGET_RANGE, 0],
-            [0, 0, VEParameters.TARGET_RANGE],
+            [SAParameters.TARGET_RANGE],
+            [2 * SAParameters.TARGET_RANGE],
+            [0, SAParameters.TARGET_RANGE, 0],
+            [0, 0, SAParameters.TARGET_RANGE],
         ]
         for vector in vectors:
             with self.assertRaises(FedbiomedSecaggCrypterError):
