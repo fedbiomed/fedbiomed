@@ -12,7 +12,7 @@ import traceback
 import uuid
 from abc import ABC, abstractmethod
 from re import findall
-from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple, Callable
+from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
 
 import tabulate
 from pathvalidate import sanitize_filename
@@ -813,7 +813,8 @@ class FederatedWorkflow(ABC):
         loaded_exp._tags = saved_state.get('tags')
         loaded_exp.set_nodes(saved_state.get('nodes'))
         loaded_exp.set_experimentation_folder(saved_state.get('experimentation_folder'))
-        loaded_exp.set_secagg(SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
+        saved_state_secagg = saved_state.get('secagg')
+        loaded_exp.set_secagg(eval(saved_state_secagg['class']).load_state_breakpoint(saved_state_secagg))
         loaded_exp._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
         loaded_exp.set_save_breakpoints(True)
 
