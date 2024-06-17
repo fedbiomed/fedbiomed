@@ -14,7 +14,8 @@ from google.protobuf.descriptor import FieldDescriptor
 
 import fedbiomed.transport.protocols.researcher_pb2 as r_pb2
 
-from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
+from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__, \
+    SecureAggregationSchemes
 from fedbiomed.common.utils import raise_for_version_compatibility
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
@@ -817,16 +818,18 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: ID of the researcher that requests training
         experiment_id: Id of the experiment that is sent by researcher
+        state_id: ID of state associated to this request on node
         training_args: Arguments for training routine
         dataset_id: id of the dataset that is used for training
         training: Declares whether training will be performed
         model_args: Arguments to initialize training plan class
-        training_plan_url: URL where TrainingPlan is available
+        training_plan: Source code of training plan
         training_plan_class: Class name of the training plan
         command: Reply command string
+        round: number of rounds already executed for this experiment
         aggregator_args: ??
-        aux_var_urls: Optional list of URLs where Optimizer auxiliary
-            variables files are available
+        aux_var: Optimizer auxiliary variables
+        secagg_arguments: Arguments for secure aggregation
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -845,10 +848,7 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     round: int
     aggregator_args: Dict
     aux_vars: Optional[list] = None
-    secagg_servkey_id: Optional[str] = None
-    secagg_biprime_id: Optional[str] = None
-    secagg_random: Optional[float] = None
-    secagg_clipping_range: Optional[int] = None
+    secagg_arguments: Optional[Dict] = None
 
 
 @catch_dataclass_exception

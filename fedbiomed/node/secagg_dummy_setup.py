@@ -14,6 +14,7 @@ from fedbiomed.common.message import NodeToNodeMessages
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.environ import environ
 from fedbiomed.node.requests import send_overlay_message, PendingRequests
+from fedbiomed.node.secagg_manager import DHManager
 
 
 # BEGIN: TO BE REPLACED AFTER REFACTOR OF `BaseSecaggSetup`
@@ -45,6 +46,7 @@ class SecaggDHSetup:
         self._parties = parties
         self._grpc_client = grpc_client
         self._pending_requests = pending_requests
+        self._secagg_manager = DHManager
 
     def _create_secagg_reply(self, message: str = '', success: bool = False) -> dict:
         """Same as `BaseSecaggSetup._create_secagg_reply()`
@@ -110,6 +112,13 @@ class SecaggDHSetup:
             return self._create_secagg_reply('Unexpected error occurred please '
                                              'report this to the node owner', False)
 
+
+        self._secagg_manager.add(
+            self._secagg_id,
+            self._parties,
+            { 'dummy': "tempo value to replace by LOM specific value"},
+            self._experiment_id
+        )
         logger.debug(f'Completed Diffie-Hellmann setup for {self._secagg_id}. Status: {all_received}')
 
         return self._create_secagg_reply(

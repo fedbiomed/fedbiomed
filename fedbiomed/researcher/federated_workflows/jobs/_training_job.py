@@ -50,7 +50,7 @@ class TrainingJob(Job):
             data: metadata of the federated data set
             nodes_state_ids: unique IDs of the node states saved remotely
             aggregator_args: aggregator arguments required for remote execution
-            secagg_arguments: Secure aggregation ServerKey context id
+            secagg_arguments: Secure aggregation arguments, some depending on scheme used
             do_training: if False, skip training in this round (do only validation). Defaults to True.
             optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
                 Note that such variables may only be used if both the Experiment and node-side training plan
@@ -146,10 +146,7 @@ class TrainingJob(Job):
             'training_plan_class': self._training_plan.__class__.__name__,
             'params': self._training_plan.get_model_params(
                 exclude_buffers=not self._training_args.dict()['share_persistent_buffers']),
-            'secagg_servkey_id': self._secagg_arguments.get('secagg_servkey_id'),
-            'secagg_biprime_id': self._secagg_arguments.get('secagg_biprime_id'),
-            'secagg_random': self._secagg_arguments.get('secagg_random'),
-            'secagg_clipping_range': self._secagg_arguments.get('secagg_clipping_range'),
+            'secagg_arguments': self._secagg_arguments,
             'command': 'train',
             'aggregator_args': {},
         }

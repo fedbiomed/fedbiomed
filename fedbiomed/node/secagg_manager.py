@@ -10,12 +10,13 @@ from fedbiomed.common.logger import logger
 
 from fedbiomed.node.environ import environ
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, \
-    SecaggBiprimeManager, \
+    SecaggBiprimeManager, SecaggDhManager, \
     BaseSecaggManager
 
 # Instantiate one manager for each secagg element type
 SKManager = SecaggServkeyManager(environ['DB_PATH'])
 BPrimeManager = SecaggBiprimeManager(environ['DB_PATH'])
+DHManager = SecaggDhManager(environ['DB_PATH'])
 
 
 class SecaggManager:
@@ -24,7 +25,8 @@ class SecaggManager:
 
     element2class = {
         SecaggElementTypes.SERVER_KEY.name: SKManager,
-        SecaggElementTypes.BIPRIME.name: BPrimeManager
+        SecaggElementTypes.BIPRIME.name: BPrimeManager,
+        SecaggElementTypes.DIFFIE_HELLMAN.name: DHManager,
     }
 
     def __init__(self, element: int):
