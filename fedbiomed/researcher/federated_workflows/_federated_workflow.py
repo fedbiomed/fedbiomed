@@ -647,6 +647,11 @@ class FederatedWorkflow(ABC):
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
+        if scheme == SecureAggregationSchemes.NONE:
+            msg = f"{ErrorNumbers.FB410.value}: Secure aggregation cannot be used with scheme None"
+            logger.critical(msg)
+            raise FedbiomedExperimentError(msg)
+
         if isinstance(secagg, bool):
             self._secagg = secagg_scheme_to_class[scheme](active=secagg)
         elif isinstance(secagg, SecureAggregation):
