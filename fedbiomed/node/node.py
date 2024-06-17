@@ -349,12 +349,7 @@ class Node:
                         if round is not None:
                             # Runs model training and send message using callback
                             msg = round.run_model_training(
-                                secagg_arguments={
-                                    'secagg_servkey_id': item.get_param('secagg_servkey_id'),
-                                    'secagg_biprime_id': item.get_param('secagg_biprime_id'),
-                                    'secagg_random': item.get_param('secagg_random'),
-                                    'secagg_clipping_range': item.get_param('secagg_clipping_range')
-                                }
+                                secagg_arguments= item.get_param('secagg_arguments'),
                             )
                             msg.request_id = item.request_id
                             self._grpc_client.send(msg)

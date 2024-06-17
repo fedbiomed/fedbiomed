@@ -504,6 +504,8 @@ class SecaggDhManager(BaseSecaggManager):
             FedbiomedSecaggError: the entry is associated with another experiment
         """
         logger.debug("TODO: ADD REAL PAYLOAD FOR DH DB MANAGER - SecaggDhManager - get")
+
+        # dont return None by default to avoid failure in tempo dummy setup where `add` is not called
         return self._dummy_context.get(secagg_id, None)
 
     def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: str):
@@ -519,7 +521,11 @@ class SecaggDhManager(BaseSecaggManager):
         """
 
         logger.debug("TODO: ADD REAL PAYLOAD FOR DH DB MANAGER - SecaggDhManager - add")
-        self._dummy_context[secagg_id] = context
+        self._dummy_context[secagg_id] = {
+            'parties': parties,
+            'context': context,
+            'experiment_id': experiment_id
+        }
 
     def remove(self, secagg_id: str, experiment_id: str) -> bool:
         """Remove data entry for this `secagg_id` from the server key table

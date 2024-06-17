@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext, SecaggDhContext
 from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
-from fedbiomed.common.secagg import SecaggCrypter
+from fedbiomed.common.secagg import SecaggCrypter, SecaggLomCrypter
 from fedbiomed.common.logger import logger
 
 
@@ -75,7 +75,7 @@ class SecureAggregation(ABC):
         self._parties: Optional[List[str]] = None
         self._experiment_id: Optional[str] = None
         self._secagg_random: Optional[float] = None
-        self._secagg_crypter: Optional[SecaggCrypter] = None
+        self._secagg_crypter: Union[SecaggCrypter, SecaggLomCrypter, None] = None
         self._scheme: Optional[SecureAggregationSchemes] = None
 
     @property
@@ -138,8 +138,11 @@ class SecureAggregation(ABC):
         Returns:
             Arguments that are going to be attached to the experiment.
         """
-        return {'secagg_random': self._secagg_random,
-                'secagg_clipping_range': self.clipping_range}
+        return {
+            'secagg_random': self._secagg_random,
+            'secagg_clipping_range': self.clipping_range,
+            'secagg_scheme': self._scheme.value,
+        }
 
     @abstractmethod
     def setup(self,
@@ -581,9 +584,7 @@ class LomSecureAggregation(SecureAggregation):
         super().__init__(active, clipping_range)
 
         self._dh: Optional[SecaggDhContext] = None
-        # TODO: implement SecaggLomCrypter
-        logger.debug("TODO: ADD REAL PAYLOAD FOR LOM - LomSecureAggregation - constructor")
-
+        self._secagg_crypter: SecaggLomCrypter = SecaggLomCrypter()
         self._scheme = SecureAggregationSchemes.LOM
 
     @property
@@ -691,8 +692,23 @@ class LomSecureAggregation(SecureAggregation):
                 f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Diffie Hellman context is "
                 f"not set properly")
 
-        # TODO: implement aggregation for LOM
-        raise FedbiomedSecureAggregationError("NOT IMPLEMENTED YET - LomSecureAggregation - aggregate")
+        num_nodes = len(model_params)
+
+        aggregate = functools.partial(self._secagg_crypter.aggregate,
+                                      current_round=round_,
+                                      num_nodes=num_nodes,
+                                      total_sample_size=total_sample_size,
+                                      clipping_range=self.clipping_range)
+
+        return super().aggregate(
+            round_,
+            total_sample_size,
+            model_params,
+            encryption_factors,
+            num_expected_params,
+            aggregate,
+        )
+
 
     def save_state_breakpoint(self) -> Dict[str, Any]:
         """Saves state of the secagg

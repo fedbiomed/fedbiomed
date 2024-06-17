@@ -250,8 +250,9 @@ class DatasetTypes(_BaseEnum):
 
 class SecureAggregationSchemes(_BaseEnum):
     """Enumeration class for secure aggregation schemes"""
-    JOYE_LIBERT: int = 0
-    LOM: int = 1
+    NONE: int = 0
+    JOYE_LIBERT: int = 1
+    LOM: int = 2
 
 
 class SecaggElementTypes(_BaseEnum):

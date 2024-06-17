@@ -4,11 +4,13 @@
 
 from ._jls import JoyeLibert, quantize, reverse_quantize
 from ._secagg_crypter import SecaggCrypter, EncryptedNumber
+from ._secagg_dummy_crypter import SecaggLomCrypter
 
 __all__ = [
     "JoyeLibert",
     "EncryptedNumber",
     "SecaggCrypter",
     "quantize",
-    "reverse_quantize"
+    "reverse_quantize",
+    "SecaggLomCrypter"
 ]
