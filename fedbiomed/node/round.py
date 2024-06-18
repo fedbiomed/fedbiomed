@@ -86,7 +86,6 @@ class Round:
             aux_var: auxiliary variables of the model.
         """
 
-        self._use_secagg: bool = False
         self.dataset = dataset
         self.training_plan_source = training_plan
         self.training_plan_class = training_plan_class
@@ -108,6 +107,7 @@ class Round:
         self.testing_arguments = None
         self.loader_arguments = None
         self.training_arguments = None
+        self._use_secagg: bool = False
         self._secagg_biprime = None
         self._secagg_servkey = None
         self._secagg_lom = None
@@ -159,22 +159,24 @@ class Round:
         return self._initialize_validate_training_arguments()
 
 
-    def _configure_secagg(
-            self,
-            secagg_arguments: Optional[dict]
-    ) -> Tuple[bool, SecureAggregationSchemes]:
-        """Validates secure aggregation status
+    def _check_secagg_common_args(
+        self,
+        secagg_arguments: Optional[dict]
+    ) -> Tuple[dict, SecureAggregationSchemes, Optional[float]]:
+        """Performs secure aggregation arguments type and value checks, for args common to all schemes
 
         Args:
             secagg_arguments: Arguments for secure aggregation, some are specific to scheme
+                but only common secagg arguments are considered
 
         Returns:
             A tuple composed of
-                 - a boolean which is True if secure aggregation should be used.
-                 - a identifier for the secure aggregation scheme to be used
+                - canonized `secagg_arguments`
+                - a identifier for the secure aggregation scheme to be used regarding common arguments
+                - a float for the random value for testing secagg process, or None if not provided
 
         Raises:
-            FedbiomedRoundError: incoherent secure aggregation status
+            FedbiomedRoundError: bad secure aggregation arguments
         """
         secagg_arguments = {} if secagg_arguments is None else secagg_arguments
         scheme = SecureAggregationSchemes.NONE
@@ -186,9 +188,40 @@ class Round:
         except ValueError:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Bad secagg scheme value "
                                       f" in train request: {secagg_scheme}")
-        secagg_random = secagg_arguments.get('secagg_random')
 
-        # TODO: refactor
+        secagg_random = secagg_arguments.get('secagg_random')
+        if secagg_random is not None and not isinstance(secagg_random, float):
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Bad secagg random type "
+                                      f" in train request: {type(secagg_random)}")
+
+        secagg_clipping_range = secagg_arguments.get('secagg_clipping_range')
+        if secagg_clipping_range is not None and not isinstance(secagg_clipping_range, int):
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Bad secagg clipping range type "
+                                      f" in train request: {type(secagg_random)}") 
+
+        return secagg_arguments, scheme, secagg_random
+
+
+    def _check_secagg_common(
+            self,
+            secagg_arguments: Optional[dict]
+    ) -> Tuple[bool, SecureAggregationSchemes]:
+        """Performs secure aggregation arguments coherence checks, for args common to all schemes
+
+        Args:
+            secagg_arguments: Arguments for secure aggregation, some are specific to scheme
+                but only common secagg arguments are considered
+
+        Returns:
+            A tuple composed of
+                - a boolean which is True if secure aggregation should be used regarding common arguments
+                - a identifier for the secure aggregation scheme to be used regarding common arguments
+
+        Raises:
+            FedbiomedRoundError: incoherent secure aggregation status
+        """
+        secagg_arguments, scheme, secagg_random = self._check_secagg_common_args(secagg_arguments)
+
         if scheme == SecureAggregationSchemes.NONE:
             # No secure aggregation requested
             if environ["FORCE_SECURE_AGGREGATION"]:
@@ -235,31 +268,55 @@ class Round:
                     f"secure aggregation correctness. Please add `secagg_random` to the train request"
                 )
 
-            if secagg_all_defined:
-                # TODO refactor
-                if scheme == SecureAggregationSchemes.JOYE_LIBERT:
-                    secagg_servkey_id = secagg_arguments.get('secagg_servkey_id')
-                    secagg_biprime_id = secagg_arguments.get('secagg_biprime_id')
-                    self._secagg_biprime = BPrimeManager.get(secagg_id=secagg_biprime_id)
-                    self._secagg_servkey = SKManager.get(secagg_id=secagg_servkey_id, experiment_id=self.experiment_id)
+        return secagg_all_defined, scheme
 
-                    if self._secagg_biprime is None:
-                        raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Biprime for secagg: {secagg_biprime_id} "
-                                                  f"is not existing. Aborting train request.")
 
-                    if self._secagg_servkey is None:
-                        raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Server-key/user-key share for "
-                                                  f"secagg: {secagg_servkey_id} is not existing. "
-                                                  f"Aborting train request.")
-                else:
-                    secagg_dh_id = secagg_arguments.get('secagg_dh_id')
-                    self._secagg_dh = DHManager.get(secagg_id=secagg_dh_id, experiment_id=self.experiment_id)
-                    if self._secagg_dh is None:
-                        raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Diffie Hellman context for "
-                                                  f"secagg: {secagg_dh_id} is not existing. Aborting train request.")
+    def _check_configure_secagg(
+            self,
+            secagg_arguments: Optional[dict]
+    ) -> Tuple[bool, SecureAggregationSchemes]:
+        """Validates secure aggregation arguments coherence and configures secure aggregation
 
+        Args:
+            secagg_arguments: Arguments for secure aggregation, some are specific to scheme
+
+        Returns:
+            A tuple composed of
+                - a boolean which is True if secure aggregation should be used.
+                - a identifier for the secure aggregation scheme to be used
+
+        Raises:
+            FedbiomedRoundError: incoherent secure aggregation status
+        """
+        secagg_all_defined, scheme = self._check_secagg_common(secagg_arguments)
+
+        if secagg_all_defined:
+            # TODO refactor
+            if scheme == SecureAggregationSchemes.JOYE_LIBERT:
+                secagg_servkey_id = secagg_arguments.get('secagg_servkey_id')
+                secagg_biprime_id = secagg_arguments.get('secagg_biprime_id')
+                self._secagg_biprime = BPrimeManager.get(secagg_id=secagg_biprime_id)
+                self._secagg_servkey = SKManager.get(secagg_id=secagg_servkey_id, experiment_id=self.experiment_id)
+
+                if self._secagg_biprime is None:
+                    raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Biprime for secagg: {secagg_biprime_id} "
+                                              f"is not existing. Aborting train request.")
+                if self._secagg_servkey is None:
+                    raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Server-key/user-key share for "
+                                              f"secagg: {secagg_servkey_id} is not existing. "
+                                              f"Aborting train request.")
+            else:
+                secagg_dh_id = secagg_arguments.get('secagg_dh_id')
+                self._secagg_dh = DHManager.get(secagg_id=secagg_dh_id, experiment_id=self.experiment_id)
+
+                if self._secagg_dh is None:
+                    raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Diffie Hellman context for "
+                                              f"secagg: {secagg_dh_id} is not existing. Aborting train request.")
+
+        # be sure to have none scheme if not using secagg
         if not secagg_all_defined:
             scheme = SecureAggregationSchemes.NONE
+
         return secagg_all_defined, scheme
 
 
@@ -278,7 +335,7 @@ class Round:
         # Validate secagg status. Raises error if the training request is not compatible with
         # secure aggregation settings
         try:
-            self._use_secagg, secagg_scheme = self._configure_secagg(secagg_arguments)
+            self._use_secagg, secagg_scheme = self._check_configure_secagg(secagg_arguments)
         except FedbiomedRoundError as e:
             return self._send_round_reply(success=False, message=str(e))
 
