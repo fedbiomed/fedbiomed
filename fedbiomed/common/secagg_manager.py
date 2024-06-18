@@ -545,4 +545,5 @@ class SecaggDhManager(BaseSecaggManager):
         """
 
         logger.debug("TODO: ADD REAL PAYLOAD FOR DH DB MANAGER - SecaggDhManager - remove")
+        del self._dummy_context[secagg_id]
         return True
