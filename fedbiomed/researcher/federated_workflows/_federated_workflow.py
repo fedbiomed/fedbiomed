@@ -20,7 +20,8 @@ from pathvalidate import sanitize_filename
 from fedbiomed.common.constants import ErrorNumbers, EXPERIMENT_PREFIX, __breakpoints_version__, \
     SecureAggregationSchemes
 from fedbiomed.common.exceptions import (
-    FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError, FedbiomedTypeError, FedbiomedValueError
+    FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError, FedbiomedTypeError, FedbiomedValueError, \
+    FedbiomedSecureAggregationError
 )
 from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.logger import logger
@@ -693,8 +694,10 @@ class FederatedWorkflow(ABC):
         """Retrieves the secagg arguments for setup."""
         secagg_arguments = {}
         if self._secagg.active:
-            self._secagg.setup(parties=[environ["ID"]] + sampled_nodes,
-                               experiment_id=self._experiment_id)
+            if not self._secagg.setup(parties=[environ["ID"]] + sampled_nodes, experiment_id=self._experiment_id):
+                msg = f"{ErrorNumbers.FB417.value}: Could not setup secure aggregation crypto context."
+                logger.critical(msg)
+                raise FedbiomedSecureAggregationError(msg)
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
 
