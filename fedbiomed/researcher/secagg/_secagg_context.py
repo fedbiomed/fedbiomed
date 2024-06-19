@@ -685,16 +685,20 @@ class SecaggDhContext(SecaggContext):
         # Federated request should stop if any error occurs
         policies = [StopOnDisconnect(timeout=30), StopOnError(), StopOnTimeout(timeout=120)]
         # Ensure that reply from each node was received
-        status = {node_id: False for node_id in self._parties[:1]}
-        failed_researcher_request = False
+        status = {node_id: False for node_id in self._parties}
 
         with self._requests.send(msg, self._parties[1:], policies) as fed_request:
             replies = fed_request.replies()
             errors = fed_request.errors()
 
             status = {rep.node_id: rep.success for rep in replies.values()}
-            failed_researcher_request = errors or fed_request.policy.has_stopped_any()
+            status[self._researcher_id] = not errors and not fed_request.policy.has_stopped_any()
 
-        context, status_researcher_payload = payload()
-        status[self._researcher_id] = status_researcher_payload and not failed_researcher_request
+        if all(status.values()):
+            # only create context if previous steps succeeded
+            context, status_researcher_payload = payload()
+            status[self._researcher_id] = status[self._researcher_id] and status_researcher_payload
+        else:
+            context = {}
+
         return context, status

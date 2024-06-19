@@ -126,7 +126,7 @@ class NodeToNodeController:
         # then send it.
         import random
         # Use 15 seconds delay to have sometimes success, sometimes failure
-        #delay = random.randrange(1, 15)
+        # delay = random.randrange(1, 15)
         delay = random.randrange(1, 5)
         for i in range(delay):
             logger.debug(f"===== WAIT 1 SECOND IN NODE TO NODE ROUTER {i+1}/{delay}")

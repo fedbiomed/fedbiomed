@@ -481,12 +481,12 @@ class JoyeLibertSecureAggregation(SecureAggregation):
 
         if self._biprime is None or self._servkey is None:
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is "
                 f"not configured. Please setup secure aggregation before the aggregation.")
 
         if not self._biprime.status or not self._servkey.status:
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is "
                 f"not set properly")
 
         biprime = self._biprime.context["context"]["biprime"]
@@ -611,7 +611,7 @@ class LomSecureAggregation(SecureAggregation):
     def setup(self,
               parties: List[str],
               experiment_id: str,
-              force: bool = False):
+              force: bool = False) -> bool:
         """Setup secure aggregation instruments.
 
         Requires setting `parties` and `experiment_id` if they are not set in previous secagg
@@ -640,7 +640,7 @@ class LomSecureAggregation(SecureAggregation):
         if not self._dh.status or force:
             self._dh.setup()
 
-        return True
+        return self._dh.status
 
     def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
         """Creates secure aggregation context classes.

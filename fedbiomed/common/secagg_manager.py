@@ -285,6 +285,20 @@ class SecaggBiprimeManager(BaseSecaggManager):
 
         self._v = Validator()
 
+    def is_default_biprime(self, secagg_id: str) -> bool:
+        """Search for default (non dynamic) data entry with given `secagg_id` in the biprime table.
+
+        Args:
+            secagg_id: secure aggregation ID key to search
+
+        Returns:
+            True if a default biprime entry exists for this `secagg_id`, False if not
+        """
+        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
+        element = self._get_generic(secagg_id)
+        return isinstance(element, dict) and 'type' in element and element['type'] == BiprimeType.DEFAULT.value
+
+
     def get(self, secagg_id: str, experiment_id: None = None) -> Union[dict, None]:
         """Search for data entry with given `secagg_id` in the biprime table
 
