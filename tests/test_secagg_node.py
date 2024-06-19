@@ -9,14 +9,14 @@ from testsupport.base_case import NodeTestCase
 
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.node.environ import environ
-from fedbiomed.node.secagg import SecaggServkeySetup, SecaggBiprimeSetup, BaseSecaggSetup, SecaggSetup
+from fedbiomed.node.secagg import SecaggServkeySetup, SecaggBiprimeSetup, SecaggBaseSetup, SecaggSetup
 import fedbiomed.node.secagg
 
 
-class TestBaseSecaggSetup(NodeTestCase):
+class TestSecaggBaseSetup(NodeTestCase):
 
     def setUp(self) -> None:
-        self.abstract_methods_patcher = patch.multiple(BaseSecaggSetup, __abstractmethods__=set())
+        self.abstract_methods_patcher = patch.multiple(SecaggBaseSetup, __abstractmethods__=set())
         self.abstract_methods_patcher.start()
 
         self.args = {
@@ -26,7 +26,7 @@ class TestBaseSecaggSetup(NodeTestCase):
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
         }
 
-        self.base_secagg_setup = BaseSecaggSetup(**self.args)
+        self.base_secagg_setup = SecaggBaseSetup(**self.args)
 
     def tearDown(self) -> None:
         self.abstract_methods_patcher.stop()
@@ -38,19 +38,19 @@ class TestBaseSecaggSetup(NodeTestCase):
         args = deepcopy(self.args)
         args["researcher_id"] = None
         with self.assertRaises(FedbiomedSecaggError):
-            BaseSecaggSetup(**args)
+            SecaggBaseSetup(**args)
 
         # Invalid number of parties
         args = deepcopy(self.args)
         args["parties"] = ["my researcher", "p2"]
         with self.assertRaises(FedbiomedSecaggError):
-            BaseSecaggSetup(**args)
+            SecaggBaseSetup(**args)
 
         # Unmatch self id and parties
         args = deepcopy(self.args)
         args["researcher_id"] = "opss different researcher"
         with self.assertRaises(FedbiomedSecaggError):
-            BaseSecaggSetup(**args)
+            SecaggBaseSetup(**args)
 
     def test_base_secagg_setup_02_getters(self):
         """Tests getters properties"""
