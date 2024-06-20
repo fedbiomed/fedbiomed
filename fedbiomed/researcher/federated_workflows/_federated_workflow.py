@@ -634,7 +634,8 @@ class FederatedWorkflow(ABC):
                 it does only assignment. Secure aggregation activation and configuration
                 depends on the instance provided.
             scheme: Secure aggregation scheme to use. Ig a `SecureAggregation` object is provided,
-                the argument is not used, as the scheme comes from the object.
+                the argument is not used, as the scheme comes from the object. Defaults is 
+                SecureAggregationSchemes.JOYE_LIBERT.
 
         Returns:
             Secure aggregation controller instance.
