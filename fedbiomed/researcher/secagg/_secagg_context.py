@@ -306,6 +306,7 @@ class SecaggContext(ABC):
             'parties': self._parties,
             'command': 'secagg',
         })
+        print("PARTIES", self._parties, self._create_payload)
 
         return self._secagg_round(msg, True, self._create_payload)
 
@@ -435,7 +436,7 @@ class SecaggMpspdzContext(SecaggContext):
 
         executer = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         context_future = executer.submit(payload)
-
+        
         with self._requests.send(msg, self._parties[1:], policies) as fed_request:
             replies = fed_request.replies()
             errors = fed_request.errors()
