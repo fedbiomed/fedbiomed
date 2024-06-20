@@ -142,6 +142,7 @@ class SecureAggregation(ABC):
             'secagg_random': self._secagg_random,
             'secagg_clipping_range': self.clipping_range,
             'secagg_scheme': self._scheme.value,
+            'parties': self._parties,
         }
 
     @abstractmethod
