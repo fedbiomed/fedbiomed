@@ -1,18 +1,72 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 from typing import List, Optional
+import os
 
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+
+from fedbiomed.common.utils import ROOT_DIR
 from fedbiomed.common.message import Message, InnerMessage, InnerRequestReply, \
     NodeMessages, NodeToNodeMessages
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
-from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 
 from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
 from ._pending_requests import PendingRequests
+
+
+DEFAULT_KEY_DIR = os.path.join(ROOT_DIR, 'envs', 'common', 'default_keys')
+DEFAULT_N2N_KEY_FILE = 'default_n2n_key.pem'
+
+# TODO: replace default key published with the library and used for each node
+# by a keypair generated securely for each node.
+# Caveat: though encrypted, current implementation does not ensure a secure overlay node2node channel ...
+#
+# Default key generation:
+#
+# from cryptography.hazmat.primitives.asymmetric import rsa
+# from cryptography.hazmat.primitives import serialization
+# private_key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
+# private_bytes = private_key.private_bytes(
+#     encoding = serialization.Encoding.PEM,
+#     format = serialization.PrivateFormat.PKCS8,
+#     encryption_algorithm = serialization.NoEncryption()
+# )
+# with open(os.path.join(DEFAULT_KEY_DIR, DEFAULT_N2N_KEY_FILE), 'w') as file:
+#     file.write(private_bytes.decode('utf-8'))
+
+
+def load_default_n2n_key() -> rsa.RSAPrivateKey:
+    """Read default node to node private key from file.
+
+    Currently uses the same keypair, published with library, for each node pair.
+        To be replaced by a securely generated keypair per node, public key shared
+        with other nodes
+
+    Returns:
+        The default private key object
+
+    Raises:
+        FedbiomedNodeToNodeError: cannot read key from file
+    """
+    default_key_file = os.path.join(DEFAULT_KEY_DIR, DEFAULT_N2N_KEY_FILE)
+    try:
+        with open(default_key_file, 'r') as file:
+            private_key = serialization.load_pem_private_key(bytes(file.read(), 'utf-8'), None)
+    except (FileNotFoundError, PermissionError, ValueError):
+        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot read default node to node key '
+                                       f'from file {default_key_file}')
+    return private_key
+
+
+_default_n2n_key = load_default_n2n_key()
+
+#
 
 
 def format_outgoing_overlay(message: Message) -> bytes:
@@ -25,6 +79,9 @@ def format_outgoing_overlay(message: Message) -> bytes:
 
     Returns:
         Payload for overlay message
+
+    Raises:
+        FedbiomedNodeToNodeError: bad message type
     """
     # robustify from developper error (try to encapsulate a bad message type)
     if not isinstance(message, InnerMessage):
@@ -32,7 +89,28 @@ def format_outgoing_overlay(message: Message) -> bytes:
 
     # consider encrypt-sign([message,node_id]) or other see https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
 
-    return Serializer.dumps(message.get_dict())
+    local_node_private_key = _default_n2n_key
+    distant_node_public_key = _default_n2n_key.public_key()
+
+    return distant_node_public_key.encrypt(
+        Serializer.dumps({
+            'message': message.get_dict(),
+            'signature': local_node_private_key.sign(
+                Serializer.dumps(message.get_dict()),
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+
+            )
+        }),
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
 
 
 def format_incoming_overlay(payload: bytes) -> InnerMessage:
@@ -45,9 +123,51 @@ def format_incoming_overlay(payload: bytes) -> InnerMessage:
 
     Returns:
         Inner message retrieved from overlay payload
+
+    Raises:
+        FedbiomedNodeToNodeError: cannot decrypt payload
+        FedbiomedNodeToNodeError: bad payload format
+        FedbiomedNodeToNodeError: cannot verify payload integrity
     """
     # decode and ensure only node2node (inner) messages are received
-    return NodeToNodeMessages.format_incoming_message(Serializer.loads(payload))
+
+    local_node_private_key = _default_n2n_key
+    distant_node_public_key = _default_n2n_key.public_key()
+
+    # decrypt outer payload
+    try:
+        inner = Serializer.loads(
+            local_node_private_key.decrypt(
+                payload,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+        )
+    except ValueError as e:
+        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot decrypt payload: {e}')
+
+    if not isinstance(inner, dict) or not set(('message', 'signature')) <= set(inner):
+        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad inner payload format '
+                                       f"in received message")
+
+    # verify inner payload
+    try:
+        distant_node_public_key.verify(
+            inner['signature'],
+            Serializer.dumps(inner['message']),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+    except ValueError as e:
+        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot verify payload integrity: {e}')
+
+    return NodeToNodeMessages.format_incoming_message(inner['message'])
 
 
 def send_nodes(

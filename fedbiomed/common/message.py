@@ -269,6 +269,8 @@ class InnerMessage(Message):
     # https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
     dest_node_id: str
 
+    # caveat: InnerMessage (without `request_id`) leaves room for replay attacks
+
 
 @dataclass(kw_only=True)
 class InnerRequestReply(InnerMessage):
