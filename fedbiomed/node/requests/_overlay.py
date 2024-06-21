@@ -20,8 +20,8 @@ from fedbiomed.node.environ import environ
 from ._pending_requests import PendingRequests
 
 
-DEFAULT_KEY_DIR = os.path.join(ROOT_DIR, 'envs', 'common', 'default_keys')
-DEFAULT_N2N_KEY_FILE = 'default_n2n_key.pem'
+_DEFAULT_KEY_DIR = os.path.join(ROOT_DIR, 'envs', 'common', 'default_keys')
+_DEFAULT_N2N_KEY_FILE = 'default_n2n_key.pem'
 
 # TODO: replace default key published with the library and used for each node
 # by a keypair generated securely for each node.
@@ -37,7 +37,7 @@ DEFAULT_N2N_KEY_FILE = 'default_n2n_key.pem'
 #     format = serialization.PrivateFormat.PKCS8,
 #     encryption_algorithm = serialization.NoEncryption()
 # )
-# with open(os.path.join(DEFAULT_KEY_DIR, DEFAULT_N2N_KEY_FILE), 'w') as file:
+# with open(os.path.join(_DEFAULT_KEY_DIR, _DEFAULT_N2N_KEY_FILE), 'w') as file:
 #     file.write(private_bytes.decode('utf-8'))
 
 
@@ -54,7 +54,7 @@ def load_default_n2n_key() -> rsa.RSAPrivateKey:
     Raises:
         FedbiomedNodeToNodeError: cannot read key from file
     """
-    default_key_file = os.path.join(DEFAULT_KEY_DIR, DEFAULT_N2N_KEY_FILE)
+    default_key_file = os.path.join(_DEFAULT_KEY_DIR, _DEFAULT_N2N_KEY_FILE)
     try:
         with open(default_key_file, 'r') as file:
             private_key = serialization.load_pem_private_key(bytes(file.read(), 'utf-8'), None)
@@ -66,10 +66,12 @@ def load_default_n2n_key() -> rsa.RSAPrivateKey:
 
 _default_n2n_key = load_default_n2n_key()
 
-#
+# chunk size must be less or equal (in bits) the smallest RSA key length used
+_SMALLEST_KEY = 2048
+_CHUNK_SIZE = int(_SMALLEST_KEY / 8)
 
 
-def format_outgoing_overlay(message: Message) -> bytes:
+def format_outgoing_overlay(message: Message) -> List[bytes]:
     """Creates an overlay message payload from an inner message.
 
     Serialize, crypt, sign the inner message
@@ -81,6 +83,7 @@ def format_outgoing_overlay(message: Message) -> bytes:
         Payload for overlay message
 
     Raises:
+        FedbiomedNodeToNodeError: key is too short
         FedbiomedNodeToNodeError: bad message type
     """
     # robustify from developper error (try to encapsulate a bad message type)
@@ -92,28 +95,38 @@ def format_outgoing_overlay(message: Message) -> bytes:
     local_node_private_key = _default_n2n_key
     distant_node_public_key = _default_n2n_key.public_key()
 
-    return distant_node_public_key.encrypt(
-        Serializer.dumps({
-            'message': message.get_dict(),
-            'signature': local_node_private_key.sign(
-                Serializer.dumps(message.get_dict()),
-                padding.PSS(
-                    mgf=padding.MGF1(hashes.SHA256()),
-                    salt_length=padding.PSS.MAX_LENGTH
-                ),
-                hashes.SHA256()
+    if _CHUNK_SIZE * 8 > min(local_node_private_key.key_size, distant_node_public_key.key_size):
+        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot use key shorter than {_CHUNK_SIZE} bits')
 
-            )
-        }),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
+    # sign inner payload
+    signed = Serializer.dumps({
+        'message': message.get_dict(),
+        'signature': local_node_private_key.sign(
+            Serializer.dumps(message.get_dict()),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+
         )
-    )
+    })
+
+    # split to chunks and encrypt
+    return [
+        distant_node_public_key.encrypt(
+            signed[i:i + _CHUNK_SIZE],
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+        for i in range(0, len(signed), _CHUNK_SIZE)
+    ]
 
 
-def format_incoming_overlay(payload: bytes) -> InnerMessage:
+def format_incoming_overlay(payload: List[bytes]) -> InnerMessage:
     """Retrieves inner message from overlay message payload.
 
     Check signature, decrypt, deserialize the inner message
@@ -125,6 +138,7 @@ def format_incoming_overlay(payload: bytes) -> InnerMessage:
         Inner message retrieved from overlay payload
 
     Raises:
+        FedbiomedNodeToNodeError: key is too short
         FedbiomedNodeToNodeError: cannot decrypt payload
         FedbiomedNodeToNodeError: bad payload format
         FedbiomedNodeToNodeError: cannot verify payload integrity
@@ -134,30 +148,36 @@ def format_incoming_overlay(payload: bytes) -> InnerMessage:
     local_node_private_key = _default_n2n_key
     distant_node_public_key = _default_n2n_key.public_key()
 
+    if _CHUNK_SIZE * 8 > min(local_node_private_key.key_size, distant_node_public_key.key_size):
+        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot use key shorter than {_CHUNK_SIZE} bits')
+
     # decrypt outer payload
     try:
-        inner = Serializer.loads(
+        decrypted_chunks = [
             local_node_private_key.decrypt(
-                payload,
+                chunk,
                 padding.OAEP(
                     mgf=padding.MGF1(algorithm=hashes.SHA256()),
                     algorithm=hashes.SHA256(),
                     label=None
                 )
             )
-        )
+            for chunk in payload
+        ]
     except ValueError as e:
         raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot decrypt payload: {e}')
 
-    if not isinstance(inner, dict) or not set(('message', 'signature')) <= set(inner):
+    decrypted = Serializer.loads(bytes().join(decrypted_chunks))
+
+    if not isinstance(decrypted, dict) or not set(('message', 'signature')) <= set(decrypted):
         raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad inner payload format '
                                        f"in received message")
 
     # verify inner payload
     try:
         distant_node_public_key.verify(
-            inner['signature'],
-            Serializer.dumps(inner['message']),
+            decrypted['signature'],
+            Serializer.dumps(decrypted['message']),
             padding.PSS(
                 mgf=padding.MGF1(hashes.SHA256()),
                 salt_length=padding.PSS.MAX_LENGTH
@@ -167,7 +187,7 @@ def format_incoming_overlay(payload: bytes) -> InnerMessage:
     except ValueError as e:
         raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot verify payload integrity: {e}')
 
-    return NodeToNodeMessages.format_incoming_message(inner['message'])
+    return NodeToNodeMessages.format_incoming_message(decrypted['message'])
 
 
 def send_nodes(
