@@ -143,6 +143,10 @@ def format_incoming_overlay(payload: List[bytes]) -> InnerMessage:
         FedbiomedNodeToNodeError: bad payload format
         FedbiomedNodeToNodeError: cannot verify payload integrity
     """
+    # check payload types (not yet done by message type checks, only checks it's a list)
+    if not all([isinstance(p, bytes) for p in payload]):
+        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad type for node to node payload')
+
     # decode and ensure only node2node (inner) messages are received
 
     local_node_private_key = _default_n2n_key
@@ -152,6 +156,7 @@ def format_incoming_overlay(payload: List[bytes]) -> InnerMessage:
         raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot use key shorter than {_CHUNK_SIZE} bits')
 
     # decrypt outer payload
+    # caveat: decryption can be long for long messages (~10s for 1MB cleartext message)
     try:
         decrypted_chunks = [
             local_node_private_key.decrypt(
