@@ -86,7 +86,7 @@ class Node:
                 be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
-        no_print = ["aggregator_args", "aux_vars", "params", "training_plan"]
+        no_print = ["aggregator_args", "optim_aux_var", "params", "training_plan"]
         msg_print = {key: value for key, value in msg.items() if key not in no_print}
         logger.debug('Message received: ' + str(msg_print))
         try:
@@ -279,7 +279,7 @@ class Node:
                            node_args=self.node_args,
                            round_number=msg.get_param('round'),
                            dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-                           aux_vars=msg.get_param('aux_vars'))
+                           aux_vars=msg.get_param('optim_aux_var'))
 
             # the round raises an error if it cannot initialize
             err_msg = round_.initialize_arguments(msg.get_param('state_id'))

@@ -1,33 +1,32 @@
 import unittest
 from itertools import product
-from unittest.mock import ANY, create_autospec, MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 from declearn.model.api import Vector
 
-from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedExperimentError
-from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
-from fedbiomed.common.metrics import MetricTypes
-
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
-from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.monitor import Monitor
-from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_training_plan import (
     FakeTorchTrainingPlan,
     FakeSKLearnTrainingPlan
 )
-from fedbiomed.researcher.secagg import SecureAggregation
 #############################################################
 
 import fedbiomed
+from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedExperimentError
+from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.optimizers import AuxVar
+from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
+from fedbiomed.researcher.monitor import Monitor
+from fedbiomed.researcher.node_state_agent import NodeStateAgent
+from fedbiomed.researcher.secagg import SecureAggregation
+from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
 class TestExperiment(ResearcherTestCase, MockRequestModule):
@@ -181,6 +180,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         _aggregator.aggregator_name = 'mock-aggregator'
         _strategy = MagicMock(spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
         _strategy.refine.return_value = (1, 2, 3, 4)
+
         exp = Experiment(
             training_data=_training_data,
             aggregator=_aggregator,
@@ -192,7 +192,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
 
         # Test error case -------------------------------
         with self.assertRaises(SystemExit):
-          exp.run_once(increase='invalid-type')
+            exp.run_once(increase='invalid-type')
         # ------------------------------------------------
 
         # Go back to normal
@@ -244,7 +244,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         # ------------------------------------------------------------
 
         # Run once with secure aggregation ----------------------------------------
-        secagg = MagicMock(spec=SecureAggregation)
+        secagg = MagicMock(spec=SecureAggregation, instance=True)
         type(secagg).active = True
         exp.set_round_limit(6)
         exp.set_secagg(secagg)
@@ -384,13 +384,16 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
             exp.run_once()
         self.assertListEqual(
             [name for name, *_ in _agg_optim.method_calls],
-            ["get_aux", "set_aux", "init_round", "step"],
+            ["get_aux", "init_round", "step"],
             "Aggregator optimizer did not receive expected ordered calls"
         )
 
         # Test that receiving auxiliary variables without an aggregator-level optimizer fails
         self.mock_job.reset_mock()
-        self.mock_job.return_value.execute.return_value = MagicMock(), {"module": {"node_id": {"key": "val"}}}  # mock aux-var dict
+        mock_aux_var = create_autospec(AuxVar, instance=True)
+        self.mock_job.return_value.execute.return_value = (
+            MagicMock(), {"node_id": {"module": mock_aux_var}}
+        )
 
         exp = Experiment(
             training_data=_training_data,
