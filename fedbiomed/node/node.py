@@ -92,7 +92,7 @@ class Node:
                 be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
-        no_print = ["aggregator_args", "aux_vars", "params", "training_plan"]
+        no_print = ["aggregator_args", "aux_vars", "params", "training_plan", "overlay"]
         msg_print = {key: value for key, value in msg.items() if key not in no_print}
         logger.debug('Message received: ' + str(msg_print))
         try:
