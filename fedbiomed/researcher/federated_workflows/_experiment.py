@@ -937,6 +937,7 @@ class Experiment(TrainingPlanWorkflow):
             encrypted = model_params
             encrypted_auxvar = None  # type: Optional[EncryptedAuxVar]
             aggregated_auxvar = None  # type: Optional[Dict[str, AuxVar]]
+            n_aux_var = 0
         else:
             # Ensure auxiliary variables have the same node-order as model
             # parameters, type-check and pre-aggregate them.
@@ -949,6 +950,7 @@ class Experiment(TrainingPlanWorkflow):
                 encrypted[node] = (
                     model_params[node] + encrypted_auxvar.encrypted[idx]
                 )
+            n_aux_var = encrypted_auxvar.get_num_expected_params()
         # Perform secure aggregation of all encrypted parameters.
         exclude_buffers = not self.training_args()['share_persistent_buffers']
         num_expected_params = len(
@@ -961,12 +963,11 @@ class Experiment(TrainingPlanWorkflow):
             encryption_factors=encryption_factors,
             total_sample_size=total_sample_size,
             model_params=encrypted,
-            num_expected_params=num_expected_params,
+            num_expected_params=num_expected_params + n_aux_var,
         )
         # Split out aggregated auxiliary variables (if any) and unflatten them.
         if encrypted_auxvar:
             # Separate auxiliary variables from model parameters.
-            n_aux_var = len(encrypted_auxvar.encrypted[0])
             flattened, flat_auxv = flattened[:-n_aux_var], flattened[-n_aux_var:]
             # Undo normalization by total number of samples.
             flat_auxv = [x * total_sample_size for x in flat_auxv]
@@ -1517,6 +1518,7 @@ class Experiment(TrainingPlanWorkflow):
             # we want to strip some fields for the breakpoint
             for reply in training_reply.values():
                 reply.pop('params', None)
+                reply.pop('optim_aux_var', None)
         return converted_training_replies
 
     def load_training_replies(

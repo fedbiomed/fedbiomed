@@ -234,6 +234,16 @@ class EncryptedAuxVar:
         self.cleartext = cleartext
         self.clear_cls = clear_cls
 
+    def get_num_expected_params(
+        self,
+    ) -> int:
+        """Return the number of flat values that should be decrypted."""
+        return sum(
+            size
+            for module_specs in self.enc_specs
+            for _, size, _ in module_specs
+        )
+
     def aggregate(
         self,
         other: Self,
@@ -350,7 +360,8 @@ class EncryptedAuxVar:
             ]
             # Ensure tuples are preserved (as serialization converts to list).
             enc_specs = [
-                [tuple(s) for s in spec] for spec in data["enc_specs"]
+                [tuple(value_specs) for value_specs in module_specs]
+                for module_specs in data["enc_specs"]
             ]
             # Try instantiating from the input data.
             return cls(
