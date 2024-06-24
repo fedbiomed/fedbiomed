@@ -23,7 +23,7 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-from fedbiomed.node.requests import ProtocolManager, PendingRequests
+from fedbiomed.node.requests import NodeToNodeRouter, PendingRequests
 
 
 class Node:
@@ -55,10 +55,10 @@ class Node:
             researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
             on_message=self.on_message,
         )
-        # Note: `PendingRequests` `ProtocolManager` and `GrpcController` should not be changed to singleton.
+        # Note: `PendingRequests` `NodeToNodeRouter` and `GrpcController` should not be changed to singleton.
         # When implementing multiple researchers, there will probably be one per researcher.
         self._pending_requests = PendingRequests()
-        self._protocol_manager = ProtocolManager(self._grpc_client, self._pending_requests)
+        self._n2n_router = NodeToNodeRouter(self._grpc_client, self._pending_requests)
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
 
@@ -105,7 +105,7 @@ class Node:
             elif command == 'secagg-delete':
                 self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
             elif command == 'overlay':
-                self._protocol_manager.submit(msg)
+                self._n2n_router.submit(msg)
             elif command == 'ping':
                 self._grpc_client.send(
                     NodeMessages.format_outgoing_message(
@@ -385,8 +385,8 @@ class Node:
                     self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
 
     def start_protocol(self) -> None:
-        """Start the protocol manager thread, for handling node to node message"""
-        self._protocol_manager.start()
+        """Start the node to node router thread, for handling node to node message"""
+        self._n2n_router.start()
 
     def start_messaging(self, on_finish: Optional[Callable] = None):
         """Calls the start method of messaging class.
