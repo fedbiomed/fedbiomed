@@ -219,7 +219,7 @@ class ProtocolManager(_ProtocolAsyncManager):
         """
         # Protocol manager currently handles only node to node messages
         # Conceived to be later extended for other messages processing, during node redesign
-        if not isinstance(msg, dict) or 'command' not in msg or msg['command'] != 'overlay-forward':
+        if msg['command'] != 'overlay-forward':
             raise FedbiomedNodeToNodeError(
                 f'{ErrorNumbers.FB324.value}: protocol manager needs a node to node message')
 
