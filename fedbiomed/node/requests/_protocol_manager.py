@@ -12,7 +12,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.node.environ import environ
 from ._overlay import format_incoming_overlay
 from ._pending_requests import PendingRequests
-from ._protocol_handler import ProtocolHandler
+from ._n2n_handler import NodeToNodeHandler
 
 from fedbiomed.transport.controller import GrpcController
 
@@ -37,7 +37,7 @@ class _ProtocolAsyncManager:
         self._grpc_controller = grpc_controller
         self._pending_requests = pending_requests
 
-        self._protocol_handler = ProtocolHandler(self._grpc_controller, self._pending_requests)
+        self._node_to_node_handler = NodeToNodeHandler(self._grpc_controller, self._pending_requests)
 
         self._queue = asyncio.Queue(MAX_PROTOCOL_MANAGER_QUEUE_SIZE)
         self._loop = None
@@ -127,7 +127,7 @@ class _ProtocolAsyncManager:
             msg: received message
         """
         try:
-            await self._queue.put_nowait(msg)
+            self._queue.put_nowait(msg)
         except asyncio.QueueFull as e:
             logger.error(
                 f"{ErrorNumbers.FB324}: Failed submitting message to protocol manager. Discard message. "
@@ -151,7 +151,7 @@ class _ProtocolAsyncManager:
                     return
                 inner_msg = format_incoming_overlay(overlay_msg['overlay'])
 
-                finally_kwargs = await self._protocol_handler.handle(overlay_msg, inner_msg)
+                finally_kwargs = await self._node_to_node_handler.handle(overlay_msg, inner_msg)
                 # in case nothing is returned from the handler
                 if finally_kwargs is None:
                     finally_kwargs = {}
@@ -169,7 +169,7 @@ class _ProtocolAsyncManager:
                     f"Error message: {e}. Overlay message: {overlay_msg}"
                 )
             else:
-                await self._protocol_handler.final(inner_msg.get_param('command'), **finally_kwargs)
+                await self._node_to_node_handler.final(inner_msg.get_param('command'), **finally_kwargs)
 
         except Exception as e:
             logger.error(
@@ -219,7 +219,7 @@ class ProtocolManager(_ProtocolAsyncManager):
         """
         # Protocol manager currently handles only node to node messages
         # Conceived to be later extended for other messages processing, during node redesign
-        if msg['command'] != 'overlay-forward':
+        if msg['command'] != 'overlay':
             raise FedbiomedNodeToNodeError(
                 f'{ErrorNumbers.FB324.value}: protocol manager needs a node to node message')
 

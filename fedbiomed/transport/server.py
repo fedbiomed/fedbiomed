@@ -305,18 +305,10 @@ class _GrpcAsyncServer:
         Args:
             message: Message to forward
         """
-        # Prepare overlay forward message
-        message_forward = ResearcherMessages.format_outgoing_message({
-            'researcher_id': message.researcher_id,
-            'dest_node_id': message.dest_node_id,
-            'overlay': message.overlay,
-            'command': 'overlay-forward',
-        })
-
         # caveat: intentionally use `_GrpcAyncServer.send()`
         # if using `self.send()` it uses `GrpcServer.send()`, normally used from another thread
         # if using `super().send()` it's less explicit
-        await _GrpcAsyncServer.send(self, message_forward, message.dest_node_id)
+        await _GrpcAsyncServer.send(self, message, message.dest_node_id)
 
 
     async def send(self, message: Message, node_id: str) -> None:
