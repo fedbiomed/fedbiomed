@@ -16,11 +16,12 @@ from fedbiomed.common.constants import (
     MAX_SEND_RETRIES,
     ErrorNumbers,
 )
-from fedbiomed.common.exceptions import FedbiomedCommunicationError
-from fedbiomed.common.logger import logger
-from fedbiomed.common.message import FeedbackMessage, Message, TaskRequest, TaskResult
-from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
+
+from fedbiomed.common.logger import logger
+from fedbiomed.common.serializer import Serializer
+from fedbiomed.common.message import Message, TaskRequest, TaskResult, FeedbackMessage
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
 
 
 @dataclass

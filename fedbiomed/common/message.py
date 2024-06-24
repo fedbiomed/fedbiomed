@@ -336,7 +336,7 @@ class InnerMessage(Message):
 
 
 @dataclass(kw_only=True)
-class InnerRequestReply(InnerMessage):
+class N2NRequest(InnerMessage):
     """Common attribute for Request and Reply Inner Message.
 
     Attributes:
@@ -345,6 +345,11 @@ class InnerRequestReply(InnerMessage):
 
     request_id: Optional[str] = None
 
+
+class N2NReply(InnerMessage):
+    """Common attribute for Replies to requests in node to node messages"""
+
+    request_id: Optional[str] = None
 
 # --- gRPC messages --------------------------------------------------------------------------------
 
@@ -445,7 +450,7 @@ class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class KeyRequest(InnerRequestReply, RequiresProtocolVersion):
+class KeyRequest(N2NRequest, RequiresProtocolVersion):
     """Message for starting a new exchange for creating crypto key material.
 
     Currently only Diffie-Hellman key exchange is supported
@@ -462,7 +467,7 @@ class KeyRequest(InnerRequestReply, RequiresProtocolVersion):
 
 @catch_dataclass_exception
 @dataclass
-class KeyReply(InnerRequestReply, RequiresProtocolVersion):
+class KeyReply(N2NReply, RequiresProtocolVersion):
     """Message for continuing an exchange for creating crypto key material.
 
     Currently only Diffie-Hellman key exchange is supported

@@ -60,7 +60,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
     def __init__(
             self,
-            agent_store: AgentStore,
+            agent_store: AgentStoreServer,
             on_message: Callable
     ) -> None:
         """Constructor of gRPC researcher servicer
@@ -237,7 +237,7 @@ class _GrpcAsyncServer:
         self._debug = debug
         self._on_message = on_message
         self._loop = None
-        self._agent_store : Optional[AgentStore] = None
+        self._agent_store : Optional[AgentStoreServer] = None
 
 
     async def start(self):
@@ -274,7 +274,7 @@ class _GrpcAsyncServer:
             ])
 
         self._loop = asyncio.get_running_loop()
-        self._agent_store = AgentStore(loop=self._loop, on_forward=self._on_forward)
+        self._agent_store = AgentStoreServer(loop=self._loop, on_forward=self._on_forward)
 
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(

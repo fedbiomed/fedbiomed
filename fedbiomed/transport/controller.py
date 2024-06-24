@@ -9,6 +9,8 @@ from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import Message
 
+from fedbiomed.transport.agent_store import AgentStore, NodeAgentN2N
+
 
 class GrpcAsyncTaskController:
     """RPC asynchronous task controller
@@ -44,6 +46,8 @@ class GrpcAsyncTaskController:
 
         self._loop = None
 
+
+        self._agent_store = AgentStoreServer()
         # Maps researcher ip to corresponding ids
         self._ip_id_map_lock = None
         self._ip_id_map = {}
@@ -67,6 +71,7 @@ class GrpcAsyncTaskController:
             self._clients[f"{researcher.host}:{researcher.port}"] = client
 
         self._loop = asyncio.get_running_loop()
+        self.agent_store = AgentStoreServer(loop=self._loop)
 
         # Create asyncio locks
         self._ip_id_map_lock = asyncio.Lock()
@@ -161,7 +166,7 @@ class GrpcController(GrpcAsyncTaskController):
         """Start GRPCClients in a thread.
 
         Args:
-            on_finish: Called when the tasks for handling all known researchers have finished. 
+            on_finish: Called when the tasks for handling all known researchers have finished.
                 Callable has no argument. If None, then no action is taken.
         """
         # Adds grpc handler to send node logs to researchers
@@ -195,6 +200,15 @@ class GrpcController(GrpcAsyncTaskController):
         asyncio.run_coroutine_threadsafe(
             super().send(message, broadcast), self._loop
         )
+
+    async def send_nodes(self, nodes, message, wait: bool = False):
+        """Send messages to nodes"""
+
+        self._agent_store.get_nodes
+
+            nodes = [await self._agent_store.retrieve(node) for node in nodes]
+        pass
+
 
 
     def is_connected(self) -> bool:
