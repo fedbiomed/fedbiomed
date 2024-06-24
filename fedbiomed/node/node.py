@@ -105,7 +105,7 @@ class Node:
             elif command == 'secagg-delete':
                 self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
             elif command == 'overlay-forward':
-                self._task_overlay_forward(msg)
+                self._protocol_manager.submit(msg)
             elif command == 'ping':
                 self._grpc_client.send(
                     NodeMessages.format_outgoing_message(
@@ -176,14 +176,6 @@ class Node:
             self.send_error(ErrorNumbers.FB301,
                             extra_msg='Message was not serializable',
                             researcher_id=resid)
-
-    def _task_overlay_forward(self, overlay_msg: dict) -> None:
-        """Handle overlay message.
-
-        Args:
-            msg: Dict of an overlay forward message
-        """
-        self._protocol_manager.submit(overlay_msg)
 
     def _task_secagg_delete(self, msg: SecaggDeleteRequest) -> None:
         """Parse a given secagg delete task message and execute secagg delete task.
