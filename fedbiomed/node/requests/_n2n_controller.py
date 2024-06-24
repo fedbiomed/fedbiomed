@@ -6,7 +6,7 @@ import asyncio
 import inspect
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.message import InnerMessage, OverlaySend, NodeMessages, NodeToNodeMessages
+from fedbiomed.common.message import InnerMessage, OverlayMessage, NodeMessages, NodeToNodeMessages
 from fedbiomed.common.logger import logger
 
 from fedbiomed.node.environ import environ
@@ -16,8 +16,8 @@ from ._pending_requests import PendingRequests
 from fedbiomed.transport.controller import GrpcController
 
 
-class ProtocolHandler:
-    """Defines the handler for protocol messages processed by the protocol manager"""
+class NodeToNodeController:
+    """Defines the controller for protocol messages processed by the node to node router"""
 
     def __init__(self, grpc_controller: GrpcController, pending_requests: PendingRequests) -> None:
         """Constructor of the class.
@@ -129,7 +129,7 @@ class ProtocolHandler:
         #delay = random.randrange(1, 15)
         delay = random.randrange(1, 5)
         for i in range(delay):
-            logger.debug(f"===== WAIT 1 SECOND IN PROTOCOL MANAGER {i+1}/{delay}")
+            logger.debug(f"===== WAIT 1 SECOND IN NODE TO NODE ROUTER {i+1}/{delay}")
             await asyncio.sleep(1)
 
         inner_resp = NodeToNodeMessages.format_outgoing_message(
@@ -147,12 +147,12 @@ class ProtocolHandler:
                 'node_id': environ['NODE_ID'],
                 'dest_node_id': inner_msg.get_param('node_id'),
                 'overlay': format_outgoing_overlay(inner_resp),
-                'command': 'overlay-send'
+                'command': 'overlay'
             })
 
         return { 'overlay_resp': overlay_resp }
 
-    async def _FinalKeyRequest(self, overlay_resp: OverlaySend) -> None:
+    async def _FinalKeyRequest(self, overlay_resp: OverlayMessage) -> None:
         """Final handler called for KeyRequest message.
 
         Args:

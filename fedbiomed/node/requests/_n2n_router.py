@@ -12,19 +12,19 @@ from fedbiomed.common.logger import logger
 from fedbiomed.node.environ import environ
 from ._overlay import format_incoming_overlay
 from ._pending_requests import PendingRequests
-from ._protocol_handler import ProtocolHandler
+from ._n2n_controller import NodeToNodeController
 
 from fedbiomed.transport.controller import GrpcController
 
 
-# Maximum number of pending messages in the protocol manager input queue
-MAX_PROTOCOL_MANAGER_QUEUE_SIZE = 1000
+# Maximum number of pending messages in the node to node router input queue
+MAX_N2N_ROUTER_QUEUE_SIZE = 1000
 
 # Maximum duration in seconds of overlay message processing task
 OVERLAY_MESSAGE_PROCESS_TIMEOUT = 60
 
 
-class _ProtocolAsyncManager:
+class _NodeToNodeAsyncRouter:
     """Background async thread for handling node to node messages received by a node."""
 
     def __init__(self, grpc_controller: GrpcController, pending_requests: PendingRequests) -> None:
@@ -37,9 +37,9 @@ class _ProtocolAsyncManager:
         self._grpc_controller = grpc_controller
         self._pending_requests = pending_requests
 
-        self._protocol_handler = ProtocolHandler(self._grpc_controller, self._pending_requests)
+        self._node_to_node_handler = NodeToNodeController(self._grpc_controller, self._pending_requests)
 
-        self._queue = asyncio.Queue(MAX_PROTOCOL_MANAGER_QUEUE_SIZE)
+        self._queue = asyncio.Queue(MAX_N2N_ROUTER_QUEUE_SIZE)
         self._loop = None
 
         self._active_tasks = {}
@@ -96,7 +96,7 @@ class _ProtocolAsyncManager:
                         self._active_tasks[task_name]['finally'] = True
 
     async def _run_async(self) -> None:
-        """Main async function for the protocol manager background thread."""
+        """Main async function for the node to node router background thread."""
 
         self._loop = asyncio.get_running_loop()
 
@@ -121,16 +121,16 @@ class _ProtocolAsyncManager:
                 task_msg.add_done_callback(self._remove_finished_task)
 
     async def _submit(self, msg) -> None:
-        """Submits a received message to the protocol manager for processing.
+        """Submits a received message to the node to node router for processing.
 
         Args:
             msg: received message
         """
         try:
-            await self._queue.put_nowait(msg)
+            self._queue.put_nowait(msg)
         except asyncio.QueueFull as e:
             logger.error(
-                f"{ErrorNumbers.FB324}: Failed submitting message to protocol manager. Discard message. "
+                f"{ErrorNumbers.FB324}: Failed submitting message to node to node router. Discard message. "
                 f"Exception: {type(e).__name__}. Error message: {e}")
             # don't raise exception
 
@@ -151,7 +151,7 @@ class _ProtocolAsyncManager:
                     return
                 inner_msg = format_incoming_overlay(overlay_msg['overlay'])
 
-                finally_kwargs = await self._protocol_handler.handle(overlay_msg, inner_msg)
+                finally_kwargs = await self._node_to_node_handler.handle(overlay_msg, inner_msg)
                 # in case nothing is returned from the handler
                 if finally_kwargs is None:
                     finally_kwargs = {}
@@ -169,7 +169,7 @@ class _ProtocolAsyncManager:
                     f"Error message: {e}. Overlay message: {overlay_msg}"
                 )
             else:
-                await self._protocol_handler.final(inner_msg.get_param('command'), **finally_kwargs)
+                await self._node_to_node_handler.final(inner_msg.get_param('command'), **finally_kwargs)
 
         except Exception as e:
             logger.error(
@@ -178,7 +178,7 @@ class _ProtocolAsyncManager:
             # don't raise exception
 
 
-class ProtocolManager(_ProtocolAsyncManager):
+class NodeToNodeRouter(_NodeToNodeAsyncRouter):
     """Handles node to node messages received by a node."""
 
     def __init__(self, grpc_controller: GrpcController, pending_requests: PendingRequests) -> None:
@@ -194,22 +194,22 @@ class ProtocolManager(_ProtocolAsyncManager):
 
 
     def _run(self) -> None:
-        """Main function for the protocol manager background thread."""
+        """Main function for the node to node router background thread."""
         try:
             asyncio.run(self._run_async())
         except Exception as e:
             logger.critical(
-                f"Failed launching node protocol manager. Exception: {type(e).__name__}. Error message: {e}")
+                f"Failed launching node node to node router. Exception: {type(e).__name__}. Error message: {e}")
             raise e
 
 
     def start(self) -> None:
-        """Starts the protocol manager."""
+        """Starts the node to node router."""
         self._thread.start()
 
 
     def submit(self, msg: dict) -> None:
-        """Submits a received message to the protocol manager for processing.
+        """Submits a received message to the node to node router for processing.
 
         Args:
             msg: received message
@@ -217,15 +217,15 @@ class ProtocolManager(_ProtocolAsyncManager):
         Raises:
             FedbiomedNodeToNodeError: bad message type or value.
         """
-        # Protocol manager currently handles only node to node messages
+        # node to node router currently handles only node to node messages
         # Conceived to be later extended for other messages processing, during node redesign
-        if not isinstance(msg, dict) or 'command' not in msg or msg['command'] != 'overlay-forward':
+        if msg['command'] != 'overlay':
             raise FedbiomedNodeToNodeError(
-                f'{ErrorNumbers.FB324.value}: protocol manager needs a node to node message')
+                f'{ErrorNumbers.FB324.value}: node to node router needs a node to node message')
 
         try:
             asyncio.run_coroutine_threadsafe(self._submit(msg), self._loop)
         except Exception as e:
             logger.critical(
-                f"Failed submitting message to protocol manager. Exception: {type(e).__name__}. Error message: {e}")
+                f"Failed submitting message to node to node router. Exception: {type(e).__name__}. Error message: {e}")
             raise e

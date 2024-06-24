@@ -124,7 +124,7 @@ def start_node(node_args):
                      tp_security_manager=tp_security_manager,
                      node_args=node_args)
         _node.start_messaging(_node_signal_trigger_term)
-        logger.info('Starting protocol manager')
+        logger.info('Starting node to node router')
         _node.start_protocol()
         logger.info('Starting task manager')
         _node.task_manager()  # handling training tasks in queue

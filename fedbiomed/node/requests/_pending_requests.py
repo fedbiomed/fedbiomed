@@ -154,10 +154,9 @@ class PendingRequests:
         """
 
         # Check value for timeout, as bad value may cause hard to detect problems
-        if (not isinstance(timeout, float) and not (isinstance(timeout, int))) \
-                or timeout < 0 or timeout > MAX_PENDING_REPLY_TIMEOUT:
+        if not isinstance(timeout, (float, int)) or timeout < 0 or timeout > MAX_PENDING_REPLY_TIMEOUT:
             raise FedbiomedNodeToNodeError(f"{ErrorNumbers.FB324}: Cannot wait {timeout} seconds. "
-                                           f"Should be float between 0 and {MAX_PENDING_REPLY_TIMEOUT}")
+                                           f"Should be int or float between 0 and {MAX_PENDING_REPLY_TIMEOUT}")
 
         time_initial = time.time()
 

@@ -159,6 +159,7 @@ class FedbiomedMPCControllerError(FedbiomedError):
     pass
 
 
+
 class FedbiomedNodeStateAgentError(FedbiomedError):
     """
     Error in Node State Agent
