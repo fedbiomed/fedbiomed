@@ -40,6 +40,9 @@ NODE_STATE_PREFIX = 'node_state_'
 EXPERIMENT_PREFIX = 'exper_'
 """Prefix for experiment ID"""
 
+REQUEST_PREFIX = 'request_'
+"""Prefix for request ID"""
+
 CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 """FOLDER name for Certs directory"""
 
@@ -77,6 +80,8 @@ MAX_SEND_RETRIES = 5
 # Max number of retries for retrieving a task when error occurs (on the node)
 MAX_RETRIEVE_ERROR_RETRIES = 5
 
+# Timeout for a node to node request
+TIMEOUT_NODE_TO_NODE_REQUEST = 10
 
 class _BaseEnum(Enum):
     """
@@ -251,6 +256,7 @@ class SecaggElementTypes(_BaseEnum):
     """
     SERVER_KEY: int = 0
     BIPRIME: int = 1
+    DIFFIE_HELLMAN: int = 2
 
 
 class VEParameters:
@@ -287,6 +293,7 @@ class ErrorNumbers(_BaseEnum):
     FB321 = "FB321: Secure aggregation delete error"
     FB322 = "FB322: Dataset registration error"
     FB323 = "FB323: Node State error"
+    FB324 = "FB324: Node to node overlay communication error"
 
     # application error on researcher
 

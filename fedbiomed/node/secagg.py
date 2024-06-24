@@ -19,6 +19,8 @@ from fedbiomed.common.utils import matching_parties_servkey, matching_parties_bi
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
 
+from fedbiomed.node.secagg_dummy_setup import SecaggDHSetup
+
 
 _CManager = CertificateManager(
     db_path=environ["DB_PATH"]
@@ -354,7 +356,8 @@ class SecaggSetup:
 
     element2class = {
         SecaggElementTypes.SERVER_KEY.name: SecaggServkeySetup,
-        SecaggElementTypes.BIPRIME.name: SecaggBiprimeSetup
+        SecaggElementTypes.BIPRIME.name: SecaggBiprimeSetup,
+        SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDHSetup
     }
 
     def __init__(self, element: int, **kwargs):

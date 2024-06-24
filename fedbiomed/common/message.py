@@ -62,6 +62,7 @@ def catch_dataclass_exception(cls: Callable):
 
     return wrap(cls)
 
+
 class Message(object):
     """Base class for all fedbiomed messages providing all methods
     to access the messages
@@ -117,12 +118,6 @@ class Message(object):
                 logger.critical(f"{field_name}: '{value}' instead of '{field_def.type}'")
                 ret = False
         return ret
-
-    @classmethod
-    def fields(cls):
-        """Get dataclass fields"""
-        return list(cls.__dataclass_fields__.keys())
-
 
     def to_proto(self):
         """Converts recursively python dataclass to gRPC proto"""
@@ -210,10 +205,13 @@ class ProtoSerializableMessage(Message):
     pass
 
 
-
 @dataclass(kw_only=True)
 class RequestReply(Message):
-    """Common attribute for Request and Reply Message"""
+    """Common attribute for Request and Reply Message.
+
+    Attributes:
+        request_id: unique ID for this request-reply
+    """
     request_id: Optional[str] = None
 
 
@@ -228,6 +226,57 @@ class RequiresProtocolVersion:
     # Adds default protocol version thanks to `kw_oly  True`
     protocol_version: str = str(__messaging_protocol_version__)
 
+
+@dataclass(kw_only=True)
+class OverlayMessage(Message, RequiresProtocolVersion):
+    """Message for handling overlay trafic.
+
+    Same message used from source node to researcher, and from researcher to destination node.
+
+    Attributes:
+        researcher_id: Id of the researcher relaying the overlay message
+        node_id: Id of the source node of the overlay message
+        dest_node_id: Id of the destination node of the overlay message
+        overlay: payload of the message to be forwarded unchanged to the destination node
+        command: Command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    researcher_id: str  # Needed for source and destination node side message handling
+    node_id: str        # Needed for researcher side message handling (receiving a `ReplyTask`)
+    dest_node_id: str   # Needed for researcher side message handling
+    overlay: bytes
+    command: str
+
+
+@dataclass(kw_only=True)
+class InnerMessage(Message):
+    """Parent class of messages sent from node to node.
+
+    Node to node messages are sent as inner message (payload) of an overlay message
+
+    Attributes:
+        node_id: Id of the source node sending the mess
+        dest_node_id: Id of the destination node of the overlay message
+    """
+    # Needed by destination node for easily identifying source node.
+    # Not needed for security if message is securely signed by source node.
+    node_id: str
+    # Needed for security if we `encrypt(sign(message))` to link signed message to identity of destination node
+    # and prevent replay of message by a malicious node to another node
+    # https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
+    dest_node_id: str
+
+
+@dataclass(kw_only=True)
+class InnerRequestReply(InnerMessage):
+    """Common attribute for Request and Reply Inner Message.
+
+    Attributes:
+        request_id: unique ID for this request-reply
+    """
+    request_id: Optional[str] = None
 
 
 # --- gRPC messages --------------------------------------------------------------------------------
@@ -319,7 +368,56 @@ class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
     scalar: Optional[Scalar] = None
 
 
-# ---------------------------------------------------------------------------
+# --- Node <=> Node messages ----------------------------------------------------
+
+
+@catch_dataclass_exception
+@dataclass
+class KeyRequest(InnerRequestReply, RequiresProtocolVersion):
+    """Message for starting a new exchange for creating crypto key material.
+
+    Currently only Diffie-Hellman key exchange is supported
+
+    Attributes:
+        command: Command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    dummy: str     # Temporary dummy payload
+    secagg_id: str
+    command: str
+
+
+@catch_dataclass_exception
+@dataclass
+class KeyReply(InnerRequestReply, RequiresProtocolVersion):
+    """Message for continuing an exchange for creating crypto key material.
+
+    Currently only Diffie-Hellman key exchange is supported
+
+    Attributes:
+        command: Command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    dummy: str     # Temporary dummy payload
+    secagg_id: str
+    command: str
+
+# Example of  of one-wway (not request-reply) inner message
+#
+# @catch_dataclass_exception
+# @dataclass
+# class DummyInner(InnerMessage, RequiresProtocolVersion):
+#     """Dummy example of one-wway (not request-reply) inner message
+#     """
+#     dummy: str     # Temporary dummy payload
+#     command: str
+
+
+# --- Node <=> Researcher messages ----------------------------------------------
 
 
 # Approval messages
@@ -438,65 +536,6 @@ class ListReply(RequestReply, RequiresProtocolVersion):
     node_id: str
     count: int
     command: str
-
-
-# TrainingPlanStatus messages
-
-@catch_dataclass_exception
-@dataclass
-class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
-    """Describes a training plan approve status check message sent by the researcher.
-
-    Attributes:
-        researcher_id: Id of the researcher that sends the request
-        experiment_id: ID related to the experiment.
-        training_plan: The training plan that is going to be checked for approval
-        command: Request command string
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-   """
-
-    researcher_id: str
-    experiment_id: str
-    training_plan: str
-    command: str
-
-
-@catch_dataclass_exception
-@dataclass
-class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
-    """Describes a training plan approve status check message sent by the node
-
-    Attributes:
-        researcher_id: Id of the researcher that sends the request
-        node_id: Node id that replies the request
-        experiment_id: ID related to the experiment
-        success: True if the node process the request as expected, false
-            if any exception occurs
-        approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
-            in the node for training.
-        status: a `TrainingPlanApprovalStatus` value describing the approval status
-        msg: Message from node based on state of the reply
-        training_plan: The training plan that has been checked for approval
-        command: Reply command string
-        training_plan_id: Unique training plan identifier
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-
-    """
-
-    researcher_id: str
-    node_id: str
-    experiment_id: str
-    success: bool
-    approval_obligation: bool
-    status: str
-    msg: str
-    training_plan: str
-    command: str
-    training_plan_id: str | None = None
 
 
 # Ping messages
@@ -678,6 +717,63 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
     command: str
 
 
+# TrainingPlanStatus messages
+
+@catch_dataclass_exception
+@dataclass
+class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
+    """Describes a training plan approve status check message sent by the researcher.
+
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        job_id: Job id related to the experiment.
+        training_plan_url: The training plan that is going to be checked for approval
+        command: Request command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+   """
+
+    researcher_id: str
+    job_id: str
+    training_plan: str
+    command: str
+
+
+@catch_dataclass_exception
+@dataclass
+class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
+    """Describes a training plan approve status check message sent by the node
+
+    Attributes:
+        researcher_id: Id of the researcher that sends the request
+        node_id: Node id that replies the request
+        job_id: job id related to the experiment
+        success: True if the node process the request as expected, false
+            if any exception occurs
+        approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
+            in the node for training.
+        is_approved: True, if the requested training plan is one of the approved training plan by the node
+        msg: Message from node based on state of the reply
+        training_plan_url: The training plan that has been checked for approval
+        command: Reply command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+
+    """
+
+    researcher_id: str
+    node_id: str
+    job_id: str
+    success: bool
+    approval_obligation: bool
+    status: str
+    msg: str
+    training_plan: str
+    command: str
+
+
 # Train messages
 
 @catch_dataclass_exception
@@ -849,7 +945,8 @@ class ResearcherMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
-                                          'secagg-delete': SecaggDeleteReply
+                                          'secagg-delete': SecaggDeleteReply,
+                                          'overlay': OverlayMessage,
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
@@ -859,12 +956,13 @@ class ResearcherMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusRequest,
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
-                                          'secagg-delete': SecaggDeleteRequest
+                                          'secagg-delete': SecaggDeleteRequest,
+                                          'overlay': OverlayMessage,
                                           }
 
 
 class NodeMessages(MessageFactory):
-    """Specializes MessageFactory for Node.
+    """Specializes MessageFactory for Node side messages Node <=> Researcher
 
     Node send replies and receive requests.
     """
@@ -875,7 +973,8 @@ class NodeMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusRequest,
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
-                                          'secagg-delete': SecaggDeleteRequest
+                                          'secagg-delete': SecaggDeleteRequest,
+                                          'overlay': OverlayMessage,
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
@@ -887,5 +986,18 @@ class NodeMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
-                                          'secagg-delete': SecaggDeleteReply
+                                          'secagg-delete': SecaggDeleteReply,
+                                          'overlay': OverlayMessage,
                                           }
+
+
+class NodeToNodeMessages(MessageFactory):
+    """Specializes MessageFactory for message from Node to Node
+    """
+    INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'key-request': KeyRequest,
+                                          'key-reply': KeyReply,
+                                          # Example of  of one-wway (not request-reply) inner message
+                                          # 'dummy-inner': DummyInner,
+                                          }
+
+    OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = INCOMING_MESSAGE_TYPE_TO_CLASS_MAP
