@@ -18,7 +18,7 @@ from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage, \
-    OverlayMessage, OverlaySend, ResearcherMessages
+    OverlayMessage, ResearcherMessages
 from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 
@@ -305,10 +305,6 @@ class _GrpcAsyncServer:
         Args:
             message: Message to forward
         """
-        if not isinstance(message, OverlaySend):
-            logger.warning("Unexpected overlay message received by researcher. Discard message.")
-            return
-
         # Prepare overlay forward message
         message_forward = ResearcherMessages.format_outgoing_message({
             'researcher_id': message.researcher_id,
@@ -320,7 +316,7 @@ class _GrpcAsyncServer:
         # caveat: intentionally use `_GrpcAyncServer.send()`
         # if using `self.send()` it uses `GrpcServer.send()`, normally used from another thread
         # if using `super().send()` it's less explicit
-        await _GrpcAsyncServer.send(self, message_forward, m.dest_node_id)
+        await _GrpcAsyncServer.send(self, message_forward, message.dest_node_id)
 
 
     async def send(self, message: Message, node_id: str) -> None:
