@@ -216,17 +216,38 @@ class RequestReply(Message):
 
 
 @dataclass(kw_only=True)
-class OverlayMessage(Message):
-    """Parent class of messages for handling overlay trafic
+class RequiresProtocolVersion:
+    """Mixin class for messages that must be endowed with a version field.
+
+    Attributes:
+        protocol_version: version of the messaging protocol used
+    """
+
+    # Adds default protocol version thanks to `kw_oly  True`
+    protocol_version: str = str(__messaging_protocol_version__)
+
+
+@dataclass(kw_only=True)
+class OverlayMessage(Message, RequiresProtocolVersion):
+    """Message for handling overlay trafic.
+
+    Same message used from source node to researcher, and from researcher to destination node.
 
     Attributes:
         researcher_id: Id of the researcher relaying the overlay message
+        node_id: Id of the source node of the overlay message
         dest_node_id: Id of the destination node of the overlay message
         overlay: payload of the message to be forwarded unchanged to the destination node
+        command: Command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str  # Needed for source and destination node side message handling
-    dest_node_id: str  # Needed for researcher side message handling
+    node_id: str        # Needed for researcher side message handling (receiving a `ReplyTask`)
+    dest_node_id: str   # Needed for researcher side message handling
     overlay: bytes
+    command: str
 
 
 @dataclass(kw_only=True)
@@ -256,18 +277,6 @@ class InnerRequestReply(InnerMessage):
         request_id: unique ID for this request-reply
     """
     request_id: Optional[str] = None
-
-
-@dataclass(kw_only=True)
-class RequiresProtocolVersion:
-    """Mixin class for messages that must be endowed with a version field.
-
-    Attributes:
-        protocol_version: version of the messaging protocol used
-    """
-
-    # Adds default protocol version thanks to `kw_oly  True`
-    protocol_version: str = str(__messaging_protocol_version__)
 
 
 # --- gRPC messages --------------------------------------------------------------------------------
@@ -526,38 +535,6 @@ class ListReply(RequestReply, RequiresProtocolVersion):
     databases: list
     node_id: str
     count: int
-    command: str
-
-
-# Overlay messages
-
-@catch_dataclass_exception
-@dataclass
-class OverlaySend(OverlayMessage, RequiresProtocolVersion):
-    """Describes an overlay message sent by a node to the relay researcher
-
-    Attributes:
-        node_id: Id of the source node of the overlay message
-        command: Command string
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-    """
-    node_id: str        # Needed for server side message handling (receiving a `ReplyTask`)
-    command: str
-
-
-@catch_dataclass_exception
-@dataclass
-class OverlayForward(OverlayMessage, RequiresProtocolVersion):
-    """Describes an overlay message forwarded by a researcher to the destination node
-
-    Attributes:
-        command: Command string
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-    """
     command: str
 
 
@@ -969,7 +946,7 @@ class ResearcherMessages(MessageFactory):
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
                                           'secagg-delete': SecaggDeleteReply,
-                                          'overlay-send': OverlaySend,
+                                          'overlay': OverlayMessage,
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
@@ -980,7 +957,7 @@ class ResearcherMessages(MessageFactory):
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
                                           'secagg-delete': SecaggDeleteRequest,
-                                          'overlay-forward': OverlayForward,
+                                          'overlay': OverlayMessage,
                                           }
 
 
@@ -997,7 +974,7 @@ class NodeMessages(MessageFactory):
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
                                           'secagg-delete': SecaggDeleteRequest,
-                                          'overlay-forward': OverlayForward,
+                                          'overlay': OverlayMessage,
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
@@ -1010,7 +987,7 @@ class NodeMessages(MessageFactory):
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
                                           'secagg-delete': SecaggDeleteReply,
-                                          'overlay-send': OverlaySend,
+                                          'overlay': OverlayMessage,
                                           }
 
 
