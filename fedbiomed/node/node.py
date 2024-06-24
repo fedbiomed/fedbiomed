@@ -104,7 +104,7 @@ class Node:
                 self.add_task(request)
             elif command == 'secagg-delete':
                 self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
-            elif command == 'overlay-forward':
+            elif command == 'overlay':
                 self._protocol_manager.submit(msg)
             elif command == 'ping':
                 self._grpc_client.send(
