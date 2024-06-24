@@ -116,11 +116,7 @@ class NodeAgentAsync:
 
         # Handle overlay messages to relay to a node
         if isinstance(message, OverlayMessage):
-            if asyncio.iscoroutinefunction(self._on_forward):
-                await self._on_forward(message)
-            else:
-                logger.warning(f"No function defined for handling overlay message received from {self._id}. "
-                               "Discard message.")
+            await self._on_forward(message)
             return
 
         # Handle RequestReply messages for the researcher
