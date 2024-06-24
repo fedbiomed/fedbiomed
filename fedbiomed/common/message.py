@@ -216,17 +216,38 @@ class RequestReply(Message):
 
 
 @dataclass(kw_only=True)
-class OverlayMessage(Message):
-    """Parent class of messages for handling overlay trafic
+class RequiresProtocolVersion:
+    """Mixin class for messages that must be endowed with a version field.
+
+    Attributes:
+        protocol_version: version of the messaging protocol used
+    """
+
+    # Adds default protocol version thanks to `kw_oly  True`
+    protocol_version: str = str(__messaging_protocol_version__)
+
+
+@dataclass(kw_only=True)
+class OverlayMessage(Message, RequiresProtocolVersion):
+    """Message for handling overlay trafic.
+
+    Same message used from source node to researcher, and from researcher to destination node.
 
     Attributes:
         researcher_id: Id of the researcher relaying the overlay message
+        node_id: Id of the source node of the overlay message
         dest_node_id: Id of the destination node of the overlay message
         overlay: payload of the message to be forwarded unchanged to the destination node
+        command: Command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str  # Needed for source and destination node side message handling
-    dest_node_id: str  # Needed for researcher side message handling
+    node_id: str        # Needed for researcher side message handling (receiving a `ReplyTask`)
+    dest_node_id: str   # Needed for researcher side message handling
     overlay: bytes
+    command: str
 
 
 @dataclass(kw_only=True)
@@ -256,18 +277,6 @@ class InnerRequestReply(InnerMessage):
         request_id: unique ID for this request-reply
     """
     request_id: Optional[str] = None
-
-
-@dataclass(kw_only=True)
-class RequiresProtocolVersion:
-    """Mixin class for messages that must be endowed with a version field.
-
-    Attributes:
-        protocol_version: version of the messaging protocol used
-    """
-
-    # Adds default protocol version thanks to `kw_oly  True`
-    protocol_version: str = str(__messaging_protocol_version__)
 
 
 # --- gRPC messages --------------------------------------------------------------------------------
@@ -529,64 +538,6 @@ class ListReply(RequestReply, RequiresProtocolVersion):
     command: str
 
 
-# TrainingPlanStatus messages
-
-@catch_dataclass_exception
-@dataclass
-class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
-    """Describes a training plan approve status check message sent by the researcher.
-
-    Attributes:
-        researcher_id: Id of the researcher that sends the request
-        experiment_id: ID related to the experiment.
-        training_plan: The training plan that is going to be checked for approval
-        command: Request command string
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-   """
-
-    researcher_id: str
-    experiment_id: str
-    training_plan: str
-    command: str
-
-
-@catch_dataclass_exception
-@dataclass
-class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
-    """Describes a training plan approve status check message sent by the node
-
-    Attributes:
-        researcher_id: Id of the researcher that sends the request
-        node_id: Node id that replies the request
-        experiment_id: ID related to the experiment
-        success: True if the node process the request as expected, false
-            if any exception occurs
-        approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
-            in the node for training.
-        status: a `TrainingPlanApprovalStatus` value describing the approval status
-        msg: Message from node based on state of the reply
-        training_plan: The training plan that has been checked for approval
-        command: Reply command string
-        training_plan_id: Unique training plan identifier
-
-    Raises:
-        FedbiomedMessageError: triggered if message's fields validation failed
-
-    """
-
-    researcher_id: str
-    node_id: str
-    experiment_id: str
-    success: bool
-    approval_obligation: bool
-    status: str
-    msg: str
-    training_plan: str
-    command: str
-    training_plan_id: str | None = None
-
 # Overlay messages
 
 @catch_dataclass_exception
@@ -797,7 +748,6 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
     msg: str
     command: str
 
-
 # TrainingPlanStatus messages
 
 @catch_dataclass_exception
@@ -807,8 +757,8 @@ class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        job_id: Job id related to the experiment.
-        training_plan_url: The training plan that is going to be checked for approval
+        experiment_id: ID related to the experiment.
+        training_plan: The training plan that is going to be checked for approval
         command: Request command string
 
     Raises:
@@ -816,7 +766,7 @@ class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
    """
 
     researcher_id: str
-    job_id: str
+    experiment_id: str
     training_plan: str
     command: str
 
@@ -829,15 +779,16 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: Id of the researcher that sends the request
         node_id: Node id that replies the request
-        job_id: job id related to the experiment
+        experiment_id: ID related to the experiment
         success: True if the node process the request as expected, false
             if any exception occurs
         approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
             in the node for training.
-        is_approved: True, if the requested training plan is one of the approved training plan by the node
+        status: a `TrainingPlanApprovalStatus` value describing the approval status
         msg: Message from node based on state of the reply
-        training_plan_url: The training plan that has been checked for approval
+        training_plan: The training plan that has been checked for approval
         command: Reply command string
+        training_plan_id: Unique training plan identifier
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -846,13 +797,14 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
 
     researcher_id: str
     node_id: str
-    job_id: str
+    experiment_id: str
     success: bool
     approval_obligation: bool
     status: str
     msg: str
     training_plan: str
     command: str
+    training_plan_id: str | None = None
 
 
 # Train messages
@@ -1027,7 +979,7 @@ class ResearcherMessages(MessageFactory):
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
                                           'secagg-delete': SecaggDeleteReply,
-                                          'overlay-send': OverlaySend,
+                                          'overlay': OverlayMessage,
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
@@ -1038,7 +990,7 @@ class ResearcherMessages(MessageFactory):
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
                                           'secagg-delete': SecaggDeleteRequest,
-                                          'overlay-forward': OverlayForward,
+                                          'overlay': OverlayMessage,
                                           }
 
 
@@ -1055,7 +1007,7 @@ class NodeMessages(MessageFactory):
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
                                           'secagg-delete': SecaggDeleteRequest,
-                                          'overlay-forward': OverlayForward,
+                                          'overlay': OverlayMessage,
                                           }
 
     OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
@@ -1068,7 +1020,7 @@ class NodeMessages(MessageFactory):
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
                                           'secagg-delete': SecaggDeleteReply,
-                                          'overlay-send': OverlaySend,
+                                          'overlay': OverlayMessage,
                                           }
 
 

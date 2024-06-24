@@ -6,7 +6,7 @@ import asyncio
 import inspect
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.message import InnerMessage, OverlaySend, NodeMessages, NodeToNodeMessages
+from fedbiomed.common.message import InnerMessage, OverlayMessage, NodeMessages, NodeToNodeMessages
 from fedbiomed.common.logger import logger
 
 from fedbiomed.node.environ import environ
@@ -16,7 +16,7 @@ from ._pending_requests import PendingRequests
 from fedbiomed.transport.controller import GrpcController
 
 
-class ProtocolHandler:
+class NodeToNodeHandler:
     """Defines the handler for protocol messages processed by the protocol manager"""
 
     def __init__(self, grpc_controller: GrpcController, pending_requests: PendingRequests) -> None:
@@ -147,12 +147,12 @@ class ProtocolHandler:
                 'node_id': environ['NODE_ID'],
                 'dest_node_id': inner_msg.get_param('node_id'),
                 'overlay': format_outgoing_overlay(inner_resp),
-                'command': 'overlay-send'
+                'command': 'overlay'
             })
 
         return { 'overlay_resp': overlay_resp }
 
-    async def _FinalKeyRequest(self, overlay_resp: OverlaySend) -> None:
+    async def _FinalKeyRequest(self, overlay_resp: OverlayMessage) -> None:
         """Final handler called for KeyRequest message.
 
         Args:

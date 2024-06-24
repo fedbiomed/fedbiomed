@@ -75,7 +75,7 @@ def send_overlay_message(
                 'node_id': environ['NODE_ID'],
                 'dest_node_id': node,
                 'overlay': format_outgoing_overlay(message),
-                'command': 'overlay-send'
+                'command': 'overlay'
             })
 
         grpc_client.send(message_overlay)
