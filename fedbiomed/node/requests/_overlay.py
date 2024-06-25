@@ -50,7 +50,7 @@ def format_incoming_overlay(payload: bytes) -> InnerMessage:
     return NodeToNodeMessages.format_incoming_message(Serializer.loads(payload))
 
 
-def send_overlay_message(
+def send_nodes(
         grpc_client: GrpcController,
         pending_requests: PendingRequests,
         researcher_id: str,

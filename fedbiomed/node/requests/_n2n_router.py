@@ -37,7 +37,7 @@ class _NodeToNodeAsyncRouter:
         self._grpc_controller = grpc_controller
         self._pending_requests = pending_requests
 
-        self._node_to_node_handler = NodeToNodeController(self._grpc_controller, self._pending_requests)
+        self._node_to_node_controller = NodeToNodeController(self._grpc_controller, self._pending_requests)
 
         self._queue = asyncio.Queue(MAX_N2N_ROUTER_QUEUE_SIZE)
         self._loop = None
@@ -151,7 +151,7 @@ class _NodeToNodeAsyncRouter:
                     return
                 inner_msg = format_incoming_overlay(overlay_msg['overlay'])
 
-                finally_kwargs = await self._node_to_node_handler.handle(overlay_msg, inner_msg)
+                finally_kwargs = await self._node_to_node_controller.handle(overlay_msg, inner_msg)
                 # in case nothing is returned from the handler
                 if finally_kwargs is None:
                     finally_kwargs = {}
@@ -169,7 +169,7 @@ class _NodeToNodeAsyncRouter:
                     f"Error message: {e}. Overlay message: {overlay_msg}"
                 )
             else:
-                await self._node_to_node_handler.final(inner_msg.get_param('command'), **finally_kwargs)
+                await self._node_to_node_controller.final(inner_msg.get_param('command'), **finally_kwargs)
 
         except Exception as e:
             logger.error(
