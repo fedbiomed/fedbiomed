@@ -5,7 +5,7 @@ import os
 
 import inspect
 
-from fedbiomed.common.constants import BiprimeType, __secagg_element_version__
+from fedbiomed.common.constants import BiprimeType, SecaggElementTypes, SecureAggregationSchemes, __secagg_element_version__
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
 
@@ -258,21 +258,25 @@ class TestBaseSecaggManager(unittest.TestCase):
         parties_list = [['r', 'n1', 'n2'], ['r', 'n1', 'n2', 'n3', 'n4', 'n5'], 111, []]
 
         specific_list = [
-            [SecaggServkeyManager, {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'}, {'experiment_id': 'my_experiment_id_dummy'}],
-            [SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'}, {}],
+            [SecaggServkeyManager, {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
+              {'experiment_id': 'my_experiment_id_dummy'},
+               {'secagg_elem': SecaggElementTypes.SERVER_KEY.value, 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}],
+            [SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'}, {},
+              {'secagg_elem': SecaggElementTypes.BIPRIME.value, 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}],
         ]
 
         # action
         for secagg_id in secagg_id_list:
             for parties in parties_list:
-                for m, specific, kwargs in specific_list:
+                for m, specific, kwargs, expected in specific_list:
                     # preparation (continued)
                     manager = m('/path/to/dummy/file')
                     expected_entries = copy.deepcopy(specific)
                     expected_entries.update({
                         'secagg_version': str(__secagg_element_version__),
                         'secagg_id': secagg_id,
-                        'parties': parties}
+                        'parties': parties,
+                        **expected}
                     )
 
                     # action
@@ -347,16 +351,22 @@ class TestBaseSecaggManager(unittest.TestCase):
             [
                 SecaggServkeyManager,
                 {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
-                {'experiment_id': 'my_experiment_id_dummy'}],
+                {'experiment_id': 'my_experiment_id_dummy'},
+                {'secagg_elem': SecaggElementTypes.SERVER_KEY.value,
+                 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}],
             [
                 SecaggBiprimeManager,
-                {'context': 'a_long_dummy_biprime'}, {}],
+                {'context': 'a_long_dummy_biprime'},
+                {},
+                {'secagg_elem': SecaggElementTypes.SERVER_KEY.value,
+                 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}
+            ],
         ]
 
         # action
         for secagg_id in secagg_id_list:
             for parties in parties_list:
-                for m, specific, kwargs in specific_list:
+                for m, specific, kwargs, expected in specific_list:
                     # preparation (continued)
                     manager = m('/path/to/dummy/file')
                     # should not be accessing private variable, but avoids writing a specific fake class
@@ -396,7 +406,8 @@ class TestBaseSecaggManager(unittest.TestCase):
         self.assertEqual(
             bpm._table.entries,
             [{'secagg_version': str(__secagg_element_version__), 'secagg_id': 'dummy_biprime', 'parties': None, 'type': 'default',
-                'context': {'biprime': 12345678, 'max_keysize': 33}}]
+                'context': {'biprime': 12345678, 'max_keysize': 33}, 'secagg_elem': SecaggElementTypes.BIPRIME.value,
+                'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}]
         )
 
         # 2. don't use default biprimes
