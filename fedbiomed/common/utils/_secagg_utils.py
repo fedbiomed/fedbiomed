@@ -13,8 +13,10 @@ def matching_parties_dh(context: dict, parties: list) -> bool:
             True if this context can be used with this element, False if not.
         """
     # Need to ensure that:
-    # - first party needs to be the same for both (checked for consistency, but not security important)
-    # - existing element was established for the same parties or a superset of the parties
+    # - no check on first party (no cryptographic material attached to the researcher).
+    #   The context is established for a given experiment, thus a given researcher but this should
+    #   be tested prior to this call.
+    # - existing element was established for the same node parties or a superset of the node parties
     #   (order can differ, as nodes are ordered by the cipher code)
     #
     # eg: [ 'un', 'deux', 'trois' ] parties compatible with [ 'un', 'trois', 'deux' ] context
@@ -29,7 +31,6 @@ def matching_parties_dh(context: dict, parties: list) -> bool:
         # isinstance(context['parties'], list) and
         # len(context['parties']) >= 1 and
         # isinstance(parties, list) and
-        parties[0] == context['parties'][0] and
         set(parties[1:]).issubset(set(context['parties'][1:])))
 
 
