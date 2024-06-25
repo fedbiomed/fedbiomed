@@ -203,7 +203,8 @@ class Round:
                                       f" in train request: {type(secagg_random)}") 
 
         parties = secagg_arguments.get('parties')
-        if not isinstance(parties, list) or len(parties) < 3 or not all([isinstance(p, str) for p in parties]):
+        if secagg_scheme is not SecureAggregationSchemes.NONE.value and \
+                (not isinstance(parties, list) or len(parties) < 3 or not all([isinstance(p, str) for p in parties])):
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Bad parties list in train request: {parties}")
 
         return secagg_arguments, scheme, secagg_random, parties

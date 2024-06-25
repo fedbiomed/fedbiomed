@@ -22,7 +22,7 @@ from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg_manager import SKManager, BPrimeManager, DHManager
-from fedbiomed.node.requests import send_overlay_message, PendingRequests
+from fedbiomed.node.requests import send_nodes, PendingRequests
 
 
 _CManager = CertificateManager(
@@ -392,7 +392,7 @@ class SecaggDhSetup(SecaggBaseSetup):
             ]
 
         logger.debug(f'Sending Diffie-Hellman setup for {self._secagg_id} to nodes: {other_nodes}')
-        listener_id = send_overlay_message(
+        listener_id = send_nodes(
             self._grpc_client,
             self._pending_requests,
             self._researcher_id,
@@ -405,10 +405,10 @@ class SecaggDhSetup(SecaggBaseSetup):
                      f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}")
         if not all_received:
             nodes_no_answer = set(other_nodes) - set([m['node_id'] for m in messages])
-            msg = f"{ErrorNumbers.FB318.value}: Some nodes did not answer during Diffie Hellman secagg " \
-                  f"context setup: {nodes_no_answer}"
-            logger.error(msg)
-            raise FedbiomedSecaggError(msg)
+            raise FedbiomedSecaggError(
+                f"{ErrorNumbers.FB318.value}: Some nodes did not answer during Diffie Hellman secagg "
+                f"context setup: {nodes_no_answer}"
+            )
 
         # Successful DH exchange with other ndoes
         context = { 'dummy': "tempo value to replace by LOM specific value"}
