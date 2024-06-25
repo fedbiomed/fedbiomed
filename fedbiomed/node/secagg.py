@@ -8,18 +8,21 @@ from abc import ABC, abstractmethod
 from enum import Enum
 import time
 import random
+import uuid
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType
+from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType, \
+    REQUEST_PREFIX, TIMEOUT_NODE_TO_NODE_REQUEST
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.message import NodeToNodeMessages
 from fedbiomed.common.mpc_controller import MPCController
-from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime
+
+from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
-
-from fedbiomed.node.secagg_dummy_setup import SecaggDHSetup
+from fedbiomed.node.secagg_manager import SKManager, BPrimeManager, DHManager
+from fedbiomed.node.requests import send_nodes, PendingRequests
 
 
 _CManager = CertificateManager(
@@ -27,7 +30,7 @@ _CManager = CertificateManager(
 )
 
 
-class BaseSecaggSetup(ABC):
+class SecaggBaseSetup(ABC):
     """
     Sets up a Secure Aggregation context element on the node side.
     """
@@ -70,13 +73,6 @@ class BaseSecaggSetup(ABC):
         self._experiment_id = experiment_id
         self._parties = parties
         self._element = None
-
-        # one controller per secagg object to prevent any file conflict
-        self._MPC = MPCController(
-            tmp_dir=environ["TMP_DIR"],
-            component_type=ComponentType.NODE,
-            component_id=environ["ID"]
-        )
 
         # to be set in subclasses
         self._secagg_manager = None
@@ -141,55 +137,29 @@ class BaseSecaggSetup(ABC):
             'command': 'secagg'
         }
 
-    @abstractmethod
-    def _matching_parties(self, context: dict) -> bool:
-        """Check if parties of given context are compatible with the secagg context element.
-
-        Args:
-            context: context to be compared with the secagg context element
-
-        Returns:
-            True if this context can be used with this element, False if not.
-        """
-
     def setup(self) -> dict:
         """Set up a secagg context element.
 
         Returns:
             message to return to the researcher after the setup
         """
+        # Caveat: don't test if a context exists for this `secagg_id` eg
+        #   context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
+        # This is because we always need to update the (possibly) existing entry for this `secagg_id`
+        # to address the case where the previous secagg setup succeeded on some nodes (which thus
+        # created a context) and failed on some nodes. In that case, negotiating only on previously failed nodes
+        # would result in either negotiation error or keep incoherent setting between nodes for
+        # this `secagg_id`
         try:
-            context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
+            self._setup_specific()
         except FedbiomedError as e:
             logger.debug(f"{e}")
-            return self._create_secagg_reply(
-                f'Can not create secure aggregation context due to database error: {e}', False)
+            return self._create_secagg_reply("Can not setup secure aggregation context "
+                                             f"on node for {self._secagg_id}.", False)
         except Exception as e:
-            logger.debug(f"Can not create secure aggregation context due to database error: {e}")
-            return self._create_secagg_reply('Can not create secure aggregation context', False)
-
-        if context is None:
-            try:
-                self._setup_specific()
-            except FedbiomedError as e:
-                logger.debug(f"{e}")
-                return self._create_secagg_reply(f'Can not setup secure aggregation it might be due to unregistered '
-                                                 f'certificate for the federated setup. Please see error: {e}', False)
-            except Exception as e:
-                logger.debug(f"{e}")
-                return self._create_secagg_reply('Unexpected error occurred please '
-                                                 'report this to the node owner', False)
-        else:
-            # Need to ensure the read context has compatible parties with this element
-            if (not self._matching_parties(context)):
-                return self._create_secagg_reply(
-                    f'Secagg element context for {self._secagg_id} exists but parties do not match',
-                    False)
-
-            message = f"Node secagg context element for {self._secagg_id} is " \
-                f"already existing for experiment {self._experiment_id}"
-            logger.info(message)
-            return self._create_secagg_reply(message, True)
+            logger.debug(f"{e}")
+            return self._create_secagg_reply('Unexpected error occurred please '
+                                             'report this to the node owner', False)
 
         return self._create_secagg_reply('Context element was successfully created on node', True)
 
@@ -199,7 +169,38 @@ class BaseSecaggSetup(ABC):
         """
 
 
-class SecaggServkeySetup(BaseSecaggSetup):
+class SecaggMpspdzSetup(SecaggBaseSetup):
+    """
+    Sets up a Secure Aggregation context element based on MPSPDZ on the node side.
+    """
+
+    def __init__(
+            self,
+            researcher_id: str,
+            secagg_id: str,
+            parties: List[str],
+            experiment_id: Union[str, None] = None,
+    ):
+        """Constructor of the class.
+
+        Args:
+            researcher_id: ID of the researcher that requests setup
+            secagg_id: ID of secagg context element for this setup request
+            experiment_id: ID of the experiment to which this secagg context element
+                is attached (empty string if no attached experiment)
+            parties: List of parties participating in the secagg context element setup
+        """
+        super().__init__(researcher_id, secagg_id, parties, experiment_id)
+
+        # one controller per secagg object to prevent any file conflict
+        self._MPC = MPCController(
+            tmp_dir=environ["TMP_DIR"],
+            component_type=ComponentType.NODE,
+            component_id=environ["ID"]
+        )
+
+
+class SecaggServkeySetup(SecaggMpspdzSetup):
     """
     Sets up a server key Secure Aggregation context element on the node side.
     """
@@ -231,19 +232,11 @@ class SecaggServkeySetup(BaseSecaggSetup):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-    def _matching_parties(self, context: dict) -> bool:
-        """Check if parties of given context are compatible with the secagg context element.
-
-        Args:
-            context: context to be compared with the secagg context element
-
-        Returns:
-            True if this context can be used with this element, False if not.
-        """
-        return matching_parties_servkey(context, self._parties)
-
     def _setup_specific(self) -> None:
         """Service function for setting up the server key secagg context element.
+
+        Raises:
+            FedbiomedSecaggError: cannot read MPC computation results
         """
 
         ip_file, _ = _CManager.write_mpc_certificates_for_experiment(
@@ -284,7 +277,7 @@ class SecaggServkeySetup(BaseSecaggSetup):
             f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
 
 
-class SecaggBiprimeSetup(BaseSecaggSetup):
+class SecaggBiprimeSetup(SecaggMpspdzSetup):
     """
     Sets up a biprime Secure Aggregation context element on the node side.
     """
@@ -316,48 +309,128 @@ class SecaggBiprimeSetup(BaseSecaggSetup):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-    def _matching_parties(self, context: dict) -> bool:
-        """Check if parties of given context are compatible with the secagg context element.
-
-        Args:
-            context: context to be compared with the secagg context element
-
-        Returns:
-            True if this context can be used with this element, False if not.
-        """
-        # Need to ensure that:
-        # - either the existing element is not attached to specific parties (None)
-        # - or existing element was established for the same parties or a superset of the parties
-        return matching_parties_biprime(context, self._parties)
-
     def _setup_specific(self) -> None:
         """Service function for setting up the biprime secagg context element.
         """
+        # don't update an existing default biprime
+        if not self._secagg_manager.is_default_biprime(self._secagg_id):
+            # create a (currently dummy) context if it does not exist yet
+            time.sleep(3)
+            context = {
+                'biprime': int(random.randrange(10**12)),   # dummy biprime
+                'max_keysize': 0                            # prevent using the dummy biprime for real
+            }
+            logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
+                        f"secagg_id='{self._secagg_id}'")
 
-        # create a (currently dummy) context if it does not exist yet
-        time.sleep(3)
-        context = {
-            'biprime': int(random.randrange(10**12)),   # dummy biprime
-            'max_keysize': 0                            # prevent using the dummy biprime for real
-        }
-        logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
-                    f"secagg_id='{self._secagg_id}'")
+            # Currently, all biprimes can be used by all sets of parties.
+            # TODO: add a mode where biprime is restricted for `self._parties`
+            self._secagg_manager.add(self._secagg_id, None, context)
+            logger.info(
+                f"Biprime successfully created for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
 
-        # Currently, all biprimes can be used by all sets of parties.
-        # TODO: add a mode where biprime is restricted for `self._parties`
-        self._secagg_manager.add(self._secagg_id, None, context)
+
+class SecaggDhSetup(SecaggBaseSetup):
+    """
+    Sets up a server key Secure Aggregation context element on the node side.
+    """
+
+    def __init__(
+            self,
+            researcher_id: str,
+            secagg_id: str,
+            parties: List[str],
+            experiment_id: str,
+            grpc_client: GrpcController,
+            pending_requests: PendingRequests,
+    ):
+        """Constructor of the class.
+
+        Args:
+            researcher_id: ID of the researcher that requests setup
+            secagg_id: ID of secagg context element for this setup request
+            experiment_id: ID of the experiment to which this secagg context element is attached
+            parties: List of parties participating to the secagg context element setup
+            grpc_client: object managing the communication with other components
+            pending_requests: object for receiving overlay node to node messages
+
+        Raises:
+            FedbiomedSecaggError: bad argument type or value
+        """
+        super().__init__(researcher_id, secagg_id, parties, experiment_id)
+
+        self._element = SecaggElementTypes.DIFFIE_HELLMAN
+        self._secagg_manager = DHManager
+        self._grpc_client = grpc_client
+        self._pending_requests = pending_requests
+
+        if not self._experiment_id or not isinstance(self._experiment_id, str):
+            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `experiment_id` must be a non empty string'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
+
+    def _setup_specific(self) -> None:
+        """Service function for setting up the Diffie Hellman secagg context element.
+        """
+        # we know len(parties) >= 3 so len(other_nodes) >= 1
+        other_nodes = [ e for e in self._parties[1:] if e != environ['NODE_ID'] ]
+
+        # Key exchange with other nodes
+        # TODO: replace `dummy` with real payload
+
+        other_nodes_messages = []
+        for node in other_nodes:
+            other_nodes_messages += [
+                NodeToNodeMessages.format_outgoing_message({
+                    'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
+                    'node_id': environ['NODE_ID'],
+                    'dest_node_id': node,
+                    'dummy': f"KEY REQUEST INNER from {environ['NODE_ID']}",
+                    'secagg_id': self._secagg_id,
+                    'command': 'key-request'
+                })
+            ]
+
+        logger.debug(f'Sending Diffie-Hellman setup for {self._secagg_id} to nodes: {other_nodes}')
+        listener_id = send_nodes(
+            self._grpc_client,
+            self._pending_requests,
+            self._researcher_id,
+            other_nodes,
+            other_nodes_messages,
+        )
+        all_received, messages = self._pending_requests.wait(listener_id, TIMEOUT_NODE_TO_NODE_REQUEST)
+
+        logger.debug(f"Completed Diffie-Hellmann setup with success={all_received} "
+                     f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}")
+        if not all_received:
+            nodes_no_answer = set(other_nodes) - set([m['node_id'] for m in messages])
+            raise FedbiomedSecaggError(
+                f"{ErrorNumbers.FB318.value}: Some nodes did not answer during Diffie Hellman secagg "
+                f"context setup: {nodes_no_answer}"
+            )
+
+        # Successful DH exchange with other ndoes
+        context = { 'dummy': "tempo value to replace by LOM specific value"}
+        self._secagg_manager.add(
+            self._secagg_id,
+            self._parties,
+            context,
+            self._experiment_id
+        )
         logger.info(
-            f"Biprime successfully created for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
+            "Diffie Hellman secagg context successfully created for "
+            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
 
 
 class SecaggSetup:
-    """Wrapper class for instantiating any type of node secagg context element setup class
+    """Factory class for instantiating any type of node secagg context element setup class
     """
 
     element2class = {
         SecaggElementTypes.SERVER_KEY.name: SecaggServkeySetup,
         SecaggElementTypes.BIPRIME.name: SecaggBiprimeSetup,
-        SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDHSetup
+        SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDhSetup
     }
 
     def __init__(self, element: int, **kwargs):
@@ -366,7 +439,7 @@ class SecaggSetup:
         self._element = element
         self.kwargs = kwargs
 
-    def __call__(self) -> BaseSecaggSetup:
+    def __call__(self) -> SecaggBaseSetup:
         """Instantiate a node secagg context element setup class.
 
         Returns:

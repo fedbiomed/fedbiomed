@@ -55,7 +55,7 @@ class Node:
             researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
             on_message=self.on_message,
         )
-        # Note: `PendingRequests` `NodeToNodeRouter` and `GrpcController` should not be changed to singleton.
+        # Note: `PendingRequests` `NodeToNodeRouter` should not be changed to singleton.
         # When implementing multiple researchers, there will probably be one per researcher.
         self._pending_requests = PendingRequests()
         self._n2n_router = NodeToNodeRouter(self._grpc_client, self._pending_requests)
