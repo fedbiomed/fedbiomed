@@ -518,6 +518,8 @@ class SecaggBiprimeManager(BaseSecaggManager):
                         'secagg_version': bp['secagg_version'],
                         'secagg_id': bp['secagg_id'],
                         'parties': None,
+                        'secagg_elem': SecaggElementTypes.BIPRIME.value,
+                        'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value,
                         'type': BiprimeType.DEFAULT.value,
                         'context': {
                             'biprime': bp['biprime'],

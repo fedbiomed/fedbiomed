@@ -7,7 +7,7 @@ import inspect
 
 from fedbiomed.common.constants import BiprimeType, SecaggElementTypes, SecureAggregationSchemes, __secagg_element_version__
 from fedbiomed.common.exceptions import FedbiomedSecaggError
-from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
+from fedbiomed.common.secagg_manager import SecaggDhManager, SecaggServkeyManager, SecaggBiprimeManager
 
 
 class FakeTinyDB:
@@ -95,7 +95,7 @@ class TestBaseSecaggManager(unittest.TestCase):
     def test_secagg_manager_01_init_ok(self):
         """Instantiate SecaggServkeyManager / SecaggBiprimeManager normal successful case"""
         # prepare
-        managers = [SecaggServkeyManager, SecaggBiprimeManager]
+        managers = [SecaggServkeyManager, SecaggBiprimeManager, SecaggDhManager]
 
         # action
         for manager in managers:
@@ -110,7 +110,7 @@ class TestBaseSecaggManager(unittest.TestCase):
             patch_tinydb_init):
         """Instantiate SecaggServkeyManager / SecaggBiprimeManager fails with exception"""
         # prepare
-        managers = [SecaggServkeyManager, SecaggBiprimeManager]
+        managers = [SecaggServkeyManager, SecaggBiprimeManager, SecaggDhManager]
 
         patch_tinydb_init.side_effect = FedbiomedSecaggError
 
@@ -163,18 +163,27 @@ class TestBaseSecaggManager(unittest.TestCase):
         # 1. common to servkey and biprime
 
         # preparation
-        managers = [SecaggServkeyManager, SecaggBiprimeManager]
+        managers = [SecaggServkeyManager, SecaggDhManager, SecaggBiprimeManager]
         entries_list = [
             [True,
-             [
-                 {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'},
-                 {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}
+                [
+                    {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'},
+                    {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}
+                ],
+                'my_dummy_experiment_id'
              ],
-             'my_dummy_experiment_id'],
+            [True,
+                [
+                    {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'},
+                    {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}
+                ],
+                'my_dummy_experiment_id'
+             ],
             [False,
-             [
-                 {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}],
-             'another_experiment_id'],
+                [
+                    {'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}],
+                'another_experiment_id'
+             ],
         ]
 
         # action
@@ -189,7 +198,7 @@ class TestBaseSecaggManager(unittest.TestCase):
                 # for each test
                 manager._db.db_table.entries = entries
 
-                if m == SecaggServkeyManager:
+                if m in (SecaggServkeyManager, SecaggDhManager):
                     kwargs = {'experiment_id': experiment_id}
                 else:
                     kwargs = {}
@@ -226,10 +235,11 @@ class TestBaseSecaggManager(unittest.TestCase):
     def test_secagg_manager_05_get_error_table_access_error(self):
         """Using `get()` method from SecaggManager fails with exception error because of table access error"""
         # preparation
-        managers = [SecaggServkeyManager, SecaggBiprimeManager]
+        managers = [SecaggServkeyManager, SecaggBiprimeManager, SecaggDhManager]
         entries_list = [
             [[{'experiment_id': 'my_dummy_experiment_id'}], 'my_dummy_experiment_id'],
             [[{'experiment_id': 245, 'another': 'field'}], 245],
+            [[{'experiment_id': 'another_dummy_experiment_id'}], 'another_dummy_experiment_id']
         ]
 
         # action
@@ -241,7 +251,7 @@ class TestBaseSecaggManager(unittest.TestCase):
                 # for each test
                 manager._db.db_table.exception_search = True
 
-                if m == SecaggServkeyManager:
+                if m in (SecaggServkeyManager, SecaggDhManager):
                     kwargs = {'experiment_id': experiment_id}
                 else:
                     kwargs = {}
@@ -258,11 +268,26 @@ class TestBaseSecaggManager(unittest.TestCase):
         parties_list = [['r', 'n1', 'n2'], ['r', 'n1', 'n2', 'n3', 'n4', 'n5'], 111, []]
 
         specific_list = [
-            [SecaggServkeyManager, {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
-              {'experiment_id': 'my_experiment_id_dummy'},
-               {'secagg_elem': SecaggElementTypes.SERVER_KEY.value, 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}],
-            [SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'}, {},
-              {'secagg_elem': SecaggElementTypes.BIPRIME.value, 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}],
+            [
+                SecaggServkeyManager,
+                {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
+                {'experiment_id': 'my_experiment_id_dummy'},
+                {'secagg_elem': SecaggElementTypes.SERVER_KEY.value,
+                 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}
+            ],
+            [
+                SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'},
+                {},
+                {'secagg_elem': SecaggElementTypes.BIPRIME.value,
+                 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}
+            ],
+            [
+                SecaggDhManager,
+                {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
+                {'experiment_id': 'my_experiment_id_dummy'},
+                {'secagg_elem': SecaggElementTypes.DIFFIE_HELLMAN.value,
+                 'secagg_scheme': SecureAggregationSchemes.LOM.value}
+            ],
         ]
 
         # action
@@ -322,6 +347,12 @@ class TestBaseSecaggManager(unittest.TestCase):
                 {'context': 'a_long_dummy_alternate_biprime'},
                 {}
             ],
+            [
+                SecaggDhManager,
+                {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
+                {'experiment_id': 'my_experiment__alternate_id_dummy', 'context': '987654321'},
+                {}
+            ]
         ]
 
         # action
@@ -352,21 +383,23 @@ class TestBaseSecaggManager(unittest.TestCase):
                 SecaggServkeyManager,
                 {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
                 {'experiment_id': 'my_experiment_id_dummy'},
-                {'secagg_elem': SecaggElementTypes.SERVER_KEY.value,
-                 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}],
+            ],
             [
                 SecaggBiprimeManager,
                 {'context': 'a_long_dummy_biprime'},
                 {},
-                {'secagg_elem': SecaggElementTypes.SERVER_KEY.value,
-                 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}
             ],
+            [
+                SecaggDhManager,
+                {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
+                {'experiment_id': 'my_experiment_id_dummy'}
+            ]
         ]
 
         # action
         for secagg_id in secagg_id_list:
             for parties in parties_list:
-                for m, specific, kwargs, expected in specific_list:
+                for m, specific, kwargs in specific_list:
                     # preparation (continued)
                     manager = m('/path/to/dummy/file')
                     # should not be accessing private variable, but avoids writing a specific fake class
