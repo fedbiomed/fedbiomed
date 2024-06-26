@@ -84,7 +84,7 @@ class SecaggCrypter:
             FedbiomedSecaggCrypterError: bad parameters
             FedbiomedSecaggCrypterError: encryption issue
         """
-
+        
         start = time.process_time()
 
         if not isinstance(params, list):

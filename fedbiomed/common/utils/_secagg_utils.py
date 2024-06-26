@@ -105,7 +105,7 @@ def quantize(
     return quantized_list.tolist()
 
 
-def multiply(xs: List[int], k: int, n_nodes: int, max_range: int) -> List[int]:
+def multiply(xs: List[int], k: int) -> List[int]:
     """
     Multiplies a list of integers by a constant
 
@@ -117,7 +117,6 @@ def multiply(xs: List[int], k: int, n_nodes: int, max_range: int) -> List[int]:
         List of multiplied integers
     """
     # Quicker than converting to/from numpy
-    assert k.bit_length() <= SAParameters.WEIGHT_RANGE
     return [e * k for e in xs]
 
 
