@@ -56,6 +56,7 @@ class PRF:
         taus = b''.join([i.to_bytes(2, 'big') + tau.to_bytes(2, 'big') for i in range(input_size)])
         return encryptor.update(taus) + encryptor.finalize()
 
+
 class LOM:
     """
     Lightweight Obfuscation Mechanism (LOM) class for protecting and aggregating data.

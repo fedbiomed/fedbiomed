@@ -16,8 +16,9 @@ from ._jls import JoyeLibert, \
     ServerKey, \
     UserKey, \
     FDH, \
-    PublicParam, \
-    quantize, \
+    PublicParam
+
+from fedbiomed.common.utils import quantize, \
     reverse_quantize, \
     multiply, \
     divide

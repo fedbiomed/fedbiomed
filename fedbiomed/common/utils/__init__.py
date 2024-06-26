@@ -32,7 +32,11 @@ from ._config_utils import (
 
 from ._secagg_utils import (
     matching_parties_servkey,
-    matching_parties_biprime
+    matching_parties_biprime,
+    quantize,
+    reverse_quantize,
+    multiply,
+    divide
 )
 
 from ._versions import (
@@ -66,6 +70,10 @@ __all__ = [
     "get_existing_component_db_names",
     "matching_parties_servkey",
     "matching_parties_biprime",
+    "quantize",
+    "multiply",
+    "divide",
+    "reverse_quantize",
     # _versions
     "raise_for_version_compatibility",
     "__default_version__",
