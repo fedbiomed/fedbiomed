@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from ._jls import JoyeLibert, quantize, reverse_quantize
+from ._jls import JoyeLibert
 from ._secagg_crypter import SecaggCrypter, EncryptedNumber
 from ._secagg_dummy_crypter import SecaggLomCrypter
 from ._lom import LOM, PRF
@@ -13,7 +13,5 @@ __all__ = [
     "PRF",
     "EncryptedNumber",
     "SecaggCrypter",
-    "quantize",
-    "reverse_quantize",
     "SecaggLomCrypter"
 ]
