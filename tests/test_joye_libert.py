@@ -5,8 +5,9 @@ from gmpy2 import mpz
 from unittest.mock import patch
 from fedbiomed.common.constants import SAParameters
 from fedbiomed.common.secagg._jls import PublicParam, JoyeLibert, FDH, \
-    EncryptedNumber, UserKey, BaseKey, ServerKey, \
-    quantize, reverse_quantize
+    EncryptedNumber, UserKey, BaseKey, ServerKey
+
+from fedbiomed.common.utils import reverse_quantize, quantize
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 
 

@@ -11,16 +11,17 @@ from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.constants import ErrorNumbers, SAParameters
 from fedbiomed.common.logger import logger
 
+from fedbiomed.common.utils import quantize, \
+    reverse_quantize, \
+    multiply, \
+    divide
+
 from ._jls import JoyeLibert, \
     EncryptedNumber, \
     ServerKey, \
     UserKey, \
     FDH, \
-    PublicParam, \
-    quantize, \
-    reverse_quantize, \
-    multiply, \
-    divide
+    PublicParam
 
 
 class SecaggCrypter:
