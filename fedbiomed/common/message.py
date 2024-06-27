@@ -247,7 +247,7 @@ class OverlayMessage(Message, RequiresProtocolVersion):
     researcher_id: str  # Needed for source and destination node side message handling
     node_id: str        # Needed for researcher side message handling (receiving a `ReplyTask`)
     dest_node_id: str   # Needed for researcher side message handling
-    overlay: bytes
+    overlay: list
     command: str
 
 
@@ -268,6 +268,8 @@ class InnerMessage(Message):
     # and prevent replay of message by a malicious node to another node
     # https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
     dest_node_id: str
+
+    # caveat: InnerMessage (without `request_id`) leaves room for replay attacks
 
 
 @dataclass(kw_only=True)
