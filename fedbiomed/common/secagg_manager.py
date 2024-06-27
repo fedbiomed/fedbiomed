@@ -5,7 +5,7 @@
 """
 import os
 from abc import ABC, abstractmethod
-from typing import Optional, Union, List, Dict
+from typing import Union, List, Dict
 import copy
 
 import json
@@ -18,7 +18,6 @@ from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError, SchemeValidator
 
-from packaging.version import Version
 
 _TableName = 'SecaggManager'
 _DefaultBiprimeValidator = SchemeValidator({
@@ -51,6 +50,8 @@ class BaseSecaggManager(ABC):
             raise FedbiomedSecaggError(errmess)
 
         self._query = Query()
+        # don't use DB read cache to ensure coherence
+        # (eg when mixing CLI commands with a GUI session)
         self._table = self._db.table(name=_TableName, cache_size=0)
 
     def _get_generic(self, secagg_id: str) -> Union[dict, None]:
@@ -90,7 +91,6 @@ class BaseSecaggManager(ABC):
             raise_for_version_compatibility(
                 element.get('secagg_version', __default_version__),
                 __secagg_element_version__,
-                #Version(2),
                 f"{ErrorNumbers.FB625.value}: Incompatible versions  (found %s but expected %s) for "
                 f"secagg element {secagg_id} in database {self._table}"
             )
@@ -125,23 +125,11 @@ class BaseSecaggManager(ABC):
         self._check_existing_entry_in_db(secagg_id)
         specific.update({
             'secagg_version': str(__secagg_element_version__),
-            #'secagg_version': Version(2),
             'secagg_id': secagg_id,
             'parties': parties,
             'secagg_scheme': secagg_scheme.value,
             'secagg_elem': secagg_elem.value
         })
-
-        # if existing_entry is None:
-        #     entry = {}
-        # else:
-        #     entry = existing_entry
-
-        # specific['secagg_scheme'] = secagg_scheme.value
-        # # TODO: retrieve previous context already set
-        # # TODO: update dict if already existing
-        # specific['context'] = {secagg_elem.value: specific}
-        # specific['secagg_id'] = secagg_id
 
         try:
             self._table.insert(specific)
@@ -159,22 +147,22 @@ class BaseSecaggManager(ABC):
             raise FedbiomedSecaggError(errmess)
 
     def _raise_error_incompatible_retrieved_entry(self,
-                                                entry: Union[None, Dict],
-                                                experiment_id: str,
-                                                secagg_id: str,
-                                                component: SecaggElementTypes):
+                                                  entry: Union[None, Dict],
+                                                  experiment_id: str,
+                                                  secagg_id: str,
+                                                  component: SecaggElementTypes):
         if entry is not None and entry['experiment_id'] != experiment_id:
             errmess = f'{ErrorNumbers.FB623.value}: error getting {component.value} element: ' \
                       f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
                       f'current experiment experiment_id={experiment_id}'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
-    
+
     def _raise_error_mismatch_secagg_id_and_experiment_id(self,
-                                                         entry: Union[None, Dict],
-                                                         experiment_id: str,
-                                                         secagg_id: str,
-                                                         component: SecaggElementTypes):
+                                                          entry: Union[None, Dict],
+                                                          experiment_id: str,
+                                                          secagg_id: str,
+                                                          component: SecaggElementTypes):
 
         if entry is not None and entry['experiment_id'] != experiment_id:
             errmess = f'{ErrorNumbers.FB623.value}: error removing {component.value} element: ' \
@@ -235,10 +223,6 @@ class SecaggServkeyManager(BaseSecaggManager):
         """
         super().__init__(db_path)
 
-        # don't use DB read cache to ensure coherence
-        # (eg when mixing CLI commands with a GUI session)
-        #self._table = self._db.table(name='SecaggServkey', cache_size=0)
-
     def get(self, secagg_id: str, experiment_id: str) -> Union[dict, None]:
         """Search for data entry with given `secagg_id`
 
@@ -261,9 +245,9 @@ class SecaggServkeyManager(BaseSecaggManager):
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         element = self._get_generic(secagg_id)
         self._raise_error_incompatible_retrieved_entry(element,
-                                                     experiment_id,
-                                                     secagg_id,
-                                                     SecaggElementTypes.SERVER_KEY)
+                                                       experiment_id,
+                                                       secagg_id,
+                                                       SecaggElementTypes.SERVER_KEY)
 
         return element
 
@@ -326,9 +310,6 @@ class SecaggBiprimeManager(BaseSecaggManager):
             db_path: path to the component's secagg database
         """
         super().__init__(db_path)
-
-        # don't use DB read cache to ensure coherence
-        # (eg when mixing CLI commands with a GUI session)
 
         self._v = Validator()
 
@@ -547,9 +528,6 @@ class SecaggDhManager(BaseSecaggManager):
         """
         super().__init__(db_path)
 
-        logger.debug("TODO: ADD REAL PAYLOAD FOR DH DB MANAGER - SecaggDhManager - constructor")
-        self._dummy_context = {}
-
     def get(self, secagg_id: str, experiment_id: str) -> Union[dict, None]:
         """Search for data entry with given `secagg_id`
 
@@ -568,10 +546,6 @@ class SecaggDhManager(BaseSecaggManager):
         Raises:
             FedbiomedSecaggError: the entry is associated with another experiment
         """
-        logger.debug("TODO: ADD REAL PAYLOAD FOR DH DB MANAGER - SecaggDhManager - get")
-
-        # dont return None by default to avoid failure in tempo dummy setup where `add` is not called
-        
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         element = self._get_generic(secagg_id)
         self._raise_error_incompatible_retrieved_entry(element, 
@@ -580,7 +554,6 @@ class SecaggDhManager(BaseSecaggManager):
                                                        SecaggElementTypes.DIFFIE_HELLMAN)
 
         return element
-        #return self._dummy_context.get(secagg_id, None)
 
     def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: str):
         """Add a new data entry for a context element in the servkey table 
@@ -593,13 +566,6 @@ class SecaggDhManager(BaseSecaggManager):
             experiment_id: ID of the experiment to which this secagg context element is attached
             context: server key part held by this party
         """
-
-        logger.debug("TODO: ADD REAL PAYLOAD FOR DH DB MANAGER - SecaggDhManager - add")
-        self._dummy_context[secagg_id] = {
-            'parties': parties,
-            'context': context,
-            'experiment_id': experiment_id
-        }
         self._add_generic(
             SecureAggregationSchemes.LOM,
             SecaggElementTypes.DIFFIE_HELLMAN,
@@ -624,9 +590,6 @@ class SecaggDhManager(BaseSecaggManager):
         Raises:
             FedbiomedSecaggError: database entry does not belong to `experiment_id`
         """
-
-        logger.debug("TODO: ADD REAL PAYLOAD FOR DH DB MANAGER - SecaggDhManager - remove")
-        #del self._dummy_context[secagg_id]
         # Trust argument type and value check from calling class for `secagg_id` (`SecaggSetup`, but not `Node`)
         # Don't trust `Node` for `experiment_id` type (may give `None`) but this is not an issue
         element = self._get_generic(secagg_id)

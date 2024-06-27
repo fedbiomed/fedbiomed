@@ -306,7 +306,6 @@ class SecaggContext(ABC):
             'parties': self._parties,
             'command': 'secagg',
         })
-        print("PARTIES", self._parties, self._create_payload)
 
         return self._secagg_round(msg, True, self._create_payload)
 
