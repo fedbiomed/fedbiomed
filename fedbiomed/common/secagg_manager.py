@@ -5,7 +5,7 @@
 """
 import os
 from abc import ABC, abstractmethod
-from typing import Union, List, Dict
+from typing import Optional, Union, List, Dict
 import copy
 
 import json
@@ -157,42 +157,41 @@ class BaseSecaggManager(ABC):
 
     def _raise_error_incompatible_requested_entry(self,
                                                   entry: Union[None, Dict],
-                                                  experiment_id: str,
-                                                  secagg_id: str,
                                                   component: SecaggElementTypes,
-                                                  database_operation_name: str):
-        """Raises error if either: 
-            - entry does not exist or
-            - there is a mismatch between the saved and the current `experiment_id`
+                                                  secagg_id: str,
+                                                  experiment_id: Optional[str] = None,
+                                                  database_operation_name: str = ''):
+        """Raises error if:
+            - there is a mismatch between the saved and the current Component
+            - there is a mismatch between the saved and the current `experiment_id`. This is
+            only checked if argument `experiment_id` is not None.
 
         Args:
             entry: entry of the database
-            experiment_id: id of the experiment
-            secagg_id: unique id used to save a given secure aggregation component
             component: type of the element
+            secagg_id: unique id used to save a given secure aggregation component
+            experiment_id: id of the experiment. Defaults to None (no check is done against `experiment_id`)
+            database_operation_name: string describing the operation taking place on the database.
+                can be "getting", "adding", "removing"
 
         Raises:
-            FedbiomedSecaggError: error raised if above condition are matched.
+            FedbiomedSecaggError: error raised if above condition(s) is/are matched.
         """
-        if entry is not None and entry['experiment_id'] != experiment_id:
-            errmess = f'{ErrorNumbers.FB623.value}: error {database_operation_name} {component.value} element: ' \
-                      f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
-                      f'current experiment experiment_id={experiment_id}'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-    
-    # def _raise_error_mismatch_secagg_id_and_experiment_id(self,
-    #                                                       entry: Union[None, Dict],
-    #                                                       experiment_id: str,
-    #                                                       secagg_id: str,
-    #                                                       component: SecaggElementTypes):
+        errmess: str = None
+        if entry is not None:
+            if experiment_id is not None and entry['experiment_id'] != experiment_id:
+                errmess = f'{ErrorNumbers.FB623.value}: error {database_operation_name} {component.name} element: ' \
+                          f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
+                          f'current experiment experiment_id={experiment_id}'
 
-    #     if entry is not None and entry['experiment_id'] != experiment_id:
-    #         errmess = f'{ErrorNumbers.FB623.value}: error removing {component.value} element: ' \
-    #                   f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
-    #                   f'current experiment experiment_id={experiment_id}'
-    #         logger.error(errmess)
-    #         raise FedbiomedSecaggError(errmess)
+            if entry is not None and entry['secagg_elem'] != component.value:
+                errmess = f'{ErrorNumbers.FB623.value}: error {database_operation_name} {component.name} element: ' \
+                          f'an entry exists for secagg_id={secagg_id} and  experiment_id={experiment_id}' \
+                          f' but was saved as a {SecaggElementTypes.get_element_from_value(entry["secagg_elem"])}'
+
+            if errmess:
+                logger.error(errmess)
+                raise FedbiomedSecaggError(errmess)
 
     @abstractmethod
     def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: Union[str, None]):
@@ -268,9 +267,9 @@ class SecaggServkeyManager(BaseSecaggManager):
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         element = self._get_generic(secagg_id)
         self._raise_error_incompatible_requested_entry(element,
-                                                       experiment_id,
-                                                       secagg_id,
                                                        SecaggElementTypes.SERVER_KEY,
+                                                       secagg_id,
+                                                       experiment_id,
                                                        'getting')
 
         return element
@@ -317,9 +316,9 @@ class SecaggServkeyManager(BaseSecaggManager):
         # Don't trust `Node` for `experiment_id` type (may give `None`) but this is not an issue
         element = self._get_generic(secagg_id)
         self._raise_error_incompatible_requested_entry(element,
-                                                       experiment_id,
-                                                       secagg_id,
                                                        SecaggElementTypes.SERVER_KEY,
+                                                       secagg_id,
+                                                       experiment_id,
                                                        'removing')
         return self._remove_generic(secagg_id, SecaggElementTypes.SERVER_KEY)
 
@@ -574,9 +573,9 @@ class SecaggDhManager(BaseSecaggManager):
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         element = self._get_generic(secagg_id)
         self._raise_error_incompatible_requested_entry(element, 
-                                                       experiment_id,
-                                                       secagg_id,
                                                        SecaggElementTypes.DIFFIE_HELLMAN,
+                                                       secagg_id,
+                                                       experiment_id,
                                                        'getting')
 
         return element
@@ -620,8 +619,8 @@ class SecaggDhManager(BaseSecaggManager):
         # Don't trust `Node` for `experiment_id` type (may give `None`) but this is not an issue
         element = self._get_generic(secagg_id)
         self._raise_error_incompatible_requested_entry(element,
-                                                       experiment_id,
-                                                       secagg_id,
                                                        SecaggElementTypes.DIFFIE_HELLMAN,
+                                                       secagg_id,
+                                                       experiment_id,
                                                        'removing')
         return self._remove_generic(secagg_id, SecaggElementTypes.DIFFIE_HELLMAN)
