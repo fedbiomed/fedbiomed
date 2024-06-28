@@ -27,17 +27,21 @@ OVERLAY_MESSAGE_PROCESS_TIMEOUT = 60
 class _NodeToNodeAsyncRouter:
     """Background async thread for handling node to node messages received by a node."""
 
-    def __init__(self, grpc_controller: GrpcController, pending_requests: PendingRequests) -> None:
+    def __init__(
+            self,
+            grpc_controller: GrpcController,
+            pending_requests: PendingRequests,
+            pending_data: PendingRequests,
+    ) -> None:
         """Class constructor.
 
         Args:
             grpc_controller: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
+            pending_data: object for sharing data
         """
         self._grpc_controller = grpc_controller
-        self._pending_requests = pending_requests
-
-        self._node_to_node_controller = NodeToNodeController(self._grpc_controller, self._pending_requests)
+        self._node_to_node_controller = NodeToNodeController(self._grpc_controller, pending_requests, pending_data)
 
         self._queue = asyncio.Queue(MAX_N2N_ROUTER_QUEUE_SIZE)
         self._loop = None
@@ -166,7 +170,7 @@ class _NodeToNodeAsyncRouter:
             except asyncio.CancelledError as e:
                 logger.error(
                     f"{ErrorNumbers.FB324}: Task {asyncio.current_task().get_name()} was cancelled before completing. "
-                    f"Error message: {e}. Overlay message: {overlay_msg}"
+                    f"Error message: {e}. Overlay message: {overlay_msg['command']}"
                 )
             else:
                 await self._node_to_node_controller.final(inner_msg.get_param('command'), **finally_kwargs)
@@ -174,21 +178,27 @@ class _NodeToNodeAsyncRouter:
         except Exception as e:
             logger.error(
                 f"{ErrorNumbers.FB324}: Failed processing overlay message. Exception: {type(e).__name__}. "
-                f"Error message: {e}. Overlay message: {overlay_msg}")
+                f"Error message: {e}. Overlay message: {overlay_msg['command']}")
             # don't raise exception
 
 
 class NodeToNodeRouter(_NodeToNodeAsyncRouter):
     """Handles node to node messages received by a node."""
 
-    def __init__(self, grpc_controller: GrpcController, pending_requests: PendingRequests) -> None:
+    def __init__(
+            self,
+            grpc_controller: GrpcController,
+            pending_requests: PendingRequests,
+            pending_data: PendingRequests
+    ) -> None:
         """Class constructor.
 
         Args:
             grpc_controller: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
+            pending_data: object for sharing data
         """
-        super().__init__(grpc_controller, pending_requests)
+        super().__init__(grpc_controller, pending_requests, pending_data)
 
         self._thread = Thread(target=self._run, args=(), daemon=True)
 

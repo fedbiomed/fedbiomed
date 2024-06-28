@@ -345,6 +345,7 @@ class SecaggDhSetup(SecaggBaseSetup):
             experiment_id: str,
             grpc_client: GrpcController,
             pending_requests: PendingRequests,
+            pending_data: PendingRequests,
     ):
         """Constructor of the class.
 
@@ -365,6 +366,7 @@ class SecaggDhSetup(SecaggBaseSetup):
         self._secagg_manager = DHManager
         self._grpc_client = grpc_client
         self._pending_requests = pending_requests
+        self._pending_data = pending_data
 
         if not self._experiment_id or not isinstance(self._experiment_id, str):
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `experiment_id` must be a non empty string'
@@ -382,12 +384,13 @@ class SecaggDhSetup(SecaggBaseSetup):
         key_agreement = DHKeyAgreement(
             node_u_id=environ['NODE_ID'],
             node_u_private_key=local_keypair.export_private_key(),
-            session_salt=self._secagg_id,
+            session_salt=bytes(self._secagg_id, 'utf-8'),
         )
 
-        # Key exchange with other nodes
-        # TODO: replace `dummy` with real payload
+        # Make public key available for requests received from other nodes for this `secagg_id`
+        self._pending_data.add_reply(self._secagg_id, {'public_key': local_public_key})
 
+        # Request public key from other nodes
         other_nodes_messages = []
         for node in other_nodes:
             other_nodes_messages += [
@@ -395,7 +398,6 @@ class SecaggDhSetup(SecaggBaseSetup):
                     'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
                     'node_id': environ['NODE_ID'],
                     'dest_node_id': node,
-                    'public_key': local_public_key,
                     'secagg_id': self._secagg_id,
                     'command': 'key-request'
                 })
@@ -411,6 +413,10 @@ class SecaggDhSetup(SecaggBaseSetup):
         )
         all_received, messages = self._pending_requests.wait(listener_id, TIMEOUT_NODE_TO_NODE_REQUEST)
 
+        # Nota: don't clean `self._pending_data.remove(secagg_id)` when finished.
+        # Rely on automatic cleaning after timeout.
+        # This node received all replies, but some nodes may still be querying this node.
+
         logger.debug(f"Completed Diffie-Hellmann setup with success={all_received} "
                      f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}")
         if not all_received:
@@ -421,12 +427,10 @@ class SecaggDhSetup(SecaggBaseSetup):
             )
 
         # At this point: successful DH exchange with other nodes
-        for m in messages:
-            logger.debug(f"******************** MESSAGE {type(m)} {m}")
-            logger.debug(m.get_param('node_id'))
+        context = {m.get_param('node_id'): key_agreement.agree(
+            m.get_param('node_id'), m.get_param('public_key')) for m in messages}
+        logger.debug(f"************************ CONTEXT {context}")
 
-
-        context = { 'dummy': "tempo value to replace by LOM specific value"}
         self._secagg_manager.add(
             self._secagg_id,
             self._parties,
