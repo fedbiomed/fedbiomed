@@ -382,14 +382,12 @@ class KeyRequest(InnerRequestReply, RequiresProtocolVersion):
     Currently only Diffie-Hellman key exchange is supported
 
     Attributes:
-        public_key: public key of requesting node
         secagg_id: unique ID of this secagg context element
         command: Command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
-    public_key: bytes
     secagg_id: str
     command: str
 
@@ -402,7 +400,7 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
     Currently only Diffie-Hellman key exchange is supported
 
     Attributes:
-        public_key: public key of requesting node
+        public_key: public key of replying node
         secagg_id: unique ID of this secagg context element
         command: Command string
 

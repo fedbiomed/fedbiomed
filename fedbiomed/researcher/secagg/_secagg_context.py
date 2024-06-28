@@ -187,7 +187,7 @@ class SecaggContext(ABC):
             True if this context can be used with this element, False if not.
         """
 
-    def _create_payload(self) -> Tuple[Union[dict, None], bool]:
+    def _create_payload(self, *args, **kwargs) -> Tuple[Union[dict, None], bool]:
         """Researcher payload for a secagg context element
 
         Returns:
@@ -196,7 +196,7 @@ class SecaggContext(ABC):
         context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
 
         if context is None:
-            _, status = self._create_payload_specific()
+            _, status = self._create_payload_specific(*args, **kwargs)
             context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
         else:
             # Need to ensure the read context has compatible parties with this element
@@ -644,15 +644,15 @@ class SecaggDhContext(SecaggContext):
 
         return matching_parties_servkey(context, self._parties)
 
-    def _create_payload_specific(self) -> Tuple[Union[dict, None], bool]:
+    def _create_payload_specific(self, context) -> Tuple[Union[dict, None], bool]:
         """Researcher payload for creating Diffie Hellman  secagg context element
+
+        Args:
+            context: specific secagg element context
 
         Returns:
             A tuple of a `context` and a `status` for the server key context element
         """
-        # no cryptographic material on the researcher side in this case, no specific context element to save
-        context = {}
-
         try:
             self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
         except FedbiomedSecaggError:
@@ -698,10 +698,12 @@ class SecaggDhContext(SecaggContext):
             status = {rep.node_id: rep.success for rep in replies.values()}
             status[self._researcher_id] = not errors and not fed_request.policy.has_stopped_any()
 
+        # no cryptographic material on the researcher side in this case, no specific context element to save
+        context = {}
 
         if all(status.values()):
             # only create context if previous steps succeeded
-            context, status_researcher_payload = payload()
+            _, status_researcher_payload = payload(context)
             status[self._researcher_id] = status[self._researcher_id] and status_researcher_payload
 
         # if not status:
