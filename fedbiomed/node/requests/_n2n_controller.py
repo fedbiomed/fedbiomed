@@ -5,7 +5,7 @@ from typing import Optional
 import asyncio
 import inspect
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST
 from fedbiomed.common.message import InnerMessage, OverlayMessage, NodeMessages, NodeToNodeMessages
 from fedbiomed.common.logger import logger
 
@@ -19,15 +19,22 @@ from fedbiomed.transport.controller import GrpcController
 class NodeToNodeController:
     """Defines the controller for protocol messages processed by the node to node router"""
 
-    def __init__(self, grpc_controller: GrpcController, pending_requests: PendingRequests) -> None:
+    def __init__(
+            self,
+            grpc_controller: GrpcController,
+            pending_requests: PendingRequests,
+            pending_data: PendingRequests,
+    ) -> None:
         """Constructor of the class.
 
         Args:
             grpc_controller: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
+            pending_data: object for sharing data
         """
         self._grpc_controller = grpc_controller
         self._pending_requests = pending_requests
+        self._pending_data = pending_data
 
         self._command2method = {
             'key-request': self._HandlerKeyRequest,
@@ -122,22 +129,31 @@ class NodeToNodeController:
         Returns:
             A `dict` with overlay reply message
         """
-        # TODO: replace with real payload, waiting for DH key pair to be generated,
-        # then send it.
-        import random
-        # Use 15 seconds delay to have sometimes success, sometimes failure
-        # delay = random.randrange(1, 15)
-        delay = random.randrange(1, 5)
-        for i in range(delay):
-            logger.debug(f"===== WAIT 1 SECOND IN NODE TO NODE ROUTER {i+1}/{delay}")
-            await asyncio.sleep(1)
 
+        # # TODO: replace with real payload, waiting for DH key pair to be generated,
+        # # then send it.
+        # import random
+        # # Use 15 seconds delay to have sometimes success, sometimes failure
+        # # delay = random.randrange(1, 15)
+        # delay = random.randrange(1, 5)
+        # for i in range(delay):
+        #     logger.debug(f"===== WAIT 1 SECOND IN NODE TO NODE ROUTER {i+1}/{delay}")
+        #     await asyncio.sleep(1)
+
+        listener_id = self._pending_data.add_listener([inner_msg.get_param('secagg_id')])
+        all_received, data = self._pending_data.wait(listener_id, TIMEOUT_NODE_TO_NODE_REQUEST)
+
+        # Don't send reply message if the public key is not available after a timeout
+        if not all_received:
+            return None
+
+        # we assume the data is properly formatted
         inner_resp = NodeToNodeMessages.format_outgoing_message(
             {
                 'request_id': inner_msg.get_param('request_id'),
                 'node_id': environ['NODE_ID'],
                 'dest_node_id': inner_msg.get_param('node_id'),
-                'public_key': b"KEY REPLY INNER from {environ['NODE_ID']}",
+                'public_key': data[0]['public_key'],
                 'secagg_id': inner_msg.get_param('secagg_id'),
                 'command': 'key-reply'
             })
@@ -152,13 +168,15 @@ class NodeToNodeController:
 
         return { 'overlay_resp': overlay_resp }
 
-    async def _FinalKeyRequest(self, overlay_resp: OverlayMessage) -> None:
+
+    async def _FinalKeyRequest(self, overlay_resp: Optional[OverlayMessage]) -> None:
         """Final handler called for KeyRequest message.
 
         Args:
             overlay_resp: overlay reply message to send
         """
-        self._grpc_controller.send(overlay_resp)
+        if isinstance(overlay_resp, OverlayMessage):
+            self._grpc_controller.send(overlay_resp)
 
 
     async def _HandlerKeyReply(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:

@@ -21,8 +21,13 @@ GRACE_PENDING_REPLY = 10
 class PendingRequests:
     """Handle the replies to request-reply node to node communications with a researcher."""
 
-    def __init__(self):
-        """Constructor of the class."""
+    def __init__(self, remove_waited):
+        """Constructor of the class.
+
+        Args:
+            remove_waited: if True, remove from pending replies when they are read
+        """
+        self._remove_waited = remove_waited
 
         # table for storing the replies received to requests, still waiting to be consumed
         self._pending_replies = {}
@@ -77,7 +82,7 @@ class PendingRequests:
                     < time_current:
                 # this pending reply is obsolete
                 del self._pending_replies[reqid]
-                logger.debug(f"Clean obsolete entry {reqid} from pending replies table.")
+                logger.debug(f"{ErrorNumbers.FB324}: Clean obsolete entry {reqid} from pending replies table.")
 
                 # In case a pending listener waits on this reply, it is blocked until its timeout
                 # and fails. Anyway this should not happen, unless the `wait()` started more
@@ -105,11 +110,12 @@ class PendingRequests:
             }
 
         # check if added reply completes some listeners
-        # (note: there should never be more than 1 event `set()` under current assumptions)
+        # (note: for request-reply there should never be more than 1 event `set()` under current assumptions)
+        # (note: for secagg_id public key there can be more than 1 event `set()`)
         completed_listeners = self._all_replies()
         with self._pending_listeners_lock:
             for completed_listener in completed_listeners:
-                # check: listener may have been removed since tested `_all_replies` as we don't kept the lock
+                # check: listener may have been removed since tested `_all_replies` as we didn't keep the lock
                 if completed_listener in self._pending_listeners:
                     # wake up waiting listener
                     self._pending_listeners[completed_listener]['event'].set()
@@ -183,11 +189,16 @@ class PendingRequests:
                 all_received = set(self._pending_listeners[listener_id]['requests']).\
                     issubset(set(self._pending_replies.keys()))
 
-                # remove all replies for this request from the pending replies,
-                # and add them to the list of received replies
-                messages = [(self._pending_replies.pop(reqid))['message']
+                # create list of received replies
+                messages = [self._pending_replies[reqid]['message']
                             for reqid in self._pending_listeners[listener_id]['requests']
                             if reqid in self._pending_replies]
+
+                if self._remove_waited:
+                    # remove all replies for this request from the pending replies
+                    for reqid in self._pending_listeners[listener_id]['requests']:
+                        if reqid in self._pending_replies:
+                            (self._pending_replies.pop(reqid))
 
                 # remove expired listener
                 del self._pending_listeners[listener_id]
