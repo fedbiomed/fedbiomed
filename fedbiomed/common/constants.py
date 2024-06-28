@@ -267,6 +267,12 @@ class SecaggElementTypes(_BaseEnum):
     BIPRIME: int = 1
     DIFFIE_HELLMAN: int = 2
 
+    @staticmethod
+    def get_element_from_value(element_value: int):
+        for element in SecaggElementTypes:
+            if element.value == element_value:
+                return element
+
 
 class VEParameters:
     CLIPPING_RANGE: int = 3
