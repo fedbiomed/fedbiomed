@@ -57,8 +57,9 @@ class Node:
         )
         # Note: `PendingRequests` `NodeToNodeRouter` should not be changed to singleton.
         # When implementing multiple researchers, there will probably be one per researcher.
-        self._pending_requests = PendingRequests()
-        self._n2n_router = NodeToNodeRouter(self._grpc_client, self._pending_requests)
+        self._pending_requests = PendingRequests(remove_waited=True)
+        self._pending_data = PendingRequests(remove_waited=False)
+        self._n2n_router = NodeToNodeRouter(self._grpc_client, self._pending_requests, self._pending_data)
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
 
@@ -229,6 +230,7 @@ class Node:
         # but we can add it for all secagg for future extension (in-app Shamir for Joye-Libert secagg)
         setup_arguments['grpc_client'] = self._grpc_client
         setup_arguments['pending_requests'] = self._pending_requests
+        setup_arguments['pending_data'] = self._pending_data
 
         try:
             secagg = SecaggSetup(**setup_arguments)()
