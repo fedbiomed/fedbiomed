@@ -87,6 +87,9 @@ class TestBaseSecaggManager(unittest.TestCase):
             "test-data",
             "default_biprimes"
         )
+        self.equivalences = {SecaggServkeyManager: SecaggElementTypes.SERVER_KEY,
+                             SecaggBiprimeManager: SecaggElementTypes.BIPRIME,
+                             SecaggDhManager: SecaggElementTypes.DIFFIE_HELLMAN}
 
     def tearDown(self) -> None:
         self.patcher_query.stop()
@@ -122,7 +125,7 @@ class TestBaseSecaggManager(unittest.TestCase):
     def test_secagg_manager_03_get_ok(self):
         """Using `get()` method from SecaggServkeyManager / SecaggBiprimeManager successfully"""
         # preparation
-        managers = [SecaggServkeyManager, SecaggBiprimeManager]
+        managers = [SecaggServkeyManager, SecaggBiprimeManager, SecaggDhManager]
         entries_list = [
             [[], 'my_dummy_experiment_id'],
             [
@@ -131,8 +134,12 @@ class TestBaseSecaggManager(unittest.TestCase):
             [
                 [{'secagg_version': str(__secagg_element_version__), 'experiment_id': 33, 'some_more_field': 3}],
                 33],
+            [
+                [{'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}],
+                'my_dummy_experiment_id'],
         ]
 
+        
         # action
         for m in managers:
             for entries, experiment_id in entries_list:
@@ -144,9 +151,10 @@ class TestBaseSecaggManager(unittest.TestCase):
 
                 if entries:
                     expected_entries = entries[0]
+                    expected_entries.update({'secagg_elem': self.equivalences.get(m).value})
                 else:
                     expected_entries = None
-                if m == SecaggServkeyManager:
+                if m != SecaggBiprimeManager:
                     kwargs = {'experiment_id': experiment_id}
                 else:
                     kwargs = {}
@@ -193,6 +201,8 @@ class TestBaseSecaggManager(unittest.TestCase):
                 if not test_for_biprime and m == SecaggBiprimeManager:
                     continue
 
+                for entry in entries:
+                    entry.update({'secagg_elem': self.equivalences.get(m).value})
                 manager = m('/path/to/dummy/file')
                 # should not be accessing private variable, but got no getter + avoid writing a specific fake class
                 # for each test
