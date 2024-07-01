@@ -282,21 +282,18 @@ class TestBaseSecaggManager(unittest.TestCase):
                 SecaggServkeyManager,
                 {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
                 {'experiment_id': 'my_experiment_id_dummy'},
-                {'secagg_elem': SecaggElementTypes.SERVER_KEY.value,
-                 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}
+                {'secagg_elem': SecaggElementTypes.SERVER_KEY.value}
             ],
             [
                 SecaggBiprimeManager, {'context': 'a_long_dummy_biprime'},
                 {},
-                {'secagg_elem': SecaggElementTypes.BIPRIME.value,
-                 'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}
+                {'secagg_elem': SecaggElementTypes.BIPRIME.value}
             ],
             [
                 SecaggDhManager,
                 {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
                 {'experiment_id': 'my_experiment_id_dummy'},
-                {'secagg_elem': SecaggElementTypes.DIFFIE_HELLMAN.value,
-                 'secagg_scheme': SecureAggregationSchemes.LOM.value}
+                {'secagg_elem': SecaggElementTypes.DIFFIE_HELLMAN.value}
             ],
         ]
 
@@ -449,8 +446,7 @@ class TestBaseSecaggManager(unittest.TestCase):
         self.assertEqual(
             bpm._table.entries,
             [{'secagg_version': str(__secagg_element_version__), 'secagg_id': 'dummy_biprime', 'parties': None, 'type': 'default',
-                'context': {'biprime': 12345678, 'max_keysize': 33}, 'secagg_elem': SecaggElementTypes.BIPRIME.value,
-                'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value}]
+                'context': {'biprime': 12345678, 'max_keysize': 33}, 'secagg_elem': SecaggElementTypes.BIPRIME.value}]
         )
 
         # 2. don't use default biprimes
