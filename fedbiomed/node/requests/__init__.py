@@ -6,7 +6,6 @@ to simplify imports from fedbiomed.node.requests
 """
 
 from ._overlay import format_outgoing_overlay, format_incoming_overlay, send_nodes
-from ._pending_requests import PendingRequests
 from ._n2n_controller import NodeToNodeController
 from ._n2n_router import NodeToNodeRouter
 
@@ -14,7 +13,6 @@ __all__ = [
     'format_outgoing_overlay',
     'format_incoming_overlay',
     'send_nodes',
-    'PendingRequests',
     'NodeToNodeController',
     'NodeToNodeRouter',
 ]

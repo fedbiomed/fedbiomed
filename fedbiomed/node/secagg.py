@@ -12,18 +12,19 @@ import uuid
 
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType, \
-    REQUEST_PREFIX, TIMEOUT_NODE_TO_NODE_REQUEST
+    REQUEST_PREFIX
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeToNodeMessages
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg import DHKey, DHKeyAgreement
+from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg_manager import SKManager, BPrimeManager, DHManager
-from fedbiomed.node.requests import send_nodes, PendingRequests
+from fedbiomed.node.requests import send_nodes
 
 
 _CManager = CertificateManager(
@@ -344,8 +345,8 @@ class SecaggDhSetup(SecaggBaseSetup):
             parties: List[str],
             experiment_id: str,
             grpc_client: GrpcController,
-            pending_requests: PendingRequests,
-            pending_data: PendingRequests,
+            pending_requests: EventWaitExchange,
+            controller_data: EventWaitExchange,
     ):
         """Constructor of the class.
 
@@ -356,6 +357,7 @@ class SecaggDhSetup(SecaggBaseSetup):
             parties: List of parties participating to the secagg context element setup
             grpc_client: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
+            controller_data: object for passing data to the node controller
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
@@ -366,7 +368,7 @@ class SecaggDhSetup(SecaggBaseSetup):
         self._secagg_manager = DHManager
         self._grpc_client = grpc_client
         self._pending_requests = pending_requests
-        self._pending_data = pending_data
+        self._controller_data = controller_data
 
         if not self._experiment_id or not isinstance(self._experiment_id, str):
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `experiment_id` must be a non empty string'
@@ -388,7 +390,7 @@ class SecaggDhSetup(SecaggBaseSetup):
         )
 
         # Make public key available for requests received from other nodes for this `secagg_id`
-        self._pending_data.add_reply(self._secagg_id, {'public_key': local_public_key})
+        self._controller_data.event(self._secagg_id, {'public_key': local_public_key})
 
         # Request public key from other nodes
         other_nodes_messages = []
@@ -404,16 +406,15 @@ class SecaggDhSetup(SecaggBaseSetup):
             ]
 
         logger.debug(f'Sending Diffie-Hellman setup for {self._secagg_id} to nodes: {other_nodes}')
-        listener_id = send_nodes(
+        all_received, messages = send_nodes(
             self._grpc_client,
             self._pending_requests,
             self._researcher_id,
             other_nodes,
             other_nodes_messages,
         )
-        all_received, messages = self._pending_requests.wait(listener_id, TIMEOUT_NODE_TO_NODE_REQUEST)
 
-        # Nota: don't clean `self._pending_data.remove(secagg_id)` when finished.
+        # Nota: don't clean `self._controller_data.remove(secagg_id)` when finished.
         # Rely on automatic cleaning after timeout.
         # This node received all replies, but some nodes may still be querying this node.
 
