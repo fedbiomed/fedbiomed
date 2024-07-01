@@ -435,7 +435,7 @@ class SecaggMpspdzContext(SecaggContext):
 
         executer = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         context_future = executer.submit(payload)
-
+        
         with self._requests.send(msg, self._parties[1:], policies) as fed_request:
             replies = fed_request.replies()
             errors = fed_request.errors()

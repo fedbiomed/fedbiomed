@@ -68,7 +68,7 @@ __node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('2')  # node state version
 __breakpoints_version__ = FBM_Component_Version('3')  # breakpoints format version
 __messaging_protocol_version__ = FBM_Component_Version('4')  # format of gRPC messages.
-__secagg_element_version__ = FBM_Component_Version('1')  # format os secagg database elements
+__secagg_element_version__ = FBM_Component_Version('2')  # format os secagg database elements
 # Nota: for messaging protocol version, all changes should be a major version upgrade
 
 # Max message length as bytes
@@ -266,6 +266,12 @@ class SecaggElementTypes(_BaseEnum):
     SERVER_KEY: int = 0
     BIPRIME: int = 1
     DIFFIE_HELLMAN: int = 2
+
+    @staticmethod
+    def get_element_from_value(element_value: int):
+        for element in SecaggElementTypes:
+            if element.value == element_value:
+                return element
 
 
 class VEParameters:
