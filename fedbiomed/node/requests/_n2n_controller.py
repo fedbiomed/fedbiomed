@@ -8,10 +8,10 @@ import inspect
 from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST
 from fedbiomed.common.message import InnerMessage, OverlayMessage, NodeMessages, NodeToNodeMessages
 from fedbiomed.common.logger import logger
+from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.node.environ import environ
 from ._overlay import format_outgoing_overlay
-from ._pending_requests import PendingRequests
 
 from fedbiomed.transport.controller import GrpcController
 
@@ -22,19 +22,19 @@ class NodeToNodeController:
     def __init__(
             self,
             grpc_controller: GrpcController,
-            pending_requests: PendingRequests,
-            pending_data: PendingRequests,
+            pending_requests: EventWaitExchange,
+            controller_data: EventWaitExchange,
     ) -> None:
         """Constructor of the class.
 
         Args:
             grpc_controller: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
-            pending_data: object for sharing data
+            controller_data: object for sharing data
         """
         self._grpc_controller = grpc_controller
         self._pending_requests = pending_requests
-        self._pending_data = pending_data
+        self._controller_data = controller_data
 
         self._command2method = {
             'key-request': self._HandlerKeyRequest,
@@ -140,8 +140,10 @@ class NodeToNodeController:
         #     logger.debug(f"===== WAIT 1 SECOND IN NODE TO NODE ROUTER {i+1}/{delay}")
         #     await asyncio.sleep(1)
 
-        listener_id = self._pending_data.add_listener([inner_msg.get_param('secagg_id')])
-        all_received, data = self._pending_data.wait(listener_id, TIMEOUT_NODE_TO_NODE_REQUEST)
+        all_received, data = self._controller_data.wait(
+            [inner_msg.get_param('secagg_id')],
+            TIMEOUT_NODE_TO_NODE_REQUEST
+        )
 
         # Don't send reply message if the public key is not available after a timeout
         if not all_received:
@@ -197,7 +199,7 @@ class NodeToNodeController:
         Args:
             inner_msg: received inner message
         """
-        self._pending_requests.add_reply(inner_msg.get_param('request_id'), inner_msg)
+        self._pending_requests.event(inner_msg.get_param('request_id'), inner_msg)
 
 
     # async def _HandlerDummyInner(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
