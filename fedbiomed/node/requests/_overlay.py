@@ -10,15 +10,14 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from fedbiomed.common.utils import ROOT_DIR
 from fedbiomed.common.message import Message, InnerMessage, InnerRequestReply, \
     NodeMessages, NodeToNodeMessages
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.serializer import Serializer
+from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
-from ._pending_requests import PendingRequests
-
 
 _DEFAULT_KEY_DIR = os.path.join(ROOT_DIR, 'envs', 'common', 'default_keys')
 _DEFAULT_N2N_KEY_FILE = 'default_n2n_key.pem'
@@ -197,16 +196,19 @@ def format_incoming_overlay(payload: List[bytes]) -> InnerMessage:
 
 def send_nodes(
         grpc_client: GrpcController,
-        pending_requests: PendingRequests,
+        pending_requests: EventWaitExchange,
         researcher_id: str,
         nodes: List[str],
-        messages: List[InnerMessage]) -> Optional[int]:
+        messages: List[InnerMessage],
+) -> Optional[int]:
     """Send message to some other nodes using overlay communications.
 
         Args:
             grpc_client: object managing the communication with other components
             pending_requests: object for receiving overlay node to node reply messages
-
+            researcher_id: unique ID of researcher connecting the nodes
+            nodes: list of node IDs of the destination nodes
+            messages: list of the inner messages for the destination nodes
         Returns:
             A unique ID of type `int` for retrieving node to node reply messages for this request
             from the `pending_requests`, or `None` if no message sent to another node is of type request-reply 
@@ -228,10 +230,4 @@ def send_nodes(
         if isinstance(message, InnerRequestReply):
             request_ids += [message.get_param('request_id')]
 
-    if request_ids:
-        # at least one message is request-reply
-        listener_id = pending_requests.add_listener(request_ids)
-    else:
-        listener_id = None
-
-    return listener_id
+    return pending_requests.wait(request_ids, TIMEOUT_NODE_TO_NODE_REQUEST)

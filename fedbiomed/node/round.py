@@ -545,8 +545,7 @@ class Round:
                         SecaggLomCrypter().encrypt,
                         num_nodes=len(self._secagg_dh["parties"]) - 1,  # -1: don't count researcher
                         current_round=self._round,
-                        # TODO: replace by something from self._secagg_dh
-                        temporary_key="DUMMY KEY TEMPO",
+                        temporary_key=self._secagg_dh['context'],
                         weight=results["sample_size"],
                         clipping_range=secagg_arguments.get('secagg_clipping_range')
                     )
