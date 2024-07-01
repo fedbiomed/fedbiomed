@@ -18,7 +18,7 @@ class SecaggLomCrypter:
         num_nodes: int,
         current_round: int,
         params: List[float],
-        temporary_key: str,
+        temporary_key: dict,
         clipping_range: Union[int, None] = None,
         weight: Optional[int] = None,
     ) -> List[int]:
