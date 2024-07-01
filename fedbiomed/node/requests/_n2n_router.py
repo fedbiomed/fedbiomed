@@ -8,10 +8,10 @@ import time
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.node.environ import environ
 from ._overlay import format_incoming_overlay
-from ._pending_requests import PendingRequests
 from ._n2n_controller import NodeToNodeController
 
 from fedbiomed.transport.controller import GrpcController
@@ -30,18 +30,18 @@ class _NodeToNodeAsyncRouter:
     def __init__(
             self,
             grpc_controller: GrpcController,
-            pending_requests: PendingRequests,
-            pending_data: PendingRequests,
+            pending_requests: EventWaitExchange,
+            controller_data: EventWaitExchange,
     ) -> None:
         """Class constructor.
 
         Args:
             grpc_controller: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
-            pending_data: object for sharing data
+            controller_data: object for sharing data
         """
         self._grpc_controller = grpc_controller
-        self._node_to_node_controller = NodeToNodeController(self._grpc_controller, pending_requests, pending_data)
+        self._node_to_node_controller = NodeToNodeController(self._grpc_controller, pending_requests, controller_data)
 
         self._queue = asyncio.Queue(MAX_N2N_ROUTER_QUEUE_SIZE)
         self._loop = None
@@ -188,17 +188,17 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
     def __init__(
             self,
             grpc_controller: GrpcController,
-            pending_requests: PendingRequests,
-            pending_data: PendingRequests
+            pending_requests: EventWaitExchange,
+            controller_data: EventWaitExchange
     ) -> None:
         """Class constructor.
 
         Args:
             grpc_controller: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
-            pending_data: object for sharing data
+            controller_data: object for sharing data with the controller
         """
-        super().__init__(grpc_controller, pending_requests, pending_data)
+        super().__init__(grpc_controller, pending_requests, controller_data)
 
         self._thread = Thread(target=self._run, args=(), daemon=True)
 
