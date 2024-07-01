@@ -17,6 +17,7 @@ from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeToNodeMessages
 from fedbiomed.common.mpc_controller import MPCController
+from fedbiomed.common.secagg import DHKey, DHKeyAgreement
 
 from fedbiomed.transport.controller import GrpcController
 
@@ -143,13 +144,14 @@ class SecaggBaseSetup(ABC):
         Returns:
             message to return to the researcher after the setup
         """
-        # Caveat: don't test if a context exists for this `secagg_id` eg
+        # Caveat: we don't test if a context exists for this `secagg_id` eg
         #   context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
-        # This is because we always need to update the (possibly) existing entry for this `secagg_id`
-        # to address the case where the previous secagg setup succeeded on some nodes (which thus
-        # created a context) and failed on some nodes. In that case, negotiating only on previously failed nodes
-        # would result in either negotiation error or keep incoherent setting between nodes for
-        # this `secagg_id`
+        #
+        # In the case of (possibly) previous secagg setup succeeded on some nodes (which thus
+        # created a context) and failed on some nodes, negotiating only on previously failed nodes
+        # would result in either negotiation delay/timeouts.
+        # Nevertheless, it finally fails as new context cannot be saved on nodes where it already exists.
+        # Another `secagg_id` should be used or partially existing entry be cleaned from database
         try:
             self._setup_specific()
         except FedbiomedError as e:
@@ -375,6 +377,14 @@ class SecaggDhSetup(SecaggBaseSetup):
         # we know len(parties) >= 3 so len(other_nodes) >= 1
         other_nodes = [ e for e in self._parties[1:] if e != environ['NODE_ID'] ]
 
+        local_keypair = DHKey()
+        local_public_key = local_keypair.export_public_key()
+        key_agreement = DHKeyAgreement(
+            node_u_id=environ['NODE_ID'],
+            node_u_private_key=local_keypair.export_private_key(),
+            session_salt=self._secagg_id,
+        )
+
         # Key exchange with other nodes
         # TODO: replace `dummy` with real payload
 
@@ -385,7 +395,7 @@ class SecaggDhSetup(SecaggBaseSetup):
                     'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
                     'node_id': environ['NODE_ID'],
                     'dest_node_id': node,
-                    'dummy': f"KEY REQUEST INNER from {environ['NODE_ID']}",
+                    'public_key': local_public_key,
                     'secagg_id': self._secagg_id,
                     'command': 'key-request'
                 })
@@ -404,13 +414,18 @@ class SecaggDhSetup(SecaggBaseSetup):
         logger.debug(f"Completed Diffie-Hellmann setup with success={all_received} "
                      f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}")
         if not all_received:
-            nodes_no_answer = set(other_nodes) - set([m['node_id'] for m in messages])
+            nodes_no_answer = set(other_nodes) - set([m.get_param('node_id') for m in messages])
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB318.value}: Some nodes did not answer during Diffie Hellman secagg "
                 f"context setup: {nodes_no_answer}"
             )
 
-        # Successful DH exchange with other ndoes
+        # At this point: successful DH exchange with other nodes
+        for m in messages:
+            logger.debug(f"******************** MESSAGE {type(m)} {m}")
+            logger.debug(m.get_param('node_id'))
+
+
         context = { 'dummy': "tempo value to replace by LOM specific value"}
         self._secagg_manager.add(
             self._secagg_id,
@@ -418,6 +433,8 @@ class SecaggDhSetup(SecaggBaseSetup):
             context,
             self._experiment_id
         )
+
+        # At this point: successfully negotiated and save secagg context
         logger.info(
             "Diffie Hellman secagg context successfully created for "
             f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")

@@ -127,7 +127,7 @@ class NodeToNodeController:
         import random
         # Use 15 seconds delay to have sometimes success, sometimes failure
         # delay = random.randrange(1, 15)
-        delay = random.randrange(1, 12)
+        delay = random.randrange(1, 5)
         for i in range(delay):
             logger.debug(f"===== WAIT 1 SECOND IN NODE TO NODE ROUTER {i+1}/{delay}")
             await asyncio.sleep(1)
@@ -137,7 +137,7 @@ class NodeToNodeController:
                 'request_id': inner_msg.get_param('request_id'),
                 'node_id': environ['NODE_ID'],
                 'dest_node_id': inner_msg.get_param('node_id'),
-                'dummy': f"KEY REPLY INNER from {environ['NODE_ID']}",
+                'public_key': b"KEY REPLY INNER from {environ['NODE_ID']}",
                 'secagg_id': inner_msg.get_param('secagg_id'),
                 'command': 'key-reply'
             })
