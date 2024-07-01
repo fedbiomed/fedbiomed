@@ -191,7 +191,7 @@ class SecaggContext(ABC):
         """Researcher payload for a secagg context element
 
         Returns:
-            a tuple of a `context` and a `status` for the biprime context element
+            a tuple of a `context` and a `status` for the context element
         """
         context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
 
@@ -650,16 +650,20 @@ class SecaggDhContext(SecaggContext):
         Returns:
             A tuple of a `context` and a `status` for the server key context element
         """
+        # no cryptographic material on the researcher side in this case, no specific context element to save
+        context = {}
 
-        # TODO: add real payload for creating context here
-        context = {'msg': f"DUMMY DIFFIE HELLMAN PAYLOAD FOR {self._secagg_id}"}
+        try:
+            self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
+        except FedbiomedSecaggError:
+            status = False
+        else:
+            status = True
+            logger.debug(
+                f"Diffie Hellman context successfully created for researcher_id='{environ['ID']}' "
+                f"secagg_id='{self._secagg_id}'")
 
-        self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
-        logger.debug(
-            f"Diffie Hellman context successfully created for researcher_id='{environ['ID']}' "
-            f"secagg_id='{self._secagg_id}'")
-
-        return context, True
+        return context, status
 
     def _secagg_round_specific(
             self,
@@ -694,11 +698,13 @@ class SecaggDhContext(SecaggContext):
             status = {rep.node_id: rep.success for rep in replies.values()}
             status[self._researcher_id] = not errors and not fed_request.policy.has_stopped_any()
 
+
         if all(status.values()):
             # only create context if previous steps succeeded
             context, status_researcher_payload = payload()
             status[self._researcher_id] = status[self._researcher_id] and status_researcher_payload
-        else:
-            context = {}
+
+        # if not status:
+        #   TODO: remove entry on all successful nodes
 
         return context, status

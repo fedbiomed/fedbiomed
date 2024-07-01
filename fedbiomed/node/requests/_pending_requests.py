@@ -185,7 +185,7 @@ class PendingRequests:
 
                 # remove all replies for this request from the pending replies,
                 # and add them to the list of received replies
-                messages = [self._pending_replies.pop(reqid)
+                messages = [(self._pending_replies.pop(reqid))['message']
                             for reqid in self._pending_listeners[listener_id]['requests']
                             if reqid in self._pending_replies]
 
