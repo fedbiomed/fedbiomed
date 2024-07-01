@@ -198,7 +198,7 @@ class PendingRequests:
                     # remove all replies for this request from the pending replies
                     for reqid in self._pending_listeners[listener_id]['requests']:
                         if reqid in self._pending_replies:
-                            (self._pending_replies.pop(reqid))
+                            self._pending_replies.pop(reqid)
 
                 # remove expired listener
                 del self._pending_listeners[listener_id]
