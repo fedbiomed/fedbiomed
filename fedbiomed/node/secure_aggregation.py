@@ -178,6 +178,8 @@ class _LomRound(_SecaggSchemeRound):
         super().__init__(secagg_arguments, experiment_id)
 
         secagg_dh_id = secagg_arguments.get('secagg_dh_id')
+
+        self._secagg_id = secagg_dh_id
         self._secagg_dh = DHManager.get(secagg_id=secagg_dh_id, experiment_id=experiment_id)
 
         if self._secagg_dh is None:
@@ -192,7 +194,7 @@ class _LomRound(_SecaggSchemeRound):
                 f"parties of secagg Diffie Hellman context {secagg_dh_id}"
             )
 
-        self.crypter = SecaggLomCrypter()
+        self.crypter = SecaggLomCrypter(nonce=self._secagg_id)
 
 
     def encrypt(
@@ -211,11 +213,12 @@ class _LomRound(_SecaggSchemeRound):
         Returns:
             List of encrypted parameters
         """
-        return SecaggLomCrypter().encrypt(
-            num_nodes=len(self._secagg_dh["parties"]) - 1,  # -1: don't count researcher
+        return self.crypter.encrypt(
+            node_ids=self._secagg_dh["parties"],  # -1: don't count researcher
+            node_id=environ["ID"],
             current_round=current_round,
             params=params,
-            temporary_key=self._secagg_dh['context'],
+            pairwise_secrets=self._secagg_dh['context'],
             clipping_range=self._secagg_clipping_range,
             weight=weight,
         )
