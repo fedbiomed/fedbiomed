@@ -1,7 +1,14 @@
+import math
 from typing import List, Dict
+
 import numpy as np
+
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
+from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.hazmat.backends import default_backend
+
+
+from fedbiomed.common.exceptions import FedbiomedError
 
 class PRF:
     """
@@ -33,6 +40,7 @@ class PRF:
         c = encryptor.update(tau) + encryptor.finalize()
         # the output is a 16 bytes string, pad it to 32 bytes
         c = c + b'\x00' * 16
+
         return c
 
     def eval_vector(self, seed: bytes, tau: int, input_size: int) -> bytes:
@@ -52,6 +60,8 @@ class PRF:
             mode=None,
             backend=default_backend()
         ).encryptor()
+
+
         # create a list of indices from 0 to input_size where each element is concatenated with tau
         taus = b''.join([i.to_bytes(2, 'big') + tau.to_bytes(2, 'big') for i in range(input_size)])
         return encryptor.update(taus) + encryptor.finalize()
@@ -62,77 +72,88 @@ class LOM:
     Lightweight Obfuscation Mechanism (LOM) class for protecting and aggregating data.
 
     Attributes:
-        prf (PRF): An instance of the PRF class.
-        vector_dtype (str): The data type of the vector.
-        pairwise_secrets (Dict[str, bytes]): A dictionary of pairwise secrets.
-        pairwise_seeds (Dict[str, bytes]): A dictionary of pairwise seeds.
-        my_node_id (str): The node ID of the current node.
+        _prf: An instance of the PRF class.
+        _vector_dtype: The data type of the vector.
     """
-    def __init__(self, nonce: bytes) -> None:
-        self.prf = PRF(nonce)
-        self.vector_dtype = 'uint32'
+    def __init__(
+        self,
+        nonce: bytes
+    ) -> None:
 
-    def setup_pairwise_secrets(self, my_node_id: str, nodes_ids: List[str]) -> None:
-        """
-        Sets up pairwise secrets for communication with other nodes.
+        self._prf: PRF = PRF(nonce)
+        self._vector_dtype: str = 'uint32'
 
-        Args:
-            my_node_id (str): The ID of the current node.
-            nodes_ids (List[str]): A list of IDs of other nodes.
-        """
-        self.pairwise_secrets = {}
-        self.pairwise_seeds = {}
-        self.my_node_id = str(my_node_id)
-        # this is just a hardcoded example
-        for node_id in nodes_ids:
-            if node_id != my_node_id:
-                # create 32 bytes secret of zeros
-                self.pairwise_secrets[node_id] = b'\x02' * 32
 
-    def protect(self, tau: int, x_u_tau: List[int], node_ids: List[str]) -> List[int]:
+    def protect(
+        self,
+        node_id: str,
+        pairwise_secrets: Dict[str, bytes],
+        tau: int,
+        x_u_tau: List[int],
+        node_ids: List[str]
+    ) -> List[int]:
         """
         Protects the input vector by applying a mask based on pairwise secrets.
 
         Args:
-            tau (int): The current round number.
-            x_u_tau (List[int]): The input vector to be protected.
-            node_ids (List[str]): A list of node IDs to communicate with.
+            node_id: Id of the node that applies encryption
+            pairwise_secrets: DH agreed secrets between node that applies encryption and others
+            tau: The current round number.
+            x_u_tau: The input vector to be protected.
+            node_ids: A list of node IDs participates aggregation.
 
         Returns:
-            List[int]: The protected (masked) vector.
+            The protected (masked) vector.
         """
-        x_u_tau = np.array(x_u_tau, dtype=self.vector_dtype)
-        mask = np.zeros(len(x_u_tau), dtype=self.vector_dtype)
-        for node_id in node_ids:
-            if node_id == self.my_node_id:
+
+        num_nodes = len(node_ids)
+        print([i.bit_length() for i in x_u_tau])
+        if any(val.bit_length() > 32-math.log2(num_nodes) for val in x_u_tau):
+            raise FedbiomedError(
+                "Bit length of one or more values has more bits "
+                f"that {32-math.log2(num_nodes)}"
+            )
+
+        x_u_tau = np.array(x_u_tau, dtype=self._vector_dtype)
+        mask = np.zeros(len(x_u_tau), dtype=self._vector_dtype)
+        for pair_id in node_ids:
+            if pair_id == node_id:
                 continue
-            secret = self.pairwise_secrets[node_id]
-            # generate seed for pairwise encryption
-            pairwise_seed = self.prf.eval_key(pairwise_secret=secret, tau=tau)
-            # expand seed to a random vector
-            pairwise_vector = self.prf.eval_vector(seed=pairwise_seed, tau=tau, input_size=len(x_u_tau))
-            pairwise_vector = np.frombuffer(pairwise_vector, dtype=self.vector_dtype)
-            if node_id < self.my_node_id:
+            secret = pairwise_secrets[pair_id]
+
+            pairwise_seed = self._prf.eval_key(
+                pairwise_secret=secret,
+                tau=tau)
+
+            pairwise_vector = self._prf.eval_vector(
+                seed=pairwise_seed,
+                tau=tau,
+                input_size=len(x_u_tau))
+
+            pairwise_vector = np.frombuffer(pairwise_vector, dtype=self._vector_dtype)
+
+            if pair_id < node_id:
                 mask += pairwise_vector
             else:
                 mask -= pairwise_vector
 
+
         encrypted_params = mask + x_u_tau
+
         return encrypted_params.tolist()
 
-    def aggregate(self, list_y_u_tau: Dict[str, np.ndarray]) -> List[int]:
+    def aggregate(self, list_y_u_tau: List[int]) -> List[int]:
         """
         Aggregates multiple vectors into a single vector.
 
         Args:
-            list_y_u_tau (Dict[str, np.ndarray]): A dictionary of vectors from different nodes.
+            list_y_u_tau: A dictionary of vectors from different nodes.
 
         Returns:
-            List[int]: The aggregated vector.
+            The aggregated vector.
         """
-        list_y_u_tau = np.array(list_y_u_tau, dtype=self.vector_dtype)
+        list_y_u_tau = np.array(list_y_u_tau, dtype=self._vector_dtype)
         decrypted_vector = np.sum(list_y_u_tau, axis=0)
-        print(decrypted_vector)
         decrypted_vector = decrypted_vector.astype(np.int32)
         decrypted_vector = decrypted_vector.tolist()
 
