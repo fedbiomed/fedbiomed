@@ -23,6 +23,8 @@ import pytest
 from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME, ComponentType
 from fedbiomed.common.config import Config
 from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR
+from fedbiomed.researcher.federated_workflows import Experiment
+from fedbiomed.researcher.environ import environ
 
 from ._execution import (
     shell_process,
@@ -76,8 +78,10 @@ def default_on_failure(process: subprocess.Popen):
     raise End2EndError(f"Porcesses has failed! command: {process.args}")
 
 
+
 def start_nodes(
-    configs: list[Config],
+    configs: List[Config],
+    additional_commands: List[List[str]] = None,
     interrupt_all_on_fail: bool = True,
     on_failure: Callable = default_on_failure
 ) -> multiprocessing.Process:
@@ -88,16 +92,19 @@ def start_nodes(
     """
 
     processes = []
-    for c in configs:
+    for i, c in enumerate(configs):
         # Keep it for debugging purposes
         if 'fail' in c.name:
             processes.append(
                 fedbiomed_run(
                     ['node', "--config", c.name, 'unkown-commnad'], pipe=False))
         else:
+            main_command = ["node", "--config", c.name, "start"]
+            if additional_commands and additional_commands[i]:
+                main_command.extend(additional_commands[i])
             processes.append(
                 fedbiomed_run(
-                    ["node", "--config", c.name, "start"], pipe=False))
+                    main_command, pipe=False))
 
     t = PytestThread(
         target=execute_in_paralel,
@@ -164,12 +171,25 @@ def execute_python(file: str, activate: str):
 def execute_ipython(file: str, activate: str):
     """Executes given ipython file in a process"""
 
+    #convert=$(jupyter nbconvert --output-dir=/tmp --output=$output --to script $script )
+
     return shell_process(
-        command=["ipython", "-c", f'"%run {file}"'],
+        #command=["ipython", "-c", f'"%run {file}"'],
+        command=["jupyter execute", "--JupyterApp.log_level=10", f"{file}",],
         activate=activate,
         wait=True,
         on_failure=default_on_failure
     )
+    # output_file = 'myfile.ipynb'
+    # return shell_process(
+    #     command=["jupyter nbconvert",
+    #              "--output-dir=/tmp",
+    #              f"--output={output_file}",
+    #              f"--to script {file};"
+    #         "ipython", "-c", f'"%run /tmp/{output_file}.py"'],
+    #     activate=activate,
+    #     wait=True
+    # )
 
 
 def clear_component_data(config: Config):
@@ -181,8 +201,57 @@ def clear_component_data(config: Config):
 
     if _component_type == ComponentType.NODE.name:
 
+        # load node 's environ
+        # environ = importlib.import_module("fedbiomed.node.environ").environ
+        # print("ENVIRON", environ["RESEARCHERS"])
+        # print("NODE_ID", environ["NODE_ID"])
         clear_node_data(config)
 
+        node_id = config.get('default', 'id')
+        # remove node's state
+        _node_state_dir = os.path.join(VAR_DIR, "node_state_%s" % node_id)
+
+        if os.path.lexists(_node_state_dir):
+            print("[INFO] Removing folder ", _node_state_dir)
+            shutil.rmtree(_node_state_dir)
+
+        # remove node's taskqueue
+        _task_queue_dir = os.path.join(VAR_DIR,
+                                       f'queue_manager_{node_id}')
+        if os.path.lexists(_task_queue_dir):
+            print("[INFO] Removing folder ", _task_queue_dir)
+            shutil.rmtree(_task_queue_dir)
+
+        # remove grpc certificate
+        for section in config.sections() :
+            if section.startswith("researcher"):
+                # _certificate_file = environ["RESEARCHERS"][0]['certificate']
+                # if _certificate_file:
+                #     os.remove(os.path.join(CONFIG_DIR, _certificate_file))
+
+                # TODO: find a way or modify environ in order to delete GRPC certificate
+                pass
+
+        # remove node's mpspdz material
+        _mpspdz_material_files = ('private_key', 'public_key')
+        for mpspdz_file in _mpspdz_material_files:
+            mpspdz_material = config.get('mpspdz', mpspdz_file,)
+            _material_to_remove = os.path.join(CONFIG_DIR, mpspdz_material)
+            _material_to_remove_folder = os.path.dirname(_material_to_remove)
+            if not os.path.lexists(_material_to_remove_folder):
+                continue
+            print("[INFO] Removing folder ", _material_to_remove_folder)
+            shutil.rmtree(_material_to_remove_folder)  # remove the whole folder of cert
+
+        # remove database
+        # FIXME: below we assume database is in the `VAR_DIR` folder
+        _database_file_path = config.get('default', 'db')
+        _database_file_path = os.path.join(VAR_DIR, _database_file_path)
+        if os.path.lexists(_database_file_path):
+            os.remove(_database_file_path)
+        clear_node_data(config)
+        
+        
     elif _component_type == ComponentType.RESEARCHER.name:
 
         clear_researcher_data(config)
@@ -191,6 +260,7 @@ def clear_component_data(config: Config):
 def clear_node_data(config: Config):
     """Clears data relative to Node, such as configuration file, database,
     node state, mpspdz material
+    
 
     Args:
         config: configuration object of the Node
@@ -220,12 +290,13 @@ def clear_node_data(config: Config):
             continue
         print("[INFO] Removing folder ", _material_to_remove_folder)
         shutil.rmtree(_material_to_remove_folder)  # remove the whole folder of cert
-
+        
     # remove database
     # FIXME: below we assume database is in the `VAR_DIR` folder
     _database_file_path = config.get('default', 'db')
-
-    os.remove(os.path.join(VAR_DIR, _database_file_path))
+    _database_file_path = os.path.join(VAR_DIR, _database_file_path)
+    if os.path.lexists(_database_file_path):
+        os.remove(_database_file_path)
     # remove Node's config file
     _clear_config_file_component(config)
 
@@ -255,6 +326,7 @@ def clear_researcher_data(config: Config):
 
     # remove Researcher config file
     _clear_config_file_component(config)
+    
 
 
 def _clear_files(config: Config, section: str, materials: Tuple[str]):
@@ -433,7 +505,7 @@ def training_plan_operation(
     _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
 
 
-def get_data_folder(path):
+def get_data_folder(path: str, create_dir: bool = True):
     """Gets path to save datasets, and creates folder if not existing
 
 
@@ -447,7 +519,10 @@ def get_data_folder(path):
         folder = os.path.join(ROOT_DIR, 'data', path)
 
     if not os.path.isdir(folder):
-        print(f"Data folder for {path} is not existing. Creating folder...")
+        if not create_dir:
+            return
+        else:
+            print(f"Data folder for {path} is not existing. Creating folder...")
         os.makedirs(folder)
 
     return folder

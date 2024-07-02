@@ -17,7 +17,7 @@ from helpers import (
 
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 

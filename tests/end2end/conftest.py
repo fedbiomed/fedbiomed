@@ -65,7 +65,7 @@ def remove_remaining_configs():
     """Removes configuration files that are not removed  due to errors in
     end 2 end test
     """
- # Clear remaining component data if existing
+    # Clear remaining component data if existing
     configs = glob.glob( os.path.join( CONFIG_DIR, f"{CONFIG_PREFIX}*.ini"))
 
     for path in configs:
@@ -82,5 +82,3 @@ def remove_remaining_configs():
 
         del cfg
         del config
-
-

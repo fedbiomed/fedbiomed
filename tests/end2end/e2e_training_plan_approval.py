@@ -15,7 +15,7 @@ from helpers import (
 
 from experiments.training_plans.mnist_model_approval import TrainingPlanApprovalTP
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 

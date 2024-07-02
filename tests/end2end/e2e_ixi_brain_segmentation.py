@@ -22,7 +22,7 @@ from helpers import (
 
 from experiments.training_plans.ixi_brain_segmentation import UNetTrainingPlan
 
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 
