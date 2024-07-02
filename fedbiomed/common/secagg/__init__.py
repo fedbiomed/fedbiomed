@@ -4,8 +4,7 @@
 
 from ._dh import DHKey, DHKeyAgreement
 from ._jls import JoyeLibert
-from ._secagg_crypter import SecaggCrypter, EncryptedNumber
-from ._secagg_dummy_crypter import SecaggLomCrypter
+from ._secagg_crypter import SecaggCrypter, EncryptedNumber, SecaggLomCrypter
 from ._lom import LOM, PRF
 
 __all__ = [
@@ -16,5 +15,5 @@ __all__ = [
     "PRF",
     "EncryptedNumber",
     "SecaggCrypter",
-    "SecaggLomCrypter"
+    "SecaggLomCrypter",
 ]

@@ -3,6 +3,7 @@
 
 
 import time
+import random
 
 from typing import List, Union, Optional
 from gmpy2 import mpz
@@ -23,6 +24,7 @@ from ._jls import JoyeLibert, \
     FDH, \
     PublicParam
 
+from ._lom import LOM
 
 class SecaggCrypter:
     """Secure aggregation encryption and decryption manager.
@@ -182,11 +184,11 @@ class SecaggCrypter:
                 f"be some nodes did not answered to training request or num of clients of "
                 "`ParameterEncrypter` has not been set properly before train request.")
 
-        if not isinstance(params, list) or not all([isinstance(p, list) for p in params]):
+        if not isinstance(params, list) or not all(isinstance(p, list) for p in params):
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: The parameters to aggregate should be a "
                                               f"list containing list of parameters")
 
-        if not all([all([isinstance(p_, int) for p_ in p]) for p in params]):
+        if not all(all(isinstance(p_, int) for p_ in p) for p in params):
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: Invalid parameter type. The parameters "
                                               f"should be of type of integers.")
 
@@ -286,3 +288,152 @@ class SecaggCrypter:
             encrypted_number.append([EncryptedNumber(public_param, mpz(param)) for param in parameters])
 
         return encrypted_number
+
+
+class SecaggLomCrypter(SecaggCrypter):
+    """Low-Overhead Masking secure aggregation controller"""
+
+
+    def __init__(
+        self,
+        nonce:str
+    ):
+        """LOM Secure aggregation to encrypt and aggregate
+
+        Args:
+            nonce: `nonce` to use in encryption
+        """
+        random.seed(nonce)
+        nonce = random.getrandbits(128).to_bytes(16, 'big')
+        self._lom = LOM(nonce)
+
+
+    def encrypt(
+        self,
+        current_round: int,
+        node_id: str,
+        params: List[float],
+        pairwise_secrets: int,
+        node_ids: List[str],
+        clipping_range: Union[int, None] = None,
+        weight: Optional[int] = None,
+    ) -> List[int]:
+        """Encrypts model parameters.
+
+        Args:
+            current_round: Current round of federated training
+            node_id: ID of the node applies encryption
+            params: List of flatten parameters
+            pairwise_secrets: DH agreed secrets between node that applies encryption and others
+            node_ids: All nodes that participates secure aggregation
+            weight: Weight for the params
+            clipping_range: Clipping-range for quantization of float model parameters. Clipping range
+                must grater than minimum model parameters
+
+        Returns:
+            List of encrypted parameters
+
+        Raises:
+            FedbiomedSecaggCrypterError: bad parameters
+            FedbiomedSecaggCrypterError: encryption issue
+        """
+
+        start = time.process_time()
+
+        if not isinstance(params, list):
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB624.value}: Expected argument `params` type list but got {type(params)}"
+            )
+
+        if not all(isinstance(p, float) for p in params):
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB624.value}: The parameters to encrypt should list of floats. "
+                f"There are one or more than a value that is not type of float."
+            )
+
+        params = quantize(weights=params,
+                          clipping_range=clipping_range)
+
+        if weight is not None:
+            if 2**weight.bit_length() > SAParameters.WEIGHT_RANGE:
+                raise FedbiomedSecaggCrypterError(
+                    f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
+                    f"{SAParameters.WEIGHT_RANGE}."
+                )
+            params = self._apply_weighing(params, weight)
+
+        try:
+            # Encrypt parameters
+            encrypted_params: List[int] = self._lom.protect(
+                pairwise_secrets=pairwise_secrets,
+                node_id=node_id,
+                tau=current_round,
+                x_u_tau=params,
+                node_ids=node_ids
+            )
+        except (TypeError, ValueError) as exp:
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB624.value} Error during parameter encryption. {exp}") from exp
+
+
+        time_elapsed = time.process_time() - start
+        logger.debug(f"Encryption of the parameters took {time_elapsed} seconds.")
+
+        return encrypted_params
+
+    def aggregate(
+            self,
+            params: List[List[int]],
+            total_sample_size: int,
+            clipping_range: Union[int, None] = None,
+    ) -> List[float]:
+        """Decrypt given parameters
+
+        Args:
+            params: Aggregated/Summed encrypted parameters
+            total_sample_size: sum of number of samples from all nodes
+            clipping_range: Clipping range for reverse-quantization, should be the
+                same clipping range used for quantization
+        Returns:
+            Aggregated parameters decrypted and structured
+
+        Raises:
+             FedbiomedSecaggCrypterError: bad parameters
+             FedbiomedSecaggCrypterError: aggregation issue
+        """
+        start = time.process_time()
+
+        if not isinstance(params, list) or not all([isinstance(p, list) for p in params]):
+            raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: The parameters to aggregate should be a "
+                                              f"list containing list of parameters")
+
+        if not all([all([isinstance(p_, int) for p_ in p]) for p in params]):
+            raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: Invalid parameter type. The parameters "
+                                              f"should be of type of integers.")
+
+        num_nodes = len(params)
+
+        try:
+            sum_of_weights = self._lom.aggregate(
+                list_y_u_tau=params,
+            )
+        except (ValueError, TypeError) as e:
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB624.value}: The aggregation of encrypted parameters "
+                f"is not successful: {e}") from e
+
+
+        # Reverse quantize and division (averaging)
+        logger.info(f"Aggregating {len(params)} parameters from {num_nodes} nodes.")
+        aggregated_params = self._apply_average(sum_of_weights, total_sample_size)
+
+        aggregated_params: List[float] = reverse_quantize(
+            aggregated_params,
+            clipping_range=clipping_range
+        )
+        time_elapsed = time.process_time() - start
+        logger.debug(f"Aggregation is completed in {round(time_elapsed, ndigits=2)} seconds.")
+
+        return aggregated_params
+
+

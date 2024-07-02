@@ -350,6 +350,7 @@ class Round:
                     current_round=self._round,
                     weight=results['sample_size'],
                 )
+
                 results["encrypted"] = True
                 results["encryption_factor"] = self._secure_aggregation.scheme.encrypt(
                     params=[self._secure_aggregation.scheme.secagg_random],
