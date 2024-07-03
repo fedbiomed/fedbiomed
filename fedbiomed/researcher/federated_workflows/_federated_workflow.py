@@ -621,7 +621,7 @@ class FederatedWorkflow(ABC):
     def set_secagg(
             self,
             secagg: Union[bool, SecureAggregation],
-            scheme: SecureAggregationSchemes = SecureAggregationSchemes.JOYE_LIBERT):
+            scheme: SecureAggregationSchemes = SecureAggregationSchemes.LOM):
         """Sets secure aggregation status and scheme
 
         Build secure aggregation controller/instance or sets given
