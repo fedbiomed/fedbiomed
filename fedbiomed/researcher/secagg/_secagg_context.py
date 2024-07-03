@@ -653,17 +653,13 @@ class SecaggDhContext(SecaggContext):
         Returns:
             A tuple of a `context` and a `status` for the server key context element
         """
-        try:
-            self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
-        except FedbiomedSecaggError:
-            status = False
-        else:
-            status = True
-            logger.debug(
-                f"Diffie Hellman context successfully created for researcher_id='{environ['ID']}' "
-                f"secagg_id='{self._secagg_id}'")
+        self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
 
-        return context, status
+        logger.debug(
+            f"Diffie Hellman context successfully created for researcher_id='{environ['ID']}' "
+            f"secagg_id='{self._secagg_id}'")
+
+        return context, True
 
     def _secagg_round_specific(
             self,

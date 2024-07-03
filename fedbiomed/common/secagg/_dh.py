@@ -113,17 +113,17 @@ class DHKeyAgreement:
         private_key: The user's private ECC key.
     """
 
-    def __init__(self, node_u_id, node_u_private_key, session_salt):
+    def __init__(self, node_u_id, node_u_dh_key: DHKey, session_salt):
         """
         Initializes the DHKeyAgreement instance.
 
         Args:
             node_u_id: The ID of the node.
-            node_u_private_key: The private key in PEM format as bytes.
+            node_u_dh_key: The keypair of the node.
             session_salt: A session-specific salt.
         """
         self._node_u_id = node_u_id
-        self._dh_key = DHKey(private_key_pem=node_u_private_key)
+        self._dh_key = node_u_dh_key
         self.session_salt = session_salt
 
     def _kdf(self, key, node_v_id):

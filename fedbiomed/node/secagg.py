@@ -382,15 +382,14 @@ class SecaggDhSetup(SecaggBaseSetup):
         other_nodes = [ e for e in self._parties[1:] if e != environ['NODE_ID'] ]
 
         local_keypair = DHKey()
-        local_public_key = local_keypair.export_public_key()
         key_agreement = DHKeyAgreement(
             node_u_id=environ['NODE_ID'],
-            node_u_private_key=local_keypair.export_private_key(),
+            node_u_dh_key=local_keypair,
             session_salt=bytes(self._secagg_id, 'utf-8'),
         )
 
         # Make public key available for requests received from other nodes for this `secagg_id`
-        self._controller_data.event(self._secagg_id, {'public_key': local_public_key})
+        self._controller_data.event(self._secagg_id, {'public_key': local_keypair.export_public_key()})
 
         # Request public key from other nodes
         other_nodes_messages = []

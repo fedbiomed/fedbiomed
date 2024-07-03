@@ -56,7 +56,6 @@ class Node:
             researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
             on_message=self.on_message,
         )
-        # Note: `EventWaitExchange` `NodeToNodeRouter` should not be changed to singleton.
         # When implementing multiple researchers, there will probably be one per researcher.
         self._pending_requests = EventWaitExchange(remove_delivered=True)
         self._controller_data = EventWaitExchange(remove_delivered=False)
