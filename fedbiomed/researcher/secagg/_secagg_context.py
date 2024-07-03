@@ -706,7 +706,6 @@ class SecaggDhContext(SecaggContext):
             _, status_researcher_payload = payload(context)
             status[self._researcher_id] = status[self._researcher_id] and status_researcher_payload
 
-        # if not status:
-        #   TODO: remove entry on all successful nodes
+        # Current implementation does not try to clean entries on successful nodes if some nodes failed (`not status`)
 
         return context, status
