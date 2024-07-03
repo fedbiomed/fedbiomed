@@ -112,7 +112,7 @@ class _NodeToNodeAsyncRouter:
             self._queue.task_done()
 
             async with self._active_tasks_lock:
-                # TODO: add test for maximum number of tasks ?
+                # Current implementation does not test for a maximum number of tasks, only for timeout
 
                 # timeout for tasks in handled via `_clean_active_tasks` task
                 task_msg = asyncio.create_task(self._overlay_message_process(msg))

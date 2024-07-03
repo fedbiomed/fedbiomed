@@ -22,8 +22,8 @@ from fedbiomed.node.environ import environ
 _DEFAULT_KEY_DIR = os.path.join(ROOT_DIR, 'envs', 'common', 'default_keys')
 _DEFAULT_N2N_KEY_FILE = 'default_n2n_key.pem'
 
-# TODO: replace default key published with the library and used for each node
-# by a keypair generated securely for each node.
+# Issue #1142 in "Crypto material management" will replace current default key published with the library
+# and used for each node by a keypair generated securely for each node.
 # Caveat: though encrypted, current implementation does not ensure a secure overlay node2node channel ...
 #
 # Default key generation:

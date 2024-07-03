@@ -300,7 +300,6 @@ class Round:
         secagg_all_defined, scheme, parties = self._check_secagg_common(secagg_arguments)
 
         if secagg_all_defined:
-            # TODO refactor/redesign - might be partly included in SecaggSetup classes ?
             if scheme == SecureAggregationSchemes.JOYE_LIBERT:
                 secagg_servkey_id = secagg_arguments.get('secagg_servkey_id')
                 secagg_biprime_id = secagg_arguments.get('secagg_biprime_id')
@@ -529,7 +528,6 @@ class Round:
                 logger.info("Encrypting model parameters. This process can take some time depending on model size.",
                             researcher_id=self.researcher_id)
 
-                # TODO: refactor
                 if secagg_scheme == SecureAggregationSchemes.JOYE_LIBERT:
                     encrypt = functools.partial(
                         SecaggCrypter().encrypt,

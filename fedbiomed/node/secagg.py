@@ -432,7 +432,6 @@ class SecaggDhSetup(SecaggBaseSetup):
             m.get_param('node_id'): key_agreement.agree(m.get_param('node_id'), m.get_param('public_key'))
             for m in messages
         }
-        logger.debug(f"************************ CONTEXT {context}")
 
         self._secagg_manager.add(
             self._secagg_id,
