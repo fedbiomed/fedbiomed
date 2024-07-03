@@ -129,17 +129,7 @@ class NodeToNodeController:
         Returns:
             A `dict` with overlay reply message
         """
-
-        # # TODO: replace with real payload, waiting for DH key pair to be generated,
-        # # then send it.
-        # import random
-        # # Use 15 seconds delay to have sometimes success, sometimes failure
-        # # delay = random.randrange(1, 15)
-        # delay = random.randrange(1, 5)
-        # for i in range(delay):
-        #     logger.debug(f"===== WAIT 1 SECOND IN NODE TO NODE ROUTER {i+1}/{delay}")
-        #     await asyncio.sleep(1)
-
+        # Wait until node has generated its DH keypair
         all_received, data = self._controller_data.wait(
             [inner_msg.get_param('secagg_id')],
             TIMEOUT_NODE_TO_NODE_REQUEST
