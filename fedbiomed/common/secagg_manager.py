@@ -614,9 +614,7 @@ class SecaggDhManager(BaseSecaggManager):
             experiment_id: ID of the experiment to which this secagg context element is attached
             context: server key part held by this party
         """
-        # Need to convert bytes to a JSON supported format
-        # Derived keys are not `utf-8` though this is the type reported by `json.detect_encoding()`
-        # Don't modify the original `context` in case it is re-used
+        # Save key pairs as `str`` since it is the format support by JSON. Need to convert to `base64` first
         context_json = {node_id: str(base64.b64encode(key), 'utf-8') for node_id, key in context.items()}
 
         self._add_generic(
