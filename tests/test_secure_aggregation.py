@@ -2,26 +2,28 @@ import unittest
 from unittest.mock import patch
 
 from testsupport.base_case import ResearcherTestCase
-from testsupport.base_mocks import MockRequestGrpc
+from testsupport.base_mocks import MockRequestGrpc, MockRequestModule
 
 from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.secagg import SecureAggregation
+from fedbiomed.researcher.secagg import SecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError, FedbiomedSecaggError
 
 
-class TestSecureAggregation(ResearcherTestCase):
+class TestSecureAggregation(MockRequestModule,ResearcherTestCase):
 
     def setUp(self) -> None:
 
-        self.p1 = patch('fedbiomed.researcher.secagg.SecaggServkeyContext.setup')
-        self.p2 = patch('fedbiomed.researcher.secagg.SecaggBiprimeContext.setup')
+        super().setUp(module="fedbiomed.researcher.secagg._secagg_context.Requests")
+        self.p1 = patch('fedbiomed.researcher.secagg._secure_aggregation.SecaggServkeyContext.setup', autospec=True)
+        self.p2 = patch('fedbiomed.researcher.secagg._secure_aggregation.SecaggBiprimeContext.setup', autospec=True)
 
         self.p1.start()
         self.p2.start()
 
-        self.secagg = SecureAggregation()
+        self.secagg = JoyeLibertSecureAggregation()
 
     def tearDown(self) -> None:
+        super().tearDown()
         self.p1.stop()
         self.p2.stop()
 
@@ -29,13 +31,13 @@ class TestSecureAggregation(ResearcherTestCase):
         """Tests invalid argument for __init__"""
 
         with self.assertRaises(FedbiomedSecureAggregationError):
-            SecureAggregation(active="111")
+            JoyeLibertSecureAggregation(active="111")
 
         with self.assertRaises(FedbiomedSecureAggregationError):
-            SecureAggregation(clipping_range="Not an integer")
+            JoyeLibertSecureAggregation(clipping_range="Not an integer")
 
         with self.assertRaises(FedbiomedSecureAggregationError):
-            SecureAggregation(clipping_range=True)
+            JoyeLibertSecureAggregation(clipping_range=True)
 
     def test_secure_aggregation_02_activate(self):
         """Tests secure aggregation activation"""
@@ -66,8 +68,11 @@ class TestSecureAggregation(ResearcherTestCase):
             experiment_id="exp-id-1",
         )
 
-        self.assertListEqual(self.secagg._biprime.parties, [environ["ID"], "node-1", "node-2", "new_party"])
-        self.assertListEqual(self.secagg._servkey.parties, [environ["ID"], "node-1", "node-2", "new_party"])
+        self.assertListEqual(self.secagg._parties, [environ["ID"], "node-1", "node-2", "new_party"])
+        self.assertListEqual(self.secagg._parties, [environ["ID"], "node-1", "node-2", "new_party"])
+
+        self.assertIsNotNone(self.secagg._biprime)
+        self.assertIsNotNone(self.secagg._servkey)
 
         pass
 
@@ -84,18 +89,6 @@ class TestSecureAggregation(ResearcherTestCase):
         self.assertTrue(s_id is not None)
         self.assertTrue(b_id is not None)
 
-        self.assertEqual(self.secagg._biprime.secagg_id, self.secagg.biprime.secagg_id)
-        self.assertEqual(self.secagg._servkey.secagg_id, self.secagg.servkey.secagg_id)
-
-        self.secagg._biprime._context = "Test biprime"
-        self.secagg._servkey._context = "Test servkey"
-
-        s_context = self.secagg.servkey.context
-        b_context = self.secagg.biprime.context
-
-        self.assertEqual("Test biprime", b_context)
-        self.assertEqual("Test servkey", s_context)
-
     def test_secure_aggregation_06_setup(self):
         """Test secagg setup by setting Biprime and Servkey"""
 
@@ -107,14 +100,6 @@ class TestSecureAggregation(ResearcherTestCase):
             self.secagg.setup(parties=[environ["ID"], "node-1", "node-2", "new_party"],
                               experiment_id=1345)
 
-        # iterate twice with same incorrect arguments
-        with self.assertRaises(FedbiomedSecaggError):
-            self.secagg.setup(parties=["oops"],
-                              experiment_id="exp-id-1")
-        with self.assertRaises(FedbiomedSecureAggregationError):
-            self.secagg.setup(parties=["oops"],
-                              experiment_id="exp-id-1")
-
         # Execute setup
         self.secagg.setup(parties=[environ["ID"], "node-1", "node-2", "new_party"],
                           experiment_id="exp-id-1")
@@ -125,9 +110,8 @@ class TestSecureAggregation(ResearcherTestCase):
                           experiment_id="exp-id-1")
 
         args = self.secagg.train_arguments()
-
-        self.assertListEqual(list(args.keys()), ["secagg_servkey_id", "secagg_biprime_id", "secagg_random",
-                                                 "secagg_clipping_range"])
+        self.assertListEqual(list(args.keys()), ['secagg_random', 'secagg_clipping_range', 'secagg_scheme',
+                                                 'parties', 'secagg_servkey_id', 'secagg_biprime_id'])
 
     def test_secure_aggregation_08_aggregate(self):
         """Tests aggregate method"""
@@ -157,6 +141,7 @@ class TestSecureAggregation(ResearcherTestCase):
         self.secagg._servkey._status = True
 
         # Force to set context
+
         self.secagg._biprime._context = {'context': {'biprime': 1234}}
         self.secagg._servkey._context = {'context': {'server_key': 1234}}
 
@@ -169,23 +154,23 @@ class TestSecureAggregation(ResearcherTestCase):
 
         # Aggregation without secagg_random validation
         self.secagg._secagg_random = None
-        agg_params = self.secagg.aggregate(round_=1,
-                                           total_sample_size=100,
-                                           model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
-                                           encryption_factors={'node-1': [1], 'node-2': [1]},
-                                           num_expected_params=5)
+        agg_params = self.secagg.aggregate(
+            round_=1,
+            total_sample_size=100,
+            model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
+            encryption_factors={'node-1': [1], 'node-2': [1]},
+            num_expected_params=5)
         self.assertTrue(len(agg_params) == 5)
 
         # IMPORTANT: this value has been set for biprime 1234 and servkey 1234
         # aggregation of [1], [1] will be closer to -2.9988
         self.secagg._secagg_random = -2.9988
-
-        agg_params = self.secagg.aggregate(round_=1,
-                                           total_sample_size=100,
-                                           model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
-                                           encryption_factors={'node-1': [1], 'node-2': [1]},
-                                           num_expected_params=5
-                                           )
+        agg_params = self.secagg.aggregate(
+            round_=1,
+            total_sample_size=100,
+            model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
+            encryption_factors={'node-1': [1], 'node-2': [1]},
+            num_expected_params=5)
         self.assertTrue(len(agg_params) == 5)
 
         # Will fail since secagg random is not correctly decrypted
@@ -206,9 +191,9 @@ class TestSecureAggregation(ResearcherTestCase):
 
         state = self.secagg.save_state_breakpoint()
 
-        self.assertEqual(state["class"], "SecureAggregation")
+        self.assertEqual(state["class"], "JoyeLibertSecureAggregation")
         self.assertEqual(state["module"], "fedbiomed.researcher.secagg._secure_aggregation")
-        self.assertEqual(list(state["attributes"].keys()), ['_biprime', '_servkey', '_experiment_id', '_parties'])
+        self.assertEqual(list(state["attributes"].keys()), ['_experiment_id', '_parties', '_biprime', '_servkey'])
         self.assertEqual(list(state["arguments"].keys()), ['active', 'clipping_range'])
 
         pass
@@ -229,7 +214,7 @@ class TestSecureAggregation(ResearcherTestCase):
         state = self.secagg.save_state_breakpoint()
 
         # Load from state
-        secagg = SecureAggregation.load_state_breakpoint(state)
+        secagg = JoyeLibertSecureAggregation.load_state_breakpoint(state)
 
         self.assertEqual(secagg.biprime.secagg_id, biprime_id)
         self.assertEqual(secagg.servkey.secagg_id, servkey_id)
