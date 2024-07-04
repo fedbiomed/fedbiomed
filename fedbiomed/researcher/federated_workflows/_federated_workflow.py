@@ -634,7 +634,7 @@ class FederatedWorkflow(ABC):
                 it does only assignment. Secure aggregation activation and configuration
                 depends on the instance provided.
             scheme: Secure aggregation scheme to use. Ig a `SecureAggregation` object is provided,
-                the argument is not used, as the scheme comes from the object. Defaults is 
+                the argument is not used, as the scheme comes from the object. Defaults is
                 SecureAggregationSchemes.JOYE_LIBERT.
 
         Returns:
@@ -644,25 +644,18 @@ class FederatedWorkflow(ABC):
             FedbiomedExperimentError: bad argument type or value
         """
         if not isinstance(scheme, SecureAggregationSchemes):
-            msg = f"{ErrorNumbers.FB410.value}: Expected `scheme` argument `SecureAggregationSchemes`, " \
-                  f"but got {type(scheme)}"
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
-
-        if scheme == SecureAggregationSchemes.NONE:
-            msg = f"{ErrorNumbers.FB410.value}: Secure aggregation cannot be used with scheme None"
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB410.value}: Expected `scheme` argument "
+                "`SecureAggregationSchemes`, but got {type(scheme)}")
 
         if isinstance(secagg, bool):
-            self._secagg = secagg_scheme_to_class[scheme](active=secagg)
+            self._secagg = SecureAggregation(scheme=scheme, active=secagg)
         elif isinstance(secagg, SecureAggregation):
             self._secagg = secagg
         else:
-            msg = f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or `SecureAggregation`, " \
-                  f"but got {type(secagg)}"
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or "
+                f"`SecureAggregation` but got {type(secagg)}")
 
         return self._secagg
 

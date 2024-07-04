@@ -55,11 +55,12 @@ def load_default_n2n_key() -> rsa.RSAPrivateKey:
     """
     default_key_file = os.path.join(_DEFAULT_KEY_DIR, _DEFAULT_N2N_KEY_FILE)
     try:
-        with open(default_key_file, 'r') as file:
+        with open(default_key_file, 'r', encoding="UTF-8") as file:
             private_key = serialization.load_pem_private_key(bytes(file.read(), 'utf-8'), None)
-    except (FileNotFoundError, PermissionError, ValueError):
-        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot read default node to node key '
-                                       f'from file {default_key_file}')
+    except (FileNotFoundError, PermissionError, ValueError) as e:
+        raise FedbiomedNodeToNodeError(
+            f'{ErrorNumbers.FB324.value}: cannot read default node to node key '
+            f'from file {default_key_file}') from e
     return private_key
 
 
@@ -85,17 +86,19 @@ def format_outgoing_overlay(message: Message) -> List[bytes]:
         FedbiomedNodeToNodeError: key is too short
         FedbiomedNodeToNodeError: bad message type
     """
-    # robustify from developper error (try to encapsulate a bad message type)
+    # robustify from developer error (try to encapsulate a bad message type)
     if not isinstance(message, InnerMessage):
         raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: not an inner message')
 
-    # consider encrypt-sign([message,node_id]) or other see https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
+    # consider encrypt-sign([message,node_id]) or other see
+    # https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
 
     local_node_private_key = _default_n2n_key
     distant_node_public_key = _default_n2n_key.public_key()
 
     if _CHUNK_SIZE * 8 > min(local_node_private_key.key_size, distant_node_public_key.key_size):
-        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot use key shorter than {_CHUNK_SIZE} bits')
+        raise FedbiomedNodeToNodeError(
+            f'{ErrorNumbers.FB324.value}: cannot use key shorter than {_CHUNK_SIZE} bits')
 
     # sign inner payload
     signed = Serializer.dumps({
@@ -143,7 +146,7 @@ def format_incoming_overlay(payload: List[bytes]) -> InnerMessage:
         FedbiomedNodeToNodeError: cannot verify payload integrity
     """
     # check payload types (not yet done by message type checks, only checks it's a list)
-    if not all([isinstance(p, bytes) for p in payload]):
+    if not all(isinstance(p, bytes) for p in payload):
         raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad type for node to node payload')
 
     # decode and ensure only node2node (inner) messages are received
@@ -152,7 +155,8 @@ def format_incoming_overlay(payload: List[bytes]) -> InnerMessage:
     distant_node_public_key = _default_n2n_key.public_key()
 
     if _CHUNK_SIZE * 8 > min(local_node_private_key.key_size, distant_node_public_key.key_size):
-        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot use key shorter than {_CHUNK_SIZE} bits')
+        raise FedbiomedNodeToNodeError(
+            f'{ErrorNumbers.FB324.value}: cannot use key shorter than {_CHUNK_SIZE} bits')
 
     # decrypt outer payload
     # caveat: decryption can be long for long messages (~10s for 1MB cleartext message)
@@ -169,7 +173,8 @@ def format_incoming_overlay(payload: List[bytes]) -> InnerMessage:
             for chunk in payload
         ]
     except ValueError as e:
-        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot decrypt payload: {e}')
+        raise FedbiomedNodeToNodeError(
+            f'{ErrorNumbers.FB324.value}: cannot decrypt payload: {e}') from e
 
     decrypted = Serializer.loads(bytes().join(decrypted_chunks))
 
@@ -189,7 +194,8 @@ def format_incoming_overlay(payload: List[bytes]) -> InnerMessage:
             hashes.SHA256()
         )
     except ValueError as e:
-        raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: cannot verify payload integrity: {e}')
+        raise FedbiomedNodeToNodeError(
+            f'{ErrorNumbers.FB324.value}: cannot verify payload integrity: {e}') from e
 
     return NodeToNodeMessages.format_incoming_message(decrypted['message'])
 
@@ -210,8 +216,9 @@ def send_nodes(
             nodes: list of node IDs of the destination nodes
             messages: list of the inner messages for the destination nodes
         Returns:
-            A unique ID of type `int` for retrieving node to node reply messages for this request
-            from the `pending_requests`, or `None` if no message sent to another node is of type request-reply 
+            A unique ID of type `int` for retrieving node to node reply messages
+                for this request from the `pending_requests`, or `None` if no message
+                sent to another node is of type request-reply
     """
     request_ids = []
 

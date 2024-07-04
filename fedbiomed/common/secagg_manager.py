@@ -565,14 +565,6 @@ class SecaggDhManager(BaseSecaggManager):
     """Manage the secagg table elements for Diffie Hellman components
     """
 
-    def __init__(self, db_path: str):
-        """Constructor of the class
-
-        Args:
-            db_path: path to the component's secagg database
-        """
-        super().__init__(db_path)
-
     def get(self, secagg_id: str, experiment_id: str) -> Union[dict, None]:
         """Search for data entry with given `secagg_id`
 
@@ -598,7 +590,9 @@ class SecaggDhManager(BaseSecaggManager):
 
         if element:
             # Need to convert to keys as bytes
-            context_bytes = {node_id: bytes(base64.b64decode(key)) for node_id, key in element['context'].items()}
+            context_bytes = {
+                node_id: bytes(base64.b64decode(key)) \
+                    for node_id, key in element['context'].items()}
             element['context'] = context_bytes
 
         return element
