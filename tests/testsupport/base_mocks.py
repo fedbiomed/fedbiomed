@@ -21,7 +21,7 @@ class MockRequestModule:
 
     def setUp(self, module = None) -> None:
 
-        module = module if module else "fedbiomed.researcher.request.Requests"  
+        module = module if module else "fedbiomed.researcher.requests.Requests"
         self.patch_requests = patch(module)
 
         self.mock_requests = self.patch_requests.start()

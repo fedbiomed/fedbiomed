@@ -296,15 +296,17 @@ class SecaggLomCrypter(SecaggCrypter):
 
     def __init__(
         self,
-        nonce:str
+        nonce: str | None = None
     ):
         """LOM Secure aggregation to encrypt and aggregate
 
         Args:
             nonce: `nonce` to use in encryption
         """
-        random.seed(nonce)
-        nonce = random.getrandbits(128).to_bytes(16, 'big')
+        if nonce:
+            random.seed(nonce)
+            nonce = random.getrandbits(128).to_bytes(16, 'big')
+
         self._lom = LOM(nonce)
 
 
@@ -403,11 +405,11 @@ class SecaggLomCrypter(SecaggCrypter):
         """
         start = time.process_time()
 
-        if not isinstance(params, list) or not all([isinstance(p, list) for p in params]):
+        if not isinstance(params, list) or not all(isinstance(p, list) for p in params):
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: The parameters to aggregate should be a "
                                               f"list containing list of parameters")
 
-        if not all([all([isinstance(p_, int) for p_ in p]) for p in params]):
+        if not all(all(isinstance(p_, int) for p_ in p) for p in params):
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: Invalid parameter type. The parameters "
                                               f"should be of type of integers.")
 

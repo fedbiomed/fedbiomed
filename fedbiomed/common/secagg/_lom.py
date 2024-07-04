@@ -1,4 +1,5 @@
 import math
+import secrets
 from typing import List, Dict
 
 import numpy as np
@@ -77,8 +78,11 @@ class LOM:
     """
     def __init__(
         self,
-        nonce: bytes
+        nonce: bytes | None = None
     ) -> None:
+
+        if not nonce:
+            nonce = secrets.token_bytes(16)
 
         self._prf: PRF = PRF(nonce)
         self._vector_dtype: str = 'uint32'
