@@ -4,10 +4,13 @@
 import functools
 import math
 import random
-from typing import List, Union, Dict, Any, Optional
+import importlib
+from typing import List, Union, Dict, Any, Optional, Callable
 from abc import ABC, abstractmethod
 
 from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext, SecaggDhContext
+from fedbiomed.researcher.environ import environ
+
 from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.common.secagg import SecaggCrypter, SecaggLomCrypter
@@ -15,7 +18,99 @@ from fedbiomed.common.logger import logger
 
 
 
-class SecureAggregation(ABC):
+class SecureAggregation:
+    """Interface for different secure aggregation classes"""
+
+    def __init__(
+        self,
+        *args,
+        scheme: SecureAggregationSchemes = SecureAggregationSchemes.LOM,
+        **kwargs
+    ) -> None:
+        """Constructs secure aggregation class
+
+        Builds corresponding secure aggregation object/scheme based
+        on given scheme argument
+
+        Args:
+            scheme: Secure aggregation scheme
+        """
+
+        self.__scheme = scheme
+
+        match self.__scheme:
+            case SecureAggregationSchemes.LOM:
+                self.__secagg = LomSecureAggregation(*args, **kwargs)
+            case SecureAggregationSchemes.JOYE_LIBERT:
+                self.__secagg = JoyeLibertSecureAggregation(*args, **kwargs)
+            case _ :
+                self.__secagg = LomSecureAggregation(*args, **kwargs)
+
+    def __getattr__(self, item: str):
+        """Wraps all functions/attributes of class members.
+
+        Args:
+             item: Requested item from class
+        """
+
+        if item in ('save_state_breakpoint', 'load_state_breakpoint'):
+            return object.__getattribute__(self, item)
+
+        return self.__secagg.__getattribute__(item)
+
+
+    @abstractmethod
+    def save_state_breakpoint(self) -> Dict[str, Any]:
+        """Saves state of the secagg
+
+        This methods also save states of `__secagg` which provides
+        a single entry point for secagg schemes
+
+        Returns:
+            The secagg state to be saved
+        """
+
+        state = {
+            "class": type(self).__name__,
+            "module": self.__module__,
+            "arguments": {
+                'scheme': self.__scheme.value,
+            },
+            "attributes": {},
+            "attributes_states": {
+                "__secagg": self.__secagg.save_state_breakpoint()
+            }
+        }
+
+        return state
+
+    @classmethod
+    def load_state_breakpoint(
+            cls,
+            state: Dict
+    ) -> 'SecureAggregation':
+        """Create a `SecureAggregation` object from a saved state
+
+        Args:
+            state: saved state to restore in the created object
+
+        Returns:
+            The created `SecureAggregation` object
+        """
+        secagg = cls(
+            scheme=SecureAggregationSchemes(state['arguments']['scheme'])
+        )
+
+        for name, val in state["attributes_states"].items():
+
+            _sub_cls = getattr(importlib.import_module(val['module']), val["class"])
+            instance = _sub_cls.load_state_breakpoint(val)
+            setattr(secagg, name, instance)
+
+        return secagg
+
+
+class _SecureAggregation(ABC):
     """Secure aggregation controller of researcher component.
 
     This class is responsible for;
@@ -224,22 +319,63 @@ class SecureAggregation(ABC):
 
     @abstractmethod
     def aggregate(
+        self,
+        *args,
+        model_params,
+        total_sample_size,
+        encryption_factors,
+        **kwargs
+    ) -> List[List[int]]:
+        """Algorithm specific aggregation implementation"""
+
+    def _validate(
+        self,
+        aggregate: functools.partial,
+        encryption_factors: List[List[int]],
+        num_expected_params: int | None = None
+    ) -> bool:
+        """Validate given inputs"""
+
+
+        if encryption_factors is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Secure aggregation random validation has been "
+                "set but the encryption factors are not provided. Please provide encrypted "
+                "`secagg_random` values in different parties. Or to not set/get "
+                "`secagg_random()` before the aggregation.")
+
+        logger.info("Validating secure aggregation results...")
+        encryption_factors = [f for k, f in encryption_factors.items()]
+
+        validation: List[float]
+
+        if num_expected_params:
+            validation = aggregate(params=encryption_factors, num_expected_params=1)
+        else:
+            validation = aggregate(params=encryption_factors)
+
+        if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.03):
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Aggregation is failed due to incorrect decryption."
+            )
+        logger.info("Validation is completed.")
+
+
+    def _aggregate(
             self,
-            round_: int,
-            total_sample_size: int,
             model_params: Dict[str, List[int]],
             encryption_factors: Union[Dict[str, List[int]], None],
-            num_expected_params: int,
-            aggregate: functools.partial,
+            aggregate: Callable,
+            num_expected_params: int | None = None,
     ) -> List[float]:
         """Aggregates given model parameters
 
         Args:
-            round_: current training round number
             total_sample_size: sum of number of samples used by all nodes
             model_params: model parameters from the participating nodes
             encryption_factors: encryption factors from the participating nodes
-            num_expected_params: number of decrypted parameters to decode from the model parameters
+            num_expected_params: number of decrypted parameters to decode from the model parameters.
+                It is an optional parameter since some schemes does not require it.
             aggregate: partial function for aggregation
 
         Returns:
@@ -249,31 +385,12 @@ class SecureAggregation(ABC):
             FedbiomedSecureAggregationError: secure aggregation context not properly configured
             FedbiomedSecureAggregationError: secure aggregation computation error
         """
+        if self._secagg_random:
+            self._validate(aggregate, encryption_factors, num_expected_params)
 
-        # Validate secure aggregation
-        if self._secagg_random is not None:
-
-            if encryption_factors is None:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}: Secure aggregation random validation has been set but the encryption "
-                    f"factors are not provided. Please provide encrypted `secagg_random` values in different parties. "
-                    f"Or to not set/get `secagg_random()` before the aggregation.")
-
-            logger.info("Validating secure aggregation results...")
-            encryption_factors = [f for k, f in encryption_factors.items()]
-            validation: List[float] = aggregate(params=encryption_factors, num_expected_params=1)
-
-            if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.03):
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}: Aggregation is failed due to incorrect decryption."
-                )
-            logger.info("Validation is completed.")
-
-        elif encryption_factors is not None:
-            logger.warning("Encryption factors are provided while secagg random is None. Please make sure secure "
-                           "aggregation steps are applied correctly.")
-
-        logger.info("Aggregating encrypted parameters. This process may take some time depending on model size.")
+        logger.info(
+            "Aggregating encrypted parameters. This process may take some time depending"
+            "on model size.")
         # Aggregate parameters
         params = [p for _, p in model_params.items()]
         aggregated_params = aggregate(params=params, num_expected_params=num_expected_params)
@@ -326,7 +443,7 @@ class SecureAggregation(ABC):
         return secagg
 
 
-class JoyeLibertSecureAggregation(SecureAggregation):
+class JoyeLibertSecureAggregation(_SecureAggregation):
     """Secure aggregation controller of researcher component for Joye-Libert.
 
     This class is responsible for;
@@ -406,7 +523,7 @@ class JoyeLibertSecureAggregation(SecureAggregation):
         Requires setting `parties` and `experiment_id` if they are not set in previous secagg
         setups. It is possible to execute without any argument if SecureAggregation
         has already `parties` and `experiment_id` defined. This feature provides researcher
-        execute `secagg.setup()` if any connection issue
+        execute `secagg.setup()` if any connection issu#e
 
         Args:
             parties: Parties that participates secure aggregation
@@ -458,11 +575,13 @@ class JoyeLibertSecureAggregation(SecureAggregation):
 
     def aggregate(
             self,
+            *args,
             round_: int,
             total_sample_size: int,
             model_params: Dict[str, List[int]],
             encryption_factors: Union[Dict[str, List[int]], None] = None,
-            num_expected_params: int = 1
+            num_expected_params: int = 1,
+            **kwargs
     ) -> List[float]:
         """Aggregates given model parameters
 
@@ -503,13 +622,11 @@ class JoyeLibertSecureAggregation(SecureAggregation):
                                       biprime=biprime,
                                       clipping_range=self.clipping_range)
 
-        return super().aggregate(
-            round_,
-            total_sample_size,
+        return self._aggregate(
             model_params,
             encryption_factors,
-            num_expected_params,
             aggregate,
+            num_expected_params,
         )
 
     def save_state_breakpoint(self) -> Dict[str, Any]:
@@ -551,7 +668,7 @@ class JoyeLibertSecureAggregation(SecureAggregation):
         return super().load_state_breakpoint(state)
 
 
-class LomSecureAggregation(SecureAggregation):
+class LomSecureAggregation(_SecureAggregation):
     """Secure aggregation controller of researcher component for Low Overhead Masking.
 
     This class is responsible for;
@@ -631,6 +748,11 @@ class LomSecureAggregation(SecureAggregation):
         Raises
             FedbiomedSecureAggregationError: Invalid argument type
         """
+
+        parties = list(
+            filter(lambda x: x != environ["ID"], parties)
+        )
+
         super().setup(parties, experiment_id, force)
 
         if self._dh is None:
@@ -661,20 +783,18 @@ class LomSecureAggregation(SecureAggregation):
 
     def aggregate(
             self,
-            round_: int,
-            total_sample_size: int,
+            *args,
             model_params: Dict[str, List[int]],
+            total_sample_size: int,
             encryption_factors: Union[Dict[str, List[int]], None] = None,
-            num_expected_params: int = 1
+            **kwargs
     ) -> List[float]:
         """Aggregates given model parameters
 
         Args:
-            round_: current training round number
             total_sample_size: sum of number of samples used by all nodes
             model_params: model parameters from the participating nodes
             encryption_factors: encryption factors from the participating nodes
-            num_expected_params: number of decrypted parameters to decode from the model parameters
 
         Returns:
             Aggregated parameters
@@ -693,20 +813,14 @@ class LomSecureAggregation(SecureAggregation):
                 f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Diffie Hellman context is "
                 f"not set properly")
 
-        num_nodes = len(model_params)
+        aggregate = functools.partial(
+            self._secagg_crypter.aggregate,
+            total_sample_size=total_sample_size,
+            clipping_range=self.clipping_range)
 
-        aggregate = functools.partial(self._secagg_crypter.aggregate,
-                                      current_round=round_,
-                                      num_nodes=num_nodes,
-                                      total_sample_size=total_sample_size,
-                                      clipping_range=self.clipping_range)
-
-        return super().aggregate(
-            round_,
-            total_sample_size,
+        return self._aggregate(
             model_params,
             encryption_factors,
-            num_expected_params,
             aggregate,
         )
 
