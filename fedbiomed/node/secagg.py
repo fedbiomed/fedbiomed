@@ -12,17 +12,19 @@ import uuid
 
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType, \
-    REQUEST_PREFIX, TIMEOUT_NODE_TO_NODE_REQUEST
+    REQUEST_PREFIX
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeToNodeMessages
 from fedbiomed.common.mpc_controller import MPCController
+from fedbiomed.common.secagg import DHKey, DHKeyAgreement
+from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg_manager import SKManager, BPrimeManager, DHManager
-from fedbiomed.node.requests import send_nodes, PendingRequests
+from fedbiomed.node.requests import send_nodes
 
 
 _CManager = CertificateManager(
@@ -143,13 +145,14 @@ class SecaggBaseSetup(ABC):
         Returns:
             message to return to the researcher after the setup
         """
-        # Caveat: don't test if a context exists for this `secagg_id` eg
+        # Caveat: we don't test if a context exists for this `secagg_id` eg
         #   context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
-        # This is because we always need to update the (possibly) existing entry for this `secagg_id`
-        # to address the case where the previous secagg setup succeeded on some nodes (which thus
-        # created a context) and failed on some nodes. In that case, negotiating only on previously failed nodes
-        # would result in either negotiation error or keep incoherent setting between nodes for
-        # this `secagg_id`
+        #
+        # In the case of (possibly) previous secagg setup succeeded on some nodes (which thus
+        # created a context) and failed on some nodes, negotiating only on previously failed nodes
+        # would result in either negotiation delay/timeouts.
+        # Nevertheless, it finally fails as new context cannot be saved on nodes where it already exists.
+        # Another `secagg_id` should be used or partially existing entry be cleaned from database
         try:
             self._setup_specific()
         except FedbiomedError as e:
@@ -342,7 +345,8 @@ class SecaggDhSetup(SecaggBaseSetup):
             parties: List[str],
             experiment_id: str,
             grpc_client: GrpcController,
-            pending_requests: PendingRequests,
+            pending_requests: EventWaitExchange,
+            controller_data: EventWaitExchange,
     ):
         """Constructor of the class.
 
@@ -353,6 +357,7 @@ class SecaggDhSetup(SecaggBaseSetup):
             parties: List of parties participating to the secagg context element setup
             grpc_client: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
+            controller_data: object for passing data to the node controller
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
@@ -363,6 +368,7 @@ class SecaggDhSetup(SecaggBaseSetup):
         self._secagg_manager = DHManager
         self._grpc_client = grpc_client
         self._pending_requests = pending_requests
+        self._controller_data = controller_data
 
         if not self._experiment_id or not isinstance(self._experiment_id, str):
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `experiment_id` must be a non empty string'
@@ -375,9 +381,17 @@ class SecaggDhSetup(SecaggBaseSetup):
         # we know len(parties) >= 3 so len(other_nodes) >= 1
         other_nodes = [ e for e in self._parties[1:] if e != environ['NODE_ID'] ]
 
-        # Key exchange with other nodes
-        # TODO: replace `dummy` with real payload
+        local_keypair = DHKey()
+        key_agreement = DHKeyAgreement(
+            node_u_id=environ['NODE_ID'],
+            node_u_dh_key=local_keypair,
+            session_salt=bytes(self._secagg_id, 'utf-8'),
+        )
 
+        # Make public key available for requests received from other nodes for this `secagg_id`
+        self._controller_data.event(self._secagg_id, {'public_key': local_keypair.export_public_key()})
+
+        # Request public key from other nodes
         other_nodes_messages = []
         for node in other_nodes:
             other_nodes_messages += [
@@ -385,39 +399,47 @@ class SecaggDhSetup(SecaggBaseSetup):
                     'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
                     'node_id': environ['NODE_ID'],
                     'dest_node_id': node,
-                    'dummy': f"KEY REQUEST INNER from {environ['NODE_ID']}",
                     'secagg_id': self._secagg_id,
                     'command': 'key-request'
                 })
             ]
 
         logger.debug(f'Sending Diffie-Hellman setup for {self._secagg_id} to nodes: {other_nodes}')
-        listener_id = send_nodes(
+        all_received, messages = send_nodes(
             self._grpc_client,
             self._pending_requests,
             self._researcher_id,
             other_nodes,
             other_nodes_messages,
         )
-        all_received, messages = self._pending_requests.wait(listener_id, TIMEOUT_NODE_TO_NODE_REQUEST)
+
+        # Nota: don't clean `self._controller_data.remove(secagg_id)` when finished.
+        # Rely on automatic cleaning after timeout.
+        # This node received all replies, but some nodes may still be querying this node.
 
         logger.debug(f"Completed Diffie-Hellmann setup with success={all_received} "
                      f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}")
         if not all_received:
-            nodes_no_answer = set(other_nodes) - set([m['node_id'] for m in messages])
+            nodes_no_answer = set(other_nodes) - set([m.get_param('node_id') for m in messages])
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB318.value}: Some nodes did not answer during Diffie Hellman secagg "
                 f"context setup: {nodes_no_answer}"
             )
 
-        # Successful DH exchange with other ndoes
-        context = { 'dummy': "tempo value to replace by LOM specific value"}
+        # At this point: successful DH exchange with other nodes
+        context = {
+            m.get_param('node_id'): key_agreement.agree(m.get_param('node_id'), m.get_param('public_key'))
+            for m in messages
+        }
+
         self._secagg_manager.add(
             self._secagg_id,
             self._parties,
             context,
             self._experiment_id
         )
+
+        # At this point: successfully negotiated and save secagg context
         logger.info(
             "Diffie Hellman secagg context successfully created for "
             f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")

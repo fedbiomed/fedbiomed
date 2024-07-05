@@ -12,6 +12,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, \
     TrainRequest, ErrorMessage
 from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.transport.controller import GrpcController
 from fedbiomed.transport.client import ResearcherCredentials
@@ -23,7 +24,7 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-from fedbiomed.node.requests import NodeToNodeRouter, PendingRequests
+from fedbiomed.node.requests import NodeToNodeRouter
 
 
 class Node:
@@ -55,10 +56,10 @@ class Node:
             researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
             on_message=self.on_message,
         )
-        # Note: `PendingRequests` `NodeToNodeRouter` should not be changed to singleton.
         # When implementing multiple researchers, there will probably be one per researcher.
-        self._pending_requests = PendingRequests()
-        self._n2n_router = NodeToNodeRouter(self._grpc_client, self._pending_requests)
+        self._pending_requests = EventWaitExchange(remove_delivered=True)
+        self._controller_data = EventWaitExchange(remove_delivered=False)
+        self._n2n_router = NodeToNodeRouter(self._grpc_client, self._pending_requests, self._controller_data)
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
 
@@ -229,6 +230,7 @@ class Node:
         # but we can add it for all secagg for future extension (in-app Shamir for Joye-Libert secagg)
         setup_arguments['grpc_client'] = self._grpc_client
         setup_arguments['pending_requests'] = self._pending_requests
+        setup_arguments['controller_data'] = self._controller_data
 
         try:
             secagg = SecaggSetup(**setup_arguments)()

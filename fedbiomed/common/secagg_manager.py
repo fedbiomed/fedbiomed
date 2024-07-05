@@ -7,6 +7,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional, Union, List, Dict
 import copy
+import base64
 
 import json
 from tinydb import TinyDB, Query
@@ -290,7 +291,7 @@ class SecaggServkeyManager(BaseSecaggManager):
         return element
 
     def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: str):
-        """Add a new data entry for a context element in the servkey table
+        """Add a new data entry for a context element in the secagg table
 
         Check that no entry exists yet for this `secagg_id` in the table.
 
@@ -310,7 +311,7 @@ class SecaggServkeyManager(BaseSecaggManager):
         )
 
     def remove(self, secagg_id: str, experiment_id: str) -> bool:
-        """Remove data entry for this `secagg_id` from the server key table
+        """Remove data entry for this `secagg_id` from the secagg table
 
         Check that the experiment ID for the table entry and the current experiment match
 
@@ -362,7 +363,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
         return isinstance(element, dict) and 'type' in element and element['type'] == BiprimeType.DEFAULT.value
 
     def get(self, secagg_id: str, experiment_id: None = None) -> Union[dict, None]:
-        """Search for data entry with given `secagg_id` in the biprime table
+        """Search for data entry with given `secagg_id` in the secagg table
 
         Check that there is at most one entry with this unique secagg ID.
 
@@ -397,7 +398,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
             context: Dict[str, int],
             experiment_id: None = None
     ) -> None:
-        """Add a new data entry for a context element in the biprime table
+        """Add a new data entry for a context element in the secagg table
 
         Check that no entry exists yet for this `secagg_id` in the table.
 
@@ -419,7 +420,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
         )
 
     def remove(self, secagg_id: str, experiment_id: None = None) -> bool:
-        """Remove data entry for this `secagg_id` from the biprime table
+        """Remove data entry for this `secagg_id` from the secagg table
 
         Args:
             secagg_id: secure aggregation ID key of the entry
@@ -561,7 +562,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
 
 
 class SecaggDhManager(BaseSecaggManager):
-    """Manage the component Diffie Hellman secagg element database table
+    """Manage the secagg table elements for Diffie Hellman components
     """
 
     def __init__(self, db_path: str):
@@ -595,10 +596,15 @@ class SecaggDhManager(BaseSecaggManager):
                                                        experiment_id,
                                                        'getting')
 
+        if element:
+            # Need to convert to keys as bytes
+            context_bytes = {node_id: bytes(base64.b64decode(key)) for node_id, key in element['context'].items()}
+            element['context'] = context_bytes
+
         return element
 
-    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: str):
-        """Add a new data entry for a context element in the servkey table
+    def add(self, secagg_id: str, parties: List[str], context: Dict[str, bytes], experiment_id: str):
+        """Add a new data entry for a context element in the secagg table
 
         Check that no entry exists yet for this `secagg_id` in the table.
 
@@ -608,15 +614,18 @@ class SecaggDhManager(BaseSecaggManager):
             experiment_id: ID of the experiment to which this secagg context element is attached
             context: server key part held by this party
         """
+        # Save key pairs as `str`` since it is the format support by JSON. Need to convert to `base64` first
+        context_json = {node_id: str(base64.b64encode(key), 'utf-8') for node_id, key in context.items()}
+
         self._add_generic(
             SecaggElementTypes.DIFFIE_HELLMAN,
             secagg_id,
             parties,
-            {'experiment_id': experiment_id, 'context': context}
+            {'experiment_id': experiment_id, 'context': context_json}
         )
 
     def remove(self, secagg_id: str, experiment_id: str) -> bool:
-        """Remove data entry for this `secagg_id` from the server key table
+        """Remove data entry for this `secagg_id` from the secagg table
 
         Check that the experiment ID for the table entry and the current experiment match
 
