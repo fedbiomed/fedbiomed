@@ -40,9 +40,15 @@ def test_01_lom_module_prf():
     seed = key
     input_size = 10
     buffer = prf.eval_vector(seed, round, input_size)
-    vector = np.frombuffer(buffer, dtype='uint32')
+    vector = np.frombuffer(buffer, dtype='uint64')
     assert len(vector) == input_size
 
+
+    # Test with big input size
+    input_size = 100000000
+    buffer = prf.eval_vector(seed, round, input_size)
+    vector = np.frombuffer(buffer, dtype='uint64')
+    assert len(vector) == input_size
 
 def test_02_lom_protect_and_aggregate(pairwise_keys):
 
@@ -72,10 +78,18 @@ def test_02_lom_protect_and_aggregate(pairwise_keys):
     assert aggregated_vector == sum_x.tolist()
 
 
+def test_02_lom_protect_error_case_int_to_big_to_convert(pairwise_keys):
+    """This function tests the case there int is too big to convert"""
+
+    node_ids, nonce, pwkeys = pairwise_keys
+    lom_1 = LOM(nonce)
+
+    params = [112341234, 123151234]
+    lom_1.protect(node_ids[0], pwkeys[0], 1, params, node_ids)
+    exit()
 
 
-
-def test_02_lom_protect_big_int(pairwise_keys):
+def test_03_lom_protect_big_int(pairwise_keys):
 
     node_ids, nonce, pwkeys = pairwise_keys
     lom_1 = LOM(nonce=nonce)

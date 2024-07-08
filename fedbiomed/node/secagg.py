@@ -37,6 +37,8 @@ class SecaggBaseSetup(ABC):
     Sets up a Secure Aggregation context element on the node side.
     """
 
+    _min_num_parties: int = 3
+
     def __init__(
             self,
             researcher_id: str,
@@ -57,19 +59,13 @@ class SecaggBaseSetup(ABC):
             FedbiomedSecaggError: bad argument type or value
         """
 
-        if len(parties) < 3:
+        if len(parties) < self._min_num_parties:
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `parties` : {parties} : need  ' \
                 'at least 3 parties for secure aggregation'
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        if researcher_id != parties[0]:
-            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `researcher_id` : {researcher_id} : ' \
-                'needs to be the same as the first secagg party'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-
-        # assign argument values
+                # assign argument values
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
         self._experiment_id = experiment_id
@@ -193,10 +189,16 @@ class SecaggMpspdzSetup(SecaggBaseSetup):
                 is attached (empty string if no attached experiment)
             parties: List of parties participating in the secagg context element setup
         """
+
+        if researcher_id != parties[0]:
+            raise FedbiomedSecaggError(
+                f'{ErrorNumbers.FB318.value}: bad parameter `researcher_id` : {researcher_id} : '
+                'needs to be the same as the first secagg party')
+
         super().__init__(researcher_id, secagg_id, parties, experiment_id)
 
         # one controller per secagg object to prevent any file conflict
-        self._MPC = MPCController(
+        self._mpc = MPCController(
             tmp_dir=environ["TMP_DIR"],
             component_type=ComponentType.NODE,
             component_id=environ["ID"]
@@ -243,8 +245,8 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
         """
 
         ip_file, _ = _CManager.write_mpc_certificates_for_experiment(
-            path_certificates=self._MPC.mpc_data_dir,
-            path_ips=self._MPC.tmp_dir,
+            path_certificates=self._mpc.mpc_data_dir,
+            path_ips=self._mpc.tmp_dir,
             self_id=environ["ID"],
             self_ip=environ["MPSPDZ_IP"],
             self_port=environ["MPSPDZ_PORT"],
@@ -253,7 +255,7 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
             parties=self._parties
         )
 
-        output = self._MPC.exec_shamir(
+        output = self._mpc.exec_shamir(
             party_number=self._parties.index(environ["ID"]),
             num_parties=len(self._parties),
             ip_addresses=ip_file
@@ -261,7 +263,7 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
 
         # Read output
         try:
-            with open(output, "r") as file:
+            with open(output, "r", encoding='UTF-8') as file:
                 key_share = file.read()
                 file.close()
         except Exception as e:
@@ -338,6 +340,8 @@ class SecaggDhSetup(SecaggBaseSetup):
     Sets up a server key Secure Aggregation context element on the node side.
     """
 
+    _min_num_parties: int = 2
+
     def __init__(
             self,
             researcher_id: str,
@@ -379,7 +383,7 @@ class SecaggDhSetup(SecaggBaseSetup):
         """Service function for setting up the Diffie Hellman secagg context element.
         """
         # we know len(parties) >= 3 so len(other_nodes) >= 1
-        other_nodes = [ e for e in self._parties[1:] if e != environ['NODE_ID'] ]
+        other_nodes = [ e for e in self._parties if e != environ['NODE_ID'] ]
 
         local_keypair = DHKey()
         key_agreement = DHKeyAgreement(
@@ -412,7 +416,8 @@ class SecaggDhSetup(SecaggBaseSetup):
             other_nodes,
             other_nodes_messages,
         )
-
+        print("replies")
+        print(messages)
         # Nota: don't clean `self._controller_data.remove(secagg_id)` when finished.
         # Rely on automatic cleaning after timeout.
         # This node received all replies, but some nodes may still be querying this node.
@@ -431,6 +436,7 @@ class SecaggDhSetup(SecaggBaseSetup):
             m.get_param('node_id'): key_agreement.agree(m.get_param('node_id'), m.get_param('public_key'))
             for m in messages
         }
+        print(context)
 
         self._secagg_manager.add(
             self._secagg_id,
@@ -439,6 +445,8 @@ class SecaggDhSetup(SecaggBaseSetup):
             self._experiment_id
         )
 
+        entry = self._secagg_manager.get(self._secagg_id, self._experiment_id)
+        print(entry)
         # At this point: successfully negotiated and save secagg context
         logger.info(
             "Diffie Hellman secagg context successfully created for "

@@ -141,10 +141,10 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
         replies["node-2"].node_id = "party3"
 
         # Patch response
-       
+
         self.mock_federated_request.replies.return_value = replies
         self.mock_federated_request.errors.return_value = []
-        self.secagg_context._element = SecaggElementTypes.SERVER_KEY
+        self.secagg_context._element = SecaggElementTypes.SERVER_KEY  # pylint: disable=W0212
 
         with patch("fedbiomed.researcher.secagg.SecaggContext._payload") as mock_payload:
             mock_payload.return_value = ("KEY", True)
@@ -289,9 +289,9 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
             with self.assertRaises(FedbiomedSecaggError):
                 self.srvkey_context._payload_create()
 
-            # note: should not be accessing private `_MPC` of `SecaggServkeyContext`
+            # note: should not be accessing private ._mpc` of `SecaggServkeyContext`
             # but could not have it working "clean" mocking
-            self.srvkey_context._MPC.exec_shamir.side_effect = Exception
+            self.srvkey_context._mpc.exec_shamir.side_effect = Exception
             with self.assertRaises(FedbiomedSecaggError):
                 self.srvkey_context._payload_create()
 
