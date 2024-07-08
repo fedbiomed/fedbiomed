@@ -75,17 +75,6 @@ class SecaggContext(ABC):
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        if len(parties) < 3:
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `parties` : {parties} : need  ' \
-                      'at least 3 parties for secure aggregation'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-
-        if environ['ID'] != parties[0]:
-            raise FedbiomedSecaggError(
-                f'{ErrorNumbers.FB415.value}: researcher should be the first party.'
-            )
-
         self._secagg_id = secagg_id if secagg_id is not None else 'secagg_' + str(uuid.uuid4())
         self._parties = parties
         self._researcher_id = environ['ID']
@@ -402,8 +391,18 @@ class SecaggMpspdzContext(SecaggContext):
         """
         super().__init__(parties, experiment_id, secagg_id)
 
+        if len(parties) < 3:
+            raise FedbiomedSecaggError(
+                f'{ErrorNumbers.FB415.value}: bad parameter `parties` : {parties} : need  '
+                'at least 3 parties for secure aggregation')
+
+        if environ['ID'] != parties[0]:
+            raise FedbiomedSecaggError(
+                f'{ErrorNumbers.FB415.value}: researcher should be the first party.'
+            )
+
         # one controller per secagg object to prevent any file conflict
-        self._MPC = MPCController(
+        self._mpc = MPCController(
             tmp_dir=environ["TMP_DIR"],
             component_type=ComponentType.RESEARCHER,
             component_id=environ["ID"]
@@ -435,12 +434,12 @@ class SecaggMpspdzContext(SecaggContext):
 
         executer = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         context_future = executer.submit(payload)
-        
+
         with self._requests.send(msg, self._parties[1:], policies) as fed_request:
             replies = fed_request.replies()
             errors = fed_request.errors()
             if fed_request.policy.has_stopped_any():
-                self._MPC.kill()
+                self._mpc.kill()
                 context_future.cancel()
                 raise FedbiomedSecaggError("Request is not successful. Policy "
                                            f"report => {fed_request.policy.report()}. Errors => {errors}")
@@ -450,7 +449,7 @@ class SecaggMpspdzContext(SecaggContext):
         try:
             context, status[self._researcher_id] = context_future.result(timeout=120)
         except TimeoutError:
-            self._MPC.kill()
+            self._mpc.kill()
             context_future.cancel()
             raise FedbiomedSecaggError("Request is not successful, timeout on researcher payload.")
 
@@ -505,8 +504,8 @@ class SecaggServkeyContext(SecaggMpspdzContext):
         """
 
         ip_file, _ = _CManager.write_mpc_certificates_for_experiment(
-            path_certificates=self._MPC.mpc_data_dir,
-            path_ips=self._MPC.tmp_dir,
+            path_certificates=self._mpc.mpc_data_dir,
+            path_ips=self._mpc.tmp_dir,
             self_id=environ["ID"],
             self_ip=environ["MPSPDZ_IP"],
             self_port=environ["MPSPDZ_PORT"],
@@ -516,7 +515,7 @@ class SecaggServkeyContext(SecaggMpspdzContext):
         )
 
         try:
-            output = self._MPC.exec_shamir(
+            output = self._mpc.exec_shamir(
                 party_number=0,  # 0 stands for server/aggregator
                 num_parties=len(self._parties),
                 ip_addresses=ip_file
@@ -622,10 +621,14 @@ class SecaggDhContext(SecaggContext):
         """
         super().__init__(parties, experiment_id, secagg_id)
 
+        if len(parties) < 2:
+            raise FedbiomedSecaggError(
+                f'{ErrorNumbers.FB415.value}: LOM, bad parameter `parties` : {parties} : need'
+                'at least 3 parties for secure aggregation')
+
         if not self._experiment_id:
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `experiment_id` must be non empty string'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+            raise FedbiomedSecaggError(
+                f'{ErrorNumbers.FB415.value}: bad parameter `experiment_id` must be non empty string')
 
         self._element = SecaggElementTypes.DIFFIE_HELLMAN
         self._secagg_manager = _DHManager
@@ -687,7 +690,7 @@ class SecaggDhContext(SecaggContext):
         # Ensure that reply from each node was received
         status = {node_id: False for node_id in self._parties}
 
-        with self._requests.send(msg, self._parties[1:], policies) as fed_request:
+        with self._requests.send(msg, self._parties, policies) as fed_request:
             replies = fed_request.replies()
             errors = fed_request.errors()
 
@@ -696,7 +699,6 @@ class SecaggDhContext(SecaggContext):
 
         # no cryptographic material on the researcher side in this case, no specific context element to save
         context = {}
-
         if all(status.values()):
             # only create context if previous steps succeeded
             _, status_researcher_payload = payload(context)
