@@ -1,6 +1,7 @@
 import math
 import secrets
 from typing import List, Dict
+from multiprocessing import Pool, cpu_count
 
 import numpy as np
 
@@ -10,6 +11,8 @@ from cryptography.hazmat.backends import default_backend
 
 
 from fedbiomed.common.exceptions import FedbiomedError
+
+_MAX_ROUND=1000
 
 class PRF:
     """
@@ -62,9 +65,15 @@ class PRF:
             backend=default_backend()
         ).encryptor()
 
+        # TODO: Better handling limits for secure aggregation
+        if not (input_size + _MAX_ROUND) <= 2**32:
+            raise FedbiomedSecaggError(
+                f"Can not perform encryiton due to large input vector. input_size "
+                f"({input_size}) + MAX_ROUND ({_MAX_ROUND}) allowed is greater than 2**32"
+            )
 
         # create a list of indices from 0 to input_size where each element is concatenated with tau
-        taus = b''.join([i.to_bytes(2, 'big') + tau.to_bytes(2, 'big') for i in range(input_size)])
+        taus = b''.join([(i + tau).to_bytes(4, 'big') for i in range(input_size)])
         return encryptor.update(taus) + encryptor.finalize()
 
 
@@ -111,7 +120,7 @@ class LOM:
         """
 
         num_nodes = len(node_ids)
-        print([i.bit_length() for i in x_u_tau])
+
         if any(val.bit_length() > 32-math.log2(num_nodes) for val in x_u_tau):
             raise FedbiomedError(
                 "Bit length of one or more values has more bits "
@@ -121,14 +130,17 @@ class LOM:
         x_u_tau = np.array(x_u_tau, dtype=self._vector_dtype)
         mask = np.zeros(len(x_u_tau), dtype=self._vector_dtype)
         for pair_id in node_ids:
+
             if pair_id == node_id:
                 continue
+
             secret = pairwise_secrets[pair_id]
 
             pairwise_seed = self._prf.eval_key(
                 pairwise_secret=secret,
                 tau=tau)
 
+            # print(len(pairwise_seed))
             pairwise_vector = self._prf.eval_vector(
                 seed=pairwise_seed,
                 tau=tau,
@@ -140,7 +152,6 @@ class LOM:
                 mask += pairwise_vector
             else:
                 mask -= pairwise_vector
-
 
         encrypted_params = mask + x_u_tau
 
