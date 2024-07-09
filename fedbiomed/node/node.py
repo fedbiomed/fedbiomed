@@ -365,6 +365,7 @@ class Node:
                         self._grpc_client.send(
                             NodeMessages.format_outgoing_message(
                                 {
+                                    'request_id': item.request_id,
                                     'command': 'error',
                                     'extra_msg': 'Round error: ' + str(e),
                                     'node_id': environ['NODE_ID'],
