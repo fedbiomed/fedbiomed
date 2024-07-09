@@ -29,7 +29,7 @@ from testsupport import fake_training_plan
 import torch
 from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModule, RidgeRegularizer
 
-from fedbiomed.common.constants import DatasetTypes, TrainingPlans
+from fedbiomed.common.constants import DatasetTypes, SecureAggregationSchemes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
 from fedbiomed.common.exceptions import  FedbiomedOptimizerError, FedbiomedRoundError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
@@ -420,7 +420,7 @@ class TestRound(NodeTestCase):
         self.r1._dlp_and_loading_block_metadata = dlp.serialize()
         self.r1.training_kwargs = {}
         self.r1.initialize_arguments()
-       
+
 
         training_data_loader, _ = self.r1._split_train_and_test_data(test_ratio=0.)
         dataset = training_data_loader.dataset
@@ -429,10 +429,10 @@ class TestRound(NodeTestCase):
 
     @patch("fedbiomed.node.round.BPrimeManager.get")
     @patch("fedbiomed.node.round.SKManager.get")
-    def test_round_12_configure_secagg(self,
-                                       servkey_get,
-                                       biprime_get
-                                       ):
+    def test_round_12_check_configure_secagg(self,
+                                             servkey_get,
+                                             biprime_get
+                                             ):
         """Tests round secure aggregation configuration"""
 
         servkey_get.return_value = {"context": {}}
@@ -440,74 +440,77 @@ class TestRound(NodeTestCase):
 
         environ["SECURE_AGGREGATION"] = True
 
-        result = self.r1._configure_secagg(
-            secagg_random=1.5,
-            secagg_biprime_id='123',
-            secagg_servkey_id='123'
+        result = self.r1._check_configure_secagg(
+            {'secagg_random': 1.5,
+             'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value,
+             'parties': ['A', 'B', 'C'],
+             'secagg_biprime_id': '123',
+             'secagg_servkey_id': '123'}
         )
-        self.assertTrue(result)
+        self.assertTrue(result[0])
 
-        result = self.r1._configure_secagg(
-            secagg_random=None,
-            secagg_biprime_id=None,
-            secagg_servkey_id=None
+        result = self.r1._check_configure_secagg(
+            {'secagg_random': None,
+             'secagg_biprime_id': None,
+             'secagg_servkey_id': None}
         )
-        self.assertFalse(result)
+        self.assertFalse(result[0])
 
         with self.assertRaises(FedbiomedRoundError):
-            self.r1._configure_secagg(
-                secagg_random=None,
-                secagg_biprime_id="1234",
-                secagg_servkey_id=None)
+            self.r1._check_configure_secagg(
+                {"secagg_random": None,
+                 "secagg_biprime_id": "1234",
+                 "secagg_servkey_id": None})
 
         with self.assertRaises(FedbiomedRoundError):
-            self.r1._configure_secagg(
-                secagg_random=None,
-                secagg_biprime_id="1234",
-                secagg_servkey_id="1223")
+            self.r1._check_configure_secagg(
+                {"secagg_random": None,
+                 "secagg_biprime_id": "1234",
+                 "secagg_servkey_id": "1223"})
 
         with self.assertRaises(FedbiomedRoundError):
-            self.r1._configure_secagg(
-                secagg_random=None,
-                secagg_biprime_id=None,
-                secagg_servkey_id="1223")
+            self.r1._check_configure_secagg(
+                {"secagg_random": None,
+                 "secagg_biprime_id": None,
+                 "secagg_servkey_id": "1223"})
 
         with self.assertRaises(FedbiomedRoundError):
             servkey_get.return_value = None
             biprime_get.return_value = {"context": {}}
-            self.r1._configure_secagg(
-                secagg_random=1.5,
-                secagg_biprime_id='123',
-                secagg_servkey_id='123'
+            self.r1._check_configure_secagg(
+                {'secagg_random': 1.5,
+                 'secagg_biprime_id':'123',
+                 'secagg_servkey_id':'123'}
             )
 
         with self.assertRaises(FedbiomedRoundError):
             servkey_get.return_value = {"context": {}}
             biprime_get.return_value = None
-            self.r1._configure_secagg(
-                secagg_random=1.5,
-                secagg_biprime_id='123',
-                secagg_servkey_id='123'
+            self.r1._check_configure_secagg(
+
+                {'secagg_random': 1.5,
+                 'secagg_biprime_id': '123',
+                 'secagg_servkey_id': '123'}
             )
 
         # If node forces using secagg
         environ["SECURE_AGGREGATION"] = True
         environ["FORCE_SECURE_AGGREGATION"] = True
         with self.assertRaises(FedbiomedRoundError):
-            self.r1._configure_secagg(
-                secagg_random=None,
-                secagg_biprime_id=None,
-                secagg_servkey_id=None
+            self.r1._check_configure_secagg(
+                {'secagg_random':None,
+                 'secagg_biprime_id':None,
+                 'secagg_servkey_id': None}
             )
 
         # If secagg is not activated
         environ["SECURE_AGGREGATION"] = False
         environ["FORCE_SECURE_AGGREGATION"] = False
         with self.assertRaises(FedbiomedRoundError):
-            self.r1._configure_secagg(
-                secagg_random=1.5,
-                secagg_biprime_id='123',
-                secagg_servkey_id='123'
+            self.r1._check_configure_secagg(
+                {'secagg_random':1.5,
+                 'secagg_biprime_id':'123',
+                 'secagg_servkey_id':'123'}
             )
 
 
@@ -516,9 +519,13 @@ class TestRound(NodeTestCase):
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('uuid.uuid4')
-    @patch("fedbiomed.node.round.BPrimeManager.get")
-    @patch("fedbiomed.node.round.SKManager.get")
-    def test_round_13_run_model_training_secagg(self,
+    @patch("fedbiomed.node.secure_aggregation.BPrimeManager.get")
+    @patch("fedbiomed.node.secure_aggregation.SKManager.get")
+    @patch('fedbiomed.node.secure_aggregation.DHManager.get')
+    @patch("fedbiomed.common.secagg._secagg_crypter.SecaggLomCrypter.encrypt")
+    def test_round_10_run_model_training_secagg(self,
+                                                lom_crypter_encrpyt_patch,
+                                                dhmanager_get,
                                                 servkey_get,
                                                 biprime_get,
                                                 uuid_patch,
@@ -555,12 +562,29 @@ class TestRound(NodeTestCase):
         environ["FORCE_SECURE_AGGREGATION"] = True
 
         self.r1.initialize_arguments()
-        msg_test1 = self.r1.run_model_training(secagg_arguments={
+        msg_test_jl = self.r1.run_model_training(secagg_arguments={
             'secagg_random': 1.12,
             'secagg_servkey_id': '1234',
             'secagg_biprime_id': '1234',
         })
-        # TODO: assert something here??
+
+        self.assertTrue(msg_test_jl.success)
+
+        lom_crypter_encrpyt_patch.return_value = [0.1,0.2,0.3,0.4,0.5]
+        dhmanager_get.return_value = {"context": {"r-1": b"secret-key-1",
+                                                  "n-1": b"secret-key-2",
+                                                  "n-2": b"secret-key-3"},
+                                      "parties": ["r-1", "n-1", "n-2"]}
+
+        msg_test_dh = self.r1.run_model_training(secagg_arguments={
+            'secagg_scheme': SecureAggregationSchemes.LOM.value,
+            "parties": ["r-1", "n-1", "n-2"],
+            'secagg_random': 1.12,
+            'secagg_servkey_id': '1234',
+            'secagg_biprime_id': '1234',
+        })
+
+        self.assertTrue(msg_test_dh.success)
 
         # Back to normal
         environ["SECURE_AGGREGATION"] = False

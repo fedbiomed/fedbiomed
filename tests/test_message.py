@@ -827,6 +827,7 @@ class TestMessage(unittest.TestCase):
             status=TrainingPlanApprovalStatus.APPROVED.value,
             msg='sdrt',
             training_plan='TP',
+            training_plan_id='id-1234',
             command='do_it')
 
         self.check_class_args(
@@ -1226,15 +1227,17 @@ class TestMessage(unittest.TestCase):
             params= {"x": 0},
             state_id='state_id_1234',
             training_args={"a": 1, "b": 2},
-            dataset_id="MNIS",
+            dataset_id="MNIST",
             training=True,
             model_args={"c": 3, "d": 4},
             training_plan="tp",
             training_plan_class='my_model',
-            secagg_servkey_id=None,
-            secagg_biprime_id=None,
-            secagg_random=None,
-            secagg_clipping_range=None,
+            secagg_arguments={
+                'secagg_servkey_id': None,
+                'secagg_biprime_id': None,
+                'secagg_random': None,
+                'secagg_clipping_range': None
+            },
             round=1,
             command='do_it',
             aggregator_args={'aggregator_name': 'fedavg'},
@@ -1592,10 +1595,12 @@ class TestMessage(unittest.TestCase):
             "dataset_id": 'my_dataset',
             "training": True,
             "model_args": {},
-            "secagg_servkey_id": "dummy",
-            "secagg_biprime_id": "dummy",
-            "secagg_random": 0.95,
-            "secagg_clipping_range" : None,
+            "secagg_arguments": {
+                "secagg_servkey_id": "dummy",
+                "secagg_biprime_id": "dummy",
+                "secagg_random": 0.95,
+                "secagg_clipping_range" : None
+            },
             "round": 1,
             "training_plan": "TP",
             "training_plan_class": "my_model",
@@ -1810,7 +1815,8 @@ class TestMessage(unittest.TestCase):
             'status': TrainingPlanApprovalStatus.APPROVED.value,
             'msg': 'sdrt',
             'training_plan': 'TP',
-            'command': 'training-plan-status'
+            'command': 'training-plan-status',
+            'training_plan_id': '1234'
         }
 
         r = message.ResearcherMessages.format_incoming_message(params_reply)

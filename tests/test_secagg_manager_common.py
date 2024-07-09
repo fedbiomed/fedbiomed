@@ -1,3 +1,4 @@
+import base64
 import unittest
 from unittest.mock import patch
 import copy
@@ -5,18 +6,25 @@ import os
 
 import inspect
 
-from fedbiomed.common.constants import BiprimeType, SecaggElementTypes, SecureAggregationSchemes, __secagg_element_version__
+from fedbiomed.common.constants import BiprimeType, SecaggElementTypes, __secagg_element_version__
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.secagg_manager import SecaggDhManager, SecaggServkeyManager, SecaggBiprimeManager
 
 
+class FakeSingleton:
+    def __init__(self, x):
+        self._obj = x
+    @property
+    def table(self):
+        return self._obj.table()
+
+
 class FakeTinyDB:
     def __init__(self, path):
-        self.db_table = None
+        self._table = FakeTable()
 
     def table(self, *args, **kwargs):
-        self.db_table = FakeTable()
-        return self.db_table
+        return self._table
 
 
 class FakeQuery:
@@ -76,10 +84,15 @@ class TestBaseSecaggManager(unittest.TestCase):
     def setUp(self):
         self.patcher_db = patch('fedbiomed.common.secagg_manager.TinyDB', FakeTinyDB)
         self.patcher_query = patch('fedbiomed.common.secagg_manager.Query', FakeQuery)
+        self.patcher_singleton = patch('fedbiomed.common.secagg_manager._SecaggTableSingleton', FakeSingleton)
 
         self.patcher_db.start()
         self.patcher_query.start()
-
+        self.patcher_singleton.start()
+        self.dh_key_1_in_bytes = b'DH_KEY_1'
+        self.dh_key_1_in_str = str(base64.b64encode(self.dh_key_1_in_bytes), 'utf-8')  # value = 'REhfS0VZXzE='
+        self.dh_key_2_in_bytes = b'DH_KEY_2'
+        self.dh_key_2_in_str = str(base64.b64encode(self.dh_key_2_in_bytes), 'utf-8')  # value = 'REhfS0VZXzI='
         self.biprime_dir = os.path.join(
             os.path.dirname(
                 os.path.abspath(inspect.getfile(inspect.currentframe()))
@@ -94,6 +107,7 @@ class TestBaseSecaggManager(unittest.TestCase):
     def tearDown(self) -> None:
         self.patcher_query.stop()
         self.patcher_db.stop()
+        self.patcher_singleton.stop()
 
     def test_secagg_manager_01_init_ok(self):
         """Instantiate SecaggServkeyManager / SecaggBiprimeManager normal successful case"""
@@ -129,17 +143,20 @@ class TestBaseSecaggManager(unittest.TestCase):
         entries_list = [
             [[], 'my_dummy_experiment_id'],
             [
-                [{'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}],
-                'my_dummy_experiment_id'],
+                [{'secagg_version': str(__secagg_element_version__),
+                   'experiment_id': 'my_dummy_experiment_id',
+                   'context':{'node-1': self.dh_key_1_in_str}}],
+                'my_dummy_experiment_id',],
             [
-                [{'secagg_version': str(__secagg_element_version__), 'experiment_id': 33, 'some_more_field': 3}],
+                [{'secagg_version': str(__secagg_element_version__), 'experiment_id': 33,
+                  'some_more_field': 3, 'context': {'node-1': self.dh_key_1_in_str}}],
                 33],
             [
-                [{'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id'}],
+                [{'secagg_version': str(__secagg_element_version__), 'experiment_id': 'my_dummy_experiment_id',
+                  'context': {'node-1': self.dh_key_1_in_str, 'node-2': self.dh_key_2_in_str}}],
                 'my_dummy_experiment_id'],
         ]
 
-        
         # action
         for m in managers:
             for entries, experiment_id in entries_list:
@@ -147,7 +164,8 @@ class TestBaseSecaggManager(unittest.TestCase):
                 manager = m('/path/to/dummy/file')
                 # should not be accessing private variable, but got no getter + avoid writing a specific fake class
                 # for each test
-                manager._db.db_table.entries = entries
+
+                manager._db._table.entries = entries
 
                 if entries:
                     expected_entries = entries[0]
@@ -206,7 +224,7 @@ class TestBaseSecaggManager(unittest.TestCase):
                 manager = m('/path/to/dummy/file')
                 # should not be accessing private variable, but got no getter + avoid writing a specific fake class
                 # for each test
-                manager._db.db_table.entries = entries
+                manager._db._table.entries = entries
 
                 if m in (SecaggServkeyManager, SecaggDhManager):
                     kwargs = {'experiment_id': experiment_id}
@@ -236,7 +254,7 @@ class TestBaseSecaggManager(unittest.TestCase):
             manager = SecaggBiprimeManager('/path/to/dummy/file')
             # should not be accessing private variable, but got no getter + avoid writing a specific fake class
             # for each test
-            manager._db.db_table.entries = entries
+            manager._db._table.entries = entries
 
             # action + check
             with self.assertRaises(FedbiomedSecaggError):
@@ -259,7 +277,7 @@ class TestBaseSecaggManager(unittest.TestCase):
                 manager = m('/path/to/dummy/file')
                 # should not be accessing private variable, but avoids writing a specific fake class
                 # for each test
-                manager._db.db_table.exception_search = True
+                manager._db._table.exception_search = True
 
                 if m in (SecaggServkeyManager, SecaggDhManager):
                     kwargs = {'experiment_id': experiment_id}
@@ -291,7 +309,9 @@ class TestBaseSecaggManager(unittest.TestCase):
             ],
             [
                 SecaggDhManager,
-                {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
+                {'experiment_id': 'my_experiment_id_dummy', 'context': {'node-1': self.dh_key_1_in_bytes,
+                                                                        'node-2': self.dh_key_2_in_bytes,
+                                                                        'node-3': self.dh_key_1_in_bytes}},
                 {'experiment_id': 'my_experiment_id_dummy'},
                 {'secagg_elem': SecaggElementTypes.DIFFIE_HELLMAN.value}
             ],
@@ -356,8 +376,8 @@ class TestBaseSecaggManager(unittest.TestCase):
             ],
             [
                 SecaggDhManager,
-                {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
-                {'experiment_id': 'my_experiment__alternate_id_dummy', 'context': '987654321'},
+                {'experiment_id': 'my_experiment_id_dummy', 'context': {'node-1': self.dh_key_2_in_bytes}},
+                {'experiment_id': 'my_experiment__alternate_id_dummy', 'context': {'node-1': self.dh_key_1_in_bytes}},
                 {}
             ]
         ]
@@ -398,7 +418,7 @@ class TestBaseSecaggManager(unittest.TestCase):
             ],
             [
                 SecaggDhManager,
-                {'experiment_id': 'my_experiment_id_dummy', 'context': '123456789'},
+                {'experiment_id': 'my_experiment_id_dummy', 'context': {'node-1': self.dh_key_1_in_bytes}},
                 {'experiment_id': 'my_experiment_id_dummy'}
             ]
         ]
@@ -411,7 +431,7 @@ class TestBaseSecaggManager(unittest.TestCase):
                     manager = m('/path/to/dummy/file')
                     # should not be accessing private variable, but avoids writing a specific fake class
                     # for each test
-                    manager._db.db_table.exception_insert = True
+                    manager._db._table.exception_insert = True
 
                     # action + check
                     with self.assertRaises(FedbiomedSecaggError):
@@ -420,8 +440,8 @@ class TestBaseSecaggManager(unittest.TestCase):
                     # preparation (continued)
                     # should not be accessing private variable, but avoids writing a specific fake class
                     # for each test
-                    manager._db.db_table.exception_insert = False
-                    manager._db.db_table.exception_remove = True
+                    manager._db._table.exception_insert = False
+                    manager._db._table.exception_remove = True
                     manager.add(secagg_id, parties, **specific)
 
                     # action + check
