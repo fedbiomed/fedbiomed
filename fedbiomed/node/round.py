@@ -30,7 +30,7 @@ from fedbiomed.common import utils
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node_state_manager import NodeStateManager, NodeStateFileName
-from fedbiomed.node.secure_aggregation import SecureAggregation
+from fedbiomed.node.secure_aggregation import SecaggRound
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
@@ -169,10 +169,12 @@ class Round:
         # Validate secagg status. Raises error if the training request is not compatible with
         # secure aggregation settings
         try:
-            self._secure_aggregation = SecureAggregation()(secagg_arguments, self.experiment_id)
+            self._secure_aggregation = SecaggRound(secagg_arguments, self.experiment_id)
         except FedbiomedSecureAggregationError as e:
             logger.error(str(e))
-            return self._send_round_reply(success=False, message='Could not configure secure aggregation on node')
+            return self._send_round_reply(
+                success=False,
+                message='Could not configure secure aggregation on node')
 
         # Validate and load training plan
         if environ["TRAINING_PLAN_APPROVAL"]:
@@ -343,14 +345,14 @@ class Round:
                 logger.info("Encrypting model parameters. This process can take some time depending on model size.",
                             researcher_id=self.researcher_id)
 
-                model_weights = self._secure_aggregation.encrypt(
+                model_weights = self._secure_aggregation.scheme.encrypt(
                     params=model_weights,
                     current_round=self._round,
                     weight=results['sample_size'],
                 )
                 results["encrypted"] = True
-                results["encryption_factor"] = self._secure_aggregation.encrypt(
-                    params=[self._secure_aggregation.secagg_random],
+                results["encryption_factor"] = self._secure_aggregation.scheme.encrypt(
+                    params=[self._secure_aggregation.scheme.secagg_random],
                     current_round=self._round,
                     weight=results['sample_size'],
                 )
