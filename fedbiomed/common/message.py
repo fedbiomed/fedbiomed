@@ -731,7 +731,7 @@ class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        job_id: Job id related to the experiment.
+        experiment_id: experiment id related to the experiment.
         training_plan_url: The training plan that is going to be checked for approval
         command: Request command string
 
@@ -740,7 +740,7 @@ class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
    """
 
     researcher_id: str
-    job_id: str
+    experiment_id: str
     training_plan: str
     command: str
 
@@ -753,7 +753,7 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: Id of the researcher that sends the request
         node_id: Node id that replies the request
-        job_id: job id related to the experiment
+        experiment_id: experiment id related to the experiment
         success: True if the node process the request as expected, false
             if any exception occurs
         approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
@@ -762,6 +762,8 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
         msg: Message from node based on state of the reply
         training_plan_url: The training plan that has been checked for approval
         command: Reply command string
+        training_plan_id: Unique training plan identifier, can be none in case of
+            success false.
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -770,13 +772,14 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
 
     researcher_id: str
     node_id: str
-    job_id: str
+    experiment_id: str
     success: bool
     approval_obligation: bool
     status: str
     msg: str
     training_plan: str
     command: str
+    training_plan_id: Optional[str]
 
 
 # Train messages

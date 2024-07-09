@@ -181,7 +181,7 @@ class FederatedWorkflow(ABC):
         self._nodes_filter: Optional[List[str]] = None  # researcher-defined nodes filter
         self._tags: Optional[List[str]] = None
         self._experimentation_folder: Optional[str] = None
-        self._secagg: Optional[SecureAggregation] = None
+        self._secagg: Union[SecureAggregation, bool] = False
         self._save_breakpoints: Optional[bool] = None
         self._node_state_agent: Optional[NodeStateAgent] = None
         self._researcher_id: str = environ['RESEARCHER_ID']
@@ -688,6 +688,7 @@ class FederatedWorkflow(ABC):
         """Retrieves the secagg arguments for setup."""
         secagg_arguments = {}
         if self._secagg.active:
+            
             if not self._secagg.setup(parties=[environ["ID"]] + sampled_nodes, experiment_id=self._experiment_id):
                 msg = f"{ErrorNumbers.FB417.value}: Could not setup secure aggregation crypto context."
                 logger.critical(msg)
