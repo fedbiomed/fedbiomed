@@ -194,7 +194,8 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
 
         loop = asyncio.get_event_loop()
 
-        agents = {'node-1': NodeAgent('node-1', loop), 'node-2': NodeAgent('node-2', loop)}
+        agents = {'node-1': NodeAgent('node-1', loop, on_forward=None),
+                  'node-2': NodeAgent('node-2', loop, on_forward=None)}
         self.agent_store_mock.return_value.get_all.return_value = agents
         agents['node-1']._status = NodeActiveStatus.DISCONNECTED
         agents['node-2']._status = NodeActiveStatus.ACTIVE
