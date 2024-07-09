@@ -4,6 +4,7 @@ from itertools import product
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
+from fedbiomed.common.mpc_controller import MPCController
 from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestModule
 #############################################################
@@ -13,7 +14,7 @@ from fedbiomed.common.constants import __breakpoints_version__
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.federated_workflows import FederatedWorkflow
-from fedbiomed.researcher.secagg import SecureAggregation
+from fedbiomed.researcher.secagg import SecureAggregation, SecaggContext, JoyeLibertSecureAggregation
 from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
 
 class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
@@ -226,33 +227,60 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertListEqual(exp.tags(), ['other-tags'])
         self.assertDictEqual(exp.training_data().data(), self.fake_search_reply)
 
+    #@patch('fedbiomed.researcher.federated_workflows._federated_workflow.Sec')
     def test_federated_workflow_09_secagg_setup(self):
         """Test secagg setup functionality and side effects"""
-        with patch('fedbiomed.researcher.federated_workflows._federated_workflow.SecureAggregation') as mock_secagg:
-            # normal call
+
+        with (patch('fedbiomed.researcher.federated_workflows._federated_workflow.secagg_scheme_to_class', spec=dict) as scheme_to_class_mock,):
             _secagg = MagicMock(spec=SecureAggregation)
+            # normal call
+            def configure_secagg_context(active):
+                if active:
+                    _secagg.active = True
+                else:
+                    _secagg.active = False
+            # _secagg.side_effect = configure_secagg_context
             _secagg.active = True
+
             _secagg.train_arguments.return_value = {'secagg': 'arguments'}
-            mock_secagg.return_value = _secagg
+
+            scheme_to_class_mock.__getitem__.return_value.return_value = _secagg
             exp = FederatedWorkflow(secagg=True)
-            secagg_args = exp.secagg_setup(['sampled-nodes'])
-            _secagg.setup.assert_called_once_with(parties=[environ["ID"], 'sampled-nodes'],
+
+            secagg_args = exp.secagg_setup(['sampled-node-1', 'sampled-node-2'])
+            _secagg.setup.assert_called_once_with(parties=[environ["ID"], 'sampled-node-1', 'sampled-node-2'],
                                                   experiment_id=exp.id)
             self.assertDictEqual(secagg_args, {'secagg': 'arguments'})
-            # call with empty nodes list
-            _secagg.setup.reset_mock()
+            # call with empty nodes list ...
+            _secagg.reset_mock()
+ 
             _secagg.train_arguments.return_value = {'secagg': 'arguments'}
-            mock_secagg.return_value = _secagg
+
+            #mock_secagg.return_value = _secagg
+            ## ... case where secagg is inactive
+            # FIXME: cannot manage to make it work....
+            # exp = FederatedWorkflow(secagg=False)
+            # secagg_args = exp.secagg_setup([])
+            # _secagg.setup.assert_not_called()
+
+            # self.assertDictEqual(secagg_args, {})
+
+            ## ... case where secagg is active
             exp = FederatedWorkflow(secagg=True)
+
             secagg_args = exp.secagg_setup([])
             _secagg.setup.assert_called_once_with(parties=[environ["ID"]],
                                                   experiment_id=exp.id)
+
             self.assertDictEqual(secagg_args, {'secagg': 'arguments'})
+
             # deactivate secagg
-            _secagg.setup.reset_mock()
+            _secagg.reset_mock()
             _secagg.active = False
-            mock_secagg.return_value = _secagg
+            _secagg.train_arguments.return_value = {'s':1}
+
             exp = FederatedWorkflow(secagg=True)
+
             secagg_args = exp.secagg_setup(['sampled-nodes'])
             self.assertEqual(_secagg.setup.call_count, 0)
             self.assertDictEqual(secagg_args, {})
@@ -308,7 +336,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
     @patch('fedbiomed.researcher.federated_workflows._federated_workflow.json.load')
     @patch('fedbiomed.researcher.federated_workflows._federated_workflow.find_breakpoint_path',
            return_value=('/bkpt-path', 'bkpt-folder'))
-    @patch('fedbiomed.researcher.federated_workflows._federated_workflow.SecureAggregation.load_state_breakpoint')
+    @patch('fedbiomed.researcher.federated_workflows._federated_workflow.JoyeLibertSecureAggregation.load_state_breakpoint')
     @patch('fedbiomed.researcher.federated_workflows._federated_workflow.NodeStateAgent.load_state_breakpoint')
     def test_federated_workflow_05_load_breakpoint(self,
                                                    mock_node_state_load,
@@ -320,7 +348,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
 
         # Invalid argument should be string or None
         with self.assertRaises(SystemExit):
-            exp, _ = FederatedWorkflow.load_breakpoint(breakpoint_folder_path=15)
+           exp, _ = FederatedWorkflow.load_breakpoint(breakpoint_folder_path=15)
 
         # Normal test case
         mock_secagg_load.return_value = MagicMock(spec=SecureAggregation)
@@ -332,7 +360,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
                 'experimentation_folder': 'some-folder',
                 'tags': ['some-tags'],
                 'nodes': ['node1'],
-                'secagg': {'secagg': 'bkpt'},
+                'secagg': {'secagg': 'bkpt', 'class': 'JoyeLibertSecureAggregation()'},
                 'node_state': {'node_state': 'bkpt'},
                 'downstream': 'bkpt'
             }
@@ -347,7 +375,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertEqual(saved_state['training_data'], {'node1': {'training': 'data', 'tags': 'some-tags'}})
         self.assertListEqual(saved_state['nodes'], ['node1'])
         self.assertListEqual(saved_state['tags'], ['some-tags'])
-        self.assertDictEqual(saved_state['secagg'], {'secagg': 'bkpt'})
+        self.assertDictEqual(saved_state['secagg'], {'secagg': 'bkpt', 'class': 'JoyeLibertSecureAggregation()'})
         self.assertDictEqual(saved_state['node_state'], {'node_state': 'bkpt'})
         self.assertEqual(saved_state['downstream'], 'bkpt')
 

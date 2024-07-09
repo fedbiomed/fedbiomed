@@ -19,7 +19,8 @@ class TestNodeAgent(unittest.IsolatedAsyncioTestCase):
         self.loop = asyncio.get_event_loop_policy().get_event_loop()
         self.node_agent = NodeAgent(
             id='node-1',
-            loop=self.loop
+            loop=self.loop,
+            on_forward=None
         )
 
     def tearDown(self) -> None:
@@ -98,7 +99,8 @@ class TestAgentStore(unittest.IsolatedAsyncioTestCase):
 
         self.loop = asyncio.get_event_loop_policy().get_event_loop()
         self.agent_store = AgentStore(
-            loop=self.loop
+            loop=self.loop,
+            on_forward=None
         )
 
     async def test_agent_store_01_retrieve(self):

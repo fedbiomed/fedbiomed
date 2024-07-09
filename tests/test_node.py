@@ -486,10 +486,12 @@ class TestNode(NodeTestCase):
             'params': {"x": 0},
             'experiment_id': 'experiment_id_1234',
             'state_id': None,
-            "secagg_biprime_id": None,
-            "secagg_servkey_id": None,
-            "secagg_random": None,
-            "secagg_clipping_range": None,
+            'secagg_arguments': {
+                "secagg_biprime_id": None,
+                "secagg_servkey_id": None,
+                "secagg_random": None,
+                "secagg_clipping_range": None
+            },
             "round": 1,
             'researcher_id': 'researcher_id_1234',
             'command': 'train',
@@ -549,15 +551,12 @@ class TestNode(NodeTestCase):
             "experiment_id": "experiment_id_1234",
             "state_id": None,
             "researcher_id": "researcher_id_1234",
-            "secagg_biprime_id": None,
-            "secagg_servkey_id": None,
-            "secagg_random": None,
-            "secagg_clipping_range": None,
-            "round": 1,
+            "secagg_arguments": None,
             "command": "train",
             "dataset_id": "dataset_id_1234",
             'aggregator_args': {},
             "aux_vars": ["single_url_aux_var"],
+            "round": 0
         }
 
         #
@@ -586,7 +585,7 @@ class TestNode(NodeTestCase):
             node_args=None, 
             training_plan=dict_msg_1_dataset['training_plan'], 
             training_plan_class=dict_msg_1_dataset['training_plan_class'], 
-            round_number=1, 
+            round_number=0, 
             dlp_and_loading_block_metadata=None, 
             aux_vars= dict_msg_1_dataset['aux_vars']
         )
@@ -810,30 +809,28 @@ class TestNode(NodeTestCase):
 
         # Test .setup()execution. It is normal the get result as success False since setup will fail
         # due to not existing certificate files
-        self.n1._task_secagg(request)
-        self.grpc_send_mock.assert_called_once_with(
-            unittest.mock.ANY,
+
+        with patch('fedbiomed.node.node.GrpcController.send') as grpc_send:
+            self.n1._task_secagg(request)
+
+        grpc_send.assert_called_once_with(
             SecaggReply(**{'researcher_id': req['researcher_id'],
                            'protocol_version': str(__messaging_protocol_version__),
                            'secagg_id': req['secagg_id'],
                            'request_id': 'request',
                            'success': False,
                            'node_id': environ["ID"],
-                           'msg': 'Can not setup secure aggregation it might be due to unregistered certificate for the '
-                                  f'federated setup. Please see error: FB619: Certificate error: Certificate for {req["researcher_id"]} is '
-                                  'not existing. Certificates  of each federated training participant should be present. '
-                                  f'{environ["ID"]} should register certificate of {req["researcher_id"]}.',
+                           'msg': f'Can not setup secure aggregation context on node for {req["secagg_id"]}.',
                            'command': 'secagg'})
         )
-        self.grpc_send_mock.reset_mock()
+
 
         # Test setup error case ---------------------------------------------------------------
         req["element"] = 12
         request = NodeMessages.format_incoming_message(req)
-
-        self.n1._task_secagg(request)
-        self.grpc_send_mock.assert_called_once_with(
-            unittest.mock.ANY,
+        with patch('fedbiomed.node.node.GrpcController.send') as grpc_send:
+            self.n1._task_secagg(request)
+        grpc_send.assert_called_once_with(
             SecaggReply(**{'researcher_id': req['researcher_id'],
                            'protocol_version': str(__messaging_protocol_version__),
                            'secagg_id': req['secagg_id'],
