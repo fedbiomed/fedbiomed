@@ -71,7 +71,7 @@ def setup(port, post_session, request):
         kill_subprocesses(node_processes)
         thread.join()
 
-        print("Cleareaniing component data")
+        print("Clearing researcher data")
         clear_researcher_data(researcher)
 
 
@@ -200,7 +200,7 @@ def test_03_secagg_pytorch_force_secagg(extra_node):
         model_args=model_args,
         training_plan_class=MyTrainingPlan,
         training_args=training_args,
-        round_limit=rounds,
+        round_limit=3,
         aggregator=FedAverage(),
         node_selection_strategy=None,
         secagg=False,

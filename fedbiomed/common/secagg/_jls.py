@@ -501,27 +501,11 @@ class BaseKey:
 
         taus = (np.arange(0, len_, dtype=mpz) << self._public_param.bits // 2) | tau
 
-        # with multiprocessing.Pool() as pool:
-        #     result = pool.map(self._public_param.hashing_function, taus)
-
         return [self._public_param.hashing_function(t) for t in taus]
 
 
 class UserKey(BaseKey):
     """A user key for Joye-Libert Scheme. """
-
-    def __init__(
-            self,
-            public_param: PublicParam,
-            key: int
-    ) -> None:
-        """Server key constructor.
-
-        Args:
-            public_param: The public parameters
-            key: The value of the server's key \\(sk_0\\)
-        """
-        super().__init__(public_param, key)
 
     def encrypt(
             self,
@@ -536,8 +520,8 @@ class UserKey(BaseKey):
 
 
         Returns:
-            A ciphertext of the plaintext, encrypted by the user key of type `EncryptedNumber` or list of
-                encrypted numbers.
+            A ciphertext of the plaintext, encrypted by the user key of
+                type `EncryptedNumber` or list of encrypted numbers.
 
         Raises:
             TypeError: bad parameters type
@@ -548,7 +532,9 @@ class UserKey(BaseKey):
         # TODO: find-out what is going wrong in numpy implementation
         # Use numpy vectors to increase speed of calculation
         plaintext = np.array(plaintext)
-        nude_ciphertext = (self._public_param.n_modulus * plaintext + 1) % self._public_param.n_square
+        nude_ciphertext = \
+            (self._public_param.n_modulus * plaintext + 1) \
+            % self._public_param.n_square
         taus = self._populate_tau(tau=tau, len_=len(plaintext))
 
         # This process takes some time
