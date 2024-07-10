@@ -17,6 +17,7 @@ from fedbiomed.node.node_state_manager import NodeStateFileName
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
+from fedbiomed.node.secure_aggregation import SecaggRound
 from testsupport.base_case import NodeTestCase
 #############################################################
 
@@ -31,7 +32,7 @@ from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModul
 
 from fedbiomed.common.constants import DatasetTypes, SecureAggregationSchemes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
-from fedbiomed.common.exceptions import  FedbiomedOptimizerError, FedbiomedRoundError, FedbiomedUserInputError
+from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.models import TorchModel, Model
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
@@ -135,6 +136,22 @@ class TestRound(NodeTestCase):
         self.ic_from_file_patch.stop()
         self.ic_from_spec_patch.stop()
         self.state_manager_patch.stop()
+
+    def assert_error_in_round(self, send_round_reply_mock, assert_if_not_called: bool = False):
+        # send_round_reply_mock from patch('fedbiomed.node.round.Round._send_round_reply')
+        if not send_round_reply_mock.call_args_list and assert_if_not_called:
+            self.fail("Mock `_send_round_reply` has never been called")
+        for c in send_round_reply_mock.call_args_list:
+            for i in range(len(c)):
+                arg = c[i]
+                if arg is False:
+                    # case where only one argument is passed
+                    # Round._send_round_reply(False)
+                    self.fail("error in test: have found a call to Round._send_round_reply(False)")
+                elif isinstance(arg, dict):
+                    if False in arg.values():
+                        self.fail("error in test: have found a call to Round._send_round_reply(success=False):"
+                                  f"\nDetails arg: {arg}")
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
@@ -426,95 +443,6 @@ class TestRound(NodeTestCase):
         dataset = training_data_loader.dataset
         self.assertEqual(dataset[0], 'modified-value')
 
-
-    @patch("fedbiomed.node.round.BPrimeManager.get")
-    @patch("fedbiomed.node.round.SKManager.get")
-    def test_round_12_check_configure_secagg(self,
-                                             servkey_get,
-                                             biprime_get
-                                             ):
-        """Tests round secure aggregation configuration"""
-
-        servkey_get.return_value = {"context": {}}
-        biprime_get.return_value = {"context": {}}
-
-        environ["SECURE_AGGREGATION"] = True
-
-        result = self.r1._check_configure_secagg(
-            {'secagg_random': 1.5,
-             'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value,
-             'parties': ['A', 'B', 'C'],
-             'secagg_biprime_id': '123',
-             'secagg_servkey_id': '123'}
-        )
-        self.assertTrue(result[0])
-
-        result = self.r1._check_configure_secagg(
-            {'secagg_random': None,
-             'secagg_biprime_id': None,
-             'secagg_servkey_id': None}
-        )
-        self.assertFalse(result[0])
-
-        with self.assertRaises(FedbiomedRoundError):
-            self.r1._check_configure_secagg(
-                {"secagg_random": None,
-                 "secagg_biprime_id": "1234",
-                 "secagg_servkey_id": None})
-
-        with self.assertRaises(FedbiomedRoundError):
-            self.r1._check_configure_secagg(
-                {"secagg_random": None,
-                 "secagg_biprime_id": "1234",
-                 "secagg_servkey_id": "1223"})
-
-        with self.assertRaises(FedbiomedRoundError):
-            self.r1._check_configure_secagg(
-                {"secagg_random": None,
-                 "secagg_biprime_id": None,
-                 "secagg_servkey_id": "1223"})
-
-        with self.assertRaises(FedbiomedRoundError):
-            servkey_get.return_value = None
-            biprime_get.return_value = {"context": {}}
-            self.r1._check_configure_secagg(
-                {'secagg_random': 1.5,
-                 'secagg_biprime_id':'123',
-                 'secagg_servkey_id':'123'}
-            )
-
-        with self.assertRaises(FedbiomedRoundError):
-            servkey_get.return_value = {"context": {}}
-            biprime_get.return_value = None
-            self.r1._check_configure_secagg(
-
-                {'secagg_random': 1.5,
-                 'secagg_biprime_id': '123',
-                 'secagg_servkey_id': '123'}
-            )
-
-        # If node forces using secagg
-        environ["SECURE_AGGREGATION"] = True
-        environ["FORCE_SECURE_AGGREGATION"] = True
-        with self.assertRaises(FedbiomedRoundError):
-            self.r1._check_configure_secagg(
-                {'secagg_random':None,
-                 'secagg_biprime_id':None,
-                 'secagg_servkey_id': None}
-            )
-
-        # If secagg is not activated
-        environ["SECURE_AGGREGATION"] = False
-        environ["FORCE_SECURE_AGGREGATION"] = False
-        with self.assertRaises(FedbiomedRoundError):
-            self.r1._check_configure_secagg(
-                {'secagg_random':1.5,
-                 'secagg_biprime_id':'123',
-                 'secagg_servkey_id':'123'}
-            )
-
-
-
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
@@ -533,7 +461,6 @@ class TestRound(NodeTestCase):
                                                 node_msg_patch,
                                                 mock_split_test_train_data):
         """tests correct execution and message parameters.
-        Besides  tests the training time.
          """
         # Tests details:
         # - Test 1: normal case scenario where no model_kwargs has been passed during model instantiation
@@ -556,13 +483,16 @@ class TestRound(NodeTestCase):
 
 
         # Secagg configuration
-        servkey_get.return_value = {"parties": ["r-1", "n-1", "n-2"],  "context" : {"server_key": 123445}}
-        biprime_get.return_value = {"parties": ["r-1", "n-1", "n-2"], "context" : {"biprime": 123445}}
+        servkey_get.return_value = {"context" : {"server_key": 123445}, "parties": ["r-1", "n-1", "n-2"]}
+        biprime_get.return_value = {"context" : {"biprime": 123445}, "parties": ["r-1", "n-1", "n-2"]}
         environ["SECURE_AGGREGATION"] = True
         environ["FORCE_SECURE_AGGREGATION"] = True
 
         self.r1.initialize_arguments()
+        # test for Joye Libert secagg
         msg_test_jl = self.r1.run_model_training(secagg_arguments={
+            'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT.value,
+            "parties": ["r-1", "n-1", "n-2"],
             'secagg_random': 1.12,
             'secagg_servkey_id': '1234',
             'secagg_biprime_id': '1234',
@@ -592,7 +522,7 @@ class TestRound(NodeTestCase):
 
     @patch("uuid.uuid4")
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
-    def test_round_14_run_model_training_optimizer_aux_var_error(self,
+    def test_round_11_run_model_training_optimizer_aux_var_error(self,
                                                                  tp_security_manager_patch,
                                                                  patch_uuid):
  
@@ -628,12 +558,12 @@ class TestRound(NodeTestCase):
         # action
         self.r1.initialize_arguments()
         rnd_reply = self.r1.run_model_training()
-
+        self.assertFalse(rnd_reply.success)
         self.assertIn("TrainingPlan Optimizer failed to ingest the provided auxiliary variables",
                         rnd_reply.msg)
 
 
-    def test_round_18_process_optim_aux_var(self):
+    def test_round_12_process_optim_aux_var(self):
         """Test that 'process_optim_aux_var' works properly."""
         
         # Set up a mock BaseOptimizer with an attached Optimizer.
@@ -656,7 +586,7 @@ class TestRound(NodeTestCase):
         call_with.update(fake_aux_var[1])
         mock_optim.set_aux.assert_called_once_with(call_with)
 
-    def test_round_19_process_optim_aux_var_without_aux_var(self):
+    def test_round_13_process_optim_aux_var_without_aux_var(self):
         """Test that 'process_optim_aux_var' exits properly without aux vars."""
         # Set up a Round with a mock Optimizer attached, but no aux vars.
        
@@ -670,7 +600,7 @@ class TestRound(NodeTestCase):
         self.assertEqual(msg, None)
         mock_optim.set_aux.assert_not_called()
 
-    def test_round_20_process_optim_aux_var_without_base_optimizer(self):
+    def test_round_14_process_optim_aux_var_without_base_optimizer(self):
         """Test that 'process_optim_aux_var' documents missing BaseOptimizer."""
         # Set up a Round with fake aux_vars, but no BaseOptimizer.
         
@@ -682,7 +612,7 @@ class TestRound(NodeTestCase):
         self.assertTrue("TrainingPlan does not hold a BaseOptimizer" in msg)
         self.assertIsInstance(msg, str)
 
-    def test_round_21_process_optim_aux_var_without_optimizer(self):
+    def test_round_15_process_optim_aux_var_without_optimizer(self):
         """Test that 'process_optim_aux_var' documents missing Optimizer."""
         # Set up a Round with aux vars, but a non-Optimizer optimizer.
         
@@ -696,7 +626,7 @@ class TestRound(NodeTestCase):
         self.assertTrue("does not manage a compatible Optimizer" in msg)
         self.assertIsInstance(msg, str)
 
-    def test_round_22_process_optim_aux_var_with_optimizer_error(self):
+    def test_round_16_process_optim_aux_var_with_optimizer_error(self):
         """Test that 'process_optim_aux_var' documents 'Optimizer.set_aux' error."""
         # Set up a Round with fake pre-downloaded aux vars.
 
@@ -721,7 +651,7 @@ class TestRound(NodeTestCase):
         call_with.update(fake_aux_var[1])
         mock_optim.set_aux.assert_called_once_with(call_with)
 
-    def test_round_23_collect_optim_aux_var(self):
+    def test_round_17_collect_optim_aux_var(self):
         """Test that 'collect_optim_aux_var' works properly with an Optimizer."""
         # Set up a Round with an attached mock Optimizer.
         
@@ -737,7 +667,7 @@ class TestRound(NodeTestCase):
         self.assertEqual(aux_var, mock_optim.get_aux.return_value)
         mock_optim.get_aux.assert_called_once()
 
-    def test_round_24_collect_optim_aux_var_without_optimizer(self):
+    def test_round_18_collect_optim_aux_var_without_optimizer(self):
         """Test that 'collect_optim_aux_var' works properly without an Optimizer."""
         # Set up a Round with a non-Optimizer optimizer.
    
@@ -749,7 +679,7 @@ class TestRound(NodeTestCase):
         aux_var = self.r1.collect_optim_aux_var()
         self.assertEqual(aux_var, {})
 
-    def test_round_25_collect_optim_aux_var_without_base_optimizer(self):
+    def test_round_19_collect_optim_aux_var_without_base_optimizer(self):
         """Test that 'collect_optim_aux_var' fails without a BaseOptimizer."""
         # Set up a Round without a BaseOptimizer.
 
@@ -760,7 +690,7 @@ class TestRound(NodeTestCase):
 
     # add a test with : shared and node specific auxiliary avraibales
 
-    def test_round_26_split_train_and_test_data_raises_exceptions(self):
+    def test_round_20_split_train_and_test_data_raises_exceptions(self):
         """Test that _split_train_and_test_data raises correct exceptions"""
         mock_training_plan = MagicMock()
         def foo_takes_an_argument(x):
@@ -775,7 +705,7 @@ class TestRound(NodeTestCase):
 
     @patch('fedbiomed.node.round.Serializer')
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    def test_round_27_load_round_state(self,
+    def test_round_21_load_round_state(self,
                                        get_optim_patch,
                                        serializer_patch,
                                        ):
@@ -816,7 +746,7 @@ class TestRound(NodeTestCase):
     @patch('fedbiomed.node.round.logger')
     @patch('fedbiomed.node.round.Serializer')
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    def test_round_28_load_round_state_failure(self,
+    def test_round_22_load_round_state_failure(self,
                                                get_optim_patch,
                                                serializer_patch,
                                                logger_patch
@@ -858,7 +788,7 @@ class TestRound(NodeTestCase):
 
     @patch('fedbiomed.node.round.Serializer', autospec=True)
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    def test_round_28_save_round_state(self, 
+    def test_round_23_save_round_state(self, 
                                        get_optim_patch,
                                        serializer_patch):
         
@@ -900,7 +830,7 @@ class TestRound(NodeTestCase):
 
 
     @patch('fedbiomed.node.round.Round._get_base_optimizer')
-    def test_round_29_save_round_state_failure_saving_optimizer(self,
+    def test_round_24_save_round_state_failure_saving_optimizer(self,
                                                                 get_optim_patch,
                                                                 ):
         self.r1.experiment_id = '1234'
@@ -922,7 +852,7 @@ class TestRound(NodeTestCase):
         
     @patch('uuid.uuid4', autospec=True)
     @patch('fedbiomed.node.round.Serializer', autospec=True)
-    def test_round_30_save_and_load_state(self,
+    def test_round_25_save_and_load_state(self,
                                           serializer_patch,
                                           uuid_patch):
         
@@ -951,7 +881,7 @@ class TestRound(NodeTestCase):
         self.state_manager_mock.return_value.add.assert_called_once()
 
 
-    def test_round_31_initialize_arguments(self):
+    def test_round_26_initialize_arguments(self):
         previous_state_id = 'state_id_1234'
 
         self.r1.initialize_arguments(previous_state_id=previous_state_id)
