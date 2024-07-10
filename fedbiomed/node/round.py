@@ -9,7 +9,6 @@ import tempfile
 import shutil
 import os
 import time
-import functools
 import uuid
 from typing import Dict, Union, Any, Optional, Tuple, List
 
@@ -152,7 +151,6 @@ class Round:
         self._node_state_manager.initialize(previous_state_id=previous_state_id,
                                             testing=not self.training)
         return self._initialize_validate_training_arguments()
-
 
     def run_model_training(
             self,
@@ -570,7 +568,7 @@ class Round:
         if isinstance(optimizer.optimizer, Optimizer):
             aux_var = optimizer.optimizer.get_aux()
 
-            if aux_var and self._secure_aggregation.use_secagg:
+            if aux_var and (self._secure_aggregation is None or self._secure_aggregation.use_secagg):
                 # TODO: remove the following warning when secagg compatibility has been fixed
                 # if secagg is used, raise a warning that encryption is not working with auxiliary variable
                 logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the '
