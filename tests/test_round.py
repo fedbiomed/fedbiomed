@@ -137,21 +137,6 @@ class TestRound(NodeTestCase):
         self.ic_from_spec_patch.stop()
         self.state_manager_patch.stop()
 
-    def assert_error_in_round(self, send_round_reply_mock, assert_if_not_called: bool = False):
-        # send_round_reply_mock from patch('fedbiomed.node.round.Round._send_round_reply')
-        if not send_round_reply_mock.call_args_list and assert_if_not_called:
-            self.fail("Mock `_send_round_reply` has never been called")
-        for c in send_round_reply_mock.call_args_list:
-            for i in range(len(c)):
-                arg = c[i]
-                if arg is False:
-                    # case where only one argument is passed
-                    # Round._send_round_reply(False)
-                    self.fail("error in test: have found a call to Round._send_round_reply(False)")
-                elif isinstance(arg, dict):
-                    if False in arg.values():
-                        self.fail("error in test: have found a call to Round._send_round_reply(success=False):"
-                                  f"\nDetails arg: {arg}")
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
