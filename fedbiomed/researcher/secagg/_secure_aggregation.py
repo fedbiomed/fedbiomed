@@ -393,7 +393,11 @@ class _SecureAggregation(ABC):
             "on model size.")
         # Aggregate parameters
         params = [p for _, p in model_params.items()]
-        aggregated_params = aggregate(params=params, num_expected_params=num_expected_params)
+        if num_expected_params:
+            aggregated_params = aggregate(
+                params=params, num_expected_params=num_expected_params)
+        else:
+             aggregated_params = aggregate(params=params)
 
         return aggregated_params
 
