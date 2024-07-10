@@ -249,6 +249,7 @@ services:
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
+      - FBM_PY
     ports:
       - "${RESEARCHER_HOST:-127.0.0.1}:8888:8888" # jupyter notebook
       - "${RESEARCHER_HOST:-127.0.0.1}:6006:6007" # tensorboard via socat proxy

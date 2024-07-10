@@ -24,9 +24,18 @@ export RESEARCHER_SERVER_PORT=50051
 export PYTHONPATH=/fedbiomed
 export MPSPDZ_IP=$VPN_IP
 export MPSPDZ_PORT=14000
-su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; conda activate fedbiomed-researcher ; \
-    ./scripts/fedbiomed_run configuration create --component researcher --use-current; cd notebooks ; \
-    jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' " $CONTAINER_USER &
+
+# Execute training command: either interactive jupyter notebook or non-interactive python script
+if [ -z "$FBM_PY" ] || [ "$FBM_PY" == "jupyter" ]
+then
+    su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; conda activate fedbiomed-researcher ; \
+           ./scripts/fedbiomed_run configuration create --component researcher --use-current; \
+           cd notebooks ; jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' " $CONTAINER_USER &
+else
+    su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; conda activate fedbiomed-researcher ; \
+           ./scripts/fedbiomed_run configuration create --component researcher --use-current; \
+           cd notebooks/samples ; python $FBM_PY " $CONTAINER_USER &
+fi
 
 # proxy port for TensorBoard
 # enables launching TB without `--host` option (thus listening only on `localhost`)
