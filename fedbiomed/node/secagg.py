@@ -58,14 +58,26 @@ class SecaggBaseSetup(ABC):
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-
+        # FIXME: here there are no check for argument `researcher_id` to see
+        # if it is a string, and no check to see if `researcher_id = parties[0]`
+        # this consititues a Regression wrt  previous implementation
+        errmess: str = ''
         if len(parties) < self._min_num_parties:
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `parties` : {parties} : need  ' \
-                'at least 3 parties for secure aggregation'
+                f'at least {self._min_num_parties} parties for secure aggregation, but got {len(parties)}'
+
+        if researcher_id is None:
+            errmess = f'{ErrorNumbers.FB318.value}: argument `researcher_id` must be a non-None value'
+
+        if parties and researcher_id != parties[0]:
+            errmess = f'{ErrorNumbers.FB318.value}: argument `researcher_id` is different than the one' +\
+                      f' specified in argument `parties` ({researcher_id} different from {parties[0]})'
+        if errmess:
+            # if one of the above condition is met, raise error
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-                # assign argument values
+        # assign argument values
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
         self._experiment_id = experiment_id
@@ -265,7 +277,7 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
         try:
             with open(output, "r", encoding='UTF-8') as file:
                 key_share = file.read()
-                file.close()
+
         except Exception as e:
             logger.debug("Can not open key share file written by MPC after executing MPC "
                          f"protocol. {e}. secagg_id: {self._secagg_id} file: {output}")

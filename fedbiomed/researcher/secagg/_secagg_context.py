@@ -6,7 +6,7 @@ import importlib
 import uuid
 import concurrent.futures
 
-from typing import Callable, List, Union, Tuple, Any, Dict
+from typing import Callable, List, Optional, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
 import time
 import random
@@ -21,7 +21,7 @@ from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.mpc_controller import MPCController
-from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager, SecaggDhManager
+from fedbiomed.common.secagg_manager import BaseSecaggManager, SecaggServkeyManager, SecaggBiprimeManager, SecaggDhManager
 from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime, get_method_spec
 from fedbiomed.common.message import Message, ResearcherMessages
 
@@ -82,12 +82,13 @@ class SecaggContext(ABC):
         self._status = False
         self._context = None
         self._experiment_id = None
+        self._element: SecaggElementTypes
 
         # set experiment ID using setter to validate
         self.set_experiment_id(experiment_id)
 
         # to be set in subclasses
-        self._secagg_manager = None
+        self._secagg_manager: Optional[BaseSecaggManager] = None
 
     @staticmethod
     def _check_secagg_id_type(value) -> bool:

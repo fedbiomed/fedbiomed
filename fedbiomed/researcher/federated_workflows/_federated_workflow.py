@@ -33,14 +33,8 @@ from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.secagg import SecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation
 
+
 TFederatedWorkflow = TypeVar("TFederatedWorkflow", bound='FederatedWorkflow')  # only for typing
-
-
-# associate a secure aggregation scheme to its `SecureAggregation` class
-secagg_scheme_to_class = {
-    SecureAggregationSchemes.JOYE_LIBERT: JoyeLibertSecureAggregation,
-    SecureAggregationSchemes.LOM: LomSecureAggregation,
-}
 
 
 # Exception handling at top level for researcher
@@ -635,7 +629,7 @@ class FederatedWorkflow(ABC):
                 depends on the instance provided.
             scheme: Secure aggregation scheme to use. Ig a `SecureAggregation` object is provided,
                 the argument is not used, as the scheme comes from the object. Defaults is
-                SecureAggregationSchemes.JOYE_LIBERT.
+                SecureAggregationSchemes.LOM.
 
         Returns:
             Secure aggregation controller instance.
@@ -688,7 +682,7 @@ class FederatedWorkflow(ABC):
         """Retrieves the secagg arguments for setup."""
         secagg_arguments = {}
         if self._secagg.active:
-            
+
             if not self._secagg.setup(parties=[environ["ID"]] + sampled_nodes, experiment_id=self._experiment_id):
                 msg = f"{ErrorNumbers.FB417.value}: Could not setup secure aggregation crypto context."
                 logger.critical(msg)
