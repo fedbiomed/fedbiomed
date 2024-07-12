@@ -5,7 +5,7 @@
 import time
 import random
 
-from typing import List, Union, Optional
+from typing import Dict, List, Union, Optional
 from gmpy2 import mpz
 
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
@@ -315,7 +315,7 @@ class SecaggLomCrypter(SecaggCrypter):
         current_round: int,
         node_id: str,
         params: List[float],
-        pairwise_secrets: int,
+        pairwise_secrets: Dict[str, bytes],
         node_ids: List[str],
         clipping_range: Union[int, None] = None,
         weight: Optional[int] = None,
