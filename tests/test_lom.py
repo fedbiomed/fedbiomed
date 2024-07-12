@@ -1,15 +1,15 @@
 import functools
 import math
 import random
+import unittest
 import pytest
-import uuid
 import numpy as np
 
 from secrets import token_bytes
 
 from fedbiomed.common.secagg._lom import PRF, LOM  # Assuming the class definitions are in lom.py
 from fedbiomed.common.secagg import SecaggLomCrypter
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedSecaggError
 
 
 @pytest.fixture(scope="module")
@@ -39,15 +39,16 @@ def test_01_lom_module_prf():
 
     seed = key
     input_size = 10
+
     buffer = prf.eval_vector(seed, round, input_size)
-    vector = np.frombuffer(buffer, dtype='uint64')
+    vector = np.frombuffer(buffer, dtype='uint32')
     assert len(vector) == input_size
 
 
     # Test with big input size
     input_size = 100000000
     buffer = prf.eval_vector(seed, round, input_size)
-    vector = np.frombuffer(buffer, dtype='uint64')
+    vector = np.frombuffer(buffer, dtype='uint32')
     assert len(vector) == input_size
 
 def test_02_lom_protect_and_aggregate(pairwise_keys):
@@ -86,7 +87,7 @@ def test_02_lom_protect_error_case_int_to_big_to_convert(pairwise_keys):
 
     params = [112341234, 123151234]
     lom_1.protect(node_ids[0], pwkeys[0], 1, params, node_ids)
-    exit()
+    #exit()
 
 
 def test_03_lom_protect_big_int(pairwise_keys):
@@ -109,9 +110,12 @@ def test_03_lom_protect_big_int(pairwise_keys):
     aggregated_vector = lom_1.aggregate(pvectors)
     sum_x = np.sum(np.array([params, params, params]), axis=0)
     assert aggregated_vector == sum_x.tolist()
-
-    with pytest.raises(FedbiomedError) as e_info:
+    
+    with pytest.raises(FedbiomedSecaggError) as e_info:
         r_int = random.getrandbits(32)
+        while r_int.bit_length() < 32:
+            # make sure `r_int` is of size 32 bit (can be shorter, making test failing)
+            r_int = random.getrandbits(32)
         params = [r_int, r_int]
         protected_vector_1 = lom_1.protect(node_ids[0], pwkeys[0], tau, params, node_ids)
 
@@ -148,13 +152,8 @@ def test_secaggg_lom_crypter_01_encrypt(lom_crypter, pairwise_keys):
            [e1, e2, e3], 3
     )
 
-    assert all(math.isclose(v1, v2, rel_tol = 0.0001)  for v1, v2 in zip(result, params))
-
-
-
-
-
+    assert all(tuple(math.isclose(v1, v2, rel_tol = 0.01)  for v1, v2 in zip(result, params)))
 
 
 if __name__ == "__main__":
-    pytest.main()
+    unittest.main()

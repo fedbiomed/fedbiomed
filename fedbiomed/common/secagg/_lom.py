@@ -10,9 +10,11 @@ from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.hazmat.backends import default_backend
 
 
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecaggError
 
 _MAX_ROUND=1000
+
 
 class PRF:
     """
@@ -23,6 +25,7 @@ class PRF:
     """
     def __init__(self, nonce: bytes) -> None:
         self._nonce = nonce
+        # FIXME: check that nonce is a 12 bytes value
 
     def eval_key(self, pairwise_secret: bytes, tau: int) -> bytes:
         """
@@ -36,11 +39,14 @@ class PRF:
             bytes: A 32-byte pseudorandom key.
         """
         tau = tau.to_bytes(16, 'big')
-        encryptor = Cipher(
-            algorithms.ChaCha20(pairwise_secret, self._nonce),
-            mode=None,
-            backend=default_backend()
-        ).encryptor()
+        try:
+            encryptor = Cipher(
+                algorithms.ChaCha20(pairwise_secret, self._nonce),
+                mode=None,
+                backend=default_backend()
+            ).encryptor()
+        except ValueError as ve:
+            raise FedbiomedSecaggError(f"{ErrorNumbers.FB417.value}: Error while ciphering: got exception {ve}")
         c = encryptor.update(tau) + encryptor.finalize()
         # the output is a 16 bytes string, pad it to 32 bytes
         c = c + b'\x00' * 16
@@ -68,7 +74,7 @@ class PRF:
         # TODO: Better handling limits for secure aggregation
         if not (input_size + _MAX_ROUND) <= 2**32:
             raise FedbiomedSecaggError(
-                f"Can not perform encryiton due to large input vector. input_size "
+                f"{ErrorNumbers.FB417.value}: Can not perform encryiton due to large input vector. input_size "
                 f"({input_size}) + MAX_ROUND ({_MAX_ROUND}) allowed is greater than 2**32"
             )
 
@@ -95,6 +101,7 @@ class LOM:
 
         self._prf: PRF = PRF(nonce)
         self._vector_dtype: str = 'uint32'
+        self._values_bit = np.iinfo(np.dtype(self._vector_dtype)).bits  # should be equal to 32 bit
 
 
     def protect(
@@ -115,16 +122,23 @@ class LOM:
             x_u_tau: The input vector to be protected.
             node_ids: A list of node IDs participates aggregation.
 
+        Raises:
+            FedBioMedError: raises if the input vector `x_u_tau` contains any 
+                values that exceed  `32 - log_2(numner_of_nodes)`, where `32` is 
+                the number of bit for each value (`uint32`). Not respecting the above condition 
+                can lead to computation overflow.
+
         Returns:
             The protected (masked) vector.
         """
 
         num_nodes = len(node_ids)
-
-        if any(val.bit_length() > 32-math.log2(num_nodes) for val in x_u_tau):
-            raise FedbiomedError(
-                "Bit length of one or more values has more bits "
-                f"that {32-math.log2(num_nodes)}"
+        _max_bit_length = self._values_bit - math.log2(num_nodes)
+        # FIXME: is a ceiling missing in this equation (ceil(math.log2(num_nodes)))
+        if any(val.bit_length() > _max_bit_length for val in x_u_tau):
+            raise FedbiomedSecaggError(
+                f"{ErrorNumbers.FB417.value}: Bit length of one or more values of input vector has more bits "
+                f"that {_max_bit_length}. This could lead to computation overflow"
             )
 
         x_u_tau = np.array(x_u_tau, dtype=self._vector_dtype)

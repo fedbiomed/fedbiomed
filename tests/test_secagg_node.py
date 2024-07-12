@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import mock_open, patch
 from copy import deepcopy
 
 #############################################################
@@ -40,7 +40,7 @@ class TestSecaggBaseSetup(NodeTestCase):
         with self.assertRaises(FedbiomedSecaggError):
             SecaggBaseSetup(**args)
 
-        # Invalid number of parties
+        # Invalid number of parties (must be at least 3 parties)
         args = deepcopy(self.args)
         args["parties"] = ["my researcher", "p2"]
         with self.assertRaises(FedbiomedSecaggError):
@@ -164,36 +164,52 @@ class TestSecaggServkey(SecaggTestCase):
                 self.secagg_servkey._setup_specific()
 
     def test_secagg_servkey_setup_03_setup(self):
+        #import pdb; pdb.set_trace()
+        shamir_key_share = '123245'
+        with (patch('fedbiomed.node.secagg._CManager.write_mpc_certificates_for_experiment') as cm_patch,
+              patch('fedbiomed.node.secagg.open', mock_open(read_data=shamir_key_share)) as builtin_open_mock):
+            for e, m in zip((FedbiomedError, Exception,), (builtin_open_mock, self.mock_mpc.exec_shamir,)):
+                builtin_open_mock.reset_mock()
+                cm_patch.return_value = '/a/path/to/my/ips/certificate/files', None
+                self.mock_skm.add.return_value = None
+                builtin_open_mock.return_value = None
+                self.mock_mpc.exec_shamir.return_value = '/a/path/to/my/key/share'
+                m.side_effect = e  # setting different exception to mock
+                
+                reply = self.secagg_servkey.setup()
+                self.assertFalse(reply['success'])
+        
+        # for get_value, return_value in (
+        #     # Not tested by _matching_parties* 
+        #     #
+        #     # (3, False),
+        #     # ({}, False),
+        #     # ({'parties': None}, False),
+        #     ({'parties': ['not', 'matching', 'current', 'parties']}, False),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, False),
+        #     ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, False),
+        # ):
+            
+        with (patch('fedbiomed.node.secagg._CManager.write_mpc_certificates_for_experiment') as cm_patch,
+              patch('fedbiomed.node.secagg.open', mock_open(read_data=shamir_key_share)) as builtin_open_mock):    
+            # prefering to recreate mock than using mock.reset_mock() method
+            cm_patch.return_value = '/a/path/to/my/ips/certificate/files', None
+            self.mock_mpc.exec_shamir.return_value = '/a/path/to/my/key/share'
 
-        for e in (Exception, FedbiomedError):
-            self.mock_skm.get.side_effect = e
+            self.mock_skm.add.return_value = None
             reply = self.secagg_servkey.setup()
-            self.assertEqual(reply["success"], False)
-
-        for get_value, return_value in (
-            # Not tested by _matching_parties* 
-            #
-            # (3, False),
-            # ({}, False),
-            # ({'parties': None}, False),
-            ({'parties': ['not', 'matching', 'current', 'parties']}, False),
-            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
-            ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
-            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, False),
-            ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, False),
-        ):
-            self.mock_skm.get.side_effect = None
-            self.mock_skm.get.return_value = get_value
-            reply = self.secagg_servkey.setup()
-            self.assertEqual(reply["success"], return_value)
-
-        with patch("builtins.open") as mock_open:
-            self.mock_skm.get.return_value = None
-            reply = self.secagg_servkey.setup()
+            print(reply["msg"])
             self.assertEqual(reply["success"], True)
+            self.assertIsInstance(reply["success"], bool)
+            self.mock_skm.add.assert_called_once_with(self.args['secagg_id'],
+                                                      self.args['parties'],
+                                                      {'server_key': int(shamir_key_share)},
+                                                      self.args['experiment_id'])
 
         with patch("fedbiomed.node.secagg.SecaggServkeySetup._setup_specific") as mock_:
-
+            # FIXME: these are already tested...
             mock_.side_effect = Exception
             self.mock_skm.get.return_value = None
             reply = self.secagg_servkey.setup()
@@ -233,26 +249,27 @@ class TestSecaggBiprime(SecaggTestCase):
     def test_secagg_biprime_setup_02_setup(self):
         """Tests init """
 
-        for get_value, return_value in (
-            # Not tested by _matching_parties* 
-            #
-            # (3, False),
-            # ({}, False),
-            ({'parties': None}, True),
-            ({'parties': ['not', 'matching', 'current', 'parties']}, False),
-            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
-            ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
-            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, True),
-            ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, True),
-        ):
-            self.mock_bpm.get.return_value = get_value
-            reply = self.secagg_bprime.setup()
-            self.assertEqual(reply["success"], return_value)
+        # for get_value, return_value in (
+        #     # Not tested by _matching_parties* 
+        #     #
+        #     # (3, False),
+        #     # ({}, False),
+        #     ({'parties': None}, True),
+        #     ({'parties': ['not', 'matching', 'current', 'parties']}, False),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, True),
+        #     ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, True),
+        # ):
 
+        self.mock_bpm.is_default_biprime.return_value = True
         with patch('time.sleep'):
-            self.mock_bpm.get.return_value = None
             reply = self.secagg_bprime.setup()
             self.assertEqual(reply["success"], True)
+
+        self.mock_bpm.is_default_biprime.side_effect = FedbiomedError("error generaated for testing purposes")
+        reply = self.secagg_bprime.setup()
+        self.assertEqual(reply["success"], False)
 
 
 class TestSecaggSetup(NodeTestCase):

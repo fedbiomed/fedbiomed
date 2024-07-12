@@ -8,7 +8,7 @@ from testsupport.base_case import NodeTestCase
 
 from fedbiomed.common.constants import _BaseEnum
 from fedbiomed.common.exceptions import FedbiomedSecaggError
-from fedbiomed.common.secagg_manager import SecaggServkeyManager, SecaggBiprimeManager
+from fedbiomed.common.secagg_manager import SecaggDhManager, SecaggServkeyManager, SecaggBiprimeManager
 from fedbiomed.node.secagg_manager import SecaggManager
 
 
@@ -30,9 +30,13 @@ class TestSecaggManager(NodeTestCase):
         secagg_setup = SecaggManager(1)()
         self.assertIsInstance(secagg_setup, SecaggBiprimeManager)
 
-        # Raise element type erro
+        # Test DH manager
+        secagg_setup = SecaggManager(2)()
+        self.assertIsInstance(secagg_setup, SecaggDhManager)
+
+        # Raise element type error
         with self.assertRaises(FedbiomedSecaggError):
-            SecaggManager(2)()
+            SecaggManager(3)()
 
         # Raise missing component for element type error
         with patch('fedbiomed.node.secagg_manager.SecaggElementTypes') as element_types_patch:

@@ -7,6 +7,7 @@ from itertools import product
 from fedbiomed.common.mpc_controller import MPCController
 from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestModule
+from testsupport.fake_researcher_secagg import FakeSecAgg
 #############################################################
 
 import fedbiomed
@@ -15,7 +16,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.federated_workflows import FederatedWorkflow
 from fedbiomed.researcher.secagg import SecureAggregation, SecaggContext, JoyeLibertSecureAggregation
-from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
+
 
 class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
 
@@ -231,8 +232,10 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
     def test_federated_workflow_09_secagg_setup(self):
         """Test secagg setup functionality and side effects"""
 
-        with (patch('fedbiomed.researcher.federated_workflows._federated_workflow.secagg_scheme_to_class', spec=dict) as scheme_to_class_mock,):
-            _secagg = MagicMock(spec=SecureAggregation)
+        with (patch('fedbiomed.researcher.federated_workflows._federated_workflow.SecureAggregation',
+                     spec=SecureAggregation) as secure_aggregation_mock,):
+            FakeSecAgg.arg_train_arguments = {'secagg': 'arguments'}
+            _secagg = FakeSecAgg()
             # normal call
             def configure_secagg_context(active):
                 if active:
@@ -241,10 +244,8 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
                     _secagg.active = False
             # _secagg.side_effect = configure_secagg_context
             _secagg.active = True
-
-            _secagg.train_arguments.return_value = {'secagg': 'arguments'}
-
-            scheme_to_class_mock.__getitem__.return_value.return_value = _secagg
+            secure_aggregation_mock.return_value = _secagg
+            
             exp = FederatedWorkflow(secagg=True)
 
             secagg_args = exp.secagg_setup(['sampled-node-1', 'sampled-node-2'])
@@ -259,15 +260,16 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
             #mock_secagg.return_value = _secagg
             ## ... case where secagg is inactive
             # FIXME: cannot manage to make it work....
-            # exp = FederatedWorkflow(secagg=False)
-            # secagg_args = exp.secagg_setup([])
-            # _secagg.setup.assert_not_called()
+            exp = FederatedWorkflow(secagg=False)
+            _secagg.active = False
+            secagg_args = exp.secagg_setup([])
+            _secagg.setup.assert_not_called()
+            self.assertDictEqual(secagg_args, {})
 
-            # self.assertDictEqual(secagg_args, {})
 
             ## ... case where secagg is active
             exp = FederatedWorkflow(secagg=True)
-
+            _secagg.active = True
             secagg_args = exp.secagg_setup([])
             _secagg.setup.assert_called_once_with(parties=[environ["ID"]],
                                                   experiment_id=exp.id)
@@ -284,13 +286,17 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
             secagg_args = exp.secagg_setup(['sampled-nodes'])
             self.assertEqual(_secagg.setup.call_count, 0)
             self.assertDictEqual(secagg_args, {})
+
         # do not mock whole secagg module, and test that calling setup_secagg when secagg is inactive is a
         # noop that returns an empty dict
-        with patch('fedbiomed.researcher.federated_workflows._federated_workflow.SecureAggregation.setup',
-                   ) as mock_secagg_setup:
+        with patch('fedbiomed.researcher.federated_workflows._federated_workflow.SecureAggregation',
+                   spec=SecureAggregation) as secure_aggregation_mock:
+            _secagg = FakeSecAgg()
+            secure_aggregation_mock.return_value = _secagg
             exp = FederatedWorkflow(secagg=False)
+            _secagg.active = False
             secagg_args = exp.secagg_setup([])
-            self.assertEqual(mock_secagg_setup.call_count, 0)
+            self.assertEqual(_secagg.setup.call_count, 0)
             self.assertDictEqual(secagg_args, {})
 
     @patch('fedbiomed.researcher.federated_workflows._federated_workflow.open')

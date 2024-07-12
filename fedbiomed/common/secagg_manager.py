@@ -562,6 +562,7 @@ class SecaggBiprimeManager(BaseSecaggManager):
 
 
 class SecaggDhManager(BaseSecaggManager):
+    # FIXME: this should be called `SecaggDHManager`
     """Manage the secagg table elements for Diffie Hellman components
     """
 
