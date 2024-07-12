@@ -36,9 +36,8 @@ nav:
       - PyTorch:
         - 'MNIST Basic Example': './tutorials/pytorch/01_PyTorch_MNIST_Single_Node_Tutorial.ipynb'
         - 'Create Your Custom Training Plan': './tutorials/pytorch/02_Create_Your_Custom_Training_Plan.ipynb'
-        - 'Federated Model vs Local Model': './tutorials/pytorch/03_PyTorch_MNIST_local_vs_Federated.ipynb'
-        - 'Regression Example with Used Cars Dataset': './tutorials/pytorch/04_PyTorch_Used_Cars_Dataset_Example.ipynb'
-        - 'Aggregators in Fed-BioMed': './tutorials/pytorch/05-Aggregation_in_Fed-BioMed.ipynb'
+        - 'Regression Example with Used Cars Dataset': './tutorials/pytorch/03_PyTorch_Used_Cars_Dataset_Example.ipynb'
+        - 'Aggregators in Fed-BioMed': './tutorials/pytorch/04-Aggregation_in_Fed-BioMed.ipynb'
         - 'Transfer-Learning in Fed-BioMed': './tutorials/pytorch/05_Transfer-learning_tutorial_usingDenseNet-121.ipynb'
       - MONAI: 
         - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb' 

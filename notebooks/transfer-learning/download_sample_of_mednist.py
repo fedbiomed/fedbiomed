@@ -137,14 +137,14 @@ class MedNISTDataset(DatasetManager):
 
         n_samples_per_class = n_samples // n_classes
         rest = n_samples % n_classes
-        
+
         new_image_folder_path = os.path.join(Path(self._folder_path).parent, new_sampled_dataset_name)
         _do_sampling = True
         if os.path.exists(new_image_folder_path):
             print(f"Dataset sampled already exists: {new_image_folder_path}")
-        
+
             _do_sampling = input('Do you want to delete existing dataset (y/n)').lower() == 'y'
-            
+
             if _do_sampling:
                 # delete existing dataset
                 shutil.rmtree(new_image_folder_path)
@@ -152,12 +152,12 @@ class MedNISTDataset(DatasetManager):
             else:
                 # reload the existing sampled dataset
                 print(f"Re-loading dataset {new_image_folder_path}")
-        
+
         if _do_sampling:
             os.makedirs(new_image_folder_path, exist_ok=True)
             dirs = self.directories.copy()
             for i, directory in enumerate(self.directories):
-                
+
                 label_img_path = os.path.join(self._folder_path, directory)
                 if not os.path.isdir(label_img_path):
                     # remove the tarball file copied by mistake (if any)
@@ -172,9 +172,7 @@ class MedNISTDataset(DatasetManager):
                 images_path = self.img_paths_collection[directory]
                 _idx_max = min(n_samples_per_class, len(images_path))
                 for image_path in images_path[self._old_idx[i]:_idx_max]:
-                    print("FIRST", os.path.join(label_img_path, 
-                                    image_path), 
-                        os.path.join(_new_dir_label_name,  image_path))
+
                     shutil.copy2(
                         os.path.join(label_img_path, 
                                      image_path), 
@@ -195,10 +193,7 @@ class MedNISTDataset(DatasetManager):
                                  image_path),
                     os.path.join(new_image_folder_path, directory, image_path)
                 )
-                print("SECOND", os.path.join(self._folder_path,
-                                directory, 
-                                image_path),
-                    os.path.join(new_image_folder_path, directory, image_path))
+
                 self._old_idx[i] += 1
                 rest -= 1
                 
@@ -207,21 +202,21 @@ class MedNISTDataset(DatasetManager):
 
 
 if __name__ == '__main__':
-    
+
     args = parse_args()
     root_folder = os.path.abspath(os.path.expanduser(args.root_folder))
     assert os.path.isdir(root_folder), f'Folder does not exist: {root_folder}'
     data_folder = os.path.join(root_folder, 'notebooks', 'data')
 
     n_nodes = args.number_nodes
-    
+
     config_files = []
     for n in range(abs(n_nodes)):
         db_path_old = environ['DB_PATH']
         _name = f"MedNIST_{n+1}_sampled"
         print("Now creating Node: ", f"MedNIST_{n+1}")
         n_sample: Union[str, int] = ask_nb_sample_for_mednist_dataset()
-        
+
         if n_sample != '':  # this means user has pressed `enter` -> load the whole MedNIST dataset
             manage_config_file(args, _name, config_files)
             dataset = MedNISTDataset(os.path.join(data_folder, 'MedNIST'),
@@ -235,7 +230,7 @@ if __name__ == '__main__':
             manage_config_file(args, _name, config_files)
             d_path = os.path.join(data_folder, 'MedNIST')
             dataset = MedNISTDataset(d_path)
-        
+
         try:
             dataset.add_database(_name, 
                                  'mednist',
@@ -255,6 +250,6 @@ if __name__ == '__main__':
         
     print("to launch the node, please run in distinct terminal:")
     for entry in config_files:
-        print(f"./scripts/fedbiomed_run node config {entry}.ini start")
+        print(f"./scripts/fedbiomed_run node --config {entry}.ini start")
 
 print("\nHINT: to start form fresh with new datasets, please run  source ./scripts/fedbiomed_environment clean")
