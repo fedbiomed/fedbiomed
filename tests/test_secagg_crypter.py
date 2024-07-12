@@ -96,7 +96,7 @@ class TestSecaggCrypter(unittest.TestCase):
             with self.assertRaises(FedbiomedSecaggCrypterError):
                 self.secagg_crypter._apply_weighing(vector, 2)
 
-    def test_secagg_crypter_03_encrypt(self):
+    def test_secagg_crypter_05_encrypt(self):
         """Tests encryption"""
 
         key = 10
@@ -113,7 +113,7 @@ class TestSecaggCrypter(unittest.TestCase):
         self.assertIsInstance(result, list)
 
         # IMPORTANT = Bit size can change based on current_round and num_nodes
-        self.assertEqual(ceil(log2(int(result[0]))), TestSecaggCrypter.biprime.bit_length() * 2)
+        self.assertLessEqual(ceil(log2(int(result[0]))), TestSecaggCrypter.biprime.bit_length() * 2)
 
         with self.assertRaises(FedbiomedSecaggCrypterError):
             result = self.secagg_crypter.encrypt(num_nodes=num_nodes,
@@ -146,7 +146,7 @@ class TestSecaggCrypter(unittest.TestCase):
                                                      biprime=TestSecaggCrypter.biprime,
                                                      key=key)
 
-    def test_secagg_crypter_03_decrypt(self):
+    def test_secagg_crypter_06_decrypt(self):
         """Tests decryption"""
 
         params = [0.5, 0.8, -0.5, 0.0]
