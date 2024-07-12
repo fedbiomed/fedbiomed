@@ -26,6 +26,7 @@ from ._jls import JoyeLibert, \
 
 from ._lom import LOM
 
+
 class SecaggCrypter:
     """Secure aggregation encryption and decryption manager.
 
@@ -117,7 +118,7 @@ class SecaggCrypter:
             if 2**weight.bit_length() > SAParameters.WEIGHT_RANGE:
                 raise FedbiomedSecaggCrypterError(
                     f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
-                    f"{SAParameters.WEIGHT_RANGE}."
+                    f"{SAParameters.WEIGHT_RANGE}, but got {weight}"
                 )
             params = self._apply_weighing(params, weight)
 
