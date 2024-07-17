@@ -252,7 +252,6 @@ class SecaggContext(ABC):
         # or this is a deletion)
         self._status = False
         self._context = None
-
         context, status = self._secagg_round_specific(msg, payload)
 
         success = all(status.values())
@@ -644,8 +643,6 @@ class SecaggDhContext(SecaggContext):
             True if this context can be used with this element, False if not.
         """
         # TODO: is it OK to reuse this one or not ?
-        logger.debug("TODO: ADD REAL PAYLOAD FOR DIFFIE HELLMAN - SecaggDhContext - matching parties")
-
         return matching_parties_servkey(context, self._parties)
 
     def _create_payload_specific(self, context) -> Tuple[Union[dict, None], bool]:

@@ -23,7 +23,7 @@ from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.secagg_manager import SKManager, BPrimeManager, DHManager
+from fedbiomed.node.secagg_manager import SKManager, BPrimeManager, DHManager, SecaggManager
 from fedbiomed.node.requests import send_nodes
 
 
@@ -58,9 +58,6 @@ class SecaggBaseSetup(ABC):
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        # FIXME: here there are no check for argument `researcher_id` to see
-        # if it is a string, and no check to see if `researcher_id = parties[0]`
-        # this consititues a Regression wrt  previous implementation
         errmess: str = ''
         if len(parties) < self._min_num_parties:
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `parties` : {parties} : need  ' \
@@ -69,9 +66,6 @@ class SecaggBaseSetup(ABC):
         if researcher_id is None:
             errmess = f'{ErrorNumbers.FB318.value}: argument `researcher_id` must be a non-None value'
 
-        if parties and researcher_id != parties[0]:
-            errmess = f'{ErrorNumbers.FB318.value}: argument `researcher_id` is different than the one' +\
-                      f' specified in argument `parties` ({researcher_id} different from {parties[0]})'
         if errmess:
             # if one of the above condition is met, raise error
             logger.error(errmess)
@@ -82,10 +76,10 @@ class SecaggBaseSetup(ABC):
         self._secagg_id = secagg_id
         self._experiment_id = experiment_id
         self._parties = parties
-        self._element = None
+        self._element: SecaggElementTypes = None
 
         # to be set in subclasses
-        self._secagg_manager = None
+        self._secagg_manager: SecaggManager = None
 
     @property
     def researcher_id(self) -> str:
@@ -202,10 +196,10 @@ class SecaggMpspdzSetup(SecaggBaseSetup):
             parties: List of parties participating in the secagg context element setup
         """
 
-        if researcher_id != parties[0]:
+        if parties and researcher_id != parties[0]:
             raise FedbiomedSecaggError(
                 f'{ErrorNumbers.FB318.value}: bad parameter `researcher_id` : {researcher_id} : '
-                'needs to be the same as the first secagg party')
+                f'needs to be the same as the first secagg party `parties[0]`: {parties[0]}')
 
         super().__init__(researcher_id, secagg_id, parties, experiment_id)
 

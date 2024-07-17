@@ -1,6 +1,6 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-from typing import List, Optional
+from typing import Any, List, Optional, Tuple
 import os
 
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -206,7 +206,7 @@ def send_nodes(
         researcher_id: str,
         nodes: List[str],
         messages: List[InnerMessage],
-) -> Optional[int]:
+) -> Tuple[bool, List[Any]]:
     """Send message to some other nodes using overlay communications.
 
         Args:
@@ -220,6 +220,7 @@ def send_nodes(
                 for this request from the `pending_requests`, or `None` if no message
                 sent to another node is of type request-reply
     """
+    # FIXME: docstrings for the output of the method seem incorrect
     request_ids = []
 
     for node, message in zip(nodes, messages):

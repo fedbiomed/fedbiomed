@@ -70,13 +70,13 @@ class TestSecaggCrypter(unittest.TestCase):
             with self.assertRaises(FedbiomedSecaggCrypterError):
                 self.secagg_crypter._apply_average(vector, 2)
 
-    def test_secagg_crypter_04_apply_weighing(self):
+    def test_secagg_crypter_04_apply_weighting(self):
         """Tests quantized multiply"""
 
         # Test successful multiply
 
         vector = [4, 8, 12]
-        result = self.secagg_crypter._apply_weighing(vector, 2)
+        result = self.secagg_crypter._apply_weighting(vector, 2)
 
         self.assertListEqual(result, [v * 2 for v in vector])
 
@@ -94,7 +94,7 @@ class TestSecaggCrypter(unittest.TestCase):
         ]
         for vector in vectors:
             with self.assertRaises(FedbiomedSecaggCrypterError):
-                self.secagg_crypter._apply_weighing(vector, 2)
+                self.secagg_crypter._apply_weighting(vector, 2)
 
     def test_secagg_crypter_05_encrypt(self):
         """Tests encryption"""
