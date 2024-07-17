@@ -7,7 +7,7 @@ import numpy as np
 
 from secrets import token_bytes
 
-from fedbiomed.common.secagg._lom import PRF, LOM  # Assuming the class definitions are in lom.py
+from fedbiomed.common.secagg import PRF, LOM  # Assuming the class definitions are in lom.py
 from fedbiomed.common.secagg import SecaggLomCrypter
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 
