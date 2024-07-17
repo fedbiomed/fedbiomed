@@ -356,7 +356,7 @@ class _SecureAggregation(ABC):
 
         if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.03):
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Aggregation is failed due to incorrect decryption."
+                f"{ErrorNumbers.FB417.value}: Aggregation has failed due to incorrect decryption."
             )
         logger.info("Validation is completed.")
 
@@ -397,7 +397,7 @@ class _SecureAggregation(ABC):
             aggregated_params = aggregate(
                 params=params, num_expected_params=num_expected_params)
         else:
-             aggregated_params = aggregate(params=params)
+            aggregated_params = aggregate(params=params)
 
         return aggregated_params
 
@@ -744,7 +744,7 @@ class LomSecureAggregation(_SecureAggregation):
         Args:
             parties: Parties that participates secure aggregation
             experiment_id: The id of the experiment
-            force: Forces secagg setup even context is already existing
+            force: Forces secagg setup even if context is already existing
 
         Returns:
             Status of setup
