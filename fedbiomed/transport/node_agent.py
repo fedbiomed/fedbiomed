@@ -48,6 +48,8 @@ class NodeAgentAsync:
             on_forward: Coroutine for handling overlay messages to forward unchanged to a node
         """
         self._id: str = id
+        self._on_forward = on_forward
+        self._last_request: Optional[datetime] = None
         self._replies = Replies()
         self._stopped_request_ids = []
         # Node should be active when it is first instantiated

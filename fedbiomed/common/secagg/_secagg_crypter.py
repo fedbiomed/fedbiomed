@@ -120,7 +120,7 @@ class SecaggCrypter:
                     f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
                     f"{SAParameters.WEIGHT_RANGE}, but got {weight}"
                 )
-            params = self._apply_weighing(params, weight)
+            params = self._apply_weighting(params, weight)
 
 
         public_param = self._setup_public_param(biprime=biprime)
@@ -246,7 +246,7 @@ class SecaggCrypter:
         return divide(params, total_weight)
 
     @staticmethod
-    def _apply_weighing(
+    def _apply_weighting(
             params: List[int],
             weight: int,
     ) -> List[int]:
@@ -363,7 +363,7 @@ class SecaggLomCrypter(SecaggCrypter):
                     f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
                     f"{SAParameters.WEIGHT_RANGE}."
                 )
-            params = self._apply_weighing(params, weight)
+            params = self._apply_weighting(params, weight)
 
         try:
             # Encrypt parameters

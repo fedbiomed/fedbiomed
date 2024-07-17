@@ -50,8 +50,9 @@ class DHKey:
 
         if public_key_pem:
             self.public_key = self._import_key(serialization.load_pem_public_key,
-                data=public_key_pem, backend=default_backend()
-            )
+                                               data=public_key_pem,
+                                               backend=default_backend()
+                                               )
         else:
             self.public_key = self.private_key.public_key()
 
