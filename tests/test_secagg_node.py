@@ -178,7 +178,7 @@ class TestSecaggServkey(SecaggTestCase):
                 builtin_open_mock.return_value = None
                 self.mock_mpc.exec_shamir.return_value = '/a/path/to/my/key/share'
                 m.side_effect = e  # setting different exception to mock
-
+                
                 reply = self.secagg_servkey.setup()
                 self.assertFalse(reply['success'])
 
@@ -396,6 +396,10 @@ class TestSecaggDHSetup(SecaggTestCase):
         secagg_dh = SecaggDhSetup(**self.args)
         reply = secagg_dh.setup()
         self.assertFalse(reply['success'])
+
+        self.mock_bpm.is_default_biprime.side_effect = FedbiomedError("error generaated for testing purposes")
+        reply = self.secagg_bprime.setup()
+        self.assertEqual(reply["success"], False)
 
 
 class TestSecaggSetup(NodeTestCase):

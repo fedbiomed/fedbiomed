@@ -58,6 +58,11 @@ class SecaggBaseSetup(ABC):
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
+
+        # FIXME: here there are no check for argument `researcher_id` to see
+        # if it is a string, and no check to see if `researcher_id = parties[0]`
+        # this consititues a Regression wrt  previous implementation
+
         errmess: str = ''
         if len(parties) < self._min_num_parties:
             errmess = f'{ErrorNumbers.FB318.value}: bad parameter `parties` : {parties} : need  ' \
