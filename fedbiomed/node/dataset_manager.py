@@ -8,16 +8,12 @@ Interfaces with the node component database.
 
 import csv
 import os.path
-from pathlib import Path
-import random
-import shutil
 from typing import Iterable, Union, List, Any, Optional, Tuple
 import uuid
 
 from urllib.request import urlretrieve
 from urllib.error import ContentTooShortError, HTTPError, URLError
 import tarfile
-from fedbiomed.common import data
 
 from tinydb import TinyDB, Query
 import pandas as pd
@@ -387,6 +383,10 @@ class DatasetManager:
             dataset_parameters: a dictionary of additional (customized) parameters, or None
             data_loading_plan: a DataLoadingPlan to be linked to this dataset, or None
             save_dlp: if True, save the `data_loading_plan`
+
+        Returns:
+            dataset_id: id of the dataset stored in database. Returns `dataset_id`
+                if provided (non-None) or a new id if not.
 
         Raises:
             NotImplementedError: `data_type` is not supported.
