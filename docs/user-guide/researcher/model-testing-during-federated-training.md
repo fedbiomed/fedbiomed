@@ -2,7 +2,7 @@
 title: Model Validation on the Nodes in Federated Training
 description: The validation part in FL plays an important role while evaluating model performance that is trained on different nodes with
              different datasets. Fed-BioMed provides a validation routine on the datasets that are randomly split at each round of training.
-keywords: validation in FL, Fed-BioMed model validation, validating model performance
+keywords: validation in FL, Fed-BioMed model validation, validating model performance, test_batch_size
 ---
 
 # Model Validation During Federated Training on the Nodes
@@ -74,6 +74,8 @@ Here is the list of validation arguments that can be configured.
     defined in the training plan (see section: Define Custom Validation Step) default metric will be
     `ACCURACY`.
  - `test_metric_args`: A dictionary that contains the arguments that will be used for the metric function.
+ - `test_batch_size`: A value used to compute metrics using batches instead of
+ loading the full Testing dataset (specified by `test_ratio`). This option should be considered if data are very heavy, and can lead to [`MemoryError`](https://docs.python.org/3/library/exceptions.html#MemoryError) errors. By specifying it, it performs several computations over a batch of data. By using this option, you should select wisely the batch size and the metric, for some metrics can be meaningless if computed over several batches of data. `test_batch_size` should be greater or equal than `2` (enabled) or equal to `0` or `None` (disabled).
 
 !!! info
     Validation functions for each default metric executes functions from scikit-learn framework.
@@ -83,7 +85,7 @@ Here is the list of validation arguments that can be configured.
 
 
 To activate validation on the node side, the arguments `test_ratio` and at least one of `test_on_local_updates` or
-`test_on_global_updates` should be set. Since the default values of `test_on_local_updates` and `test_on_global_updates`
+`test_on_global_updates` should be set to `True`. Since the default values of `test_on_local_updates` and `test_on_global_updates`
 are `False`, setting `test_ratio` will only split dataset as validation and train sets but won't perform validation.
 
 
@@ -107,6 +109,7 @@ training_args = {
     'test_metric': MetricTypes.F1_SCORE,
     'test_on_global_updates': True,
     'test_on_local_updates': True,
+    'test_batch_size': 0,
     'test_metric_args': {'average': 'macro'}
 }
 
@@ -130,6 +133,7 @@ training_args = {
     },
     'epochs': 2,
     'batch_maxnum': 100,
+    'test_batch_size': 0
 }
 exp = Experiment(training_args=training_args)
 
@@ -149,8 +153,25 @@ exp.set_set_test_metric(MetricTypes.ACCURACY)
 exp.run(rounds=2, increase=True)
 ```
 
+## Using Validation facility with heavy datasets
+
+In some specific cases, you may have some very huge datain your datasets, such as 3D images, or you want a huge validation set, that you can load on `Node`s only through batches, in order to avoid `Nodes` to crash due to lack of Memory. `Fed-BioMed` provides an option to compute validation metrics through batches, in the `TrainingArgument`: `test_batch_size`.
+
+By setting `test_batch_size`, selected metrics will be computed over batches instead of computing metric using the whole dataset (which is the default behaviour). For now, `Fed-BioMed` doesnot provide a way to reconcile all these metrics under one metric (such as computing the mean of Accuracy for instance). If you want to do so, please consider defining your own `Validation step` by write your own `testing_step` method in the `TrainingPlan` (see below for further datails).
 
 
+```python
+training_args = {
+    'optimizer_args': {
+        'lr': 1e-3,
+    },
+    'epochs': 2,
+    'test_ratio': .4,
+    'test_batch_size': 64  # validation metrics will be done by considering batches of size 64 each
+}
+exp = Experiment(training_args=training_args)
+
+```
 ## Define Custom Validation Step
 
 Fed-BioMed training plans allow defining custom validation steps for model evaluation on the node side. The name of the
