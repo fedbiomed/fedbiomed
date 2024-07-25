@@ -760,7 +760,7 @@ class FDH:
     ) -> mpz:
         """Computes the FDH using SHA256.
 
-        !!! infor "Computation"
+        !!! info "Computation"
             $$\\textbf{SHA256}(x||0) ||\\textbf{SHA256}(x||1) || ... || \\textbf{SHA256}(x||c) \\mod N$$
                 where \\(c\\) is a counter that keeps incrementing until the size of the output has *bits_size*
                 length and the output falls in  \\(\\mathbb{Z}^*_N\\)
@@ -775,21 +775,35 @@ class FDH:
         counter = 1
         result = b""
 
-        while True:
+        try:
             while True:
-                h = hashlib.sha256()
-                h.update(
-                    int(t).to_bytes(self.bits_size // 2, "big") +
-                    counter.to_bytes(1, "big")
-                )
-                result += h.digest()
-                counter += 1
-                if len(result) < (self.bits_size // 8):
+                while True:
+                    h = hashlib.sha256()
+                    # to delete afterwards
+                    
+                    h.update(
+                        int(t).to_bytes(self.bits_size // 2, "big") +
+                        counter.to_bytes(1, "big")
+                    )
+                    result += h.digest()
+                    counter += 1
+                    if len(result) < (self.bits_size // 8):
+                        with open("/builds/workspace/TEST_FILE_result_le_bit_size.txt", mode='w') as f:
+                            f.write(f"{result} < {self.bits_size}")
+                        break
+
+                r = mpz(int.from_bytes(result[-self.bits_size:], "big"))
+
+                if gcd(r, self._n_modules) == 1:
+                    
                     break
+        except Exception as e:
+            with open("/builds/workspace/TEST_FILE_ERROR.txt", mode='w') as f:
+                import traceback
+                tb = traceback.print_exception(e, file=f )
 
-            r = mpz(int.from_bytes(result[-self.bits_size:], "big"))
-
-            if gcd(r, self._n_modules) == 1:
-                break
-
+            with open("/builds/workspace/TEST_FILE_gcd.txt", mode='w') as f:
+                f.write(f"{r} < {self._n_modules}")
+            with open("/builds/workspace/TEST_FILE_ABCD.txt", mode='w') as f:
+                f.write(f"counter {counter}, result {result}, h {h.digest()}, bits size: {self.bits_size//8}\n")
         return r

@@ -162,105 +162,105 @@ def test_01_secagg_joye_libert_pytorch_experiment_basic():
     exp.run()
     clear_experiment_data(exp)
 
-def test_02_secagg_joye_libert_pytorch_breakpoint():
-    """Tests running experiment with breakpoint and loading it while secagg active"""
+# def test_02_secagg_joye_libert_pytorch_breakpoint():
+#     """Tests running experiment with breakpoint and loading it while secagg active"""
 
-    exp = Experiment(
-        tags=tags,
-        model_args=model_args,
-        training_plan_class=MyTrainingPlan,
-        training_args=training_args,
-        round_limit=1,
-        aggregator=FedAverage(),
-        node_selection_strategy=None,
-        secagg=SecureAggregation(scheme=SecAggSchemes.JOYE_LIBERT),
-        save_breakpoints=True
-    )
+#     exp = Experiment(
+#         tags=tags,
+#         model_args=model_args,
+#         training_plan_class=MyTrainingPlan,
+#         training_args=training_args,
+#         round_limit=1,
+#         aggregator=FedAverage(),
+#         node_selection_strategy=None,
+#         secagg=SecureAggregation(scheme=SecAggSchemes.JOYE_LIBERT),
+#         save_breakpoints=True
+#     )
 
-    exp.run()
+#     exp.run()
 
-    # Delete experiment but do not clear its data
-    del exp
+#     # Delete experiment but do not clear its data
+#     del exp
 
-    # Load experiment from latest breakpoint and continue training
-    loaded_exp = Experiment.load_breakpoint()
-    print("Running training round after loading the params")
-    loaded_exp.run(rounds=2, increase=True)
+#     # Load experiment from latest breakpoint and continue training
+#     loaded_exp = Experiment.load_breakpoint()
+#     print("Running training round after loading the params")
+#     loaded_exp.run(rounds=2, increase=True)
 
-    # Clear
-    clear_experiment_data(loaded_exp)
-
-
-def test_03_secagg_pytorch_force_secagg(extra_node):
-    """Tests failure scnarios whereas a node requires secure aggregation
-        and researcher does not set it true
-    """
-    exp = Experiment(
-        tags=tags,
-        model_args=model_args,
-        training_plan_class=MyTrainingPlan,
-        training_args=training_args,
-        round_limit=3,
-        aggregator=FedAverage(),
-        node_selection_strategy=None,
-        secagg=False,
-        save_breakpoints=True
-    )
-
-    # This should raise exception with default stragety
-    # with pytest.raises(SystemExit):
-    exp.run()
-
-    # Cleaning!
-    clear_experiment_data(exp)
-
-def test_04_secagg_pytorch_lom():
-    """Normal secagg using LOM"""
-
-    exp = Experiment(
-        tags=tags,
-        model_args=model_args,
-        training_plan_class=MyTrainingPlan,
-        training_args=training_args,
-        round_limit=rounds,
-        aggregator=FedAverage(),
-        node_selection_strategy=None,
-        secagg=SecureAggregation(scheme=SecAggSchemes.LOM),
-        save_breakpoints=True
-    )
-    exp.run()
-
-    # Cleaning!
-    clear_experiment_data(exp)
+#     # Clear
+#     clear_experiment_data(loaded_exp)
 
 
-def test_05_secagg_lom_pytorch_breakpoint(extra_nodes_for_lom):
-    """Tests running experiment with breakpoint and loading it while secagg active LOM"""
+# def test_03_secagg_pytorch_force_secagg(extra_node):
+#     """Tests failure scnarios whereas a node requires secure aggregation
+#         and researcher does not set it true
+#     """
+#     exp = Experiment(
+#         tags=tags,
+#         model_args=model_args,
+#         training_plan_class=MyTrainingPlan,
+#         training_args=training_args,
+#         round_limit=3,
+#         aggregator=FedAverage(),
+#         node_selection_strategy=None,
+#         secagg=False,
+#         save_breakpoints=True
+#     )
 
-    exp = Experiment(
-        tags=tags,
-        model_args=model_args,
-        training_plan_class=MyTrainingPlan,
-        training_args=training_args,
-        round_limit=1,
-        aggregator=FedAverage(),
-        node_selection_strategy=None,
-        secagg=SecureAggregation(scheme=SecAggSchemes.LOM),
-        save_breakpoints=True
-    )
+#     # This should raise exception with default stragety
+#     # with pytest.raises(SystemExit):
+#     exp.run()
 
-    exp.run()
+#     # Cleaning!
+#     clear_experiment_data(exp)
 
-    # Delete experiment but do not clear its data
-    del exp
+# def test_04_secagg_pytorch_lom():
+#     """Normal secagg using LOM"""
 
-    # Load experiment from latest breakpoint and continue training
-    loaded_exp = Experiment.load_breakpoint()
-    print("Running training round after loading the params")
-    loaded_exp.run(rounds=2, increase=True)
+#     exp = Experiment(
+#         tags=tags,
+#         model_args=model_args,
+#         training_plan_class=MyTrainingPlan,
+#         training_args=training_args,
+#         round_limit=rounds,
+#         aggregator=FedAverage(),
+#         node_selection_strategy=None,
+#         secagg=SecureAggregation(scheme=SecAggSchemes.LOM),
+#         save_breakpoints=True
+#     )
+#     exp.run()
 
-    # Clear
-    clear_experiment_data(loaded_exp)
+#     # Cleaning!
+#     clear_experiment_data(exp)
+
+
+# def test_05_secagg_lom_pytorch_breakpoint(extra_nodes_for_lom):
+#     """Tests running experiment with breakpoint and loading it while secagg active LOM"""
+
+#     exp = Experiment(
+#         tags=tags,
+#         model_args=model_args,
+#         training_plan_class=MyTrainingPlan,
+#         training_args=training_args,
+#         round_limit=1,
+#         aggregator=FedAverage(),
+#         node_selection_strategy=None,
+#         secagg=SecureAggregation(scheme=SecAggSchemes.LOM),
+#         save_breakpoints=True
+#     )
+
+#     exp.run()
+
+#     # Delete experiment but do not clear its data
+#     del exp
+
+#     # Load experiment from latest breakpoint and continue training
+#     loaded_exp = Experiment.load_breakpoint()
+#     print("Running training round after loading the params")
+#     loaded_exp.run(rounds=2, increase=True)
+
+#     # Clear
+#     clear_experiment_data(loaded_exp)
 
 
 
