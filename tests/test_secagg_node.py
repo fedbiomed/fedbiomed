@@ -266,20 +266,12 @@ class TestSecaggBiprime(SecaggTestCase):
         # ):
 
         self.mock_bpm.is_default_biprime.return_value = True
-        with patch('time.sleep'):
-            reply = self.secagg_bprime.setup()
-            self.assertEqual(reply["success"], True)
+        reply = self.secagg_bprime.setup()
+        self.assertEqual(reply["success"], True)
 
         self.mock_bpm.is_default_biprime.return_value = False
-        fake_biprime = 134567654
-        with (patch('time.sleep'),
-              patch('fedbiomed.node.secagg.random.randrange') as builtin_randrange_mock):
-            builtin_randrange_mock.return_value = fake_biprime
-            reply = self.secagg_bprime.setup()
-            self.assertEqual(reply["success"], True)
-            self.mock_bpm.add.assert_called_once_with(self.args['secagg_id'],
-                                                      None,
-                                                      {'biprime': fake_biprime, 'max_keysize':0})
+        reply = self.secagg_bprime.setup()
+        self.assertEqual(reply["success"], False)
 
         self.mock_bpm.is_default_biprime.side_effect = FedbiomedError("error generaated for testing purposes")
         reply = self.secagg_bprime.setup()

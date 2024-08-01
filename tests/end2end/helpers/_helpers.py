@@ -25,6 +25,7 @@ from fedbiomed.common.config import Config
 from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR
 
 from ._execution import (
+    fork_process,
     shell_process,
     fedbiomed_run,
     execute_in_paralel,
@@ -378,7 +379,22 @@ def create_component(
     #    config.generate()
     #    clear_component_data(config)
 
-    config.generate()
+    # Need to remove secagg table singleton
+    # because it was created when we import from researcher modules
+    # + may be re-created during each test
+    print("Removing _SecaggTableSingleton object")
+    from fedbiomed.common.secagg_manager import _SecaggTableSingleton
+    if _SecaggTableSingleton in _SecaggTableSingleton._objects:
+        del _SecaggTableSingleton._objects[_SecaggTableSingleton]
+
+    # For now, executing in another process is not mandatory
+    # This is provision for future to prevent in config generation event
+    # (eg: creating a singleton object) to propagate to this process
+    fork_process(config.generate)
+
+    # need to update configuration in parent process
+    config.read()
+
 
     if config_sections:
         for section, value in config_sections.items():
