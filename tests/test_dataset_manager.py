@@ -1,5 +1,6 @@
 import copy
 import inspect
+from urllib.error import HTTPError, URLError
 import numpy as np
 import os
 import pandas as pd
@@ -120,6 +121,38 @@ class TestDatasetManager(NodeTestCase):
             os.remove(environ['DB_PATH'])
 
         shutil.rmtree(self.tempdir)
+
+    def _create_fake_mednist_dataset(self):
+            '''
+            Create fake mednist dataset and save the images in tempdir
+
+            Dataset folders structure:
+
+            |- class_0 
+            |   |- image_0.jpeg
+            |- class_1 
+            |   |- image_0.jpeg
+            ...
+            |_ class_n
+                |- image_0.jpeg
+
+            '''
+
+            mednist_path = os.path.join(self.tempdir, 'MedNIST')
+            os.makedirs(mednist_path)
+
+            fake_img_data = np.random.randint(0,255,(64, 64))
+            img = Image.fromarray(fake_img_data, 'L')
+            n_classes = 6
+
+            # one image per class
+            for class_i in range(n_classes):
+                class_path = os.path.join(mednist_path, f'class_{class_i}')
+                os.makedirs(class_path)
+                img_path = os.path.join(class_path, 'image_0.jpeg')
+                img.save(img_path)
+
+            return datasets.ImageFolder(mednist_path, transform=transforms.ToTensor())
 
     def test_dataset_manager_01_get_by_id_non_existing_dataset_id(self):
         """
@@ -545,12 +578,40 @@ class TestDatasetManager(NodeTestCase):
                                                              ),
                                            )
 
+    @patch('tinydb.table.Table.insert')
+    @patch('uuid.uuid4')
+    def test_dataset_manager_19_add_database_mednist(self,
+                                                     uuid_patch, 
+                                                     insert_tinydb_patch):
+        # patchers:
+        uuid_patch.return_value = FakeUuid()
+        fake_dataset = self._create_fake_mednist_dataset()
+        path = os.path.join(fake_dataset.root, os.pardir)
+        datasetid = self.dataset_manager.add_database(name='test',
+                                                      tags=['mednist'],
+                                                      data_type='mednist',
+                                                      description='description',
+                                                      path=path,
+                                                      )
+
+        self.assertIsInstance(datasetid, str)
+        self.assertEqual('dataset_' + str(FakeUuid.VALUE), datasetid)
+        insert_tinydb_patch.assert_called_once_with(dict(name='test',
+                                                         data_type='mednist',
+                                                         tags=['mednist'],
+                                                         description='description',
+                                                         shape=[6, 3, 64, 64],
+                                                         path=os.path.join(fake_dataset.root,
+                                                                           os.pardir, 'MedNIST'),
+                                                         dataset_id=datasetid,
+                                                         dtypes=[],
+                                                         dataset_parameters=None))
 
     @patch('tinydb.table.Table.remove')
     @patch('fedbiomed.common.db.DBTable.get')
-    def test_dataset_manager_19_remove_database(self,
-                                             get,
-                                             db_remove_patch):
+    def test_dataset_manager_20_remove_database(self,
+                                                get,
+                                                db_remove_patch):
         """
         Tests `remove_database` method by simulating the removal of a database
         through its tags
@@ -599,7 +660,7 @@ class TestDatasetManager(NodeTestCase):
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.search_conflicting_tags')
     @patch('tinydb.table.Table.update')
-    def test_dataset_manager_20_modify_database_info(self,
+    def test_dataset_manager_21_modify_database_info(self,
                                                   tinydb_update_patch,
                                                   conflicting_tags_patch):
         """
@@ -668,7 +729,7 @@ class TestDatasetManager(NodeTestCase):
 
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.search_conflicting_tags')
-    def test_dataset_manager_20_modify_database_info_errpr(self,
+    def test_dataset_manager_22_modify_database_info_error(self,
                                                      conflicting_tags_patch):
         """
         Tests modify_database_info (error case scenario),
@@ -709,7 +770,7 @@ class TestDatasetManager(NodeTestCase):
 
 
     @patch('tinydb.table.Table.all')
-    def test_dataset_manager_22_list_my_data(self,
+    def test_dataset_manager_23_list_my_data(self,
                                              query_all_patch):
         """
         Checks `list_my_data` method in the normal case scenario
@@ -750,7 +811,7 @@ class TestDatasetManager(NodeTestCase):
 
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.load_default_database')
-    def test_dataset_manager_23_load_as_dataloader_default(self,
+    def test_dataset_manager_24_load_as_dataloader_default(self,
                                                         load_default_database_patch):
         """
         Tests `load_as_dataloader` method where  the input
@@ -780,7 +841,7 @@ class TestDatasetManager(NodeTestCase):
 
 
     @patch('fedbiomed.node.dataset_manager.DatasetManager.load_images_dataset')
-    def test_dataset_manager_24_load_as_dataloader_images(self, load_images_dataset_patch):
+    def test_dataset_manager_25_load_as_dataloader_images(self, load_images_dataset_patch):
         """
         Tests `load_as_dataloader` method where  the input
         dataset is a images dataset
@@ -808,49 +869,16 @@ class TestDatasetManager(NodeTestCase):
         self.assertIsInstance(res, Dataset)
 
 
-    def test_dataset_manager_28_load_existing_mednist_dataset(self):
+    def test_dataset_manager_26_load_existing_mednist_dataset(self):
         """
         Tests case where one is loading mednist dataset without downloading it
         """
 
-        def _create_fake_mednist_dataset(self):
-            '''
-            Create fake mednist dataset and save the images in tempdir
-
-            Dataset folders structure:
-
-            |- class_0 
-            |   |- image_0.jpeg
-            |- class_1 
-            |   |- image_0.jpeg
-            ...
-            |_ class_n
-                |- image_0.jpeg
-
-            '''
-
-            mednist_path = os.path.join(self.tempdir, 'MedNIST')
-            os.makedirs(mednist_path)
-
-            fake_img_data = np.random.randint(0,255,(64, 64))
-            img = Image.fromarray(fake_img_data, 'L')
-            n_classes = 6
-
-            # one image per class
-            for class_i in range(n_classes):
-                class_path = os.path.join(mednist_path, f'class_{class_i}')
-                os.makedirs(class_path)
-                img_path = os.path.join(class_path, 'image_0.jpeg')
-                img.save(img_path)
-
-            return datasets.ImageFolder(mednist_path, transform=transforms.ToTensor())
-
-
-        fake_dataset = _create_fake_mednist_dataset(self)
+        fake_dataset = self._create_fake_mednist_dataset()
 
         # action
         # Test the load mednist method with input as_dataset False
-        res_dataset_shape = self.dataset_manager.load_mednist_database(self.tempdir,
+        res_dataset_shape, path = self.dataset_manager.load_mednist_database(self.tempdir,
                                                                        as_dataset=False)
 
         # checks
@@ -858,7 +886,7 @@ class TestDatasetManager(NodeTestCase):
 
 
         # Test the load mednist method with input as_dataset True
-        res_dataset = self.dataset_manager.load_mednist_database(self.tempdir,
+        res_dataset, path = self.dataset_manager.load_mednist_database(self.tempdir,
                                                                  as_dataset=True)
 
         for i in range(len(fake_dataset)):
@@ -869,11 +897,11 @@ class TestDatasetManager(NodeTestCase):
 
 
     @patch('fedbiomed.node.dataset_manager.urlretrieve')
-    def test_dataset_manager_29_download_extrat_mednist(self,
-                                                        urlretrieve_patch):
+    def test_dataset_manager_27_download_extract_mednist(self,
+                                                         urlretrieve_patch):
         """
         Tests the correct process of data download and extraction
-        in order to make MedNIST dataset (retrieved from url limnk)
+        in order to make MedNIST dataset (retrieved from url link)
         """
 
         ARCHIVE_PATH = os.path.join(self.testdir, "images/MedNIST_test.tar.gz")
@@ -893,7 +921,7 @@ class TestDatasetManager(NodeTestCase):
         with patch.object(os, 'remove') as os_remove_patch:
             os_remove_patch.return_value = None
             # action
-            res_dataset = self.dataset_manager.load_mednist_database(self.tempdir,
+            res_dataset, pth = self.dataset_manager.load_mednist_database(self.tempdir,
                                                                      as_dataset=True)
         # Tests
         urlretrieve_patch.assert_called_once()
@@ -910,12 +938,12 @@ class TestDatasetManager(NodeTestCase):
                 if i % 2 != 0:
                     label += 1
 
-    def test_dataset_manager_30_load_mednist_database_exception(self):
+    def test_dataset_manager_28_load_mednist_database_exception(self):
         """
         Tests if exception `FedbiomedDatasetManagerError` is triggered
         when mednist dataset folder is empty
         """
-        
+
         # case where Mednist folder is already existing
         mednist_path = os.path.join(self.tempdir, 'MedNIST')
         os.makedirs(mednist_path)
@@ -925,7 +953,26 @@ class TestDatasetManager(NodeTestCase):
             # and checking if method raises FedbiomedDatasetManagerError
             self.dataset_manager.load_mednist_database(self.tempdir)
 
-    def test_dataset_manager_31_obfuscate_private_information(self):
+        # simulating an error when downloading file
+        # 1. expected error:
+        with patch('fedbiomed.node.dataset_manager.urlretrieve') as urlretrieve:
+            urlretrieve.side_effect = URLError("error raised for the sake of testing")
+            with self.assertRaises(FedbiomedDatasetManagerError):
+                self.dataset_manager.load_mednist_database(mednist_path)
+
+        # 2. unexpected error:
+        with patch('fedbiomed.node.dataset_manager.datasets.ImageFolder') as image_folder_patch:
+            image_folder_patch.side_effect = Exception("error raised for the sake of testing")
+            with self.assertRaises(FedbiomedDatasetManagerError):
+                self.dataset_manager.load_mednist_database(self.tempdir)
+
+    def test_data_manager_29_load_images_dataset_error(self):
+        mednist_path = os.path.join(self.tempdir, 'MedNIST')
+        os.makedirs(mednist_path)
+        with self.assertRaises(FedbiomedDatasetManagerError):
+            self.dataset_manager.load_images_dataset(self.tempdir)
+
+    def test_dataset_manager_30_obfuscate_private_information(self):
         """Tests if error is raised if dataset is not parsable when calling `obfuscate_privte_information"""
         metadata_with_private_info  = [{
             'path': 'private/info',
@@ -949,7 +996,7 @@ class TestDatasetManager(NodeTestCase):
             _ = DatasetManager.obfuscate_private_information([*metadata_with_private_info, 'non-dict-like'])
 
     @patch('os.path.isdir')
-    def test_dataset_manager_32_data_loading_plan_save(self, patch_isdir):
+    def test_dataset_manager_31_data_loading_plan_save(self, patch_isdir):
         """Tests that DatasetManager correctly saves a DataLoadingPlan"""
         patch_isdir.return_value = True
         from test_data_loading_plan import LoadingBlockForTesting
@@ -989,7 +1036,7 @@ class TestDatasetManager(NodeTestCase):
 
         dataset_manager._db.close()
 
-    def test_dataset_manager_33_get_dlp_by_id_nonexisting_dlp(self):
+    def test_dataset_manager_32_get_dlp_by_id_nonexisting_dlp(self):
         """
         Test `get_dlp_by_id` method with a non existing dlp_id
         """

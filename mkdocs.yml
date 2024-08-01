@@ -38,8 +38,9 @@ nav:
         - 'Create Your Custom Training Plan': './tutorials/pytorch/02_Create_Your_Custom_Training_Plan.ipynb'
         - 'Regression Example with Used Cars Dataset': './tutorials/pytorch/03_PyTorch_Used_Cars_Dataset_Example.ipynb'
         - 'Aggregators in Fed-BioMed': './tutorials/pytorch/04-Aggregation_in_Fed-BioMed.ipynb'
-      - MONAI:
-        - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb'
+        - 'Transfer-Learning in Fed-BioMed': './tutorials/pytorch/05_Transfer-learning_tutorial_usingDenseNet-121.ipynb'
+      - MONAI: 
+        - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb' 
         - '2D Image Registration with MedNIST': './tutorials/monai/02_monai-2d-image-registration.ipynb'
       - Scikit-Learn:
         - 'MNIST Basic Example': "./tutorials/scikit-learn/01_sklearn_MNIST_classification_tutorial.ipynb"
