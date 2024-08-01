@@ -758,11 +758,11 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
             if any exception occurs
         approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
             in the node for training.
-        is_approved: True, if the requested training plan is one of the approved training plan by the node
+        status: a `TrainingPlanApprovalStatus` value describing the approval status
         msg: Message from node based on state of the reply
-        training_plan_url: The training plan that has been checked for approval
+        training_plan: The training plan that has been checked for approval
         command: Reply command string
-        training_plan_id: Unique training plan identifier, can be none in case of
+        training_plan_id: Unique training plan identifier, can be None in case of
             success false.
 
     Raises:

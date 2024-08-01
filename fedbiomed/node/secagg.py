@@ -422,8 +422,6 @@ class SecaggDhSetup(SecaggBaseSetup):
             other_nodes,
             other_nodes_messages,
         )
-        print("replies")
-        print(messages)
         # Nota: don't clean `self._controller_data.remove(secagg_id)` when finished.
         # Rely on automatic cleaning after timeout.
         # This node received all replies, but some nodes may still be querying this node.
@@ -442,7 +440,6 @@ class SecaggDhSetup(SecaggBaseSetup):
             m.get_param('node_id'): key_agreement.agree(m.get_param('node_id'), m.get_param('public_key'))
             for m in messages
         }
-        print(context)
 
         self._secagg_manager.add(
             self._secagg_id,
@@ -451,8 +448,7 @@ class SecaggDhSetup(SecaggBaseSetup):
             self._experiment_id
         )
 
-        entry = self._secagg_manager.get(self._secagg_id, self._experiment_id)
-        print(entry)
+        self._secagg_manager.get(self._secagg_id, self._experiment_id)
         # At this point: successfully negotiated and save secagg context
         logger.info(
             "Diffie Hellman secagg context successfully created for "

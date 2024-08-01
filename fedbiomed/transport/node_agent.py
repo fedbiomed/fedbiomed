@@ -1,10 +1,10 @@
 from enum import Enum
-from typing import Optional, Dict, Callable, Awaitable, List
+from typing import Optional, Dict, Callable, Awaitable
 from datetime import datetime
 import copy
 import time
-
 import asyncio
+
 import grpc
 
 from fedbiomed.common.message import Message, ResearcherMessages, OverlayMessage
