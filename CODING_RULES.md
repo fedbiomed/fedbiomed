@@ -227,9 +227,9 @@ Feature branch code comments sometimes contain:
 - `FIXME`: potential bug, depending on other feature (so it cannot efficiently be solved now)
 - `TODO`: something to do in general
 
-`FIXME` and `TODO` in comments:
+Before attempting to merge into `develop`, if you still have `FIXME` and `TODO` in comments:
 
-- should be discussed during review for merging to `develop`
+- they should be discussed during review 
 - if kept, an associated issue must be created and referenced (eg `issue #1234`) in the comment
 
 
@@ -242,15 +242,15 @@ Goals for regulating branches usage:
 
 These guidelines address the commit/push/pull/merge aspects of branches. Lifecycle guidelines are [available here](./docs/developer/usage_and_tools.md#lifecycle).
 
-### comments in commit
+### commit messages
 
-As a general rule, for comments in commit:
+As a general rule, for commit messages:
 
 - first line should give big picture of the commit
 - optional second line should be blank (to avoid git being confused)
 - optional later lines give commit details
 
-Do:
+Example:
 ```
 Add new function xxx
 
@@ -268,8 +268,8 @@ These guidelines mostly apply when working in a feature branch.
 Commit, push:
 - work freely in your local branch (including using micro-commits, etc.).
 - shrink contribution's history to a few significant commits *before pushing* (avoid pushing micro-commits or successive versions of same code to the remote)
-  - can use `git commit --amend`
-  - can squash local commits with `git rebase -i local_branch_base_commit` to shrink the yet-unpushed commits from `local_branch_base_commit`. Typically keep the first commit as `pick`, don't change order of commits, turn the next ones to `squash` to merge them in a single commit.
+  - can use `git commit --amend` to modify your yet-unpushed last commit
+  - can squash local commits with `git rebase -i local_branch_base_commit` to shrink the yet-unpushed commits on `local_branch_base_commit`. Typically keep the first commit as `pick`, don't change order of commits, turn the next ones to `squash` to merge them in a single commit.
   - stick to squashing the latest commits (unless you really know what you are doing)
 
 Pull:
@@ -280,8 +280,8 @@ Pull:
 These guidelines mostly apply when updating a feature branch or merging it to `develop`.
 
 Update a feature branch with latest version of `develop`:
-- nice to rebase feature branch from develop (`git rebase develop`) as explained below, rather than merging develop in feature branch (`git merge develop`)
-- caveat: don't mix rebase and merging for successive updates of a feature branch !
+- nice to rebase feature branch on develop (`git rebase develop`) as explained below, rather than merging develop in feature branch (`git merge develop`)
+- caveat: don't mix rebase and merging for successive updates of a feature branch!
 
 Merge:
 - before merging, if too many commits were pushed to the feature branch, squash *remote branch* with a rebase (see below)
@@ -289,23 +289,23 @@ Merge:
 ### rebase remote branch
 
 These guidelines mostly apply when updating a feature branch or merging it to `develop`.
-- don't rebase on `develop` and `master` branches. Merge to these branches using a merge commit (default in github).
+- don't rebase `develop` and `master` branches (no rewrite of their history)
+- merge the feature branch into `develop` and `master` using a merge commit (default in github).
 
 **Warning !**
-- **be careful when using `git rebase` on commits *already pushed to the remote*. Bad operation brings risk of losing or duplicating commit**. Use `git reflog` if lost some commit.
+- **be careful when using `git rebase` on commits *already pushed to the remote*. Bad use brings a risk of losing or duplicating commits**. Use `git reflog` if you lost some commits.
 - use rebase when simple enough, if complicated or doubtful do a merge
 - typically stick to squashing the latest commits (unless you really know what you are doing)
 
-How to rebase a *remote* feature branch (from `develop` or to squash commits):
+How to rebase a feature branch that has already been pushed (examples: rebase on`develop` or squash commits):
 - coordinate with other team members
   * OK to rebase when working alone in feature branch
   * when other developers work/commit/push in feature branch, ask if OK to rebase now (eg: Discord), and inform after rebasing is done
-- update local clone of `develop` (if rebasing from `develop`) and local clone of `feature_branch`
+- update local clone of `develop` (if rebasing on `develop`) and local clone of `feature_branch` before the rebase
 - `git checkout feature_branch`
-- if rebasing from `develop` typically use `git rebase -i develop` with default values
+- if rebasing on `develop` typically use `git rebase -i develop` with default values
 - if squashing feature branch typically use `git rebase -i feature_branch_base_commit`, keep the first commit as `pick`, don't change order of commits, turn the commits you want to squash as `squash`.
-- manually solve conflicts if any to complete rebasing
-- pull before pushing
-- push with `push --force-with-lease` (rather than `push -f`) to fail if any conflict with un-coordinated developer.
+- manually solve conflicts (if any) to complete rebasing
+- push with `push --force-with-lease` (rather than `push -f`) to fail if any conflict with un-coordinated developer (who pushed to feature branch remote in the meantime).
 - inform other team members rebase is complete and they need to pull the branch again
 
