@@ -23,11 +23,13 @@ if [ -z "$(ls -1 $COMMON_DIR)" ]; then
   rsync -auxt "/fedbiomed/envs/common_reference/" "$COMMON_DIR"
 fi
 
-
 trap finish TERM INT QUIT
 
-# Could not launch node at this step with MQTT communications because VPN is not yet fully established 
-# TODO: refactor to launch gRPC communications node here ?
+# launch node
+export PYTHONPATH=/fedbiomed
+su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; conda activate fedbiomed-node ; \
+           ./scripts/fedbiomed_run configuration create --component node --use-current; \
+           ./scripts/fedbiomed_run node start  " $CONTAINER_USER &
 
 sleep infinity &
 
