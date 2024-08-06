@@ -325,20 +325,9 @@ class SecaggBiprimeSetup(SecaggMpspdzSetup):
         """
         # don't update an existing default biprime
         if not self._secagg_manager.is_default_biprime(self._secagg_id):
-            # create a (currently dummy) context if it does not exist yet
-            time.sleep(3)
-            context = {
-                'biprime': int(random.randrange(10**12)),   # dummy biprime
-                'max_keysize': 0                            # prevent using the dummy biprime for real
-            }
-            logger.info("Not implemented yet, PUT SECAGG BIPRIME GENERATION PAYLOAD HERE, "
-                        f"secagg_id='{self._secagg_id}'")
-
-            # Currently, all biprimes can be used by all sets of parties.
-            # TODO: add a mode where biprime is restricted for `self._parties`
-            self._secagg_manager.add(self._secagg_id, None, context)
-            logger.info(
-                f"Biprime successfully created for node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
+            errmess = f'{ErrorNumbers.FB318.value}: non default biprimes are not implemented yet'
+            logger.error(errmess)
+            raise FedbiomedSecaggError(errmess)
 
 
 class SecaggDhSetup(SecaggBaseSetup):
