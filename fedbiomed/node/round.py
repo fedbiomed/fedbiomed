@@ -29,7 +29,7 @@ from fedbiomed.common import utils
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node_state_manager import NodeStateManager, NodeStateFileName
-from fedbiomed.node.secure_aggregation import SecaggRound
+from fedbiomed.node.secagg import SecaggRound
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 

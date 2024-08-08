@@ -12,7 +12,7 @@ from testsupport.base_case import NodeTestCase
 
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.node.environ import environ
-from fedbiomed.node.secagg import SecaggDhSetup, SecaggServkeySetup, SecaggBiprimeSetup, SecaggBaseSetup, SecaggSetup
+from fedbiomed.node.secagg import SecaggDHSetup, SecaggServkeySetup, SecaggBiprimeSetup, SecaggBaseSetup, SecaggSetup
 import fedbiomed.node.secagg
 
 
@@ -77,10 +77,10 @@ class TestSecaggBaseSetup(NodeTestCase):
 class SecaggTestCase(NodeTestCase):
 
     def setUp(self) -> None:
-        self.patch_skm = patch.object(fedbiomed.node.secagg, "SKManager")
-        self.patch_cm = patch.object(fedbiomed.node.secagg, "_CManager")
-        self.patch_mpc = patch.object(fedbiomed.node.secagg, 'MPCController')
-        self.patch_bpm = patch.object(fedbiomed.node.secagg, "BPrimeManager")
+        self.patch_skm = patch.object(fedbiomed.node.secagg._secagg_setups, "SKManager")
+        self.patch_cm = patch.object(fedbiomed.node.secagg._secagg_setups, "_CManager")
+        self.patch_mpc = patch.object(fedbiomed.node.secagg._secagg_setups, 'MPCController')
+        self.patch_bpm = patch.object(fedbiomed.node.secagg._secagg_setups, "BPrimeManager")
 
         self.mock_skm = self.patch_skm.start()
         self.mock_cm = self.patch_cm.start()
@@ -169,8 +169,8 @@ class TestSecaggServkey(SecaggTestCase):
     def test_secagg_servkey_setup_03_setup(self):
 
         shamir_key_share = '123245'
-        with (patch('fedbiomed.node.secagg._CManager.write_mpc_certificates_for_experiment') as cm_patch,
-              patch('fedbiomed.node.secagg.open', mock_open(read_data=shamir_key_share)) as builtin_open_mock):
+        with (patch('fedbiomed.node.secagg._secagg_setups._CManager.write_mpc_certificates_for_experiment') as cm_patch,
+              patch('fedbiomed.node.secagg._secagg_setups.open', mock_open(read_data=shamir_key_share)) as builtin_open_mock):
             for e, m in zip((FedbiomedError, Exception,), (builtin_open_mock, self.mock_mpc.exec_shamir,)):
                 builtin_open_mock.reset_mock()
                 cm_patch.return_value = '/a/path/to/my/ips/certificate/files', None
@@ -183,7 +183,7 @@ class TestSecaggServkey(SecaggTestCase):
                 self.assertFalse(reply['success'])
 
         # for get_value, return_value in (
-        #     # Not tested by _matching_parties* 
+        #     # Not tested by _matching_parties*
         #     #
         #     # (3, False),
         #     # ({}, False),
@@ -195,8 +195,8 @@ class TestSecaggServkey(SecaggTestCase):
         #     ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, False),
         # ):
 
-        with (patch('fedbiomed.node.secagg._CManager.write_mpc_certificates_for_experiment') as cm_patch,
-              patch('fedbiomed.node.secagg.open', mock_open(read_data=shamir_key_share)) as builtin_open_mock):    
+        with (patch('fedbiomed.node.secagg._secagg_setups._CManager.write_mpc_certificates_for_experiment') as cm_patch,
+              patch('fedbiomed.node.secagg._secagg_setups.open', mock_open(read_data=shamir_key_share)) as builtin_open_mock):
             # prefering to recreate mock than using mock.reset_mock() method
             cm_patch.return_value = '/a/path/to/my/ips/certificate/files', None
             self.mock_mpc.exec_shamir.return_value = '/a/path/to/my/key/share'
@@ -211,7 +211,7 @@ class TestSecaggServkey(SecaggTestCase):
                                                       {'server_key': int(shamir_key_share)},
                                                       self.args['experiment_id'])
 
-        with patch("fedbiomed.node.secagg.SecaggServkeySetup._setup_specific") as mock_:
+        with patch("fedbiomed.node.secagg._secagg_setups.SecaggServkeySetup._setup_specific") as mock_:
             # FIXME: these are already tested...
             mock_.side_effect = Exception
             self.mock_skm.get.return_value = None
@@ -253,7 +253,7 @@ class TestSecaggBiprime(SecaggTestCase):
         """Tests init """
 
         # for get_value, return_value in (
-        #     # Not tested by _matching_parties* 
+        #     # Not tested by _matching_parties*
         #     #
         #     # (3, False),
         #     # ({}, False),
@@ -272,7 +272,6 @@ class TestSecaggBiprime(SecaggTestCase):
         self.mock_bpm.is_default_biprime.return_value = False
         reply = self.secagg_bprime.setup()
         self.assertEqual(reply["success"], False)
-
         self.mock_bpm.is_default_biprime.side_effect = FedbiomedError("error generaated for testing purposes")
         reply = self.secagg_bprime.setup()
         self.assertEqual(reply["success"], False)
@@ -299,16 +298,16 @@ class TestSecaggDHSetup(SecaggTestCase):
 
     def test_secagg_dh_01_init(self):
 
-        SecaggDhSetup(**self.args)
+        SecaggDHSetup(**self.args)
 
         with self.assertRaises(FedbiomedSecaggError):
             self.args['experiment_id'] = 12334
-            SecaggDhSetup(**self.args)
+            SecaggDHSetup(**self.args)
 
-    @patch('fedbiomed.node.secagg.DHManager.add')
-    @patch('fedbiomed.node.secagg.DHKey.export_public_key')
-    @patch('fedbiomed.node.secagg.DHKeyAgreement.agree')
-    @patch('fedbiomed.node.secagg.send_nodes')
+    @patch('fedbiomed.node.secagg._secagg_setups.DHManager.add')
+    @patch('fedbiomed.node.secagg._secagg_setups.DHKey.export_public_key')
+    @patch('fedbiomed.node.secagg._secagg_setups.DHKeyAgreement.agree')
+    @patch('fedbiomed.node.secagg._secagg_setups.send_nodes')
     def test_secagg_dh_02_setup(self,
                                 send_node_mock,
                                 dh_key_agreement_agree,
@@ -337,7 +336,7 @@ class TestSecaggDHSetup(SecaggTestCase):
         dh_key_agreement_agree.return_value = dskey
         send_node_mock.return_value = True, received_msg_with_all_nodes
         dh_key_export_public_key.return_value = key
-        secagg_dh = SecaggDhSetup(**self.args)
+        secagg_dh = SecaggDHSetup(**self.args)
         reply = secagg_dh.setup()
 
         # checks
@@ -356,10 +355,10 @@ class TestSecaggDHSetup(SecaggTestCase):
         self.assertTrue(reply['success'])
         self.assertIsInstance(reply["success"], bool)
 
-    @patch('fedbiomed.node.secagg.DHManager.add')
-    @patch('fedbiomed.node.secagg.DHKey.export_public_key')
-    @patch('fedbiomed.node.secagg.DHKeyAgreement.agree')
-    @patch('fedbiomed.node.secagg.send_nodes')
+    @patch('fedbiomed.node.secagg._secagg_setups.DHManager.add')
+    @patch('fedbiomed.node.secagg._secagg_setups.DHKey.export_public_key')
+    @patch('fedbiomed.node.secagg._secagg_setups.DHKeyAgreement.agree')
+    @patch('fedbiomed.node.secagg._secagg_setups.send_nodes')
     def test_secagg_dh_03_setup_error(self,
                                       send_node_mock,
                                       dh_key_agreement_agree,
@@ -385,7 +384,7 @@ class TestSecaggDHSetup(SecaggTestCase):
         dh_key_agreement_agree.return_value = dskey
         send_node_mock.return_value = False, received_msg_with_node_dropout
         dh_key_export_public_key.return_value = key
-        secagg_dh = SecaggDhSetup(**self.args)
+        secagg_dh = SecaggDHSetup(**self.args)
         reply = secagg_dh.setup()
         self.assertFalse(reply['success'])
 

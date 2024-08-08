@@ -330,7 +330,7 @@ class SecaggBiprimeSetup(SecaggMpspdzSetup):
             raise FedbiomedSecaggError(errmess)
 
 
-class SecaggDhSetup(SecaggBaseSetup):
+class SecaggDHSetup(SecaggBaseSetup):
     """
     Sets up a server key Secure Aggregation context element on the node side.
     """
@@ -451,7 +451,7 @@ class SecaggSetup:
     element2class = {
         SecaggElementTypes.SERVER_KEY.name: SecaggServkeySetup,
         SecaggElementTypes.BIPRIME.name: SecaggBiprimeSetup,
-        SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDhSetup
+        SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDHSetup
     }
 
     def __init__(self, element: int, **kwargs):

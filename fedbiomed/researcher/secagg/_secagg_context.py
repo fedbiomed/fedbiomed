@@ -521,17 +521,18 @@ class SecaggServkeyContext(SecaggMpspdzContext):
                 ip_addresses=ip_file
             )
         except Exception as e:
-            raise FedbiomedSecaggError(f"{ErrorNumbers.FB415.value}: Can not execute MPC protocol. {e}")
+            raise FedbiomedSecaggError(
+                f"{ErrorNumbers.FB415.value}: Can not execute MPC protocol. {e}") from e
 
         # Read output
         try:
-            with open(output, "r") as file:
+            with open(output, "r", encoding="UTF-8") as file:
                 server_key = file.read()
                 file.close()
         except Exception as e:
             raise FedbiomedSecaggError(
-                f"{ErrorNumbers.FB415.value}: Can not read server key from created after MPC execution. {e}"
-            )
+                f"{ErrorNumbers.FB415.value}: Can not read server key from created after "
+                f"MPC execution. {e}") from e
 
         context = {'server_key': int(server_key.strip())}
         self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
@@ -600,7 +601,7 @@ class SecaggBiprimeContext(SecaggMpspdzContext):
         return context, True
 
 
-class SecaggDhContext(SecaggContext):
+class SecaggDHContext(SecaggContext):
     """
     Handles a Secure Aggregation Diffie Hellman context element on the researcher side.
     """
@@ -624,7 +625,7 @@ class SecaggDhContext(SecaggContext):
         if len(parties) < 2:
             raise FedbiomedSecaggError(
                 f'{ErrorNumbers.FB415.value}: LOM, bad parameter `parties` : {parties} : need'
-                'at least 3 parties for secure aggregation')
+                'at least 2 nodes for secure aggregation')
 
         if not self._experiment_id:
             raise FedbiomedSecaggError(
@@ -642,7 +643,6 @@ class SecaggDhContext(SecaggContext):
         Returns:
             True if this context can be used with this element, False if not.
         """
-        # TODO: is it OK to reuse this one or not ?
         return matching_parties_servkey(context, self._parties)
 
     def _create_payload_specific(self, context) -> Tuple[Union[dict, None], bool]:

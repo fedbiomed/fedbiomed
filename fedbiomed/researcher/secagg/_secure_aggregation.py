@@ -8,7 +8,7 @@ import importlib
 from typing import List, Union, Dict, Any, Optional, Callable
 from abc import ABC, abstractmethod
 
-from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext, SecaggDhContext
+from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext, SecaggDHContext
 from fedbiomed.researcher.environ import environ
 
 from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes
@@ -542,11 +542,6 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         """
         super().setup(parties, experiment_id, force)
 
-        if self._biprime is None or self._servkey is None:
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: server key or biprime contexts is not fully configured."
-            )
-
         if not self._biprime.status or force:
             self._biprime.setup()
 
@@ -566,7 +561,6 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         """
         super()._set_secagg_contexts(parties, experiment_id)
 
-        # TODO: support other options than using `default_biprime0`
         self._biprime = SecaggBiprimeContext(
             parties=self._parties,
             secagg_id='default_biprime0'
@@ -705,12 +699,12 @@ class LomSecureAggregation(_SecureAggregation):
         """
         super().__init__(active, clipping_range)
 
-        self._dh: Optional[SecaggDhContext] = None
+        self._dh: Optional[SecaggDHContext] = None
         self._secagg_crypter: SecaggLomCrypter = SecaggLomCrypter()
         self._scheme = SecureAggregationSchemes.LOM
 
     @property
-    def dh(self) -> Union[None, SecaggDhContext]:
+    def dh(self) -> Union[None, SecaggDHContext]:
         """Gets Diffie Hellman keypairs object
 
         Returns:
@@ -759,11 +753,6 @@ class LomSecureAggregation(_SecureAggregation):
 
         super().setup(parties, experiment_id, force)
 
-        if self._dh is None:
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Diffie Hellman context is not fully configured."
-            )
-
         if not self._dh.status or force:
             self._dh.setup()
 
@@ -780,7 +769,7 @@ class LomSecureAggregation(_SecureAggregation):
         """
         super()._set_secagg_contexts(parties, experiment_id)
 
-        self._dh = SecaggDhContext(
+        self._dh = SecaggDHContext(
             parties=self._parties,
             experiment_id=self._experiment_id
         )
@@ -857,7 +846,7 @@ class LomSecureAggregation(_SecureAggregation):
             The created `SecureAggregation` object
         """
         if state["attributes"]["_dh"] is not None:
-            state["attributes"]["_dh"] = SecaggDhContext. \
+            state["attributes"]["_dh"] = SecaggDHContext. \
                 load_state_breakpoint(state=state["attributes"]["_dh"])
 
         return super().load_state_breakpoint(state)

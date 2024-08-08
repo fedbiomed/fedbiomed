@@ -216,11 +216,9 @@ def send_nodes(
             nodes: list of node IDs of the destination nodes
             messages: list of the inner messages for the destination nodes
         Returns:
-            A unique ID of type `int` for retrieving node to node reply messages
-                for this request from the `pending_requests`, or `None` if no message
-                sent to another node is of type request-reply
+            status: True if all messages are received
+            replies: List of replies from each node.
     """
-    # FIXME: docstrings for the output of the method seem incorrect
     request_ids = []
 
     for node, message in zip(nodes, messages):
