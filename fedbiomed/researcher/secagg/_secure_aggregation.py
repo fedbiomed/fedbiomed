@@ -385,7 +385,7 @@ class _SecureAggregation(ABC):
             FedbiomedSecureAggregationError: secure aggregation context not properly configured
             FedbiomedSecureAggregationError: secure aggregation computation error
         """
-        if self._secagg_random:
+        if self._secagg_random is not None:
             self._validate(aggregate, encryption_factors, num_expected_params)
 
         logger.info(
