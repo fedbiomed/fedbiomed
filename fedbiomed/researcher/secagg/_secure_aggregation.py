@@ -4,37 +4,133 @@
 import functools
 import math
 import random
-from typing import List, Union, Dict, Any, Optional
+import importlib
+from typing import List, Union, Dict, Any, Optional, Callable
+from abc import ABC, abstractmethod
 
-from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext
-from fedbiomed.common.constants import ErrorNumbers
+from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext, SecaggDHContext
+from fedbiomed.researcher.environ import environ
+
+from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
-from fedbiomed.common.secagg import SecaggCrypter
+from fedbiomed.common.secagg import SecaggCrypter, SecaggLomCrypter
 from fedbiomed.common.logger import logger
 
 
+
 class SecureAggregation:
+    """Interface for different secure aggregation classes"""
+
+    def __init__(
+        self,
+        *args,
+        scheme: SecureAggregationSchemes = SecureAggregationSchemes.LOM,
+        **kwargs
+    ) -> None:
+        """Constructs secure aggregation class
+
+        Builds corresponding secure aggregation object/scheme based
+        on given scheme argument
+
+        Args:
+            scheme: Secure aggregation scheme
+        """
+
+        self.__scheme = scheme
+
+        match self.__scheme:
+            case SecureAggregationSchemes.LOM:
+                self.__secagg = LomSecureAggregation(*args, **kwargs)
+            case SecureAggregationSchemes.JOYE_LIBERT:
+                self.__secagg = JoyeLibertSecureAggregation(*args, **kwargs)
+            case _ :
+                self.__secagg = LomSecureAggregation(*args, **kwargs)
+
+    def __getattr__(self, item: str):
+        """Wraps all functions/attributes of class members.
+
+        Args:
+             item: Requested item from class
+        """
+
+        if item in ('save_state_breakpoint', 'load_state_breakpoint'):
+            return object.__getattribute__(self, item)
+
+        return self.__secagg.__getattribute__(item)
+
+
+    @abstractmethod
+    def save_state_breakpoint(self) -> Dict[str, Any]:
+        """Saves state of the secagg
+
+        This methods also save states of `__secagg` which provides
+        a single entry point for secagg schemes
+
+        Returns:
+            The secagg state to be saved
+        """
+
+        state = {
+            "class": type(self).__name__,
+            "module": self.__module__,
+            "arguments": {
+                'scheme': self.__scheme.value,
+            },
+            "attributes": {},
+            "attributes_states": {
+                "__secagg": self.__secagg.save_state_breakpoint()
+            }
+        }
+
+        return state
+
+    @classmethod
+    def load_state_breakpoint(
+            cls,
+            state: Dict
+    ) -> 'SecureAggregation':
+        """Create a `SecureAggregation` object from a saved state
+
+        Args:
+            state: saved state to restore in the created object
+
+        Returns:
+            The created `SecureAggregation` object
+        """
+        secagg = cls(
+            scheme=SecureAggregationSchemes(state['arguments']['scheme'])
+        )
+
+        for name, val in state["attributes_states"].items():
+
+            _sub_cls = getattr(importlib.import_module(val['module']), val["class"])
+            instance = _sub_cls.load_state_breakpoint(val)
+            setattr(secagg, name, instance)
+
+        return secagg
+
+
+class _SecureAggregation(ABC):
     """Secure aggregation controller of researcher component.
 
     This class is responsible for;
 
-    - setting up the context for Joye-Libert secure aggregation
+    - setting up the context for secure aggregation
     - Applying secure aggregation after receiving encrypted model parameters from nodes
 
     Attributes:
         clipping_range: Clipping range that will be used for quantization of model
             parameters on the node side.
-
-        _biprime: Biprime-key context setup instance.
         _parties: Nodes and researcher that participates federated training
         _experiment_id: ID of the current experiment.
-        _servkey: Server-key context setup instance.
         _secagg_crypter: Secure aggregation encrypter and decrypter to decrypt encrypted model
             parameters.
         _secagg_random: Random float generated tobe sent to node to validate secure aggregation
             after aggregation encrypted parameters.
+        _scheme: Secure aggregation scheme implemented by this class
     """
 
+    @abstractmethod
     def __init__(
             self,
             active: bool = True,
@@ -73,10 +169,9 @@ class SecureAggregation:
         self._active: bool = active
         self._parties: Optional[List[str]] = None
         self._experiment_id: Optional[str] = None
-        self._servkey: Optional[SecaggServkeyContext] = None
-        self._biprime: Optional[SecaggBiprimeContext] = None
         self._secagg_random: Optional[float] = None
-        self._secagg_crypter: SecaggCrypter = SecaggCrypter()
+        self._secagg_crypter: Union[SecaggCrypter, SecaggLomCrypter, None] = None
+        self._scheme: Optional[SecureAggregationSchemes] = None
 
     @property
     def parties(self) -> Union[List[str], None]:
@@ -106,22 +201,13 @@ class SecureAggregation:
         return self._active
 
     @property
-    def biprime(self) -> Union[None, SecaggBiprimeContext]:
-        """Gets biprime object
+    def scheme(self) -> SecureAggregationSchemes:
+        """Gets secagg scheme used
 
         Returns:
-            Biprime object, None if biprime is not setup
+            Secagg scheme used
         """
-        return self._biprime
-
-    @property
-    def servkey(self) -> Union[None, SecaggServkeyContext]:
-        """Gets servkey object
-
-        Returns:
-            Servkey object, None if servkey is not setup
-        """
-        return self._servkey
+        return self._scheme
 
     def activate(self, status) -> bool:
         """Set activate status of secure aggregation
@@ -140,17 +226,21 @@ class SecureAggregation:
 
         return self._active
 
+    @abstractmethod
     def train_arguments(self) -> Dict:
         """Gets train arguments for secagg train request
 
         Returns:
-            Arguments that is going tobe attached to the experiment.
+            Arguments that are going to be attached to the experiment.
         """
-        return {'secagg_servkey_id': self._servkey.secagg_id if self._servkey is not None else None,
-                'secagg_biprime_id': self._biprime.secagg_id if self._biprime is not None else None,
-                'secagg_random': self._secagg_random,
-                'secagg_clipping_range': self.clipping_range}
+        return {
+            'secagg_random': self._secagg_random,
+            'secagg_clipping_range': self.clipping_range,
+            'secagg_scheme': self._scheme.value,
+            'parties': self._parties,
+        }
 
+    @abstractmethod
     def setup(self,
               parties: List[str],
               experiment_id: str,
@@ -166,9 +256,6 @@ class SecureAggregation:
             parties: Parties that participates secure aggregation
             experiment_id: The id of the experiment
             force: Forces secagg setup even context is already existing
-
-        Returns:
-            Status of setup
 
         Raises
             FedbiomedSecureAggregationError: Invalid argument type
@@ -186,19 +273,7 @@ class SecureAggregation:
 
         self._configure_round(parties, experiment_id)
 
-        if self._biprime is None or self._servkey is None:
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: server key or biprime contexts is not fully configured."
-            )
-
-        if not self._biprime.status or force:
-            self._biprime.setup()
-
-        if not self._servkey.status or force:
-            self._servkey.setup()
-
-        return True
-
+    @abstractmethod
     def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
         """Creates secure aggregation context classes.
 
@@ -214,17 +289,6 @@ class SecureAggregation:
         # Updates experiment id if it is provided
         if experiment_id is not None:
             self._experiment_id = experiment_id
-
-        # TODO: support other options than using `default_biprime0`
-        self._biprime = SecaggBiprimeContext(
-            parties=self._parties,
-            secagg_id='default_biprime0'
-        )
-
-        self._servkey = SecaggServkeyContext(
-            parties=self._parties,
-            experiment_id=self._experiment_id
-        )
 
     def _configure_round(
             self,
@@ -253,22 +317,66 @@ class SecureAggregation:
                         f"aggregation context creation for the experiment {self._experiment_id}")
             self._set_secagg_contexts(parties)
 
+    @abstractmethod
     def aggregate(
+        self,
+        *args,
+        model_params,
+        total_sample_size,
+        encryption_factors,
+        **kwargs
+    ) -> List[List[int]]:
+        """Algorithm specific aggregation implementation"""
+
+    def _validate(
+        self,
+        aggregate: functools.partial,
+        encryption_factors: List[List[int]],
+        num_expected_params: int | None = None
+    ) -> bool:
+        """Validate given inputs"""
+
+
+        if encryption_factors is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Secure aggregation random validation has been "
+                "set but the encryption factors are not provided. Please provide encrypted "
+                "`secagg_random` values in different parties. Or to not set/get "
+                "`secagg_random()` before the aggregation.")
+
+        logger.info("Validating secure aggregation results...")
+        encryption_factors = [f for k, f in encryption_factors.items()]
+
+        validation: List[float]
+
+        if num_expected_params:
+            validation = aggregate(params=encryption_factors, num_expected_params=1)
+        else:
+            validation = aggregate(params=encryption_factors)
+
+        if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.03):
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Aggregation has failed due to incorrect decryption."
+            )
+        logger.info("Validation is completed.")
+
+
+    def _aggregate(
             self,
-            round_: int,
-            total_sample_size: int,
             model_params: Dict[str, List[int]],
-            encryption_factors: Union[Dict[str, List[int]], None] = None,
-            num_expected_params: int = 1
+            encryption_factors: Union[Dict[str, List[int]], None],
+            aggregate: Callable,
+            num_expected_params: int | None = None,
     ) -> List[float]:
         """Aggregates given model parameters
 
         Args:
-            round_: current training round number
             total_sample_size: sum of number of samples used by all nodes
             model_params: model parameters from the participating nodes
             encryption_factors: encryption factors from the participating nodes
-            num_expected_params: number of decrypted parameters to decode from the model parameters
+            num_expected_params: number of decrypted parameters to decode from the model parameters.
+                It is an optional parameter since some schemes does not require it.
+            aggregate: partial function for aggregation
 
         Returns:
             Aggregated parameters
@@ -277,60 +385,23 @@ class SecureAggregation:
             FedbiomedSecureAggregationError: secure aggregation context not properly configured
             FedbiomedSecureAggregationError: secure aggregation computation error
         """
+        if self._secagg_random:
+            self._validate(aggregate, encryption_factors, num_expected_params)
 
-        if self._biprime is None or self._servkey is None:
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
-                f"not configured. Please setup secure aggregation before the aggregation.")
-
-        if not self._biprime.status or not self._servkey.status:
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is"
-                f"not set properly")
-
-        biprime = self._biprime.context["context"]["biprime"]
-        key = self._servkey.context["context"]["server_key"]
-
-        num_nodes = len(model_params)
-
-        aggregate = functools.partial(self._secagg_crypter.aggregate,
-                                      current_round=round_,
-                                      num_nodes=num_nodes,
-                                      key=key,
-                                      total_sample_size=total_sample_size,
-                                      biprime=biprime,
-                                      clipping_range=self.clipping_range)
-
-        # Validate secure aggregation
-        if self._secagg_random is not None:
-
-            if encryption_factors is None:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}: Secure aggregation random validation has been set but the encryption "
-                    f"factors are not provided. Please provide encrypted `secagg_random` values in different parties. "
-                    f"Or to not set/get `secagg_random()` before the aggregation.")
-
-            logger.info("Validating secure aggregation results...")
-            encryption_factors = [f for k, f in encryption_factors.items()]
-            validation: List[float] = aggregate(params=encryption_factors, num_expected_params=1)
-
-            if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.03):
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB417.value}: Aggregation is failed due to incorrect decryption."
-                )
-            logger.info("Validation is completed.")
-
-        elif encryption_factors is not None:
-            logger.warning("Encryption factors are provided while secagg random is None. Please make sure secure "
-                           "aggregation steps are applied correctly.")
-
-        logger.info("Aggregating encrypted parameters. This process may take some time depending on model size.")
+        logger.info(
+            "Aggregating encrypted parameters. This process may take some time depending"
+            "on model size.")
         # Aggregate parameters
         params = [p for _, p in model_params.items()]
-        aggregated_params = aggregate(params=params, num_expected_params=num_expected_params)
+        if num_expected_params:
+            aggregated_params = aggregate(
+                params=params, num_expected_params=num_expected_params)
+        else:
+            aggregated_params = aggregate(params=params)
 
         return aggregated_params
 
+    @abstractmethod
     def save_state_breakpoint(self) -> Dict[str, Any]:
         """Saves state of the secagg
 
@@ -346,12 +417,228 @@ class SecureAggregation:
                 'clipping_range': self.clipping_range,
             },
             "attributes": {
-                "_biprime": self._biprime.save_state_breakpoint() if self._biprime is not None else None,
-                "_servkey": self._servkey.save_state_breakpoint() if self._servkey is not None else None,
                 "_experiment_id": self._experiment_id,
                 "_parties": self._parties
             }
         }
+
+        return state
+
+    @classmethod
+    @abstractmethod
+    def load_state_breakpoint(
+            cls,
+            state: Dict
+    ) -> 'SecureAggregation':
+        """Create a `SecureAggregation` object from a saved state
+
+        Args:
+            state: saved state to restore in the created object
+
+        Returns:
+            The created `SecureAggregation` object
+        """
+        secagg = cls(**state["arguments"])
+
+        # Set attributes
+        for name, val in state["attributes"].items():
+            setattr(secagg, name, val)
+
+        return secagg
+
+
+class JoyeLibertSecureAggregation(_SecureAggregation):
+    """Secure aggregation controller of researcher component for Joye-Libert.
+
+    This class is responsible for;
+
+    - setting up the context for Joye-Libert secure aggregation
+    - Applying secure aggregation after receiving encrypted model parameters from nodes
+
+    Attributes:
+        _biprime: Biprime-key context setup instance.
+        _servkey: Server-key context setup instance.
+    """
+
+    def __init__(
+            self,
+            active: bool = True,
+            clipping_range: Union[None, int] = None,
+    ) -> None:
+        """Class constructor
+
+        Assigns default values for attributes
+
+        Args:
+            active: True if secure aggregation is activated for the experiment
+            clipping_range: Clipping range that will be used for quantization of model
+                parameters on the node side. The default will be
+                [`VEParameters.CLIPPING_RANGE`][fedbiomed.common.constants.VEParameters].
+                The default value will be automatically set on the node side.
+
+        Raises:
+            FedbiomedSecureAggregationError: bad argument type
+        """
+        super().__init__(active, clipping_range)
+
+        self._servkey: Optional[SecaggServkeyContext] = None
+        self._biprime: Optional[SecaggBiprimeContext] = None
+        self._secagg_crypter: SecaggCrypter = SecaggCrypter()
+        self._scheme = SecureAggregationSchemes.JOYE_LIBERT
+
+
+    @property
+    def biprime(self) -> Union[None, SecaggBiprimeContext]:
+        """Gets biprime object
+
+        Returns:
+            Biprime object, None if biprime is not setup
+        """
+        return self._biprime
+
+    @property
+    def servkey(self) -> Union[None, SecaggServkeyContext]:
+        """Gets servkey object
+
+        Returns:
+            Servkey object, None if servkey is not setup
+        """
+        return self._servkey
+
+    def train_arguments(self) -> Dict:
+        """Gets train arguments for secagg train request
+
+        Returns:
+            Arguments that are going to be attached to the experiment.
+        """
+        arguments = super().train_arguments()
+        arguments.update({
+            'secagg_servkey_id': self._servkey.secagg_id if self._servkey is not None else None,
+            'secagg_biprime_id': self._biprime.secagg_id if self._biprime is not None else None,
+        })
+        return arguments
+
+    def setup(self,
+              parties: List[str],
+              experiment_id: str,
+              force: bool = False):
+        """Setup secure aggregation instruments.
+
+        Requires setting `parties` and `experiment_id` if they are not set in previous secagg
+        setups. It is possible to execute without any argument if SecureAggregation
+        has already `parties` and `experiment_id` defined. This feature provides researcher
+        execute `secagg.setup()` if any connection issu#e
+
+        Args:
+            parties: Parties that participates secure aggregation
+            experiment_id: The id of the experiment
+            force: Forces secagg setup even context is already existing
+
+        Returns:
+            Status of setup
+
+        Raises
+            FedbiomedSecureAggregationError: Invalid argument type
+        """
+        super().setup(parties, experiment_id, force)
+
+        if not self._biprime.status or force:
+            self._biprime.setup()
+
+        if not self._servkey.status or force:
+            self._servkey.setup()
+
+        return True
+
+    def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
+        """Creates secure aggregation context classes.
+
+        This function should be called after `experiment_id` and `parties` are set
+
+        Args:
+            parties: Parties that participates secure aggregation
+            experiment_id: The id of the experiment
+        """
+        super()._set_secagg_contexts(parties, experiment_id)
+
+        self._biprime = SecaggBiprimeContext(
+            parties=self._parties,
+            secagg_id='default_biprime0'
+        )
+
+        self._servkey = SecaggServkeyContext(
+            parties=self._parties,
+            experiment_id=self._experiment_id
+        )
+
+    def aggregate(
+            self,
+            *args,
+            round_: int,
+            total_sample_size: int,
+            model_params: Dict[str, List[int]],
+            encryption_factors: Union[Dict[str, List[int]], None] = None,
+            num_expected_params: int = 1,
+            **kwargs
+    ) -> List[float]:
+        """Aggregates given model parameters
+
+        Args:
+            round_: current training round number
+            total_sample_size: sum of number of samples used by all nodes
+            model_params: model parameters from the participating nodes
+            encryption_factors: encryption factors from the participating nodes
+            num_expected_params: number of decrypted parameters to decode from the model parameters
+
+        Returns:
+            Aggregated parameters
+
+        Raises:
+            FedbiomedSecureAggregationError: secure aggregation context not properly configured
+        """
+
+        if self._biprime is None or self._servkey is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is "
+                f"not configured. Please setup secure aggregation before the aggregation.")
+
+        if not self._biprime.status or not self._servkey.status:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is "
+                f"not set properly")
+
+        biprime = self._biprime.context["context"]["biprime"]
+        key = self._servkey.context["context"]["server_key"]
+
+        num_nodes = len(model_params)
+
+        aggregate = functools.partial(self._secagg_crypter.aggregate,
+                                      current_round=round_,
+                                      num_nodes=num_nodes,
+                                      key=key,
+                                      total_sample_size=total_sample_size,
+                                      biprime=biprime,
+                                      clipping_range=self.clipping_range)
+
+        return self._aggregate(
+            model_params,
+            encryption_factors,
+            aggregate,
+            num_expected_params,
+        )
+
+    def save_state_breakpoint(self) -> Dict[str, Any]:
+        """Saves state of the secagg
+
+        Returns:
+            The secagg state to be saved
+        """
+        state = super().save_state_breakpoint()
+
+        state["attributes"].update({
+            "_biprime": self._biprime.save_state_breakpoint() if self._biprime is not None else None,
+            "_servkey": self._servkey.save_state_breakpoint() if self._servkey is not None else None,
+        })
 
         return state
 
@@ -368,9 +655,6 @@ class SecureAggregation:
         Returns:
             The created `SecureAggregation` object
         """
-
-        secagg = cls(**state["arguments"])
-
         if state["attributes"]["_biprime"] is not None:
             state["attributes"]["_biprime"] = SecaggBiprimeContext. \
                 load_state_breakpoint(state=state["attributes"]["_biprime"])
@@ -379,8 +663,190 @@ class SecureAggregation:
             state["attributes"]["_servkey"] = SecaggServkeyContext. \
                 load_state_breakpoint(state=state["attributes"]["_servkey"])
 
-        # Set attributes
-        for name, val in state["attributes"].items():
-            setattr(secagg, name, val)
+        return super().load_state_breakpoint(state)
 
-        return secagg
+
+class LomSecureAggregation(_SecureAggregation):
+    """Secure aggregation controller of researcher component for Low Overhead Masking.
+
+    This class is responsible for;
+
+    - setting up the context for LOM secure aggregation
+    - Applying secure aggregation after receiving encrypted model parameters from nodes
+
+    Attributes:
+        _dh: Diffie Hellman keypairs per node context setup instance.
+    """
+
+    def __init__(
+            self,
+            active: bool = True,
+            clipping_range: Union[None, int] = None,
+    ) -> None:
+        """Class constructor
+
+        Assigns default values for attributes
+
+        Args:
+            active: True if secure aggregation is activated for the experiment
+            clipping_range: Clipping range that will be used for quantization of model
+                parameters on the node side. The default will be
+                [`VEParameters.CLIPPING_RANGE`][fedbiomed.common.constants.VEParameters].
+                The default value will be automatically set on the node side.
+
+        Raises:
+            FedbiomedSecureAggregationError: bad argument type
+        """
+        super().__init__(active, clipping_range)
+
+        self._dh: Optional[SecaggDHContext] = None
+        self._secagg_crypter: SecaggLomCrypter = SecaggLomCrypter()
+        self._scheme = SecureAggregationSchemes.LOM
+
+    @property
+    def dh(self) -> Union[None, SecaggDHContext]:
+        """Gets Diffie Hellman keypairs object
+
+        Returns:
+            DH object, None if DH is not setup
+        """
+        return self._dh
+
+    def train_arguments(self) -> Dict:
+        """Gets train arguments for secagg train request
+
+        Returns:
+            Arguments that are going to be attached to the experiment.
+        """
+        arguments = super().train_arguments()
+        arguments.update({
+            'secagg_dh_id': self._dh.secagg_id if self._dh is not None else None,
+        })
+        return arguments
+
+    def setup(self,
+              parties: List[str],
+              experiment_id: str,
+              force: bool = False) -> bool:
+        """Setup secure aggregation instruments.
+
+        Requires setting `parties` and `experiment_id` if they are not set in previous secagg
+        setups. It is possible to execute without any argument if SecureAggregation
+        has already `parties` and `experiment_id` defined. This feature provides researcher
+        execute `secagg.setup()` if any connection issue
+
+        Args:
+            parties: Parties that participates secure aggregation
+            experiment_id: The id of the experiment
+            force: Forces secagg setup even if context is already existing
+
+        Returns:
+            Status of setup
+
+        Raises
+            FedbiomedSecureAggregationError: Invalid argument type
+        """
+
+        parties = list(
+            filter(lambda x: x != environ["ID"], parties)
+        )
+
+        super().setup(parties, experiment_id, force)
+
+        if not self._dh.status or force:
+            self._dh.setup()
+
+        return self._dh.status
+
+    def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
+        """Creates secure aggregation context classes.
+
+        This function should be called after `experiment_id` and `parties` are set
+
+        Args:
+            parties: Parties that participates secure aggregation
+            experiment_id: The id of the experiment
+        """
+        super()._set_secagg_contexts(parties, experiment_id)
+
+        self._dh = SecaggDHContext(
+            parties=self._parties,
+            experiment_id=self._experiment_id
+        )
+
+    def aggregate(
+            self,
+            *args,
+            model_params: Dict[str, List[int]],
+            total_sample_size: int,
+            encryption_factors: Union[Dict[str, List[int]], None] = None,
+            **kwargs
+    ) -> List[float]:
+        """Aggregates given model parameters
+
+        Args:
+            total_sample_size: sum of number of samples used by all nodes
+            model_params: model parameters from the participating nodes
+            encryption_factors: encryption factors from the participating nodes
+
+        Returns:
+            Aggregated parameters
+
+        Raises:
+            FedbiomedSecureAggregationError: secure aggregation context not properly configured
+        """
+
+        if self._dh is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Diffie Hellman context is "
+                f"not configured. Please setup secure aggregation before the aggregation.")
+
+        if not self._dh.status:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Diffie Hellman context is "
+                f"not set properly")
+
+        aggregate = functools.partial(
+            self._secagg_crypter.aggregate,
+            total_sample_size=total_sample_size,
+            clipping_range=self.clipping_range)
+
+        return self._aggregate(
+            model_params,
+            encryption_factors,
+            aggregate,
+        )
+
+
+    def save_state_breakpoint(self) -> Dict[str, Any]:
+        """Saves state of the secagg
+
+        Returns:
+            The secagg state to be saved
+        """
+        state = super().save_state_breakpoint()
+
+        state["attributes"].update({
+            "_dh": self._dh.save_state_breakpoint() if self._dh is not None else None,
+        })
+
+        return state
+
+    @classmethod
+    def load_state_breakpoint(
+            cls,
+            state: Dict
+    ) -> 'SecureAggregation':
+        """Create a `SecureAggregation` object from a saved state
+
+        Args:
+            state: saved state to restore in the created object
+
+        Returns:
+            The created `SecureAggregation` object
+        """
+        if state["attributes"]["_dh"] is not None:
+            state["attributes"]["_dh"] = SecaggDHContext. \
+                load_state_breakpoint(state=state["attributes"]["_dh"])
+
+        return super().load_state_breakpoint(state)

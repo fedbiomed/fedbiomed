@@ -1,22 +1,25 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, mock_open, patch
 from copy import deepcopy
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
+from fedbiomed.common.message import NodeToNodeMessages
+from fedbiomed.common.synchro import EventWaitExchange
+from fedbiomed.transport.controller import GrpcController
 from testsupport.base_case import NodeTestCase
 #############################################################
 
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.node.environ import environ
-from fedbiomed.node.secagg import SecaggServkeySetup, SecaggBiprimeSetup, BaseSecaggSetup, SecaggSetup
+from fedbiomed.node.secagg import SecaggDHSetup, SecaggServkeySetup, SecaggBiprimeSetup, SecaggBaseSetup, SecaggSetup
 import fedbiomed.node.secagg
 
 
-class TestBaseSecaggSetup(NodeTestCase):
+class TestSecaggBaseSetup(NodeTestCase):
 
     def setUp(self) -> None:
-        self.abstract_methods_patcher = patch.multiple(BaseSecaggSetup, __abstractmethods__=set())
+        self.abstract_methods_patcher = patch.multiple(SecaggBaseSetup, __abstractmethods__=set())
         self.abstract_methods_patcher.start()
 
         self.args = {
@@ -26,7 +29,7 @@ class TestBaseSecaggSetup(NodeTestCase):
                 'parties': ['my researcher', 'my node1', 'my node2', 'my node3'],
         }
 
-        self.base_secagg_setup = BaseSecaggSetup(**self.args)
+        self.base_secagg_setup = SecaggBaseSetup(**self.args)
 
     def tearDown(self) -> None:
         self.abstract_methods_patcher.stop()
@@ -38,19 +41,13 @@ class TestBaseSecaggSetup(NodeTestCase):
         args = deepcopy(self.args)
         args["researcher_id"] = None
         with self.assertRaises(FedbiomedSecaggError):
-            BaseSecaggSetup(**args)
+            SecaggBaseSetup(**args)
 
-        # Invalid number of parties
+        # Invalid number of parties (must be at least 3 parties)
         args = deepcopy(self.args)
         args["parties"] = ["my researcher", "p2"]
         with self.assertRaises(FedbiomedSecaggError):
-            BaseSecaggSetup(**args)
-
-        # Unmatch self id and parties
-        args = deepcopy(self.args)
-        args["researcher_id"] = "opss different researcher"
-        with self.assertRaises(FedbiomedSecaggError):
-            BaseSecaggSetup(**args)
+            SecaggBaseSetup(**args)
 
     def test_base_secagg_setup_02_getters(self):
         """Tests getters properties"""
@@ -80,10 +77,10 @@ class TestBaseSecaggSetup(NodeTestCase):
 class SecaggTestCase(NodeTestCase):
 
     def setUp(self) -> None:
-        self.patch_skm = patch.object(fedbiomed.node.secagg, "SKManager")
-        self.patch_cm = patch.object(fedbiomed.node.secagg, "_CManager")
-        self.patch_mpc = patch.object(fedbiomed.node.secagg, 'MPCController')
-        self.patch_bpm = patch.object(fedbiomed.node.secagg, "BPrimeManager")
+        self.patch_skm = patch.object(fedbiomed.node.secagg._secagg_setups, "SKManager")
+        self.patch_cm = patch.object(fedbiomed.node.secagg._secagg_setups, "_CManager")
+        self.patch_mpc = patch.object(fedbiomed.node.secagg._secagg_setups, 'MPCController')
+        self.patch_bpm = patch.object(fedbiomed.node.secagg._secagg_setups, "BPrimeManager")
 
         self.mock_skm = self.patch_skm.start()
         self.mock_cm = self.patch_cm.start()
@@ -135,6 +132,12 @@ class TestSecaggServkey(SecaggTestCase):
         with self.assertRaises(FedbiomedSecaggError):
             SecaggServkeySetup(**args)
 
+        # Unmatch self id and parties
+        args = deepcopy(self.args)
+        args["researcher_id"] = "opss different researcher"
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggServkeySetup(**args)
+
     def test_secagg_servkey_setup_02_setup_specific(self):
         """Test setup operation for servkey"""
 
@@ -165,35 +168,51 @@ class TestSecaggServkey(SecaggTestCase):
 
     def test_secagg_servkey_setup_03_setup(self):
 
-        for e in (Exception, FedbiomedError):
-            self.mock_skm.get.side_effect = e
-            reply = self.secagg_servkey.setup()
-            self.assertEqual(reply["success"], False)
+        shamir_key_share = '123245'
+        with (patch('fedbiomed.node.secagg._secagg_setups._CManager.write_mpc_certificates_for_experiment') as cm_patch,
+              patch('fedbiomed.node.secagg._secagg_setups.open', mock_open(read_data=shamir_key_share)) as builtin_open_mock):
+            for e, m in zip((FedbiomedError, Exception,), (builtin_open_mock, self.mock_mpc.exec_shamir,)):
+                builtin_open_mock.reset_mock()
+                cm_patch.return_value = '/a/path/to/my/ips/certificate/files', None
+                self.mock_skm.add.return_value = None
+                builtin_open_mock.return_value = None
+                self.mock_mpc.exec_shamir.return_value = '/a/path/to/my/key/share'
+                m.side_effect = e  # setting different exception to mock
 
-        for get_value, return_value in (
-            # Not tested by _matching_parties* 
-            #
-            # (3, False),
-            # ({}, False),
-            # ({'parties': None}, False),
-            ({'parties': ['not', 'matching', 'current', 'parties']}, False),
-            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
-            ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
-            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, False),
-            ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, False),
-        ):
-            self.mock_skm.get.side_effect = None
-            self.mock_skm.get.return_value = get_value
-            reply = self.secagg_servkey.setup()
-            self.assertEqual(reply["success"], return_value)
+                reply = self.secagg_servkey.setup()
+                self.assertFalse(reply['success'])
 
-        with patch("builtins.open") as mock_open:
-            self.mock_skm.get.return_value = None
+        # for get_value, return_value in (
+        #     # Not tested by _matching_parties*
+        #     #
+        #     # (3, False),
+        #     # ({}, False),
+        #     # ({'parties': None}, False),
+        #     ({'parties': ['not', 'matching', 'current', 'parties']}, False),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, False),
+        #     ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, False),
+        # ):
+
+        with (patch('fedbiomed.node.secagg._secagg_setups._CManager.write_mpc_certificates_for_experiment') as cm_patch,
+              patch('fedbiomed.node.secagg._secagg_setups.open', mock_open(read_data=shamir_key_share)) as builtin_open_mock):
+            # prefering to recreate mock than using mock.reset_mock() method
+            cm_patch.return_value = '/a/path/to/my/ips/certificate/files', None
+            self.mock_mpc.exec_shamir.return_value = '/a/path/to/my/key/share'
+
+            self.mock_skm.add.return_value = None
             reply = self.secagg_servkey.setup()
+            print(reply["msg"])
             self.assertEqual(reply["success"], True)
+            self.assertIsInstance(reply["success"], bool)
+            self.mock_skm.add.assert_called_once_with(self.args['secagg_id'],
+                                                      self.args['parties'],
+                                                      {'server_key': int(shamir_key_share)},
+                                                      self.args['experiment_id'])
 
-        with patch("fedbiomed.node.secagg.SecaggServkeySetup._setup_specific") as mock_:
-
+        with patch("fedbiomed.node.secagg._secagg_setups.SecaggServkeySetup._setup_specific") as mock_:
+            # FIXME: these are already tested...
             mock_.side_effect = Exception
             self.mock_skm.get.return_value = None
             reply = self.secagg_servkey.setup()
@@ -233,26 +252,141 @@ class TestSecaggBiprime(SecaggTestCase):
     def test_secagg_biprime_setup_02_setup(self):
         """Tests init """
 
-        for get_value, return_value in (
-            # Not tested by _matching_parties* 
-            #
-            # (3, False),
-            # ({}, False),
-            ({'parties': None}, True),
-            ({'parties': ['not', 'matching', 'current', 'parties']}, False),
-            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
-            ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
-            ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, True),
-            ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, True),
-        ):
-            self.mock_bpm.get.return_value = get_value
-            reply = self.secagg_bprime.setup()
-            self.assertEqual(reply["success"], return_value)
+        # for get_value, return_value in (
+        #     # Not tested by _matching_parties*
+        #     #
+        #     # (3, False),
+        #     # ({}, False),
+        #     ({'parties': None}, True),
+        #     ({'parties': ['not', 'matching', 'current', 'parties']}, False),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3']}, True),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node3', 'my node2']}, True),
+        #     ({'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'another']}, True),
+        #     ({'parties': ['my node2', environ["ID"], 'my researcher', 'my node3']}, True),
+        # ):
 
-        with patch('time.sleep'):
-            self.mock_bpm.get.return_value = None
-            reply = self.secagg_bprime.setup()
-            self.assertEqual(reply["success"], True)
+        self.mock_bpm.is_default_biprime.return_value = True
+        reply = self.secagg_bprime.setup()
+        self.assertEqual(reply["success"], True)
+
+        self.mock_bpm.is_default_biprime.return_value = False
+        reply = self.secagg_bprime.setup()
+        self.assertEqual(reply["success"], False)
+        self.mock_bpm.is_default_biprime.side_effect = FedbiomedError("error generaated for testing purposes")
+        reply = self.secagg_bprime.setup()
+        self.assertEqual(reply["success"], False)
+
+
+class TestSecaggDHSetup(SecaggTestCase):
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.mock_controller_data = MagicMock(spec=EventWaitExchange)
+        self.mock_grpc_controller = MagicMock(spec=GrpcController)
+        self.mock_pending_requests = MagicMock(spec=EventWaitExchange)
+        self.args = {'researcher_id': "my researcher",
+                     'secagg_id': "my secagg",
+                     'experiment_id': 'my_experiment_id',
+                     'parties': ['my researcher', environ["ID"], 'my node2', 'my node3', 'my_node4'],
+                     }
+        self.args['grpc_client'] = self.mock_grpc_controller
+        self.args['pending_requests'] = self.mock_pending_requests
+        self.args['controller_data'] = self.mock_controller_data
+
+    def tearDown(self) -> None:
+        pass
+
+    def test_secagg_dh_01_init(self):
+
+        SecaggDHSetup(**self.args)
+
+        with self.assertRaises(FedbiomedSecaggError):
+            self.args['experiment_id'] = 12334
+            SecaggDHSetup(**self.args)
+
+    @patch('fedbiomed.node.secagg._secagg_setups.DHManager.add')
+    @patch('fedbiomed.node.secagg._secagg_setups.DHKey.export_public_key')
+    @patch('fedbiomed.node.secagg._secagg_setups.DHKeyAgreement.agree')
+    @patch('fedbiomed.node.secagg._secagg_setups.send_nodes')
+    def test_secagg_dh_02_setup(self,
+                                send_node_mock,
+                                dh_key_agreement_agree,
+                                dh_key_export_public_key,
+                                dhmanager_add_mock):
+
+        received_msg_with_all_nodes = []
+
+        for n in self.args['parties'][1:]:
+            # remove first and last parties (simulates a drop out from 'node 4')
+            received_msg_with_all_nodes.append(
+                NodeToNodeMessages.format_outgoing_message({
+                    'request_id': '1234',
+                    'node_id': n,
+                    'dest_node_id': n,
+                    'secagg_id': self.args['secagg_id'],
+                    'command': 'key-reply',
+                    'public_key': b'some-public-key'
+                }))
+        # received_msg_with_dropout = received_msg_with_all_nodes.copy()
+        # received_msg_with_dropout.pop(-1)
+        #def fake_send_node(grpc_client, pending_req, researcher_id, other_nodes, other_nodes_msg):
+
+        key = b'public-key'
+        dskey = b'derived-shared-key'
+        dh_key_agreement_agree.return_value = dskey
+        send_node_mock.return_value = True, received_msg_with_all_nodes
+        dh_key_export_public_key.return_value = key
+        secagg_dh = SecaggDHSetup(**self.args)
+        reply = secagg_dh.setup()
+
+        # checks
+        self.mock_controller_data.event.assert_called_once_with(
+            self.args['secagg_id'],
+            {'public_key': key}
+        )
+
+        context = {n: dskey for n in self.args['parties'][1:]}
+        dhmanager_add_mock.assert_called_once_with(
+            self.args['secagg_id'],
+            self.args['parties'],
+            context,
+            self.args['experiment_id']
+        )
+        self.assertTrue(reply['success'])
+        self.assertIsInstance(reply["success"], bool)
+
+    @patch('fedbiomed.node.secagg._secagg_setups.DHManager.add')
+    @patch('fedbiomed.node.secagg._secagg_setups.DHKey.export_public_key')
+    @patch('fedbiomed.node.secagg._secagg_setups.DHKeyAgreement.agree')
+    @patch('fedbiomed.node.secagg._secagg_setups.send_nodes')
+    def test_secagg_dh_03_setup_error(self,
+                                      send_node_mock,
+                                      dh_key_agreement_agree,
+                                      dh_key_export_public_key,
+                                      dhmanager_add_mock):
+
+        received_msg_with_node_dropout = []
+
+        for n in self.args['parties'][1:-2]:
+            # remove first and last parties (simulates a drop out from 'node 4')
+            received_msg_with_node_dropout.append(
+                NodeToNodeMessages.format_outgoing_message({
+                    'request_id': '1234',
+                    'node_id': n,
+                    'dest_node_id': n,
+                    'secagg_id': self.args['secagg_id'],
+                    'command': 'key-reply',
+                    'public_key': b'some-public-key'
+                }))
+
+        key = b'public-key'
+        dskey = b'derived-shared-key'
+        dh_key_agreement_agree.return_value = dskey
+        send_node_mock.return_value = False, received_msg_with_node_dropout
+        dh_key_export_public_key.return_value = key
+        secagg_dh = SecaggDHSetup(**self.args)
+        reply = secagg_dh.setup()
+        self.assertFalse(reply['success'])
 
 
 class TestSecaggSetup(NodeTestCase):

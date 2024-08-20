@@ -9,8 +9,10 @@ from typing import Optional, Union, Callable
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest, ErrorMessage
+from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, \
+    TrainRequest, ErrorMessage
 from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.transport.controller import GrpcController
 from fedbiomed.transport.client import ResearcherCredentials
@@ -22,6 +24,7 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
+from fedbiomed.node.requests import NodeToNodeRouter
 
 
 class Node:
@@ -53,6 +56,10 @@ class Node:
             researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
             on_message=self.on_message,
         )
+        # When implementing multiple researchers, there will probably be one per researcher.
+        self._pending_requests = EventWaitExchange(remove_delivered=True)
+        self._controller_data = EventWaitExchange(remove_delivered=False)
+        self._n2n_router = NodeToNodeRouter(self._grpc_client, self._pending_requests, self._controller_data)
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
 
@@ -86,7 +93,7 @@ class Node:
                 be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
-        no_print = ["aggregator_args", "aux_vars", "params", "training_plan"]
+        no_print = ["aggregator_args", "aux_vars", "params", "training_plan", "overlay"]
         msg_print = {key: value for key, value in msg.items() if key not in no_print}
         logger.debug('Message received: ' + str(msg_print))
         try:
@@ -98,6 +105,8 @@ class Node:
                 self.add_task(request)
             elif command == 'secagg-delete':
                 self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
+            elif command == 'overlay':
+                self._n2n_router.submit(msg)
             elif command == 'ping':
                 self._grpc_client.send(
                     NodeMessages.format_outgoing_message(
@@ -214,6 +223,14 @@ class Node:
             msg: `SecaggRequest` message object to parse
         """
         setup_arguments = {key: value for (key, value) in msg.get_dict().items()}
+
+        # Needed when using node to node communications
+        #
+        # Currently used only for Diffie-Hellman keys
+        # but we can add it for all secagg for future extension (in-app Shamir for Joye-Libert secagg)
+        setup_arguments['grpc_client'] = self._grpc_client
+        setup_arguments['pending_requests'] = self._pending_requests
+        setup_arguments['controller_data'] = self._controller_data
 
         try:
             secagg = SecaggSetup(**setup_arguments)()
@@ -334,12 +351,7 @@ class Node:
                         if round is not None:
                             # Runs model training and send message using callback
                             msg = round.run_model_training(
-                                secagg_arguments={
-                                    'secagg_servkey_id': item.get_param('secagg_servkey_id'),
-                                    'secagg_biprime_id': item.get_param('secagg_biprime_id'),
-                                    'secagg_random': item.get_param('secagg_random'),
-                                    'secagg_clipping_range': item.get_param('secagg_clipping_range')
-                                }
+                                secagg_arguments= item.get_param('secagg_arguments'),
                             )
                             msg.request_id = item.request_id
                             self._grpc_client.send(msg)
@@ -353,6 +365,7 @@ class Node:
                         self._grpc_client.send(
                             NodeMessages.format_outgoing_message(
                                 {
+                                    'request_id': item.request_id,
                                     'command': 'error',
                                     'extra_msg': 'Round error: ' + str(e),
                                     'node_id': environ['NODE_ID'],
@@ -368,6 +381,10 @@ class Node:
                     errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
                     logger.error(errmess)
                     self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
+
+    def start_protocol(self) -> None:
+        """Start the node to node router thread, for handling node to node message"""
+        self._n2n_router.start()
 
     def start_messaging(self, on_finish: Optional[Callable] = None):
         """Calls the start method of messaging class.

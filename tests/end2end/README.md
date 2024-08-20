@@ -140,7 +140,7 @@ def setup(request):
     def clear():
         kill_subprocesses(node_processes)
 
-        print("Cleareaniing component data")
+        print("Clearing component data")
         clear_node_data(node_1)
         clear_node_data(node_2)
 

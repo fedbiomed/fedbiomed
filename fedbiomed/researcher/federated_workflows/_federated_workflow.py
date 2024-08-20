@@ -17,9 +17,11 @@ from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
 import tabulate
 from pathvalidate import sanitize_filename
 
-from fedbiomed.common.constants import ErrorNumbers, EXPERIMENT_PREFIX, __breakpoints_version__
+from fedbiomed.common.constants import ErrorNumbers, EXPERIMENT_PREFIX, __breakpoints_version__, \
+    SecureAggregationSchemes
 from fedbiomed.common.exceptions import (
-    FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError, FedbiomedTypeError, FedbiomedValueError
+    FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError, FedbiomedTypeError, FedbiomedValueError, \
+    FedbiomedSecureAggregationError
 )
 from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.logger import logger
@@ -29,7 +31,8 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_exp_folder, find_breakpoint_path, choose_bkpt_file
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.requests import Requests
-from fedbiomed.researcher.secagg import SecureAggregation
+from fedbiomed.researcher.secagg import SecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation
+
 
 TFederatedWorkflow = TypeVar("TFederatedWorkflow", bound='FederatedWorkflow')  # only for typing
 
@@ -172,7 +175,7 @@ class FederatedWorkflow(ABC):
         self._nodes_filter: Optional[List[str]] = None  # researcher-defined nodes filter
         self._tags: Optional[List[str]] = None
         self._experimentation_folder: Optional[str] = None
-        self._secagg: Optional[SecureAggregation] = None
+        self._secagg: Union[SecureAggregation, bool] = False
         self._save_breakpoints: Optional[bool] = None
         self._node_state_agent: Optional[NodeStateAgent] = None
         self._researcher_id: str = environ['RESEARCHER_ID']
@@ -609,8 +612,11 @@ class FederatedWorkflow(ABC):
         return self._experimentation_folder
 
     @exp_exceptions
-    def set_secagg(self, secagg: Union[bool, SecureAggregation]):
-        """Sets secure aggregation
+    def set_secagg(
+            self,
+            secagg: Union[bool, SecureAggregation],
+            scheme: SecureAggregationSchemes = SecureAggregationSchemes.LOM):
+        """Sets secure aggregation status and scheme
 
         Build secure aggregation controller/instance or sets given
         secure aggregation class
@@ -621,19 +627,29 @@ class FederatedWorkflow(ABC):
                 with default arguments. Or if argument is an instance of `SecureAggregation`
                 it does only assignment. Secure aggregation activation and configuration
                 depends on the instance provided.
+            scheme: Secure aggregation scheme to use. Ig a `SecureAggregation` object is provided,
+                the argument is not used, as the scheme comes from the object. Defaults is
+                SecureAggregationSchemes.LOM.
 
         Returns:
             Secure aggregation controller instance.
+
+        Raises:
+            FedbiomedExperimentError: bad argument type or value
         """
+        if not isinstance(scheme, SecureAggregationSchemes):
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB410.value}: Expected `scheme` argument "
+                "`SecureAggregationSchemes`, but got {type(scheme)}")
+
         if isinstance(secagg, bool):
-            self._secagg = SecureAggregation(active=secagg)
+            self._secagg = SecureAggregation(scheme=scheme, active=secagg)
         elif isinstance(secagg, SecureAggregation):
             self._secagg = secagg
         else:
-            msg = f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or `SecureAggregation`, " \
-                  f"but got {type(secagg)}"
-            logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or "
+                f"`SecureAggregation` but got {type(secagg)}")
 
         return self._secagg
 
@@ -666,8 +682,11 @@ class FederatedWorkflow(ABC):
         """Retrieves the secagg arguments for setup."""
         secagg_arguments = {}
         if self._secagg.active:
-            self._secagg.setup(parties=[environ["ID"]] + sampled_nodes,
-                               experiment_id=self._experiment_id)
+
+            if not self._secagg.setup(parties=[environ["ID"]] + sampled_nodes, experiment_id=self._experiment_id):
+                msg = f"{ErrorNumbers.FB417.value}: Could not setup secure aggregation crypto context."
+                logger.critical(msg)
+                raise FedbiomedSecureAggregationError(msg)
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
 
@@ -791,7 +810,8 @@ class FederatedWorkflow(ABC):
         loaded_exp._tags = saved_state.get('tags')
         loaded_exp.set_nodes(saved_state.get('nodes'))
         loaded_exp.set_experimentation_folder(saved_state.get('experimentation_folder'))
-        loaded_exp.set_secagg(SecureAggregation.load_state_breakpoint(saved_state.get('secagg')))
+        saved_state_secagg = saved_state.get('secagg')
+        loaded_exp.set_secagg(eval(saved_state_secagg['class']).load_state_breakpoint(saved_state_secagg))
         loaded_exp._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
         loaded_exp.set_save_breakpoints(True)
 

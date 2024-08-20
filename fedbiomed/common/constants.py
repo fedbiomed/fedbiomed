@@ -40,6 +40,9 @@ NODE_STATE_PREFIX = 'node_state_'
 EXPERIMENT_PREFIX = 'exper_'
 """Prefix for experiment ID"""
 
+REQUEST_PREFIX = 'request_'
+"""Prefix for request ID"""
+
 CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 """FOLDER name for Certs directory"""
 
@@ -64,8 +67,8 @@ __researcher_config_version__ = FBM_Component_Version('2')  # researcher config 
 __node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('2')  # node state version
 __breakpoints_version__ = FBM_Component_Version('3')  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version('3')  # format of gRPC messages.
-__secagg_element_version__ = FBM_Component_Version('1')  # format os secagg database elements
+__messaging_protocol_version__ = FBM_Component_Version('4')  # format of gRPC messages.
+__secagg_element_version__ = FBM_Component_Version('2')  # format os secagg database elements
 # Nota: for messaging protocol version, all changes should be a major version upgrade
 
 # Max message length as bytes
@@ -76,6 +79,9 @@ MAX_SEND_RETRIES = 5
 
 # Max number of retries for retrieving a task when error occurs (on the node)
 MAX_RETRIEVE_ERROR_RETRIES = 5
+
+# Timeout for a node to node request
+TIMEOUT_NODE_TO_NODE_REQUEST = 10
 
 
 class _BaseEnum(Enum):
@@ -242,21 +248,37 @@ class DatasetTypes(_BaseEnum):
     NONE = 'none'
 
 
+class SecureAggregationSchemes(_BaseEnum):
+    """Enumeration class for secure aggregation schemes"""
+    NONE: int = 0
+    JOYE_LIBERT: int = 1
+    LOM: int = 2
+
+
 class SecaggElementTypes(_BaseEnum):
     """Enumeration class for secure aggregation element types
 
     Attributes:
         SERVER_KEY: server key split between the parties
         BIPRIME: biprime shared between the parties
+        DIFFIE_HELLMAN: one pair of DH key for each node party, public key shared with other node parties
     """
     SERVER_KEY: int = 0
     BIPRIME: int = 1
+    DIFFIE_HELLMAN: int = 2
+
+    @staticmethod
+    def get_element_from_value(element_value: int):
+        for element in SecaggElementTypes:
+            if element.value == element_value:
+                return element
 
 
-class VEParameters:
+class SAParameters:
     CLIPPING_RANGE: int = 3
-    TARGET_RANGE: int = 2**15
+    TARGET_RANGE: int = 2**13
     WEIGHT_RANGE: int = 2**17 # TODO: this has to be provided by the researcher, find the max range among all the nodes' weights
+    #TODO: to separete from SAParameters
     KEY_SIZE: int = 2048
 
 
@@ -287,6 +309,7 @@ class ErrorNumbers(_BaseEnum):
     FB321 = "FB321: Secure aggregation delete error"
     FB322 = "FB322: Dataset registration error"
     FB323 = "FB323: Node State error"
+    FB324 = "FB324: Node to node overlay communication error"
 
     # application error on researcher
 
@@ -335,6 +358,7 @@ class ErrorNumbers(_BaseEnum):
     FB626 = "FB626: Fed-BioMed optimizer error"
     FB627 = "FB627: Utility function error"
     FB628 = "FB628: Communication error"
+    FB629 = "FB629: Diffie-Hellman KA error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

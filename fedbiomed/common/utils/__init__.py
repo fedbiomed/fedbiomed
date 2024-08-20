@@ -32,7 +32,12 @@ from ._config_utils import (
 
 from ._secagg_utils import (
     matching_parties_servkey,
-    matching_parties_biprime
+    matching_parties_biprime,
+    matching_parties_dh,
+    quantize,
+    reverse_quantize,
+    multiply,
+    divide
 )
 
 from ._versions import (
@@ -46,7 +51,6 @@ __all__ = [
     # _utils
     "read_file",
     "get_class_source",
-    "import_class_object_from_file"
     "import_class_from_spec",
     "get_ipython_class_file",
     "get_method_spec",
@@ -54,22 +58,28 @@ __all__ = [
     "convert_iterator_to_list_of_python_floats",
     "compute_dot_product",
     # _config_utils
-    ROOT_DIR,
-    CONFIG_DIR,
-    VAR_DIR,
-    CACHE_DIR,
-    TMP_DIR,
+    "ROOT_DIR",
+    "CONFIG_DIR",
+    "VAR_DIR",
+    "CACHE_DIR",
+    "TMP_DIR",
     "get_component_config",
     "get_component_certificate_from_config",
     "get_all_existing_config_files",
     "get_all_existing_certificates",
     "get_existing_component_db_names",
+    "create_fedbiomed_setup_folders",
     "matching_parties_servkey",
     "matching_parties_biprime",
+    "matching_parties_dh",
+    "quantize",
+    "multiply",
+    "divide",
+    "reverse_quantize",
     # _versions
     "raise_for_version_compatibility",
     "__default_version__",
-    "FBM_Component_version",
+    "FBM_Component_Version",
     "import_class_object_from_file",
     "import_class_from_spec",
     "import_class_from_file"

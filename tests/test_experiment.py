@@ -6,28 +6,30 @@ from declearn.model.api import Vector
 
 from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedExperimentError
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.training_plans import TorchTrainingPlan, SKLearnTrainingPlan
 from fedbiomed.common.metrics import MetricTypes
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.datasets import FederatedDataSet
+
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestModule
+from testsupport.fake_researcher_secagg import FakeSecAgg
 from testsupport.fake_training_plan import (
     FakeTorchTrainingPlan,
     FakeSKLearnTrainingPlan
 )
-from fedbiomed.researcher.secagg import SecureAggregation
+
 #############################################################
 
 import fedbiomed
 from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
+
 
 
 class TestExperiment(ResearcherTestCase, MockRequestModule):
@@ -192,7 +194,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
 
         # Test error case -------------------------------
         with self.assertRaises(SystemExit):
-          exp.run_once(increase='invalid-type')
+            exp.run_once(increase='invalid-type')
         # ------------------------------------------------
 
         # Go back to normal
@@ -244,8 +246,10 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         # ------------------------------------------------------------
 
         # Run once with secure aggregation ----------------------------------------
-        secagg = MagicMock(spec=SecureAggregation)
+
+        secagg = FakeSecAgg()
         type(secagg).active = True
+        #type(secagg).return_value = MagicMock(spec=_SecureAggregation)
         exp.set_round_limit(6)
         exp.set_secagg(secagg)
         exp.run_once()

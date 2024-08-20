@@ -1,6 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+
 """
 Module that initialize singleton environ object for the node component
 
@@ -43,7 +44,7 @@ class NodeEnviron(Environ):
 
         self._root_dir = root_dir
 
-        logger.setLevel("INFO")
+        logger.setLevel("DEBUG")
         self._values["COMPONENT_TYPE"] = ComponentType.NODE
 
         if autoset:
