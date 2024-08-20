@@ -55,7 +55,7 @@ class _SecaggSchemeRound(ABC):
 
 
     @property
-    def secagg_random(self) -> float:
+    def secagg_random(self) -> float | None:
         """Checks which secagg random nounce is used.
 
         Returns:

@@ -8,6 +8,7 @@ This strategy is used then user does not provide its own
 """
 
 from typing import List, Tuple, Dict, Union
+import copy
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
@@ -40,7 +41,7 @@ class DefaultStrategy(Strategy):
             node_ids: list of all node ids considered for training during
                 this round `round_i`.
         """
-        self._sampling_node_history[round_i] = from_nodes
+        self._sampling_node_history[round_i] = copy.copy(from_nodes)
 
         return from_nodes
 

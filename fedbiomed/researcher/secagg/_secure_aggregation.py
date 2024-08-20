@@ -126,7 +126,7 @@ class _SecureAggregation(ABC):
         _secagg_crypter: Secure aggregation encrypter and decrypter to decrypt encrypted model
             parameters.
         _secagg_random: Random float generated tobe sent to node to validate secure aggregation
-            after aggregation encrypted parameters.
+            after aggregation encrypted parameters, or None if validation is not used.
         _scheme: Secure aggregation scheme implemented by this class
     """
 
@@ -306,8 +306,11 @@ class _SecureAggregation(ABC):
             experiment_id: The id of the experiment
         """
 
-        # For each round it generates new secagg random float
-        self._secagg_random = round(random.uniform(0, 1), 3)
+        if environ['SECAGG_INSECURE_VALIDATION'] is True:
+            # For each round it generates new secagg random float
+            self._secagg_random = round(random.uniform(0, 1), 3)
+        else:
+            self._secagg_random = None
 
         if self._parties is None or self._experiment_id != experiment_id:
             self._set_secagg_contexts(parties, experiment_id)
@@ -331,18 +334,18 @@ class _SecureAggregation(ABC):
     def _validate(
         self,
         aggregate: functools.partial,
-        encryption_factors: List[List[int]],
-        num_expected_params: int | None = None
+        encryption_factors: Dict[str, Union[List[int], None]],
+        num_expected_params: int | None = None,
     ) -> bool:
         """Validate given inputs"""
 
-
-        if encryption_factors is None:
+        # at this point we know `isinstance(encryption_factors, dict) and len(encryption_factors) == num_nodes`
+        if any([v is None for v in encryption_factors.values()]):
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Secure aggregation random validation has been "
-                "set but the encryption factors are not provided. Please provide encrypted "
-                "`secagg_random` values in different parties. Or to not set/get "
-                "`secagg_random()` before the aggregation.")
+                f"{ErrorNumbers.FB417.value}: Secure aggregation consistency insecure validation has been "
+                "set on the researcher but the encryption factors are not provided. Some nodes may use "
+                "`SECAGG_INSECURE_VALIDATION` to `False` for security reason. Please use consistent setup "
+                "between researcher and nodes.")
 
         logger.info("Validating secure aggregation results...")
         encryption_factors = [f for k, f in encryption_factors.items()]
@@ -364,7 +367,7 @@ class _SecureAggregation(ABC):
     def _aggregate(
             self,
             model_params: Dict[str, List[int]],
-            encryption_factors: Union[Dict[str, List[int]], None],
+            encryption_factors: Dict[str, Union[List[int], None]],
             aggregate: Callable,
             num_expected_params: int | None = None,
     ) -> List[float]:
@@ -577,7 +580,7 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
             round_: int,
             total_sample_size: int,
             model_params: Dict[str, List[int]],
-            encryption_factors: Union[Dict[str, List[int]], None] = None,
+            encryption_factors: Dict[str, Union[List[int], None]] = {},
             num_expected_params: int = 1,
             **kwargs
     ) -> List[float]:
@@ -779,7 +782,7 @@ class LomSecureAggregation(_SecureAggregation):
             *args,
             model_params: Dict[str, List[int]],
             total_sample_size: int,
-            encryption_factors: Union[Dict[str, List[int]], None] = None,
+            encryption_factors: Dict[str, Union[List[int], None]] = {},
             **kwargs
     ) -> List[float]:
         """Aggregates given model parameters
