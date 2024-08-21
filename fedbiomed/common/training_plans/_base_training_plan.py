@@ -580,7 +580,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             # Reporting
 
             if idx % self.training_args()['log_interval'] == 0 or idx == 1 or idx == n_batches:
-                # FIXME: should we use MiniBatchTrainingIterationAccountant here ?
                 logger.debug(
                     f"Validation: Batch {idx}/{n_batches} "
                     f"| Samples {num_samples_observed_till_now}/{n_samples} "

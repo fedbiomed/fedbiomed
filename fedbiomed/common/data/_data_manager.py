@@ -46,7 +46,6 @@ class DataManager(object):
         self._target = target
         self._loader_arguments: Dict = kwargs
         self._data_manager_instance = None
-        #self._test_batch_size: Optional[int] = None
 
     def extend_loader_args(self, extension: Dict):
         """Extends the class' loader arguments
@@ -60,7 +59,7 @@ class DataManager(object):
         """
         self._loader_arguments.update(
             {key: value for key, value in extension.items() if key not in self._loader_arguments}
-        )  
+        )
 
     def load(self, tp_type: TrainingPlans):
         """Loads proper DataManager based on given TrainingPlan and

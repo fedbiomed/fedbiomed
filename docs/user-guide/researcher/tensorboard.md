@@ -34,7 +34,7 @@ exp = Experiment(tags=tags,
 ```
 
 !!! info "Validation facility"
-    Tensorboard displays results got from validation metric, in the testing facility. For each `Round`, values will be exported into `Tensorboard`. If `test_batch_size` is set to a specific value, each computed value will be repported (depending on the size of `test_batch_size` set).
+    Tensorboard displays the results of the validation/testing steps. During each Round, values will be exported into Tensorboard in real time. If test_batch_size is set to a specific value, each computed value will be reported (depending on the size of test_batch_size set).
 
 ## Launching Tensorboard
 ### 1. From Terminal

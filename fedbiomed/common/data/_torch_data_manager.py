@@ -42,8 +42,6 @@ class TorchDataManager(object):
         self._loader_arguments = kwargs
         self._subset_test: Union[Subset, None] = None
         self._subset_train: Union[Subset, None] = None
-        #self._test_batch_size = self._loader_arguments.get('test_batch_size')
-        #self._loader_arguments.pop('test_batch_size')
 
     @property
     def dataset(self) -> Dataset:
@@ -125,11 +123,9 @@ class TorchDataManager(object):
         train_samples = samples - test_samples
 
         self._subset_train, self._subset_test = random_split(self._dataset, [train_samples, test_samples])
-        #test_batch_size = self._loader_arguments.get('test_batch_size', 1)
 
         if not test_batch_size:
-            # case where test_batch_size=0 or test_batch_size=None, ie where user doesnot want
-            # to use test_batch_size
+
             test_batch_size = len(self._subset_test)
         loaders = (self._subset_loader(self._subset_train, **self._loader_arguments),
                    self._subset_loader(self._subset_test, batch_size = test_batch_size))

@@ -422,7 +422,6 @@ class Metrics(object):
             # If y_pred and y_true is 2D array
             # Example: y_true: [ [0,1],[1,0]] | y_pred : [[-0.2, 0.3], [0.5, 1,2 ]]
             elif output_shape_y_pred > 0 and output_shape_y_true > 0:
-                print("INTERMEDIATE", y_pred.shape, y_true.shape, output_shape_y_pred, output_shape_y_true)
                 if output_shape_y_pred != output_shape_y_true:
                     raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Can not convert values to class labels, "
                                                f"shapes of predicted and true values do not match.")

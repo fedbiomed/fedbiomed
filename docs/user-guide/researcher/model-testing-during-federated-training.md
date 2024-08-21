@@ -75,7 +75,7 @@ Here is the list of validation arguments that can be configured.
     `ACCURACY`.
  - `test_metric_args`: A dictionary that contains the arguments that will be used for the metric function.
  - `test_batch_size`: A value used to compute metrics using batches instead of
- loading the full Testing dataset (specified by `test_ratio`). This option should be considered if data are very heavy, and can lead to [`MemoryError`](https://docs.python.org/3/library/exceptions.html#MemoryError) errors. By specifying it, it performs several computations over a batch of data. By using this option, you should select wisely the batch size and the metric, for some metrics can be meaningless if computed over several batches of data. `test_batch_size` should be greater or equal than `2` (enabled) or equal to `0` or `None` (disabled).
+ loading the full testing dataset (specified by `test_ratio`). Setting `test_batch_size` can avoid having [`MemoryError`](https://docs.python.org/3/library/exceptions.html#MemoryError) errors due to large and /or heavy datasets. You should select wisely the batch size and the metric, for some metrics can be meaningless if computed over several batches of data. `test_batch_size` should be greater or equal than `2` (enabled) or equal to `0` or `None` (disabled).
 
 !!! info
     Validation functions for each default metric executes functions from scikit-learn framework.
@@ -157,8 +157,7 @@ exp.run(rounds=2, increase=True)
 
 In some specific cases, you may have some very huge datain your datasets, such as 3D images, or you want a huge validation set, that you can load on `Node`s only through batches, in order to avoid `Nodes` to crash due to lack of Memory. `Fed-BioMed` provides an option to compute validation metrics through batches, in the `TrainingArgument`: `test_batch_size`.
 
-By setting `test_batch_size`, selected metrics will be computed over batches instead of computing metric using the whole dataset (which is the default behaviour). For now, `Fed-BioMed` doesnot provide a way to reconcile all these metrics under one metric (such as computing the mean of Accuracy for instance). If you want to do so, please consider defining your own `Validation step` by write your own `testing_step` method in the `TrainingPlan` (see below for further datails).
-
+Validation will be computed over batches instead of computing metric using the whole dataset (which is the default behaviour) if `test_batch_size` is set. For now, `Fed-BioMed` does not provide a way to reconcile all these metrics under one metric (such as computing the mean of Accuracy for instance). If you want to do so, please consider defining your own `Validation step` by writing your own `testing_step` method in the `TrainingPlan` (see below for further details).
 
 ```python
 training_args = {

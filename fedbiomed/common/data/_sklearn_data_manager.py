@@ -277,8 +277,6 @@ class SkLearnDataManager(object):
 
         # Additional loader arguments
         self._loader_arguments = kwargs
-        #self._test_batch_size = self._loader_arguments.get('test_batch_size')
-        #self._loader_arguments.pop('test_batch_size')
 
         # Subset None means that train/validation split has not been performed
         self._subset_test: Union[Tuple[np.ndarray, np.ndarray], None] = None
@@ -353,11 +351,8 @@ class SkLearnDataManager(object):
             self._subset_train = (x_train, y_train)
 
         if not test_batch_size:
-            # case where test_batch_size=0 or test_batch_size=None, ie where user doesnot want
-            # to use test_batch_size
             test_batch_size = len(self._subset_test)
 
-        #test_batch_size = max(1,self._test_batch_size, 1)
         return self._subset_loader(self._subset_train, **self._loader_arguments), \
             self._subset_loader(self._subset_test, batch_size=test_batch_size)
 
