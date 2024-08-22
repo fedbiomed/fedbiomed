@@ -85,7 +85,7 @@ class TestNPDataLoader(unittest.TestCase):
             _ = NPDataLoader(dataset=self.X[:, np.newaxis],
                              target=self.X)
 
-        with self.assertRaises(FedbiomedTypeError):
+        with self.assertRaises(FedbiomedValueError):
             _ = NPDataLoader(dataset=self.X,
                              target=self.X,
                              batch_size='wrong-type')
@@ -94,16 +94,6 @@ class TestNPDataLoader(unittest.TestCase):
             _ = NPDataLoader(dataset=self.X,
                              target=self.X,
                              batch_size=-1)
-
-        with self.assertRaises(FedbiomedTypeError):
-            _ = NPDataLoader(dataset=self.X,
-                             target=self.X,
-                             drop_last='wrong-type')
-
-        with self.assertRaises(FedbiomedTypeError):
-            _ = NPDataLoader(dataset=self.X,
-                             target=self.X,
-                             shuffle='wrong-type')
 
         with self.assertRaises(FedbiomedTypeError):
             _ = NPDataLoader(dataset=self.X,

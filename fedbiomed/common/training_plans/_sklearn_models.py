@@ -138,7 +138,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
 
         self._optimizer.init_training()
         stdout = []  # type: List[List[str]]
-        
+
         self._model.train(inputs, target, stdout=stdout)
         self._optimizer.step()
 
@@ -249,7 +249,7 @@ class FedPerceptron(FedSGDClassifier):
     _model_dep = (
         "from sklearn.linear_model import SGDClassifier",
         "from fedbiomed.common.training_plans import FedPerceptron"
-    )      
+    )
 
     def __init__(self) -> None:
         """Class constructor."""
