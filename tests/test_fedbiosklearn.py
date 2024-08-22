@@ -53,7 +53,8 @@ class FakeTrainingArgs(dict):
     def pure_training_arguments(self):
         return {"epochs": 1,
                 "batch_maxnum": 2,
-                'share_persistent_buffers' : True}
+                'share_persistent_buffers' : True,
+                'log_interval':10}
 
     def loader_arguments(self):
         return {'batch_size': 1}
@@ -715,24 +716,22 @@ class TestSklearnFedPerceptron(unittest.TestCase):
         for (fed_name_param, fed_value) in sk_perceptron.get_params().items():
             if fed_name_param != 'verbose':
                 self.assertEqual(fed_value, fed_perp._model.get_params(fed_name_param))
-            
-        
+
         # with a few values set by end-user
         
         values_sets = (
             {'penalty': None, 'shuffle': True, 'tol': .03},
             {'penalty': 'l1', 'fit_intercept': True, 'tol': .06, 'eta0': .01},
         )
-        
+
         additional_inputs_for_fed_model = {'n_classes': 2, 'n_features': 2}
         for values_set in values_sets:
             sk_perceptron = Perceptron(**values_set)
-            
+
             values_set.update(additional_inputs_for_fed_model)
             fed_perp = FedPerceptron()
             fed_perp.post_init(values_set, FakeTrainingArgs())
-            
-            
+
             for (fed_name_param, fed_value) in sk_perceptron.get_params().items():
                 if fed_name_param != 'verbose':
                     self.assertEqual(fed_value, fed_perp._model.get_params(fed_name_param))

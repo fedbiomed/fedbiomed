@@ -48,13 +48,13 @@ class TestSkLearnDataManager(unittest.TestCase):
          - Test _subset_loader
         """
         with self.assertRaises(FedbiomedTypeError):
-            self.sklearn_data_manager.split(test_ratio=-1.)
+            self.sklearn_data_manager.split(test_ratio=-1., test_batch_size=None)
 
         with self.assertRaises(FedbiomedTypeError):
-            self.sklearn_data_manager.split(test_ratio=2.)
+            self.sklearn_data_manager.split(test_ratio=2., test_batch_size=None)
 
         with self.assertRaises(FedbiomedTypeError):
-            self.sklearn_data_manager.split(test_ratio='not-float')
+            self.sklearn_data_manager.split(test_ratio='not-float', test_batch_size=None)
 
         # Get number of samples
         n_samples = len(self.sklearn_data_manager.dataset()[0])
@@ -62,7 +62,7 @@ class TestSkLearnDataManager(unittest.TestCase):
         ratio = 0.5
         n_test = math.floor(n_samples * ratio)
         n_train = n_samples - n_test
-        loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio)
+        loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio, test_batch_size=None)
 
         msg_test = 'Number of samples of test loader is not as expected'
         msg_train = 'Number of samples of train loader is not as expected'
@@ -71,13 +71,13 @@ class TestSkLearnDataManager(unittest.TestCase):
 
         # Test if test ratio is 1
         ratio = 1.
-        loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio)
+        loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio, test_batch_size=None)
         self.assertEqual(len(loader_test.dataset), n_samples, msg_test)
         self.assertEqual(len(loader_train.dataset), 0)
 
         # Test if test ratio is 0
         ratio = 0.
-        loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio)
+        loader_train, loader_test = self.sklearn_data_manager.split(test_ratio=ratio, test_batch_size=None)
         self.assertEqual(len(loader_test.dataset), 0, msg_test)
         self.assertEqual(len(loader_train.dataset), n_samples, msg_train)
 
@@ -88,7 +88,7 @@ class TestSkLearnDataManager(unittest.TestCase):
         n_test = math.floor(n_samples * ratio)
         n_train = n_samples - n_test
 
-        self.sklearn_data_manager.split(test_ratio=ratio)
+        self.sklearn_data_manager.split(test_ratio=ratio, test_batch_size=None)
 
         subset_test = self.sklearn_data_manager.subset_test()
         subset_train = self.sklearn_data_manager.subset_train()
@@ -117,7 +117,7 @@ class TestSkLearnDataManager(unittest.TestCase):
         self.assertDictEqual({'batch_size': 1, 'shuffle': False, 'drop_last': False},
                              sklearn_data_manager._loader_arguments)
 
-        loader_train, loader_test = sklearn_data_manager.split(test_ratio=test_ratio)
+        loader_train, loader_test = sklearn_data_manager.split(test_ratio=test_ratio, test_batch_size=None)
         self.assertEqual(len(loader_test), 0)
 
         for i, (data, target) in enumerate(loader_train):
@@ -131,7 +131,7 @@ class TestSkLearnDataManager(unittest.TestCase):
                                                   shuffle=False,
                                                   drop_last=True)
 
-        loader_train, loader_test = sklearn_data_manager.split(test_ratio=test_ratio)
+        loader_train, loader_test = sklearn_data_manager.split(test_ratio=test_ratio, test_batch_size=None)
         self.assertEqual(len(loader_test), 0)
 
         count_iter = 0

@@ -104,7 +104,7 @@ class Metrics(object):
 
         if y_pred is not None and not isinstance(y_pred, (np.ndarray, list)):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_pred` should an instance "
-                                       f"of `np.ndarray`, but got {type(y_true)} ")
+                                       f"of `np.ndarray`, but got {type(y_pred)} ")
 
         y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
         result = self.metrics[metric.name](y_true, y_pred, **kwargs)
@@ -369,7 +369,7 @@ class Metrics(object):
         if y_true.ndim == 0:
             y_true = y_true.reshape((1,))
 
-        if len(y_pred) != len(y_true):
+        if y_pred.shape[0] != y_true.shape[0]:
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions and true values should have"
                                        f"equal number of samples, {len(y_true)}, {len(y_pred)}")
 
@@ -422,10 +422,9 @@ class Metrics(object):
             # If y_pred and y_true is 2D array
             # Example: y_true: [ [0,1],[1,0]] | y_pred : [[-0.2, 0.3], [0.5, 1,2 ]]
             elif output_shape_y_pred > 0 and output_shape_y_true > 0:
-
                 if output_shape_y_pred != output_shape_y_true:
                     raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Can not convert values to class labels, "
-                                               f"shape of predicted and true values do not match.")
+                                               f"shapes of predicted and true values do not match.")
                 y_pred = np.argmax(y_pred, axis=1)
                 y_true = np.argmax(y_true, axis=1)
 

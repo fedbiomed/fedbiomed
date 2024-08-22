@@ -699,4 +699,8 @@ class Round:
         # self.training_data will be equal to None
 
         # Split dataset as train and test
-        return data_manager.split(test_ratio=test_ratio)
+
+        return data_manager.split(
+            test_ratio=test_ratio,
+            test_batch_size=self.testing_arguments.get('test_batch_size')
+        )

@@ -23,6 +23,7 @@ from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.utils import get_method_spec
+from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
 
 
 class PreProcessDict(TypedDict):
@@ -507,7 +508,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric: Optional[MetricTypes],
             metric_args: Dict[str, Any],
             history_monitor: Optional['HistoryMonitor'],
-            before_train: bool
+            before_train: bool,
         ) -> None:
         """Evaluation routine, to be called once per round.
 
@@ -519,6 +520,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Args:
             metric: The metric used for validation.
                 If None, use MetricTypes.ACCURACY.
+            metric_args: dicitonary containing additinal arguments for setting up metric,
+                that maps <argument_name; argument_value> ad that will be passed to the 
+                metric function as positinal arguments.
             history_monitor: HistoryMonitor instance,
                 used to record computed metrics and communicate them to
                 the researcher (server).
@@ -532,8 +536,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
-        n_batches = len(self.testing_data_loader)
         n_samples = len(self.testing_data_loader.dataset)
+        n_batches = max(len(self.testing_data_loader) , 1)
+
         # Set up a batch-wise metrics-computation function.
         # Either use an optionally-implemented custom training routine.
         if hasattr(self, "testing_step"):
@@ -549,13 +554,17 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 output = self._model.predict(data)
                 if isinstance(target, torch.Tensor):
                     target = target.numpy()
+
                 return metric_controller.evaluate(
                     target, output, metric=metric, **metric_args
                 )
             metric_name = metric.name
         # Iterate over the validation dataset and run the defined routine.
         num_samples_observed_till_now: int = 0
+
+
         for idx, (data, target) in enumerate(self.testing_data_loader, 1):
+
             num_samples_observed_till_now += self._infer_batch_size(data)
             # Run the evaluation step; catch and raise exceptions.
             try:
@@ -568,25 +577,29 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg) from exc
             # Log the computed value.
-            logger.debug(
-                f"Validation: Batch {idx}/{n_batches} "
-                f"| Samples {num_samples_observed_till_now}/{n_samples} "
-                f"| Metric[{metric_name}]: {m_value}"
-            )
-            # Further parse, and report it (provided a monitor is set).
-            if history_monitor is not None:
-                m_dict = self._create_metric_result_dict(m_value, metric_name)
-                history_monitor.add_scalar(
-                    metric=m_dict,
-                    iteration=idx,
-                    epoch=None,
-                    test=True,
-                    test_on_local_updates=(not before_train),
-                    test_on_global_updates=before_train,
-                    total_samples=n_samples,
-                    batch_samples=num_samples_observed_till_now,
-                    num_batches=n_batches
+            # Reporting
+
+            if idx % self.training_args()['log_interval'] == 0 or idx == 1 or idx == n_batches:
+                logger.debug(
+                    f"Validation: Batch {idx}/{n_batches} "
+                    f"| Samples {num_samples_observed_till_now}/{n_samples} "
+                    f"| Metric[{metric_name}]: {m_value}"
                 )
+                # Further parse, and report it (provided a monitor is set).
+                if history_monitor is not None:
+                    m_dict = self._create_metric_result_dict(m_value, metric_name)
+                    history_monitor.add_scalar(
+                        metric=m_dict,
+                        iteration=idx,
+                        epoch=None,
+                        test=True,
+                        test_on_local_updates=(not before_train),
+                        test_on_global_updates=before_train,
+                        total_samples=n_samples,
+                        batch_samples=num_samples_observed_till_now,
+                        num_batches=n_batches
+                    )
+
 
     @staticmethod
     def _infer_batch_size(data: Union[dict, list, tuple, 'torch.Tensor', 'np.ndarray']) -> int:
