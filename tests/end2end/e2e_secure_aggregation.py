@@ -36,7 +36,7 @@ def setup(port, post_session, request):
 
     # Configure secure aggregation
     print("Configure secure aggregation ---------------------------------------------")
-    print(f"USING PORT {port} for researcher erver")
+    print(f"USING PORT {port} for researcher server")
     configure_secagg()
 
     print("Creating components ---------------------------------------------")
@@ -76,8 +76,8 @@ def setup(port, post_session, request):
 
 
 @pytest.fixture
-def extra_node(port):
-    """Fixture to add extra node"""
+def extra_node_force_secagg(port):
+    """Fixture to add extra node which forces secagg"""
 
     node_3 = create_node(
         port=port,
@@ -85,6 +85,34 @@ def extra_node(port):
             'security': {
                 'secure_aggregation': 'True',
                 'force_secure_aggregation': 'True'},
+        })
+
+    add_dataset_to_node(node_3, dataset)
+    # Re execute certificate registraiton
+    secagg_certificate_registration()
+
+    # Starts the nodes
+    node_processes, thread = start_nodes([node_3])
+
+    # Give some time to researcher
+    time.sleep(10)
+
+    yield
+
+    kill_subprocesses(node_processes)
+    thread.join()
+    clear_node_data(node_3)
+
+@pytest.fixture
+def extra_node_no_validation(port):
+    """Fixture to add extra node which disables validation"""
+
+    node_3 = create_node(
+        port=port,
+        config_sections={
+            'security': {
+                'secure_aggregation': 'True',
+                'secagg_insecure_validation': 'False'},
         })
 
     add_dataset_to_node(node_3, dataset)
@@ -191,8 +219,8 @@ def test_02_secagg_joye_libert_pytorch_breakpoint():
     clear_experiment_data(loaded_exp)
 
 
-def test_03_secagg_pytorch_force_secagg(extra_node):
-    """Tests failure scnarios whereas a node requires secure aggregation
+def test_03_secagg_pytorch_force_secagg(extra_node_force_secagg):
+    """Tests failure scenario whereas a node requires secure aggregation
         and researcher does not set it true
     """
     exp = Experiment(
@@ -208,13 +236,37 @@ def test_03_secagg_pytorch_force_secagg(extra_node):
     )
 
     # This should raise exception with default stragety
-    # with pytest.raises(SystemExit):
-    exp.run()
+    with pytest.raises(SystemExit):
+        exp.run()
 
     # Cleaning!
     clear_experiment_data(exp)
 
-def test_04_secagg_pytorch_lom():
+
+def test_04_secagg_pytorch_no_validation(extra_node_no_validation):
+    """Tests failure scenario whereas a researcher requires secure aggregation
+        insecure validation and one node refuses to do it
+    """
+    exp = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=MyTrainingPlan,
+        training_args=training_args,
+        round_limit=3,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+        secagg=True
+    )
+
+    # This should raise exception with default stragety
+    with pytest.raises(SystemExit):
+        exp.run()
+
+    # Cleaning!
+    clear_experiment_data(exp)
+
+
+def test_05_secagg_pytorch_lom():
     """Normal secagg using LOM"""
 
     exp = Experiment(
@@ -234,7 +286,7 @@ def test_04_secagg_pytorch_lom():
     clear_experiment_data(exp)
 
 
-def test_05_secagg_lom_pytorch_breakpoint(extra_nodes_for_lom):
+def test_06_secagg_lom_pytorch_breakpoint(extra_nodes_for_lom):
     """Tests running experiment with breakpoint and loading it while secagg active LOM"""
 
     exp = Experiment(
@@ -261,6 +313,3 @@ def test_05_secagg_lom_pytorch_breakpoint(extra_nodes_for_lom):
 
     # Clear
     clear_experiment_data(loaded_exp)
-
-
-

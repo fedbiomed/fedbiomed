@@ -306,11 +306,10 @@ class _SecureAggregation(ABC):
             experiment_id: The id of the experiment
         """
 
+        self._secagg_random = None
         if environ['SECAGG_INSECURE_VALIDATION'] is True:
             # For each round it generates new secagg random float
-            self._secagg_random = round(random.uniform(0, 1), 3)
-        else:
-            self._secagg_random = None
+            self._secagg_random = round(random.uniform(0, 1), 3)            
 
         if self._parties is None or self._experiment_id != experiment_id:
             self._set_secagg_contexts(parties, experiment_id)

@@ -174,14 +174,6 @@ class Round:
                 success=False,
                 message='Could not configure secure aggregation on node')
 
-        # Check secagg validation options are coherent with training request
-        if self._secure_aggregation.use_secagg \
-                and self._secure_aggregation.scheme.secagg_random is not None \
-                and not environ['SECAGG_INSECURE_VALIDATION']:
-            return self._send_round_reply(
-                success=False,
-                message='Secagg insecure validation requested by researcher while disabled by node')
-
         # Validate and load training plan
         if environ["TRAINING_PLAN_APPROVAL"]:
             approved, training_plan_ = self.tp_security_manager.\
@@ -358,17 +350,14 @@ class Round:
                 )
 
                 results["encrypted"] = True
-                if self._secure_aggregation.scheme.secagg_random is not None:
+                results["encryption_factor"] = None
+                if self._secure_aggregation.scheme.secagg_random is not None and environ['SECAGG_INSECURE_VALIDATION']:
                     results["encryption_factor"] = self._secure_aggregation.scheme.encrypt(
                         params=[self._secure_aggregation.scheme.secagg_random],
                         current_round=self._round,
-                        weight=results['sample_size'],
-                    )
-                else:
-                    results["encryption_factor"] = None
+                        weight=results['sample_size'])                 
                 logger.info("Encryption is completed!",
                             researcher_id=self.researcher_id)
-
             results['params'] = model_weights
             results['optimizer_args'] = self.training_plan.optimizer_args()
             results['state_id'] = self._node_state_manager.state_id

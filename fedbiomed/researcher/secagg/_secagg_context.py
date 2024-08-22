@@ -624,7 +624,7 @@ class SecaggDHContext(SecaggContext):
 
         if len(parties) < 2:
             raise FedbiomedSecaggError(
-                f'{ErrorNumbers.FB415.value}: LOM, bad parameter `parties` : {parties} : need'
+                f'{ErrorNumbers.FB415.value}: LOM, bad parameter `parties` : {parties} : need '
                 'at least 2 nodes for secure aggregation')
 
         if not self._experiment_id:

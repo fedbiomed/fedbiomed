@@ -14,7 +14,7 @@ from testsupport.base_mocks import MockRequestGrpc, MockRequestModule
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.secagg import SecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation
-from fedbiomed.common.exceptions import FedbiomedSecureAggregationError, FedbiomedSecaggError
+from fedbiomed.common.exceptions import FedbiomedSecureAggregationError, FedbiomedSecaggCrypterError
 
 
 class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
@@ -152,7 +152,7 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
         self.secagg._servkey._context = {'context': {'server_key': 1234}}
 
         # raises error if secagg_random is set but encryption factors are not provided
-        with self.assertRaises(FedbiomedSecureAggregationError):
+        with self.assertRaises(FedbiomedSecaggCrypterError):
             self.secagg.aggregate(round_=1,
                                   total_sample_size=100,
                                   model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},

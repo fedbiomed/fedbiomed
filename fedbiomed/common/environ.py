@@ -169,9 +169,9 @@ class Environ(metaclass=SingletonABCMeta):
             os.path.join(self._values["CONFIG_DIR"], public_key)
         )
 
-        # make `secagg_insecure_validation` optional in config file (and avoid changing config file version)
-        # by using a `fallback` value
-        secagg_insecure_validation = self.config.get('security', 'secagg_insecure_validation', fallback='true')
+        # Optional secagg_insecure_validation optional in config file
+        secagg_insecure_validation = self.config.get(
+            'security', 'secagg_insecure_validation', fallback='true')
         self._values["SECAGG_INSECURE_VALIDATION"] = os.getenv(
             'SECAGG_INSECURE_VALIDATION',
             secagg_insecure_validation).lower() in ('true', '1', 't', True)
