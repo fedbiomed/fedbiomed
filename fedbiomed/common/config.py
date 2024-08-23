@@ -97,10 +97,10 @@ class Config(metaclass=ABCMeta):
 
         return True
 
-    def get(self, section, key) -> str:
+    def get(self, section, key, **kwargs) -> str:
         """Returns value for given key and section"""
 
-        return self._cfg.get(section, key)
+        return self._cfg.get(section, key, **kwargs)
 
 
     def set(self, section, key, value) -> None:

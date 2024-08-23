@@ -7,40 +7,26 @@ All environment/configuration variables are provided by the
 
 **Environ** is a singleton class, meaning that only an instance of Environ is available.
 
-Descriptions of global/environment variables
 
-Researcher Global Variables:
+Description of the common Global Variables:
 
-- RESEARCHER_ID           : id of the researcher
-- ID                      : equals to researcher id
-- TENSORBOARD_RESULTS_DIR : path for writing tensorboard log files
-- EXPERIMENTS_DIR         : folder for saving experiments
-- MESSAGES_QUEUE_DIR      : Path for writing queue files
-
-Nodes Global Variables:
-
-- NODE_ID                           : id of the node
-- ID                                : equals to node id
-- MESSAGES_QUEUE_DIR                : Path for queues
-- DB_PATH                           : TinyDB database path where datasets/training_plans/loading plans are saved
-- DEFAULT_TRAINING_PLANS_DIR        : Path of directory for storing default training plans
-- TRAINING_PLANS_DIR                 : Path of directory for storing registered training plans
-- TRAINING_PLAN_APPROVAL            : True if the node enables training plan approval
-- ALLOW_DEFAULT_TRAINING_PLANS      : True if the node enables default training plans for training plan approval
-
-Common Global Variables:
-
-- COMPONENT_TYPE          : Node or Researcher
-- CONFIG_DIR              : Configuration file path
-- VAR_DIR                 : Var directory of Fed-BioMed
-- CACHE_DIR               : Cache directory of Fed-BioMed
-- TMP_DIR                 : Temporary directory
-- MPSPDZ_IP               : MP-SPDZ endpoint IP of component
-- DEFAULT_BIPRIMES_DIR    : Path of directory for storing default secure aggregation biprimes
-- ALLOW_DEFAULT_BIPRIMES  : True if the component enables the default secure aggregation biprimes
-- PORT_INCREMENT_FILE     : File for storing next port to be allocated for MP-SPDZ
-- CERT_DIR                : Directory for storing certificates for MP-SPDZ
-- DEFAULT_BIPRIMES_DIR    : Directory for storing default biprimes files
+- COMPONENT_TYPE              : Node or Researcher
+- ROOT_DIR                    : Base directory
+- CONFIG_DIR                  : Configuration file path
+- VAR_DIR                     : Var directory of Fed-BioMed
+- CACHE_DIR                   : Cache directory of Fed-BioMed
+- TMP_DIR                     : Temporary directory
+- DB_PATH                     : TinyDB database path where datasets/training_plans/loading plans are saved
+- PORT_INCREMENT_FILE         : File for storing next port to be allocated for MP-SPDZ
+- CERT_DIR                    : Directory for storing certificates for MP-SPDZ
+- DEFAULT_BIPRIMES_DIR        : Directory for storing default secure aggregation biprimes files
+- MPSPDZ_IP                   : MP-SPDZ endpoint IP of component
+- MPSPDZ_PORT                 : MP-SPDZ endpoint TCP port of component
+- ALLOW_DEFAULT_BIPRIMES      : True if the component enables the default secure aggregation biprimes
+- MPSPDZ_CERTIFICATE_KEY      : Path to certificate private key file for MP-SPDZ
+- MPSPDZ_CERTIFICATE_PEM      : Path to certificate PEM file for MP-SPDZ
+- SECAGG_INSECURE_VALIDATION  : True if the use of secagg consistency validation is allowed,
+                                though it introduces room for honest but curious attack on secagg crypto.
 '''
 
 import os
@@ -162,7 +148,6 @@ class Environ(metaclass=SingletonABCMeta):
         self._values['DEFAULT_BIPRIMES_DIR'] = os.path.join(root_dir, 'envs', 'common', 'default_biprimes')
 
 
-        self._values['TIMEOUT'] = 5
         self._values["MPSPDZ_IP"] = os.getenv("MPSPDZ_IP", 
                                               self.config.get("mpspdz", "mpspdz_ip"))
         self._values["MPSPDZ_PORT"] = os.getenv("MPSPDZ_PORT", 
@@ -183,3 +168,10 @@ class Environ(metaclass=SingletonABCMeta):
             "MPSPDZ_CERTIFICATE_PEM",
             os.path.join(self._values["CONFIG_DIR"], public_key)
         )
+
+        # Optional secagg_insecure_validation optional in config file
+        secagg_insecure_validation = self.config.get(
+            'security', 'secagg_insecure_validation', fallback='true')
+        self._values["SECAGG_INSECURE_VALIDATION"] = os.getenv(
+            'SECAGG_INSECURE_VALIDATION',
+            secagg_insecure_validation).lower() in ('true', '1', 't', True)

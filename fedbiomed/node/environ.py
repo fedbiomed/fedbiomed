@@ -16,6 +16,21 @@ from fedbiomed.node.environ import environ
 print(environ['NODE_ID'])
 ```
 
+Descriptions of the nodes Global Variables:
+
+- NODE_ID                           : id of the node
+- ID                                : equals to node id
+- MESSAGES_QUEUE_DIR                : Path for queues
+- DEFAULT_TRAINING_PLANS_DIR        : Path of directory for storing default training plans
+- TRAINING_PLANS_DIR                 : Path of directory for storing registered training plans
+- TRAINING_PLAN_APPROVAL            : True if the node enables training plan approval
+- ALLOW_DEFAULT_TRAINING_PLANS      : True if the node enables default training plans for training plan approval
+- HASHING_ALGORITHM                 : Hashing algorithm used for training plan approval
+- SECURE_AGGREGATION                : True if secure aggregation is allowed on the node
+- FORCE_SECURE_AGGREGATION          : True if secure aggregation is mandatory on the node
+- EDITOR                            : Tool to use to edit training plan
+- RESEARCHERS                       : List of researchers endpoint description
+
 """
 
 import sys

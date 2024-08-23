@@ -152,6 +152,7 @@ The fields that can be controlled, their associated environment variable, and de
 - training_plan_approval: ENABLE_TRAINING_PLAN_APPROVAL, False
 - secure_aggregation: SECURE_AGGREGATION, True
 - force_secure_aggregation: FORCE_SECURE_AGGREGATION, False
+- secagg_insecure_validation: SECAGG_INSECURE_VALIDATION, True
 
 [researcher]:
 - ip: RESEARCHER_SERVER_HOST, ${IP_ADDRESS}, if not set: localhost

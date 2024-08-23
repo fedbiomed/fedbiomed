@@ -23,7 +23,8 @@ class NodeConfig(Config):
             'allow_default_training_plans': os.getenv('ALLOW_DEFAULT_TRAINING_PLANS', True),
             'training_plan_approval': os.getenv('ENABLE_TRAINING_PLAN_APPROVAL', False),
             'secure_aggregation': os.getenv('SECURE_AGGREGATION', True),
-            'force_secure_aggregation': os.getenv('FORCE_SECURE_AGGREGATION', False)
+            'force_secure_aggregation': os.getenv('FORCE_SECURE_AGGREGATION', False),
+            'secagg_insecure_validation': os.getenv('SECAGG_INSECURE_VALIDATION', True),
         }
 
         # gRPC server host and port

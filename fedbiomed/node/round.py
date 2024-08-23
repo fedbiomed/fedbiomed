@@ -350,14 +350,14 @@ class Round:
                 )
 
                 results["encrypted"] = True
-                results["encryption_factor"] = self._secure_aggregation.scheme.encrypt(
-                    params=[self._secure_aggregation.scheme.secagg_random],
-                    current_round=self._round,
-                    weight=results['sample_size'],
-                )
+                results["encryption_factor"] = None
+                if self._secure_aggregation.scheme.secagg_random is not None and environ['SECAGG_INSECURE_VALIDATION']:
+                    results["encryption_factor"] = self._secure_aggregation.scheme.encrypt(
+                        params=[self._secure_aggregation.scheme.secagg_random],
+                        current_round=self._round,
+                        weight=results['sample_size'])                 
                 logger.info("Encryption is completed!",
                             researcher_id=self.researcher_id)
-
             results['params'] = model_weights
             results['optimizer_args'] = self.training_plan.optimizer_args()
             results['state_id'] = self._node_state_manager.state_id

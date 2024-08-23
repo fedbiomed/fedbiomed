@@ -31,6 +31,7 @@ from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.filetools import create_exp_folder, find_breakpoint_path, choose_bkpt_file
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.requests import Requests
+# need to import JoyeLibertSecureAggregation, LomSecureAggregation - used for load_breakpoint()
 from fedbiomed.researcher.secagg import SecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation
 
 
