@@ -39,8 +39,8 @@ nav:
         - 'Regression Example with Used Cars Dataset': './tutorials/pytorch/03_PyTorch_Used_Cars_Dataset_Example.ipynb'
         - 'Aggregators in Fed-BioMed': './tutorials/pytorch/04-Aggregation_in_Fed-BioMed.ipynb'
         - 'Transfer-Learning in Fed-BioMed': './tutorials/pytorch/05_Transfer-learning_tutorial_usingDenseNet-121.ipynb'
-      - MONAI: 
-        - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb' 
+      - MONAI:
+        - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb'
         - '2D Image Registration with MedNIST': './tutorials/monai/02_monai-2d-image-registration.ipynb'
       - Scikit-Learn:
         - 'MNIST Basic Example': "./tutorials/scikit-learn/01_sklearn_MNIST_classification_tutorial.ipynb"
@@ -111,12 +111,19 @@ nav:
                 - Validator: './developer/api/common/validator.md'
             - Node:
                 - CLI: './developer/api/node/cli.md'
+                - 'CLI Utils': './developer/api/node/cli_utils.md'
+                - Config: './developer/api/node/config.md'
+                - Environ: './developer/api/node/environ.md'
                 - DatasetManager: './developer/api/node/dataset_manager.md'
                 - Node: './developer/api/node/node.md'
+                - Node: './developer/api/node/node.md'
                 - NodeStateManager: './developer/api/node/node_state_manager.md'
-                - TrainingPlanSecurityManager: './developer/api/node/training_plan_security_manager.md'
                 - HistoryMonitor: './developer/api/node/history_monitor.md'
+                - Requests: './developer/api/node/requests.md'
                 - Round: './developer/api/node/round.md'
+                - Secagg: './developer/api/node/secagg.md'
+                - 'Secagg Manager': './developer/api/node/secagg_manager.md'
+                - TrainingPlanSecurityManager: './developer/api/node/training_plan_security_manager.md'
             - Researcher:
                 - Aggregators: './developer/api/researcher/aggregators.md'
                 - Datasets: './developer/api/researcher/datasets.md'
@@ -128,7 +135,11 @@ nav:
                 - Requests: './developer/api/researcher/requests.md'
                 - Strategies: './developer/api/researcher/strategies.md'
                 - Secagg: './developer/api/researcher/secagg.md'
-
+            - Transport:
+                - Client: './developer/api/transport/client.md'
+                - Controller: './developer/api/transport/controller.md'
+                - NodeAgent: './developer/api/transport/node_agent.md'
+                - Server: './developer/api/transport/server.md'
         - 'Usage and Tools': './developer/usage_and_tools.md'
         - 'Continuous Integration': './developer/ci.md'
         - 'Definition of Done': './developer/definition-of-done.md'
@@ -271,6 +282,7 @@ plugins:
       default_handler: python
       handlers:
         python:
+          paths: fedbiomed
           import:
             - https://requests.readthedocs.io/en/master/objects.inv
             - https://numpy.org/doc/stable/objects.inv
