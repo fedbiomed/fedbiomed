@@ -176,7 +176,7 @@ Example of a few more possible commands:
     Indicate `/data/my_training_plan.txt` as path of the training plan file.
 
 
-## Configure secure aggregation for the server side, for a second node instance
+## Configure Joye-Libert secure aggregation for the server side, for a second node instance
 
 This part of the tutorial is optionally executed once on each node that runs a second node instance.
 It is necessary before this component can use secure aggregation in an experiment.
@@ -205,7 +205,7 @@ It is necessary before this component can use secure aggregation in an experimen
         ```
 
 
-## Configure secure aggregation for the node side, for a second node instance
+## Configure Joye-Libert secure aggregation for the node side, for a second node instance
 
 This part of the tutorial is optionally executed once on each node that runs a second node instance.
 It is necessary before this component can use secure aggregation in an experiment.

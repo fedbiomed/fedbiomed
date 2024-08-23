@@ -1,10 +1,13 @@
-# Fed-BioMed deployment on multiple machines with VPN/containers using secure aggregation
+# Fed-BioMed deployment on multiple machines with VPN/containers using Joye-Libert secure aggregation
 
 Most real-life deployments require protecting node data. [Deployment using VPN/containers](./deployment-vpn.md) contributes to this goal by providing isolation of the Fed-BioMed instance from third parties.
 
 Using secure aggregation for protecting model parameters from nodes' local training adds another layer of security.
 
-## Configure secure aggregation for the server side
+**Configuration actions described in this page are only needed for using Joye-Libert secure aggregation. LOM secure aggregation can be used without such additional manual configuration**
+
+
+## Configure Joye-Libert secure aggregation for the server side
 
 This part of the tutorial is optionally executed once for the server.
 It is necessary before this component can use secure aggregation in an experiment.
@@ -73,10 +76,10 @@ It is necessary before this component can use secure aggregation in an experimen
         [user@node-container $] ./scripts/fedbiomed_run node certificate list
         ```
 
-    * optionally [propagate to a second node instance on the same node](./deployment-vpn-node2.md#configure-secure-aggregation-for-the-server-side-for-a-second-node-instance), if a second node instance was previously deployed
+    * optionally [propagate to a second node instance on the same node](./deployment-vpn-node2.md#configure-joye-libert-secure-aggregation-for-the-server-side-for-a-second-node-instance), if a second node instance was previously deployed
 
 
-## Configure secure aggregation for the node side
+## Configure Joye-Libert secure aggregation for the node side
 
 This part of the tutorial is optionally executed once for each node instance.
 It is necessary before this component can use secure aggregation in an experiment.
@@ -145,7 +148,7 @@ It is necessary before this component can use secure aggregation in an experimen
         [user@othernode-container $] ./scripts/fedbiomed_run node certificate list
         ```
 
-    * optionally [propagate to a second node instance on the other node](./deployment-vpn-node2.md#configure-secure-aggregation-for-the-node-side-for-a-second-node-instance), if a second node instance was previously deployed
+    * optionally [propagate to a second node instance on the other node](./deployment-vpn-node2.md/#configure-joye-libert-secure-aggregation-for-the-node-side-for-a-second-node-instance), if a second node instance was previously deployed
 
 * then **propagate to the server** the node's secagg configuration
 
