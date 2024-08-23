@@ -43,6 +43,7 @@ import fedbiomed.common.secagg._secagg_crypter
 import fedbiomed.common.secagg_manager
 import fedbiomed.common.serializer
 import fedbiomed.common.singleton
+import fedbiomed.common.synchro
 import fedbiomed.common.tasks_queue
 import fedbiomed.common.training_args
 import fedbiomed.common.training_plans.__init__

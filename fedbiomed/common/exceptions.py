@@ -244,6 +244,13 @@ class FedbiomedStrategyError(FedbiomedError):
     pass
 
 
+class FedbiomedSynchroError(FedbiomedError):
+    """
+    Error in synchro objects
+    """
+    pass
+
+
 class FedbiomedTaskQueueError(FedbiomedError):
     """
     Exception specific to the internal queuing system.
