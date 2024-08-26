@@ -7,7 +7,7 @@ from fedbiomed.common.exceptions import FedbiomedSynchroError
 from fedbiomed.common.synchro import EventWaitExchange, MAX_TRIGGERED_EVENT_TIMEOUT
 
 
-class TestCommonConfigUtils(unittest.TestCase):
+class TestCommonSynchro(unittest.TestCase):
     """Test for common synchro module"""
 
     def setUp(self):
@@ -110,7 +110,7 @@ class TestCommonConfigUtils(unittest.TestCase):
             with self.assertRaises(FedbiomedSynchroError):
                 exchange.wait([e1, e2], 1)
 
-            self.patcher_event.set.assert_not_called()
+            self.patcher_event.return_value.set.assert_not_called()
 
             # actions: add first event
             # check: one listener set for [e1]

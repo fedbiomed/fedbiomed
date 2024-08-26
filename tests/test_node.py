@@ -91,6 +91,9 @@ class TestNode(NodeTestCase):
         self.exchange_patch = patch('fedbiomed.node.node.EventWaitExchange', autospec=True)
         self.exchange_patcher = self.exchange_patch.start()
 
+        self.n2n_router_patch = patch('fedbiomed.node.node.NodeToNodeRouter', autospec=True)
+        self.n2n_router_patcher = self.n2n_router_patch.start()
+
         # mocks
         mock_dataset_manager = DatasetManager()
         mock_dataset_manager.search_by_tags = MagicMock(return_value=self.database_val)
@@ -111,6 +114,7 @@ class TestNode(NodeTestCase):
         self.task_queue_patch.stop()
         self.grpc_controller_patch.stop()
         self.exchange_patch.stop()
+        self.n2n_router_patch.stop()
 
     @patch('fedbiomed.common.tasks_queue.TasksQueue.add')
     def test_node_01_add_task_normal_case_scenario(self, task_queue_add_patcher):

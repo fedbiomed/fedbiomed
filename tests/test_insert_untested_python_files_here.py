@@ -71,6 +71,10 @@ import fedbiomed.node.environ
 import fedbiomed.node.history_monitor
 import fedbiomed.node.training_plan_security_manager
 import fedbiomed.node.node
+import fedbiomed.node.requests.__init__
+import fedbiomed.node.requests._n2n_controller
+import fedbiomed.node.requests._n2n_router
+import fedbiomed.node.requests._overlay
 import fedbiomed.node.round
 import fedbiomed.node.secagg
 import fedbiomed.node.secagg_manager
