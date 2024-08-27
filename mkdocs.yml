@@ -88,8 +88,8 @@ nav:
       - "Secure Aggregation":
           - "Introduction": './user-guide/secagg/introduction.md'
           - "Configuration": './user-guide/secagg/configuration.md'
-          - "Certificate Registration": './user-guide/secagg/certificate-registration.md'
           - "Managing Secure Aggregation in Researcher": './user-guide/secagg/researcher-interface.md'
+          - "Joye-Libert Cert. Registration": './user-guide/secagg/certificate-registration.md'
     - Developer:
         - 'API Reference':
             - Common:

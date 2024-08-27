@@ -1,9 +1,10 @@
-# Registration of Certificate and Network Parameters of FL Parties
+# Joye-Libert Registration of Certificate and Network Parameters of FL Parties
 
-Fed-BioMed relies on the MP-SPDZ library for conducting multi-party computation and also uses the MP-SPDZ network
-infrastructure for MPC, where each party runs an MP-SPDZ instance listening on an IP and port. In order to proceed with Multi-Party
-Computation (MPC) in federated experiments, each participating party is required to register the network parameters
+If Joye-Libert secagg scheme is activated, Fed-BioMed will use the MP-SPDZ library for conducting multi-party computation and also uses the MP-SPDZ network infrastructure for MPC, where each party runs an MP-SPDZ instance listening on an IP and port. In order to proceed with Multi-Party Computation (MPC) in federated experiments, each participating party is required to register the network parameters
 of all the other participating parties. The registration must be done before the experiment.
+
+!!! warning "Attention"
+    Certificate registration and IP configuration are necessary only for Joye-Libert secure aggregation scheme.
 
 
 ## Registration Through CLI
