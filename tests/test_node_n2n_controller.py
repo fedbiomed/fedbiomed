@@ -71,7 +71,7 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         result = await self.n2n_controller.handle(self.overlay_msg, self.inner_msg)
 
         # check
-        self.assertTrue(isinstance(result, dict))
+        self.assertIsInstance(result, dict)
         self.assertEqual(set(result.keys()), set(['overlay_resp']))
         self.assertEqual(result['overlay_resp']['researcher_id'], self.overlay_msg['researcher_id'])
         self.assertEqual(result['overlay_resp']['overlay']['request_id'], self.inner_msg.get_param('request_id'))
@@ -87,7 +87,7 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         result = await self.n2n_controller.handle(self.overlay_msg, self.inner_msg)
 
         # check
-        self.assertTrue(result is None)
+        self.assertIsNone(result)
 
     async def test_n2n_controller_02_handle_key_reply(self):
         """Handle incoming message KeyReply in node to node controller
@@ -106,7 +106,7 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         result = await self.n2n_controller.handle(self.overlay_msg, inner_msg)
 
         # check
-        self.assertTrue(isinstance(result, dict))
+        self.assertIsInstance(result, dict)
         self.assertEqual(set(result.keys()), set(['inner_msg']))
         self.assertEqual(result['inner_msg'].get_param('public-bytes'), inner_msg.get_param('public-bytes'))
 
@@ -122,7 +122,7 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         result = await self.n2n_controller.handle(self.overlay_msg, inner_msg)
 
         # check
-        self.assertTrue(result is None)
+        self.assertIsNone(result)
 
     async def test_n2n_controller_04_final_key_request(self):
         """Final handler for key request in node to node controller

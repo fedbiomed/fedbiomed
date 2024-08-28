@@ -71,14 +71,14 @@ class TestCommonSynchro(unittest.TestCase):
 
             # one event waited, is it still there ?
             all_received, events_data = exchange.wait([e1], 1)
-            self.assertEqual(all_received, True)
+            self.assertTrue(all_received)
             self.assertEqual(events_data, [d1])
             self.assertEqual(e1 in events, not remove_delivered)
-            self.assertEqual(e2 in events, True)
+            self.assertTrue(e2 in events)
 
             # another event waited, is it still there ?
             all_received, events_data = exchange.wait([e2], 1)
-            self.assertEqual(all_received, True)
+            self.assertTrue(all_received)
             self.assertEqual(events_data, [d3])
             self.assertEqual(e2 in events, not remove_delivered)
             self.assertEqual(e1 in events, not remove_delivered)
@@ -167,7 +167,7 @@ class TestCommonSynchro(unittest.TestCase):
                 all_received, events_data = exchange.wait(['dummy_id'], max_timeout / 2)
 
                 # check
-                self.assertEqual(all_received, False)
+                self.assertFalse(all_received)
                 self.assertEqual(events_data, [])
 
     @patch('fedbiomed.common.synchro.GRACE_TRIGGERED_EVENT', 0)

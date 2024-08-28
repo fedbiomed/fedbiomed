@@ -1,11 +1,12 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Tuple
 import os
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.exceptions import InvalidSignature
 
 from fedbiomed.common.utils import ROOT_DIR
 from fedbiomed.common.message import Message, InnerMessage, InnerRequestReply, \
@@ -193,7 +194,7 @@ def format_incoming_overlay(payload: List[bytes]) -> InnerMessage:
             ),
             hashes.SHA256()
         )
-    except ValueError as e:
+    except InvalidSignature as e:
         raise FedbiomedNodeToNodeError(
             f'{ErrorNumbers.FB324.value}: cannot verify payload integrity: {e}') from e
 
