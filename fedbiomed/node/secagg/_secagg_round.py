@@ -268,7 +268,7 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
                 _scheme = SecureAggregationSchemes(sn)
             except ValueError as e:
                 raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB318.value}: Bad secagg scheme value in train request: {sn}" 
+                    f"{ErrorNumbers.FB318.value}: Bad secagg scheme value in train request: {sn}"
                 ) from e
 
             self.scheme = SecaggRound.element2class[_scheme.value](secagg_arguments, experiment_id)
