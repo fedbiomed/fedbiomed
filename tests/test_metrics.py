@@ -72,55 +72,92 @@ class TestMetrics(unittest.TestCase):
     def test_metrics_04_evaluate_binary_classification_2D_1D_array(self):
         """Test where y_true is one-hot encoded while y_pred is not."""
         # Test y_true is 2D array and y_pred 1D array with num labels
-        y_true = [[1, 0], [0, 1], [1, 0], [0, 1]]
-        y_pred = [0, 1, 0, 1]
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
-        self.assertEqual(result, 1, 'Binary: Could not compute Accuracy correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
-        self.assertEqual(result, 1, 'Binary: Could not compute F1 Score correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
-        self.assertEqual(result, 1, 'Binary: Could not compute Recall correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
-        self.assertEqual(result, 1, 'Binary: Could not compute Precision correctly')
+
+        examples = {
+            'batch_size_normal': (
+                [[1, 0], [0, 1], [1, 0], [0, 1]], # y_true
+                [0, 1, 0, 1] # y_pred
+            ),
+            'batch_size_1': (
+                [[1, 0]], # y_true
+                [0] # y_pred
+            )
+        }
+        for y_true, y_pred in examples.values():
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+            self.assertEqual(result, 1, 'Binary: Could not compute Accuracy correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
+            self.assertEqual(result, 1, 'Binary: Could not compute F1 Score correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
+            self.assertEqual(result, 1, 'Binary: Could not compute Recall correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+            self.assertEqual(result, 1, 'Binary: Could not compute Precision correctly')
 
     def test_metrics_05_evaluate_binary_classification_2D_2D_array(self):
         # Test y_true and y_pred are 2D arrays
-        y_true = [[1, 0], [0, 1], [1, 0], [0, 1]]
-        y_pred = [[1, 0], [0, 1], [1, 0], [0, 1]]
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
-        self.assertEqual(result, 1, 'Binary: Could not compute Accuracy correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
-        self.assertEqual(result, 1, 'Binary: Could not compute F1 Score correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
-        self.assertEqual(result, 1, 'Binary: Could not compute Recall correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
-        self.assertEqual(result, 1, 'Binary: Could not compute Precision correctly')
+        examples = {
+            'batch_size_normal': (
+                [[1, 0], [0, 1], [1, 0], [0, 1]],
+                [[1, 0], [0, 1], [1, 0], [0, 1]]
+            ),
+            'batch_size_1': (
+                [[1, 0]],
+                [[1, 0]]
+            )
+        }
+        for y_true, y_pred in examples.values():
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+            self.assertEqual(result, 1, 'Binary: Could not compute Accuracy correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
+            self.assertEqual(result, 1, 'Binary: Could not compute F1 Score correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
+            self.assertEqual(result, 1, 'Binary: Could not compute Recall correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+            self.assertEqual(result, 1, 'Binary: Could not compute Precision correctly')
 
-    def test_metrics_06_evaluate_binary_classification_2D_2D_array(self):
-        # Test y_true is 1D and y_pred is 2D array
-        y_true = [0, 1, 0, 1]
-        y_pred = [[1, 0], [0, 1], [1, 0], [0, 1]]
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
-        self.assertEqual(result, 1, 'Binary: Could not compute Accuracy correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
-        self.assertEqual(result, 1, 'Binary: Could not compute F1 Score correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
-        self.assertEqual(result, 1, 'Binary: Could not compute Recall correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
-        self.assertEqual(result, 1, 'Binary: Could not compute Precision correctly')
+    def test_metrics_06_evaluate_binary_classification_1D_2D_array(self):
+      # Test y_true is 1D and y_pred is 2D array
+        examples = {
+            'batch_size_normal': (
+                [0, 1, 0, 1], # y_true
+                [[1, 0], [0, 1], [1, 0], [0, 1]] # y_pred
+            ),
+            'batch_size_1': (
+                [0], # y_true
+                [[1, 0]] # y_pred
+            )
+        }
+        for y_true, y_pred in examples.values():
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+            self.assertEqual(result, 1, 'Binary: Could not compute Accuracy correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
+            self.assertEqual(result, 1, 'Binary: Could not compute F1 Score correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
+            self.assertEqual(result, 1, 'Binary: Could not compute Recall correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+            self.assertEqual(result, 1, 'Binary: Could not compute Precision correctly')
 
-    def test_metrics_07_evaluate_binary_classification_2D_1D_array_with_probs(self):
+    def test_metrics_07_evaluate_binary_classification_1D_array_with_probs(self):
         # Binary: test y_true is 1D and y_pred is 1D array with probs
-        y_true = [0, 1, 0, 1]
-        y_pred = [0.2, 0.6, 0.01, 0.8]
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
-        self.assertEqual(result, 1, 'Binary: Could not compute Accuracy correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
-        self.assertEqual(result, 1, 'Binary: Could not compute F1 Score correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
-        self.assertEqual(result, 1, 'Binary: Could not compute Recall correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
-        self.assertEqual(result, 1, 'Binary: Could not compute Precision correctly')
+        examples = {
+            'batch_size_normal': (
+                [[0], [1], [0], [1]], # y_true
+                [[0.2], [0.6], [0.01], [0.8]] # y_pred
+            ),
+            'batch_size_1': (
+                [[0]],
+                [[0.2]]
+            )
+        }
+        for y_true, y_pred in examples.values():
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+            self.assertEqual(result, 1, 'Binary: Could not compute Accuracy correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
+            self.assertEqual(result, 1, 'Binary: Could not compute F1 Score correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
+            self.assertEqual(result, 1, 'Binary: Could not compute Recall correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+            self.assertEqual(result, 1, 'Binary: Could not compute Precision correctly')
 
     def test_metrics_08_evaluate_multiclass_classification_1D_1D_array_if_continuous(self):
         """ Multiclass: test y_true is 1D and y_pred is 1D array """
@@ -151,7 +188,7 @@ class TestMetrics(unittest.TestCase):
         y_pred = [12.5, 11.5, 10.5, 19.5]
         r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
         self.assertEqual(r, .5)
-        
+
         # F1 SCORE -----------------------------------------------------------------------------
         y_true = [2.5, 0.1, 1.1, 2.2]
         y_pred = [2.5, 0.1, 1.2, 2.2]
@@ -217,30 +254,52 @@ class TestMetrics(unittest.TestCase):
 
     def test_metrics_09_evaluate_multiclass_classification_2D_2D_array(self):
         """Multiclass: test y_true is 2D and y_pred is 2D array"""
-        y_true = [[1, 0, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1]]
-        y_pred = [[1, 0, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1]]
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
-        self.assertEqual(result, 1, 'Multiclass: Could not compute Accuracy correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
-        self.assertEqual(result, 1, 'Multiclass: Could not compute F1 Score correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
-        self.assertEqual(result, 1, 'Multiclass: Could not compute Recall correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
-        self.assertEqual(result, 1, 'Multiclass: Could not compute Precision correctly')
+
+        examples = {
+            'batch_size_normal': (
+                [[1, 0, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1]], # y_true
+                [[1, 0, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1]] # y_pred
+            ),
+            'batch_size_1': (
+                [[1, 0, 0]],
+                [[1, 0, 0]]
+            )
+        }
+        for y_true, y_pred in examples.values():
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+            self.assertEqual(result, 1, 'Multiclass: Could not compute Accuracy correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
+            self.assertEqual(result, 1, 'Multiclass: Could not compute F1 Score correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
+            self.assertEqual(result, 1, 'Multiclass: Could not compute Recall correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+            self.assertEqual(result, 1, 'Multiclass: Could not compute Precision correctly')
+
+
 
     def test_metrics_10_evaluate_multiclass_classification_2D_2D_array_probs(self):
         """Multiclass: test y_true is 2D and y_pred is 2D array as float values"""
 
-        y_true = [[0.5, -2, 2], [0.1, 1.5, 0.1], [-1.5, 1.2, 0.4], [-2.5, 1, 2.6]]
-        y_pred = [[0.5, -2, 2], [0.1, 1.5, 0.1], [-1.5, 1.2, 0.4], [-2.5, 1, 2.6]]
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
-        self.assertEqual(result, 1, 'Multiclass: Could not compute Accuracy correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
-        self.assertEqual(result, 1, 'Multiclass: Could not compute F1 Score correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
-        self.assertEqual(result, 1, 'Multiclass: Could not compute Recall correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
-        self.assertEqual(result, 1, 'Multiclass: Could not compute Precision correctly')
+
+        examples = {
+            'batch_size_normal': (
+                [[0.5, -2, 2], [0.1, 1.5, 0.1], [-1.5, 1.2, 0.4], [-2.5, 1, 2.6]], # y_true
+                [[0.5, -2, 2], [0.1, 1.5, 0.1], [-1.5, 1.2, 0.4], [-2.5, 1, 2.6]] # y_pred
+            ),
+            'batch_size_1': (
+                [[0.5, -2, 2]],
+                [[0.5, -2, 2]]
+            )
+        }
+        for y_true, y_pred in examples.values():
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+            self.assertEqual(result, 1, 'Multiclass: Could not compute Accuracy correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE)
+            self.assertEqual(result, 1, 'Multiclass: Could not compute F1 Score correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL)
+            self.assertEqual(result, 1, 'Multiclass: Could not compute Recall correctly')
+            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+            self.assertEqual(result, 1, 'Multiclass: Could not compute Precision correctly')
 
     def test_metrics_11_evaluate_multiclass_classification_1D_2D_array_probs(self):
         """ Multiclass: test y_true is 1D and y_pred is 2D array as float values"""
