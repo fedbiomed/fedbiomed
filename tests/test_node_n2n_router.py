@@ -19,7 +19,7 @@ class DummyException(Exception):
 
 
 class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
-    """Test for node2node router module, NodeToNodeRouter class"""
+    """Test for node2node router module, _NodeToNodeAsyncRouter class"""
 
     def setUp(self):
         self.async_queue_patch = patch('fedbiomed.node.requests._n2n_router.asyncio.Queue', autospec=True)
