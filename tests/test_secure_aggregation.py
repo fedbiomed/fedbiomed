@@ -158,6 +158,15 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
                                   model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
                                   )
 
+        with self.assertRaises(FedbiomedSecureAggregationError):
+            agg_params = self.secagg.aggregate(
+                round_=1,
+                total_sample_size=100,
+                model_params={'node-1': [1, 2, 3, 4, 5], 'node-2': [1, 2, 3, 4, 5]},
+                encryption_factors={'node-1': None, 'node-2': [1]},
+                num_expected_params=5)
+
+
         # Aggregation without secagg_random validation
         self.secagg._secagg_random = None
         agg_params = self.secagg.aggregate(
@@ -226,40 +235,40 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
         self.assertListEqual(secagg.parties, parties)
 
 
-    class TestSecureAggregationWrapper( ResearcherTestCase):
-        def check_specific_method_belongs_to_class(self, original_obj, obj):
-            methods_names = dir(original_obj)
+class TestSecureAggregationWrapper( ResearcherTestCase):
+    def check_specific_method_belongs_to_class(self, original_obj, obj):
+        methods_names = dir(original_obj)
 
-            for method in methods_names:
-                if not re.compile('^_').match(method):
-                    if not hasattr(obj, method):
-                        self.fail(f"method {method} doesnot belong to object {obj}")
+        for method in methods_names:
+            if not re.compile('^_').match(method):
+                if not hasattr(obj, method):
+                    self.fail(f"method {method} doesnot belong to object {obj}")
 
-        def test_secure_aggregation_01_init(self):
-            sa = SecureAggregation(scheme=SecureAggregationSchemes.JOYE_LIBERT)
-            self.check_specific_method_belongs_to_class(JoyeLibertSecureAggregation, sa)
+    def test_secure_aggregation_01_init(self):
+        sa = SecureAggregation(scheme=SecureAggregationSchemes.JOYE_LIBERT)
+        self.check_specific_method_belongs_to_class(JoyeLibertSecureAggregation, sa)
 
-            sa = SecureAggregation(scheme=SecureAggregationSchemes.LOM)
-            self.check_specific_method_belongs_to_class(LomSecureAggregation, sa)
+        sa = SecureAggregation(scheme=SecureAggregationSchemes.LOM)
+        self.check_specific_method_belongs_to_class(LomSecureAggregation, sa)
 
-            # defaults to LOM secure aggregation
-            sa = SecureAggregation(scheme=SecureAggregationSchemes.NONE)
-            self.check_specific_method_belongs_to_class(LomSecureAggregation, sa)
+        # defaults to LOM secure aggregation
+        sa = SecureAggregation(scheme=SecureAggregationSchemes.NONE)
+        self.check_specific_method_belongs_to_class(LomSecureAggregation, sa)
 
-        def test_secure_aggregation_02_save_and_load_breakpoint(self):
-            for scheme, cl in zip(SecureAggregationSchemes, (LomSecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation)):
-                sa = SecureAggregation(scheme=scheme)
-                state = sa.save_state_breakpoint()
-                self.assertDictContainsSubset({"attributes": {},
-                                               "class": 'SecureAggregation',
-                                               "module": "fedbiomed.researcher.secagg._secure_aggregation",
-                                               "arguments": {"scheme": scheme.value}},
-                                              state
-                                              )
-                eval(f'exec("from {state["module"]} import {state["class"]}")')
-                loaded_sa = SecureAggregation.load_state_breakpoint(state)
-                self.check_specific_method_belongs_to_class(loaded_sa, cl)
-
+    def test_secure_aggregation_02_save_and_load_breakpoint(self):
+        """Tests secure aggregation load and save breakpoints"""
+        for scheme, cl in zip(SecureAggregationSchemes, (LomSecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation)):
+            sa = SecureAggregation(scheme=scheme)
+            state = sa.__getattr__("save_state_breakpoint")()
+            self.assertDictContainsSubset({"attributes": {},
+                                           "class": 'SecureAggregation',
+                                           "module": "fedbiomed.researcher.secagg._secure_aggregation",
+                                           "arguments": {"scheme": scheme.value}},
+                                          state
+                                          )
+            eval(f'exec("from {state["module"]} import {state["class"]}")')
+            loaded_sa = SecureAggregation.load_state_breakpoint(state)
+            self.check_specific_method_belongs_to_class(loaded_sa, cl)
 
 class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
 
@@ -285,7 +294,7 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
         (params_1, params_2, params_3) = (quantize(params_1, clipping_range),
                                           quantize(params_2, clipping_range),
                                           quantize(params_3, clipping_range))
-        
+
         params_1, params_2, params_3 = multiply(params_1, weight), multiply(params_2, weight), multiply(params_3, weight)
         pv = []
         for n, l, s, p in zip(self.parties[1:],
@@ -296,6 +305,7 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
         return pv
 
     def test_lom_secagg_01_train_arg(self):
+        """Test train arguments and dh context"""
         t_arg = self.lom.train_arguments()
         self.assertDictEqual(t_arg, {'secagg_random': None,
                                      'secagg_clipping_range': self.clipping_range,
@@ -311,6 +321,7 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
         super().setUp(module="fedbiomed.researcher.secagg._secagg_context.Requests",
                       send_fed_req_conf=send_fed_req)
         status = self.lom.setup(self.parties, self.experiment_id)
+        self.assertIsNotNone(self.lom.dh)
         self.assertTrue(status)
         self.assertIsInstance(status, bool)
 
@@ -325,8 +336,9 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
         status = self.lom.setup(self.parties, self.experiment_id)
         self.assertFalse(status)
         self.assertIsInstance(status, bool)
-        # 2. error has been found
-        # TODO: complete test
+
+        state = self.lom.save_state_breakpoint()
+        lom = LomSecureAggregation.load_state_breakpoint(state)
 
     def test_lom_secagg_03_aggregate(self):
         fake_replies = MagicMock(return_value={n: MagicMock(spec=Request, node_id = n, success = True) for n in self.parties[1:]})
@@ -343,7 +355,7 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
                 total_sample_size=5,
                 model_params={n: pv[i] for i, n in enumerate(self.parties[1:])},
                 encryption_factors={'node-1': [5555], 'node-2': [5555], 'node-3': [5555]})
-        
+
 
         expected_agg_params = np.sum([[1, 2, 3, 4, 5],
                                       [1, 2, 3, 4, 5],
@@ -354,7 +366,7 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
         ######## WARNING #######
         # NEVER touch  self.lom._dh
         # FOR UNKNOWN REASON, IT CONFLICTS WITH OTHER TESTS AND EVERYTHING WILL FAIL
-        # MOCKED RESEATCHER_ID WILL NOT BE THE SAME AS environ["ID"], WHICH IS ASSUMED 
+        # MOCKED RESEATCHER_ID WILL NOT BE THE SAME AS environ["ID"], WHICH IS ASSUMED
         # FOR OTHER TESTS
         with self.assertRaises(FedbiomedSecureAggregationError):
             self.lom.aggregate(

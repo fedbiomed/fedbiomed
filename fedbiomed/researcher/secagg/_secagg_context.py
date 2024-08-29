@@ -184,7 +184,6 @@ class SecaggContext(ABC):
             a tuple of a `context` and a `status` for the context element
         """
         context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
-
         if context is None:
             _, status = self._create_payload_specific(*args, **kwargs)
             context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
@@ -200,7 +199,6 @@ class SecaggContext(ABC):
                     f"Secagg context for {self._secagg_id} is already existing on researcher "
                     f"researcher_id='{environ['ID']}'")
                 status = True
-
         return context, status
 
     @abstractmethod
@@ -477,11 +475,6 @@ class SecaggServkeyContext(SecaggMpspdzContext):
         """
         super().__init__(parties, experiment_id, secagg_id)
 
-        if not self._experiment_id:
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `experiment_id` must be non empty string'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-
         self._element = SecaggElementTypes.SERVER_KEY
         self._secagg_manager = _SKManager
 
@@ -627,9 +620,6 @@ class SecaggDHContext(SecaggContext):
                 f'{ErrorNumbers.FB415.value}: LOM, bad parameter `parties` : {parties} : need '
                 'at least 2 nodes for secure aggregation')
 
-        if not self._experiment_id:
-            raise FedbiomedSecaggError(
-                f'{ErrorNumbers.FB415.value}: bad parameter `experiment_id` must be non empty string')
 
         self._element = SecaggElementTypes.DIFFIE_HELLMAN
         self._secagg_manager = _DHManager

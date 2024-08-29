@@ -12,10 +12,10 @@ from testsupport.base_mocks import MockRequestModule
 import fedbiomed.researcher.secagg._secagg_context
 
 from fedbiomed.researcher.environ import environ
-from fedbiomed.common.exceptions import FedbiomedSecaggError
+from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.constants import SecaggElementTypes, __secagg_element_version__
 from fedbiomed.common.message import SecaggReply, SecaggDeleteReply
-from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext
+from fedbiomed.researcher.secagg import SecaggServkeyContext, SecaggBiprimeContext, SecaggContext, SecaggDHContext
 from fedbiomed.researcher.requests import FederatedRequest
 
 
@@ -48,13 +48,6 @@ class BaseTestCaseSecaggContext(ResearcherTestCase, MockRequestModule):
             return_value=environ["TMP_DIR"]
         )
 
-        # self.mock_federated_req = MagicMock(pec=FederatedRequest)
-        # self.mock_policy = MagicMock()
-        # self.m_requests.return_value.send.return_value = self.mock_federated_req
-        # type(self.mock_federated_req).policy = PropertyMock(return_value=self.mock_policy)
-        # self.mock_policy.has_stopped_any.return_value = False
-
-
     def tearDown(self) -> None:
         self.patch_cm.stop()
         self.patch_mpc.stop()
@@ -74,7 +67,7 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
         self.secagg_context = SecaggContext(parties=self.parties,
                                             experiment_id="experiment-id")
 
-    
+
     def tearDown(self) -> None:
         super().tearDown()
         self.abstract_methods_patcher.stop()
@@ -224,22 +217,6 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
         self.assertEqual(state['arguments']['experiment_id'], secagg_context.experiment_id)
         self.assertEqual(state['attributes']['_context'], secagg_context.context)
 
-    def test_secagg_07_setup_error(self):
-        # TODO: complete test
-        # # First party not matching researcher
-        # with self.assertRaises(FedbiomedSecaggError):
-        #     secag_ctxt = SecaggContext(parties=['party1', 'party2', 'party3'],
-        #                                experiment_id="experiment-id")
-        #     setattr(secag_ctxt, '_element', SecaggElementTypes.SERVER_KEY)
-        #     secag_ctxt.setup()
-
-        # # Less than 3 parties
-        # with self.assertRaises(FedbiomedSecaggError):
-        #     SecaggContext(parties=[environ["ID"], 'party2'],
-        #                   experiment_id="experiment-id")
-
-        pass
-
 
 class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
 
@@ -250,7 +227,7 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
         self.mock_skmanager.get.return_value = None
         self.srvkey_context = SecaggServkeyContext(parties=self.parties,
                                                    experiment_id="experiment-id")
-        
+
         self.database_entry = {'secagg_version': str(__secagg_element_version__),
                                'secagg_id': 'secagg_id',
                                'parties': self.parties,
@@ -265,10 +242,20 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
     def test_servkey_context_01_init(self):
         """Tests failed init scenarios with bad_experiment_id"""
 
-        for experiment_id in (None, "", 3, ["not a string"]):
+        for experiment_id in (3, ["not a string"]):
             with self.assertRaises(FedbiomedSecaggError):
                 SecaggServkeyContext(parties=[environ["ID"], 'party2', 'party3'],
                                      experiment_id=experiment_id)
+
+        # Does not respect min number of parties
+        with self.assertRaises(FedbiomedError):
+            SecaggServkeyContext(parties=[environ["ID"], 'party2'],
+                                     experiment_id='x1')
+        # First party is not the researcher
+        with self.assertRaises(FedbiomedError):
+            SecaggServkeyContext(parties=['pp1', 'party2', 'party3'],
+                                     experiment_id='x2')
+
 
     @patch('fedbiomed.researcher.secagg.SecaggServkeyContext._create_payload_specific')
     def test_secagg_02_payload(self, patch_create_payload):
@@ -333,7 +320,7 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
                 num_parties=3,
                 ip_addresses='dummy/ip'
             )
-            
+
             self.assertEqual(context['context']['server_key'], key_value)
             self.assertEqual(status, True)
             mock_open.reset_mock()
@@ -495,6 +482,53 @@ class TestSecaggBiprimeContext(BaseTestCaseSecaggContext):
 
             self.assertEqual(context, None)
             self.assertEqual(status, s)
+
+class TestSecaggDHContext(BaseTestCaseSecaggContext):
+
+    def setUp(self) -> None:
+        super().setUp()
+
+        self.dhmanager_p = patch.object(fedbiomed.researcher.secagg._secagg_context, "_DHManager")
+        self.dhmanager = self.dhmanager_p.start()
+
+        self.secagg_dhcontext =  SecaggDHContext(
+                parties=['party2', 'party3'],
+                experiment_id='',
+                secagg_id='secagg_id'
+        )
+
+    def tearDown(self) -> None:
+        super().tearDown()
+        self.dhmanager_p.stop()
+
+    def test_01_dhcontext_init_error_cases(self):
+
+        with self.assertRaises(FedbiomedError):
+            SecaggDHContext(
+                parties=['party2'],
+                experiment_id='exp_id',
+                secagg_id='secagg_id'
+            )
+
+    def test_02_dhcontext_create_payload_specific(self):
+        """Test creating payload"""
+        test, _ = self.secagg_dhcontext._create_payload_specific({'my-context': 1})
+        self.assertDictEqual(test, {'my-context': 1})
+
+    def test_03_dh_context_secagg_round_specific(self):
+
+
+        self.mock_federated_request.replies.return_value = {
+            'party1': SecaggReply(**{'researcher_id': 'xx', 'success': True, 'node_id': 'party2', 'command': 'secagg', 'msg': 'x', 'secagg_id': 's1'}),
+            'party2': SecaggReply(**{'researcher_id': 'xx', 'success': True, 'node_id': 'party3', 'command': 'secagg', 'msg': 'x', 'secagg_id': 's1'})        }
+
+        self.dhmanager.get.return_value = {'parties': ['party2', 'party3']}
+
+        self.mock_federated_request.errors.return_value = None
+        type(self.mock_federated_request).policy.return_value.has_stopped_any.return_value = False
+
+        result  = self.secagg_dhcontext.setup()
+        self.assertTrue(result)
 
 
 if __name__ == '__main__':  # pragma: no cover

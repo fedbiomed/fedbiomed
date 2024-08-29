@@ -53,7 +53,7 @@ class SecureAggregation:
              item: Requested item from class
         """
 
-        if item in ('save_state_breakpoint', 'load_state_breakpoint'):
+        if item in ('save_state_breakpoint'):
             return object.__getattribute__(self, item)
 
         return self.__secagg.__getattribute__(item)
@@ -309,7 +309,7 @@ class _SecureAggregation(ABC):
         self._secagg_random = None
         if environ['SECAGG_INSECURE_VALIDATION'] is True:
             # For each round it generates new secagg random float
-            self._secagg_random = round(random.uniform(0, 1), 3)            
+            self._secagg_random = round(random.uniform(0, 1), 3)
 
         if self._parties is None or self._experiment_id != experiment_id:
             self._set_secagg_contexts(parties, experiment_id)
@@ -339,7 +339,7 @@ class _SecureAggregation(ABC):
         """Validate given inputs"""
 
         # at this point we know `isinstance(encryption_factors, dict) and len(encryption_factors) == num_nodes`
-        if any([v is None for v in encryption_factors.values()]):
+        if any(v is None for v in encryption_factors.values()):
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Secure aggregation consistency insecure validation has been "
                 "set on the researcher but the encryption factors are not provided. Some nodes may use "
