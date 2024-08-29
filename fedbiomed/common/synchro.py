@@ -6,7 +6,7 @@ import threading
 import time
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
+from fedbiomed.common.exceptions import FedbiomedSynchroError
 from fedbiomed.common.logger import logger
 
 
@@ -149,8 +149,8 @@ class EventWaitExchange:
 
         # Check value for timeout, as bad value may cause hard to detect problems
         if not isinstance(timeout, (float, int)) or timeout < 0 or timeout > MAX_TRIGGERED_EVENT_TIMEOUT:
-            raise FedbiomedNodeToNodeError(f"{ErrorNumbers.FB324}: Cannot wait {timeout} seconds. "
-                                           f"Should be int or float between 0 and {MAX_TRIGGERED_EVENT_TIMEOUT}")
+            raise FedbiomedSynchroError(f"{ErrorNumbers.FB324}: Cannot wait {timeout} seconds. "
+                                        f"Should be int or float between 0 and {MAX_TRIGGERED_EVENT_TIMEOUT}")
 
         time_initial = time.time()
 
