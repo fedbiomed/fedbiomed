@@ -15,7 +15,7 @@ The following chapter explores in depth how to use `declearn` optimization featu
 
 ### 1.1. What is `declearn` package?
 
-[`declearn` package](https://gitlab.inria.fr/magnet/declearn/declearn2) is another Federated Learning framework modular and combinable, providing state-of-the-art gradient-based `Optimizer` algorithms. In `Fed-BioMed`, we are only using [its `Optimization` facility](https://gitlab.inria.fr/magnet/declearn/declearn2/-/blob/optimizer-guide/docs/user-guide/optimizer.md), leaving aside all other components of `declearn` that we don't use in `Fed-BioMed`.
+[`declearn` package](https://gitlab.inria.fr/magnet/declearn/declearn2) is another Federated Learning framework modular and combinable, providing state-of-the-art gradient-based `Optimizer` algorithms. In `Fed-BioMed`, we are only using [its `Optimization` facility](https://gitlab.inria.fr/magnet/declearn/declearn2/-/blob/develop/docs/user-guide/optimizer.md), leaving aside all other components of `declearn` that we don't use in `Fed-BioMed`.
 
 
 **References**: For further details about `declearn`, you may visit:
@@ -24,7 +24,7 @@ The following chapter explores in depth how to use `declearn` optimization featu
 
 - [`declearn` general documentation](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/)
 
-- [`declearn` Optimizers documentation](https://gitlab.inria.fr/magnet/declearn/declearn2/-/blob/optimizer-guide/docs/user-guide/optimizer.md)
+- [`declearn` Optimizers documentation](https://gitlab.inria.fr/magnet/declearn/declearn2/-/blob/develop/docs/user-guide/optimizer.md)
 
 
 ### 1.2. `declearn` interface in `Fed-BioMed`: the `Optimizer` object
@@ -95,7 +95,7 @@ with the following arguments:
     list_optim_modules()
     ```
 
-For further information on `declearn OptiModule`, please visit [`declearn OptiModule`](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/api-reference/optimizer/Optimizer/) and [`declearn`'s Optimizers documentation](https://gitlab.inria.fr/magnet/declearn/declearn2/-/blob/optimizer-guide/docs/user-guide/optimizer.md).
+For further information on `declearn OptiModule`, please visit [`declearn OptiModule`](https://magnet.gitlabpages.inria.fr/declearn/docs/2.2/api-reference/optimizer/Optimizer/) and [`declearn`'s Optimizers documentation](https://gitlab.inria.fr/magnet/declearn/declearn2/-/blob/develop/docs/user-guide/optimizer.md).
 
 
 **List of available Optimizers provided by `declearn`**
@@ -431,7 +431,7 @@ exp.run(increase=True)
 !!! warning "Security issues using auxiliary variables when using SecAgg"
     Currently, `declearn` optimizers based on auxiliary variables (like `Scaffold`), do not have their auxiliary variables protected by [`SecAgg`](../../user-guide/secagg/introduction) secure aggregation mechanism yet. This is something that will be changed in future `Fed-BioMed` releases. 
 
-You can find more examples in [Advanced Optimizers tutorial](../../tutorials/optimizers/01-fedopt-and-scaffold.ipynb)
+You can find more examples in [Advanced Optimizers tutorial](../../tutorials/optimizers/01-fedopt-and-scaffold)
 
 ## Table to use common Federated Learning algorithm with `declearn` in `Fed-BioMed`
 
@@ -475,4 +475,4 @@ When used with `declearn` package, `Fedd-BioMed` `Aggregator` is used for aggreg
 
 `declearn` comes with the possibility of *chaining* `Optimizers`, by passing a list of `OptiModule` and `Regularizers`, making possible to try out some more complex optimization process.
 
-Check [the tutorial related to the use of `declearn`'s `Optimizers`](../../tutorials/optimizers/01-fedopt-and-scaffold.ipynb)
+Check [the tutorial related to the use of `declearn`'s `Optimizers`](../../tutorials/optimizers/01-fedopt-and-scaffold)

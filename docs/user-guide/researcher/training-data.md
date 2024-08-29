@@ -224,7 +224,7 @@ loader = DataLoader(dataset, shuffle=True, batch_size=5, drop_last=True)
 
 For PyTorch and scikit-learn experiments, the `DataLoaders` have been heavily inspired by the
 [`torch.utils.data.DataLoader`](https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader) 
-class, so please refer to that documentation for the meaning of the supported keyword arguments. For example:
+class, so please refer to that documentation for the meaning of the supported keyword arguments.
 
 ## Conclusion
 

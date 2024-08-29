@@ -164,7 +164,7 @@ class MyRemoteTrainingPlan(TorchTrainingPlan):
 
 ```
 
-### Multilayer Perceptron in Pytorch: model training loop (same example as previous one but transposed to Fed-BioMed)
+### Multilayer Perceptron in Pytorch: model training loop
 
 ```python
 # model parameters
@@ -183,7 +183,7 @@ for _ in range(n_epochs):
 ```
 
 
-### Multilayer Perceptron in Fed-BioMed with Pytorch: model training loop
+### Multilayer Perceptron in Fed-BioMed with Pytorch: model training loop (same example as previous one but transposed to Fed-BioMed)
 
 ```python
 model_args = {}
