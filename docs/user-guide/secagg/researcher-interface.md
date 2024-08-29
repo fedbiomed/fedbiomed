@@ -8,7 +8,7 @@ Researcher component is responsible for managing secure aggregation context setu
 ### Activation
 
 By default, secure aggregation is deactivated in [`Experiment`][fedbiomed.researcher.federated_workflows.Experiment] class. It can
-be activated by setting the `secagg` as `True`, and the default secure aggregation scheme is [LOM](./instroduction.md#low-overhead-masking-lom).
+be activated by setting the `secagg` as `True`, and the default secure aggregation scheme is [LOM](./introduction.md#low-overhead-masking-lom).
 
 ```python
 from fedbiomed.researcher.federated_workflows import Experiment
@@ -38,7 +38,7 @@ Experiment(
     `epochs` in [`training_args`](../researcher/experiment.md#controlling-the-number-of-training-loop-iterations) is strongly recommended for secure aggregation.
 
 
-The argument `scheme` of [`SecureAggregation`][fedbiomed.researcher.secagg.SecureAggregation] allows to select secure aggregation scheme that is going to be used. However, schemes may require different pre or post configuration on the node side and researcher side. Therefore,  please carefully read the [configuration][./configuration.md] guide before changing secure aggregation scheme.
+The argument `scheme` of [`SecureAggregation`][fedbiomed.researcher.secagg.SecureAggregation] allows to select secure aggregation scheme that is going to be used. However, schemes may require different pre or post configuration on the node side and researcher side. Therefore,  please carefully read the [configuration](./configuration.md) guide before changing secure aggregation scheme.
 
 ```python
 from fedbiomed.researcher.secagg import SecureAggregation, SecureAggregationSchemes
@@ -50,17 +50,17 @@ exp = Experiment(tags=tags,
                  round_limit=rounds,
                  aggregator=FedAverage(),
                  node_selection_strategy=None,
-                 secagg=SecureAggregation(scheme=SecureAggregationSchemes.JOYE_LIBERT), # or custom SecureAggregation(active=<bool>, clipping_range=<int>)
+                 secagg=SecureAggregation(scheme=SecureAggregationSchemes.JOYE_LIBERT),
+                 # or custom SecureAggregation(active=<bool>, clipping_range=<int>)
                  save_breakpoints=True)
 
 ```
 
 ### Timeout
 
-Secure aggregation setup launches MP-SPDZ process in each Fed-BioMed component that participates in the federated training.
+Secure aggregation setup starts specific processing in each Fed-BioMed component that participates in the federated training.
 However, these processes and communication delay might be longer or shorter than expected depending on number of
-nodes and communication bandwidth. The argument `timeout` allows increasing or decreasing the timeout for secure
-aggregation context setup.
+nodes and communication bandwidth. Default timeouts cannot currently be configured through the user API, it is needed to edit the `researcher.secagg.SecaggContext` in the library for each component accordingly.
 
 ### Clipping Range
 
@@ -102,7 +102,7 @@ takes longer.
 
 ### I want to set secure aggregation context without re-running a round.
 
-It is possible to access the secagg instance through the experiment object in order to reset the secure aggregation context by providing a list of parties and the experiment `experiment_id`. This step work for all secure aggregation schemes.
+It is possible to access the secagg instance through the experiment object in order to reset the secure aggregation context by providing a list of parties and the experiment `experiment_id`. This step works for all secure aggregation schemes.
 
 ```python
 from fedbiomed.researcher.federated_workflows import Experiment

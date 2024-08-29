@@ -514,7 +514,7 @@ Running an experiment means starting the training process by sending train reque
   "dataset_id": "id of the used dataset on this node",
   "training": True,
   "model_args": <args>,
-  "params": <model weigths>,
+  "params": <model weights>,
   "training_plan": "<training plan code>",
   "training_plan_class": "MyTrainingPlan",
   "command": "train",
@@ -549,7 +549,7 @@ an example of `training_reply` from a node.
    "msg":"",
    "command":"train",
   "state_id": "state id for new round this experiment on this node",
-  "params": <model weigths>,
+  "params": <model weights>,
   ...
 }
 
@@ -561,7 +561,7 @@ it downloads the model parameters that are indicated in the training replies. It
 based on a given aggregation class/algorithm. This process is repeated until every round is completed. Please see Figure 1
 to understand how federated training is performed between the nodes and the Researcher (`Experiment`) component.
 
-![Federated training workflow](../../assets/img/diagrams/Fed-BioMedFederatedTrainingProcessFlow.jpg#img-centered-lr)
+![Federated training workflow](../../assets/img/diagrams/fedbiomed-workflow.jpg#img-centered-xlr)
 *Figure 2 - Federated training workflow among the components of Fed-BioMed. It illustrates the messages
 exchanged between `Researcher` and 2 `Nodes` during a Federated Training*
 

@@ -130,11 +130,11 @@ class DefaultStrategy(Strategy):
                 encryption_factors[tr["node_id"]] = tr.get("encryption_factor", None)
 
                 if tr["sample_size"] is None:
-                    # if a Node `sample_size` is None, we cannot compute the weigths: in this case
+                    # if a Node `sample_size` is None, we cannot compute the weights: in this case
                     # return an error
                     raise FedbiomedStrategyError(ErrorNumbers.FB402.value + f" : Node {tr['node_id']} did not return " +
                                                  "any `sample_size` value (number of samples seen during one Round)," +
-                                                 " can not compute weigths for the aggregation. Aborting")
+                                                 " can not compute weights for the aggregation. Aborting")
                 sample_sizes[tr["node_id"]] = tr["sample_size"]
 
                 total_rows += tr['sample_size']

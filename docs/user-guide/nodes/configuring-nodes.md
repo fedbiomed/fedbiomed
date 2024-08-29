@@ -52,7 +52,7 @@ The configuration file is structured following the sections below:
     - `db`: Relative path to the node's database, from this configuration file
 
 - **MPSDPZ (Secure Aggregation MPC module)**
-    - MP-SDPZ is the library used for secure aggregation to be able to generate private/public keys securely. This library is used only specific secure aggregation scheme is activated (Joye-Libert). Please see the details [Here](../secagg/configuration.md).
+    - MP-SDPZ is the library used for secure aggregation to be able to generate private/public keys securely. This library is used only when specific secure aggregation scheme is activated (Joye-Libert). Please see the details [Here](../secagg/configuration.md).
     - `private_key`: Path to private key to use in secure HTTP connection.
     - `public_key`: Path to public key to share with other parties (nodes and researcher) use in secure HTTP connection.
     - `mpspdz_ip`: The IP address that will be used for launching MP-SPDZ instance.

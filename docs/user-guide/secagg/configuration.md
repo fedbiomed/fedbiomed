@@ -1,7 +1,7 @@
 # Secure Aggregation Configuration
 
 Secure aggregation is implemented in Fed-BioMed and can be activated or deactivated as an option through the
-configuration. Even if secure aggregation is not configured during the initial installation, Fed-BioMed still works as long as the researcher or node component does not activate it.
+configuration. Even if secure aggregation is not configured during the initial installation, Fed-BioMed still works as long as the researcher or node components don't use it.
 
 ## Activating, Deactivating and Forcing Secure Aggregation
 
@@ -16,8 +16,10 @@ the FL round fails. Please refer to the researcher secure aggregation interface 
 
 !!! note "Researcher"
     Researcher configuration file does not have parameter regarding secure aggregation activation. However,
-    secure aggregation context is managed through [Experiment][fedbiomed.researcher.federated_workflows] interface (class).
+    secure aggregation context is managed through [Experiment][fedbiomed.researcher.federated_workflows.Experiment] interface (class).
 
+
+Example: security section of the configuration file with secure aggregation optional.
 
 ```ini
 [security]
@@ -34,6 +36,8 @@ force_secure_aggregation = False
 LOM scheme does not require post-configuration after Fed-BioMed is installed. It is possible to directly activate or force secure aggregation on the node side as it is explained in the section  [Activating, Deactivating and Forcing Secure Aggregation](#activating,-aeactivating-and-forcing-secure-aggregation
 )
 
+Example: security section of the configuration file with secure aggregation mandatory.
+
 ```ini
 [security]
 hashing_algorithm = SHA256
@@ -47,7 +51,7 @@ force_secure_aggregation = True
 ## Joye-Libert Scheme (LOM)
 
 
-If Joye-Libert secure aggregation scheme is going to be used, the infrastructure must have been post-configured for secure aggregation beforehand, after the Fed-BioMed instance  is installed.
+If Joye-Libert secure aggregation scheme is going to be used, the infrastructure must have been post-configured for secure aggregation beforehand, after the Fed-BioMed instance is installed.
 
 To configure an instance for secure aggregation using Joye-Libert, you need to install [MP-SPDZ](./introduction.md#mp-spdz) for multi-party computation and provide communication parameters, such as IP address, port, and SSL certificate. While Fed-BioMed provides magic scripts for configuring communication parameters in development mode, where all instances are launched in the same local environment, these parameters must be manually configured for other Fed-BioMed deployment cases.
 
@@ -58,7 +62,7 @@ Fed-BioMed provides pre-compiled MP-SPDZ protocols and scripts for Linux-based o
 for Darwin-based operating systems, MP-SPDZ must be compiled from its source code. Fed-BioMed provides a script
 that eases this process by distinguishing the operating system and performing the installation.
 
-To install or configure existing pre-compiled MP-SPDZ scripts for a `Node component`, please run following command.
+To install or configure existing pre-compiled MP-SPDZ scripts for a node component, please run following command.
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg node
