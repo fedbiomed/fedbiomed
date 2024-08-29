@@ -1,8 +1,6 @@
 # Managing Secure Aggregation on Researcher Side
 
-Researcher component is responsible for managing secure aggregation context setup that prepares necessary
-elements to apply secure aggregation over encrypted model parameters. Some nodes might require secure aggregation
-while some of them don't, and some others don't support secure aggregation. Therefore, end-user (researcher) should activate secure aggregation depending on all participating nodes configuration.
+Researcher component is responsible for managing secure aggregation context setup that prepares necessary elements to apply secure aggregation over encrypted model parameters. Some nodes might require secure aggregation while some of them don't, and some others don't support secure aggregation. Therefore, end-user (researcher) should activate secure aggregation depending on all participating nodes configuration.
 
 
 ## Managing secure aggregation through Experiment
@@ -10,7 +8,7 @@ while some of them don't, and some others don't support secure aggregation. Ther
 ### Activation
 
 By default, secure aggregation is deactivated in [`Experiment`][fedbiomed.researcher.federated_workflows.Experiment] class. It can
-be activated by setting the `secagg` as `True`.
+be activated by setting the `secagg` as `True`, and the default secure aggregation scheme is [LOM](./introduction.md#low-overhead-masking-lom).
 
 ```python
 from fedbiomed.researcher.federated_workflows import Experiment
@@ -40,12 +38,29 @@ Experiment(
     `epochs` in [`training_args`](../researcher/experiment.md#controlling-the-number-of-training-loop-iterations) is strongly recommended for secure aggregation.
 
 
+The argument `scheme` of [`SecureAggregation`][fedbiomed.researcher.secagg.SecureAggregation] allows to select secure aggregation scheme that is going to be used. However, schemes may require different pre or post configuration on the node side and researcher side. Therefore,  please carefully read the [configuration](./configuration.md) guide before changing secure aggregation scheme.
+
+```python
+from fedbiomed.researcher.secagg import SecureAggregation, SecureAggregationSchemes
+
+exp = Experiment(tags=tags,
+                 model_args=model_args,
+                 training_plan_class=MyTrainingPlan,
+                 training_args=training_args,
+                 round_limit=rounds,
+                 aggregator=FedAverage(),
+                 node_selection_strategy=None,
+                 secagg=SecureAggregation(scheme=SecureAggregationSchemes.JOYE_LIBERT),
+                 # or custom SecureAggregation(active=<bool>, clipping_range=<int>)
+                 save_breakpoints=True)
+
+```
+
 ### Timeout
 
-Secure aggregation setup launches MP-SPDZ process in each Fed-BioMed component that participates in the federated training.
+Secure aggregation setup starts specific processing in each Fed-BioMed component that participates in the federated training.
 However, these processes and communication delay might be longer or shorter than expected depending on number of
-nodes and communication bandwidth. The argument `timeout` allows increasing or decreasing the timeout for secure
-aggregation context setup.
+nodes and communication bandwidth. Default timeouts cannot currently be configured through the user API, it is needed to edit the `researcher.secagg.SecaggContext` in the library for each component accordingly.
 
 ### Clipping Range
 
@@ -87,8 +102,7 @@ takes longer.
 
 ### I want to set secure aggregation context without re-running a round.
 
-It is possible to access the secagg instance through the experiment object in order to reset the secure
-aggregation context by providing a list of parties and the experiment `experiment_id`.
+It is possible to access the secagg instance through the experiment object in order to reset the secure aggregation context by providing a list of parties and the experiment `experiment_id`. This step works for all secure aggregation schemes.
 
 ```python
 from fedbiomed.researcher.federated_workflows import Experiment
@@ -112,3 +126,5 @@ exp.secagg.setup(
     force=True
 )
 ```
+
+The outcome of the setup action can vary depending on the secure aggregation scheme used. For example, in the Joye-Libert scheme, the setup action generates a `biprime` and `servkey`. In contrast, the LOM scheme only tracks the secure aggregation setup status of the participating nodes. This ensures that all participating nodes have created their own context/elements for training before the system sends the train request.
