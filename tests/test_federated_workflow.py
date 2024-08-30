@@ -11,7 +11,8 @@ from testsupport.fake_researcher_secagg import FakeSecAgg
 #############################################################
 
 import fedbiomed
-from fedbiomed.common.constants import __breakpoints_version__
+from fedbiomed.common.constants import __breakpoints_version__, SecureAggregationSchemes
+from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.federated_workflows import FederatedWorkflow
@@ -197,6 +198,11 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         with self.assertRaises(SystemExit):
             exp.set_secagg('invalid')
 
+        bad_schemes = [False, 3, None, 'scheme', [SecureAggregationSchemes.LOM]]
+        for scheme in bad_schemes:
+            with self.assertRaises(SystemExit):
+                exp.set_secagg(True, scheme)
+
     def test_federated_workflow_08_consistency_fds_tags(self):
 
         self.fake_search_reply = {'node1': [{'my-metadata': 'is-the-best', 'tags': ['some-tags']}]}
@@ -236,56 +242,61 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
                      spec=SecureAggregation) as secure_aggregation_mock,):
             FakeSecAgg.arg_train_arguments = {'secagg': 'arguments'}
             _secagg = FakeSecAgg()
+
             # normal call
-            def configure_secagg_context(active):
-                if active:
-                    _secagg.active = True
-                else:
-                    _secagg.active = False
-            # _secagg.side_effect = configure_secagg_context
             _secagg.active = True
             secure_aggregation_mock.return_value = _secagg
-            
             exp = FederatedWorkflow(secagg=True)
 
             secagg_args = exp.secagg_setup(['sampled-node-1', 'sampled-node-2'])
+
             _secagg.setup.assert_called_once_with(parties=[environ["ID"], 'sampled-node-1', 'sampled-node-2'],
                                                   experiment_id=exp.id)
             self.assertDictEqual(secagg_args, {'secagg': 'arguments'})
+
             # call with empty nodes list ...
             _secagg.reset_mock()
- 
-            _secagg.train_arguments.return_value = {'secagg': 'arguments'}
-
-            #mock_secagg.return_value = _secagg
-            ## ... case where secagg is inactive
-            # FIXME: cannot manage to make it work....
             exp = FederatedWorkflow(secagg=False)
             _secagg.active = False
+
             secagg_args = exp.secagg_setup([])
+
             _secagg.setup.assert_not_called()
             self.assertDictEqual(secagg_args, {})
 
-
-            ## ... case where secagg is active
+            ## ... case where secagg is active but no nodes
+            _secagg.reset_mock()
             exp = FederatedWorkflow(secagg=True)
             _secagg.active = True
+
             secagg_args = exp.secagg_setup([])
+
             _secagg.setup.assert_called_once_with(parties=[environ["ID"]],
                                                   experiment_id=exp.id)
 
             self.assertDictEqual(secagg_args, {'secagg': 'arguments'})
 
-            # deactivate secagg
+            # deactivate secagg, but one ndoe
             _secagg.reset_mock()
             _secagg.active = False
-            _secagg.train_arguments.return_value = {'s':1}
 
             exp = FederatedWorkflow(secagg=True)
 
             secagg_args = exp.secagg_setup(['sampled-nodes'])
             self.assertEqual(_secagg.setup.call_count, 0)
             self.assertDictEqual(secagg_args, {})
+
+            # case where `_secagg.setup()` fails
+            _secagg.reset_mock()
+            _secagg.active = True
+            _secagg.setup.return_value = False
+            for nodes in [
+                [],
+                ['sampled-nodes'],
+                ['sampled-node-1', 'sampled-node-2'],
+            ]:
+                with self.assertRaises(FedbiomedSecureAggregationError):
+                    exp.secagg_setup(nodes)
 
         # do not mock whole secagg module, and test that calling setup_secagg when secagg is inactive is a
         # noop that returns an empty dict
