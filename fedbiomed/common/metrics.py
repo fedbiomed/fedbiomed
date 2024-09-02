@@ -363,7 +363,7 @@ class Metrics(object):
         y_pred = np.array(y_pred)
         y_true = np.array(y_true)
 
-        # Special case to support batch_size=1: issue #1033
+        # Special case to support batch_size=1: issue #1013
         if y_true.ndim == 2 and len(y_true[0]) == 1:
             y_true = np.squeeze(y_true)
 
@@ -378,7 +378,8 @@ class Metrics(object):
 
         if y_pred.shape[0] != y_true.shape[0]:
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions and true values should have"
-                                       f"equal number of samples, {len(y_true)}, {len(y_pred)}")
+                                       f"equal number of samples, but got y_true = {len(y_true)}, and"
+                                       f" y_pred= {len(y_pred)}")
 
         # Get shape of the prediction should be 1D or 2D array
         shape_y_pred = y_pred.shape
