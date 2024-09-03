@@ -22,7 +22,6 @@ from fedbiomed.common.utils import get_existing_component_db_names, \
     get_all_existing_certificates, \
     get_method_spec, \
     ROOT_DIR
-from fedbiomed.common.secagg_manager import SecaggBiprimeManager
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import CONFIG_FOLDER_NAME
 
@@ -381,7 +380,7 @@ class CommonCLI:
         # Add certificate sub parser (sub-command)
         certificate_parser = self._subparsers.add_parser(
             'certificate',
-            help="Command to manage certificates in node and researcher components. " 
+            help="Command to manage certificates in node and researcher components. "
                  "Please see 'certificate --help' for more information.",
             prog="fedbiomed_run [ node | researcher ] [--config [CONFIG_FILE]] certificate",
         )

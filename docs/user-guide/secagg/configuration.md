@@ -94,8 +94,6 @@ private_key = certs/cert_node_e0394bff-4684-4f84-9c84-6c5e3c683dcb/MPSPDZ_certif
 public_key = certs/cert_node_e0394bff-4684-4f84-9c84-6c5e3c683dcb/MPSPDZ_certificate.pem
 mpspdz_ip = localhost
 mpspdz_port = 14000
-allow_default_biprimes = True
-
 ```
 
 Node configuration file has extra variables under `security` section regarding secure aggregation
@@ -154,7 +152,6 @@ private_key = certs/cert_node_e0394bff-4684-4f84-9c84-6c5e3c683dcb/MPSPDZ_certif
 public_key = certs/cert_node_e0394bff-4684-4f84-9c84-6c5e3c683dcb/MPSPDZ_certificate.pem
 mpspdz_ip = localhost
 mpspdz_port = 14000
-allow_default_biprimes = True
 ```
 
 #### Setting IP and PORT through environment variables

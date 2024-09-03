@@ -127,18 +127,6 @@ class ComponentType(_BaseEnum):
     NODE: int = 2
 
 
-
-class BiprimeType(_BaseEnum):
-    """Constant values for secure aggregation biprime type that will be saved into db
-
-    Attributes:
-        DYNAMIC: means biprime dynamically added after negoti
-        DEFAULT: means biprime is a default one provided by Fed-BioMed
-    """
-    DYNAMIC = 'dynamic'
-    DEFAULT = 'default'
-
-
 class HashingAlgorithms(_BaseEnum):
     """Enumeration class, used to characterize the hashing algorithms"""
 
@@ -260,12 +248,10 @@ class SecaggElementTypes(_BaseEnum):
 
     Attributes:
         SERVER_KEY: server key split between the parties
-        BIPRIME: biprime shared between the parties
         DIFFIE_HELLMAN: one pair of DH key for each node party, public key shared with other node parties
     """
     SERVER_KEY: int = 0
-    BIPRIME: int = 1
-    DIFFIE_HELLMAN: int = 2
+    DIFFIE_HELLMAN: int = 1
 
     @staticmethod
     def get_element_from_value(element_value: int):

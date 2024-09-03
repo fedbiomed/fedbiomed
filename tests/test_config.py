@@ -13,16 +13,13 @@ class BaseConfigTest(unittest.TestCase):
     def setUp(self):
         self.patch_fed_folders = patch('fedbiomed.common.config.create_fedbiomed_setup_folders')
         self.patch_open = patch('builtins.open')
-        
-        self.patch_biprime_manager = patch('fedbiomed.common.config.SecaggBiprimeManager')
-        self.biprime_manager = self.patch_biprime_manager.start()
+
         self.open_mock = self.patch_open.start()
         self.create_fed_folders_mock = self.patch_fed_folders.start()
 
     def tearDown(self):
         self.patch_open.stop()
         self.patch_fed_folders.stop()
-        self.patch_biprime_manager.stop()
 
 
 class TestConfig(BaseConfigTest):
@@ -37,7 +34,6 @@ class TestConfig(BaseConfigTest):
     def tearDown(self):
 
         self.patch_.stop()
-        pass
 
         return super().tearDown()
 

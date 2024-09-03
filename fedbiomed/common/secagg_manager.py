@@ -13,8 +13,11 @@ import json
 from tinydb import TinyDB, Query
 
 from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
-from fedbiomed.common.constants import ErrorNumbers, BiprimeType, SecaggElementTypes, \
+from fedbiomed.common.constants import (
+    ErrorNumbers,
+    SecaggElementTypes,
     __secagg_element_version__
+)
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
@@ -23,13 +26,6 @@ from fedbiomed.common.validator import Validator, ValidatorError, SchemeValidato
 
 
 _TableName = 'SecaggManager'
-_DefaultBiprimeValidator = SchemeValidator({
-    'secagg_version': {"rules": [str], "required": True},
-    'secagg_id': {"rules": [str], "required": True},
-    'biprime': {"rules": [int], "required": True},
-    'max_keysize': {"rules": [int], "required": True},
-})
-
 
 class _SecaggTableSingleton(metaclass=SingletonMeta):
     """Imstantiate secagg table object as singleton to ensure coherent acccess.
@@ -333,232 +329,6 @@ class SecaggServkeyManager(BaseSecaggManager):
                                                        experiment_id,
                                                        'removing')
         return self._remove_generic(secagg_id, SecaggElementTypes.SERVER_KEY)
-
-
-class SecaggBiprimeManager(BaseSecaggManager):
-    """Manage the component biprime secagg element database table
-    """
-
-    def __init__(self, db_path: str):
-        """Constructor of the class
-
-        Args:
-            db_path: path to the component's secagg database
-        """
-        super().__init__(db_path)
-
-        self._v = Validator()
-
-    def is_default_biprime(self, secagg_id: str) -> bool:
-        """Search for default (non dynamic) data entry with given `secagg_id` in the biprime table.
-
-        Args:
-            secagg_id: secure aggregation ID key to search
-
-        Returns:
-            True if a default biprime entry exists for this `secagg_id`, False if not
-        """
-        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
-        element = self._get_generic(secagg_id)
-        return isinstance(element, dict) and 'type' in element and element['type'] == BiprimeType.DEFAULT.value
-
-    def get(self, secagg_id: str, experiment_id: None = None) -> Union[dict, None]:
-        """Search for data entry with given `secagg_id` in the secagg table
-
-        Check that there is at most one entry with this unique secagg ID.
-
-        Args:
-            secagg_id: secure aggregation ID key to search
-            experiment_id: unused argument.
-
-        Returns:
-            A dict containing all values for the secagg element for this `secagg_id` if it exists,
-                or None if no element exists for this `secagg_id`
-        """
-        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
-        element = self._get_generic(secagg_id)
-        self._raise_error_incompatible_requested_entry(element,
-                                                       SecaggElementTypes.BIPRIME,
-                                                       secagg_id,
-                                                       None,  # a biprime is not associated to a specific experiment
-                                                       'getting')
-
-        # type is internal to this class, need not transmit to caller
-        if isinstance(element, dict) and 'type' in element:
-            # `deepcopy` avoids  any risk of error related to database implementation
-            element = copy.deepcopy(element)
-            del element['type']
-
-        return element
-
-    def add(
-            self,
-            secagg_id: str,
-            parties: List[str],
-            context: Dict[str, int],
-            experiment_id: None = None
-    ) -> None:
-        """Add a new data entry for a context element in the secagg table
-
-        Check that no entry exists yet for this `secagg_id` in the table.
-
-        Args:
-            secagg_id: secure aggregation ID key of the entry
-            parties: list of parties participating in this secagg context element
-            context: the (full) biprime number shared with other parties
-            experiment_id: unused argument
-        """
-        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
-        self._add_generic(
-            SecaggElementTypes.BIPRIME,
-            secagg_id,
-            parties,
-            {
-                'context': context,
-                'type': BiprimeType.DYNAMIC.value
-            }
-        )
-
-    def remove(self, secagg_id: str, experiment_id: None = None) -> bool:
-        """Remove data entry for this `secagg_id` from the secagg table
-
-        Args:
-            secagg_id: secure aggregation ID key of the entry
-            experiment_id: unused argument
-
-        Returns:
-            True if an entry existed (and was removed) for this `secagg_id`,
-                False if no entry existed for this `secagg_id`
-
-        Raises:
-            FedbiomedSecaggError: trying to remove a non-dynamic biprime
-
-        """
-        # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
-
-        # Can only remove dynamic biprimes
-        element = self._get_generic(secagg_id)
-        if isinstance(element, dict) and ('type' not in element or element['type'] != BiprimeType.DYNAMIC.value):
-            errmess = f'{ErrorNumbers.FB623.value}: not authorized to remove non-dynamic biprime "{secagg_id}"'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-
-        return self._remove_generic(secagg_id, SecaggElementTypes.BIPRIME)
-
-    def _read_default_biprimes(self, default_biprimes_dir: str) -> List[Dict]:
-        """Read default biprime files and check default biprime format
-
-        Args:
-            default_biprimes_dir: directory containing the default biprimes files
-
-        Returns:
-            a list of dictionaries, each one containing a default biprime
-
-        Raises:
-            FedbiomedSecaggError: cannot read biprime files
-            FedbiomedSecaggError: badly formatted default biprime
-        """
-        default_biprimes = []
-
-        for bp_file in os.listdir(default_biprimes_dir):
-            if not bp_file.endswith('.json'):
-                continue
-
-            # Read default biprimes files
-            logger.debug(f'Reading default biprime file "{bp_file}"')
-            try:
-                with open(os.path.join(default_biprimes_dir, bp_file)) as json_file:
-                    biprime = json.load(json_file)
-            except Exception as e:
-                errmess = f'{ErrorNumbers.FB623.value}: cannot parse default biprime file "{bp_file}" : {e}'
-                logger.error(errmess)
-                raise FedbiomedSecaggError(errmess)
-
-            # Check default biprimes content
-            try:
-                _DefaultBiprimeValidator.validate(biprime)
-            except ValidatorError as e:
-                errmess = f'{ErrorNumbers.FB623.value}: bad biprime format in file "{bp_file}": {e}'
-                logger.error(errmess)
-                raise FedbiomedSecaggError(errmess)
-
-            if not biprime['secagg_id']:
-                errmess = f'{ErrorNumbers.FB623.value}: bad biprime `secagg_id`` in file "{bp_file}" ' \
-                          'must be a non-empty string'
-                logger.error(errmess)
-                raise FedbiomedSecaggError(errmess)
-
-            default_biprimes.append(biprime)
-
-        return default_biprimes
-
-    def update_default_biprimes(self, allow_default_biprimes: bool, default_biprimes_dir: str) -> None:
-        """Update the default entries in the biprime table.
-
-        If `allow_default_biprimes` is True, then add or update the default biprimes from the *.json
-            files in `default_biprimes_dir` directory.
-
-        In all cases, remove the other default biprimes existing in the biprime table.
-
-        Args:
-            allow_default_biprimes: if True, then accept default biprimes from files
-            default_biprimes_dir: directory containing the default biprimes files
-
-        Raises:
-            FedbiomedSecaggError: cannot update default biprimes
-        """
-        # Read and check the new proposed default biprime values from files
-        if allow_default_biprimes:
-            default_biprimes_new = self._read_default_biprimes(default_biprimes_dir)
-        else:
-            default_biprimes_new = []
-
-        # Read the existing default biprimes in DB
-        try:
-            default_biprimes_current = self._table.search(
-                self._query.type.exists() &
-                (self._query.type == BiprimeType.DEFAULT.value)
-            )
-        except Exception as e:
-            errmess = f'{ErrorNumbers.FB623.value}: database search operation failed for default biprimes: {e}'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-
-        # Remove existing default biprimes not in the new proposed values
-        bp_new_ids = set(bp['secagg_id'] for bp in default_biprimes_new)
-        bp_current_ids = set(bp['secagg_id'] for bp in default_biprimes_current)
-        bp_remove_ids = list(bp_current_ids - bp_new_ids)
-
-        try:
-            self._table.remove(self._query.secagg_id.one_of(bp_remove_ids))
-        except Exception as e:
-            errmess = f'{ErrorNumbers.FB623.value}: database remove operation failed for ' \
-                      f'obsolete default biprimes {bp_remove_ids}: {e}'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-
-        # Save or update the new default biprimes
-        for bp in default_biprimes_new:
-            try:
-                self._table.upsert(
-                    {
-                        'secagg_version': bp['secagg_version'],
-                        'secagg_id': bp['secagg_id'],
-                        'parties': None,
-                        'secagg_elem': SecaggElementTypes.BIPRIME.value,
-                        'type': BiprimeType.DEFAULT.value,
-                        'context': {
-                            'biprime': bp['biprime'],
-                            'max_keysize': bp['max_keysize']
-                        },
-                    },
-                    self._query.secagg_id == bp['secagg_id']
-                )
-            except Exception as e:
-                errmess = f'{ErrorNumbers.FB623.value}: database upsert operation failed for ' \
-                          f'default biprime {bp["secagg_id"]}: {e}'
-                logger.error(errmess)
-                raise FedbiomedSecaggError(errmess)
 
 
 class SecaggDhManager(BaseSecaggManager):
