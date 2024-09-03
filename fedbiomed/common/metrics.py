@@ -257,18 +257,15 @@ class Metrics(object):
         """
 
         # Set multiouput as raw_values is it is not defined by researcher
-        if len(y_true.shape) > 1:
-            multi_output = kwargs.get('multioutput', 'raw_values')
-        else:
-            multi_output = None
-
+        multi_output = kwargs.get('multioutput', 'raw_values')
         kwargs.pop('multioutput', None)
 
         try:
             return metrics.mean_squared_error(y_true, y_pred, multioutput=multi_output, **kwargs)
         except Exception as e:
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_SQUARED_ERROR`"
-                                       f" {str(e)}")
+            raise FedbiomedMetricError(
+                f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_SQUARED_ERROR`"
+                f" {str(e)}") from e
 
     @staticmethod
     def mae(y_true: Union[np.ndarray, list],
@@ -290,11 +287,7 @@ class Metrics(object):
             FedbiomedMetricError: raised if above sklearn method for computing precision raises
         """
         # Set multiouput as raw_values is it is not defined by researcher
-        if len(y_true.shape) > 1:
-            multi_output = kwargs.get('multioutput', 'raw_values')
-        else:
-            multi_output = None
-
+        multi_output = kwargs.get('multioutput', 'raw_values')
         kwargs.pop('multioutput', None)
 
         try:
@@ -325,18 +318,15 @@ class Metrics(object):
         """
 
         # Set multiouput as raw_values is it is not defined by researcher
-        if len(y_true.shape) > 1:
-            multi_output = kwargs.get('multioutput', 'raw_values')
-        else:
-            multi_output = None
-
+        multi_output = kwargs.get('multioutput', 'raw_values')
         kwargs.pop('multioutput', None)
 
         try:
             return metrics.explained_variance_score(y_true, y_pred, multioutput=multi_output, **kwargs)
         except Exception as e:
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `EXPLAINED_VARIANCE`"
-                                       f" {str(e)}")
+            raise FedbiomedMetricError(
+                f"{ErrorNumbers.FB611.value}: Error during calculation of `EXPLAINED_VARIANCE`"
+                f" {str(e)}") from e
 
     @staticmethod
     def _configure_y_true_pred_(y_true: Union[np.ndarray, list],

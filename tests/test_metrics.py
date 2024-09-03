@@ -151,7 +151,7 @@ class TestMetrics(unittest.TestCase):
         y_pred = [12.5, 11.5, 10.5, 19.5]
         r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
         self.assertEqual(r, .5)
-        
+
         # F1 SCORE -----------------------------------------------------------------------------
         y_true = [2.5, 0.1, 1.1, 2.2]
         y_pred = [2.5, 0.1, 1.2, 2.2]

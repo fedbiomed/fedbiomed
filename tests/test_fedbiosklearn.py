@@ -230,12 +230,12 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
 
         # First scenario: assert that number of training iterations is correct
         training_plan._training_args['batch_maxnum'] = None
-       
+
         #base_estimator.get_params = MagicMock(spec=dict, return_value=1)
         training_plan._model = MagicMock(spec=SkLearnModel)
         training_plan._model.get_params = MagicMock(spec=dict, return_value=1)
         training_plan._model.set_params = MagicMock()
-        
+
         training_plan._model.verbose = True
         with (patch.object(training_plan, '_train_over_batch', return_value=0.) as mocked_train,
                 patch.object(training_plan, 'model', return_value=training_plan._model)):
@@ -252,7 +252,7 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
         training_plan._training_args['log_interval'] = 1
 
         history_monitor = MagicMock(spec=fedbiomed.node.history_monitor.HistoryMonitor)
-        with (patch.object(training_plan, '_train_over_batch', return_value=0.) as mocked_train, 
+        with (patch.object(training_plan, '_train_over_batch', return_value=0.) as mocked_train,
               patch.object(training_plan, 'model', return_value=training_plan._model)):
             training_plan._training_routine(history_monitor=history_monitor)
             self.assertEqual(mocked_train.call_count, 1)
@@ -543,7 +543,7 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
             # for this specific case. For now it works but we may have to relax the constraint
             # to something like assert_called_once() in the future if the models default to
             # different values.
-            history_monitor.add_scalar.assert_called_once_with(metric={'MEAN_SQUARE_ERROR': 0.5},
+            history_monitor.add_scalar.assert_called_once_with(metric={'MEAN_SQUARE_ERROR_1': 0.5},
                                                                iteration=1,
                                                                epoch=None,
                                                                test=True,
@@ -698,13 +698,13 @@ class TestSklearnFedPerceptron(unittest.TestCase):
     """Specific tests for Federated Perceptron model"""
     def setUp(self) -> None:
         pass
-    
+
     def tearDown(self) -> None:
         pass
-    
+
     def test_sklearnperceptron_01_defaultvalues(self):
         """Test for bug related to issue #498: Incorrect Perceptron defaultvalues for sklearn models
-        
+
         Purpose of the test is to make sure default values of Perceptron are the same for FedPerceptron and for the regular sklearn
         Perceptron model
         """
@@ -712,13 +712,13 @@ class TestSklearnFedPerceptron(unittest.TestCase):
         fed_perp = FedPerceptron()
         fed_perp.post_init({'n_classes': 2, 'n_features': 2}, FakeTrainingArgs())
         sk_perceptron = Perceptron()
-        
+
         for (fed_name_param, fed_value) in sk_perceptron.get_params().items():
             if fed_name_param != 'verbose':
                 self.assertEqual(fed_value, fed_perp._model.get_params(fed_name_param))
 
         # with a few values set by end-user
-        
+
         values_sets = (
             {'penalty': None, 'shuffle': True, 'tol': .03},
             {'penalty': 'l1', 'fit_intercept': True, 'tol': .06, 'eta0': .01},

@@ -115,15 +115,15 @@ class TestSkLearnModelBuilder(unittest.TestCase):
             for attribute, copied_attribute in zip(model._instance.__dict__, copied_model._instance.__dict__):
                 self.assertNotEqual(id(getattr(model._instance,attribute)), id(getattr(copied_model._instance, copied_attribute)),
                                     f"deep copy failed, attribute {attribute} {copied_attribute} have shared refrences!")
-            
+
 
             # check that model parameters are not the same
             model.set_init_params({'n_classes': 2, 'n_features': 4})
             copied_model.set_init_params({'n_classes': 2, 'n_features': 4})
             for layer_name in model.param_list:
-                
+
                 self.assertNotEqual(id(getattr(model.model, layer_name)), id(getattr(copied_model.model, layer_name)))
-            
+
             new_weights = {layer: np.random.normal(size=getattr(model.model, layer).shape) for layer in model.param_list}
             model.set_weights(new_weights)
             for layer_name in model.param_list:
@@ -138,7 +138,7 @@ class TestSkLearnModel(unittest.TestCase):
         self.models = (SGDClassifier, SGDRegressor)
 
         self.declearn_optim = Optimizer(lrate=.01, modules=[MomentumModule(.1)])
-        
+
         # create dummy data
         data_2d = np.array([[1, 2, 3, 1, 2, 3],
                             [1, 2, 0, 1, 2, 3],
@@ -155,7 +155,7 @@ class TestSkLearnModel(unittest.TestCase):
         self.data_collection = (data_1d, data_2d)
         self.targets = np.array([[1], [2], [0], [1], [0], [1], [1], [2], [0], [1], [0]])
         self._n_classes = 3  # number of classes in the data_collection
-        
+
     def tearDown(self) -> None:
         logging.disable(logging.NOTSET)
 
@@ -228,7 +228,7 @@ class TestSkLearnModel(unittest.TestCase):
     def test_sklearnmodel_06_sklearn_training_01_plain_sklearn(self):
         # FIXME: this is an more an integration test, but I feel it is quite useful
         # to test the correct execution of the whole training process
-        # Goal fo the test: checking that plain sklearn model has been updated when trained 
+        # Goal fo the test: checking that plain sklearn model has been updated when trained
         # using `Model` interface
         _n_classes = 3
 
@@ -270,7 +270,7 @@ class TestSkLearnModel(unittest.TestCase):
                          [1, 0,0, 1],
                          [1, 1, 1, 1],
                          [1, 1, 1, 0]])
-        
+
         targets = np.array([[1], [0], [1], [1]])
         random_seed = 1234
         learning_rate = .1234
@@ -293,12 +293,12 @@ class TestSkLearnModel(unittest.TestCase):
             for layer in model.param_list:
                 self.assertTrue(np.all(np.isclose(getattr(model.model, layer),
                                            getattr(init_model.model, layer) + grads[layer])))
-        
+
 
     def test_sklearnmodel_06_sklearn_training_03_declearn_optimizer(self):
 
         n_iter = 10 # number of iterations
-        
+
         for data in self.data_collection:
             for model in self.models:
                 model = SkLearnModel(model)
@@ -549,9 +549,6 @@ class TestTorchModel(unittest.TestCase):
 
     def fake_training_step(self, data, targets):
         output = self.model.model.forward(data)
-
-        output = torch.squeeze(output, dim=1)
-
         loss   = torch.nn.functional.nll_loss(torch.squeeze(output), targets)
         return loss
 
@@ -628,12 +625,14 @@ class TestTorchModel(unittest.TestCase):
 
     def test_torchmodel_07_add_corrections_to_gradients(self):
         self.torch_optim.zero_grad()
-        loss = self.fake_training_step(self.data, self.targets)
 
-        loss.backward()
-        # self.torch_optim.step()
+        for _ in range(0, 2):
+            loss = self.fake_training_step(self.data, self.targets)
+            loss.backward()
+            self.torch_optim.step()
+
         correction_values = (
-            torch.randn(1,   4, requires_grad=True),
+            torch.randn(1, 4, requires_grad=True),
             torch.randn(1, requires_grad=True)
         )
         corrections = {
@@ -643,11 +642,14 @@ class TestTorchModel(unittest.TestCase):
         }
 
         # zeroes gradients model
-        self.model.model.zero_grad()
+        self.model.model.zero_grad(set_to_none=False)
         # action
         self.model.add_corrections_to_gradients(corrections)
+
+
         # checks
         for (layer_name, param), val in zip(self.model.model.named_parameters(), correction_values):
+            param.retain_grad()
             self.assertTrue(torch.all(torch.isclose(param.grad, val)))
 
     def test_torchmodel_08_training(self):

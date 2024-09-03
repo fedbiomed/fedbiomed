@@ -73,7 +73,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._optimizer_args: Dict[str, Any] = None
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
-        
+
         self._error_msg_import_model: str = f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n" +\
                                             "To %s a model, you should do it through `fedbiomed.researcher.federated_workflows.Experiment`'s interface" +\
                                             " and not directly from Training Plan"
@@ -284,7 +284,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or 
+            exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
 
         Returns:
@@ -521,7 +521,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric: The metric used for validation.
                 If None, use MetricTypes.ACCURACY.
             metric_args: dicitonary containing additinal arguments for setting up metric,
-                that maps <argument_name; argument_value> ad that will be passed to the 
+                that maps <argument_name; argument_value> ad that will be passed to the
                 metric function as positinal arguments.
             history_monitor: HistoryMonitor instance,
                 used to record computed metrics and communicate them to
@@ -567,6 +567,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
             num_samples_observed_till_now += self._infer_batch_size(data)
             # Run the evaluation step; catch and raise exceptions.
+            print(data)
+            print(type(data))
+            print("Target")
+            print(target)
+            print(type(target))
             try:
                 m_value = evaluate(data, target)
             except Exception as exc:
@@ -651,9 +656,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         Args:
             filename: path to the file where the model will be saved.
-        
+
         Raises:
-            FedBiomedTrainingPlanError: raised if model has not be initialized through the 
+            FedBiomedTrainingPlanError: raised if model has not be initialized through the
             `post_init` method. If you need to export the model, you must do it through
             [`Experiment`][`fedbiomed.researcher.federated_workflows.Experiment`]'s interface.
 
@@ -680,7 +685,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             filename: path to the file where the model has been exported.
 
         Raises:
-            FedBiomedTrainingPlanError: raised if model has not be initialized through the 
+            FedBiomedTrainingPlanError: raised if model has not be initialized through the
             `post_init` method. If you need to export the model from the Training Plan, you
             must do it through [`Experiment`][`fedbiomed.researcher.federated_workflows.Experiment`]'s
             interface.

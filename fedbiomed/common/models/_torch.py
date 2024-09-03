@@ -66,7 +66,7 @@ class TorchModel(Model):
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or 
+            exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
 
         Returns:
@@ -90,7 +90,7 @@ class TorchModel(Model):
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or 
+            exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
 
         Returns:
@@ -117,7 +117,7 @@ class TorchModel(Model):
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or 
+            exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
 
         Returns:
