@@ -23,17 +23,14 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
 
         super().setUp(module="fedbiomed.researcher.secagg._secagg_context.Requests")
         self.p1 = patch('fedbiomed.researcher.secagg._secure_aggregation.SecaggServkeyContext.setup', autospec=True)
-        self.p2 = patch('fedbiomed.researcher.secagg._secure_aggregation.SecaggBiprimeContext.setup', autospec=True)
 
         self.p1.start()
-        self.p2.start()
 
         self.secagg = JoyeLibertSecureAggregation()
 
     def tearDown(self) -> None:
         super().tearDown()
         self.p1.stop()
-        self.p2.stop()
 
     def test_jl_secure_aggregation_01_init_raises(self):
         """Tests invalid argument for __init__"""
@@ -79,21 +76,17 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
         self.assertListEqual(self.secagg._parties, [environ["ID"], "node-1", "node-2", "new_party"])
         self.assertListEqual(self.secagg._parties, [environ["ID"], "node-1", "node-2", "new_party"])
 
-        self.assertIsNotNone(self.secagg._biprime)
         self.assertIsNotNone(self.secagg._servkey)
 
     def test_jl_secure_aggregation_05_secagg_context_ids_and_context(self):
-        """Test getters for secagg biprime and servkey context ids"""
+        """Test getters for secagg and servkey context ids"""
         self.secagg.setup(
             parties=[environ["ID"], "node-1", "node-2", "new_party"],
             experiment_id="exp-id-1",
         )
 
         s_id = self.secagg.servkey
-        b_id = self.secagg.biprime
-
         self.assertTrue(s_id is not None)
-        self.assertTrue(b_id is not None)
 
     def test_jl_secure_aggregation_06_setup(self):
         """Test secagg setup by setting Biprime and Servkey"""
@@ -117,7 +110,7 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
 
         args = self.secagg.train_arguments()
         self.assertListEqual(list(args.keys()), ['secagg_random', 'secagg_clipping_range', 'secagg_scheme',
-                                                 'parties', 'secagg_servkey_id', 'secagg_biprime_id'])
+                                                 'parties', 'secagg_servkey_id'])
 
     def test_jl_secure_aggregation_08_aggregate(self):
         """Tests aggregate method"""
@@ -134,7 +127,7 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
             experiment_id="exp-id-1",
         )
 
-        # Raises since biprime and servkey status are False
+        # Raises since servkey status are False
         with self.assertRaises(FedbiomedSecureAggregationError):
             self.secagg.aggregate(round_=1,
                                   total_sample_size=100,
@@ -143,13 +136,10 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
                                   )
 
         # Force to set status True
-        self.secagg._biprime._status = True
         self.secagg._servkey._status = True
 
         # Force to set context
-
-        self.secagg._biprime._context = {'context': {'biprime': 1234}}
-        self.secagg._servkey._context = {'context': {'server_key': 1234}}
+        self.secagg._servkey._context = {'context': {'server_key': 1234, "biprime": 1234}}
 
         # raises error if secagg_random is set but encryption factors are not provided
         with self.assertRaises(FedbiomedSecaggCrypterError):
@@ -208,7 +198,7 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
 
         self.assertEqual(state["class"], "JoyeLibertSecureAggregation")
         self.assertEqual(state["module"], "fedbiomed.researcher.secagg._secure_aggregation")
-        self.assertEqual(list(state["attributes"].keys()), ['_experiment_id', '_parties', '_biprime', '_servkey'])
+        self.assertEqual(list(state["attributes"].keys()), ['_experiment_id', '_parties', '_servkey'])
         self.assertEqual(list(state["arguments"].keys()), ['active', 'clipping_range'])
 
     def test_jl_secure_aggregation_10_load_state_breakpoint(self):
@@ -221,15 +211,11 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
             experiment_id="exp-id-1",
         )
 
-        biprime_id = self.secagg.biprime.secagg_id
         servkey_id = self.secagg.servkey.secagg_id
-
         state = self.secagg.save_state_breakpoint()
 
         # Load from state
         secagg = JoyeLibertSecureAggregation.load_state_breakpoint(state)
-
-        self.assertEqual(secagg.biprime.secagg_id, biprime_id)
         self.assertEqual(secagg.servkey.secagg_id, servkey_id)
         self.assertEqual(secagg.experiment_id, experiment_id)
         self.assertListEqual(secagg.parties, parties)

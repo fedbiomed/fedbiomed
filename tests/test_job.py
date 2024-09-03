@@ -504,7 +504,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'training_plan_class': mock_tp.__class__.__name__,
             'params': mock_tp.get_model_params(),
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
-            'secagg_biprime_id': secagg_arguments.get('secagg_biprime_id'),
             'secagg_random': secagg_arguments.get('secagg_random'),
             'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
             'command': 'train',

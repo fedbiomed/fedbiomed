@@ -432,7 +432,6 @@ class TestRound(NodeTestCase):
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('uuid.uuid4')
-    @patch("fedbiomed.node.secagg._secagg_round.BPrimeManager.get")
     @patch("fedbiomed.node.secagg._secagg_round.SKManager.get")
     @patch('fedbiomed.node.secagg._secagg_round.DHManager.get')
     @patch("fedbiomed.common.secagg._secagg_crypter.SecaggLomCrypter.encrypt")
@@ -440,7 +439,6 @@ class TestRound(NodeTestCase):
                                                 lom_crypter_encrpyt_patch,
                                                 dhmanager_get,
                                                 servkey_get,
-                                                biprime_get,
                                                 uuid_patch,
                                                 tp_security_manager_patch,
                                                 node_msg_patch,
@@ -468,8 +466,10 @@ class TestRound(NodeTestCase):
 
 
         # Secagg configuration
-        servkey_get.return_value = {"context" : {"server_key": 123445}, "parties": ["r-1", "n-1", "n-2"]}
-        biprime_get.return_value = {"context" : {"biprime": 123445}, "parties": ["r-1", "n-1", "n-2"]}
+        servkey_get.return_value = {
+            "context" : {"server_key": 123445, "biprime": 123445},
+            "parties": ["r-1", "n-1", "n-2"]}
+
         environ["SECURE_AGGREGATION"] = True
         environ["FORCE_SECURE_AGGREGATION"] = True
 
@@ -480,7 +480,6 @@ class TestRound(NodeTestCase):
             "parties": ["r-1", "n-1", "n-2"],
             'secagg_random': 1.12,
             'secagg_servkey_id': '1234',
-            'secagg_biprime_id': '1234',
         })
 
         self.assertTrue(msg_test_jl.success)
@@ -496,7 +495,6 @@ class TestRound(NodeTestCase):
             "parties": ["r-1", "n-1", "n-2"],
             'secagg_random': 1.12,
             'secagg_servkey_id': '1234',
-            'secagg_biprime_id': '1234',
         })
 
         self.assertTrue(msg_test_dh.success)

@@ -57,8 +57,6 @@ The configuration file is structured following the sections below:
     - `public_key`: Path to public key to share with other parties (nodes and researcher) use in secure HTTP connection.
     - `mpspdz_ip`: The IP address that will be used for launching MP-SPDZ instance.
     - `mpsdpz_port`: The port that will be used for launching MP-SPDZ instance.
-    - `allow_default_biprimes`: Boolean (True/False) to allow default biprimes for key generation.
-    - `default_biprimes_dir` ": Relative path to the directory where default biprimes files are kept, from this configuration file
 
 - **Researcher:**
     - `ip`: The IP address of the researcher component that the node will connect to.
@@ -87,8 +85,6 @@ private_key = certs/cert_node_73768d5f-6a66-47de-8533-1291c4ef59d1/MPSPDZ_certif
 public_key = certs/cert_node_73768d5f-6a66-47de-8533-1291c4ef59d1/MPSPDZ_certificate.pem
 mpspdz_ip = localhost
 mpspdz_port = 14004
-allow_default_biprimes = True
-default_biprimes_dir = ../envs/common/default_biprimes
 
 [security]
 hashing_algorithm = SHA256

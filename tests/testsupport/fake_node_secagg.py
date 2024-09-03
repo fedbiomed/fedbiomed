@@ -47,7 +47,3 @@ class FakeSecaggServkeySetup(FakeSecaggSetup):
     def element(self) -> str:
         return SecaggElementTypes.SERVER_KEY
 
-
-class FakeSecaggBiprimeSetup(FakeSecaggSetup):
-    def element(self) -> str:
-        return SecaggElementTypes.BIPRIME

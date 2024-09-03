@@ -32,12 +32,12 @@ from ._config_utils import (
 
 from ._secagg_utils import (
     matching_parties_servkey,
-    matching_parties_biprime,
     matching_parties_dh,
     quantize,
     reverse_quantize,
     multiply,
-    divide
+    divide,
+    get_default_biprime
 )
 
 from ._versions import (
@@ -70,7 +70,6 @@ __all__ = [
     "get_existing_component_db_names",
     "create_fedbiomed_setup_folders",
     "matching_parties_servkey",
-    "matching_parties_biprime",
     "matching_parties_dh",
     "quantize",
     "multiply",
