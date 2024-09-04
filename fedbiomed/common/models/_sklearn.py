@@ -288,13 +288,13 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         #
         # Warning 1: if `disable_internal_optimizer` has not been called before, gradients won't be scaled
         # (you will get un-scaled gradients, that need to be scaled back by dividing gradients by the learning rate)
-        # here is a way to do so (with `lrate` as the learning rate): 
+        # here is a way to do so (with `lrate` as the learning rate):
         # ```python
         # for key, val in self._gradients.items():
         #        val /= lrate
         # ````
         # Warning 2:  `_gradients` has different meanings, when using `disable_internal_optimizer`
-        # if it is not called (ie when using native sklearn optimizer), it is not plain gradients, 
+        # if it is not called (ie when using native sklearn optimizer), it is not plain gradients,
         # but rather the quantity `lr * grads`
 
         # Finally, increment the model's iteration counter.

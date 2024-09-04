@@ -73,7 +73,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._optimizer_args: Dict[str, Any] = None
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
-        
+
         self._error_msg_import_model: str = f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n" +\
                                             "To %s a model, you should do it through `fedbiomed.researcher.federated_workflows.Experiment`'s interface" +\
                                             " and not directly from Training Plan"
@@ -284,7 +284,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or 
+            exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
 
         Returns:
@@ -454,11 +454,15 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         # If `metric` is an array-like structure, convert it.
         if isinstance(metric, torch.Tensor):
             metric = metric.numpy()
+
         if isinstance(metric, np.ndarray):
             metric = list(metric) if metric.shape else float(metric)
-        # If `metric` is a single value, return a {name: value} dict.
-        if isinstance(metric, (int, float, np.integer, np.floating)) and not isinstance(metric, bool):
+
+        # If `metric` is a single value, including [val], return a {name: value} dict.
+        if isinstance(metric, (int, float, np.integer, np.floating)) and not \
+                isinstance(metric, bool):
             return {metric_name: float(metric)}
+
         # If `metric` is a collection.
         if isinstance(metric, (dict, list)):
             if isinstance(metric, list):
@@ -467,24 +471,19 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 ]
             elif isinstance(metric, dict):
                 metric_names = list(metric)
+
             try:
                 values = utils.convert_iterator_to_list_of_python_floats(metric)
             except FedbiomedError as exc:
-                msg = (
+                raise FedbiomedTrainingPlanError(
                     f"{ErrorNumbers.FB605.value}: error when converting "
-                    f"metric values to float - {exc}"
-                )
-                logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg) from exc
+                    f"metric values to float - {exc}") from exc
             return dict(zip(metric_names, values))
-        # Raise if `metric` is of unproper input type.
-        msg = (
+
+        raise FedbiomedTrainingPlanError(
             f"{ErrorNumbers.FB605.value}: metric value should be one of type "
             "int, float, numpy scalar, numpy.ndarray, torch.Tensor, or list "
-            f"or dict wrapping such values; but received {type(metric)}"
-        )
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
+            f"or dict wrapping such values; but received {type(metric)}")
 
     @abstractmethod
     def training_routine(
@@ -521,7 +520,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric: The metric used for validation.
                 If None, use MetricTypes.ACCURACY.
             metric_args: dicitonary containing additinal arguments for setting up metric,
-                that maps <argument_name; argument_value> ad that will be passed to the 
+                that maps <argument_name; argument_value> ad that will be passed to the
                 metric function as positinal arguments.
             history_monitor: HistoryMonitor instance,
                 used to record computed metrics and communicate them to
@@ -651,9 +650,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         Args:
             filename: path to the file where the model will be saved.
-        
+
         Raises:
-            FedBiomedTrainingPlanError: raised if model has not be initialized through the 
+            FedBiomedTrainingPlanError: raised if model has not be initialized through the
             `post_init` method. If you need to export the model, you must do it through
             [`Experiment`][`fedbiomed.researcher.federated_workflows.Experiment`]'s interface.
 
@@ -680,7 +679,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             filename: path to the file where the model has been exported.
 
         Raises:
-            FedBiomedTrainingPlanError: raised if model has not be initialized through the 
+            FedBiomedTrainingPlanError: raised if model has not be initialized through the
             `post_init` method. If you need to export the model from the Training Plan, you
             must do it through [`Experiment`][`fedbiomed.researcher.federated_workflows.Experiment`]'s
             interface.
