@@ -75,7 +75,7 @@ Here is the list of validation arguments that can be configured.
     `ACCURACY`.
  - `test_metric_args`: A dictionary that contains the arguments that will be used for the metric function.
  - `test_batch_size`: A value used to compute metrics using batches instead of
- loading the full testing dataset (specified by `test_ratio`). Setting `test_batch_size` can avoid having [`MemoryError`](https://docs.python.org/3/library/exceptions.html#MemoryError) errors due to large and /or heavy datasets. You should select wisely the batch size and the metric, for some metrics can be meaningless if computed over several batches of data. `test_batch_size` should be greater or equal than `2` (enabled) or equal to `0` or `None` (disabled).
+ loading the full testing dataset (specified by `test_ratio`). Setting `test_batch_size` can avoid having [`MemoryError`](https://docs.python.org/3/library/exceptions.html#MemoryError) errors due to large and /or heavy datasets. You should select wisely the batch size and the metric, for some metrics can be meaningless if computed over several small batches of data (e.g. explained variance). `test_batch_size` should be greater or equal than `1` (enabled) or equal to `0` or `None` (disabled).
 
 !!! info
     Validation functions for each default metric executes functions from scikit-learn framework.
