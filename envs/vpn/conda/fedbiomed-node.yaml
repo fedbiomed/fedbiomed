@@ -44,7 +44,8 @@ dependencies:
       # torch 2.x recently released (2023-03) and not yet supported by some deps including: opacus, declearn
       - torch ~=1.13.0
       - torchvision >=0.14.0,<0.15.0
-      - opacus >=1.4.0,<1.5.0
+      # opacus >= 1.4.1 now require torch >= 2.0
+      - opacus >=1.4.0,<1.4.1
       - monai >=1.1.0,<1.2.0
       # other
       - msgpack ~=1.0

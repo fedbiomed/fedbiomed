@@ -49,7 +49,8 @@ dependencies:
       # torch 2.x recently released (2023-03) and not yet supported by some deps including: opacus, declearn
       - torch ~=1.13.0
       - torchvision >=0.14.0,<0.15.0
-      - opacus >=1.4.0,<1.5.0
+      # opacus >= 1.4.1 now require torch >= 2.0
+      - opacus >=1.4.0,<1.4.1
       - monai >=1.1.0,<1.2.0
       # other
       - msgpack ~=1.0
@@ -61,6 +62,9 @@ dependencies:
       # for nbconvert
       - jupyter-contrib-nbextensions >=0.7.0,<0.8.0
       - pathvalidate ~=3.0.0
+      # temporary: install matplotlib before it is pulled by flamby
+      # matplotlib >= 3.8.4 introduce issue 1176 with current packages version
+      - matplotlib >=3.8.0,<3.8.4
       # FLamby
       - git+https://github.com/owkin/FLamby@main
       # declearn
