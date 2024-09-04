@@ -48,9 +48,6 @@ dependencies:
       - python-minifier ~=2.5.0
       - PyJWT >=2.7.0,<2.8.0
       - Flask-JWT-Extended >=4.4.4,<4.5.0
-      # temporary: install matplotlib before it is pulled by flamby
-      # matplotlib >= 3.8.4 introduce issue 1176 with current packages version
-      - matplotlib >=3.8.0,<3.8.4
       # FLamby
       - git+https://github.com/owkin/FLamby@main
       # declearn
