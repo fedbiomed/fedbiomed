@@ -302,13 +302,21 @@ def test_06_secagg_lom_pytorch_breakpoint(extra_nodes_for_lom):
     )
 
     exp.run()
+    secagg_id_before = exp.secagg.dh.secagg_id
 
     # Delete experiment but do not clear its data
     del exp
 
-    # Load experiment from latest breakpoint and continue training
+    # Load experiment from latest breakpoint
     loaded_exp = Experiment.load_breakpoint()
-    print("Running training round after loading the params")
+
+    # Check that `secagg_id` match (good hint that secagg context was properly reloaded)
+    print("\nAsserting secagg context match after loading the params")
+    secagg_id_after = loaded_exp.secagg.dh.secagg_id
+    assert secagg_id_before, secagg_id_after
+
+    # Continue training
+    print("\nRunning training round after loading the params")
     loaded_exp.run(rounds=2, increase=True)
 
     # Clear

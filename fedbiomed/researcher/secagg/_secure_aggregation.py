@@ -78,7 +78,7 @@ class SecureAggregation:
             },
             "attributes": {},
             "attributes_states": {
-                "__secagg": self.__secagg.save_state_breakpoint()
+                "_SecureAggregation__secagg": self.__secagg.save_state_breakpoint()
             }
         }
 
