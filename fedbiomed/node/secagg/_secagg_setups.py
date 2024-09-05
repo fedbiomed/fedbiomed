@@ -3,32 +3,31 @@
 
 """Secure Aggregation setup on the node"""
 import inspect
-from typing import List, Union
+import uuid
 from abc import ABC, abstractmethod
 from enum import Enum
-import uuid
+from typing import List, Union
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType, \
-    REQUEST_PREFIX
-from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
+from fedbiomed.common.constants import (
+    REQUEST_PREFIX,
+    ComponentType,
+    ErrorNumbers,
+    SecaggElementTypes,
+)
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import KeyRequest
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg import DHKey, DHKeyAgreement
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.utils import get_default_biprime
-
+from fedbiomed.node.environ import environ
+from fedbiomed.node.requests import send_nodes
+from fedbiomed.node.secagg_manager import DHManager, SecaggManager, SKManager
 from fedbiomed.transport.controller import GrpcController
 
-from fedbiomed.node.environ import environ
-from fedbiomed.node.secagg_manager import SKManager, DHManager, SecaggManager
-from fedbiomed.node.requests import send_nodes
-
-
-_CManager = CertificateManager(
-    db_path=environ["DB_PATH"]
-)
+_CManager = CertificateManager(db_path=environ["DB_PATH"])
 
 
 class SecaggBaseSetup(ABC):
@@ -39,11 +38,11 @@ class SecaggBaseSetup(ABC):
     _min_num_parties: int = 3
 
     def __init__(
-            self,
-            researcher_id: str,
-            secagg_id: str,
-            parties: List[str],
-            experiment_id: str,
+        self,
+        researcher_id: str,
+        secagg_id: str,
+        parties: List[str],
+        experiment_id: str,
     ):
         """Constructor of the class.
 
@@ -57,13 +56,15 @@ class SecaggBaseSetup(ABC):
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        errmess: str = ''
+        errmess: str = ""
         if len(parties) < self._min_num_parties:
-            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `parties` : {parties} : need  ' \
-                f'at least {self._min_num_parties} parties for secure aggregation, but got {len(parties)}'
+            errmess = (
+                f"{ErrorNumbers.FB318.value}: bad parameter `parties` : {parties} : need  "
+                f"at least {self._min_num_parties} parties for secure aggregation, but got {len(parties)}"
+            )
 
         if researcher_id is None:
-            errmess = f'{ErrorNumbers.FB318.value}: argument `researcher_id` must be a non-None value'
+            errmess = f"{ErrorNumbers.FB318.value}: argument `researcher_id` must be a non-None value"
 
         if errmess:
             # if one of the above condition is met, raise error
@@ -117,7 +118,7 @@ class SecaggBaseSetup(ABC):
 
         return self._element
 
-    def _create_secagg_reply(self, message: str = '', success: bool = False) -> dict:
+    def _create_secagg_reply(self, message: str = "", success: bool = False) -> dict:
         """Create reply message for researcher after secagg setup phase.
 
         Args:
@@ -133,10 +134,11 @@ class SecaggBaseSetup(ABC):
             logger.error(message)
 
         return {
-            'researcher_id': self._researcher_id,
-            'secagg_id': self._secagg_id,
-            'success': success,
-            'msg': message,
+            "researcher_id": self._researcher_id,
+            "secagg_id": self._secagg_id,
+            "success": success,
+            "msg": message,
+            "share": None,
         }
 
     def setup(self) -> dict:
@@ -151,25 +153,32 @@ class SecaggBaseSetup(ABC):
         # In the case of (possibly) previous secagg setup succeeded on some nodes (which thus
         # created a context) and failed on some nodes, negotiating only on previously failed nodes
         # would result in either negotiation delay/timeouts.
-        # Nevertheless, it finally fails as new context cannot be saved on nodes where it already exists.
+        # Nevertheless, it finally fails as new context cannot be saved on nodes where
+        # it already exists.
         # Another `secagg_id` should be used or partially existing entry be cleaned from database
         try:
             self._setup_specific()
         except FedbiomedError as e:
             logger.debug(f"{e}")
-            return self._create_secagg_reply("Can not setup secure aggregation context "
-                                             f"on node for {self._secagg_id}.", False)
+            return self._create_secagg_reply(
+                "Can not setup secure aggregation context "
+                f"on node for {self._secagg_id}.",
+                False,
+            )
         except Exception as e:
             logger.debug(f"{e}")
-            return self._create_secagg_reply('Unexpected error occurred please '
-                                             'report this to the node owner', False)
+            return self._create_secagg_reply(
+                "Unexpected error occurred please " "report this to the node owner",
+                False,
+            )
 
-        return self._create_secagg_reply('Context element was successfully created on node', True)
+        return self._create_secagg_reply(
+            "Context element was successfully created on node", True
+        )
 
     @abstractmethod
     def _setup_specific(self) -> None:
-        """Service function for setting up a specific context element.
-        """
+        """Service function for setting up a specific context element."""
 
 
 class SecaggMpspdzSetup(SecaggBaseSetup):
@@ -178,11 +187,11 @@ class SecaggMpspdzSetup(SecaggBaseSetup):
     """
 
     def __init__(
-            self,
-            researcher_id: str,
-            secagg_id: str,
-            parties: List[str],
-            experiment_id: str,
+        self,
+        researcher_id: str,
+        secagg_id: str,
+        parties: List[str],
+        experiment_id: str,
     ):
         """Constructor of the class.
 
@@ -196,8 +205,9 @@ class SecaggMpspdzSetup(SecaggBaseSetup):
 
         if parties and researcher_id != parties[0]:
             raise FedbiomedSecaggError(
-                f'{ErrorNumbers.FB318.value}: bad parameter `researcher_id` : {researcher_id} : '
-                f'needs to be the same as the first secagg party `parties[0]`: {parties[0]}')
+                f"{ErrorNumbers.FB318.value}: bad parameter `researcher_id` : {researcher_id} : "
+                f"needs to be the same as the first secagg party `parties[0]`: {parties[0]}"
+            )
 
         super().__init__(researcher_id, secagg_id, parties, experiment_id)
 
@@ -205,7 +215,7 @@ class SecaggMpspdzSetup(SecaggBaseSetup):
         self._mpc = MPCController(
             tmp_dir=environ["TMP_DIR"],
             component_type=ComponentType.NODE,
-            component_id=environ["ID"]
+            component_id=environ["ID"],
         )
 
 
@@ -213,12 +223,13 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
     """
     Sets up a server key Secure Aggregation context element on the node side.
     """
+
     def __init__(
-            self,
-            researcher_id: str,
-            secagg_id: str,
-            parties: List[str],
-            experiment_id: str,
+        self,
+        researcher_id: str,
+        secagg_id: str,
+        parties: List[str],
+        experiment_id: str,
     ):
         """Constructor of the class.
 
@@ -251,23 +262,25 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
             self_port=environ["MPSPDZ_PORT"],
             self_private_key=environ["MPSPDZ_CERTIFICATE_KEY"],
             self_public_key=environ["MPSPDZ_CERTIFICATE_PEM"],
-            parties=self._parties
+            parties=self._parties,
         )
 
         output = self._mpc.exec_shamir(
             party_number=self._parties.index(environ["ID"]),
             num_parties=len(self._parties),
-            ip_addresses=ip_file
+            ip_addresses=ip_file,
         )
 
         # Read output
         try:
-            with open(output, "r", encoding='UTF-8') as file:
+            with open(output, "r", encoding="UTF-8") as file:
                 key_share = file.read()
 
         except Exception as e:
-            logger.debug("Can not open key share file written by MPC after executing MPC "
-                         f"protocol. {e}. secagg_id: {self._secagg_id} file: {output}")
+            logger.debug(
+                "Can not open key share file written by MPC after executing MPC "
+                f"protocol. {e}. secagg_id: {self._secagg_id} file: {output}"
+            )
 
             # Message for researcher
             raise FedbiomedSecaggError(
@@ -275,11 +288,14 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
             )
 
         biprime = get_default_biprime()
-        context = {'server_key': int(key_share), 'biprime': int(biprime)}
-        self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
+        context = {"server_key": int(key_share), "biprime": int(biprime)}
+        self._secagg_manager.add(
+            self._secagg_id, self._parties, context, self._experiment_id
+        )
         logger.info(
             "Server key share successfully created for "
-            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
+            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'"
+        )
 
 
 class SecaggDHSetup(SecaggBaseSetup):
@@ -290,14 +306,14 @@ class SecaggDHSetup(SecaggBaseSetup):
     _min_num_parties: int = 2
 
     def __init__(
-            self,
-            researcher_id: str,
-            secagg_id: str,
-            parties: List[str],
-            experiment_id: str,
-            grpc_client: GrpcController,
-            pending_requests: EventWaitExchange,
-            controller_data: EventWaitExchange,
+        self,
+        researcher_id: str,
+        secagg_id: str,
+        parties: List[str],
+        experiment_id: str,
+        grpc_client: GrpcController,
+        pending_requests: EventWaitExchange,
+        controller_data: EventWaitExchange,
     ):
         """Constructor of the class.
 
@@ -322,20 +338,21 @@ class SecaggDHSetup(SecaggBaseSetup):
         self._controller_data = controller_data
 
     def _setup_specific(self) -> None:
-        """Service function for setting up the Diffie Hellman secagg context element.
-        """
+        """Service function for setting up the Diffie Hellman secagg context element."""
         # we know len(parties) >= 3 so len(other_nodes) >= 1
-        other_nodes = [ e for e in self._parties if e != environ['NODE_ID'] ]
+        other_nodes = [e for e in self._parties if e != environ["NODE_ID"]]
 
         local_keypair = DHKey()
         key_agreement = DHKeyAgreement(
-            node_u_id=environ['NODE_ID'],
+            node_u_id=environ["NODE_ID"],
             node_u_dh_key=local_keypair,
-            session_salt=bytes(self._secagg_id, 'utf-8'),
+            session_salt=bytes(self._secagg_id, "utf-8"),
         )
 
         # Make public key available for requests received from other nodes for this `secagg_id`
-        self._controller_data.event(self._secagg_id, {'public_key': local_keypair.export_public_key()})
+        self._controller_data.event(
+            self._secagg_id, {"public_key": local_keypair.export_public_key()}
+        )
 
         # Request public key from other nodes
         other_nodes_messages = []
@@ -343,13 +360,15 @@ class SecaggDHSetup(SecaggBaseSetup):
             other_nodes_messages += [
                 KeyRequest(
                     request_id=REQUEST_PREFIX + str(uuid.uuid4()),
-                    node_id=environ['NODE_ID'],
+                    node_id=environ["NODE_ID"],
                     dest_node_id=node,
                     secagg_id=self._secagg_id,
                 )
             ]
 
-        logger.debug(f'Sending Diffie-Hellman setup for {self._secagg_id} to nodes: {other_nodes}')
+        logger.debug(
+            f"Sending Diffie-Hellman setup for {self._secagg_id} to nodes: {other_nodes}"
+        )
         all_received, messages = send_nodes(
             self._grpc_client,
             self._pending_requests,
@@ -361,10 +380,14 @@ class SecaggDHSetup(SecaggBaseSetup):
         # Rely on automatic cleaning after timeout.
         # This node received all replies, but some nodes may still be querying this node.
 
-        logger.debug(f"Completed Diffie-Hellmann setup with success={all_received} "
-                     f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}")
+        logger.debug(
+            f"Completed Diffie-Hellmann setup with success={all_received} "
+            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}"
+        )
         if not all_received:
-            nodes_no_answer = set(other_nodes) - set([m.get_param('node_id') for m in messages])
+            nodes_no_answer = set(other_nodes) - set(
+                [m.get_param("node_id") for m in messages]
+            )
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB318.value}: Some nodes did not answer during Diffie Hellman secagg "
                 f"context setup: {nodes_no_answer}"
@@ -372,36 +395,34 @@ class SecaggDHSetup(SecaggBaseSetup):
 
         # At this point: successful DH exchange with other nodes
         context = {
-            m.get_param('node_id'): key_agreement.agree(m.get_param('node_id'), m.get_param('public_key'))
+            m.get_param("node_id"): key_agreement.agree(
+                m.get_param("node_id"), m.get_param("public_key")
+            )
             for m in messages
         }
 
         self._secagg_manager.add(
-            self._secagg_id,
-            self._parties,
-            context,
-            self._experiment_id
+            self._secagg_id, self._parties, context, self._experiment_id
         )
 
         self._secagg_manager.get(self._secagg_id, self._experiment_id)
         # At this point: successfully negotiated and save secagg context
         logger.info(
             "Diffie Hellman secagg context successfully created for "
-            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
+            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'"
+        )
 
 
 class SecaggSetup:
-    """Factory class for instantiating any type of node secagg context element setup class
-    """
+    """Factory class for instantiating any type of node secagg context element setup class"""
 
     element2class = {
         SecaggElementTypes.SERVER_KEY.name: SecaggServkeySetup,
-        SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDHSetup
+        SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDHSetup,
     }
 
     def __init__(self, element: int, **kwargs):
-        """Constructor of the class
-        """
+        """Constructor of the class"""
         self._element = element
         self.kwargs = kwargs
 
@@ -416,11 +437,18 @@ class SecaggSetup:
             element = SecaggElementTypes(self._element)
         else:
             raise FedbiomedSecaggError(
-                f"{ErrorNumbers.FB318.value}: Received bad request message: incorrect `element` {self._element}")
+                f"{ErrorNumbers.FB318.value}: Received bad request message: incorrect `element` {self._element}"
+            )
 
         try:
-            args_to_init = {key: val for key, val in self.kwargs.items()
-                            if key in inspect.signature(SecaggSetup.element2class[element.name].__init__).parameters}
+            args_to_init = {
+                key: val
+                for key, val in self.kwargs.items()
+                if key
+                in inspect.signature(
+                    SecaggSetup.element2class[element.name].__init__
+                ).parameters
+            }
             return SecaggSetup.element2class[element.name](**args_to_init)
         except Exception as e:
             raise FedbiomedSecaggError(

@@ -479,6 +479,24 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
     secagg_id: str
 
 
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSharingRequest(InnerRequestReply, RequiresProtocolVersion):
+    public_key: bytes
+    secagg_id: str
+    command: str = "additive-secret-share-request"
+
+
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSharingReply(InnerRequestReply, RequiresProtocolVersion):
+
+    public_key: bytes
+    secagg_id: str
+    share: list | int
+    command: str = "additive-secret-share-reply"
+
+
 # --- Node <=> Researcher messages ----------------------------------------------
 
 
@@ -720,7 +738,7 @@ class SecaggDeleteReply(RequestReply, RequiresProtocolVersion):
 
 
 @catch_dataclass_exception
-@dataclass
+@dataclass(kw_only=True)
 class SecaggRequest(RequestReply, RequiresProtocolVersion):
     """Describes a secagg context element setup request message sent by the researcher
 
@@ -763,9 +781,23 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
     success: bool
     node_id: str
     msg: Optional[str] = None
+    msg: str
 
 
-# TrainingPlanStatus messages
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSSetupRequest(SecaggRequest):
+    """Additive secret sharing setup request from researcher
+    to nodes
+    """
+
+
+@catch_dataclass_exception
+@dataclass(kw_only=True)
+class AdditiveSSSetupReply(SecaggReply):
+    """Additive secret sharing reply from nodes to researcher"""
+
+    share: int | list
 
 
 @catch_dataclass_exception
@@ -798,8 +830,8 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
         experiment_id: experiment id related to the experiment
         success: True if the node process the request as expected, false
             if any exception occurs
-        approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
-            in the node for training.
+        approval_obligation : Approval mode for node. True, if
+            training plan approval is enabled/required in the node for training.
         status: a `TrainingPlanApprovalStatus` value describing the approval status
         msg: Message from node based on state of the reply
         training_plan: The training plan that has been checked for approval
