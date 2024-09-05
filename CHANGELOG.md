@@ -1,5 +1,14 @@
 # Fed-BioMed changelog
 
+## 2024-09-05 version 5.3.0
+
+- introduce fast secure aggregation using Low-Overhead Masking (LOM) scheme and in-app Diffie-Hellman key exchange
+- add feature for choosing the batch size for testing (validation) facility
+- add transfer learning tutorial
+- fix make optional potentially insecure consistency check (validation) for secure aggregation
+- fix issue with validation when `test_batch_size=1`
+- multiple fixes in documentation and tutorials
+
 ## 2024-05-27 version 5.2.0
 
 - redesign `Job` and `Experiment` classes, introducing `federated_workflow` class
