@@ -4,7 +4,7 @@
 """Secure Aggregation setup on the node"""
 import random
 import inspect
-from typing import List
+from typing import List, Union
 from abc import ABC, abstractmethod
 from enum import Enum
 import uuid
@@ -27,6 +27,7 @@ from fedbiomed.common.message import (
     AdditiveSSSetupReply,
     NodeToNodeMessages,
 )
+
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg import DHKey, DHKeyAgreement
 from fedbiomed.common.synchro import EventWaitExchange
@@ -42,6 +43,15 @@ from fedbiomed.node.requests import send_nodes
 
 _CManager = CertificateManager(db_path=environ["DB_PATH"])
 
+class AdditiveSecret:
+    pass
+
+class AdditiveShares:
+    pass
+
+
+class AdditiveShareRequest:
+    pass
 
 class SecaggBaseSetup(ABC):
     """
@@ -52,11 +62,11 @@ class SecaggBaseSetup(ABC):
     _min_num_parties: int = 3
 
     def __init__(
-        self,
-        researcher_id: str,
-        secagg_id: str,
-        parties: List[str],
-        experiment_id: str,
+            self,
+            researcher_id: str,
+            secagg_id: str,
+            parties: List[str],
+            experiment_id: Union[str, None]
     ):
         """Constructor of the class.
 
@@ -179,7 +189,6 @@ class SecaggBaseSetup(ABC):
     def _setup_specific(self) -> Message:
         """Service function for setting up a specific context element."""
 
-
 class SecaggMpspdzSetup(SecaggBaseSetup):
     """
     Sets up a Secure Aggregation context element based on MPSPDZ on the node side.
@@ -301,23 +310,22 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
 
 class _SecaggNN(SecaggBaseSetup):
 
-    def __init__(
-        self,
-        *args,
-        grpc_client: GrpcController,
-        pending_requests: EventWaitExchange,
-        controller_data: EventWaitExchange,
-        **kwargs,
-    ):
+    def __init__(self,
+                 *args,
+                 grpc_client: GrpcController,
+                 pending_requests: EventWaitExchange,
+                 controller_data: EventWaitExchange,
+                 **kwargs,
+                ):
         """Constructor of the class.
 
-        Args:
-            grpc_client: object managing the communication with other components
-            pending_requests: object for receiving overlay node to node messages
-            controller_data: object for passing data to the node controller
-            *args,**kwargs: Please see [SecaggBaseSetup]
-        Raises:
-            FedbiomedSecaggError: bad argument type or value
+            Args:
+                grpc_client: object managing the communication with other components
+                pending_requests: object for receiving overlay node to node messages
+                controller_data: object for passing data to the node controller
+                *args**kwargs: Please see [SecaggBaseSetup]
+            Raises:
+                FedbiomedSecaggError: bad argument type or value
         """
 
         super().__init__(*args, **kwargs)
@@ -336,7 +344,7 @@ class _SecaggNN(SecaggBaseSetup):
             self._researcher_id,
             nodes,
             messages,
-            raise_if_not_all_received=True,
+            raise_if_not_all_received=True
         )
 
 
@@ -406,6 +414,7 @@ class SecaggDHSetup(_SecaggNN):
     _min_num_parties: int = 2
 
     def _setup_specific(self) -> Message:
+
         """Service function for setting up the Diffie Hellman secagg context element."""
         # we know len(parties) >= 3 so len(other_nodes) >= 1
         other_nodes = [e for e in self._parties if e != environ["NODE_ID"]]
