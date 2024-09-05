@@ -166,6 +166,11 @@ nav:
 
 extra:
   NewsPosts:
+      'Release-9-2024':
+          name: 'A new release of Fed-BioMed (v5.23) is out!'
+          desc: 'A new release of Fed-BioMed is now available, introducing LOM secure aggregation !'
+          link: '/news/Release-09-2024'
+          image: 'assets/img/v5.3.png'
       'Release-5-2024':
           name: 'A new release of Fed-BioMed (v5.2) is out!'
           desc: 'A new release of Fed-BioMed is now available, fixing known issues and introducing new end-to-end test facility'
