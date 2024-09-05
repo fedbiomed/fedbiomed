@@ -227,6 +227,7 @@ def send_nodes(
     researcher_id: str,
     nodes: List[str],
     messages: List[InnerMessage],
+    raise_if_not_all_received: bool = False,
 ) -> Tuple[bool, List[Any]]:
     """Send message to some other nodes using overlay communications.
 
@@ -255,4 +256,15 @@ def send_nodes(
         if isinstance(message, InnerRequestReply):
             request_ids += [message.get_param("request_id")]
 
-    return pending_requests.wait(request_ids, TIMEOUT_NODE_TO_NODE_REQUEST)
+    all_received, messages = pending_requests.wait(
+        request_ids, TIMEOUT_NODE_TO_NODE_REQUEST
+    )
+
+    if not all_received and raise_if_not_all_received:
+        nodes_no_answer = set(nodes) - set(m.get_param("node_id") for m in messages)
+        raise FedbiomedNodeToNodeError(
+            f"{ErrorNumbers.FB318.value}: Some nodes did not answer request "
+            f"{nodes_no_answer}"
+        )
+
+    return all_received, messages
