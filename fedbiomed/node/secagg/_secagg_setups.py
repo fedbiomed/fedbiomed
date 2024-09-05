@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation setup on the node"""
+import random
 import inspect
 from typing import List, Union
 from abc import ABC, abstractmethod
@@ -13,7 +14,7 @@ from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, Compone
     REQUEST_PREFIX
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeToNodeMessages
+from fedbiomed.common.message import Message, NodeToNodeMessages
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg import DHKey, DHKeyAgreement
 from fedbiomed.common.synchro import EventWaitExchange
@@ -30,6 +31,15 @@ _CManager = CertificateManager(
     db_path=environ["DB_PATH"]
 )
 
+class AdditiveSecret:
+    pass
+
+class AdditiveShares:
+    pass
+
+
+class AdditiveShareRequest:
+    pass
 
 class SecaggBaseSetup(ABC):
     """
@@ -173,7 +183,6 @@ class SecaggBaseSetup(ABC):
         """Service function for setting up a specific context element.
         """
 
-
 class SecaggMpspdzSetup(SecaggBaseSetup):
     """
     Sets up a Secure Aggregation context element based on MPSPDZ on the node side.
@@ -284,6 +293,90 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
             f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
 
 
+
+
+class _SecaggNN(SecaggBaseSetup):
+
+    def __init__(self,
+        *args,
+        grpc_client: GrpcController,
+        pending_requests: EventWaitExchange,
+        controller_data: EventWaitExchange,
+        **kwargs,
+    ):
+        """Constructor of the class.
+
+            Args:
+                grpc_client: object managing the communication with other components
+                pending_requests: object for receiving overlay node to node messages
+                controller_data: object for passing data to the node controller
+                *args**kwargs: Please see [SecaggBaseSetup]
+            Raises:
+                FedbiomedSecaggError: bad argument type or value
+        """
+
+        super().__init__(*args, **kwargs)
+
+        self._secagg_manager = SKManager
+        self._grpc_client = grpc_client
+        self._pending_requests = pending_requests
+        self._controller_data = controller_data
+
+    def _send(self, nodes, messages: List[Message]):
+        """Sends given message to nodes"""
+
+        return send_nodes(
+            self._grpc_client,
+            self._pending_requests,
+            self._researcher_id,
+            nodes,
+            messages,
+            raise_if_not_all_received=True
+        )
+
+
+class SecaggKeySetup(_SecaggNN):
+    """Secure aggregation setup phase for ServerKey generation on the node side"""
+
+    _key_bit_length: int = 2040
+    _min_num_parties: int = 2
+    _element = SecaggElementTypes.SERVER_KEY
+
+
+    def _setup_specific(self) -> None:
+
+        other_nodes = filter(lambda x: x != environ["ID"], self._parties)
+
+        # Create secret user key and its shares
+        seed = random.SystemRandom()
+        sk = seed.getrandbits(self._key_bit_length)
+        user_key = AdditiveSecret(sk)
+        shares = user_key.shares(len(self._parties))
+
+        self._controller_data.event(self._secagg_id, {'shares': shares})
+
+        messages = [AdditiveShareRequest(
+            request_id=REQUEST_PREFIX + str(uuid.uuid4()),
+            node_id=environ['NODE_ID'],
+            dest_node_id=node,
+            secagg_id=self._secagg_id,
+        ) for node in other_nodes]
+
+        all_received, messages = self._send(other_nodes, messages)
+
+        logger.debug(
+            f"Completed Serverkey secret sharing setup with success={all_received} "
+            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}")
+
+        biprime = get_default_biprime()
+        context = {'server_key': int(sk), 'biprime': int(biprime)}
+        self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
+        logger.info(
+            "Server key share successfully created for "
+            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
+
+
+
 class SecaggDHSetup(SecaggBaseSetup):
     """
     Sets up a server key Secure Aggregation context element on the node side.
@@ -324,8 +417,7 @@ class SecaggDHSetup(SecaggBaseSetup):
         self._controller_data = controller_data
 
     def _setup_specific(self) -> None:
-        """Service function for setting up the Diffie Hellman secagg context element.
-        """
+        """Service function for setting up the Diffie Hellman secagg context element."""
         # we know len(parties) >= 3 so len(other_nodes) >= 1
         other_nodes = [ e for e in self._parties if e != environ['NODE_ID'] ]
 
