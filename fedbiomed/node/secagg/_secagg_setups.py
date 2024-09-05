@@ -19,10 +19,10 @@ from fedbiomed.common.constants import (
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
-    AdditiveSSharingReply,
     AdditiveSSharingRequest,
     AdditiveSSSetupReply,
     ErrorMessage,
+    KeyRequest,
     Message,
     SecaggReply,
 )
@@ -51,13 +51,14 @@ class SecaggBaseSetup(ABC):
 
     _REPLY_CLASS: Message = SecaggReply
     _min_num_parties: int = 3
+    _secagg_manager: SecaggManager = None
 
     def __init__(
         self,
         researcher_id: str,
         secagg_id: str,
         parties: List[str],
-        experiment_id: str,
+        experiment_id: Union[str, None],
     ):
         """Constructor of the class.
 
@@ -92,9 +93,6 @@ class SecaggBaseSetup(ABC):
         self._experiment_id = experiment_id
         self._parties = parties
         self._element: SecaggElementTypes = None
-
-        # to be set in subclasses
-        self._secagg_manager: SecaggManager = None
 
     @property
     def researcher_id(self) -> str:
@@ -160,7 +158,7 @@ class SecaggBaseSetup(ABC):
             }
         )
 
-    def setup(self) -> dict:
+    def setup(self) -> Message:
         """Set up a secagg context element.
 
         Returns:
@@ -230,6 +228,8 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
         secagg_id: str,
         parties: List[str],
         experiment_id: str,
+        *args,
+        **kwargs,
     ):
         """Constructor of the class.
 
@@ -242,7 +242,12 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(researcher_id, secagg_id, parties, experiment_id)
+        super().__init__(
+            researcher_id,
+            secagg_id,
+            parties,
+            experiment_id,
+        )
 
         self._element = SecaggElementTypes.SERVER_KEY
         self._secagg_manager = SKManager
@@ -284,7 +289,8 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
 
             # Message for researcher
             raise FedbiomedSecaggError(
-                f"{ErrorNumbers.FB318.value}: Can not access protocol output after applying multi party computation"
+                f"{ErrorNumbers.FB318.value}: Can not access protocol output after "
+                "applying multi party computation"
             )
 
         biprime = get_default_biprime()
@@ -316,14 +322,14 @@ class _SecaggNN(SecaggBaseSetup):
             grpc_client: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for passing data to the node controller
-            *args,**kwargs: Please see [SecaggBaseSetup]
+            *args**kwargs: Please see [SecaggBaseSetup]
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
 
         super().__init__(*args, **kwargs)
 
-        self._secagg_manager = SKManager
+        # self._secagg_manager = SKManager
         self._grpc_client = grpc_client
         self._pending_requests = pending_requests
         self._controller_data = controller_data
@@ -347,9 +353,11 @@ class SecaggKeySetup(_SecaggNN):
     _REPLY_CLASS: Message = AdditiveSSSetupReply
     _key_bit_length: int = 2040
     _min_num_parties: int = 2
-    _element = SecaggElementTypes.SERVER_KEY
+    _element = SecaggElementTypes.SERVER_KEY_BIS
+    _secagg_manager = SKManager
 
-
+    # def __init__(self, share, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
     def _setup_specific(self) -> Message:
 
         other_nodes = filter(lambda x: x != environ["ID"], self._parties)
@@ -361,7 +369,7 @@ class SecaggKeySetup(_SecaggNN):
         shares = user_key.split(len(self._parties)).to_list()
 
         # The last share is the share for the node who executes the request
-        my_share = shares.pop(-1)
+        my_share = AdditiveShare(shares.pop(-1))
         self._controller_data.event(self._secagg_id, {"shares": shares})
 
         messages = [
@@ -389,12 +397,13 @@ class SecaggKeySetup(_SecaggNN):
         self._secagg_manager.add(
             self._secagg_id, self._parties, context, self._experiment_id
         )
+
         logger.info(
             "Server key share successfully created for "
             f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'"
         )
 
-        return self._create_secagg_reply(share=sum_shares)
+        return self._create_secagg_reply(share=sum_shares.value)
 
 
 class SecaggDHSetup(_SecaggNN):
@@ -488,7 +497,8 @@ class SecaggSetup:
     """Factory class for instantiating any type of node secagg context element setup class"""
 
     element2class = {
-        SecaggElementTypes.SERVER_KEY.name: SecaggKeySetup,
+        SecaggElementTypes.SERVER_KEY.name: SecaggServkeySetup,
+        SecaggElementTypes.SERVER_KEY_BIS.name: SecaggKeySetup,
         SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDHSetup,
     }
 

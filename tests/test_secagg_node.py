@@ -6,19 +6,28 @@ from testsupport.base_case import NodeTestCase
 
 import fedbiomed.node.secagg
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecaggError
+
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
-from fedbiomed.common.message import (AdditiveSSharingReply, ErrorMessage,
-                                      NodeToNodeMessages)
-    from fedbiomed.common.synchro import EventWaitExchange
-from fedbiomed.node.environ import environ
-from fedbiomed.node.secagg import (SecaggBaseSetup, SecaggDHSetup,
-                                   SecaggKeySetup, SecaggServkeySetup,
-                                   SecaggSetup)
-from fedbiomed.transport.controller import GrpcController
-
 #############################################################
-
+from fedbiomed.common.message import (
+    AdditiveSSharingReply,
+    AdditiveSSharingRequest,
+    ErrorMessage,
+    KeyReply,
+    KeyRequest
+)
+from fedbiomed.common.secagg import AdditiveShare
+from fedbiomed.common.synchro import EventWaitExchange
+from fedbiomed.node.environ import environ
+from fedbiomed.node.secagg import (
+    SecaggBaseSetup,
+    SecaggDHSetup,
+    SecaggKeySetup,
+    SecaggServkeySetup,
+    SecaggSetup,
+)
+from fedbiomed.transport.controller import GrpcController
 
 
 class TestSecaggBaseSetup(NodeTestCase):
@@ -75,7 +84,7 @@ class TestSecaggBaseSetup(NodeTestCase):
             message="Test message", success=False
         )
 
-       self.assertIsInstance(reply, ErrorMessage)
+        self.assertIsInstance(reply, ErrorMessage)
 
 
 class SecaggTestCase(NodeTestCase):
@@ -247,6 +256,7 @@ class TestSecaggKeySetup(SecaggTestCase):
             "researcher_id": "my researcher",
             "secagg_id": "my secagg",
             "experiment_id": "my_experiment_id",
+            # "share": AdditiveShare(1234),
             "parties": [
                 environ["ID"],
                 "node2",
@@ -255,21 +265,18 @@ class TestSecaggKeySetup(SecaggTestCase):
             ],
         }
 
-        messages = [
+        self.messages = [
             AdditiveSSharingReply(
-                node_id="node3",
-                dest_node_id="node1",
-                secagg_id="test",
-                share=1234,
+                node_id="node3", dest_node_id="node1", secagg_id="test", share=1234
             ),
             AdditiveSSharingReply(
-                node_id="node2",
-                dest_node_id="node1",
-                secagg_id="test",
-                share=1234,
+                node_id="node2", dest_node_id="node1", secagg_id="test", share=4321
+            ),
+            AdditiveSSharingReply(
+                node_id="node4", dest_node_id="node1", secagg_id="test", share=4321
             ),
         ]
-        self.mock_pending_requests.wait.return_value = True, messages
+        self.mock_pending_requests.wait.return_value = True, self.messages
 
         self.args["grpc_client"] = self.mock_grpc_controller
         self.args["pending_requests"] = self.mock_pending_requests
@@ -278,16 +285,103 @@ class TestSecaggKeySetup(SecaggTestCase):
     def tearDown(self) -> None:
         pass
 
-    def test_secagg_key_02_setup(self):
+    def test_secagg_key_01_init(self):
+        secagg = SecaggKeySetup(**self.args)
+        self.assertTrue(hasattr(secagg, "_secagg_manager"))
+
+    @patch("fedbiomed.node.secagg_manager.SecaggServkeyManager.add")
+    def test_secagg_key_02_setup(self, skmanager_add):
         """Tests key setup for additive key"""
-        secagg_dh = SecaggKeySetup(**self.args)
-        reply = secagg_dh.setup()
+        secagg_addss = SecaggKeySetup(**self.args)
+
+        reply = secagg_addss.setup()
         self.assertEqual(reply.success, True)
         self.assertIsInstance(reply.share, int)
 
         self.mock_pending_requests.wait.side_effect = FedbiomedError
-        reply = secagg_dh.setup()
+        reply = secagg_addss.setup()
         self.assertIsInstance(reply, ErrorMessage)
+
+    @patch("fedbiomed.node.secagg_manager.SecaggServkeyManager.add")
+    def test_secagg_key_03_setup_2(self, skmanager_add):
+        get_rand_values = {
+            "test-1": (
+                5432,  # user_key
+                (1234, 4321, 1122),  # random splits
+                (
+                    1234,
+                    4321,
+                    4321,
+                ),
+            ),  # other nodes share
+            "test-2": (
+                1111,
+                (1111, 2222),
+                (
+                    3333,
+                    5555,
+                ),
+            ),
+            "test-3": (
+                1012,
+                (1234, 5678, 3214, 1111, 1023),
+                (
+                    9021,
+                    1022,
+                    4521,
+                    7690,
+                    3213,
+                ),
+            ),
+        }
+
+        for (
+            get_rand_bits_val,
+            rand_int_vals,
+            node_shares_val,
+        ) in get_rand_values.values():
+            messages = []
+            self.args["parties"] = [
+                environ["ID"],
+            ]
+            for i, val in enumerate(node_shares_val):
+                messages.append(
+                    AdditiveSSharingReply(
+                        node_id=f"node{i}",
+                        dest_node_id="node1",
+                        secagg_id="test",
+                        share=val,
+                    )
+                )
+
+                self.args["parties"].append(f"node{i}")
+
+            self.mock_pending_requests.wait.return_value = True, messages
+
+            with (
+                patch(
+                    "fedbiomed.common.secagg._additive_ss.random.randint"
+                ) as randomint_mock,
+                patch(
+                    "fedbiomed.node.secagg._secagg_setups.random.SystemRandom.getrandbits"
+                ) as getrandbits_mock,
+            ):
+                randomint_mock.side_effect = rand_int_vals
+                getrandbits_mock.return_value = get_rand_bits_val
+                secagg_addss = SecaggKeySetup(**self.args)
+
+                reply = secagg_addss.setup()
+            self.assertEqual(reply.success, True)
+            check_sum_share = (
+                lambda randbits, rand_ints, other_shares: randbits
+                - sum(rand_ints)
+                + sum(other_shares)
+            )
+            # self.assertEqual(reply.share, 5432 - 1234 - 4321 - 1122 + 1234 + 4321 + 4321)
+            self.assertEqual(
+                reply.share,
+                check_sum_share(get_rand_bits_val, rand_int_vals, node_shares_val),
+            )
 
 
 class TestSecaggDHSetup(SecaggTestCase):
@@ -316,7 +410,7 @@ class TestSecaggDHSetup(SecaggTestCase):
     def tearDown(self) -> None:
         pass
 
-    @patch("fedbiomed.node.secagg._secagg_setups.DHManager.add")
+    @patch("fedbiomed.node.secagg_manager.SecaggDhManager.add")
     @patch("fedbiomed.node.secagg._secagg_setups.DHKey.export_public_key")
     @patch("fedbiomed.node.secagg._secagg_setups.DHKeyAgreement.agree")
     @patch("fedbiomed.node.secagg._secagg_setups.send_nodes")
@@ -369,7 +463,7 @@ class TestSecaggDHSetup(SecaggTestCase):
         )
         self.assertTrue(reply.success)
 
-    @patch("fedbiomed.node.secagg._secagg_setups.DHManager.add")
+    @patch("fedbiomed.node.secagg_manager.SecaggDhManager.add")
     @patch("fedbiomed.node.secagg._secagg_setups.DHKey.export_public_key")
     @patch("fedbiomed.node.secagg._secagg_setups.DHKeyAgreement.agree")
     @patch("fedbiomed.node.secagg._secagg_setups.send_nodes")
@@ -387,7 +481,7 @@ class TestSecaggDHSetup(SecaggTestCase):
             # remove first and last parties (simulates a drop out from 'node 4')
             received_msg_with_node_dropout.append(
                 KeyReply(
-                   **{
+                    **{
                         "request_id": "1234",
                         "node_id": n,
                         "dest_node_id": n,
@@ -434,6 +528,22 @@ class TestSecaggSetup(NodeTestCase):
         args["experiment_id"] = ""
         with self.assertRaises(FedbiomedSecaggError):
             SecaggSetup(**args)()
+
+        args = {
+            "experiment_id": "experiment-id",
+            "element": 2,
+            "secagg_id": "secagg-id",
+            "parties": ["r-1", "node-1", "node-2"],
+            "grpc_client": MagicMock(spec=GrpcController),
+            "pending_requests": MagicMock(spec=EventWaitExchange),
+            "controller_data": MagicMock(spec=EventWaitExchange),
+            "researcher_id": "r-1",
+        }
+
+        secagg_setup = SecaggSetup(
+            **args,
+        )()
+        self.assertIsInstance(secagg_setup, SecaggKeySetup)
 
 
 if __name__ == "__main__":  # pragma: no cover

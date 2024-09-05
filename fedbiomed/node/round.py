@@ -373,7 +373,7 @@ class Round:
                 del self.training_plan
                 del CurrentTPModule
             except Exception:
-                logger.debug(f'Exception raised while deleting training plan instance')
+                logger.debug('Exception raised while deleting training plan instance')
 
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,

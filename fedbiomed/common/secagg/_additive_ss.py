@@ -1,7 +1,8 @@
 import random
 from math import log2
-from typing import Union, Optional, List
-from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
+from typing import List, Optional, Union
+
+from fedbiomed.common.exceptions import FedbiomedTypeError, FedbiomedValueError
 
 
 class AdditiveSecret:
@@ -11,7 +12,7 @@ class AdditiveSecret:
         Initializes the AdditiveSecret class with the provided additive secret value.
 
         Args:
-            secret (Union[int, List[int]]): The secret to be shared, either an integer or a list of integers.
+            secret: The secret to be shared, either an integer or a list of integers.
 
         Raises:
             FedbiomedValueError: If the secret is not an int or a list of integers.
@@ -23,7 +24,9 @@ class AdditiveSecret:
             raise FedbiomedValueError("AdditiveSecret must be an int or a list of int")
         self.secret = secret
 
-    def split(self, num_shares: int, bit_length: Optional[int] = None) -> "AdditiveShares":
+    def split(
+        self, num_shares: int, bit_length: Optional[int] = None
+    ) -> "AdditiveShares":
         """
         Splits the secret into the specified number of shares using additive secret sharing.
         The sum of the shares will equal the original secret.
@@ -59,6 +62,7 @@ class AdditiveSecret:
                 )
             bit_length = max_value.bit_length() if bit_length is None else bit_length
             for value in self.secret:
+
                 partial_shares = [
                     random.randint(0, 2**bit_length) for _ in range(num_shares - 1)
                 ]
@@ -69,8 +73,7 @@ class AdditiveSecret:
         return AdditiveShares([AdditiveShare(share) for share in shares])
 
 
-
-class AdditiveShare(int):
+class AdditiveShare:
     """AdditiveShare class to be used after diveding secret into multiple shares"""
 
     def __init__(self, value: Union[int, List[int]]) -> None:
@@ -89,7 +92,9 @@ class AdditiveShare(int):
             isinstance(value, int)
             or (isinstance(value, list) and all(isinstance(i, int) for i in value))
         ):
-            raise FedbiomedTypeError("AdditiveShare value must be an int or a list of int")
+            raise FedbiomedTypeError(
+                "AdditiveShare value must be an int or a list of int"
+            )
         self._value = value
 
     def __add__(self, other: "AddtiveShare") -> "AdditiveShare":
@@ -106,16 +111,29 @@ class AdditiveShare(int):
             FedbiomedTypeError: If the two values being added are not of the same
                 type (both int or both list).
         """
+
         if isinstance(other, AdditiveShare):
-            if isinstance(self.value, int) and isinstance(other.value, int):
-                result = self.value + other.value
-            elif isinstance(self.value, list) and isinstance(other.value, list):
-                result = [
-                    self.value[i] + other.value[i] for i in range(len(self.value))
-                ]
-            else:
-                raise FedbiomedTypeError("AdditiveShares must be of the same type")
-        return AdditiveShare(result)
+
+            if isinstance(self._value, int) and isinstance(other.value, int):
+                return AdditiveShare(self._value + other.value)
+
+            if isinstance(self.value, list) and isinstance(other.value, list):
+                return AdditiveShare(
+                    [self.value[i] + other.value[i] for i in range(len(self._value))]
+                )
+
+            raise FedbiomedTypeError("AdditiveShares must be of the same type")
+
+        raise FedbiomedTypeError(
+            "Additive share can be summed to only another Additive share"
+        )
+
+    def __radd__(self, other: Union[int, "AdditiveShare"]):
+        """Specific for sum() function"""
+        if other == 0:
+            return self
+
+        return self.__add__(other)
 
     def __repr__(self) -> str:
         return f"AdditiveShare({self.value})"
@@ -149,7 +167,7 @@ class AdditiveShares(list):
 
         super().__init__(shares)
 
-    def __add__(self, other: 'AdditiveShares') -> 'AdditiveShares':
+    def __add__(self, other: "AdditiveShares") -> "AdditiveShares":
         """
         Adds two AdditiveShares objects together.
 
@@ -172,9 +190,7 @@ class AdditiveShares(list):
             raise FedbiomedTypeError("AdditiveShares must be of the same type")
 
         if all(isinstance(share.value, int) for share in self):
-            result = AdditiveShares(
-                [self[i] + other[i] for i in range(len(self))]
-            )
+            result = AdditiveShares([self[i] + other[i] for i in range(len(self))])
         elif all(isinstance(share.value, list) for share in self):
             result = AdditiveShares(
                 [
@@ -192,6 +208,13 @@ class AdditiveShares(list):
             raise FedbiomedTypeError("AdditiveShares must be of the same type")
 
         return result
+
+    def __radd__(self, other: Union[int, "AdditiveShares"]):
+        """Specific for sum() function"""
+        if other == 0:
+            return self
+
+        return self.__add__(other)
 
     def to_list(self) -> List[Union[int, List[int]]]:
         """
@@ -213,8 +236,7 @@ class AdditiveShares(list):
             result = sum(share.value for share in self)
         elif all(isinstance(share.value, list) for share in self):
             result = [
-                sum(share.value[i] for share in self)
-                for i in range(len(self[0].value))
+                sum(share.value[i] for share in self) for i in range(len(self[0].value))
             ]
         else:
             raise FedbiomedTypeError("Shares must be of the same type")

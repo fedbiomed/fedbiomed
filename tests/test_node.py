@@ -8,50 +8,35 @@ from unittest.mock import ANY, MagicMock, patch
 
 import torch
 from testsupport import fake_training_plan
-
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
 from testsupport.base_case import NodeTestCase
 from testsupport.fake_secagg_manager import FakeSecaggServkeyManager
-
 # import dummy classes
 from testsupport.fake_uuid import FakeUuid
 
-from fedbiomed.common.constants import (
-    ErrorNumbers,
-    SecaggElementTypes,
-    TrainingPlans,
-    __messaging_protocol_version__,
-    _BaseEnum,
-)
-from fedbiomed.common.message import (
-    ApprovalRequest,
-    ErrorMessage,
-    ListRequest,
-    Message,
-    PingReply,
-    PingRequest,
-    SearchRequest,
-    SecaggDeleteReply,
-    SecaggDeleteRequest,
-    SecaggReply,
-    SecaggRequest,
-    TrainingPlanStatusRequest,
-    TrainRequest,
-)
+from fedbiomed.common.constants import (ErrorNumbers, SecaggElementTypes,
+                                        TrainingPlans,
+                                        __messaging_protocol_version__,
+                                        _BaseEnum)
+from fedbiomed.common.message import (ApprovalRequest, ErrorMessage,
+                                      ListRequest, Message, PingReply,
+                                      PingRequest, SearchRequest,
+                                      SecaggDeleteReply, SecaggDeleteRequest,
+                                      SecaggReply, SecaggRequest,
+                                      TrainingPlanStatusRequest, TrainRequest)
 from fedbiomed.common.models import TorchModel
-from fedbiomed.common.optimizers.declearn import (
-    RidgeRegularizer,
-    ScaffoldClientModule,
-    YogiModule,
-)
+from fedbiomed.common.optimizers.declearn import (RidgeRegularizer,
+                                                  ScaffoldClientModule,
+                                                  YogiModule)
 from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
 from fedbiomed.common.optimizers.optimizer import Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.node import Node
+
+rom fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
 
 #############################################################
@@ -544,7 +529,6 @@ class TestNode(NodeTestCase):
 
     def test_node_23_task_secagg(self):
         """Tests `_task_secagg` normal (successful) case"""
-
         # Test .setup()execution. It is normal the get result as success False since setup will fail
         # due to not existing certificate files
 

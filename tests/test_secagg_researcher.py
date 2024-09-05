@@ -446,7 +446,7 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
             self.assertEqual(status, s)
 
 
-class TestServerKeyContext(BaseTestCaseSecaggContext):
+class TestSecaggKeyContext(BaseTestCaseSecaggContext):
     
     def setUp(self) -> None:
         
