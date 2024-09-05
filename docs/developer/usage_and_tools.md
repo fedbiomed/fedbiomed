@@ -28,6 +28,7 @@ We do not enforce coding style validation at each commit. In the future, we may 
 ### Coding rules
 
 Project specific [coding rules](https://github.com/fedbiomed/fedbiomed/blob/master/CODING_RULES.md) come in addition to general coding style. Their goal is to favour code homogeneity within the project. They are meant to evolve during the project when needed.
+They also include advice for managing branches (commits, pushes, merges vs rebase).
 
 ### License
 

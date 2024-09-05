@@ -50,7 +50,7 @@ def weighted_sum(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
         proportions (List[float]): weights of all items whithin model_params's list
 
     Returns:
-        Mapping[str, Union[torch.Tensor, np.ndarray]]: model resulting from the weigthed sum 
+        Mapping[str, Union[torch.Tensor, np.ndarray]]: model resulting from the weighted sum 
                                                        operation
     """
     # Empty model parameter dictionary

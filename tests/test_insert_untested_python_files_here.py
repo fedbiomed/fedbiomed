@@ -43,6 +43,7 @@ import fedbiomed.common.secagg._secagg_crypter
 import fedbiomed.common.secagg_manager
 import fedbiomed.common.serializer
 import fedbiomed.common.singleton
+import fedbiomed.common.synchro
 import fedbiomed.common.tasks_queue
 import fedbiomed.common.training_args
 import fedbiomed.common.training_plans.__init__
@@ -70,6 +71,10 @@ import fedbiomed.node.environ
 import fedbiomed.node.history_monitor
 import fedbiomed.node.training_plan_security_manager
 import fedbiomed.node.node
+import fedbiomed.node.requests.__init__
+import fedbiomed.node.requests._n2n_controller
+import fedbiomed.node.requests._n2n_router
+import fedbiomed.node.requests._overlay
 import fedbiomed.node.round
 import fedbiomed.node.secagg
 import fedbiomed.node.secagg_manager

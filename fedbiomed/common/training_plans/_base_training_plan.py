@@ -23,6 +23,7 @@ from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer
 from fedbiomed.common.utils import get_class_source
 from fedbiomed.common.utils import get_method_spec
+from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
 
 
 class PreProcessDict(TypedDict):
@@ -72,7 +73,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._optimizer_args: Dict[str, Any] = None
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
-        
+
         self._error_msg_import_model: str = f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n" +\
                                             "To %s a model, you should do it through `fedbiomed.researcher.federated_workflows.Experiment`'s interface" +\
                                             " and not directly from Training Plan"
@@ -283,7 +284,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or 
+            exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
 
         Returns:
@@ -453,11 +454,15 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         # If `metric` is an array-like structure, convert it.
         if isinstance(metric, torch.Tensor):
             metric = metric.numpy()
+
         if isinstance(metric, np.ndarray):
             metric = list(metric) if metric.shape else float(metric)
-        # If `metric` is a single value, return a {name: value} dict.
-        if isinstance(metric, (int, float, np.integer, np.floating)) and not isinstance(metric, bool):
+
+        # If `metric` is a single value, including [val], return a {name: value} dict.
+        if isinstance(metric, (int, float, np.integer, np.floating)) and not \
+                isinstance(metric, bool):
             return {metric_name: float(metric)}
+
         # If `metric` is a collection.
         if isinstance(metric, (dict, list)):
             if isinstance(metric, list):
@@ -466,24 +471,19 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 ]
             elif isinstance(metric, dict):
                 metric_names = list(metric)
+
             try:
                 values = utils.convert_iterator_to_list_of_python_floats(metric)
             except FedbiomedError as exc:
-                msg = (
+                raise FedbiomedTrainingPlanError(
                     f"{ErrorNumbers.FB605.value}: error when converting "
-                    f"metric values to float - {exc}"
-                )
-                logger.critical(msg)
-                raise FedbiomedTrainingPlanError(msg) from exc
+                    f"metric values to float - {exc}") from exc
             return dict(zip(metric_names, values))
-        # Raise if `metric` is of unproper input type.
-        msg = (
+
+        raise FedbiomedTrainingPlanError(
             f"{ErrorNumbers.FB605.value}: metric value should be one of type "
             "int, float, numpy scalar, numpy.ndarray, torch.Tensor, or list "
-            f"or dict wrapping such values; but received {type(metric)}"
-        )
-        logger.critical(msg)
-        raise FedbiomedTrainingPlanError(msg)
+            f"or dict wrapping such values; but received {type(metric)}")
 
     @abstractmethod
     def training_routine(
@@ -507,7 +507,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric: Optional[MetricTypes],
             metric_args: Dict[str, Any],
             history_monitor: Optional['HistoryMonitor'],
-            before_train: bool
+            before_train: bool,
         ) -> None:
         """Evaluation routine, to be called once per round.
 
@@ -519,6 +519,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Args:
             metric: The metric used for validation.
                 If None, use MetricTypes.ACCURACY.
+            metric_args: dicitonary containing additinal arguments for setting up metric,
+                that maps <argument_name; argument_value> ad that will be passed to the
+                metric function as positinal arguments.
             history_monitor: HistoryMonitor instance,
                 used to record computed metrics and communicate them to
                 the researcher (server).
@@ -532,8 +535,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
-        n_batches = len(self.testing_data_loader)
         n_samples = len(self.testing_data_loader.dataset)
+        n_batches = max(len(self.testing_data_loader) , 1)
+
         # Set up a batch-wise metrics-computation function.
         # Either use an optionally-implemented custom training routine.
         if hasattr(self, "testing_step"):
@@ -549,13 +553,17 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 output = self._model.predict(data)
                 if isinstance(target, torch.Tensor):
                     target = target.numpy()
+
                 return metric_controller.evaluate(
                     target, output, metric=metric, **metric_args
                 )
             metric_name = metric.name
         # Iterate over the validation dataset and run the defined routine.
         num_samples_observed_till_now: int = 0
+
+
         for idx, (data, target) in enumerate(self.testing_data_loader, 1):
+
             num_samples_observed_till_now += self._infer_batch_size(data)
             # Run the evaluation step; catch and raise exceptions.
             try:
@@ -568,25 +576,29 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 logger.critical(msg)
                 raise FedbiomedTrainingPlanError(msg) from exc
             # Log the computed value.
-            logger.debug(
-                f"Validation: Batch {idx}/{n_batches} "
-                f"| Samples {num_samples_observed_till_now}/{n_samples} "
-                f"| Metric[{metric_name}]: {m_value}"
-            )
-            # Further parse, and report it (provided a monitor is set).
-            if history_monitor is not None:
-                m_dict = self._create_metric_result_dict(m_value, metric_name)
-                history_monitor.add_scalar(
-                    metric=m_dict,
-                    iteration=idx,
-                    epoch=None,
-                    test=True,
-                    test_on_local_updates=(not before_train),
-                    test_on_global_updates=before_train,
-                    total_samples=n_samples,
-                    batch_samples=num_samples_observed_till_now,
-                    num_batches=n_batches
+            # Reporting
+
+            if idx % self.training_args()['log_interval'] == 0 or idx == 1 or idx == n_batches:
+                logger.debug(
+                    f"Validation: Batch {idx}/{n_batches} "
+                    f"| Samples {num_samples_observed_till_now}/{n_samples} "
+                    f"| Metric[{metric_name}]: {m_value}"
                 )
+                # Further parse, and report it (provided a monitor is set).
+                if history_monitor is not None:
+                    m_dict = self._create_metric_result_dict(m_value, metric_name)
+                    history_monitor.add_scalar(
+                        metric=m_dict,
+                        iteration=idx,
+                        epoch=None,
+                        test=True,
+                        test_on_local_updates=(not before_train),
+                        test_on_global_updates=before_train,
+                        total_samples=n_samples,
+                        batch_samples=num_samples_observed_till_now,
+                        num_batches=n_batches
+                    )
+
 
     @staticmethod
     def _infer_batch_size(data: Union[dict, list, tuple, 'torch.Tensor', 'np.ndarray']) -> int:
@@ -638,9 +650,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         Args:
             filename: path to the file where the model will be saved.
-        
+
         Raises:
-            FedBiomedTrainingPlanError: raised if model has not be initialized through the 
+            FedBiomedTrainingPlanError: raised if model has not be initialized through the
             `post_init` method. If you need to export the model, you must do it through
             [`Experiment`][`fedbiomed.researcher.federated_workflows.Experiment`]'s interface.
 
@@ -667,7 +679,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             filename: path to the file where the model has been exported.
 
         Raises:
-            FedBiomedTrainingPlanError: raised if model has not be initialized through the 
+            FedBiomedTrainingPlanError: raised if model has not be initialized through the
             `post_init` method. If you need to export the model from the Training Plan, you
             must do it through [`Experiment`][`fedbiomed.researcher.federated_workflows.Experiment`]'s
             interface.

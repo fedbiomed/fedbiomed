@@ -161,7 +161,7 @@ class Scaffold(Aggregator):
             n_round: current round. Defaults to 0.
 
         Returns:
-            Aggregated parameters, as a dict mapping weigth names and values.
+            Aggregated parameters, as a dict mapping weight names and values.
 
         Raises:
             FedbiomedAggregatorError: If no FederatedDataset is attached to this

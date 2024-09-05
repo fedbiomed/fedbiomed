@@ -36,11 +36,11 @@ class NodeEnviron:
         self._values['VAR_DIR'] = f"/tmp/{node}/var"
         self._values['CACHE_DIR'] = f"/tmp/{node}/var/cache"
         self._values['TMP_DIR'] = f"/tmp/{node}/var/tmp"
-        self._values['TIMEOUT'] = 10
         self._values['DEFAULT_TRAINING_PLANS_DIR'] = f"/tmp/{node}/default_training_plans"
         self._values['TRAINING_PLANS_DIR'] = f"/tmp/{node}/registered_training_plans"
         self._values['SECURE_AGGREGATION'] = False
         self._values['FORCE_SECURE_AGGREGATION'] = False
+        self._values['SECAGG_INSECURE_VALIDATION'] = True
         self._values['RESEARCHERS'] = [{'ip': "localhost", "port": "50051", "certificate": None}]
 
 

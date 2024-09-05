@@ -53,6 +53,7 @@ COPY envs/common/default_biprimes /fedbiomed/envs/common/default_biprimes
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
 COPY notebooks /fedbiomed/notebooks
+COPY docs/tutorials /fedbiomed/docs/tutorials
 COPY MP-SPDZ /fedbiomed/MP-SPDZ
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for 

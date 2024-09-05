@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from gmpy2 import mpz
 
-from fedbiomed.common.constants import VEParameters
+from fedbiomed.common.constants import SAParameters
 from fedbiomed.common.secagg import SecaggCrypter, EncryptedNumber
 from fedbiomed.common.secagg._jls import PublicParam
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
@@ -70,13 +70,13 @@ class TestSecaggCrypter(unittest.TestCase):
             with self.assertRaises(FedbiomedSecaggCrypterError):
                 self.secagg_crypter._apply_average(vector, 2)
 
-    def test_secagg_crypter_04_apply_weighing(self):
+    def test_secagg_crypter_04_apply_weighting(self):
         """Tests quantized multiply"""
 
         # Test successful multiply
 
         vector = [4, 8, 12]
-        result = self.secagg_crypter._apply_weighing(vector, 2)
+        result = self.secagg_crypter._apply_weighting(vector, 2)
 
         self.assertListEqual(result, [v * 2 for v in vector])
 
@@ -87,16 +87,16 @@ class TestSecaggCrypter(unittest.TestCase):
             [1, 1, -1],
             [-1, 1, 1],
             [1, -1, 1],
-            [VEParameters.TARGET_RANGE],
-            [2 * VEParameters.TARGET_RANGE],
-            [0, VEParameters.TARGET_RANGE, 0],
-            [0, 0, VEParameters.TARGET_RANGE],
+            [SAParameters.TARGET_RANGE],
+            [2 * SAParameters.TARGET_RANGE],
+            [0, SAParameters.TARGET_RANGE, 0],
+            [0, 0, SAParameters.TARGET_RANGE],
         ]
         for vector in vectors:
             with self.assertRaises(FedbiomedSecaggCrypterError):
-                self.secagg_crypter._apply_weighing(vector, 2)
+                self.secagg_crypter._apply_weighting(vector, 2)
 
-    def test_secagg_crypter_03_encrypt(self):
+    def test_secagg_crypter_05_encrypt(self):
         """Tests encryption"""
 
         key = 10
@@ -113,7 +113,7 @@ class TestSecaggCrypter(unittest.TestCase):
         self.assertIsInstance(result, list)
 
         # IMPORTANT = Bit size can change based on current_round and num_nodes
-        self.assertEqual(ceil(log2(int(result[0]))), TestSecaggCrypter.biprime.bit_length() * 2)
+        self.assertLessEqual(ceil(log2(int(result[0]))), TestSecaggCrypter.biprime.bit_length() * 2)
 
         with self.assertRaises(FedbiomedSecaggCrypterError):
             result = self.secagg_crypter.encrypt(num_nodes=num_nodes,
@@ -146,7 +146,7 @@ class TestSecaggCrypter(unittest.TestCase):
                                                      biprime=TestSecaggCrypter.biprime,
                                                      key=key)
 
-    def test_secagg_crypter_03_decrypt(self):
+    def test_secagg_crypter_06_decrypt(self):
         """Tests decryption"""
 
         params = [0.5, 0.8, -0.5, 0.0]

@@ -71,47 +71,26 @@ class NPDataLoader:
             target = target[:, np.newaxis]
 
         if dataset.ndim != 2 or target.ndim != 2:
-            msg = f"{ErrorNumbers.FB609.value}. Wrong shape for `dataset` or `target` in NPDataLoader. " \
-                  f"Expected 2-dimensional arrays, instead got {dataset.ndim}-dimensional " \
-                  f"and {target.ndim}-dimensional arrays respectively."
-            logger.error(msg)
-            raise FedbiomedValueError(msg)
+            raise FedbiomedValueError(
+                f"{ErrorNumbers.FB609.value}. Wrong shape for `dataset` or `target` in "
+                f"NPDataLoader. Expected 2-dimensional arrays, instead got {dataset.ndim}- "
+                f"dimensional and {target.ndim}-dimensional arrays respectively.")
 
         if len(dataset) != len(target):
-            msg = f"{ErrorNumbers.FB609.value}. Inconsistent length for `dataset` and `target` in NPDataLoader. " \
-                  f"Expected same length, instead got len(dataset)={len(dataset)}, len(target)={len(target)}"
-            logger.error(msg)
-            raise FedbiomedValueError(msg)
+            raise FedbiomedValueError(
+                f"{ErrorNumbers.FB609.value}. Inconsistent length for `dataset` and `target` "
+                f"in NPDataLoader. Expected same length, instead got len(dataset)={len(dataset)}, "
+                f"len(target)={len(target)}")
 
-        if not isinstance(batch_size, int):
-            msg = f"{ErrorNumbers.FB609.value}. Wrong type for `batch_size` parameter of NPDataLoader. Expected a " \
-                  f"non-zero positive integer, instead got type {type(batch_size)}."
-            logger.error(msg)
-            raise FedbiomedTypeError(msg)
-
-        if batch_size <= 0:
-            msg = f"{ErrorNumbers.FB609.value}. Wrong value for `batch_size` parameter of NPDataLoader. Expected a " \
-                  f"non-zero positive integer, instead got value {batch_size}."
-            logger.error(msg)
-            raise FedbiomedValueError(msg)
-
-        if not isinstance(shuffle, bool):
-            msg = f"{ErrorNumbers.FB609.value}. Wrong type for `shuffle` parameter of NPDataLoader. Expected `bool`, " \
-                  f"instead got {type(shuffle)}."
-            logger.error(msg)
-            raise FedbiomedTypeError(msg)
-
-        if not isinstance(drop_last, bool):
-            msg = f"{ErrorNumbers.FB609.value}. Wrong type for `drop_last` parameter of NPDataLoader. " \
-                  f"Expected `bool`, instead got {type(drop_last)}."
-            logger.error(msg)
-            raise FedbiomedTypeError(msg)
+        if not isinstance(batch_size, int) or batch_size <= 0:
+            raise FedbiomedValueError(
+                f"{ErrorNumbers.FB609.value}. Wrong value for `batch_size` parameter of "
+                f"NPDataLoader. Expected a non-zero positive integer, instead got value {batch_size}.")
 
         if random_seed is not None and not isinstance(random_seed, int):
-            msg = f"{ErrorNumbers.FB609.value}. Wrong type for `random_seed` parameter of NPDataLoader. " \
-                  f"Expected int or None, instead got {type(random_seed)}."
-            logger.error(msg)
-            raise FedbiomedTypeError(msg)
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB609.value}. Wrong type for `random_seed` parameter of "
+                f"NPDataLoader. Expected int or None, instead got {type(random_seed)}.")
 
         self._dataset = dataset
         self._target = target
@@ -225,7 +204,7 @@ class _BatchIterator:
             if self._loader.target is None:
                 return self._loader.dataset[indices, :], None
             else:
-                return self._loader.dataset[indices, :], self._loader.target[indices, :]
+                return self._loader.dataset[indices, :], self._loader.target[indices]
 
         # Set index to zero for next epochs
         self._reset()
@@ -312,7 +291,7 @@ class SkLearnDataManager(object):
 
         return self._subset_train
 
-    def split(self, test_ratio: float) -> Tuple[NPDataLoader, NPDataLoader]:
+    def split(self, test_ratio: float, test_batch_size: int) -> Tuple[NPDataLoader, NPDataLoader]:
         """Splits `np.ndarray` dataset into train and validation.
 
         Args:
@@ -349,7 +328,9 @@ class SkLearnDataManager(object):
             self._subset_test = (x_test, y_test)
             self._subset_train = (x_train, y_train)
 
-        test_batch_size = max(1, len(self._subset_test[0]))
+        if not test_batch_size:
+            test_batch_size = len(self._subset_test)
+
         return self._subset_loader(self._subset_train, **self._loader_arguments), \
             self._subset_loader(self._subset_test, batch_size=test_batch_size)
 
