@@ -1,102 +1,171 @@
 import random
 from math import log2
 
+from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
+from fedbiomed.common.constants import ErrorNumbers
+
+
 class Secret:
     def __init__(self, secret):
         """
-        Initialize the Secret class with a given secret.
-        The secret can be an integer or a list of integers.
+        Initializes the Secret class with the provided secret value.
 
-        :param secret: The secret value to be shared (int or list of int).
+        Args:
+            secret (int | list[int]): The secret to be shared, either an integer or a list of integers.
+
+        Raises:
+            FedbiomedSecaggCrypterError: If the secret is not an int or a list of integers.
         """
-        # Check if the secret is either an int or a list of int
-        if isinstance(secret, int) or (isinstance(secret, list) and all(isinstance(i, int) for i in secret)):
-            self.secret = secret  # Assign the secret
-        else:
-            raise ValueError("Secret must be an int or a list of int")  # Raise an error if not valid
+        try:
+            if isinstance(secret, int) or (isinstance(secret, list) and all(isinstance(i, int) for i in secret)):
+                self.secret = secret
+            else:
+                raise ValueError("Secret must be an int or a list of int")
+        except ValueError as exp:
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB630}: Invalid secret format, {exp}"
+            )
 
     def split(self, num_shares):
         """
-        Split the secret into the given number of shares using additive secret sharing.
-        The sum of all the shares will reconstruct the original secret.
+        Splits the secret into the specified number of shares using additive secret sharing.
+        The sum of the shares will equal the original secret.
 
-        :param num_shares: Number of shares to generate.
-        :return: List of Share objects.
+        Args:
+            num_shares (int): The number of shares to generate.
+
+        Returns:
+            list[Share]: A list of Share objects representing the split shares.
+
+        Raises:
+            FedbiomedSecaggCrypterError: If the secret type is neither an int nor a list of integers.
         """
-        # If the secret is an integer
-        if isinstance(self.secret, int):
-            # Generate num_shares - 1 random shares, and calculate the last share such that their sum equals the secret
-            shares = [random.randint(0, self.secret) for _ in range(num_shares - 1)]
-            last_share = self.secret - sum(shares)  # Last share ensures the sum equals the secret
-            shares.append(last_share)
+        try:
+            if isinstance(self.secret, int):
+                shares = [random.randint(0, self.secret) for _ in range(num_shares - 1)]
+                last_share = self.secret - sum(shares)
+                shares.append(last_share)
 
-        # If the secret is a list of integers
-        elif isinstance(self.secret, list):
-            shares = []
-            # Get the maximum bit length of the values in the list (used for bounded random values)
-            max_bit_length = max([value.bit_length() for value in self.secret])
+            elif isinstance(self.secret, list):
+                shares = []
+                max_bit_length = max([value.bit_length() for value in self.secret])
 
-            for value in self.secret:
-                # Create num_shares - 1 random partial shares with bounds based on bit length
-                partial_shares = [random.randint(0, (max_bit_length - int(log2(num_shares)))) for _ in range(num_shares - 1)]
-                partial_shares.append(value - sum(partial_shares))  # Ensure the sum equals the original value
-                shares.append(partial_shares)  # Append the generated shares for each list element
+                for value in self.secret:
+                    partial_shares = [random.randint(0, (max_bit_length - int(log2(num_shares)))) for _ in range(num_shares - 1)]
+                    partial_shares.append(value - sum(partial_shares))
+                    shares.append(partial_shares)
 
-            # Transpose the list so that each inner list corresponds to one party's shares
-            shares = list(map(list, zip(*shares)))
+                shares = list(map(list, zip(*shares)))
 
-        else:
-            # Raise an error if the secret is not valid
-            raise ValueError("Secret must be an int or a list of int")
+            else:
+                raise ValueError("Secret must be an int or a list of int")
         
-        # Return each share wrapped as a Share object
-        return [Share(share) for share in shares]
+            return [Share(share) for share in shares]
+
+        except ValueError as exp:
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB630}: Failed to split the secret, {exp}"
+            )
+    @staticmethod
+    def reconstruct(shares):
+        """ 
+        Given a list of shares, reconstructs the original secret.
+
+        Args:
+            shares (list[Share]): A list of Share objects to reconstruct the secret from.
+        
+        Returns:
+            int | list[int]: The reconstructed secret, either an integer or a list of integers.
+
+        Raises:
+            FedbiomedSecaggCrypterError: If the shares are not of the same type (int or list).
+        """
+
+        try:
+            if all(isinstance(share.value, int) for share in shares):
+                return sum(share.value for share in shares)
+            elif all(isinstance(share.value, list) for share in shares):
+                return [sum(share.value[i] for share in shares) for i in range(len(shares[0].value))]
+            else:
+                raise ValueError("All shares must be of the same type (int or list of int).")
+        
+        except ValueError as exp:
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB630}: Failed to reconstruct the secret, {exp}"
+            )
 
 
 class Share:
     def __init__(self, value):
         """
-        Initialize the Share class with a value. The value can be an integer or a list of integers.
+        Initializes the Share class with a given value.
 
-        :param value: The share value (int or list of int).
+        Args:
+            value (int | list[int]): The value of the share, either an integer or a list of integers.
+
+        Raises:
+            FedbiomedSecaggCrypterError: If the value is neither an int nor a list of integers.
         """
-        # Check if the value is valid (either an int or list of int)
-        if isinstance(value, int) or (isinstance(value, list) and all(isinstance(i, int) for i in value)):
-            self.value = value  # Assign the share value
-        else:
-            raise ValueError("Share value must be an int or a list of int")  # Raise an error if not valid
+        try:
+            if isinstance(value, int) or (isinstance(value, list) and all(isinstance(i, int) for i in value)):
+                self._value = value
+            else:
+                raise ValueError("Share value must be an int or a list of int")
+        except ValueError as exp:
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB630}: Invalid share value format, {exp}"
+            )
 
     def __add__(self, other):
         """
-        Add two shares together. The shares can be added if they are of the same type (int or list of int).
+        Adds two shares together. Supports both integer and list types.
 
-        :param other: Another Share object or a raw int/list to add.
-        :return: A new Share object with the summed value.
+        Args:
+            other (Share | int | list[int]): The share or value to add.
+
+        Returns:
+            Share: A new Share object with the resulting sum.
+
+        Raises:
+            FedbiomedSecaggCrypterError: If the two values being added are not of the same type (both int or both list).
         """
-        # If other is a Share object, extract its value for addition
-        if isinstance(other, Share):
-            other = other.value
-        
-        # Handle addition of integers
-        if isinstance(self.value, int) and isinstance(other, int):
-            return Share(self.value + other)  # Return a new Share with summed integer values
+        try:
+            if isinstance(other, Share):
+                other = other.value
+            
+            if isinstance(self.value, int) and isinstance(other, int):
+                return Share(self.value + other)
+            elif isinstance(self.value, list) and isinstance(other, list):
+                return Share([x + y for x, y in zip(self.value, other)])
+            else:
+                raise TypeError("Both shares must be of the same type (int or list of int).")
 
-        # Handle addition of lists of integers
-        elif isinstance(self.value, list) and isinstance(other, list):
-            # Element-wise addition of the two lists
-            return Share([x + y for x, y in zip(self.value, other)])
-        
-        else:
-            # Raise an error if the types don't match
-            raise TypeError("Both shares must be of the same type (int or list of int).")
+        except (TypeError, ValueError) as exp:
+            raise FedbiomedSecaggCrypterError(
+                f"{ErrorNumbers.FB630}: Failed to add shares, {exp}"
+            )
 
     def __repr__(self):
         """
-        String representation of a Share object.
-        :return: String format of the Share value.
+        Returns the string representation of the Share object.
+
+        Returns:
+            str: The string representation of the Share value.
         """
         return f"Share({self.value})"
     
     @property
     def value(self):
-        return self.__value
+        """
+        Getter for the share's value.
+
+        Returns:
+            int | list[int]: The value of the share.
+        """
+        return self._value
+    
+
+shares = [Share([1, 2, 3]), Share([4, 5, 6]), Share([5, 13, 21])]
+secret = [10, 20, 30]
+reconstructed = Secret.reconstruct(shares)
+print(reconstructed) # [10, 20, 30]
