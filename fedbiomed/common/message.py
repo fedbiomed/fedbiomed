@@ -423,7 +423,6 @@ class AdditiveSSharingRequest(InnerRequestReply, RequiresProtocolVersion):
 @catch_dataclass_exception
 @dataclass
 class AdditiveSSharingReply(InnerRequestReply, RequiresProtocolVersion):
-
     secagg_id: str
     share: list | int
     command: str = 'additive-secret-share-reply'
