@@ -411,6 +411,25 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
     secagg_id: str
     command: str
 
+
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSharingRequest(InnerRequestReply, RequiresProtocolVersion):
+    public_key: bytes
+    secagg_id: str
+    command: str = 'additive-secret-share-request'
+    
+
+
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSharingReply(InnerRequestReply, RequiresProtocolVersion):
+    
+    public_key: bytes
+    secagg_id: str
+    share: list | int
+    command: str = 'additive-secret-share-reply'
+
 # Example of  of one-wway (not request-reply) inner message
 #
 # @catch_dataclass_exception
@@ -675,7 +694,7 @@ class SecaggDeleteReply(RequestReply, RequiresProtocolVersion):
 
 
 @catch_dataclass_exception
-@dataclass
+@dataclass(kw_only=True)
 class SecaggRequest(RequestReply, RequiresProtocolVersion):
     """Describes a secagg context element setup request message sent by the researcher
 
@@ -695,11 +714,11 @@ class SecaggRequest(RequestReply, RequiresProtocolVersion):
     element: int
     experiment_id: Optional[str]
     parties: list
-    command: str
+    command: str = 'secagg'
 
 
 @catch_dataclass_exception
-@dataclass
+@dataclass(kw_only=True)
 class SecaggReply(RequestReply, RequiresProtocolVersion):
     """Describes a secagg context element setup reply message sent by the node
 
@@ -714,12 +733,27 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+    
     researcher_id: str
     secagg_id: str
     success: bool
     node_id: str
     msg: str
-    command: str
+    command: str = 'secagg-reply'
+
+
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSSetupRequest(SecaggRequest):
+    command: str = 'secagg-additive-ss-setup-request'
+
+
+@catch_dataclass_exception
+@dataclass(kw_only=True)
+class AdditiveSSSetupReply(SecaggReply):
+    
+    command: str = 'secagg-additive-ss-setup-reply'
+    share: int | list
 
 
 # TrainingPlanStatus messages
@@ -952,6 +986,7 @@ class ResearcherMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
+                                          'secagg-additive-ss-setup-reply': AdditiveSSSetupReply,
                                           'secagg-delete': SecaggDeleteReply,
                                           'overlay': OverlayMessage,
                                           }
@@ -963,6 +998,7 @@ class ResearcherMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusRequest,
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
+                                          'secagg-additive-ss-setup-request': AdditiveSSSetupRequest,
                                           'secagg-delete': SecaggDeleteRequest,
                                           'overlay': OverlayMessage,
                                           }
@@ -980,6 +1016,7 @@ class NodeMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusRequest,
                                           'approval': ApprovalRequest,
                                           'secagg': SecaggRequest,
+                                          'secagg-additive-ss-setup-request': AdditiveSSSetupRequest,
                                           'secagg-delete': SecaggDeleteRequest,
                                           'overlay': OverlayMessage,
                                           }
@@ -993,6 +1030,7 @@ class NodeMessages(MessageFactory):
                                           'training-plan-status': TrainingPlanStatusReply,
                                           'approval': ApprovalReply,
                                           'secagg': SecaggReply,
+                                          'secagg-additive-ss-setup-reply': AdditiveSSSetupReply,
                                           'secagg-delete': SecaggDeleteReply,
                                           'overlay': OverlayMessage,
                                           }
@@ -1003,6 +1041,8 @@ class NodeToNodeMessages(MessageFactory):
     """
     INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'key-request': KeyRequest,
                                           'key-reply': KeyReply,
+                                          'additive-secret-share-request': AdditiveSSharingRequest,
+                                          'additive-secret-share-reply': AdditiveSSharingReply
                                           # Example of  of one-wway (not request-reply) inner message
                                           # 'dummy-inner': DummyInner,
                                           }

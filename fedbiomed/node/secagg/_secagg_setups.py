@@ -138,7 +138,8 @@ class SecaggBaseSetup(ABC):
             'secagg_id': self._secagg_id,
             'success': success,
             'msg': message,
-            'command': 'secagg'
+            'command': 'secagg',
+            'share': None
         }
 
     def setup(self) -> dict:
