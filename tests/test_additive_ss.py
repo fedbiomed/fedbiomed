@@ -1,6 +1,7 @@
 import unittest
 from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
-from fedbiomed.common.secagg._additive_ss import Secret, Share
+from fedbiomed.common.secagg._additive_ss import Secret, Share, Shares
+import random
 
 class TestSecret(unittest.TestCase):
     
@@ -34,26 +35,26 @@ class TestSecret(unittest.TestCase):
         shares = secret.split(3, bit_length=10)
         
         # Ensure all shares are within the specified bit length range
-        for share in shares:
-            self.assertTrue(-2**10 <= share.value <=2**10)
+        for share in shares.values:
+            self.assertTrue(-2**10 <= share <=2**10)
 
     def test_reconstruct_secret_int(self):
         """Test reconstructing an integer secret."""
-        shares = [Share(10), Share(20), Share(15)]
-        reconstructed = Secret.reconstruct(shares)
+        shares = Shares([Share(10), Share(20), Share(15)])
+        reconstructed = shares.reconstruct()
         self.assertEqual(reconstructed, 45)
 
     def test_reconstruct_secret_list(self):
         """Test reconstructing a list secret."""
-        shares = [Share([1, 2, 3]), Share([4, 5, 6]), Share([5, 13, 21])] 
-        reconstructed = Secret.reconstruct(shares)
+        shares = Shares([Share([1, 2, 3]), Share([4, 5, 6]), Share([5, 13, 21])])
+        reconstructed = shares.reconstruct()
         self.assertEqual(reconstructed, [10, 20, 30])
 
     def test_reconstruct_invalid_shares(self):
         """Test reconstructing with invalid shares."""
-        invalid_shares = [Share(10), Share([20, 30])]
+        invalid_shares = Shares([Share(10), Share([20, 30])])
         with self.assertRaises(FedbiomedTypeError):
-            Secret.reconstruct(invalid_shares)
+            invalid_shares.reconstruct()
 
 
 class TestShare(unittest.TestCase):
@@ -75,38 +76,93 @@ class TestShare(unittest.TestCase):
 
     def test_add_shares_int(self):
         """Test adding two integer shares."""
-        share1 = Secret(10).split(2)
-        share2 = Secret(15).split(2)
-        result = Share.add(share1, share2)
-        reconstructed = Secret.reconstruct(result)
+        shares_1 = Secret(10).split(2)
+        shares_2 = Secret(15).split(2)
+        result = shares_1 + shares_2
+        reconstructed = result.reconstruct()
         self.assertEqual(reconstructed, 25)
 
     def test_add_shares_list(self):
         """Test adding two list shares."""
-        share1 = Secret([1, 2, 3]).split(3)
-        share2 = Secret([4, 5, 6]).split(3)
-        result = Share.add(share1, share2)
-        reconstructed = Secret.reconstruct(result)
+        shares_1 = Secret([1, 2, 3]).split(3)
+        shares_2 = Secret([4, 5, 6]).split(3)
+        result = shares_1 + shares_2
+        reconstructed = result.reconstruct()
         self.assertEqual(reconstructed, [5, 7, 9])
 
     def test_add_invalid_shares(self):
         """Test adding shares of different types (int and list)."""
-        share1 = Secret(10).split(2)
-        share2 = Secret([1, 2, 3]).split(2)
+        shares_1 = Secret(10).split(2)
+        shares_2 = Secret([1, 2, 3]).split(2)
         with self.assertRaises(FedbiomedTypeError):
-            Share.add(share1, share2)
+            shares_1 + shares_2
 
-    def test_add_share_and_int(self):
-        """Test adding a Share object and an integer."""
-        share = Share(10)
-        result = share + 5
-        self.assertEqual(result.value, 15)
+    def test_ahe_setup_int(self):
+        """Test to reproduce the setup for additive homomorphic encryption scheme (Joye Libert)."""
+        # generate 3 users' keys
+        user_key_1 = random.randint(0, 2**2048)
+        user_key_2 = random.randint(0, 2**2048)
+        user_key_3 = random.randint(0, 2**2048)
+        # generate 3 users' shares
+        shares_1 = Secret(user_key_1).split(3)
+        shares_2 = Secret(user_key_2).split(3)
+        shares_3 = Secret(user_key_3).split(3)
+        # each user send n-1 shares to the other users
+        user_1_to_2 = shares_1[1]
+        user_1_to_3 = shares_1[2]
 
-    def test_add_share_and_list(self):
-        """Test adding a Share object and a list."""
-        share = Share([1, 2, 3])
-        result = share + [4, 5, 6]
-        self.assertEqual(result.value, [5, 7, 9])
+        user_2_to_1 = shares_2[0]
+        user_2_to_3 = shares_2[2]
+
+        user_3_to_1 = shares_3[0]
+        user_3_to_2 = shares_3[1]
+        # each user reconstruct the secret
+        server_key_shares_1 = shares_1[0] + user_2_to_1 + user_3_to_1
+        server_key_shares_2 = shares_2[1] + user_1_to_2 + user_3_to_2
+        server_key_shares_3 = shares_3[2] + user_1_to_3 + user_2_to_3
+
+        # reseacher reconstruct the server key
+        server_key = Shares([server_key_shares_1,server_key_shares_2,server_key_shares_3]).reconstruct()
+
+        original_key = user_key_1 + user_key_2 + user_key_3
+
+        self.assertEqual(server_key, original_key)
+        
+    def test_ahe_setup_list(self):
+        """Test to reproduce the setup for additive homomorphic encryption scheme (Learning With Error SA) with list shares."""
+        # generate 3 users' keys
+        user_key_1 = [random.randint(0, 2**50) for _ in range(10)]
+        user_key_2 = [random.randint(0, 2**50) for _ in range(10)]
+        user_key_3 = [random.randint(0, 2**50) for _ in range(10)]
+
+        # generate 3 users' shares
+        shares_1 = Secret(user_key_1).split(3)
+        shares_2 = Secret(user_key_2).split(3)
+        shares_3 = Secret(user_key_3).split(3)
+
+        # each user send n-1 shares to the other users
+        user_1_to_2 = shares_1[1]
+        user_1_to_3 = shares_1[2]
+
+        user_2_to_1 = shares_2[0]
+        user_2_to_3 = shares_2[2]
+
+        user_3_to_1 = shares_3[0]
+        user_3_to_2 = shares_3[1]
+
+        # each user reconstruct the secret
+        server_key_shares_1 = shares_1[0] + user_2_to_1 + user_3_to_1
+
+        server_key_shares_2 = shares_2[1] + user_1_to_2 + user_3_to_2
+        server_key_shares_3 = shares_3[2] + user_1_to_3 + user_2_to_3
+
+        # reseacher reconstruct the server key
+        server_key = Shares([server_key_shares_1,server_key_shares_2,server_key_shares_3]).reconstruct()
+
+        original_key = [user_key_1[i] + user_key_2[i] + user_key_3[i] for i in range(10)]
+
+        self.assertEqual(server_key, original_key)
+
 
 
 if __name__ == '__main__':
