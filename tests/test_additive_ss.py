@@ -4,7 +4,7 @@ from fedbiomed.common.secagg._additive_ss import Secret, Share, Shares
 import random
 
 class TestSecret(unittest.TestCase):
-    
+
     def test_secret_initialization_valid_int(self):
         """Test initializing Secret with a valid integer."""
         secret = Secret(123)
@@ -20,7 +20,7 @@ class TestSecret(unittest.TestCase):
         with self.assertRaises(FedbiomedValueError) as context:
             Secret("invalid_secret")
         self.assertIn("Secret must be an int or a list of int", str(context.exception))
-    
+
     def test_split_invalid_num_shares(self):
         """Test splitting with invalid number of shares."""
         secret = Secret(10)
@@ -33,10 +33,10 @@ class TestSecret(unittest.TestCase):
         """Test splitting with a specific bit length."""
         secret = Secret(1024)
         shares = secret.split(3, bit_length=10)
-        
+
         # Ensure all shares are within the specified bit length range
-        for share in shares.values:
-            self.assertTrue(-2**10 <= share <=2**10)
+        for share in shares:
+            self.assertTrue(-2**10 <= share.value <=2**10)
 
     def test_reconstruct_secret_int(self):
         """Test reconstructing an integer secret."""
@@ -127,7 +127,7 @@ class TestShare(unittest.TestCase):
         original_key = user_key_1 + user_key_2 + user_key_3
 
         self.assertEqual(server_key, original_key)
-        
+
     def test_ahe_setup_list(self):
         """Test to reproduce the setup for additive homomorphic encryption scheme (Learning With Error SA) with list shares."""
         # generate 3 users' keys
