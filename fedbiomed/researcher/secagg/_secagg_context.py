@@ -9,7 +9,7 @@ import concurrent.futures
 from typing import Callable, List, Optional, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
 
-from fedbiomed.common.secagg._additive_ss import Share, Shares
+from fedbiomed.common.secagg import AdditiveShare, AdditiveShares
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests, StopOnDisconnect, StopOnError, \
     StopOnTimeout
@@ -613,9 +613,9 @@ class SecaggKeyContext(SecaggContext):
             # Additive Secret Sharing: sum up shares from nodes
             for rep in replies.values():
                 share = rep.share
-                context['share'].append(Share(share))
+                context['share'].append(AdditiveShare(share))
 
-        context['share'] = Shares(context['share']).reconstruct()
+        context['share'] = AdditiveShares(context['share']).reconstruct()
 
         if all(status.values()):
             # only create context if previous steps succeeded
