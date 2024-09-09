@@ -6,7 +6,7 @@ from ._dh import DHKey, DHKeyAgreement
 from ._jls import JoyeLibert
 from ._secagg_crypter import SecaggCrypter, EncryptedNumber, SecaggLomCrypter
 from ._lom import LOM, PRF
-from ._additive_ss import Secret, Share
+from ._additive_ss import AdditiveSecret, AdditiveShare, AdditiveShares
 
 __all__ = [
     "DHKey",
@@ -17,6 +17,7 @@ __all__ = [
     "EncryptedNumber",
     "SecaggCrypter",
     "SecaggLomCrypter",
-    "Secret",
-    "Share",
+    "AdditiveSecret",
+    "AdditiveShare",
+    "AdditiveShares",
 ]
