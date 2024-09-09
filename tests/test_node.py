@@ -17,7 +17,7 @@ from testsupport.base_case import NodeTestCase
 # import dummy classes
 from testsupport.fake_uuid import FakeUuid
 from testsupport.fake_message import FakeMessages
-from testsupport.fake_secagg_manager import FakeSecaggServkeyManager, FakeSecaggBiprimeManager
+from testsupport.fake_secagg_manager import FakeSecaggServkeyManager
 from testsupport import fake_training_plan
 
 import torch
@@ -134,7 +134,6 @@ class TestNode(NodeTestCase):
             task_queue_add_patcher.assert_called_once_with(node_msg_request_create_task)
             task_queue_add_patcher.reset_mock()
 
-    @patch('fedbiomed.node.secagg._secagg_setups.BPrimeManager')
     @patch('fedbiomed.node.secagg._secagg_setups.SKManager')
     @patch('fedbiomed.node.node.Node.add_task')
     @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
@@ -143,13 +142,11 @@ class TestNode(NodeTestCase):
             node_msg_req_create_patcher,
             node_add_task_patcher,
             patch_servkey_manager,
-            patch_biprime_manager
     ):
         """Tests `on_message` method (normal case scenario), with train/secagg command"""
         # test 1: test normal case scenario, where `command` = 'train' or 'secagg'
 
         patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
 
         node_msg_req_create_patcher.side_effect = TestNode.node_msg_side_effect
         for command in ['train', 'secagg']:
@@ -495,7 +492,6 @@ class TestNode(NodeTestCase):
             'experiment_id': 'experiment_id_1234',
             'state_id': None,
             'secagg_arguments': {
-                "secagg_biprime_id": None,
                 "secagg_servkey_id": None,
                 "secagg_random": None,
                 "secagg_clipping_range": None
@@ -703,7 +699,6 @@ class TestNode(NodeTestCase):
             # `messaging.send_message` method )
             self.n1.task_manager()
 
-    @patch('fedbiomed.node.secagg._secagg_setups.BPrimeManager')
     @patch('fedbiomed.node.secagg._secagg_setups.SKManager')
     @patch('fedbiomed.common.tasks_queue.TasksQueue.task_done')
     @patch('fedbiomed.node.node.Node._task_secagg')
@@ -714,7 +709,7 @@ class TestNode(NodeTestCase):
             task_secagg_patch,
             tasks_queue_task_done_patch,
             patch_servkey_manager,
-            patch_biprime_manager):
+    ):
         """Tests if an Exception (SystemExit) is triggered when calling
         `TasksQueue.task_done` method for secagg message"""
         # defining patchers
@@ -734,7 +729,6 @@ class TestNode(NodeTestCase):
             "Mimicking an exception happening in" + "`TasksQueue.task_done` method")  # noqa
 
         patch_servkey_manager.return_value = FakeSecaggServkeyManager()
-        patch_biprime_manager.return_value = FakeSecaggBiprimeManager()
 
         # action
         with self.assertRaises(SystemExit):

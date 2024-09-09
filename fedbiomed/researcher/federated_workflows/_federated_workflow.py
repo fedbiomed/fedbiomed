@@ -684,7 +684,9 @@ class FederatedWorkflow(ABC):
         secagg_arguments = {}
         if self._secagg.active:
 
-            if not self._secagg.setup(parties=[environ["ID"]] + sampled_nodes, experiment_id=self._experiment_id):
+            if not self._secagg.setup(
+                parties=[environ["ID"]] + sampled_nodes,
+                experiment_id=self._experiment_id):
                 msg = f"{ErrorNumbers.FB417.value}: Could not setup secure aggregation crypto context."
                 logger.critical(msg)
                 raise FedbiomedSecureAggregationError(msg)
@@ -811,8 +813,9 @@ class FederatedWorkflow(ABC):
         loaded_exp._tags = saved_state.get('tags')
         loaded_exp.set_nodes(saved_state.get('nodes'))
         loaded_exp.set_experimentation_folder(saved_state.get('experimentation_folder'))
-        saved_state_secagg = saved_state.get('secagg')
-        loaded_exp.set_secagg(eval(saved_state_secagg['class']).load_state_breakpoint(saved_state_secagg))
+
+        secagg = SecureAggregation.load_state_breakpoint(saved_state.get('secagg'))
+        loaded_exp.set_secagg(secagg)
         loaded_exp._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
         loaded_exp.set_save_breakpoints(True)
 

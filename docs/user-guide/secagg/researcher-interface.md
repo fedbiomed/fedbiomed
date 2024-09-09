@@ -127,4 +127,4 @@ exp.secagg.setup(
 )
 ```
 
-The outcome of the setup action can vary depending on the secure aggregation scheme used. For example, in the Joye-Libert scheme, the setup action generates a `biprime` and `servkey`. In contrast, the LOM scheme only tracks the secure aggregation setup status of the participating nodes. This ensures that all participating nodes have created their own context/elements for training before the system sends the train request.
+The outcome of the setup action can vary depending on the secure aggregation scheme used. For example, in the Joye-Libert scheme, the setup action generates `servkey`, and attaches a default biprime number into its context. In contrast, the LOM scheme only tracks the secure aggregation setup status of the participating nodes. This ensures that all participating nodes have created their own context/elements for training before the system sends the train request.

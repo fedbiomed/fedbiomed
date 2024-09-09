@@ -1234,7 +1234,6 @@ class TestMessage(unittest.TestCase):
             training_plan_class='my_model',
             secagg_arguments={
                 'secagg_servkey_id': None,
-                'secagg_biprime_id': None,
                 'secagg_random': None,
                 'secagg_clipping_range': None
             },
@@ -1597,7 +1596,6 @@ class TestMessage(unittest.TestCase):
             "model_args": {},
             "secagg_arguments": {
                 "secagg_servkey_id": "dummy",
-                "secagg_biprime_id": "dummy",
                 "secagg_random": 0.95,
                 "secagg_clipping_range" : None
             },

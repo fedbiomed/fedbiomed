@@ -6,8 +6,6 @@ import inspect
 from typing import List, Union
 from abc import ABC, abstractmethod
 from enum import Enum
-import time
-import random
 import uuid
 
 from fedbiomed.common.certificate_manager import CertificateManager
@@ -19,11 +17,12 @@ from fedbiomed.common.message import NodeToNodeMessages
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg import DHKey, DHKeyAgreement
 from fedbiomed.common.synchro import EventWaitExchange
+from fedbiomed.common.utils import get_default_biprime
 
 from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
-from fedbiomed.node.secagg_manager import SKManager, BPrimeManager, DHManager, SecaggManager
+from fedbiomed.node.secagg_manager import SKManager, DHManager, SecaggManager
 from fedbiomed.node.requests import send_nodes
 
 
@@ -44,7 +43,7 @@ class SecaggBaseSetup(ABC):
             researcher_id: str,
             secagg_id: str,
             parties: List[str],
-            experiment_id: Union[str, None] = None,
+            experiment_id: str,
     ):
         """Constructor of the class.
 
@@ -52,7 +51,7 @@ class SecaggBaseSetup(ABC):
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
             experiment_id: ID of the experiment to which this secagg context element
-                is attached (empty string if no attached experiment)
+                is attached
             parties: List of parties participating in the secagg context element setup
 
         Raises:
@@ -100,11 +99,11 @@ class SecaggBaseSetup(ABC):
         return self._secagg_id
 
     @property
-    def experiment_id(self) -> Union[str, None]:
+    def experiment_id(self) -> str:
         """Getter for `experiment_id`
 
         Returns:
-            ID of the experiment to which this secagg context element is attached (empty string if no attached experiment)
+            ID of the experiment to which this secagg context element is attached
         """
         return self._experiment_id
 
@@ -184,7 +183,7 @@ class SecaggMpspdzSetup(SecaggBaseSetup):
             researcher_id: str,
             secagg_id: str,
             parties: List[str],
-            experiment_id: Union[str, None] = None,
+            experiment_id: str,
     ):
         """Constructor of the class.
 
@@ -192,7 +191,7 @@ class SecaggMpspdzSetup(SecaggBaseSetup):
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
             experiment_id: ID of the experiment to which this secagg context element
-                is attached (empty string if no attached experiment)
+                is attached
             parties: List of parties participating in the secagg context element setup
         """
 
@@ -238,11 +237,6 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
         self._element = SecaggElementTypes.SERVER_KEY
         self._secagg_manager = SKManager
 
-        if not self._experiment_id or not isinstance(self._experiment_id, str):
-            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `experiment_id` must be a non empty string'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-
     def _setup_specific(self) -> None:
         """Service function for setting up the server key secagg context element.
 
@@ -281,53 +275,12 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
                 f"{ErrorNumbers.FB318.value}: Can not access protocol output after applying multi party computation"
             )
 
-        context = {'server_key': int(key_share)}
+        biprime = get_default_biprime()
+        context = {'server_key': int(key_share), 'biprime': int(biprime)}
         self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
         logger.info(
             "Server key share successfully created for "
             f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'")
-
-
-class SecaggBiprimeSetup(SecaggMpspdzSetup):
-    """
-    Sets up a biprime Secure Aggregation context element on the node side.
-    """
-    def __init__(
-            self,
-            researcher_id: str,
-            secagg_id: str,
-            parties: List[str],
-            experiment_id: None = None):
-
-        """Constructor of the class.
-
-        Args:
-            researcher_id: ID of the researcher that requests setup
-            secagg_id: ID of secagg context element for this setup request
-            experiment_id: unused argument
-            parties: List of parties participating to the secagg context element setup
-
-        Raises:
-            FedbiomedSecaggError: bad argument type or value
-        """
-        super().__init__(researcher_id, secagg_id, parties, None)
-
-        self._element = SecaggElementTypes.BIPRIME
-        self._secagg_manager = BPrimeManager
-
-        if experiment_id is not None:
-            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `experiment_id` must be None'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-
-    def _setup_specific(self) -> None:
-        """Service function for setting up the biprime secagg context element.
-        """
-        # don't update an existing default biprime
-        if not self._secagg_manager.is_default_biprime(self._secagg_id):
-            errmess = f'{ErrorNumbers.FB318.value}: non default biprimes are not implemented yet'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
 
 
 class SecaggDHSetup(SecaggBaseSetup):
@@ -368,11 +321,6 @@ class SecaggDHSetup(SecaggBaseSetup):
         self._grpc_client = grpc_client
         self._pending_requests = pending_requests
         self._controller_data = controller_data
-
-        if not self._experiment_id or not isinstance(self._experiment_id, str):
-            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `experiment_id` must be a non empty string'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
 
     def _setup_specific(self) -> None:
         """Service function for setting up the Diffie Hellman secagg context element.
@@ -450,7 +398,6 @@ class SecaggSetup:
 
     element2class = {
         SecaggElementTypes.SERVER_KEY.name: SecaggServkeySetup,
-        SecaggElementTypes.BIPRIME.name: SecaggBiprimeSetup,
         SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDHSetup
     }
 

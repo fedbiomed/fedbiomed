@@ -32,7 +32,6 @@ class TestConfigurationParser(unittest.TestCase):
                          _subparsers._group_actions[0].choices["create"]._defaults["func"].__func__.__name__,
                          'create')
 
-    @patch('fedbiomed.common.cli.SecaggBiprimeManager')
     @patch("builtins.print")
     @patch('builtins.open')
     @patch('fedbiomed.node.config.NodeConfig')
@@ -43,10 +42,7 @@ class TestConfigurationParser(unittest.TestCase):
         nconfig,
         mock_open,
         mock_print,
-        mock_secagg_bp_manager
     ):
-        mock_secagg_bp_manager = MagicMock(return_value=None)
-
         args = self.main_parser.parse_args(["configuration", "create", "--component", "NODE", '-uc'])
         self.conf_parser.create(args)
         nconfig.return_value.generate.assert_called_once()

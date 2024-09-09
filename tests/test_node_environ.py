@@ -26,7 +26,7 @@ class TestNodeEnviron(unittest.TestCase):
         self.patch_open.start()
 
         self.config_mock.return_value.get.side_effect = [
-            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key', 'True', # Common
+            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key', # Common
             'node-id', 'True', 'True', "SHA256", '', '', "localhost", "50051"]  # Node
 
         environ_module_dir = os.path.join(os.path.dirname(
@@ -42,7 +42,7 @@ class TestNodeEnviron(unittest.TestCase):
         ## Reset
         self.config_mock.return_value.get.side_effect = None
         self.config_mock.return_value.get.side_effect = [
-            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key', 'True',  # Common
+            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key',  # Common
             'node-id', 'True', 'True', "SHA256", '', '', "localhost", "50051"]  # Node
 
         if NodeEnviron in NodeEnviron._objects:
@@ -66,7 +66,7 @@ class TestNodeEnviron(unittest.TestCase):
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
 
         self.config_mock.return_value.get.side_effect = [
-            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key', 'True',  # Common
+            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key',  # Common
             'node-1', None, None, "SHA256", '', '', "localhost", "50051"]  # Node
         self.environ.set_environment()
 
@@ -78,7 +78,7 @@ class TestNodeEnviron(unittest.TestCase):
 
         self.config_mock.return_value.get.side_effect = None
         self.config_mock.return_value.get.side_effect = [
-            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key', 'True',  # Common
+            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key',  # Common
             'node-1', None, None, "SHA256BLABLA", '', '', "localhost", "50051"]
 
         with self.assertRaises(FedbiomedEnvironError):
@@ -86,7 +86,7 @@ class TestNodeEnviron(unittest.TestCase):
 
         self.config_mock.return_value.get.side_effect = None
         self.config_mock.return_value.get.side_effect = [
-            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key', 'True',  # Common
+            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key',  # Common
             'node-1', False, False, "SHA256", '', '', "localhost", "50051"]
         os.environ["ALLOW_DEFAULT_TRAINING_PLANS"] = "True"
         os.environ["ENABLE_TRAINING_PLAN_APPROVAL"] = "True"
@@ -100,7 +100,7 @@ class TestNodeEnviron(unittest.TestCase):
         self.config_mock.return_value.sections.return_value = ['researcher']
         self.config_mock.return_value.get.side_effect = None
         self.config_mock.return_value.get.side_effect = [
-            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key', 'True',  # Common
+            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key',  # Common
             'node-1', False, False, "SHA256", 't', 't', "50051", "localhost"]
         self.environ.set_environment()
         self.assertEqual(self.environ._values["RESEARCHERS"][0]["ip"], "localhost")
@@ -108,7 +108,7 @@ class TestNodeEnviron(unittest.TestCase):
 
         self.config_mock.return_value.get.side_effect = None
         self.config_mock.return_value.get.side_effect = [
-            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key', 'True',  # Common
+            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key',  # Common
             'node-1', False, False, "SHA256", 't', 't', None, None]
         os.environ["RESEARCHER_SERVER_HOST"] = "localhost"
         os.environ["RESEARCHER_SERVER_PORT"] = "50051"

@@ -377,7 +377,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
                 'experimentation_folder': 'some-folder',
                 'tags': ['some-tags'],
                 'nodes': ['node1'],
-                'secagg': {'secagg': 'bkpt', 'class': 'JoyeLibertSecureAggregation()'},
+                'secagg': {'class': 'SecureAggregation', 'module': 'fedbiomed.researcher.secagg._secure_aggregation', 'arguments': {'scheme': 2}, 'attributes': {}, 'attributes_states': {'_SecureAggregation__secagg': {'class': 'LomSecureAggregation', 'module': 'fedbiomed.researcher.secagg._secure_aggregation', 'arguments': {'active': False, 'clipping_range': None}, 'attributes': {'_experiment_id': None, '_parties': None, '_dh': None}}}},
                 'node_state': {'node_state': 'bkpt'},
                 'downstream': 'bkpt'
             }
@@ -392,8 +392,9 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         self.assertEqual(saved_state['training_data'], {'node1': {'training': 'data', 'tags': 'some-tags'}})
         self.assertListEqual(saved_state['nodes'], ['node1'])
         self.assertListEqual(saved_state['tags'], ['some-tags'])
-        self.assertDictEqual(saved_state['secagg'], {'secagg': 'bkpt', 'class': 'JoyeLibertSecureAggregation()'})
+        self.assertEqual(saved_state['secagg']['class'], 'SecureAggregation')
         self.assertDictEqual(saved_state['node_state'], {'node_state': 'bkpt'})
+        self.assertEqual(exp.secagg.scheme, SecureAggregationSchemes.LOM)
         self.assertEqual(saved_state['downstream'], 'bkpt')
 
 

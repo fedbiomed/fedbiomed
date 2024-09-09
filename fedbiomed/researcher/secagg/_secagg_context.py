@@ -8,8 +8,6 @@ import concurrent.futures
 
 from typing import Callable, List, Optional, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
-import time
-import random
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests, StopOnDisconnect, StopOnError, \
@@ -21,8 +19,12 @@ from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.validator import Validator, ValidatorError
 from fedbiomed.common.mpc_controller import MPCController
-from fedbiomed.common.secagg_manager import BaseSecaggManager, SecaggServkeyManager, SecaggBiprimeManager, SecaggDhManager
-from fedbiomed.common.utils import matching_parties_servkey, matching_parties_biprime, get_method_spec
+from fedbiomed.common.secagg_manager import BaseSecaggManager, SecaggServkeyManager, SecaggDhManager
+from fedbiomed.common.utils import (
+    matching_parties_servkey,
+    get_method_spec,
+    get_default_biprime
+)
 from fedbiomed.common.message import Message, ResearcherMessages
 
 _CManager = CertificateManager(
@@ -31,7 +33,6 @@ _CManager = CertificateManager(
 
 # Instantiate one manager for each secagg element type
 _SKManager = SecaggServkeyManager(environ['DB_PATH'])
-_BPrimeManager = SecaggBiprimeManager(environ['DB_PATH'])
 _DHManager = SecaggDhManager(environ['DB_PATH'])
 
 
@@ -41,7 +42,7 @@ class SecaggContext(ABC):
     """
 
     @abstractmethod
-    def __init__(self, parties: List[str], experiment_id: Union[str, None], secagg_id: Union[str, None] = None):
+    def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
         """Constructor of the class.
 
         Args:
@@ -49,7 +50,6 @@ class SecaggContext(ABC):
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             experiment_id: ID of the experiment to which this secagg context element is attached.
-                None means the element is not attached to a specific experiment
             secagg_id: optional secagg context element ID to use for this element.
                 Default is None, which means a unique element ID will be generated.
 
@@ -81,11 +81,8 @@ class SecaggContext(ABC):
         self._requests = Requests()
         self._status = False
         self._context = None
-        self._experiment_id = None
+        self._experiment_id = experiment_id
         self._element: SecaggElementTypes
-
-        # set experiment ID using setter to validate
-        self.set_experiment_id(experiment_id)
 
         # to be set in subclasses
         self._secagg_manager: Optional[BaseSecaggManager] = None
@@ -121,11 +118,11 @@ class SecaggContext(ABC):
         return self._secagg_id
 
     @property
-    def experiment_id(self) -> Union[str, None]:
+    def experiment_id(self) -> str:
         """Getter for secagg context element experiment_id
 
         Returns:
-            secagg context element experiment_id (or None if no experiment_id is attached to the element)
+            secagg context element experiment_id
         """
         return self._experiment_id
 
@@ -147,24 +144,6 @@ class SecaggContext(ABC):
             secagg context element, or `None` if it doesn't exist
         """
         return self._context
-
-    def set_experiment_id(self, experiment_id: Union[str, None]) -> None:
-        """Setter for secagg context element experiment_id
-
-        Args:
-            experiment_id: ID of the experiment to which this secagg context element is attached.
-
-        Raises:
-            FedbiomedSecaggError: bad argument type or value
-        """
-
-        if not isinstance(experiment_id, (str, type(None))):
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `experiment_id` must be a str or None if the ' \
-                      f'context is set for biprime.'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
-
-        self._experiment_id = experiment_id
 
     @abstractmethod
     def _matching_parties(self, context: dict) -> bool:
@@ -372,7 +351,7 @@ class SecaggMpspdzContext(SecaggContext):
     Handles a Secure Aggregation context element based on MPSPDZ on the researcher side.
     """
 
-    def __init__(self, parties: List[str], experiment_id: Union[str, None], secagg_id: Union[str, None] = None):
+    def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
         """Constructor of the class.
 
         Args:
@@ -380,7 +359,6 @@ class SecaggMpspdzContext(SecaggContext):
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             experiment_id: ID of the experiment to which this secagg context element is attached.
-                None means the element is not attached to a specific experiment
             secagg_id: optional secagg context element ID to use for this element.
                 Default is None, which means a unique element ID will be generated.
 
@@ -527,7 +505,8 @@ class SecaggServkeyContext(SecaggMpspdzContext):
                 f"{ErrorNumbers.FB415.value}: Can not read server key from created after "
                 f"MPC execution. {e}") from e
 
-        context = {'server_key': int(server_key.strip())}
+        biprime = get_default_biprime()
+        context = {'server_key': int(server_key.strip()), 'biprime': biprime}
         self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
         logger.debug(
             f"Server key successfully created for researcher_id='{environ['ID']}' "
@@ -535,63 +514,6 @@ class SecaggServkeyContext(SecaggMpspdzContext):
 
         return context, True
 
-
-class SecaggBiprimeContext(SecaggMpspdzContext):
-    """
-    Handles a Secure Aggregation biprime context element on the researcher side.
-    """
-
-    def __init__(self, parties: List[str], secagg_id: Union[str, None] = None):
-        """Constructor of the class.
-
-        Args:
-            parties: list of parties participating to the secagg context element setup, named
-                by their unique id (`node_id`, `researcher_id`).
-                There must be at least 3 parties, and the first party is this researcher
-            secagg_id: optional secagg context element ID to use for this element.
-                Default is None, which means a unique element ID will be generated.
-
-        Raises:
-            FedbiomedSecaggError: bad argument type or value
-        """
-        super().__init__(parties, None, secagg_id)
-
-        self._element = SecaggElementTypes.BIPRIME
-        self._secagg_manager = _BPrimeManager
-
-    def _matching_parties(self, context: dict) -> bool:
-        """Check if parties of given context are compatible with the secagg context element.
-
-        Args:
-            context: context to be compared with the secagg context element
-
-        Returns:
-            True if this context can be used with this element, False if not.
-        """
-        return matching_parties_biprime(context, self._parties)
-
-    def _create_payload_specific(self) -> Tuple[Union[dict, None], bool]:
-        """Researcher payload for creating biprime secagg context element
-
-        Returns:
-            a tuple of a `context` and a `status` for the biprime context element
-        """
-        # start dummy payload
-        time.sleep(3)
-        context = {
-            'biprime': int(random.randrange(10**12)),   # dummy biprime
-            'max_keysize': 0                            # prevent using the dummy biprime for real
-        }
-        logger.info('Not yet implemented, PUT RESEARCHER SECAGG BIPRIME PAYLOAD HERE')
-
-        # Currently, all biprimes can be used by all sets of parties.
-        # TODO: add a mode where biprime is restricted for `self._parties`
-        self._secagg_manager.add(self._secagg_id, None, context)
-        logger.debug(
-            f"Biprime successfully created for researcher_id='{environ['ID']}' secagg_id='{self._secagg_id}'")
-        # end dummy payload
-
-        return context, True
 
 
 class SecaggDHContext(SecaggContext):

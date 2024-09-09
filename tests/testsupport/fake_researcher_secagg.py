@@ -45,12 +45,6 @@ class FakeSecaggContext:
 class FakeSecaggServkeyContext(FakeSecaggContext):
     pass
 
-
-class FakeSecaggBiprimeContext(FakeSecaggContext):
-    def __init__(self, parties: List[str]):
-        super().__init__(parties, '')
-
-
 class FakeSecAgg(SecureAggregation):
     arg_train_arguments = None
     def __init__(self, *args, scheme: SecureAggregationSchemes = SecureAggregationSchemes.LOM, **kwargs) -> None:

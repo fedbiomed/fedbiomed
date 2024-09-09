@@ -1,6 +1,9 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+import json
+
 from typing import List, Union
 
 import numpy as np
@@ -8,6 +11,9 @@ import numpy as np
 from fedbiomed.common.constants import ErrorNumbers, SAParameters
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.logger import logger
+
+from ._config_utils import ROOT_DIR as FEDBIOMED_SOURCE_ROOT
+
 
 def matching_parties_dh(context: dict, parties: list) -> bool:
     """Check if parties of given context are compatible with the parties
@@ -70,34 +76,6 @@ def matching_parties_servkey(context: dict, parties: list) -> bool:
         # isinstance(parties, list) and
         parties[0] == context['parties'][0] and
         set(parties[1:]) == set(context['parties'][1:]))
-
-
-def matching_parties_biprime(context: dict, parties: list) -> bool:
-    """Check if parties of given context are compatible with the parties
-        of a secagg biprime element.
-
-        Args:
-            context: context to be compared with the secagg biprime element parties
-            parties: the secagg biprime element parties
-
-        Returns:
-            True if this context can be used with this element, False if not.
-    """
-    # Need to ensure that:
-    # - either the existing element is not attached to specific parties (None)
-    # - or existing element was established for the same parties or a superset of the parties
-    #   (order can differ)
-    return (
-        # Commented tests can be assumed from calling functions
-        #
-        # isinstance(context, dict) and
-        # 'parties' in context and
-        # isinstance(parties, list) and
-        (
-            context['parties'] is None or (
-                # isinstance(context['parties'], list) and
-                set(parties).issubset(set(context['parties']))
-            )))
 
 
 def quantize(
@@ -234,3 +212,12 @@ def _check_clipping_range(
             "There are some numbers in the local vector that exceeds clipping range. Please increase the "
             "clipping range to account for value")
 
+
+def get_default_biprime():
+    """Gets default biprime"""
+    biprime = os.path.join(
+        FEDBIOMED_SOURCE_ROOT, "envs", "common", "default_biprimes", "biprime0.json")
+    with open(biprime, '+r', encoding="UTF-8") as json_file:
+        biprime = json.load(json_file)
+
+    return biprime["biprime"]

@@ -8,7 +8,7 @@ import importlib
 from typing import List, Union, Dict, Any, Optional, Callable
 from abc import ABC, abstractmethod
 
-from ._secagg_context import SecaggServkeyContext, SecaggBiprimeContext, SecaggDHContext
+from ._secagg_context import SecaggServkeyContext, SecaggDHContext
 from fedbiomed.researcher.environ import environ
 
 from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes
@@ -274,7 +274,7 @@ class _SecureAggregation(ABC):
         self._configure_round(parties, experiment_id)
 
     @abstractmethod
-    def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
+    def _set_secagg_contexts(self, parties: List[str], experiment_id: str) -> None:
         """Creates secure aggregation context classes.
 
         This function should be called after `experiment_id` and `parties` are set
@@ -287,8 +287,7 @@ class _SecureAggregation(ABC):
         self._parties = parties
 
         # Updates experiment id if it is provided
-        if experiment_id is not None:
-            self._experiment_id = experiment_id
+        self._experiment_id = experiment_id
 
     def _configure_round(
             self,
@@ -317,7 +316,7 @@ class _SecureAggregation(ABC):
         elif set(self._parties) != set(parties):
             logger.info(f"Parties of the experiment has changed. Re-creating secure "
                         f"aggregation context creation for the experiment {self._experiment_id}")
-            self._set_secagg_contexts(parties)
+            self._set_secagg_contexts(parties, experiment_id)
 
     @abstractmethod
     def aggregate(
@@ -458,7 +457,6 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
     - Applying secure aggregation after receiving encrypted model parameters from nodes
 
     Attributes:
-        _biprime: Biprime-key context setup instance.
         _servkey: Server-key context setup instance.
     """
 
@@ -484,19 +482,9 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         super().__init__(active, clipping_range)
 
         self._servkey: Optional[SecaggServkeyContext] = None
-        self._biprime: Optional[SecaggBiprimeContext] = None
         self._secagg_crypter: SecaggCrypter = SecaggCrypter()
         self._scheme = SecureAggregationSchemes.JOYE_LIBERT
 
-
-    @property
-    def biprime(self) -> Union[None, SecaggBiprimeContext]:
-        """Gets biprime object
-
-        Returns:
-            Biprime object, None if biprime is not setup
-        """
-        return self._biprime
 
     @property
     def servkey(self) -> Union[None, SecaggServkeyContext]:
@@ -516,7 +504,6 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         arguments = super().train_arguments()
         arguments.update({
             'secagg_servkey_id': self._servkey.secagg_id if self._servkey is not None else None,
-            'secagg_biprime_id': self._biprime.secagg_id if self._biprime is not None else None,
         })
         return arguments
 
@@ -544,15 +531,12 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         """
         super().setup(parties, experiment_id, force)
 
-        if not self._biprime.status or force:
-            self._biprime.setup()
-
         if not self._servkey.status or force:
             self._servkey.setup()
 
         return True
 
-    def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
+    def _set_secagg_contexts(self, parties: List[str], experiment_id: str) -> None:
         """Creates secure aggregation context classes.
 
         This function should be called after `experiment_id` and `parties` are set
@@ -562,11 +546,6 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
             experiment_id: The id of the experiment
         """
         super()._set_secagg_contexts(parties, experiment_id)
-
-        self._biprime = SecaggBiprimeContext(
-            parties=self._parties,
-            secagg_id='default_biprime0'
-        )
 
         self._servkey = SecaggServkeyContext(
             parties=self._parties,
@@ -599,18 +578,18 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
             FedbiomedSecureAggregationError: secure aggregation context not properly configured
         """
 
-        if self._biprime is None or self._servkey is None:
+        if self._servkey is None:
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is "
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Servkey context is "
                 f"not configured. Please setup secure aggregation before the aggregation.")
 
-        if not self._biprime.status or not self._servkey.status:
+        if not self._servkey.status:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is "
                 f"not set properly")
 
-        biprime = self._biprime.context["context"]["biprime"]
         key = self._servkey.context["context"]["server_key"]
+        biprime = self._servkey.context["context"]["biprime"]
 
         num_nodes = len(model_params)
 
@@ -638,8 +617,8 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         state = super().save_state_breakpoint()
 
         state["attributes"].update({
-            "_biprime": self._biprime.save_state_breakpoint() if self._biprime is not None else None,
-            "_servkey": self._servkey.save_state_breakpoint() if self._servkey is not None else None,
+            "_servkey": self._servkey.save_state_breakpoint() if
+            self._servkey is not None else None,
         })
 
         return state
@@ -657,10 +636,6 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         Returns:
             The created `SecureAggregation` object
         """
-        if state["attributes"]["_biprime"] is not None:
-            state["attributes"]["_biprime"] = SecaggBiprimeContext. \
-                load_state_breakpoint(state=state["attributes"]["_biprime"])
-
         if state["attributes"]["_servkey"] is not None:
             state["attributes"]["_servkey"] = SecaggServkeyContext. \
                 load_state_breakpoint(state=state["attributes"]["_servkey"])
@@ -760,7 +735,7 @@ class LomSecureAggregation(_SecureAggregation):
 
         return self._dh.status
 
-    def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
+    def _set_secagg_contexts(self, parties: List[str], experiment_id: str) -> None:
         """Creates secure aggregation context classes.
 
         This function should be called after `experiment_id` and `parties` are set
