@@ -164,7 +164,6 @@ class Config(metaclass=ABCMeta):
         )
 
         ip, port = retrieve_ip_and_port(self.root)
-        allow_default_biprimes = os.getenv("ALLOW_DEFAULT_BIPRIMES", True)
 
         # Generate self-signed certificates
         key_file, pem_file = generate_certificate(

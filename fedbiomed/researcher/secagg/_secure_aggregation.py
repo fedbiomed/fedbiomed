@@ -274,7 +274,7 @@ class _SecureAggregation(ABC):
         self._configure_round(parties, experiment_id)
 
     @abstractmethod
-    def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
+    def _set_secagg_contexts(self, parties: List[str], experiment_id: str) -> None:
         """Creates secure aggregation context classes.
 
         This function should be called after `experiment_id` and `parties` are set
@@ -287,8 +287,7 @@ class _SecureAggregation(ABC):
         self._parties = parties
 
         # Updates experiment id if it is provided
-        if experiment_id is not None:
-            self._experiment_id = experiment_id
+        self._experiment_id = experiment_id
 
     def _configure_round(
             self,
@@ -317,7 +316,7 @@ class _SecureAggregation(ABC):
         elif set(self._parties) != set(parties):
             logger.info(f"Parties of the experiment has changed. Re-creating secure "
                         f"aggregation context creation for the experiment {self._experiment_id}")
-            self._set_secagg_contexts(parties)
+            self._set_secagg_contexts(parties, experiment_id)
 
     @abstractmethod
     def aggregate(
@@ -537,7 +536,7 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
 
         return True
 
-    def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
+    def _set_secagg_contexts(self, parties: List[str], experiment_id: str) -> None:
         """Creates secure aggregation context classes.
 
         This function should be called after `experiment_id` and `parties` are set
@@ -736,7 +735,7 @@ class LomSecureAggregation(_SecureAggregation):
 
         return self._dh.status
 
-    def _set_secagg_contexts(self, parties: List[str], experiment_id: Union[str, None] = None) -> None:
+    def _set_secagg_contexts(self, parties: List[str], experiment_id: str) -> None:
         """Creates secure aggregation context classes.
 
         This function should be called after `experiment_id` and `parties` are set

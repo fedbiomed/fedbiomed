@@ -1596,7 +1596,6 @@ class TestMessage(unittest.TestCase):
             "model_args": {},
             "secagg_arguments": {
                 "secagg_servkey_id": "dummy",
-                "secagg_biprime_id": "dummy",
                 "secagg_random": 0.95,
                 "secagg_clipping_range" : None
             },

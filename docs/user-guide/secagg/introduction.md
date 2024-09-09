@@ -54,22 +54,16 @@ can be managed by node as well: node owner can disable, enable or force secure a
 node configuration for more details).
 
 
-##### 1. Generating Public Parameter Biprime
+##### 1. Public Parameter Biprime
 
-At the beginning of the FL experiment, researcher sends secure aggregation context setup request to every node that
-participates to this experiment. The first request is for generating public parameter `Biprime`. `Biprime` is
-multiplication of two prime numbers that are generated using multi party computation. Final prime number is public
-while prime shares are private and used for `Biprime` calculation. `Biprime` should be calculated using at least two
-different parties. It is used for encrypting and decrypting aggregated parameters in Joye-Libert AHE.
+`Biprime` is multiplication of two prime numbers. Prime number is public while prime shares are private and used for `Biprime` calculation.
+Fed-BioMed uses securely generated default static biprime which is located in `envs/common/default_primes/biprime0.json`.
 
-!!! note "Current implementation"
-    Since `Biprime` is public parameter, Fed-BioMed currently uses a default pre-generated 1024-bits biprime. Dynamic biprime
-    generation on our road-map of future releases.
 
 ##### 2. Generating random key that are double the length of biprime
 
-After biprime is generated or a default one is loaded, researcher sends another request for generating private key of
-each node and the corresponding server key for researcher component. Each node generates random private keys.
+Researcher sends a request for generating private key of each node and the corresponding server key for researcher component.
+Each node generates random private keys.
 
 !!! note "Key-size"
     Key size depends on biprime number that is used for secure aggregation. Maximum key-size should be less or equal

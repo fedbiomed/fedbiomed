@@ -115,12 +115,6 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
                 parties=[environ["ID"], 12, 12], experiment_id="experiment-id"
             )
 
-        # experiment id is not string
-        with self.assertRaises(FedbiomedSecaggError):
-            SecaggContext(
-                parties=[environ["ID"], "party2", "party3"], experiment_id=111
-            )
-
         # Failed with bad secagg_id
         for secagg_id in ("", 3, ["not a string"]):
             with self.assertRaises(FedbiomedSecaggError):
@@ -137,12 +131,6 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
         self.assertIsInstance(self.secagg_context.secagg_id, str)
         self.assertFalse(self.secagg_context.status)
         self.assertIsNone(self.secagg_context.context)
-
-        self.secagg_context.set_experiment_id("new-experiment-id")
-        self.assertEqual(self.secagg_context.experiment_id, "new-experiment-id")
-
-        with self.assertRaises(FedbiomedSecaggError):
-            self.secagg_context.set_experiment_id(1111)
 
     def test_secagg_context_03_secagg_round(self):
         """Setup then delete a secagg class"""
@@ -284,13 +272,6 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
 
     def test_servkey_context_01_init(self):
         """Tests failed init scenarios with bad_experiment_id"""
-
-        for experiment_id in (3, ["not a string"]):
-            with self.assertRaises(FedbiomedSecaggError):
-                SecaggServkeyContext(
-                    parties=[environ["ID"], "party2", "party3"],
-                    experiment_id=experiment_id,
-                )
 
         # Does not respect min number of parties
         with self.assertRaises(FedbiomedError):

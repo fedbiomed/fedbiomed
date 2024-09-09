@@ -277,14 +277,6 @@ class TestSecaggDHSetup(SecaggTestCase):
     def tearDown(self) -> None:
         pass
 
-    def test_secagg_dh_01_init(self):
-
-        SecaggDHSetup(**self.args)
-
-        with self.assertRaises(FedbiomedSecaggError):
-            self.args["experiment_id"] = 12334
-            SecaggDHSetup(**self.args)
-
     @patch("fedbiomed.node.secagg._secagg_setups.DHManager.add")
     @patch("fedbiomed.node.secagg._secagg_setups.DHKey.export_public_key")
     @patch("fedbiomed.node.secagg._secagg_setups.DHKeyAgreement.agree")

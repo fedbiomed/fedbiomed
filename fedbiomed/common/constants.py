@@ -251,7 +251,7 @@ class SecaggElementTypes(_BaseEnum):
         DIFFIE_HELLMAN: one pair of DH key for each node party, public key shared with other node parties
     """
     SERVER_KEY: int = 0
-    DIFFIE_HELLMAN: int = 1
+    DIFFIE_HELLMAN: int = 2
 
     @staticmethod
     def get_element_from_value(element_value: int):

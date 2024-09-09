@@ -3,13 +3,10 @@
 
 """Interface with the component secure aggregation element database
 """
-import os
 from abc import ABC, abstractmethod
-from typing import Optional, Union, List, Dict
-import copy
+from typing import Union, List, Dict
 import base64
 
-import json
 from tinydb import TinyDB, Query
 
 from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
@@ -22,10 +19,10 @@ from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonMeta
-from fedbiomed.common.validator import Validator, ValidatorError, SchemeValidator
 
 
 _TableName = 'SecaggManager'
+
 
 class _SecaggTableSingleton(metaclass=SingletonMeta):
     """Imstantiate secagg table object as singleton to ensure coherent acccess.
@@ -116,7 +113,7 @@ class BaseSecaggManager(ABC):
         return element
 
     @abstractmethod
-    def get(self, secagg_id: str, experiment_id: Union[str, None]):
+    def get(self, secagg_id: str, experiment_id: str):
         """Search for a data entry in component secagg element database"""
 
     def _add_generic(self,
@@ -173,18 +170,17 @@ class BaseSecaggManager(ABC):
                                                   entry: Union[None, Dict],
                                                   component: SecaggElementTypes,
                                                   secagg_id: str,
-                                                  experiment_id: Optional[str] = None,
+                                                  experiment_id: str,
                                                   database_operation_name: str = ''):
         """Raises error if:
             - there is a mismatch between the saved and the current Component
-            - there is a mismatch between the saved and the current `experiment_id`. This is
-            only checked if argument `experiment_id` is not None.
+            - there is a mismatch between the saved and the current `experiment_id`
 
         Args:
             entry: entry of the database
             component: type of the element
             secagg_id: unique id used to save a given secure aggregation component
-            experiment_id: id of the experiment. Defaults to None (no check is done against `experiment_id`)
+            experiment_id: id of the experiment.
             database_operation_name: string describing the operation taking place on the database.
                 can be "getting", "removing"
 
@@ -193,7 +189,7 @@ class BaseSecaggManager(ABC):
         """
         errmess: str = None
         if entry is not None:
-            if experiment_id is not None and entry['experiment_id'] != experiment_id:
+            if entry['experiment_id'] != experiment_id:
                 errmess = f'{ErrorNumbers.FB623.value}: error {database_operation_name} {component.name} element: ' \
                           f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
                           f'current experiment experiment_id={experiment_id}'
@@ -204,11 +200,10 @@ class BaseSecaggManager(ABC):
                           f' but was saved as a {SecaggElementTypes.get_element_from_value(entry["secagg_elem"])}'
 
             if errmess:
-                logger.error(errmess)
                 raise FedbiomedSecaggError(errmess)
 
     @abstractmethod
-    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: Union[str, None]):
+    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: str):
         """Add a new data entry in component secagg element database"""
 
     def _remove_generic(self, secagg_id: str, component: SecaggElementTypes) -> bool:
@@ -244,7 +239,7 @@ class BaseSecaggManager(ABC):
         return True
 
     @abstractmethod
-    def remove(self, secagg_id: str, experiment_id: Union[str, None]) -> bool:
+    def remove(self, secagg_id: str, experiment_id: str) -> bool:
         """Remove a data entry from component secagg element database"""
 
 

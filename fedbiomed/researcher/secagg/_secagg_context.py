@@ -8,8 +8,6 @@ import concurrent.futures
 
 from typing import Callable, List, Optional, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
-import time
-import random
 
 from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import Requests, StopOnDisconnect, StopOnError, \
@@ -44,7 +42,7 @@ class SecaggContext(ABC):
     """
 
     @abstractmethod
-    def __init__(self, parties: List[str], experiment_id: Union[str, None], secagg_id: Union[str, None] = None):
+    def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
         """Constructor of the class.
 
         Args:
@@ -52,7 +50,6 @@ class SecaggContext(ABC):
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             experiment_id: ID of the experiment to which this secagg context element is attached.
-                None means the element is not attached to a specific experiment
             secagg_id: optional secagg context element ID to use for this element.
                 Default is None, which means a unique element ID will be generated.
 
@@ -84,11 +81,8 @@ class SecaggContext(ABC):
         self._requests = Requests()
         self._status = False
         self._context = None
-        self._experiment_id = None
+        self._experiment_id = experiment_id
         self._element: SecaggElementTypes
-
-        # set experiment ID using setter to validate
-        self.set_experiment_id(experiment_id)
 
         # to be set in subclasses
         self._secagg_manager: Optional[BaseSecaggManager] = None
@@ -124,11 +118,11 @@ class SecaggContext(ABC):
         return self._secagg_id
 
     @property
-    def experiment_id(self) -> Union[str, None]:
+    def experiment_id(self) -> str:
         """Getter for secagg context element experiment_id
 
         Returns:
-            secagg context element experiment_id (or None if no experiment_id is attached to the element)
+            secagg context element experiment_id
         """
         return self._experiment_id
 
@@ -150,23 +144,6 @@ class SecaggContext(ABC):
             secagg context element, or `None` if it doesn't exist
         """
         return self._context
-
-    def set_experiment_id(self, experiment_id: Union[str, None]) -> None:
-        """Setter for secagg context element experiment_id
-
-        Args:
-            experiment_id: ID of the experiment to which this secagg context element is attached.
-
-        Raises:
-            FedbiomedSecaggError: bad argument type or value
-        """
-
-        if not isinstance(experiment_id, str):
-            raise FedbiomedSecaggError(
-                f'{ErrorNumbers.FB415.value}: bad parameter `experiment_id` must be a str'
-            )
-
-        self._experiment_id = experiment_id
 
     @abstractmethod
     def _matching_parties(self, context: dict) -> bool:
@@ -374,7 +351,7 @@ class SecaggMpspdzContext(SecaggContext):
     Handles a Secure Aggregation context element based on MPSPDZ on the researcher side.
     """
 
-    def __init__(self, parties: List[str], experiment_id: Union[str, None], secagg_id: Union[str, None] = None):
+    def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
         """Constructor of the class.
 
         Args:
@@ -382,7 +359,6 @@ class SecaggMpspdzContext(SecaggContext):
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
             experiment_id: ID of the experiment to which this secagg context element is attached.
-                None means the element is not attached to a specific experiment
             secagg_id: optional secagg context element ID to use for this element.
                 Default is None, which means a unique element ID will be generated.
 

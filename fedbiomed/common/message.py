@@ -693,7 +693,7 @@ class SecaggRequest(RequestReply, RequiresProtocolVersion):
     researcher_id: str
     secagg_id: str
     element: int
-    experiment_id: Optional[str]
+    experiment_id: str
     parties: list
     command: str
 

@@ -6,8 +6,6 @@ import inspect
 from typing import List, Union
 from abc import ABC, abstractmethod
 from enum import Enum
-import time
-import random
 import uuid
 
 from fedbiomed.common.certificate_manager import CertificateManager
@@ -45,7 +43,7 @@ class SecaggBaseSetup(ABC):
             researcher_id: str,
             secagg_id: str,
             parties: List[str],
-            experiment_id: Union[str, None] = None,
+            experiment_id: str,
     ):
         """Constructor of the class.
 
@@ -53,7 +51,7 @@ class SecaggBaseSetup(ABC):
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
             experiment_id: ID of the experiment to which this secagg context element
-                is attached (empty string if no attached experiment)
+                is attached
             parties: List of parties participating in the secagg context element setup
 
         Raises:
@@ -101,11 +99,11 @@ class SecaggBaseSetup(ABC):
         return self._secagg_id
 
     @property
-    def experiment_id(self) -> Union[str, None]:
+    def experiment_id(self) -> str:
         """Getter for `experiment_id`
 
         Returns:
-            ID of the experiment to which this secagg context element is attached (empty string if no attached experiment)
+            ID of the experiment to which this secagg context element is attached
         """
         return self._experiment_id
 
@@ -185,7 +183,7 @@ class SecaggMpspdzSetup(SecaggBaseSetup):
             researcher_id: str,
             secagg_id: str,
             parties: List[str],
-            experiment_id: Union[str, None] = None,
+            experiment_id: str,
     ):
         """Constructor of the class.
 
@@ -193,7 +191,7 @@ class SecaggMpspdzSetup(SecaggBaseSetup):
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
             experiment_id: ID of the experiment to which this secagg context element
-                is attached (empty string if no attached experiment)
+                is attached
             parties: List of parties participating in the secagg context element setup
         """
 
@@ -323,11 +321,6 @@ class SecaggDHSetup(SecaggBaseSetup):
         self._grpc_client = grpc_client
         self._pending_requests = pending_requests
         self._controller_data = controller_data
-
-        if not self._experiment_id or not isinstance(self._experiment_id, str):
-            errmess = f'{ErrorNumbers.FB318.value}: bad parameter `experiment_id` must be a non empty string'
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
 
     def _setup_specific(self) -> None:
         """Service function for setting up the Diffie Hellman secagg context element.

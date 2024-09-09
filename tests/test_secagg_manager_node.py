@@ -27,7 +27,7 @@ class TestSecaggManager(NodeTestCase):
         self.assertIsInstance(secagg_setup, SecaggServkeyManager)
 
         # Test DH manager
-        secagg_setup = SecaggManager(1)()
+        secagg_setup = SecaggManager(2)()
         self.assertIsInstance(secagg_setup, SecaggDhManager)
 
         # Raise element type error

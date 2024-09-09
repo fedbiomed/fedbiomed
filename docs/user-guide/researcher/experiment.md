@@ -10,7 +10,7 @@ keywords: parameter aggregation,aggregation,federated average, Fed-BioMed experi
 
 ## Introduction
 
-The `Experiment` class in Fed-BioMed is in charge of orchestrating the federated learning process on available nodes. 
+The `Experiment` class in Fed-BioMed is in charge of orchestrating the federated learning process on available nodes.
 Specifically, it takes care of:
 
 - Searching the datasets on active nodes, based on specific tags given by a researcher and used by the nodes to identify the dataset.
@@ -48,9 +48,9 @@ exp = Experiment(tags=tags,
     declaring an experiment step by step
 
 Under the hood, the `Experiment` class takes care of a lot of heavy lifting for you.
-For example, when you initialize an experiment with the `tags` argument, it uses them to automatically create a 
+For example, when you initialize an experiment with the `tags` argument, it uses them to automatically create a
 `FederatedDataSet` by querying the federation.
-Afterwards, `Experiment` initializes several internal variables to manage federated training on all participating nodes. 
+Afterwards, `Experiment` initializes several internal variables to manage federated training on all participating nodes.
 Finally, it also creates the strategy to select the nodes for each training round.
 When the `node_selection_strategy` is set to `None`, the experiment uses the default strategy which is `DefaultStrategy`.
 
@@ -61,7 +61,7 @@ When the `node_selection_strategy` is set to `None`, the experiment uses the def
 Each dataset deployed on the nodes is identified by tags.
 Tags allow researchers to select the same dataset registered under a given tag (or list of tags) on each node for the training.
 
-The argument `tags` of the experiment is used for dataset search request. 
+The argument `tags` of the experiment is used for dataset search request.
 It can be a list of tags which are of type `string`, or single tag of type `string`.
 
 ```python
@@ -73,7 +73,7 @@ exp.set_tags(tags='#MNIST')
 
 !!! warning "Setting tags also sets the `Experiment`'s training data"
     Whenever the `set_tags` method is called, a query is **always** issued to identify all nodes in the federation
-    that have datasets with matching tags. 
+    that have datasets with matching tags.
     Consequently, the training data of `Experiment` is changed to match the results from the query.
 
 You can check your tags in your experiment as follows:
@@ -85,8 +85,8 @@ print(tags)
 # > ['#MNIST', '#dataset']
 ```
 
-!!! warning "Tags matching multiple datasets" 
-    An `Experiment` object must have **one unique** dataset per node. 
+!!! warning "Tags matching multiple datasets"
+    An `Experiment` object must have **one unique** dataset per node.
     Object creation fails if this is not the case when trying to instantiate the `FederatedDataSet` object.
     This is done to ensure that training for an `Experiment` uses only a single dataset for each node.
 
@@ -96,7 +96,7 @@ For example if you instantiate `Experiment(tags='#dataset')` and a node has regi
 
 #### Setting the training data by providing the metadata directly
 
-The dataset metadata can be provided directly using the `set_training_data` method. 
+The dataset metadata can be provided directly using the `set_training_data` method.
 The metadata can be a `FederatedDataSet` object or a nested `dict` with format `{node_id: {metadata_key: metadata_value}}`.
 
 When you provide a metadata object directly, the `Experiment`'s tags attribute is set to `None`.
@@ -105,7 +105,7 @@ When you provide a metadata object directly, the `Experiment`'s tags attribute i
 
 When you change the training data (either through `set_tags` or `set_training_data`), the `Experiment` class
 performs a lot of operations to ensure that consistency is maintained for all of its attributes that use the
-training data. 
+training data.
 In particular, the `aggregator` and `node_state_agent` classes are updated with the new training data.
 
 ### Selecting specific Nodes for the training
@@ -118,7 +118,7 @@ nodes = ['node-id-1', 'node-id-2']
 exp.set_nodes(nodes=nodes)
 ```
 
-By default, `nodes` argument is `None` which means that each node that has a registered dataset matching all the tags 
+By default, `nodes` argument is `None` which means that each node that has a registered dataset matching all the tags
 will be part of the federated training.
 
 ```python
@@ -126,8 +126,8 @@ exp.set_nodes(nodes=None)
 ```
 
 !!! note "Node filtering happens at training time"
-    Setting nodes doesn't mean sending another dataset search request to the nodes. 
-    Node filtering happens dynamically each time a training request is sent to nodes. 
+    Setting nodes doesn't mean sending another dataset search request to the nodes.
+    Node filtering happens dynamically each time a training request is sent to nodes.
     In other words, if you search again for datasets after setting `nodes` by running
     `exp.set_training_data(training_data=None, from_tags=True)` you select in your `FederatedDataset`
     the same nodes as with `nodes=None`.
@@ -169,8 +169,8 @@ training_plan_class = exp.training_plan_class()
 
 ### Model Arguments
 
-The `model_args` is a dictionary with the arguments related to the model 
-(e.g. number of layers, layer arguments and dimensions, etc.). 
+The `model_args` is a dictionary with the arguments related to the model
+(e.g. number of layers, layer arguments and dimensions, etc.).
 This will be passed to the `init_model` method during model setup.
 An example for passing the number of input adn output features for a model is shown below.
 
@@ -183,7 +183,7 @@ exp.set_model_args(model_args=model_args)
 ```
 
 !!! warning "Incompatible `model_args`"
-    If you try to set new `model_args` that are incompatible with the current model weights, the 
+    If you try to set new `model_args` that are incompatible with the current model weights, the
     function will raise an exception and the `Experiment` class will be left in an **inconsistent state**.
     To rectify this, immediately re-execute `set_model_args` with additional keyword argument `keep_weights=False`
     as in the example below:
@@ -225,7 +225,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 `training_args` is a dictionary, containing the arguments for the training on the node side (e.g. data loader arguments,
 optimizer arguments, epochs, etc.). These arguments are *dynamic*, in the sense that you may change them between two
-rounds of the same experiment, and the updated changes will be taken into account (provided you also update the 
+rounds of the same experiment, and the updated changes will be taken into account (provided you also update the
 experiment using the `set_training_args` method).
 
 A list of valid arguments is given in the [TrainingArgs.default_scheme][fedbiomed.common.training_args.TrainingArgs.default_scheme]
@@ -246,12 +246,12 @@ exp.training_args()
 #### Controlling the number of training loop iterations
 The preferred way is to set the `num_updates` training argument. This argument is equal to the number of iterations
 to be performed in the training loop. In mini-batch based scenarios, this corresponds to the number of updates
-to the model parameters, hence the name. In PyTorch notation, this is equivalent to the number of calls to 
+to the model parameters, hence the name. In PyTorch notation, this is equivalent to the number of calls to
 `optimizer.step`.
 
 Another way to determine the number of training loop iterations is to set `epochs` in the training arguments. In this
 case, you may optionally set a `batch_maxnum` argument, in order to exit the training loop before a full epoch is
-completed. If `batch_maxnum` is set and is greater than 0, then only `batch_maxnum` iterations will be performed per 
+completed. If `batch_maxnum` is set and is greater than 0, then only `batch_maxnum` iterations will be performed per
 epoch.
 
 !!! warning "`num_updates` is the same for all nodes"
@@ -259,8 +259,8 @@ epoch.
     Conversely, if you specify `epochs`, then each node may perform a different number of iterations if their
     local dataset sizes differ.
 
-Note that if you set both `num_updates` and `epochs` by mistake, the value of `num_updates` takes precedence, and 
-`epochs` will effectively be ignored. 
+Note that if you set both `num_updates` and `epochs` by mistake, the value of `num_updates` takes precedence, and
+`epochs` will effectively be ignored.
 
 !!! info "Why num updates?"
     In a federated scenario, different nodes may have datasets with very different sizes. By performing the same number
@@ -270,8 +270,8 @@ Note that if you set both `num_updates` and `epochs` by mistake, the value of `n
 
 ##### Compatibility
 
-Not all configurations are compatible with all types of aggregators and experiments. 
-We list here the known constraints: 
+Not all configurations are compatible with all types of aggregators and experiments.
+We list here the known constraints:
 
 - the [Scaffold](../../user-guide/researcher/aggregation.md#scaffold) aggregator **requires** using `num_updates`
 
@@ -290,18 +290,18 @@ training_args = {
 }
 ```
 
-Note that the `loader_arguments`, as well as any additional keyword arguments that you will specify in your 
-`DataManager` constructor, will be automatically injected in the definition of the data loader. 
-Please refer to the [`training_data`](../../user-guide/researcher/training-data.md) method 
+Note that the `loader_arguments`, as well as any additional keyword arguments that you will specify in your
+`DataManager` constructor, will be automatically injected in the definition of the data loader.
+Please refer to the [`training_data`](../../user-guide/researcher/training-data.md) method
 documentation for more details.
 
 #### Setting a random seed for reproducibility
 
-The `random_seed` argument allows to set a random seed at the beginning of each round. 
+The `random_seed` argument allows to set a random seed at the beginning of each round.
 
 !!! info "`random_seed` is set both on the node and the researcher"
-    The `random_seed` is set whenever the `TrainingPlan` is instantiated: both on the researcher side before sending 
-    the train command for a new round, and on the node side at the beginning of the configuration of the new training 
+    The `random_seed` is set whenever the `TrainingPlan` is instantiated: both on the researcher side before sending
+    the train command for a new round, and on the node side at the beginning of the configuration of the new training
     round.
 
 Setting the `random_seed` affects:
@@ -337,9 +337,9 @@ for i in range(num_rounds):
 
 #### Sub-arguments for optimizer and differential privacy
 
-In Pytorch experiments, you may include sub arguments such as `optimizer_args` 
+In Pytorch experiments, you may include sub arguments such as `optimizer_args`
 and `dp_args`. Optimizer arguments represents the arguments that are going to be passed to
-`def init_optimizer(self, o_args)` method as dictionary and (`dp_args`) represents the arguments 
+`def init_optimizer(self, o_args)` method as dictionary and (`dp_args`) represents the arguments
 of [differential privacy](../../tutorials/security/non-private-local-central-dp-monai-2d-image-registration.ipynb).
 
 <div class="note">
@@ -521,11 +521,12 @@ Running an experiment means starting the training process by sending train reque
   "round": <round_number>,
   "aggregator_args": <args>,
   "aux_vars": [list of auxiliary variables],
-  "secagg_servkey_id": "secure aggregation server key id",
-  "secagg_biprime_id": "secure aggregation biprime key id", 
-  "secagg_random": <random number>,
-  "secagg_clipping_range": 3 
-    ]
+  "secagg_arguments": {
+    "secagg_servkey_id": "secure aggregation server key id",
+    "secagg_random": <random number>,
+    "secagg_clipping_range": 3
+      ]
+  }
   }
 }
 ```
