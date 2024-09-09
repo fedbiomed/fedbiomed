@@ -15,11 +15,12 @@ import fedbiomed.researcher.secagg._secagg_context
 from fedbiomed.researcher.environ import environ
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.constants import SecaggElementTypes, __secagg_element_version__
-from fedbiomed.common.message import SecaggReply, SecaggDeleteReply
+from fedbiomed.common.message import AdditiveSSSetupReply, SecaggReply, SecaggDeleteReply
 from fedbiomed.researcher.secagg import (
     SecaggServkeyContext,
     SecaggContext,
     SecaggDHContext,
+    SecaggKeyContext
 )
 from fedbiomed.researcher.requests import FederatedRequest
 
@@ -443,6 +444,79 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
 
             self.assertEqual(context, None)
             self.assertEqual(status, s)
+
+
+class TestServerKeyContext(BaseTestCaseSecaggContext):
+    
+    def setUp(self) -> None:
+        
+        super().setUp()
+        self.parties = [environ["ID"], "party2", "party3"]
+
+        self.mock_skmanager.get.return_value = None
+
+        self._secagg_key_context = SecaggKeyContext(parties=self.parties[1:],
+                                                 experiment_id="experiment-id",
+                                                 secagg_id='secagg_id')
+        self.database_entry = {
+            "secagg_version": str(__secagg_element_version__),
+            "secagg_id": "secagg_id",
+            "parties": self.parties,
+            "secagg_elem": SecaggElementTypes.SERVER_KEY,
+            "experiment_id": "experiment_id",
+            "context": {"share": 1234},
+        }
+
+    def test_01_init(self):
+        secagg_key_context_ok = SecaggKeyContext(self.parties,
+                                                 experiment_id="experiment-id",
+                                                 )
+
+        with self.assertRaises(FedbiomedSecaggError):
+            SecaggKeyContext(parties=[], experiment_id='experiment_id')
+
+
+    def test_02_secagg_round_specific(self):
+
+        self.mock_federated_request.replies.return_value = {
+            "party1": AdditiveSSSetupReply(
+                **{
+                    "researcher_id": "xx",
+                    "success": True,
+                    "node_id": "party2",
+                    "command": "secagg-additive-ss-setup-reply",
+                    "msg": "x",
+                    "secagg_id": "s1",
+                    "share": 12
+                }
+            ),
+            "party2": AdditiveSSSetupReply(
+                **{
+                    "researcher_id": "xx",
+                    "success": True,
+                    "node_id": "party3",
+                    "command": "secagg-additive-ss-setup-reply",
+                    "msg": "x",
+                    "secagg_id": "s1",
+                    "share": 12
+                }
+            ),
+        }
+
+        self.mock_federated_request.errors.return_value = None
+        type(
+            self.mock_federated_request
+        ).policy.return_value.has_stopped_any.return_value = False
+        
+        
+        res = self._secagg_key_context.setup()
+        self.assertTrue(res)
+        self.assertIsInstance(res, bool)
+        # check save from SKManager
+        self.mock_skmanager.add.assert_called_with('secagg_id',
+                                                    self.parties[1:],
+                                                    {'share': 24},
+                                                    'experiment-id')
 
 
 class TestSecaggDHContext(BaseTestCaseSecaggContext):

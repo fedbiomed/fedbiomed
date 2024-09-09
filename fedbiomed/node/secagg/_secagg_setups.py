@@ -10,17 +10,30 @@ from enum import Enum
 from typing import List, Union
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import (REQUEST_PREFIX, ComponentType,
-                                        ErrorNumbers, SecaggElementTypes)
+from fedbiomed.common.constants import (
+    REQUEST_PREFIX,
+    ComponentType,
+    ErrorNumbers,
+    SecaggElementTypes,
+)
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecaggError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import (AdditiveSSharingReply,
-                                      AdditiveSSharingRequest,
-                                      AdditiveSSSetupReply, ErrorMessage,
-                                      Message, NodeToNodeMessages, SecaggReply)
+from fedbiomed.common.message import (
+    AdditiveSSharingReply,
+    AdditiveSSharingRequest,
+    AdditiveSSSetupReply,
+    ErrorMessage,
+    Message,
+    SecaggReply,
+)
 from fedbiomed.common.mpc_controller import MPCController
-from fedbiomed.common.secagg import (AdditiveSecret, AdditiveShare,
-                                     AdditiveShares, DHKey, DHKeyAgreement)
+from fedbiomed.common.secagg import (
+    AdditiveSecret,
+    AdditiveShare,
+    AdditiveShares,
+    DHKey,
+    DHKeyAgreement,
+)
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.utils import get_default_biprime
 from fedbiomed.node.environ import environ
@@ -137,7 +150,7 @@ class SecaggBaseSetup(ABC):
             logger.error(message)
             return ErrorMessage(**{**common, "extra_msg": message})
 
-       return self._REPLY_CLASS(
+        return self._REPLY_CLASS(
             **{
                 **common,
                 "secagg_id": self._secagg_id,
@@ -153,7 +166,7 @@ class SecaggBaseSetup(ABC):
         Returns:
             message to return to the researcher after the setup
         """
-       try:
+        try:
             return self._setup_specific()
         except FedbiomedError as e:
             logger.debug(f"{e}")
@@ -448,7 +461,7 @@ class SecaggDHSetup(SecaggBaseSetup):
                     node_id=environ["NODE_ID"],
                     dest_node_id=node,
                     secagg_id=self._secagg_id,
-               )
+                )
             ]
 
         logger.debug(
