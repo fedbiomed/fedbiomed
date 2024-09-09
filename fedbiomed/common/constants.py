@@ -252,6 +252,7 @@ class SecaggElementTypes(_BaseEnum):
     """
     SERVER_KEY: int = 0
     DIFFIE_HELLMAN: int = 1
+    ADDITIVE_SECRET_SHARING: int = 2
 
     @staticmethod
     def get_element_from_value(element_value: int):
