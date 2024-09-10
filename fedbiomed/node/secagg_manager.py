@@ -26,6 +26,7 @@ class SecaggManager:
 
     element2class = {
         SecaggElementTypes.SERVER_KEY.name: SKManager,
+        SecaggElementTypes.SERVER_KEY_BIS.name: SKManager,
         SecaggElementTypes.DIFFIE_HELLMAN.name: DHManager,
     }
 

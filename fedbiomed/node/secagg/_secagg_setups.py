@@ -29,7 +29,7 @@ from fedbiomed.common.message import (
 )
 
 from fedbiomed.common.mpc_controller import MPCController
-from fedbiomed.common.secagg import DHKey, DHKeyAgreement
+from fedbiomed.common.secagg import DHKey, DHKeyAgreement, AdditiveSecret
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.utils import get_default_biprime
 from fedbiomed.common.secagg import AdditiveSecret, AdditiveShares, AdditiveShare
@@ -43,15 +43,6 @@ from fedbiomed.node.requests import send_nodes
 
 _CManager = CertificateManager(db_path=environ["DB_PATH"])
 
-class AdditiveSecret:
-    pass
-
-class AdditiveShares:
-    pass
-
-
-class AdditiveShareRequest:
-    pass
 
 class SecaggBaseSetup(ABC):
     """
@@ -60,6 +51,7 @@ class SecaggBaseSetup(ABC):
 
     _REPLY_CLASS: Message = SecaggReply
     _min_num_parties: int = 3
+    _secagg_manager: SecaggManager = None
 
     def __init__(
             self,
@@ -101,9 +93,6 @@ class SecaggBaseSetup(ABC):
         self._experiment_id = experiment_id
         self._parties = parties
         self._element: SecaggElementTypes = None
-
-        # to be set in subclasses
-        self._secagg_manager: SecaggManager = None
 
     @property
     def researcher_id(self) -> str:
@@ -169,7 +158,7 @@ class SecaggBaseSetup(ABC):
             }
         )
 
-    def setup(self) -> dict:
+    def setup(self) -> Message:
         """Set up a secagg context element.
 
         Returns:
@@ -188,6 +177,7 @@ class SecaggBaseSetup(ABC):
     @abstractmethod
     def _setup_specific(self) -> Message:
         """Service function for setting up a specific context element."""
+
 
 class SecaggMpspdzSetup(SecaggBaseSetup):
     """
@@ -238,6 +228,8 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
         secagg_id: str,
         parties: List[str],
         experiment_id: str,
+        *args,
+        **kwargs
     ):
         """Constructor of the class.
 
@@ -250,7 +242,7 @@ class SecaggServkeySetup(SecaggMpspdzSetup):
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(researcher_id, secagg_id, parties, experiment_id)
+        super().__init__(researcher_id, secagg_id, parties, experiment_id,)
 
         self._element = SecaggElementTypes.SERVER_KEY
         self._secagg_manager = SKManager
@@ -330,7 +322,7 @@ class _SecaggNN(SecaggBaseSetup):
 
         super().__init__(*args, **kwargs)
 
-        self._secagg_manager = SKManager
+        #self._secagg_manager = SKManager
         self._grpc_client = grpc_client
         self._pending_requests = pending_requests
         self._controller_data = controller_data
@@ -354,9 +346,11 @@ class SecaggKeySetup(_SecaggNN):
     _REPLY_CLASS: Message = AdditiveSSSetupReply
     _key_bit_length: int = 2040
     _min_num_parties: int = 2
-    _element = SecaggElementTypes.SERVER_KEY
+    _element = SecaggElementTypes.SERVER_KEY_BIS
+    _secagg_manager = SKManager
 
-
+    # def __init__(self, share, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
     def _setup_specific(self) -> Message:
 
         other_nodes = filter(lambda x: x != environ["ID"], self._parties)
@@ -375,6 +369,7 @@ class SecaggKeySetup(_SecaggNN):
             AdditiveSSharingRequest(
                 request_id=REQUEST_PREFIX + str(uuid.uuid4()),
                 node_id=environ["NODE_ID"],
+                share=shares[i],
                 dest_node_id=node,
                 secagg_id=self._secagg_id,
             )
@@ -391,11 +386,13 @@ class SecaggKeySetup(_SecaggNN):
             f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}"
         )
 
-        biprime = get_default_biprime()
-        context = {"server_key": int(sk), "biprime": int(biprime)}
-        self._secagg_manager.add(
-            self._secagg_id, self._parties, context, self._experiment_id
-        )
+        biprime = get_default_biprime() # dont know if it very useful here (for multiplication only)
+        context = {'server_key': int(sk), 'biprime': int(biprime)}
+        # is sk already an integer? why should we call `int()`?
+        # should we store sk or shares in the context ?
+        self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
+        
+        # FIXME: should we also call `self._secagg_manager.get` as done in secaggDHsetup?
         logger.info(
             "Server key share successfully created for "
             f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'"
@@ -414,7 +411,6 @@ class SecaggDHSetup(_SecaggNN):
     _min_num_parties: int = 2
 
     def _setup_specific(self) -> Message:
-
         """Service function for setting up the Diffie Hellman secagg context element."""
         # we know len(parties) >= 3 so len(other_nodes) >= 1
         other_nodes = [e for e in self._parties if e != environ["NODE_ID"]]
@@ -499,8 +495,9 @@ class SecaggSetup:
     """Factory class for instantiating any type of node secagg context element setup class"""
 
     element2class = {
-        SecaggElementTypes.SERVER_KEY.name: SecaggKeySetup,
-        SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDHSetup,
+        SecaggElementTypes.SERVER_KEY.name: SecaggServkeySetup,
+        SecaggElementTypes.SERVER_KEY_BIS.name: SecaggKeySetup,
+        SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDHSetup
     }
 
     def __init__(self, element: int, **kwargs):

@@ -59,6 +59,7 @@ class AdditiveSecret:
                 )
             bit_length = max_value.bit_length() if bit_length is None else bit_length
             for value in self.secret:
+                
                 partial_shares = [
                     random.randint(0, 2**bit_length) for _ in range(num_shares - 1)
                 ]
@@ -70,7 +71,7 @@ class AdditiveSecret:
 
 
 
-class AdditiveShare(int):
+class AdditiveShare:
     """AdditiveShare class to be used after diveding secret into multiple shares"""
 
     def __init__(self, value: Union[int, List[int]]) -> None:

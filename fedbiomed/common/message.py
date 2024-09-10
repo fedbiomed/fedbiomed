@@ -416,6 +416,7 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
 @dataclass
 class AdditiveSSharingRequest(InnerRequestReply, RequiresProtocolVersion):
     secagg_id: str
+    share: list | int
     command: str = 'additive-secret-share-request'
 
 

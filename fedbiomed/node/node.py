@@ -93,14 +93,14 @@ class Node:
                 be done regarding of the topic. Currently unused.
         """
         # TODO: describe all exceptions defined in this method
-        no_print = ["aggregator_args", "aux_vars", "params", "training_plan", "overlay"]
+        no_print = ("aggregator_args", "aux_vars", "params", "training_plan", "overlay",)
         msg_print = {key: value for key, value in msg.items() if key not in no_print}
         logger.debug('Message received: ' + str(msg_print))
         try:
             # get the request from the received message (from researcher)
             command = msg['command']
             request = NodeMessages.format_incoming_message(msg).get_dict()
-            if command in ['train', 'secagg']:
+            if command in ('train', 'secagg', 'secagg-additive-ss-setup-request',):
                 # add training task to queue
                 self.add_task(request)
             elif command == 'secagg-delete':
@@ -222,6 +222,7 @@ class Node:
         Args:
             msg: `SecaggRequest` message object to parse
         """
+        command = msg.command
         setup_arguments = {key: value for (key, value) in msg.get_dict().items()}
 
         # Needed when using node to node communications
@@ -236,17 +237,14 @@ class Node:
             secagg = SecaggSetup(**setup_arguments)()
         except Exception as error_message:
             logger.error(error_message)
-            return self.reply({"researcher_id": msg.get_param('researcher_id'),
-                               "secagg_id": msg.get_param('secagg_id'),
-                               'request_id': msg.request_id,
-                               "msg": str(error_message),
-                               "success": False,
-                               "command": "secagg"})
+            return self.send_error(**{"researcher_id": msg.get_param('researcher_id'),
+                                    #"request_id": msg.request_id,
+                                    "extra_msg": str(error_message)})
 
         reply = secagg.setup()
-        reply["request_id"] = msg.request_id
+        reply.request_id = msg.request_id
 
-        return self.reply(reply)
+        return self.reply(reply.get_dict())
 
     def parser_task_train(self, msg: TrainRequest) -> Union[Round, None]:
         """Parses a given training task message to create a round instance
@@ -432,7 +430,7 @@ class Node:
 
     def send_error(
             self,
-            errnum: ErrorNumbers,
+            errnum: ErrorNumbers = None,
             extra_msg: str = "",
             researcher_id: str = "<unknown>",
             broadcast: bool = False
@@ -452,7 +450,7 @@ class Node:
             self._grpc_client.send(
                 ErrorMessage(
                     command='error',
-                    errnum=errnum.name,
+                    errnum=errnum.name if errnum is not None else None,
                     node_id=environ['NODE_ID'],
                     extra_msg=extra_msg,
                     researcher_id=researcher_id

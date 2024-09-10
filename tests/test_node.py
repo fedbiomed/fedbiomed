@@ -1,12 +1,7 @@
 import copy
-from json import decoder
-import os
-import tempfile
 from typing import Any, Dict
 import unittest
 from unittest.mock import MagicMock, patch, ANY
-from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
-from fedbiomed.common.serializer import Serializer
 
 
 #############################################################
@@ -20,15 +15,9 @@ from testsupport.fake_message import FakeMessages
 from testsupport.fake_secagg_manager import FakeSecaggServkeyManager
 from testsupport import fake_training_plan
 
-import torch
-from fedbiomed.common.optimizers.declearn import YogiModule, ScaffoldClientModule, RidgeRegularizer
-
 from fedbiomed.node.environ import environ
-from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, _BaseEnum, TrainingPlans, __messaging_protocol_version__
-from fedbiomed.common.optimizers.optimizer import Optimizer
-from fedbiomed.common.message import NodeMessages, TrainRequest, SecaggReply, SecaggDeleteReply
-from fedbiomed.common.models import TorchModel
-from fedbiomed.node.history_monitor import HistoryMonitor
+from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
+from fedbiomed.common.message import ErrorMessage, NodeMessages, TrainRequest, SecaggReply, SecaggDeleteReply
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
 from fedbiomed.node.dataset_manager import DatasetManager
@@ -797,33 +786,39 @@ class TestNode(NodeTestCase):
         self
     ):
         """Tests `_task_secagg` normal (successful) case"""
-
+        # TODO: iterate over element
         req = {"protocol_version": str(__messaging_protocol_version__),
                'researcher_id': 'party1',
                'request_id': 'request',
                'secagg_id': 'my_dummy_secagg_id',
                'element': 0,
                'experiment_id': 'my_test_experiment',
-               'parties': ['party1', 'party2', 'party3'],
+               'parties': ['party1', environ['ID'], 'party3'],
                'command': 'secagg'}
         # Create request
+
         request = NodeMessages.format_incoming_message(req)
 
         # Test .setup()execution. It is normal the get result as success False since setup will fail
         # due to not existing certificate files
 
-        with patch('fedbiomed.node.node.GrpcController.send') as grpc_send:
+        with (patch('fedbiomed.node.node.GrpcController.send') as grpc_send,
+              #patch('fedbiomed.node.secagg._secagg_setups.CertificateManager.write_mpc_certificates_for_experiment') as certif_mock
+        ):
+            #certif_mock.return_value = '0.1.2.3', None
             self.n1._task_secagg(request)
 
+        error_triggered = f'Can not setup secure aggregation context on node for my_dummy_secagg_id. {ErrorNumbers.FB619.value}: ' +\
+        f"Certificate for party1 is not existing. Certificates  of each federated training participant should be present. {environ['ID']} should register certificate of party1."
         grpc_send.assert_called_once_with(
-            SecaggReply(**{'researcher_id': req['researcher_id'],
+            ErrorMessage(**{'researcher_id': req['researcher_id'],
                            'protocol_version': str(__messaging_protocol_version__),
-                           'secagg_id': req['secagg_id'],
+                           #'secagg_id': req['secagg_id'],
                            'request_id': 'request',
-                           'success': False,
+                           #'success': False,
                            'node_id': environ["ID"],
-                           'msg': f'Can not setup secure aggregation context on node for {req["secagg_id"]}.',
-                           'command': 'secagg'})
+                           'extra_msg': error_triggered,
+                           'command': 'error'})
         )
 
 
@@ -833,14 +828,15 @@ class TestNode(NodeTestCase):
         with patch('fedbiomed.node.node.GrpcController.send') as grpc_send:
             self.n1._task_secagg(request)
         grpc_send.assert_called_once_with(
-            SecaggReply(**{'researcher_id': req['researcher_id'],
+            ErrorMessage(**{'researcher_id': req['researcher_id'],
                            'protocol_version': str(__messaging_protocol_version__),
-                           'secagg_id': req['secagg_id'],
-                           'request_id': 'request',
-                           'success': False,
+                           #'secagg_id': req['secagg_id'],
+                           #'request_id': 'request',
+                           #'success': False,
                            'node_id': environ["ID"],
-                           'msg': f"FB318: Secure aggregation setup error: Received bad request message: incorrect `element` {req['element']}",
-                           'command': 'secagg'})
+                           'extra_msg': f"FB318: Secure aggregation setup error: Received bad request message: incorrect `element` {req['element']}",
+                           #'command': 'error'
+                           }), broadcast=False
         )
 
 

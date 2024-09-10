@@ -15,7 +15,7 @@ __all__ = [
     "SecaggSetup",
     "SecaggServkeySetup",
     "SecaggDHSetup",
-    "SecaggKeySetup",
-    "SecaggRound"
+    "SecaggRound",
+    "SecaggKeySetup"
 ]
 
