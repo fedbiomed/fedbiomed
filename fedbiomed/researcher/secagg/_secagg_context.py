@@ -2,43 +2,48 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation management on the researcher"""
+import concurrent.futures
 import importlib
 import uuid
-import concurrent.futures
-
-from typing import Callable, List, Optional, Union, Tuple, Any, Dict
 from abc import ABC, abstractmethod
-
-from fedbiomed.common.secagg import AdditiveShare, AdditiveShares
-from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.requests import Requests, StopOnDisconnect, StopOnError, \
-    StopOnTimeout
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, ComponentType
+from fedbiomed.common.constants import ComponentType, ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.validator import Validator, ValidatorError
-from fedbiomed.common.mpc_controller import MPCController
-from fedbiomed.common.secagg_manager import BaseSecaggManager, SecaggServkeyManager, SecaggDhManager
-from fedbiomed.common.utils import (
-    matching_parties_servkey,
-    get_method_spec,
-    get_default_biprime
-)
 from fedbiomed.common.message import (
+    AdditiveSSSetupRequest,
+    Message,
     SecaggDeleteRequest,
     SecaggRequest,
-    Message
+)
+from fedbiomed.common.mpc_controller import MPCController
+from fedbiomed.common.secagg import AdditiveShare, AdditiveShares
+from fedbiomed.common.secagg_manager import (
+    BaseSecaggManager,
+    SecaggDhManager,
+    SecaggServkeyManager,
+)
+from fedbiomed.common.utils import (
+    get_default_biprime,
+    get_method_spec,
+    matching_parties_servkey,
+)
+from fedbiomed.common.validator import Validator, ValidatorError
+from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.requests import (
+    Requests,
+    StopOnDisconnect,
+    StopOnError,
+    StopOnTimeout,
 )
 
-_CManager = CertificateManager(
-    db_path=environ["DB_PATH"]
-)
+_CManager = CertificateManager(db_path=environ["DB_PATH"])
 
 # Instantiate one manager for each secagg element type
-_SKManager = SecaggServkeyManager(environ['DB_PATH'])
-_DHManager = SecaggDhManager(environ['DB_PATH'])
+_SKManager = SecaggServkeyManager(environ["DB_PATH"])
+_DHManager = SecaggDhManager(environ["DB_PATH"])
 
 
 class SecaggContext(ABC):
@@ -46,8 +51,12 @@ class SecaggContext(ABC):
     Handles a Secure Aggregation context element on the researcher side.
     """
 
+    _min_num_parties: int
+
     @abstractmethod
-    def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
+    def __init__(
+        self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None
+    ):
         """Constructor of the class.
 
         Args:
@@ -63,11 +72,13 @@ class SecaggContext(ABC):
         """
         self._v = Validator()
 
-        self._v.register("nonempty_str_or_none", self._check_secagg_id_type, override=True)
+        self._v.register(
+            "nonempty_str_or_none", self._check_secagg_id_type, override=True
+        )
         try:
             self._v.validate(secagg_id, "nonempty_str_or_none")
         except ValidatorError as e:
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `secagg_id` must be a None or non-empty string: {e}'
+            errmess = f"{ErrorNumbers.FB415.value}: bad parameter `secagg_id` must be a None or non-empty string: {e}"
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
@@ -76,13 +87,15 @@ class SecaggContext(ABC):
             for p in parties:
                 self._v.validate(p, str)
         except ValidatorError as e:
-            errmess = f'{ErrorNumbers.FB415.value}: bad parameter `parties` must be a list of strings: {e}'
+            errmess = f"{ErrorNumbers.FB415.value}: bad parameter `parties` must be a list of strings: {e}"
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-        self._secagg_id = secagg_id if secagg_id is not None else 'secagg_' + str(uuid.uuid4())
+        self._secagg_id = (
+            secagg_id if secagg_id is not None else "secagg_" + str(uuid.uuid4())
+        )
         self._parties = parties
-        self._researcher_id = environ['ID']
+        self._researcher_id = environ["ID"]
         self._requests = Requests()
         self._status = False
         self._context = None
@@ -92,11 +105,12 @@ class SecaggContext(ABC):
         # to be set in subclasses
         self._secagg_manager: Optional[BaseSecaggManager] = None
 
-    def _raise_if_missing_parties(self, parties: List[str], required_nb_parties: int):
-        if len(parties) < required_nb_parties:
+    def _raise_if_missing_parties(self, parties: List[str]):
+        if len(parties) < self._min_num_parties:
             raise FedbiomedSecaggError(
-                f'{ErrorNumbers.FB415.value}: {self._element.value}, bad parameter `parties` : {parties} : need '
-                f'at least {required_nb_parties} nodes for secure aggregation')
+                f"{ErrorNumbers.FB415.value}: {self._element.value}, bad parameter `parties` : {parties} : need "
+                f"at least {self._min_num_parties} nodes for secure aggregation"
+            )
 
     @staticmethod
     def _check_secagg_id_type(value) -> bool:
@@ -182,12 +196,14 @@ class SecaggContext(ABC):
             if not self._matching_parties(context):
                 logger.error(
                     f"{ErrorNumbers.FB415.value}: secagg context for {self._secagg_id} exists "
-                    f"but parties do not match")
+                    f"but parties do not match"
+                )
                 status = False
             else:
                 logger.debug(
                     f"Secagg context for {self._secagg_id} is already existing on researcher "
-                    f"researcher_id='{environ['ID']}'")
+                    f"researcher_id='{environ['ID']}'"
+                )
                 status = True
         return context, status
 
@@ -210,19 +226,21 @@ class SecaggContext(ABC):
         if status:
             logger.debug(
                 f"Context element successfully deleted for researcher_id='{environ['ID']}' "
-                f"secagg_id='{self._secagg_id}'")
+                f"secagg_id='{self._secagg_id}'"
+            )
         else:
             logger.error(
                 f"{ErrorNumbers.FB415.value}: No such context element secagg_id={self._secagg_id} "
-                f"on researcher researcher_id='{environ['ID']}'")
+                f"on researcher researcher_id='{environ['ID']}'"
+            )
 
         return None, status
 
     def _secagg_round(
-            self,
-            msg: Message,
-            can_set_status: bool,
-            payload: Callable,
+        self,
+        msg: Message,
+        can_set_status: bool,
+        payload: Callable,
     ) -> bool:
         """Negotiate secagg context element action with defined parties.
 
@@ -251,9 +269,9 @@ class SecaggContext(ABC):
 
     @abstractmethod
     def _secagg_round_specific(
-            self,
-            msg: Message,
-            payload: Callable,
+        self,
+        msg: Message,
+        payload: Callable,
     ) -> Tuple[dict, dict[str, bool]]:
         """Negotiate secagg context element action with defined parties.
 
@@ -280,8 +298,8 @@ class SecaggContext(ABC):
             secagg_id=self._secagg_id,
             element=self._element.value,
             experiment_id=self._experiment_id,
-            parties=self._parties)
-
+            parties=self._parties,
+        )
         return self._secagg_round(msg, True, self._create_payload)
 
     def delete(self) -> bool:
@@ -297,7 +315,8 @@ class SecaggContext(ABC):
             researcher_id=self._researcher_id,
             secagg_id=self._secagg_id,
             element=self._element.value,
-            experiment_id=self._experiment_id)
+            experiment_id=self._experiment_id,
+        )
         return self._secagg_round(msg, False, self._delete_payload)
 
     def save_state_breakpoint(self) -> Dict[str, Any]:
@@ -314,21 +333,17 @@ class SecaggContext(ABC):
                 "secagg_id": self._secagg_id,
                 "parties": self._parties,
                 "experiment_id": self._experiment_id,
-
             },
             "attributes": {
                 "_status": self._status,
                 "_context": self._context,
                 "_researcher_id": self._researcher_id,
-            }
+            },
         }
         return state
 
     @staticmethod
-    def load_state_breakpoint(
-            state: Dict[str, Any]
-    ) -> 'SecaggContext':
-
+    def load_state_breakpoint(state: Dict[str, Any]) -> "SecaggContext":
         """
         Method for loading secagg state from breakpoint state
 
@@ -341,10 +356,10 @@ class SecaggContext(ABC):
 
         # Validate experiment id
         spec = get_method_spec(cls)
-        if 'experiment_id' in spec:
+        if "experiment_id" in spec:
             secagg = cls(**state["arguments"])
         else:
-            state["arguments"].pop('experiment_id')
+            state["arguments"].pop("experiment_id")
             secagg = cls(**state["arguments"])
 
         for key, value in state["attributes"].items():
@@ -358,7 +373,11 @@ class SecaggMpspdzContext(SecaggContext):
     Handles a Secure Aggregation context element based on MPSPDZ on the researcher side.
     """
 
-    def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
+    _min_num_parties: int = 3
+
+    def __init__(
+        self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None
+    ):
         """Constructor of the class.
 
         Args:
@@ -374,24 +393,24 @@ class SecaggMpspdzContext(SecaggContext):
         """
         super().__init__(parties, experiment_id, secagg_id)
 
-        self._raise_if_missing_parties(parties, required_nb_parties=3)
+        self._raise_if_missing_parties(parties)
 
-        if environ['ID'] != parties[0]:
+        if environ["ID"] != parties[0]:
             raise FedbiomedSecaggError(
-                f'{ErrorNumbers.FB415.value}: researcher should be the first party.'
+                f"{ErrorNumbers.FB415.value}: researcher should be the first party."
             )
 
         # one controller per secagg object to prevent any file conflict
         self._mpc = MPCController(
             tmp_dir=environ["TMP_DIR"],
             component_type=ComponentType.RESEARCHER,
-            component_id=environ["ID"]
+            component_id=environ["ID"],
         )
 
     def _secagg_round_specific(
-            self,
-            msg: Message,
-            payload: Callable,
+        self,
+        msg: Message,
+        payload: Callable,
     ) -> Tuple[dict, dict[str, bool]]:
         """Negotiate secagg context element action with defined parties for a MPSPDZ key exchange.
 
@@ -410,7 +429,11 @@ class SecaggMpspdzContext(SecaggContext):
             FedbiomedSecaggError: local payload did not complete before timeout
         """
         # Federated request should stop if any error occurs
-        policies = [StopOnDisconnect(timeout=30), StopOnError(), StopOnTimeout(timeout=120)]
+        policies = [
+            StopOnDisconnect(timeout=30),
+            StopOnError(),
+            StopOnTimeout(timeout=120),
+        ]
 
         executer = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         context_future = executer.submit(payload)
@@ -421,8 +444,10 @@ class SecaggMpspdzContext(SecaggContext):
             if fed_request.policy.has_stopped_any():
                 self._mpc.kill()
                 context_future.cancel()
-                raise FedbiomedSecaggError("Request is not successful. Policy "
-                                           f"report => {fed_request.policy.report()}. Errors => {errors}")
+                raise FedbiomedSecaggError(
+                    "Request is not successful. Policy "
+                    f"report => {fed_request.policy.report()}. Errors => {errors}"
+                )
 
             status = {rep.node_id: rep.success for rep in replies.values()}
 
@@ -431,7 +456,9 @@ class SecaggMpspdzContext(SecaggContext):
         except TimeoutError:
             self._mpc.kill()
             context_future.cancel()
-            raise FedbiomedSecaggError("Request is not successful, timeout on researcher payload.")
+            raise FedbiomedSecaggError(
+                "Request is not successful, timeout on researcher payload."
+            )
 
         return context, status
 
@@ -441,7 +468,9 @@ class SecaggServkeyContext(SecaggMpspdzContext):
     Handles a Secure Aggregation server key context element on the researcher side.
     """
 
-    def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
+    def __init__(
+        self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None
+    ):
         """Constructor of the class.
 
         Args:
@@ -458,7 +487,6 @@ class SecaggServkeyContext(SecaggMpspdzContext):
         self._element = SecaggElementTypes.SERVER_KEY
         super().__init__(parties, experiment_id, secagg_id)
 
-        
         self._secagg_manager = _SKManager
 
     def _matching_parties(self, context: dict) -> bool:
@@ -487,17 +515,19 @@ class SecaggServkeyContext(SecaggMpspdzContext):
             self_port=environ["MPSPDZ_PORT"],
             self_private_key=environ["MPSPDZ_CERTIFICATE_KEY"],
             self_public_key=environ["MPSPDZ_CERTIFICATE_PEM"],
-            parties=self._parties)
+            parties=self._parties,
+        )
 
         try:
             output = self._mpc.exec_shamir(
                 party_number=0,  # 0 stands for server/aggregator
                 num_parties=len(self._parties),
-                ip_addresses=ip_file
+                ip_addresses=ip_file,
             )
         except Exception as e:
             raise FedbiomedSecaggError(
-                f"{ErrorNumbers.FB415.value}: Can not execute MPC protocol. {e}") from e
+                f"{ErrorNumbers.FB415.value}: Can not execute MPC protocol. {e}"
+            ) from e
 
         # Read output
         try:
@@ -507,28 +537,39 @@ class SecaggServkeyContext(SecaggMpspdzContext):
         except Exception as e:
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB415.value}: Can not read server key from created after "
-                f"MPC execution. {e}") from e
+                f"MPC execution. {e}"
+            ) from e
 
         biprime = get_default_biprime()
-        context = {'server_key': int(server_key.strip()), 'biprime': biprime}
-        self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
+        context = {"server_key": int(server_key.strip()), "biprime": biprime}
+        self._secagg_manager.add(
+            self._secagg_id, self._parties, context, self._experiment_id
+        )
         logger.debug(
             f"Server key successfully created for researcher_id='{environ['ID']}' "
-            f"secagg_id='{self._secagg_id}'")
+            f"secagg_id='{self._secagg_id}'"
+        )
 
         return context, True
 
 
 class SecaggKeyContext(SecaggContext):
     """Handles a Additive Secret Sharing context on the Researcher side"""
-    def __init__(self, parties: List[str], experiment_id: str | None, secagg_id: str | None = None):
+
+    _min_num_parties: int = 2
+
+    def __init__(
+        self,
+        parties: List[str],
+        experiment_id: str | None,
+        secagg_id: str | None = None,
+    ):
         super().__init__(parties, experiment_id, secagg_id)
 
-        
         self._element = SecaggElementTypes.SERVER_KEY
-        self._raise_if_missing_parties(parties, 2)
+        self._raise_if_missing_parties(parties)
         self._secagg_manager = _SKManager
-        #self._shares = []
+        # self._shares = []
 
     def _matching_parties(self, context: dict) -> bool:
         """Check if parties of given context are compatible with the secagg context element.
@@ -553,30 +594,34 @@ class SecaggKeyContext(SecaggContext):
         # context = {'key': context,
         #            'share': self._share.reconstruct()}
 
-        self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
+        self._secagg_manager.add(
+            self._secagg_id, self._parties, context, self._experiment_id
+        )
 
         logger.debug(
             f"Additive Secret Sharing context successfully created for researcher_id='{environ['ID']}' "
-            f"secagg_id='{self._secagg_id}'")
+            f"secagg_id='{self._secagg_id}'"
+        )
 
         return context, True
 
     def setup(self) -> bool:
-        msg = ResearcherMessages.format_outgoing_message({
-            'researcher_id': self._researcher_id,
-            'secagg_id': self._secagg_id,
-            'element': self._element.value,
-            'experiment_id': self._experiment_id,
-            'parties': self._parties,
-            'command': 'secagg-additive-ss-setup-request',
-        })
+        msg = AdditiveSSSetupRequest(
+            **{
+                "researcher_id": self._researcher_id,
+                "secagg_id": self._secagg_id,
+                "element": self._element.value,
+                "experiment_id": self._experiment_id,
+                "parties": self._parties,
+            }
+        )
 
         return self._secagg_round(msg, True, self._create_payload)
 
     def _secagg_round_specific(
-            self,
-            msg: Message,
-            payload: Callable,
+        self,
+        msg: Message,
+        payload: Callable,
     ) -> Tuple[dict, dict[str, bool]]:
         """Negotiate secagg context element action with defined parties for a MPSPDZ key exchange.
 
@@ -596,31 +641,39 @@ class SecaggKeyContext(SecaggContext):
         """
 
         # Federated request should stop if any error occurs
-        policies = [StopOnDisconnect(timeout=30), StopOnError(), StopOnTimeout(timeout=120)]
+        policies = [
+            StopOnDisconnect(timeout=30),
+            StopOnError(),
+            StopOnTimeout(timeout=120),
+        ]
         # Ensure that reply from each node was received
-        status = {node_id: False for node_id in self._parties}
+        status = {}
 
         # one controller per secagg object to prevent any file conflict
 
-        context = {'share': []}
+        context = {"share": []}
         with self._requests.send(msg, self._parties, policies) as fed_request:
             replies = fed_request.replies()
             errors = fed_request.errors()
 
-            status = {rep.node_id: rep.success for rep in replies.values()}
-            status[self._researcher_id] = not errors and not fed_request.policy.has_stopped_any()
+            # status = {rep.node_id: rep.success for rep in replies.values()}
+            status[self._researcher_id] = (
+                not errors and not fed_request.policy.has_stopped_any()
+            )
 
             # Additive Secret Sharing: sum up shares from nodes
             for rep in replies.values():
                 share = rep.share
-                context['share'].append(AdditiveShare(share))
+                context["share"].append(AdditiveShare(share))
 
-        context['share'] = AdditiveShares(context['share']).reconstruct()
+        context["share"] = AdditiveShares(context["share"]).reconstruct()
 
         if all(status.values()):
             # only create context if previous steps succeeded
             _, status_researcher_payload = payload(context)
-            status[self._researcher_id] = status[self._researcher_id] and status_researcher_payload
+            status[self._researcher_id] = (
+                status[self._researcher_id] and status_researcher_payload
+            )
 
         return context, status
 
@@ -630,7 +683,11 @@ class SecaggDHContext(SecaggContext):
     Handles a Secure Aggregation Diffie Hellman context element on the researcher side.
     """
 
-    def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
+    _min_num_parties: int = 2
+
+    def __init__(
+        self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None
+    ):
         """Constructor of the class.
 
         Args:
@@ -646,7 +703,7 @@ class SecaggDHContext(SecaggContext):
         """
         super().__init__(parties, experiment_id, secagg_id)
         self._element = SecaggElementTypes.DIFFIE_HELLMAN
-        self._raise_if_missing_parties(parties, required_nb_parties=2)
+        self._raise_if_missing_parties(parties)
 
         self._secagg_manager = _DHManager
 
@@ -670,18 +727,21 @@ class SecaggDHContext(SecaggContext):
         Returns:
             A tuple of a `context` and a `status` for the server key context element
         """
-        self._secagg_manager.add(self._secagg_id, self._parties, context, self._experiment_id)
+        self._secagg_manager.add(
+            self._secagg_id, self._parties, context, self._experiment_id
+        )
 
         logger.debug(
             f"Diffie Hellman context successfully created for researcher_id='{environ['ID']}' "
-            f"secagg_id='{self._secagg_id}'")
+            f"secagg_id='{self._secagg_id}'"
+        )
 
         return context, True
 
     def _secagg_round_specific(
-            self,
-            msg: Message,
-            payload: Callable,
+        self,
+        msg: Message,
+        payload: Callable,
     ) -> Tuple[dict, dict[str, bool]]:
         """Negotiate secagg context element action with defined parties for a MPSPDZ key exchange.
 
@@ -700,7 +760,11 @@ class SecaggDHContext(SecaggContext):
             FedbiomedSecaggError: local payload did not complete before timeout
         """
         # Federated request should stop if any error occurs
-        policies = [StopOnDisconnect(timeout=30), StopOnError(), StopOnTimeout(timeout=120)]
+        policies = [
+            StopOnDisconnect(timeout=30),
+            StopOnError(),
+            StopOnTimeout(timeout=120),
+        ]
         # Ensure that reply from each node was received
         status = {node_id: False for node_id in self._parties}
 
@@ -709,7 +773,9 @@ class SecaggDHContext(SecaggContext):
             errors = fed_request.errors()
 
             status = {rep.node_id: rep.success for rep in replies.values()}
-            status[self._researcher_id] = not errors and not fed_request.policy.has_stopped_any()
+            status[self._researcher_id] = (
+                not errors and not fed_request.policy.has_stopped_any()
+            )
 
         context = {}
         # no cryptographic material on the researcher side in this case, no specific context element to save
@@ -717,7 +783,9 @@ class SecaggDHContext(SecaggContext):
         if all(status.values()):
             # only create context if previous steps succeeded
             _, status_researcher_payload = payload(context)
-            status[self._researcher_id] = status[self._researcher_id] and status_researcher_payload
+            status[self._researcher_id] = (
+                status[self._researcher_id] and status_researcher_payload
+            )
 
         # Current implementation does not try to clean entries on successful nodes if some nodes failed (`not status`)
 
