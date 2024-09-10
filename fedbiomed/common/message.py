@@ -415,17 +415,15 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
 @catch_dataclass_exception
 @dataclass
 class AdditiveSSharingRequest(InnerRequestReply, RequiresProtocolVersion):
-    public_key: bytes
     secagg_id: str
     command: str = 'additive-secret-share-request'
-    
+
 
 
 @catch_dataclass_exception
 @dataclass
 class AdditiveSSharingReply(InnerRequestReply, RequiresProtocolVersion):
-    
-    public_key: bytes
+
     secagg_id: str
     share: list | int
     command: str = 'additive-secret-share-reply'
@@ -495,7 +493,7 @@ class ApprovalReply(RequestReply, RequiresProtocolVersion):
 # Error message
 
 @catch_dataclass_exception
-@dataclass
+@dataclass(kw_only=True)
 class ErrorMessage(RequestReply, RequiresProtocolVersion):
     """Describes an error message sent by the node.
 
@@ -504,19 +502,18 @@ class ErrorMessage(RequestReply, RequiresProtocolVersion):
         node_id: ID of the node that sends error message
         errnum: Error ID/Number
         extra_msg: Additional message regarding the error
-        command: Reply command string
+        command: Reply command st/ring
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
     researcher_id: str
     node_id: str
-    errnum: str
+    errnum: Optional[str] = None
     extra_msg: str
-    command: str
+    command: Optional[str] = 'error'
 
 
-# List messages
 
 @catch_dataclass_exception
 @dataclass
@@ -733,7 +730,7 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
-    
+
     researcher_id: str
     secagg_id: str
     success: bool
@@ -745,18 +742,17 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
 @catch_dataclass_exception
 @dataclass
 class AdditiveSSSetupRequest(SecaggRequest):
+    """Message to request secure aggregation setup from researcher to nodes"""
     command: str = 'secagg-additive-ss-setup-request'
 
 
 @catch_dataclass_exception
 @dataclass(kw_only=True)
 class AdditiveSSSetupReply(SecaggReply):
-    
+    """Message that instantiated on the node side to reply secagg setup request from researcher"""
     command: str = 'secagg-additive-ss-setup-reply'
     share: int | list
 
-
-# TrainingPlanStatus messages
 
 @catch_dataclass_exception
 @dataclass

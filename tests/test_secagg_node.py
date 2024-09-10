@@ -4,7 +4,11 @@ from copy import deepcopy
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
-from fedbiomed.common.message import NodeToNodeMessages
+from fedbiomed.common.message import (
+    NodeToNodeMessages,
+    AdditiveSSharingReply,
+    ErrorMessage,
+)
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.transport.controller import GrpcController
 from testsupport.base_case import NodeTestCase
@@ -15,6 +19,7 @@ from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg import (
     SecaggDHSetup,
+    SecaggKeySetup,
     SecaggServkeySetup,
     SecaggBaseSetup,
     SecaggSetup,
@@ -76,16 +81,7 @@ class TestSecaggBaseSetup(NodeTestCase):
             message="Test message", success=False
         )
 
-        self.assertDictEqual(
-            reply,
-            {
-                "researcher_id": self.args["researcher_id"],
-                "secagg_id": self.args["secagg_id"],
-                "success": False,
-                "msg": "Test message",
-                "command": "secagg",
-            },
-        )
+        self.assertIsInstance(reply, ErrorMessage)
 
 
 class SecaggTestCase(NodeTestCase):
@@ -206,7 +202,7 @@ class TestSecaggServkey(SecaggTestCase):
                 m.side_effect = e  # setting different exception to mock
 
                 reply = self.secagg_servkey.setup()
-                self.assertFalse(reply["success"])
+                self.assertIsInstance(reply, ErrorMessage)
 
         with (
             patch(
@@ -227,8 +223,8 @@ class TestSecaggServkey(SecaggTestCase):
 
             self.mock_skm.add.return_value = None
             reply = self.secagg_servkey.setup()
-            self.assertEqual(reply["success"], True)
-            self.assertIsInstance(reply["success"], bool)
+            self.assertEqual(reply.success, True)
+            self.assertIsInstance(reply.success, bool)
             self.mock_skm.add.assert_called_once_with(
                 self.args["secagg_id"],
                 self.args["parties"],
@@ -240,15 +236,64 @@ class TestSecaggServkey(SecaggTestCase):
             "fedbiomed.node.secagg._secagg_setups.SecaggServkeySetup._setup_specific"
         ) as mock_:
             # FIXME: these are already tested...
-            mock_.side_effect = Exception
-            self.mock_skm.get.return_value = None
-            reply = self.secagg_servkey.setup()
-            self.assertEqual(reply["success"], False)
-
             mock_.side_effect = FedbiomedError
             self.mock_skm.get.return_value = None
             reply = self.secagg_servkey.setup()
-            self.assertEqual(reply["success"], False)
+            self.assertIsInstance(reply, ErrorMessage)
+
+
+class TestSecaggKeySetup(SecaggTestCase):
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.mock_controller_data = MagicMock(spec=EventWaitExchange)
+        self.mock_grpc_controller = MagicMock(spec=GrpcController)
+        self.mock_pending_requests = MagicMock(spec=EventWaitExchange)
+        self.args = {
+            "researcher_id": "my researcher",
+            "secagg_id": "my secagg",
+            "experiment_id": "my_experiment_id",
+            "parties": [
+                environ["ID"],
+                "node2",
+                "node3",
+                "node4",
+            ],
+        }
+
+        messages = [
+            AdditiveSSharingReply(
+                node_id="node3",
+                dest_node_id="node1",
+                secagg_id="test",
+                share=1234,
+            ),
+            AdditiveSSharingReply(
+                node_id="node2",
+                dest_node_id="node1",
+                secagg_id="test",
+                share=1234,
+            ),
+        ]
+        self.mock_pending_requests.wait.return_value = True, messages
+
+        self.args["grpc_client"] = self.mock_grpc_controller
+        self.args["pending_requests"] = self.mock_pending_requests
+        self.args["controller_data"] = self.mock_controller_data
+
+    def tearDown(self) -> None:
+        pass
+
+    def test_secagg_key_02_setup(self):
+        """Tests key setup for additive key"""
+        secagg_dh = SecaggKeySetup(**self.args)
+        reply = secagg_dh.setup()
+        self.assertEqual(reply.success, True)
+        self.assertIsInstance(reply.share, int)
+
+        self.mock_pending_requests.wait.side_effect = FedbiomedError
+        reply = secagg_dh.setup()
+        self.assertIsInstance(reply, ErrorMessage)
 
 
 class TestSecaggDHSetup(SecaggTestCase):
@@ -329,8 +374,7 @@ class TestSecaggDHSetup(SecaggTestCase):
             context,
             self.args["experiment_id"],
         )
-        self.assertTrue(reply["success"])
-        self.assertIsInstance(reply["success"], bool)
+        self.assertTrue(reply.success)
 
     @patch("fedbiomed.node.secagg._secagg_setups.DHManager.add")
     @patch("fedbiomed.node.secagg._secagg_setups.DHKey.export_public_key")
@@ -368,7 +412,7 @@ class TestSecaggDHSetup(SecaggTestCase):
         dh_key_export_public_key.return_value = key
         secagg_dh = SecaggDHSetup(**self.args)
         reply = secagg_dh.setup()
-        self.assertFalse(reply["success"])
+        self.assertIsInstance(reply, ErrorMessage)
 
 
 class TestSecaggSetup(NodeTestCase):
