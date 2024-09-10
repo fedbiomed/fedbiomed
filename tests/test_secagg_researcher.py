@@ -482,9 +482,53 @@ class TestServerKeyContext(BaseTestCaseSecaggContext):
         shares = {'test-1': ({'party1': 12, 'party2': 12}, 24),
                   'tets-2': ({'party1': [12, 13], 'party2': [12, 13]},
                              [12*2, 13*2])}
+
+        for (test_share_values, expected_share_value) in shares.values():
+            _, res = self._run_secagg_config(self._secagg_key_context, test_share_values, 
+                                             expected_share_value)
+            self.assertTrue(res)
+            self.assertIsInstance(res, bool)
+            # check save from SKManager
+            self.mock_skmanager.add.assert_called_with('secagg_id',
+                                                       self.parties[1:],
+                                                       {'share': expected_share_value},
+                                                       'experiment-id')
+
+    def test_03_saving_loading_breakpoint(self):
+        same_obj_attr = ('_secagg_id', '_parties', '_researcher_id', '_status', '_context', '_experiment_id', '_element')
+        same_inst_attr = ('_v', '_secagg_manager', '_requests',)
+        # before running round_specific
+        state = self._secagg_key_context.save_state_breakpoint()
+
+        self.assertDictContainsSubset({'_status': False,
+                                       '_context': None,
+                                       '_researcher_id': self.env["RESEARCHER_ID"],},
+                                      state['attributes'])
+        state = copy.deepcopy(state)
+        loaded_secagg = SecaggKeyContext.load_state_breakpoint(state)
+
+        self.check_similarities_in_obj(self._secagg_key_context, loaded_secagg, same_obj_attr, same_inst_attr 
+                                       )
+        
+        shares = {'test-1': ({'party1': 12, 'party2': 12}, 24),
+                  'tets-2': ({'party1': [12, 13], 'party2': [12, 13]},
+                             [12*2, 13*2])}
         
         for (test_share_values, expected_share_value) in shares.values():
-            self.mock_federated_request.replies.return_value = {
+            del loaded_secagg
+            self._run_secagg_config(self._secagg_key_context,
+                                    test_share_values, expected_share_value)
+            
+            state = self._secagg_key_context.save_state_breakpoint()
+            state = copy.deepcopy(state)
+
+            loaded_secagg = SecaggKeyContext.load_state_breakpoint(state)
+
+            self.check_similarities_in_obj(self._secagg_key_context, loaded_secagg,
+                                           same_obj_attr, same_inst_attr)
+
+    def _run_secagg_config(self, secagg, test_share_values, expected_share_value):
+        self.mock_federated_request.replies.return_value = {
                 "party1": AdditiveSSSetupReply(
                     **{
                         "researcher_id": "xx",
@@ -509,19 +553,23 @@ class TestServerKeyContext(BaseTestCaseSecaggContext):
                 ),
             }
 
-            self.mock_federated_request.errors.return_value = None
-            type(
-                self.mock_federated_request
-            ).policy.return_value.has_stopped_any.return_value = False
+        self.mock_federated_request.errors.return_value = None
+        type(
+            self.mock_federated_request
+        ).policy.return_value.has_stopped_any.return_value = False
 
-            res = self._secagg_key_context.setup()
-            self.assertTrue(res)
-            self.assertIsInstance(res, bool)
-            # check save from SKManager
-            self.mock_skmanager.add.assert_called_with('secagg_id',
-                                                       self.parties[1:],
-                                                       {'share': expected_share_value},
-                                                       'experiment-id')
+        res = secagg.setup()
+        return secagg, res
+        
+    def check_similarities_in_obj(self, obj1, obj2, same_obj_attr,
+                                  same_instance_attr):
+
+        for attr in obj1.__dict__:
+            attr1, attr2 = getattr(obj1, attr), getattr(obj2, attr)
+            if attr in same_obj_attr and attr1 != attr2:
+                self.assertFalse(True, f"{attr1} and {attr2} are not equal")
+            elif attr in same_instance_attr:
+                self.assertIsInstance(attr1, type(attr2))
 
 
 class TestSecaggDHContext(BaseTestCaseSecaggContext):

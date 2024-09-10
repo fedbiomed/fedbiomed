@@ -149,7 +149,6 @@ class SecaggBaseSetup(ABC):
             logger.error(message)
             return ErrorMessage(**{**common, "extra_msg": message})
 
-<<<<<<< HEAD
         return self._REPLY_CLASS(
             **{
                 **common,

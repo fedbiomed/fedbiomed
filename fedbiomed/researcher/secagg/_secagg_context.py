@@ -26,7 +26,7 @@ from fedbiomed.common.utils import (
     get_method_spec,
     get_default_biprime
 )
-from fedbiomed.common.message import Message, ResearcherMessages
+from fedbiomed.common.message import AdditiveSSSetupRequest, Message, ResearcherMessages, SecaggDeleteRequest, SecaggRequest
 
 _CManager = CertificateManager(
     db_path=environ["DB_PATH"]
@@ -41,6 +41,7 @@ class SecaggContext(ABC):
     """
     Handles a Secure Aggregation context element on the researcher side.
     """
+    _min_num_parties: int
 
     @abstractmethod
     def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
@@ -88,11 +89,11 @@ class SecaggContext(ABC):
         # to be set in subclasses
         self._secagg_manager: Optional[BaseSecaggManager] = None
 
-    def _raise_if_missing_parties(self, parties: List[str], required_nb_parties: int):
-        if len(parties) < required_nb_parties:
+    def _raise_if_missing_parties(self, parties: List[str]):
+        if len(parties) < self._min_num_parties:
             raise FedbiomedSecaggError(
                 f'{ErrorNumbers.FB415.value}: {self._element.value}, bad parameter `parties` : {parties} : need '
-                f'at least {required_nb_parties} nodes for secure aggregation')
+                f'at least {self._min_num_parties} nodes for secure aggregation')
 
     @staticmethod
     def _check_secagg_id_type(value) -> bool:
@@ -271,7 +272,7 @@ class SecaggContext(ABC):
             True if secagg context element could be setup for all parties, False if at least
                 one of the parties could not setup context element.
         """
-        msg = ResearcherMessages.format_outgoing_message({
+        msg = SecaggRequest(**{
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
             'element': self._element.value,
@@ -291,7 +292,7 @@ class SecaggContext(ABC):
         """
         self._status = False
         self._context = None
-        msg = ResearcherMessages.format_outgoing_message({
+        msg = SecaggDeleteRequest(**{
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
             'element': self._element.value,
@@ -357,6 +358,7 @@ class SecaggMpspdzContext(SecaggContext):
     """
     Handles a Secure Aggregation context element based on MPSPDZ on the researcher side.
     """
+    _min_num_parties: int = 3
 
     def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
         """Constructor of the class.
@@ -374,7 +376,7 @@ class SecaggMpspdzContext(SecaggContext):
         """
         super().__init__(parties, experiment_id, secagg_id)
 
-        self._raise_if_missing_parties(parties, required_nb_parties=3)
+        self._raise_if_missing_parties(parties)
 
         if environ['ID'] != parties[0]:
             raise FedbiomedSecaggError(
@@ -458,7 +460,6 @@ class SecaggServkeyContext(SecaggMpspdzContext):
         self._element = SecaggElementTypes.SERVER_KEY
         super().__init__(parties, experiment_id, secagg_id)
 
-        
         self._secagg_manager = _SKManager
 
     def _matching_parties(self, context: dict) -> bool:
@@ -521,12 +522,13 @@ class SecaggServkeyContext(SecaggMpspdzContext):
 
 class SecaggKeyContext(SecaggContext):
     """Handles a Additive Secret Sharing context on the Researcher side"""
+    _min_num_parties: int = 2
+
     def __init__(self, parties: List[str], experiment_id: str | None, secagg_id: str | None = None):
         super().__init__(parties, experiment_id, secagg_id)
 
-        
         self._element = SecaggElementTypes.SERVER_KEY
-        self._raise_if_missing_parties(parties, 2)
+        self._raise_if_missing_parties(parties)
         self._secagg_manager = _SKManager
         #self._shares = []
 
@@ -562,13 +564,12 @@ class SecaggKeyContext(SecaggContext):
         return context, True
 
     def setup(self) -> bool:
-        msg = ResearcherMessages.format_outgoing_message({
+        msg = AdditiveSSSetupRequest(**{
             'researcher_id': self._researcher_id,
             'secagg_id': self._secagg_id,
             'element': self._element.value,
             'experiment_id': self._experiment_id,
             'parties': self._parties,
-            'command': 'secagg-additive-ss-setup-request',
         })
 
         return self._secagg_round(msg, True, self._create_payload)
@@ -598,7 +599,7 @@ class SecaggKeyContext(SecaggContext):
         # Federated request should stop if any error occurs
         policies = [StopOnDisconnect(timeout=30), StopOnError(), StopOnTimeout(timeout=120)]
         # Ensure that reply from each node was received
-        status = {node_id: False for node_id in self._parties}
+        status = {}
 
         # one controller per secagg object to prevent any file conflict
 
@@ -607,7 +608,7 @@ class SecaggKeyContext(SecaggContext):
             replies = fed_request.replies()
             errors = fed_request.errors()
 
-            status = {rep.node_id: rep.success for rep in replies.values()}
+            #status = {rep.node_id: rep.success for rep in replies.values()}
             status[self._researcher_id] = not errors and not fed_request.policy.has_stopped_any()
 
             # Additive Secret Sharing: sum up shares from nodes
@@ -629,6 +630,7 @@ class SecaggDHContext(SecaggContext):
     """
     Handles a Secure Aggregation Diffie Hellman context element on the researcher side.
     """
+    _min_num_parties: int = 2
 
     def __init__(self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None):
         """Constructor of the class.
@@ -646,7 +648,7 @@ class SecaggDHContext(SecaggContext):
         """
         super().__init__(parties, experiment_id, secagg_id)
         self._element = SecaggElementTypes.DIFFIE_HELLMAN
-        self._raise_if_missing_parties(parties, required_nb_parties=2)
+        self._raise_if_missing_parties(parties)
 
         self._secagg_manager = _DHManager
 
