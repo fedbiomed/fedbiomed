@@ -14,10 +14,13 @@ from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.message import Message as ProtobufMessage
 
 import fedbiomed.transport.protocols.researcher_pb2 as r_pb2
-from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
-from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedValueError
+from fedbiomed.common.constants import (ErrorNumbers,
+                                        __messaging_protocol_version__)
+from fedbiomed.common.exceptions import (FedbiomedMessageError,
+                                         FedbiomedValueError)
 from fedbiomed.common.logger import logger
-from fedbiomed.common.utils import import_object, raise_for_version_compatibility
+from fedbiomed.common.utils import (import_object,
+                                    raise_for_version_compatibility)
 
 
 def catch_dataclass_exception(cls: Callable):
@@ -482,16 +485,13 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
 @catch_dataclass_exception
 @dataclass
 class AdditiveSSharingRequest(InnerRequestReply, RequiresProtocolVersion):
-    public_key: bytes
     secagg_id: str
-    command: str = "additive-secret-share-request"
 
 
 @catch_dataclass_exception
 @dataclass
 class AdditiveSSharingReply(InnerRequestReply, RequiresProtocolVersion):
 
-    public_key: bytes
     secagg_id: str
     share: list | int
     command: str = "additive-secret-share-reply"
@@ -567,9 +567,6 @@ class ErrorMessage(RequestReply, RequiresProtocolVersion):
     node_id: str
     extra_msg: str
     errnum: Optional[str] = None
-
-
-# List messages
 
 
 @catch_dataclass_exception
@@ -787,16 +784,13 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
 @catch_dataclass_exception
 @dataclass
 class AdditiveSSSetupRequest(SecaggRequest):
-    """Additive secret sharing setup request from researcher
-    to nodes
-    """
+    """Message to request secure aggregation setup from researcher to nodes"""
 
 
 @catch_dataclass_exception
 @dataclass(kw_only=True)
 class AdditiveSSSetupReply(SecaggReply):
-    """Additive secret sharing reply from nodes to researcher"""
-
+    """Message that instantiated on the node side to reply secagg setup request from researcher"""
     share: int | list
 
 

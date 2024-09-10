@@ -70,7 +70,7 @@ class AdditiveSecret:
 
 
 
-class AdditiveShare:
+class AdditiveShare(int):
     """AdditiveShare class to be used after diveding secret into multiple shares"""
 
     def __init__(self, value: Union[int, List[int]]) -> None:
@@ -217,5 +217,5 @@ class AdditiveShares(list):
                 for i in range(len(self[0].value))
             ]
         else:
-            raise FedbiomedTypeError("AdditiveShares must be of the same type")
+            raise FedbiomedTypeError("Shares must be of the same type")
         return result
