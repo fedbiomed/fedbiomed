@@ -315,7 +315,7 @@ class _SecaggNN(SecaggBaseSetup):
             grpc_client: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for passing data to the node controller
-            *args**kwargs: Please see [SecaggBaseSetup]
+            *args,**kwargs: Please see [SecaggBaseSetup]
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
@@ -347,6 +347,7 @@ class SecaggKeySetup(_SecaggNN):
     _key_bit_length: int = 2040
     _min_num_parties: int = 2
     _element = SecaggElementTypes.SERVER_KEY
+
 
     def _setup_specific(self) -> Message:
 
@@ -395,44 +396,14 @@ class SecaggKeySetup(_SecaggNN):
         return self._create_secagg_reply(share=sum_shares)
 
 
-class SecaggDHSetup(SecaggBaseSetup):
+class SecaggDHSetup(_SecaggNN):
     """
     Sets up a server key Secure Aggregation context element on the node side.
     """
 
+    _secagg_manager = DHManager
+    _element = SecaggElementTypes.DIFFIE_HELLMAN
     _min_num_parties: int = 2
-
-    def __init__(
-        self,
-        researcher_id: str,
-        secagg_id: str,
-        parties: List[str],
-        experiment_id: str,
-        grpc_client: GrpcController,
-        pending_requests: EventWaitExchange,
-        controller_data: EventWaitExchange,
-    ):
-        """Constructor of the class.
-
-        Args:
-            researcher_id: ID of the researcher that requests setup
-            secagg_id: ID of secagg context element for this setup request
-            experiment_id: ID of the experiment to which this secagg context element is attached
-            parties: List of parties participating to the secagg context element setup
-            grpc_client: object managing the communication with other components
-            pending_requests: object for receiving overlay node to node messages
-            controller_data: object for passing data to the node controller
-
-        Raises:
-            FedbiomedSecaggError: bad argument type or value
-        """
-        super().__init__(researcher_id, secagg_id, parties, experiment_id)
-
-        self._element = SecaggElementTypes.DIFFIE_HELLMAN
-        self._secagg_manager = DHManager
-        self._grpc_client = grpc_client
-        self._pending_requests = pending_requests
-        self._controller_data = controller_data
 
     def _setup_specific(self) -> Message:
         """Service function for setting up the Diffie Hellman secagg context element."""
@@ -519,7 +490,7 @@ class SecaggSetup:
     """Factory class for instantiating any type of node secagg context element setup class"""
 
     element2class = {
-        SecaggElementTypes.SERVER_KEY.name: SecaggServkeySetup,
+        SecaggElementTypes.SERVER_KEY.name: SecaggKeySetup,
         SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDHSetup,
     }
 
@@ -543,15 +514,7 @@ class SecaggSetup:
             )
 
         try:
-            args_to_init = {
-                key: val
-                for key, val in self.kwargs.items()
-                if key
-                in inspect.signature(
-                    SecaggSetup.element2class[element.name].__init__
-                ).parameters
-            }
-            return SecaggSetup.element2class[element.name](**args_to_init)
+            return SecaggSetup.element2class[element.name](**self.kwargs)
         except Exception as e:
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB318.value}: Can not instantiate secure aggregation setup with argument "
