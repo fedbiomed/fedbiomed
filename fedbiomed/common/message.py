@@ -239,6 +239,8 @@ class OverlayMessage(Message, RequiresProtocolVersion):
         node_id: Id of the source node of the overlay message
         dest_node_id: Id of the destination node of the overlay message
         overlay: payload of the message to be forwarded unchanged to the destination node
+        setup: True if this is a channel setup message, False if this is an application layer message
+        salt: value used for salting the key derivation for this message
         command: Command string
 
     Raises:
@@ -248,6 +250,8 @@ class OverlayMessage(Message, RequiresProtocolVersion):
     node_id: str        # Needed for researcher side message handling (receiving a `ReplyTask`)
     dest_node_id: str   # Needed for researcher side message handling
     overlay: list
+    setup: bool
+    salt: bytes
     command: str
 
 
@@ -373,6 +377,34 @@ class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
 
 # --- Node <=> Node messages ----------------------------------------------------
 
+@catch_dataclass_exception
+@dataclass
+class ChannelSetupRequest(InnerRequestReply, RequiresProtocolVersion):
+    """Message for requesting peer node key for securing a n2n channel.
+
+    Attributes:
+        command: Command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    command: str
+
+
+@catch_dataclass_exception
+@dataclass
+class ChannelSetupReply(InnerRequestReply, RequiresProtocolVersion):
+    """Message for reply peer node key for securing a n2n channel.
+
+    Attributes:
+        public_key: public key of replying node
+        command: Command string
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    public_key: bytes
+    command: str
 
 @catch_dataclass_exception
 @dataclass
@@ -1001,7 +1033,9 @@ class NodeMessages(MessageFactory):
 class NodeToNodeMessages(MessageFactory):
     """Specializes MessageFactory for message from Node to Node
     """
-    INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'key-request': KeyRequest,
+    INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'setup-request': ChannelSetupRequest,
+                                          'setup-reply': ChannelSetupReply,
+                                          'key-request': KeyRequest,
                                           'key-reply': KeyReply,
                                           # Example of  of one-wway (not request-reply) inner message
                                           # 'dummy-inner': DummyInner,

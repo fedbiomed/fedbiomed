@@ -155,6 +155,11 @@ class NodeToNodeController:
                 'node_id': environ['NODE_ID'],
                 'dest_node_id': inner_msg.get_param('node_id'),
                 'overlay': format_outgoing_overlay(inner_resp),
+                'setup': False,
+                # `salt` value is unused for now, will be used when moving to symetric encryption of overlay messages
+                # Adjust length of `salt` depending on algorithm (eg: 16 bytes for ChaCha20)
+                # secrets.token_bytes(16)
+                'salt': b'',  # returned by format_outgoing_overlay
                 'command': 'overlay'
             })
 

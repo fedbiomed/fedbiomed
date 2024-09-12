@@ -67,7 +67,7 @@ __researcher_config_version__ = FBM_Component_Version('2')  # researcher config 
 __node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('2')  # node state version
 __breakpoints_version__ = FBM_Component_Version('3')  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version('4')  # format of gRPC messages.
+__messaging_protocol_version__ = FBM_Component_Version('5')  # format of gRPC messages.
 __secagg_element_version__ = FBM_Component_Version('2')  # format os secagg database elements
 # Nota: for messaging protocol version, all changes should be a major version upgrade
 
@@ -81,7 +81,7 @@ MAX_SEND_RETRIES = 5
 MAX_RETRIEVE_ERROR_RETRIES = 5
 
 # Timeout for a node to node request
-TIMEOUT_NODE_TO_NODE_REQUEST = 10
+TIMEOUT_NODE_TO_NODE_REQUEST = 3
 
 
 class _BaseEnum(Enum):
