@@ -10,11 +10,11 @@ from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.synchro import EventWaitExchange
 
-from fedbiomed.node.environ import environ
-from ._overlay import format_incoming_overlay
-from ._n2n_controller import NodeToNodeController
-
 from fedbiomed.transport.controller import GrpcController
+
+from fedbiomed.node.environ import environ
+from ._overlay import Overlay
+from ._n2n_controller import NodeToNodeController
 
 
 # Maximum number of pending messages in the node to node router input queue
@@ -30,6 +30,7 @@ class _NodeToNodeAsyncRouter:
     def __init__(
             self,
             grpc_controller: GrpcController,
+            overlay: Overlay,
             pending_requests: EventWaitExchange,
             controller_data: EventWaitExchange,
     ) -> None:
@@ -37,11 +38,13 @@ class _NodeToNodeAsyncRouter:
 
         Args:
             grpc_controller: object managing the communication with other components
+            overlay: layer for managing overlay message send and receive
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for sharing data
         """
         self._grpc_controller = grpc_controller
-        self._node_to_node_controller = NodeToNodeController(self._grpc_controller, pending_requests, controller_data)
+        self._overlay = overlay
+        self._node_to_node_controller = NodeToNodeController(self._grpc_controller, self._overlay, pending_requests, controller_data)
 
         self._queue = asyncio.Queue(MAX_N2N_ROUTER_QUEUE_SIZE)
         self._loop = None
@@ -153,7 +156,7 @@ class _NodeToNodeAsyncRouter:
                         f"sent to {overlay_msg['dest_node_id']}. Maybe malicious activity. Ignore message."
                     )
                     return
-                inner_msg = format_incoming_overlay(overlay_msg['overlay'])
+                inner_msg = self._overlay.format_incoming_overlay(overlay_msg['overlay'])
 
                 finally_kwargs = await self._node_to_node_controller.handle(overlay_msg, inner_msg)
                 # in case nothing is returned from the handler
@@ -188,6 +191,7 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
     def __init__(
             self,
             grpc_controller: GrpcController,
+            overlay: Overlay,
             pending_requests: EventWaitExchange,
             controller_data: EventWaitExchange
     ) -> None:
@@ -195,10 +199,11 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
 
         Args:
             grpc_controller: object managing the communication with other components
+            overlay: layer for managing overlay message send and receive
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for sharing data with the controller
         """
-        super().__init__(grpc_controller, pending_requests, controller_data)
+        super().__init__(grpc_controller, overlay, pending_requests, controller_data)
 
         self._thread = Thread(target=self._run, args=(), daemon=True)
 

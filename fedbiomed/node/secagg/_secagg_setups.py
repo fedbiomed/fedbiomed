@@ -3,7 +3,7 @@
 
 """Secure Aggregation setup on the node"""
 import inspect
-from typing import List, Union
+from typing import List
 from abc import ABC, abstractmethod
 from enum import Enum
 import uuid
@@ -23,7 +23,7 @@ from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg_manager import SKManager, DHManager, SecaggManager
-from fedbiomed.node.requests import send_nodes
+from fedbiomed.node.requests import Overlay
 
 
 _CManager = CertificateManager(
@@ -296,8 +296,7 @@ class SecaggDHSetup(SecaggBaseSetup):
             secagg_id: str,
             parties: List[str],
             experiment_id: str,
-            grpc_client: GrpcController,
-            pending_requests: EventWaitExchange,
+            overlay: Overlay,
             controller_data: EventWaitExchange,
     ):
         """Constructor of the class.
@@ -307,8 +306,7 @@ class SecaggDHSetup(SecaggBaseSetup):
             secagg_id: ID of secagg context element for this setup request
             experiment_id: ID of the experiment to which this secagg context element is attached
             parties: List of parties participating to the secagg context element setup
-            grpc_client: object managing the communication with other components
-            pending_requests: object for receiving overlay node to node messages
+            overlay: layer for managing overlay message send and receive
             controller_data: object for passing data to the node controller
 
         Raises:
@@ -318,8 +316,7 @@ class SecaggDHSetup(SecaggBaseSetup):
 
         self._element = SecaggElementTypes.DIFFIE_HELLMAN
         self._secagg_manager = DHManager
-        self._grpc_client = grpc_client
-        self._pending_requests = pending_requests
+        self._overlay = overlay
         self._controller_data = controller_data
 
     def _setup_specific(self) -> None:
@@ -352,14 +349,12 @@ class SecaggDHSetup(SecaggBaseSetup):
             ]
 
         logger.debug(f'Sending Diffie-Hellman setup for {self._secagg_id} to nodes: {other_nodes}')
-        all_received, messages = send_nodes(
-            self._grpc_client,
-            self._pending_requests,
+        all_received, messages = self._overlay.send_nodes(
             self._researcher_id,
             other_nodes,
             other_nodes_messages,
         )
-        # Nota: don't clean `self._controller_data.remove(secagg_id)` when finished.
+        # Nota: don't clean with `self._overlay.controller_data.remove(secagg_id)` when finished.
         # Rely on automatic cleaning after timeout.
         # This node received all replies, but some nodes may still be querying this node.
 

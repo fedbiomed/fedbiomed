@@ -24,7 +24,7 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-from fedbiomed.node.requests import NodeToNodeRouter
+from fedbiomed.node.requests import NodeToNodeRouter, Overlay
 
 
 class Node:
@@ -56,10 +56,14 @@ class Node:
             researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
             on_message=self.on_message,
         )
-        # When implementing multiple researchers, there will probably be one per researcher.
-        self._pending_requests = EventWaitExchange(remove_delivered=True)
+
+        pending_requests = EventWaitExchange(remove_delivered=True)
         self._controller_data = EventWaitExchange(remove_delivered=False)
-        self._n2n_router = NodeToNodeRouter(self._grpc_client, self._pending_requests, self._controller_data)
+        self._overlay = Overlay(self._grpc_client, pending_requests)
+        # When implementing multiple researchers, there will probably be one per researcher
+        self._n2n_router = NodeToNodeRouter(
+            self._grpc_client, self._overlay, pending_requests, self._controller_data)
+
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
 
@@ -225,11 +229,7 @@ class Node:
         setup_arguments = {key: value for (key, value) in msg.get_dict().items()}
 
         # Needed when using node to node communications
-        #
-        # Currently used only for Diffie-Hellman keys
-        # but we can add it for all secagg for future extension (in-app Shamir for Joye-Libert secagg)
-        setup_arguments['grpc_client'] = self._grpc_client
-        setup_arguments['pending_requests'] = self._pending_requests
+        setup_arguments['overlay'] = self._overlay
         setup_arguments['controller_data'] = self._controller_data
 
         try:

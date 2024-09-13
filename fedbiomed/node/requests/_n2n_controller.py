@@ -10,10 +10,10 @@ from fedbiomed.common.message import InnerMessage, OverlayMessage, NodeMessages,
 from fedbiomed.common.logger import logger
 from fedbiomed.common.synchro import EventWaitExchange
 
-from fedbiomed.node.environ import environ
-from ._overlay import format_outgoing_overlay
-
 from fedbiomed.transport.controller import GrpcController
+
+from fedbiomed.node.environ import environ
+from ._overlay import Overlay
 
 
 class NodeToNodeController:
@@ -22,6 +22,7 @@ class NodeToNodeController:
     def __init__(
             self,
             grpc_controller: GrpcController,
+            overlay: Overlay,
             pending_requests: EventWaitExchange,
             controller_data: EventWaitExchange,
     ) -> None:
@@ -29,10 +30,12 @@ class NodeToNodeController:
 
         Args:
             grpc_controller: object managing the communication with other components
+            overlay: layer for managing overlay message send and receive
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for sharing data
         """
         self._grpc_controller = grpc_controller
+        self._overlay = overlay
         self._pending_requests = pending_requests
         self._controller_data = controller_data
 
@@ -154,7 +157,7 @@ class NodeToNodeController:
                 'researcher_id': overlay_msg['researcher_id'],
                 'node_id': environ['NODE_ID'],
                 'dest_node_id': inner_msg.get_param('node_id'),
-                'overlay': format_outgoing_overlay(inner_resp),
+                'overlay': self._overlay.format_outgoing_overlay(inner_resp),
                 'setup': False,
                 # `salt` value is unused for now, will be used when moving to symetric encryption of overlay messages
                 # Adjust length of `salt` depending on algorithm (eg: 16 bytes for ChaCha20)
