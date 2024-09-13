@@ -156,7 +156,7 @@ class _NodeToNodeAsyncRouter:
                         f"sent to {overlay_msg['dest_node_id']}. Maybe malicious activity. Ignore message."
                     )
                     return
-                inner_msg = self._overlay.format_incoming_overlay(overlay_msg['overlay'])
+                inner_msg = self._overlay.format_incoming_overlay(overlay_msg['overlay'], overlay_msg['node_id'])
 
                 finally_kwargs = await self._node_to_node_controller.handle(overlay_msg, inner_msg)
                 # in case nothing is returned from the handler
