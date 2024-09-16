@@ -1037,6 +1037,8 @@ class NodeToNodeMessages(MessageFactory):
                                           'setup-reply': ChannelSetupReply,
                                           'key-request': KeyRequest,
                                           'key-reply': KeyReply,
+                                          'channel-request': ChannelSetupRequest,
+                                          'channel-reply': ChannelSetupReply,
                                           # Example of  of one-wway (not request-reply) inner message
                                           # 'dummy-inner': DummyInner,
                                           }

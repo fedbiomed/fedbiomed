@@ -152,17 +152,15 @@ class NodeToNodeController:
                 'secagg_id': inner_msg.get_param('secagg_id'),
                 'command': 'key-reply'
             })
+        overlay, salt = self._overlay.format_outgoing_overlay(inner_resp, overlay_msg['researcher_id'])
         overlay_resp = NodeMessages.format_outgoing_message(
             {
                 'researcher_id': overlay_msg['researcher_id'],
                 'node_id': environ['NODE_ID'],
                 'dest_node_id': inner_msg.get_param('node_id'),
-                'overlay': self._overlay.format_outgoing_overlay(inner_resp),
+                'overlay': overlay,
                 'setup': False,
-                # `salt` value is unused for now, will be used when moving to symetric encryption of overlay messages
-                # Adjust length of `salt` depending on algorithm (eg: 16 bytes for ChaCha20)
-                # secrets.token_bytes(16)
-                'salt': b'',  # returned by format_outgoing_overlay
+                'salt': salt,
                 'command': 'overlay'
             })
 

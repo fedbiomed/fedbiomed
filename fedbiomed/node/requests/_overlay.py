@@ -3,6 +3,9 @@
 from typing import Any, List, Tuple, Optional
 import os
 from dataclasses import dataclass
+import threading
+import uuid
+import secrets
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization, hashes
@@ -10,15 +13,16 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 from cryptography.exceptions import InvalidSignature
 
-from fedbiomed.common.utils import ROOT_DIR
-from fedbiomed.common.message import Message, InnerMessage, InnerRequestReply, \
-    NodeMessages, NodeToNodeMessages
-from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST
+from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST, REQUEST_PREFIX
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
-from fedbiomed.common.secagg import DHKey
-from fedbiomed.common.singleton import SingletonMeta
+from fedbiomed.common.logger import logger
+from fedbiomed.common.message import Message, InnerMessage, InnerRequestReply, \
+    NodeMessages, NodeToNodeMessages, OverlayMessage
+from fedbiomed.common.secagg import DHKey as DHKeyECC
 from fedbiomed.common.serializer import Serializer
+from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.synchro import EventWaitExchange
+from fedbiomed.common.utils import ROOT_DIR
 
 from fedbiomed.transport.controller import GrpcController
 
@@ -35,7 +39,7 @@ _CHUNK_SIZE = int(_SMALLEST_KEY / 8)
 # Mimic `common.secagg.DHKey` to ease future migration to symmetric encryption
 
 
-class DHKeyRSA(DHKey):
+class DHKey(DHKeyECC):
     """Temporarily adapts the key management for using RSA asymmetric encryption
 
     Currently cannot use elliptic curve crypto `DHkey` with asymetric encryption.
@@ -76,8 +80,8 @@ class DHKeyRSA(DHKey):
 @dataclass
 class _N2nKeysEntry:
     "Stores description of one node to node channel key status"
-    local_key: DHKeyRSA
-    distant_key: Optional[DHKeyRSA] = None
+    local_key: DHKey
+    distant_key: Optional[DHKey] = None
     pending: bool = False
 
 
@@ -99,9 +103,11 @@ class Overlay(metaclass=SingletonMeta):
         self._pending_requests = pending_requests
 
         self._channel_keys = {}
-        # TODO: read saved keys from DB
-
+        # lock for exclusive access to self._channel_keys
+        self._channel_keys_lock = threading.Lock()
         self._pending_channel_keys = EventWaitExchange(remove_delivered=False)
+
+        # TODO: read saved keys from DB & iinsert in self._channel_keys
 
         # Issue #1142 in "Crypto material management" will optionally replace current default key published with the library
         # and used for each node for setup by a keypair generated securely for each node.
@@ -129,7 +135,7 @@ class Overlay(metaclass=SingletonMeta):
 
 
     @staticmethod
-    def _load_default_n2n_key() -> Tuple[DHKeyRSA, DHKeyRSA]:
+    def _load_default_n2n_key() -> Tuple[DHKey, DHKey]:
         """Read default node to node private key from file.
 
         Currently uses the same keypair, published with library, for each node pair.
@@ -150,14 +156,14 @@ class Overlay(metaclass=SingletonMeta):
             raise FedbiomedNodeToNodeError(
                 f'{ErrorNumbers.FB324.value}: cannot read default node to node key '
                 f'from file {default_key_file}') from e
-        private_key = DHKeyRSA(private_key_pem=private_key_pem)
-        public_key = DHKeyRSA(public_key_pem=private_key.public_key.public_bytes(
+        private_key = DHKey(private_key_pem=private_key_pem)
+        public_key = DHKey(public_key_pem=private_key.public_key.public_bytes(
             serialization.Encoding.PEM,
             serialization.PublicFormat.SubjectPublicKeyInfo
         ))
         return private_key, public_key
 
-    def _setup_use_channel_keys(self, distant_node_id: str) -> Tuple[DHKeyRSA, DHKeyRSA]:
+    def _setup_use_channel_keys(self, distant_node_id: str, researcher_id: str, setup: bool) -> Tuple[DHKey, DHKey]:
         """Returns channel key objects for
 
         If key object for local node does not yet exist, generate it.
@@ -165,27 +171,84 @@ class Overlay(metaclass=SingletonMeta):
 
         Attributes:
             distant_node: unique ID of node at the distant side of the n2n channel
+            researcher_id: unique ID of researcher connecting the nodes
+            setup: False for sending a message over the channel, True for a message
+                setting up the channel
 
         Returns:
             A tuple consisting of
                 - private key object for local node
                 - public key object for distant node
+
+        Raises:
+            FedbiomedNodeToNodeError: distant node does not answer during channel setup
         """
+        if setup:
+            return self._default_n2n_key.local_key, self._default_n2n_key.distant_key
 
-        # TODO implement
-        return self._default_n2n_key.local_key, self._default_n2n_key.distant_key
+        need_setup = False
+        with self._channel_keys_lock:
+
+            # New node to node channel
+            if distant_node_id not in self._channel_keys:
+                self._channel_keys[distant_node_id] = _N2nKeysEntry(local_key=DHKey())
+                # TODO: save in DB entry for self._channel_keys[distant_node_id]
+
+            # Channel not fully setup and no ongoing setup
+            if not self._channel_keys[distant_node_id].distant_key \
+               and not self._channel_keys[distant_node_id].pending:
+                self._channel_keys[distant_node_id].pending = True
+                need_setup = True
+
+        # Contact node to node channel peer to get its public key
+        #
+        # release lock before sending
+        # nota: channel setup is sequential (not optimal in setup time, but more simple implementation,
+        # plus executed only once for channel setup)
+        if need_setup:
+            distant_node_messages = [
+                NodeToNodeMessages.format_outgoing_message({
+                    'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
+                    'node_id': environ['NODE_ID'],
+                    'dest_node_id': distant_node_id,
+                    'command': 'channel-request'
+                })
+            ]
+            all_received, messages = self.send_nodes(
+                researcher_id,
+                [distant_node_id],
+                distant_node_messages,
+                setup=True,
+            )
+            logger.debug(f"Completed node to node channel setup with success={all_received} "
+                         f"node_id='{environ['NODE_ID']}' distant_node_id='{distant_node_id}")
+            if not all_received:
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: A node did not answer during channel setup: {distant_node_id}."
+                )
+
+            with self._channel_keys_lock:
+                for m in messages:
+                    self._channel_keys[distant_node_id].distant_key = m.get_param('public_key')
+                    self._channel_keys[distant_node_id].pending = False
+
+        return self._channel_keys[distant_node_id].local_key, self._channel_keys[distant_node_id].distant_key
 
 
-    def format_outgoing_overlay(self, message: Message) -> List[bytes]:
+    def format_outgoing_overlay(self, message: Message, researcher_id: str, setup: bool = False) -> \
+            Tuple[List[bytes], bytes]:
         """Creates an overlay message payload from an inner message.
 
         Serialize, crypt, sign the inner message
 
         Args:
             message: Inner message to send as overlay payload
+            researcher_id: unique ID of researcher connecting the nodes
+            setup: False for sending a message over the channel, True for a message
+                setting up the channel
 
         Returns:
-            Payload for overlay message
+            A tuple consisting of: payload for overlay message, salt for inner message encryption
 
         Raises:
             FedbiomedNodeToNodeError: key is too short
@@ -196,7 +259,14 @@ class Overlay(metaclass=SingletonMeta):
             raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: not an inner message')
 
         local_node_private_key, distant_node_public_key = self._setup_use_channel_keys(
-            message.get_param('dest_node_id'))
+            message.get_param('dest_node_id'),
+            researcher_id,
+            setup
+        )
+
+        # `salt` value is unused for now, will be used when moving to symetric encryption of overlay messages
+        # Adjust length of `salt` depending on algorithm (eg: 16 bytes for ChaCha20)
+        salt = secrets.token_bytes(16)
 
         # consider encrypt-sign([message,node_id]) or other see
         # https://theworld.com/~dtd/sign_encrypt/sign_encrypt7.html
@@ -233,17 +303,19 @@ class Overlay(metaclass=SingletonMeta):
                 )
             )
             for i in range(0, len(signed), _CHUNK_SIZE)
-        ]
+        ], salt
 
 
-    def format_incoming_overlay(self, payload: List[bytes], src_node_id: str) -> InnerMessage:
+    def format_incoming_overlay(self, overlay_msg: OverlayMessage, setup: bool = False) -> InnerMessage:
         """Retrieves inner message from overlay message payload.
 
         Check signature, decrypt, deserialize the inner message
 
         Args:
-            payload: Payload of overlay message.
+            overlay_msg: Overlay message.
             src_node_id: Unique ID of sender (distant) peer node
+            setup: False for sending a message over the channel, True for a message
+                setting up the channel
 
         Returns:
             Inner message retrieved from overlay payload
@@ -254,11 +326,13 @@ class Overlay(metaclass=SingletonMeta):
             FedbiomedNodeToNodeError: bad payload format
             FedbiomedNodeToNodeError: cannot verify payload integrity
         """
+        payload = overlay_msg['payload']
         # check payload types (not yet done by message type checks, only checks it's a list)
         if not all(isinstance(p, bytes) for p in payload):
             raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad type for node to node payload')
 
-        local_node_private_key, distant_node_public_key = self._setup_use_channel_keys(src_node_id)
+        local_node_private_key, distant_node_public_key = \
+            self._setup_use_channel_keys(overlay_msg['node_id'], overlay_msg['researcher_id'], setup)
 
         # decode and ensure only node2node (inner) messages are received
 
@@ -316,6 +390,7 @@ class Overlay(metaclass=SingletonMeta):
             researcher_id: str,
             nodes: List[str],
             messages: List[InnerMessage],
+            setup: bool = False,
     ) -> Tuple[bool, List[Any]]:
         """Send message to some other nodes using overlay communications.
 
@@ -323,6 +398,8 @@ class Overlay(metaclass=SingletonMeta):
                 researcher_id: unique ID of researcher connecting the nodes
                 nodes: list of node IDs of the destination nodes
                 messages: list of the inner messages for the destination nodes
+                setup: False for sending a message over the channel, True for a message
+                    setting up the channel
             Returns:
                 status: True if all messages are received
                 replies: List of replies from each node.
@@ -330,17 +407,15 @@ class Overlay(metaclass=SingletonMeta):
         request_ids = []
 
         for node, message in zip(nodes, messages):
+            overlay, salt = self.format_outgoing_overlay(message, researcher_id)
             message_overlay = NodeMessages.format_outgoing_message(
                 {
                     'researcher_id': researcher_id,
                     'node_id': environ['NODE_ID'],
                     'dest_node_id': node,
-                    'overlay': self.format_outgoing_overlay(message),
-                    'setup': False,
-                    # `salt` value is unused for now, will be used when moving to symetric encryption of overlay messages
-                    # Adjust length of `salt` depending on algorithm (eg: 16 bytes for ChaCha20)
-                    # secrets.token_bytes(16)
-                    'salt': b'',  # returned by format_outgoing_overlay
+                    'overlay': overlay,
+                    'setup': setup,
+                    'salt': salt,
                     'command': 'overlay',
                 })
 
