@@ -9,8 +9,12 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.exceptions import InvalidSignature
 
 from fedbiomed.common.utils import ROOT_DIR
-from fedbiomed.common.message import Message, InnerMessage, InnerRequestReply, \
-    NodeMessages, NodeToNodeMessages
+from fedbiomed.common.message import (
+    Message,
+    InnerMessage,
+    InnerRequestReply,
+    OverlayMessage)
+
 from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.serializer import Serializer
@@ -103,9 +107,9 @@ def format_outgoing_overlay(message: Message) -> List[bytes]:
 
     # sign inner payload
     signed = Serializer.dumps({
-        'message': message.get_dict(),
+        'message': message.serialize(),
         'signature': local_node_private_key.sign(
-            Serializer.dumps(message.get_dict()),
+            Serializer.dumps(message.serialize()),
             padding.PSS(
                 mgf=padding.MGF1(hashes.SHA256()),
                 salt_length=padding.PSS.MAX_LENGTH
@@ -198,7 +202,7 @@ def format_incoming_overlay(payload: List[bytes]) -> InnerMessage:
         raise FedbiomedNodeToNodeError(
             f'{ErrorNumbers.FB324.value}: cannot verify payload integrity: {e}') from e
 
-    return NodeToNodeMessages.format_incoming_message(decrypted['message'])
+    return Message.deserialize(decrypted['message'])
 
 
 def send_nodes(
@@ -223,14 +227,11 @@ def send_nodes(
     request_ids = []
 
     for node, message in zip(nodes, messages):
-        message_overlay = NodeMessages.format_outgoing_message(
-            {
-                'researcher_id': researcher_id,
-                'node_id': environ['NODE_ID'],
-                'dest_node_id': node,
-                'overlay': format_outgoing_overlay(message),
-                'command': 'overlay'
-            })
+        message_overlay=OverlayMessage(
+                researcher_id=researcher_id,
+                node_id=environ['NODE_ID'],
+                dest_node_id=node,
+                overlay=format_outgoing_overlay(message))
 
         grpc_client.send(message_overlay)
 

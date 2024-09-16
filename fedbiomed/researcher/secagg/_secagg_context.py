@@ -25,7 +25,11 @@ from fedbiomed.common.utils import (
     get_method_spec,
     get_default_biprime
 )
-from fedbiomed.common.message import Message, ResearcherMessages
+from fedbiomed.common.message import (
+    SecaggDeleteRequest,
+    SecaggRequest,
+    Message
+)
 
 _CManager = CertificateManager(
     db_path=environ["DB_PATH"]
@@ -264,14 +268,12 @@ class SecaggContext(ABC):
             True if secagg context element could be setup for all parties, False if at least
                 one of the parties could not setup context element.
         """
-        msg = ResearcherMessages.format_outgoing_message({
-            'researcher_id': self._researcher_id,
-            'secagg_id': self._secagg_id,
-            'element': self._element.value,
-            'experiment_id': self._experiment_id,
-            'parties': self._parties,
-            'command': 'secagg',
-        })
+        msg = SecaggRequest(
+            researcher_id=self._researcher_id,
+            secagg_id=self._secagg_id,
+            element=self._element.value,
+            experiment_id=self._experiment_id,
+            parties=self._parties)
 
         return self._secagg_round(msg, True, self._create_payload)
 
@@ -284,13 +286,11 @@ class SecaggContext(ABC):
         """
         self._status = False
         self._context = None
-        msg = ResearcherMessages.format_outgoing_message({
-            'researcher_id': self._researcher_id,
-            'secagg_id': self._secagg_id,
-            'element': self._element.value,
-            'experiment_id': self._experiment_id,
-            'command': 'secagg-delete',
-        })
+        msg = SecaggDeleteRequest(
+            researcher_id=self._researcher_id,
+            secagg_id=self._secagg_id,
+            element=self._element.value,
+            experiment_id=self._experiment_id)
         return self._secagg_round(msg, False, self._delete_payload)
 
     def save_state_breakpoint(self) -> Dict[str, Any]:

@@ -1,7 +1,7 @@
 import unittest
-import asyncio 
+import asyncio
 
-from unittest.mock import MagicMock, patch 
+from unittest.mock import MagicMock, patch
 
 from fedbiomed.transport.controller import GrpcAsyncTaskController, \
     ResearcherCredentials, \
@@ -12,10 +12,8 @@ from fedbiomed.common.exceptions import FedbiomedCommunicationError
 message = SearchReply(
     researcher_id='researcher-id',
     node_id='node-id',
-    success=True,
     databases=[],
     count=0,
-    command='search'
 )
 
 class TestGrpcAsyncTaskController(unittest.IsolatedAsyncioTestCase):
@@ -97,12 +95,12 @@ class TestGrpcAsyncTaskController(unittest.IsolatedAsyncioTestCase):
 class TestGrpcController(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
-        
+
         self.async_patch = patch('fedbiomed.transport.controller.asyncio', autospec=True)
         self.thread_patch = patch('fedbiomed.transport.controller.threading.Thread', autospec=True)
         self.send_patch = patch('fedbiomed.transport.controller.GrpcAsyncTaskController.send', autospec=True)
 
-        
+
         self.async_mock = self.async_patch.start()
         self.thread_mock = self.thread_patch.start()
         self.send_mock = self.send_patch.start()
@@ -130,7 +128,7 @@ class TestGrpcController(unittest.IsolatedAsyncioTestCase):
         return super().tearDown()
 
     def test_grpc_controller_01_start(self):
-        
+
         self.controller.start()
         self.thread_mock.return_value.start.assert_called_once()
 
@@ -166,7 +164,7 @@ class TestGrpcController(unittest.IsolatedAsyncioTestCase):
 
     def test_grpc_controller_04_is_connected(self):
 
-        with self.assertRaises(FedbiomedCommunicationError):    
+        with self.assertRaises(FedbiomedCommunicationError):
             self.controller.is_connected()
 
         self.controller.start()

@@ -7,7 +7,10 @@ import asyncio
 
 import grpc
 
-from fedbiomed.common.message import Message, ResearcherMessages, OverlayMessage
+from fedbiomed.common.message import (
+    Message,
+    OverlayMessage
+)
 from fedbiomed.common.logger import logger
 
 # timeout in seconds for server to wait for a new task request from node before assuming node is disconnected
@@ -112,7 +115,7 @@ class NodeAgentAsync:
     async def on_reply(self, message: Dict) -> None:
         """Callback to execute each time new reply received from the node"""
 
-        message = ResearcherMessages.format_incoming_message(message)
+        message = Message.deserialize(message)
 
         # Handle overlay messages to relay to a node
         if isinstance(message, OverlayMessage):
@@ -121,7 +124,7 @@ class NodeAgentAsync:
 
         # Handle RequestReply messages for the researcher
         if not message.request_id:
-            logger.error(f"Server received a reply from the client {self._id} that does " 
+            logger.error(f"Server received a reply from the client {self._id} that does "
                          "not contains request id.")
 
         async with self._replies_lock:

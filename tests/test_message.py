@@ -154,11 +154,9 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            success=True,
             databases=[1, 2, 3],
             count=666,
-            node_id='titi',
-            command='do_it')
+            node_id='titi')
 
         # all these test should fail (not enough arguments)
         self.check_class_args(
@@ -177,12 +175,6 @@ class TestMessage(unittest.TestCase):
             message.SearchReply,
             expected_result=False,
 
-            success=True)
-
-        self.check_class_args(
-            message.SearchReply,
-            expected_result=False,
-
             databases=[1, 2, 3])
 
         self.check_class_args(
@@ -192,19 +184,16 @@ class TestMessage(unittest.TestCase):
 
         self.check_class_args(
             message.SearchReply,
-            expected_result=False,
-            command="toto")
+            expected_result=False)
 
         # too much arguments
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
             researcher_id='toto',
-            success=True,
             databases=[1, 2, 3],
             count=666,
             node_id='titi',
-            command='do_it',
             extra_arg="not_allowed"
         )
 
@@ -215,11 +204,9 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             protocol_version='99.99',
-            success=True,
             databases=[1, 2, 3],
             count="not_an_integer",
-            node_id='titi',
-            command='do_it')
+            node_id='titi')
 
         self.check_class_args(
             message.SearchReply,
@@ -227,11 +214,9 @@ class TestMessage(unittest.TestCase):
 
             researcher_id=True,
             protocol_version='99.99',
-            success=True,
             databases=[1, 2, 3],
             count=666,
-            node_id='titi',
-            command='do_it')
+            node_id='titi')
 
         self.check_class_args(
             message.SearchReply,
@@ -239,34 +224,18 @@ class TestMessage(unittest.TestCase):
 
             protocol_version='99.99',
             researcher_id='toto',
-            success=True,
             databases=[1, 2, 3],
             count=666,
-            node_id=True,
-            command='do_it')
-
-        self.check_class_args(
-            message.SearchReply,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            success=True,
-            databases=[1, 2, 3],
-            count=666,
-            node_id='titi',
-            command=True)
+            node_id=True)
 
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
             protocol_version='99.99',
             researcher_id='toto',
-            success=True,
             databases="not a list",
             count=666,
-            node_id='titi',
-            command='do_it')
+            node_id='titi')
 
         self.check_class_args(
             message.SearchReply,
@@ -276,8 +245,7 @@ class TestMessage(unittest.TestCase):
             success="not_a_boolean",
             databases=[],
             count=666,
-            node_id='titi',
-            command='do_it')
+            node_id='titi')
 
         pass
 
@@ -292,16 +260,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id='toto',
-            node_id='titi',
-            success=True,
-            command='do_it')
-
-        # bad formetted messages
-        self.check_class_args(
-            message.PingReply,
-            expected_result=False,
-
-            researcher_id='toto')
+            node_id='titi')
 
         self.check_class_args(
             message.PingReply,
@@ -319,16 +278,9 @@ class TestMessage(unittest.TestCase):
             message.PingReply,
             expected_result=False,
 
-            command='do_it')
-
-        self.check_class_args(
-            message.PingReply,
-            expected_result=False,
-
             researcher_id='toto',
             node_id='titi',
             success=True,
-            command='do_it',
             extra_arg='foobar')
 
         # bad argument type
@@ -339,8 +291,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
             researcher_id=True,
             node_id='titi',
-            success=True,
-            command='do_it')
+            success=True)
 
         self.check_class_args(
             message.PingReply,
@@ -349,8 +300,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
             researcher_id='toto',
             node_id=True,
-            success=True,
-            command='do_it')
+            success=True)
 
         self.check_class_args(
             message.PingReply,
@@ -359,8 +309,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id='titi',
-            success='not_a_bool',
-            command='do_it')
+            success='not_a_bool')
 
         self.check_class_args(
             message.PingReply,
@@ -369,8 +318,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id='titi',
-            success='not_a_bool',
-            command='do_it')
+            success='not_a_bool')
 
         self.check_class_args(
             message.PingReply,
@@ -379,8 +327,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             node_id='titi',
-            success=True,
-            command=True)
+            success=True)
 
         pass
 
@@ -401,8 +348,7 @@ class TestMessage(unittest.TestCase):
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
             sample_size=123,
-            msg='message_in_a_bottle',
-            command='do_it')
+            msg='message_in_a_bottle')
 
         # bad param number
         self.check_class_args(
@@ -463,12 +409,6 @@ class TestMessage(unittest.TestCase):
             message.TrainReply,
             expected_result=False,
 
-            command='do_it')
-
-        self.check_class_args(
-            message.TrainReply,
-            expected_result=False,
-
             researcher_id='toto',
             experiment_id='experiment',
             success=True,
@@ -478,7 +418,6 @@ class TestMessage(unittest.TestCase):
             timing={"t0": 0.0, "t1": 1.0},
             msg='message_in_a_bottle',
             sample_size=None,
-            command='do_it',
             extra_param='dont_know_what_to_do_with_you')
 
         # bad param type
@@ -494,8 +433,7 @@ class TestMessage(unittest.TestCase):
             dataset_id='my_data',
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle',
-            command='do_it')
+            msg='message_in_a_bottle')
 
         self.check_class_args(
             message.TrainReply,
@@ -509,8 +447,7 @@ class TestMessage(unittest.TestCase):
             dataset_id='my_data',
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle',
-            command='do_it')
+            msg='message_in_a_bottle')
 
         self.check_class_args(
             message.TrainReply,
@@ -524,8 +461,8 @@ class TestMessage(unittest.TestCase):
             dataset_id='my_data',
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle',
-            command='do_it')
+            msg='message_in_a_bottle'
+            )
 
         self.check_class_args(
             message.TrainReply,
@@ -539,8 +476,7 @@ class TestMessage(unittest.TestCase):
             dataset_id='my_data',
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle',
-            command='do_it')
+            msg='message_in_a_bottle')
 
         self.check_class_args(
             message.TrainReply,
@@ -554,8 +490,7 @@ class TestMessage(unittest.TestCase):
             dataset_id=True,
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle',
-            command='do_it')
+            msg='message_in_a_bottle')
 
         self.check_class_args(
             message.TrainReply,
@@ -569,8 +504,7 @@ class TestMessage(unittest.TestCase):
             dataset_id='my_data',
             params_url=True,
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle',
-            command='do_it')
+            msg='message_in_a_bottle')
 
         self.check_class_args(
             message.TrainReply,
@@ -584,8 +518,7 @@ class TestMessage(unittest.TestCase):
             dataset_id='my_data',
             params={"x": 0},
             timing="not_a_dict",
-            msg='message_in_a_bottle',
-            command='do_it')
+            msg='message_in_a_bottle')
 
         self.check_class_args(
             message.TrainReply,
@@ -599,25 +532,8 @@ class TestMessage(unittest.TestCase):
             dataset_id='my_data',
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg=True,
-            command='do_it')
+            msg=True)
 
-        self.check_class_args(
-            message.TrainReply,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment',
-            success=True,
-            node_id='titi',
-            dataset_id='my_data',
-            params={"x": 0},
-            timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle',
-            command=True)
-
-        pass
 
     def test_message_05_listreply(self):
 
@@ -632,7 +548,7 @@ class TestMessage(unittest.TestCase):
             databases=[1, 2, 3],
             count=666,
             node_id='titi',
-            command='do_it')
+            )
 
         # all these test should fail (not enough arguments)
         self.check_class_args(
@@ -665,12 +581,6 @@ class TestMessage(unittest.TestCase):
 
             node_id='toto')
 
-        self.check_class_args(
-            message.ListReply,
-            expected_result=False,
-
-            command="toto")
-
         # too much arguments
         self.check_class_args(
             message.ListReply,
@@ -681,7 +591,6 @@ class TestMessage(unittest.TestCase):
             databases=[1, 2, 3],
             count=666,
             node_id='titi',
-            command='do_it',
             extra_arg="not_allowed"
         )
 
@@ -696,7 +605,7 @@ class TestMessage(unittest.TestCase):
             databases=[1, 2, 3],
             count="not_an_integer",
             node_id='titi',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.ListReply,
@@ -708,7 +617,7 @@ class TestMessage(unittest.TestCase):
             databases=[1, 2, 3],
             count=666,
             node_id='titi',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.ListReply,
@@ -720,19 +629,7 @@ class TestMessage(unittest.TestCase):
             databases=[1, 2, 3],
             count=666,
             node_id=True,
-            command='do_it')
-
-        self.check_class_args(
-            message.ListReply,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            success=True,
-            databases=[1, 2, 3],
-            count=666,
-            node_id='titi',
-            command=True)
+            )
 
         self.check_class_args(
             message.ListReply,
@@ -744,7 +641,7 @@ class TestMessage(unittest.TestCase):
             databases="not a list",
             count=666,
             node_id='titi',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.ListReply,
@@ -756,7 +653,7 @@ class TestMessage(unittest.TestCase):
             databases=[],
             count=666,
             node_id='titi',
-            command='do_it')
+            )
 
     def test_message_06_addscalarreply(self):
         # well formatted message
@@ -828,7 +725,7 @@ class TestMessage(unittest.TestCase):
             msg='sdrt',
             training_plan='TP',
             training_plan_id='id-1234',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
@@ -843,7 +740,7 @@ class TestMessage(unittest.TestCase):
             status=TrainingPlanApprovalStatus.REJECTED.value,
             msg='sdrt',
             training_plan='TP',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
@@ -858,7 +755,7 @@ class TestMessage(unittest.TestCase):
             status=TrainingPlanApprovalStatus.PENDING.value,
             msg='sdrt',
             training_plan='TP',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
@@ -873,7 +770,7 @@ class TestMessage(unittest.TestCase):
             status=True,
             msg='sdrt',
             training_plan='TP',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
@@ -888,7 +785,7 @@ class TestMessage(unittest.TestCase):
             status='None',
             msg='sdrt',
             training_plan='TP',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
@@ -903,7 +800,7 @@ class TestMessage(unittest.TestCase):
             status=TrainingPlanApprovalStatus.PENDING.value,
             msg='sdrt',
             training_plan_url=123123,
-            command=True)
+            )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
@@ -1008,7 +905,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             errnum=ErrorNumbers.FB100.value,
             extra_msg='this is an error message',
-            command='log'
+
         )
 
         # bad param number
@@ -1040,7 +937,7 @@ class TestMessage(unittest.TestCase):
             message.ErrorMessage,
             expected_result=False,
 
-            command='log')
+            )
 
         self.check_class_args(
             message.ErrorMessage,
@@ -1050,7 +947,6 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             errnum=ErrorNumbers.FB100.value,
             extra_msg='this is an error message',
-            command='log',
             extra_arg='???')
 
         # bad param type
@@ -1063,7 +959,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             errnum=ErrorNumbers.FB100.value,
             extra_msg='this is an error message',
-            command='log'
+
         )
 
         self.check_class_args(
@@ -1075,7 +971,7 @@ class TestMessage(unittest.TestCase):
             node_id=False,
             errnum=ErrorNumbers.FB100.value,
             extra_msg='this is an error message',
-            command='log'
+
         )
 
         self.check_class_args(
@@ -1087,7 +983,6 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             errnum=False,
             extra_msg='this is an error message',
-            command='log'
         )
 
 
@@ -1114,7 +1009,7 @@ class TestMessage(unittest.TestCase):
             expected_result=False,
             protocol_version='99.99',
 
-            command='do_it')
+            )
 
         self.check_class_args(
             message.SearchRequest,
@@ -1123,7 +1018,6 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             tags=["data", "doto"],
-            command='do_it',
             extra_args='???')
 
         # bad param type
@@ -1134,7 +1028,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id=False,
             tags=["data", "doto"],
-            command='do_it')
+            )
 
         self.check_class_args(
             message.SearchRequest,
@@ -1143,49 +1037,32 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             tags="not_a_list",
-            command='do_it')
+            )
 
-        self.check_class_args(
-            message.SearchRequest,
-            expected_result=False,
-            protocol_version='99.99',
 
-            researcher_id='toto',
-            tags=["data", "doto"],
-            command=False)
-
-        pass
 
     def test_message_11_pingrequest(self):
         # well formatted message
         self.check_class_args(
             message.PingRequest,
             expected_result=True,
+
             protocol_version='99.99',
-
             researcher_id='toto',
-            command='do_it')
-
-        # bad param number
-        self.check_class_args(
-            message.PingRequest,
-            expected_result=False,
-
-            researcher_id='toto')
+            )
 
 
         self.check_class_args(
             message.PingRequest,
             expected_result=False,
 
-            command='do_it')
+            )
 
         self.check_class_args(
             message.PingRequest,
             expected_result=False,
 
             researcher_id='toto',
-            command='do_it',
             extra_arg='???')
 
         # bad param type
@@ -1195,25 +1072,8 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
 
             researcher_id=False,
-            command='do_it')
+            )
 
-        self.check_class_args(
-            message.PingRequest,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            command=False)
-
-        self.check_class_args(
-            message.PingRequest,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            command=False)
-
-        pass
 
     def test_message_12_trainrequest(self):
         # well formatted message
@@ -1238,7 +1098,6 @@ class TestMessage(unittest.TestCase):
                 'secagg_clipping_range': None
             },
             round=1,
-            command='do_it',
             aggregator_args={'aggregator_name': 'fedavg'},
             aux_vars=None,
         )
@@ -1296,7 +1155,7 @@ class TestMessage(unittest.TestCase):
             message.TrainRequest,
             expected_result=False,
 
-            command='do_it')
+            )
 
         self.check_class_args(
             message.TrainRequest,
@@ -1316,7 +1175,6 @@ class TestMessage(unittest.TestCase):
             model_args={"c": 3, "d": 4},
             training_plan="TP",
             training_plan_class='my_model',
-            command='do_it',
             extra_arg='???')
 
         # bad param type
@@ -1334,7 +1192,7 @@ class TestMessage(unittest.TestCase):
             model_args={"c": 3, "d": 4},
             training_plan="TP",
             training_plan_class='my_model',
-            command='do_it')
+            )
 
 
 
@@ -1353,7 +1211,7 @@ class TestMessage(unittest.TestCase):
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
             training_plan_class='my_model',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.TrainRequest,
@@ -1369,7 +1227,7 @@ class TestMessage(unittest.TestCase):
             model_args={"c": 3, "d": 4},
             training_plan="TP",
             training_plan_class='my_model',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.TrainRequest,
@@ -1387,7 +1245,7 @@ class TestMessage(unittest.TestCase):
             model_args={"c": 3, "d": 4},
             training_plan="TP",
             training_plan_class='my_model',
-            command='do_it')
+            )
 
 
         self.check_class_args(
@@ -1404,7 +1262,7 @@ class TestMessage(unittest.TestCase):
             model_args="not_a_dict",
             training_plan="TP",
             training_plan_class='my_model',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.TrainRequest,
@@ -1421,24 +1279,7 @@ class TestMessage(unittest.TestCase):
             model_args={"c": 3, "d": 4},
             training_plan=False,
             training_plan_class='my_model',
-            command='do_it')
-
-        self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment_number',
-            params={"x": 0},
-            training_args={"a": 1, "b": 2},
-            dataset_id="MNIS",
-            training=False,
-            secagg_clipping_range=None,
-            model_args={"c": 3, "d": 4},
-            training_plan="TP",
-            training_plan_class=False,
-            command='do_it')
+            )
 
         self.check_class_args(
             message.TrainRequest,
@@ -1455,7 +1296,7 @@ class TestMessage(unittest.TestCase):
             model_args={"c": 3, "d": 4},
             training_plan="TP",
             training_plan_class="my_model",
-            command=False)
+            )
 
         pass
 
@@ -1466,8 +1307,7 @@ class TestMessage(unittest.TestCase):
             message.ListRequest,
             expected_result=True,
             protocol_version='99.99',
-            researcher_id='toto',
-            command='sada')
+            researcher_id='toto')
 
         # bad param number
         self.check_class_args(
@@ -1478,14 +1318,13 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListRequest,
             expected_result=False,
-            command='do_it')
+            )
 
         self.check_class_args(
             message.ListRequest,
             expected_result=False,
             researcher_id='toto',
             tags=["data", "doto"],
-            command='do_it',
             extra_args='???')
 
         # bad param type
@@ -1495,7 +1334,7 @@ class TestMessage(unittest.TestCase):
             protocol_version='99.99',
             researcher_id=False,
             tags=["data", "doto"],
-            command='do_it')
+            )
 
         # bad param type
         self.check_class_args(
@@ -1503,7 +1342,7 @@ class TestMessage(unittest.TestCase):
             expected_result=False,
             protocol_version='99.99',
             researcher_id=False,
-            command=True)
+            )
 
         pass
 
@@ -1517,7 +1356,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             experiment_id='sdsd',
             training_plan='TP',
-            command='command-dummy')
+            )
 
         self.check_class_args(
             message.TrainingPlanStatusRequest,
@@ -1527,7 +1366,7 @@ class TestMessage(unittest.TestCase):
             researcher_id=True,
             experiment_id='sdsd',
             training_plan_url='do_it',
-            command='command-dummy')
+            )
 
         self.check_class_args(
             message.TrainingPlanStatusRequest,
@@ -1537,7 +1376,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             experiment_id=122323,
             training_plan_url='do_it',
-            command='command-dummy')
+            )
 
         self.check_class_args(
             message.TrainingPlanStatusRequest,
@@ -1547,7 +1386,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             experiment_id='sdsd',
             training_plan_url=12323,
-            command='command-dummy')
+            )
 
         self.check_class_args(
             message.TrainingPlanStatusRequest,
@@ -1557,285 +1396,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='ttot',
             experiment_id='sdsd',
             training_plan_url='do_it',
-            command=False)
-
-    # test ResearcherMessage and NodeMessagess classes
-    # (next 9 tests)
-    def test_message_15_trainmessages(self):
-
-        params = {
-            "protocol_version": str(__messaging_protocol_version__),
-            "researcher_id": 'toto',
-            "experiment_id": 'experiment',
-            "state_id": None,
-            "success": True,
-            "node_id": 'titi',
-            "dataset_id": 'my_data',
-            "params": {'x': 0},
-            "timing": {"t0": 0.0, "t1": 1.0},
-            "msg": 'message_in_a_bottle',
-            "sample_size": 100,
-            "command": 'train'
-        }
-
-        r = message.ResearcherMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.TrainReply)
-
-        r = message.NodeMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.TrainReply)
-
-        params = {
-            "protocol_version": str(__messaging_protocol_version__),
-            "researcher_id": 'toto',
-            "experiment_id": 'experiment',
-            "params": {"x": 0},
-            "state_id": 'state_id_1234',
-            "training_args": {},
-            "dataset_id": 'my_dataset',
-            "training": True,
-            "model_args": {},
-            "secagg_arguments": {
-                "secagg_servkey_id": "dummy",
-                "secagg_random": 0.95,
-                "secagg_clipping_range" : None
-            },
-            "round": 1,
-            "training_plan": "TP",
-            "training_plan_class": "my_model",
-            "aggregator_args": {},
-            "aux_vars": ["https://dev.null", "https://dev.null"],
-            "command": 'train'
-        }
-
-        r = message.ResearcherMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.TrainRequest)
-
-        r = message.NodeMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.TrainRequest)
-
-    def test_message_16_listmessages(self):
-
-        """  Test list datasets messages for node and researcher """
-        params = {
-            "protocol_version": str(__messaging_protocol_version__),
-            "researcher_id": 'toto',
-            "success": True,
-            "databases": ["one", "two"],
-            "count": 666,
-            "node_id": 'titi',
-            "command": 'list'}
-
-        r = message.ResearcherMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.ListReply)
-
-        r = message.NodeMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.ListReply)
-
-        params = {
-            "researcher_id": 'toto',
-            "command": 'list'}
-        r = message.ResearcherMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.ListRequest)
-
-        r = message.NodeMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.ListRequest)
-
-    def test_message_17_searchmessages(self):
-
-        params = {
-            "protocol_version": str(__messaging_protocol_version__),
-            "researcher_id": 'toto',
-            "success": True,
-            "databases": ["one", "two"],
-            "count": 666,
-            "node_id": 'titi',
-            "command": 'search'}
-
-        r = message.ResearcherMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.SearchReply)
-
-        r = message.NodeMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.SearchReply)
-
-        params = {
-            "researcher_id": 'toto',
-            "tags": [],
-            "command": 'search'}
-        r = message.ResearcherMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.SearchRequest)
-
-        r = message.NodeMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.SearchRequest)
-
-    def test_message_18_pingmessages(self):
-
-        # ping
-        params = {
-            "protocol_version": str(__messaging_protocol_version__),
-            "researcher_id": 'toto',
-            "node_id": 'titi',
-            "success": True,
-            "command": 'pong'
-        }
-        r = message.ResearcherMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.PingReply)
-
-        r = message.NodeMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.PingReply)
-
-        params = {
-            "researcher_id": 'toto',
-            "command": 'ping'
-        }
-        r = message.ResearcherMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.PingRequest)
-
-        r = message.NodeMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.PingRequest)
-
-
-    def test_message_10_errormessages(self):
-
-        # error
-        params = {
-            "protocol_version": str(__messaging_protocol_version__),
-            "researcher_id": 'toto',
-            "node_id": 'titi',
-            "errnum": ErrorNumbers.FB100.value,
-            "extra_msg": 'bim boum badaboum',
-            "command": 'error'
-        }
-        r = message.ResearcherMessages.format_incoming_message(params)
-        self.assertIsInstance(r, message.ErrorMessage)
-
-        r = message.NodeMessages.format_outgoing_message(params)
-        self.assertIsInstance(r, message.ErrorMessage)
-
-
-    def test_message_22_unknowmessages(self):
-        # we only test one error (to get 100% coverage)
-        # all test have been made above
-
-        params = {'command': 'unknown'}
-
-        try:
-            r = message.ResearcherMessages.format_incoming_message(params)
-            # should not reach this line
-            self.fail("unknown reply message type for researcher not detected")
-
-        except Exception as e:
-            # should be reached
-            self.assertTrue(True, "unknown reply message type for researcher detected")
-
-        try:
-            r = message.ResearcherMessages.format_outgoing_message(params)
-            # should not reach this line
-            self.fail("unknown request message type for researcher not detected")
-
-        except:
-            # should be reached
-            self.assertTrue(True, "unknown request message type for researcher detected")
-        pass
-
-        try:
-            r = message.NodeMessages.format_outgoing_message(params)
-            # should not reach this line
-            self.fail("unknown reply message type for node not detected")
-
-        except:
-            # should be reached
-            self.assertTrue(True, "unknown reply message type for node detected")
-
-        try:
-            r = message.NodeMessages.format_incoming_message(params)
-            # should not reach this line
-            self.fail("unknown request message type for node not detected")
-
-        except:
-            # should be reached
-            self.assertTrue(True, "unknown request message type for node detected")
-        pass
-
-    def test_message_23_badly_formed(self):
-        # we only test one error (to get 100% coverage)
-        # all test have been made above
-
-        params = {'nocommandprovided': 'fichtre!'}
-
-        msg = "unknown reply message type for researcher not detected"
-        try:
-            r = message.ResearcherMessages.format_incoming_message(params)
-            # should not reach this line
-            self.fail(msg)
-
-        except Exception as e:
-            # should be reached
-            self.assertTrue(True, msg)
-
-        try:
-            r = message.ResearcherMessages.format_outgoing_message(params)
-            # should not reach this line
-            self.fail(msg)
-
-        except:
-            # should be reached
-            self.assertTrue(True, msg)
-        pass
-
-        try:
-            r = message.NodeMessages.format_outgoing_message(params)
-            # should not reach this line
-            self.fail(msg)
-
-        except:
-            # should be reached
-            self.assertTrue(True, msg)
-
-        try:
-            r = message.NodeMessages.format_incoming_message(params)
-            # should not reach this line
-            self.fail(msg)
-
-        except:
-            # should be reached
-            self.assertTrue(True, msg)
-        pass
-
-    def test_message_24_model_status_messages(self):
-
-        params_reply = {
-            "protocol_version": str(__messaging_protocol_version__),
-            'researcher_id': 'toto',
-            'node_id': 'titi',
-            'experiment_id': 'titi',
-            'success': True,
-            'approval_obligation': True,
-            'status': TrainingPlanApprovalStatus.APPROVED.value,
-            'msg': 'sdrt',
-            'training_plan': 'TP',
-            'command': 'training-plan-status',
-            'training_plan_id': '1234'
-        }
-
-        r = message.ResearcherMessages.format_incoming_message(params_reply)
-        self.assertIsInstance(r, message.TrainingPlanStatusReply)
-
-        r = message.NodeMessages.format_outgoing_message(params_reply)
-        self.assertIsInstance(r, message.TrainingPlanStatusReply)
-
-        params_request = {
-            'researcher_id': 'toto',
-            "experiment_id": 'titi',
-            "training_plan": 'TP',
-            "command": 'training-plan-status'
-        }
-
-        r = message.ResearcherMessages.format_outgoing_message(params_request)
-        self.assertIsInstance(r, message.TrainingPlanStatusRequest)
-
-        r = message.NodeMessages.format_incoming_message(params_request)
-        self.assertIsInstance(r, message.TrainingPlanStatusRequest)
-
+            )
 
     def test_message_25_approval_request(self):
         """Test the approval request message fabrication/validation"""
@@ -1849,7 +1410,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description='this is a description string',
             training_plan='TP',
-            command='do_it')
+            )
 
         # all these test should fail (bad number of args arguments or bad type)
         self.check_class_args(
@@ -1867,7 +1428,6 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description='this is a description string',
             training_plan='TP',
-            command='do_it',
             unknown_extra_arg='whatever'
         )
 
@@ -1879,7 +1439,7 @@ class TestMessage(unittest.TestCase):
             researcher_id=False,
             description='this is a description string',
             training_plan_url='http://dev.null',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.ApprovalRequest,
@@ -1889,7 +1449,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description=False,
             training_plan_url='http://dev.null',
-            command='do_it')
+            )
 
         self.check_class_args(
             message.ApprovalRequest,
@@ -1899,7 +1459,7 @@ class TestMessage(unittest.TestCase):
             researcher_id='toto',
             description='this is a description string',
             training_plan_url=False,
-            command='do_it')
+            )
 
         self.check_class_args(
             message.ApprovalRequest,
@@ -1908,8 +1468,7 @@ class TestMessage(unittest.TestCase):
 
             researcher_id='toto',
             description='this is a description string',
-            training_plan_url='http://dev.null',
-            command=None)
+            training_plan_url='http://dev.null')
 
 
     def test_message_26_approval_reply(self):
@@ -1926,7 +1485,7 @@ class TestMessage(unittest.TestCase):
             training_plan_id='id-xxx',
             status=200,
             success=True,
-            command='do_it')
+            )
 
         # all these test should fail (bad number of args arguments or bad type)
         self.check_class_args(
@@ -1947,7 +1506,6 @@ class TestMessage(unittest.TestCase):
             status=200,
             success=True,
             message="xxx",
-            command='do_it',
             extra_arg='this will break'
         )
 
@@ -1961,7 +1519,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             status=200,
             success=True,
-            command='do_it')
+            )
 
         self.check_class_args(
             message.ApprovalReply,
@@ -1973,7 +1531,7 @@ class TestMessage(unittest.TestCase):
             node_id=False,
             status=200,
             success=True,
-            command='do_it')
+            )
 
 
         self.check_class_args(
@@ -1986,7 +1544,7 @@ class TestMessage(unittest.TestCase):
             message="xxx",
             status="not an int",
             success=True,
-            command='do_it')
+            )
 
         self.check_class_args(
             message.ApprovalReply,
@@ -1997,8 +1555,7 @@ class TestMessage(unittest.TestCase):
             message="xxx",
             node_id='titi',
             status=200,
-            success=True,
-            command=False)
+            success=True)
 
         self.check_class_args(
             message.ApprovalReply,
@@ -2009,43 +1566,7 @@ class TestMessage(unittest.TestCase):
             node_id='titi',
             message="xxx",
             status=200,
-            success="not a bool",
-            command='do_it')
-
-
-
-    def test_message_27_approval_protocol(self):
-        """Test the building of the message from the command string for Approval
-        """
-        params_request = {
-            "researcher_id": 'toto',
-            "description": 'this string describes the sent object',
-            "training_plan": "TP",
-            "command": "approval"
-
-        }
-        r = message.ResearcherMessages.format_outgoing_message(params_request)
-        self.assertIsInstance(r, message.ApprovalRequest)
-
-        r = message.NodeMessages.format_incoming_message(params_request)
-        self.assertIsInstance(r, message.ApprovalRequest)
-
-        params_reply = {
-            "protocol_version": str(__messaging_protocol_version__),
-            "researcher_id": 'toto',
-            "node_id": 'titi',
-            "status": 200,
-            "message": "xxx",
-            "success": True,
-            "training_plan_id": 'id-xxxx',
-            "command": "approval"
-
-        }
-        r = message.ResearcherMessages.format_incoming_message(params_reply)
-        self.assertIsInstance(r, message.ApprovalReply)
-
-        r = message.NodeMessages.format_outgoing_message(params_reply)
-        self.assertIsInstance(r, message.ApprovalReply)
+            success="not a bool")
 
 
 if __name__ == '__main__':  # pragma: no cover

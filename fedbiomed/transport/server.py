@@ -17,8 +17,14 @@ from fedbiomed.common.constants import ErrorNumbers, MAX_SEND_RETRIES
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage, \
-    OverlayMessage, ResearcherMessages
+from fedbiomed.common.message import (
+    Message,
+    TaskResponse,
+    TaskRequest,
+    FeedbackMessage,
+    OverlayMessage,
+)
+
 from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 
@@ -102,7 +108,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                     task = None
                     logger.warning(f"Message to send is older than {MAX_SEND_DURATION} seconds. Discard message.")
 
-            task_bytes = Serializer.dumps(task.get_dict())
+            task_bytes = Serializer.dumps(task.serialize())
 
             chunk_range = range(0, len(task_bytes), MAX_MESSAGE_BYTES_LENGTH)
             for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
@@ -163,15 +169,15 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             reply += answer.bytes_
             if answer.size != answer.iteration:
                 continue
-            else:
-                # Deserialize message
-                message = Serializer.loads(reply)
 
-                # Replies are handled by node agent callbacks
-                node = await self._agent_store.get(message["node_id"])
-                await node.on_reply(message)
+            # Deserialize message
+            message = Serializer.loads(reply)
 
-                reply = bytes()
+            # Replies are handled by node agent callbacks
+            node = await self._agent_store.get(message["node_id"])
+            await node.on_reply(message)
+
+            reply = bytes()
 
         return Empty()
 

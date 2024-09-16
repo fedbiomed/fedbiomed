@@ -143,7 +143,6 @@ class TestBaseSecaggContext(BaseTestCaseSecaggContext):
                     "success": True,
                     "node_id": "party2",
                     "msg": "Fake request",
-                    "command": "secagg",
                 }
             )
         }
@@ -407,10 +406,9 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):
                 **{
                     "researcher_id": environ["ID"],
                     "secagg_id": self.srvkey_context.secagg_id,
-                    "success": True,
                     "node_id": "party2",
+                    "success": True,
                     "msg": "Fake request",
-                    "command": "secagg-delete",
                 }
             )
         }
@@ -483,20 +481,18 @@ class TestSecaggDHContext(BaseTestCaseSecaggContext):
             "party1": SecaggReply(
                 **{
                     "researcher_id": "xx",
-                    "success": True,
                     "node_id": "party2",
-                    "command": "secagg",
                     "msg": "x",
+                    "success": True,
                     "secagg_id": "s1",
                 }
             ),
             "party2": SecaggReply(
                 **{
                     "researcher_id": "xx",
-                    "success": True,
                     "node_id": "party3",
-                    "command": "secagg",
                     "msg": "x",
+                    "success": True,
                     "secagg_id": "s1",
                 }
             ),

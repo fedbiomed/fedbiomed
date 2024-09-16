@@ -607,19 +607,10 @@ class Sender(Listener):
         # to cover possible bug cases
         if isinstance(self._retry_item, dict):
             msg = self._retry_item['message']
-            if hasattr(msg, 'command'):
-                command = msg.get_param('command')
-            elif hasattr(msg, 'log') and msg.get_param('log'):
-                command = 'feedback-log'
-            elif hasattr(msg, 'scalar') and msg.get_param('scalar'):
-                command = 'feedback-scalar'
-            else:
-                command = '?'
             logger.debug(
                 f"Message details: stub={self._retry_item['stub']} "
-                f"researcher_id={msg.get_dict().get('researcher_id', '?')} "
-                f"node_id={msg.get_dict().get('researcher_id', '?')} "
-                f"command={command} "
+                f"researcher_id={msg.researcher_id} "
+                f"type={msg.__name__} "
             )
 
         if retry and self._retry_count < MAX_SEND_RETRIES:
@@ -703,7 +694,7 @@ class Sender(Listener):
             A stream of researcher reply chunks
         """
 
-        reply = Serializer.dumps(message.get_dict())
+        reply = Serializer.dumps(message.serialize())
         chunk_range = range(0, len(reply), MAX_MESSAGE_BYTES_LENGTH)
         for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
             stop = start + MAX_MESSAGE_BYTES_LENGTH
