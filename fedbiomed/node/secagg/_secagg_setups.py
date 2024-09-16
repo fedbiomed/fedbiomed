@@ -19,8 +19,6 @@ from fedbiomed.common.secagg import DHKey, DHKeyAgreement
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.utils import get_default_biprime
 
-from fedbiomed.transport.controller import GrpcController
-
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg_manager import SKManager, DHManager, SecaggManager
 from fedbiomed.node.requests import Overlay

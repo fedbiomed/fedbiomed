@@ -59,8 +59,8 @@ class Node:
 
         pending_requests = EventWaitExchange(remove_delivered=True)
         self._controller_data = EventWaitExchange(remove_delivered=False)
+        # When implementing multiple researchers, there will probably be one Overlay per researcher
         self._overlay = Overlay(self._grpc_client, pending_requests)
-        # When implementing multiple researchers, there will probably be one per researcher
         self._n2n_router = NodeToNodeRouter(
             self._grpc_client, self._overlay, pending_requests, self._controller_data)
 

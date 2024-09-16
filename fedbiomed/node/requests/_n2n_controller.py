@@ -42,12 +42,16 @@ class NodeToNodeController:
         self._command2method = {
             'key-request': self._HandlerKeyRequest,
             'key-reply': self._HandlerKeyReply,
+            'channel-request': self._HandlerChannelRequest,
+            'channel-reply': self._HandlerKeyReply,
             # 'dummy-inner': self._HandlerDummyInner,
         }
 
         self._command2final = {
             'key-request': self._FinalKeyRequest,
             'key-reply': self._FinalKeyReply,
+            'channel-request': self._FinalKeyRequest,
+            'channel-reply': self._FinalKeyReply,
             # 'dummy-inner': self._FinalDummyInner,
         }
 
@@ -121,6 +125,40 @@ class NodeToNodeController:
     #     return { 'value: 3 }
     # async def _FinalExample(self, value: int) -> None:
     #         logger.debug(f"Final code than cannot be cancelled. Received {value}")
+
+    async def _HandlerChannelRequest(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
+        """Handler called for ChannelSetupRequest message.
+
+        Args:
+            overlay_msg: Outer message for node to node communication
+            inner_msg: Unpacked inner message from the outer message
+
+        Returns:
+            A `dict` with overlay reply message
+        """
+        # we assume the data is properly formatted
+        inner_resp = NodeToNodeMessages.format_outgoing_message(
+            {
+                'request_id': inner_msg.get_param('request_id'),
+                'node_id': environ['NODE_ID'],
+                'dest_node_id': inner_msg.get_param('node_id'),
+                'public_key': self._overlay.get_local_public_key(inner_msg.get_param('node_id')),
+                'command': 'channel-reply'
+            })
+        overlay, salt = self._overlay.format_outgoing_overlay(inner_resp, overlay_msg['researcher_id'], True)
+        overlay_resp = NodeMessages.format_outgoing_message(
+            {
+                'researcher_id': overlay_msg['researcher_id'],
+                'node_id': environ['NODE_ID'],
+                'dest_node_id': inner_msg.get_param('node_id'),
+                'overlay': overlay,
+                'setup': True,
+                'salt': salt,
+                'command': 'overlay'
+            })
+
+        return { 'overlay_resp': overlay_resp }
+
 
     async def _HandlerKeyRequest(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
         """Handler called for KeyRequest message.

@@ -17,10 +17,9 @@ from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUES
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import Message, InnerMessage, InnerRequestReply, \
-    NodeMessages, NodeToNodeMessages, OverlayMessage
+    NodeMessages, NodeToNodeMessages
 from fedbiomed.common.secagg import DHKey as DHKeyECC
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.utils import ROOT_DIR
 
@@ -82,15 +81,13 @@ class _N2nKeysEntry:
     "Stores description of one node to node channel key status"
     local_key: DHKey
     distant_key: Optional[DHKey] = None
-    pending: bool = False
 
 
-class Overlay(metaclass=SingletonMeta):
+class Overlay:
     """Provides thread safe layer for sending and receiving overlay messages.
 
     Attributes:
         _channel_keys: (Dict[str, _N2nKeysEntry]) key status for node to node channels
-        _pending_channel_keys: (EventWaitExchange) synchronize for channel keys negotiation
     """
 
     def __init__(self, grpc_client: GrpcController, pending_requests: EventWaitExchange):
@@ -98,6 +95,7 @@ class Overlay(metaclass=SingletonMeta):
 
         Args:
             grpc_client: object managing the communication with other components
+            pending_requests: object for receiving overlay node to node messages
         """
         self._grpc_client = grpc_client
         self._pending_requests = pending_requests
@@ -105,7 +103,6 @@ class Overlay(metaclass=SingletonMeta):
         self._channel_keys = {}
         # lock for exclusive access to self._channel_keys
         self._channel_keys_lock = threading.Lock()
-        self._pending_channel_keys = EventWaitExchange(remove_delivered=False)
 
         # TODO: read saved keys from DB & iinsert in self._channel_keys
 
@@ -163,6 +160,26 @@ class Overlay(metaclass=SingletonMeta):
         ))
         return private_key, public_key
 
+
+    def get_local_public_key(self, distant_node_id: str) -> bytes:
+        """Gets local public key for peering with a given distant peer node
+
+        Args:
+            distant_node_id: unique ID of the peer node
+
+        Returns:
+            Local node's public key ID for this peer node
+
+        Raises:
+            FedbiomedNodeToNodeError: no local key for this peer node
+        """
+        with self._channel_keys_lock:
+            if distant_node_id not in self._channel_keys:
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: No local key for peer node {distant_node_id}")
+            return self._channel_keys[distant_node_id].local_key.export_public_key()
+
+
     def _setup_use_channel_keys(self, distant_node_id: str, researcher_id: str, setup: bool) -> Tuple[DHKey, DHKey]:
         """Returns channel key objects for
 
@@ -183,41 +200,45 @@ class Overlay(metaclass=SingletonMeta):
         Raises:
             FedbiomedNodeToNodeError: distant node does not answer during channel setup
         """
+        # If we are doing channel setup exchange, then use the default or "master" keys for the channel
         if setup:
             return self._default_n2n_key.local_key, self._default_n2n_key.distant_key
 
-        need_setup = False
-        with self._channel_keys_lock:
+        distant_nodes = []
+        distant_nodes_messages = []
 
+        with self._channel_keys_lock:
             # New node to node channel
             if distant_node_id not in self._channel_keys:
                 self._channel_keys[distant_node_id] = _N2nKeysEntry(local_key=DHKey())
                 # TODO: save in DB entry for self._channel_keys[distant_node_id]
 
-            # Channel not fully setup and no ongoing setup
-            if not self._channel_keys[distant_node_id].distant_key \
-               and not self._channel_keys[distant_node_id].pending:
-                self._channel_keys[distant_node_id].pending = True
-                need_setup = True
+            # Channel not fully setup
+            #
+            # note: there may be an ongoing KeyChannelRequest. In that case, we send
+            # another (redundant) request. Each answer updates (completes) the distant_key
+            if not self._channel_keys[distant_node_id].distant_key:
+
+                distant_nodes += [distant_node_id]
+                distant_nodes_messages += [
+                    NodeToNodeMessages.format_outgoing_message({
+                        'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
+                        'node_id': environ['NODE_ID'],
+                        'dest_node_id': distant_node_id,
+                        'command': 'channel-request'
+                    })
+                ]
 
         # Contact node to node channel peer to get its public key
         #
         # release lock before sending
-        # nota: channel setup is sequential (not optimal in setup time, but more simple implementation,
-        # plus executed only once for channel setup)
-        if need_setup:
-            distant_node_messages = [
-                NodeToNodeMessages.format_outgoing_message({
-                    'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
-                    'node_id': environ['NODE_ID'],
-                    'dest_node_id': distant_node_id,
-                    'command': 'channel-request'
-                })
-            ]
+        # nota: channel setup is sequential per-peer-node (not optimal in setup time,
+        # but more simple implementation, plus acceptable because executed only once for channel setup)
+        if distant_nodes:
             all_received, messages = self.send_nodes(
                 researcher_id,
-                [distant_node_id],
-                distant_node_messages,
+                distant_nodes,
+                distant_nodes_messages,
                 setup=True,
             )
             logger.debug(f"Completed node to node channel setup with success={all_received} "
@@ -229,10 +250,10 @@ class Overlay(metaclass=SingletonMeta):
 
             with self._channel_keys_lock:
                 for m in messages:
-                    self._channel_keys[distant_node_id].distant_key = m.get_param('public_key')
-                    self._channel_keys[distant_node_id].pending = False
+                    self._channel_keys[distant_node_id].distant_key = DHKey(public_key_pem=m.get_param('public_key'))
 
-        return self._channel_keys[distant_node_id].local_key, self._channel_keys[distant_node_id].distant_key
+        with self._channel_keys_lock:
+            return self._channel_keys[distant_node_id].local_key, self._channel_keys[distant_node_id].distant_key
 
 
     def format_outgoing_overlay(self, message: Message, researcher_id: str, setup: bool = False) -> \
@@ -263,6 +284,11 @@ class Overlay(metaclass=SingletonMeta):
             researcher_id,
             setup
         )
+
+        logger.debug(f"DEBUG FORMAT OUTGOING WITH KEY setup={setup} {message}")
+        logger.debug(f"DEBUG FORMAT OUTGOING WITH KEY setup={setup} {local_node_private_key.export_public_key()} {distant_node_public_key.export_public_key()}")
+        with self._channel_keys_lock:
+            logger.debug(f"DEBUG FULL CHANNEL KEYS {self._channel_keys}")
 
         # `salt` value is unused for now, will be used when moving to symetric encryption of overlay messages
         # Adjust length of `salt` depending on algorithm (eg: 16 bytes for ChaCha20)
@@ -306,7 +332,7 @@ class Overlay(metaclass=SingletonMeta):
         ], salt
 
 
-    def format_incoming_overlay(self, overlay_msg: OverlayMessage, setup: bool = False) -> InnerMessage:
+    def format_incoming_overlay(self, overlay_msg: dict) -> InnerMessage:
         """Retrieves inner message from overlay message payload.
 
         Check signature, decrypt, deserialize the inner message
@@ -314,8 +340,6 @@ class Overlay(metaclass=SingletonMeta):
         Args:
             overlay_msg: Overlay message.
             src_node_id: Unique ID of sender (distant) peer node
-            setup: False for sending a message over the channel, True for a message
-                setting up the channel
 
         Returns:
             Inner message retrieved from overlay payload
@@ -325,14 +349,15 @@ class Overlay(metaclass=SingletonMeta):
             FedbiomedNodeToNodeError: cannot decrypt payload
             FedbiomedNodeToNodeError: bad payload format
             FedbiomedNodeToNodeError: cannot verify payload integrity
+            FedbiomedNodeToNodeError: sender/dest node ID don't match in overlay and inner message
         """
-        payload = overlay_msg['payload']
+        payload = overlay_msg['overlay']
         # check payload types (not yet done by message type checks, only checks it's a list)
         if not all(isinstance(p, bytes) for p in payload):
             raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad type for node to node payload')
 
         local_node_private_key, distant_node_public_key = \
-            self._setup_use_channel_keys(overlay_msg['node_id'], overlay_msg['researcher_id'], setup)
+            self._setup_use_channel_keys(overlay_msg['node_id'], overlay_msg['researcher_id'], overlay_msg['setup'])
 
         # decode and ensure only node2node (inner) messages are received
 
@@ -363,6 +388,12 @@ class Overlay(metaclass=SingletonMeta):
 
         decrypted = Serializer.loads(bytes().join(decrypted_chunks))
 
+        logger.debug(f"DEBUG FORMAT INCOMING WITH KEY setup={overlay_msg['setup']} {decrypted}")
+        logger.debug(
+            f"DEBUG FORMAT INCOMING WITH KEY setup={overlay_msg['setup']} {local_node_private_key.export_public_key()} {distant_node_public_key.export_public_key()}")
+        with self._channel_keys_lock:
+            logger.debug(f"DEBUG FULL CHANNEL KEYS {self._channel_keys}")
+
         if not isinstance(decrypted, dict) or not set(('message', 'signature')) <= set(decrypted):
             raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad inner payload format '
                                            f"in received message")
@@ -382,8 +413,19 @@ class Overlay(metaclass=SingletonMeta):
             raise FedbiomedNodeToNodeError(
                 f'{ErrorNumbers.FB324.value}: cannot verify payload integrity: {e}') from e
 
-        return NodeToNodeMessages.format_incoming_message(decrypted['message'])
+        inner_msg = NodeToNodeMessages.format_incoming_message(decrypted['message'])
 
+        # Node ID mismatch reveals either (1) malicious peer forging message (2) application internal error
+        if inner_msg.get_param('node_id') != overlay_msg['node_id']:
+            raise FedbiomedNodeToNodeError(
+                f'{ErrorNumbers.FB324.value}: Source node ID mismatch for overlay message '
+                f'inner_node_id={inner_msg.get_param("node_id")} overlay_node_id={overlay_msg["node_id"]}')
+        if inner_msg.get_param('dest_node_id') != overlay_msg['dest_node_id']:
+            raise FedbiomedNodeToNodeError(
+                f'{ErrorNumbers.FB324.value}: Destination node ID mismatch for overlay message '
+                f'inner_node_id={inner_msg.get_param("dest_node_id")} overlay_node_id={overlay_msg["dest_node_id"]}')
+
+        return inner_msg
 
     def send_nodes(
             self,
@@ -392,7 +434,7 @@ class Overlay(metaclass=SingletonMeta):
             messages: List[InnerMessage],
             setup: bool = False,
     ) -> Tuple[bool, List[Any]]:
-        """Send message to some other nodes using overlay communications.
+        """Send message to some other nodes using overlay communications and wait for their replies.
 
             Args:
                 researcher_id: unique ID of researcher connecting the nodes
@@ -407,7 +449,7 @@ class Overlay(metaclass=SingletonMeta):
         request_ids = []
 
         for node, message in zip(nodes, messages):
-            overlay, salt = self.format_outgoing_overlay(message, researcher_id)
+            overlay, salt = self.format_outgoing_overlay(message, researcher_id, setup)
             message_overlay = NodeMessages.format_outgoing_message(
                 {
                     'researcher_id': researcher_id,
@@ -424,5 +466,5 @@ class Overlay(metaclass=SingletonMeta):
             if isinstance(message, InnerRequestReply):
                 request_ids += [message.get_param('request_id')]
 
-        return self._pending_requests.wait(request_ids, TIMEOUT_NODE_TO_NODE_REQUEST)
-
+        replies = self._pending_requests.wait(request_ids, TIMEOUT_NODE_TO_NODE_REQUEST)
+        return replies

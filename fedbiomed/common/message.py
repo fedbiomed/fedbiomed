@@ -1033,12 +1033,10 @@ class NodeMessages(MessageFactory):
 class NodeToNodeMessages(MessageFactory):
     """Specializes MessageFactory for message from Node to Node
     """
-    INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'setup-request': ChannelSetupRequest,
-                                          'setup-reply': ChannelSetupReply,
+    INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'channel-request': ChannelSetupRequest,
+                                          'channel-reply': ChannelSetupReply,
                                           'key-request': KeyRequest,
                                           'key-reply': KeyReply,
-                                          'channel-request': ChannelSetupRequest,
-                                          'channel-reply': ChannelSetupReply,
                                           # Example of  of one-wway (not request-reply) inner message
                                           # 'dummy-inner': DummyInner,
                                           }
