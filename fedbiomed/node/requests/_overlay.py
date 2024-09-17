@@ -83,11 +83,94 @@ class _N2nKeysEntry:
     distant_key: Optional[DHKey] = None
 
 
-class Overlay:
-    """Provides thread safe layer for sending and receiving overlay messages.
+class _ChannelKeys:
+    """Manages encryption/signing keys for each node to node channel
 
     Attributes:
         _channel_keys: (Dict[str, _N2nKeysEntry]) key status for node to node channels
+        _channel_keys_lock: (threading.Lock) lock to ensure exclusive access to _channel_keys
+    """
+    def __init__(self):
+        """Class constructor"""
+        self._channel_keys = {}
+        self._channel_keys_lock = threading.Lock()
+
+        # TODO: read saved keys from DB & insert in self._channel_keys
+
+    def _create_channel(self, distant_node_id: str) -> None:
+        """Create channel for peering with a given distant peer node if it does not exist yet.
+
+        Assumes it is called with already acquired _channel_keys_lock
+
+        If channel does not exist, create it and generate local key.
+        If channel already exists, do nothing.
+
+        Args:
+            distant_node_id: unique ID of the peer node
+        """
+        if distant_node_id not in self._channel_keys:
+            self._channel_keys[distant_node_id] = _N2nKeysEntry(local_key=DHKey())
+
+            # TODO: save in DB entry for self._channel_keys[distant_node_id]
+
+    def get_keys(self, distant_node_id: str) -> Tuple[DHKey, DHKey]:
+        """Gets keys for peering with a given distant peer node on a channel
+        """
+        with self._channel_keys_lock:
+            self._create_channel(distant_node_id)
+            return self._channel_keys[distant_node_id].local_key, self._channel_keys[distant_node_id].distant_key
+
+    def set_distant_key(self, distant_node_id: str, public_key_pem: bytes) -> None:
+        """Sets distant (public) key of a channel for peering with a given distant peer node.
+
+        Args:
+            distant_node_id: unique ID of the peer node
+            public_key_pem: public key in PEM format
+        """
+        with self._channel_keys_lock:
+            # This case should not happen, but this ensures robustness/integrity
+            self._create_channel(distant_node_id)
+            self._channel_keys[distant_node_id].distant_key = DHKey(public_key_pem=public_key_pem)
+
+    def get_local_public_key(self, distant_node_id: str) -> bytes:
+        """Gets local public key of a channel for peering with a given distant peer node.
+
+        Args:
+            distant_node_id: unique ID of the peer node
+
+        Returns:
+            Local node's public key ID for this peer node as bytes
+        """
+        local_key, _ = self.get_keys(distant_node_id)
+        return local_key.export_public_key()
+
+    def is_ready_channel(self, distant_node_id: str) -> bool:
+        """Checks if keys of a channel to a given distant node are ready for usage.
+
+        Args:
+            distant_node_id: unique ID of the peer node
+
+        Returns:
+            True if keys for the channel are ready for usage.
+        """
+        with self._channel_keys_lock:
+            # New node to node channel
+            self._create_channel(distant_node_id)
+
+            # Channel not fully setup
+            #
+            # note: there may be an ongoing KeyChannelRequest. In that case, we send
+            # another (redundant) request. Each answer updates (completes) the distant_key
+            if not self._channel_keys[distant_node_id].distant_key:
+                return False
+
+        return True
+
+
+
+
+class Overlay:
+    """Provides thread safe layer for sending and receiving overlay messages.
     """
 
     def __init__(self, grpc_client: GrpcController, pending_requests: EventWaitExchange):
@@ -100,11 +183,7 @@ class Overlay:
         self._grpc_client = grpc_client
         self._pending_requests = pending_requests
 
-        self._channel_keys = {}
-        # lock for exclusive access to self._channel_keys
-        self._channel_keys_lock = threading.Lock()
-
-        # TODO: read saved keys from DB & iinsert in self._channel_keys
+        self._channel_keys = _ChannelKeys()
 
         # Issue #1142 in "Crypto material management" will optionally replace current default key published with the library
         # and used for each node for setup by a keypair generated securely for each node.
@@ -169,15 +248,8 @@ class Overlay:
 
         Returns:
             Local node's public key ID for this peer node
-
-        Raises:
-            FedbiomedNodeToNodeError: no local key for this peer node
         """
-        with self._channel_keys_lock:
-            if distant_node_id not in self._channel_keys:
-                raise FedbiomedNodeToNodeError(
-                    f"{ErrorNumbers.FB324.value}: No local key for peer node {distant_node_id}")
-            return self._channel_keys[distant_node_id].local_key.export_public_key()
+        return self._channel_keys.get_local_public_key(distant_node_id)
 
 
     def _setup_use_channel_keys(self, distant_node_id: str, researcher_id: str, setup: bool) -> Tuple[DHKey, DHKey]:
@@ -207,32 +279,20 @@ class Overlay:
         distant_nodes = []
         distant_nodes_messages = []
 
-        with self._channel_keys_lock:
-            # New node to node channel
-            if distant_node_id not in self._channel_keys:
-                self._channel_keys[distant_node_id] = _N2nKeysEntry(local_key=DHKey())
-                # TODO: save in DB entry for self._channel_keys[distant_node_id]
-
-            # Channel not fully setup
-            #
-            # note: there may be an ongoing KeyChannelRequest. In that case, we send
-            # another (redundant) request. Each answer updates (completes) the distant_key
-            if not self._channel_keys[distant_node_id].distant_key:
-
-                distant_nodes += [distant_node_id]
-                distant_nodes_messages += [
-                    NodeToNodeMessages.format_outgoing_message({
-                        'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
-                        'node_id': environ['NODE_ID'],
-                        'dest_node_id': distant_node_id,
-                        'command': 'channel-request'
-                    })
-                ]
+        if not self._channel_keys.is_ready_channel(distant_node_id):
+            distant_nodes += [distant_node_id]
+            distant_nodes_messages += [
+                NodeToNodeMessages.format_outgoing_message({
+                    'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
+                    'node_id': environ['NODE_ID'],
+                    'dest_node_id': distant_node_id,
+                    'command': 'channel-request'
+                })
+            ]
 
         # Contact node to node channel peer to get its public key
         #
-        # release lock before sending
-        # nota: channel setup is sequential per-peer-node (not optimal in setup time,
+        # nota: channel setup is sequential per peer-node (not optimal in setup time,
         # but more simple implementation, plus acceptable because executed only once for channel setup)
         if distant_nodes:
             all_received, messages = self.send_nodes(
@@ -248,12 +308,11 @@ class Overlay:
                     f"{ErrorNumbers.FB324.value}: A node did not answer during channel setup: {distant_node_id}."
                 )
 
-            with self._channel_keys_lock:
-                for m in messages:
-                    self._channel_keys[distant_node_id].distant_key = DHKey(public_key_pem=m.get_param('public_key'))
+            # With current implementation there should be exactly one
+            for m in messages:
+                self._channel_keys.set_distant_key(distant_node_id, m.get_param('public_key'))
 
-        with self._channel_keys_lock:
-            return self._channel_keys[distant_node_id].local_key, self._channel_keys[distant_node_id].distant_key
+        return self._channel_keys.get_keys(distant_node_id)
 
 
     def format_outgoing_overlay(self, message: Message, researcher_id: str, setup: bool = False) -> \
@@ -287,8 +346,7 @@ class Overlay:
 
         logger.debug(f"DEBUG FORMAT OUTGOING WITH KEY setup={setup} {message}")
         logger.debug(f"DEBUG FORMAT OUTGOING WITH KEY setup={setup} {local_node_private_key.export_public_key()} {distant_node_public_key.export_public_key()}")
-        with self._channel_keys_lock:
-            logger.debug(f"DEBUG FULL CHANNEL KEYS {self._channel_keys}")
+        logger.debug(f"DEBUG FULL CHANNEL KEYS {self._channel_keys._channel_keys}")
 
         # `salt` value is unused for now, will be used when moving to symetric encryption of overlay messages
         # Adjust length of `salt` depending on algorithm (eg: 16 bytes for ChaCha20)
@@ -391,8 +449,7 @@ class Overlay:
         logger.debug(f"DEBUG FORMAT INCOMING WITH KEY setup={overlay_msg['setup']} {decrypted}")
         logger.debug(
             f"DEBUG FORMAT INCOMING WITH KEY setup={overlay_msg['setup']} {local_node_private_key.export_public_key()} {distant_node_public_key.export_public_key()}")
-        with self._channel_keys_lock:
-            logger.debug(f"DEBUG FULL CHANNEL KEYS {self._channel_keys}")
+        logger.debug(f"DEBUG FULL CHANNEL KEYS {self._channel_keys._channel_keys}")
 
         if not isinstance(decrypted, dict) or not set(('message', 'signature')) <= set(decrypted):
             raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad inner payload format '

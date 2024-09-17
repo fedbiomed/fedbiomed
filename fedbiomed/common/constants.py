@@ -81,7 +81,7 @@ MAX_SEND_RETRIES = 5
 MAX_RETRIEVE_ERROR_RETRIES = 5
 
 # Timeout for a node to node request
-TIMEOUT_NODE_TO_NODE_REQUEST = 3
+TIMEOUT_NODE_TO_NODE_REQUEST = 10
 
 
 class _BaseEnum(Enum):
