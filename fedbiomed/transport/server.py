@@ -108,7 +108,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                     task = None
                     logger.warning(f"Message to send is older than {MAX_SEND_DURATION} seconds. Discard message.")
 
-            task_bytes = Serializer.dumps(task.serialize())
+            task_bytes = Serializer.dumps(task.to_dict())
 
             chunk_range = range(0, len(task_bytes), MAX_MESSAGE_BYTES_LENGTH)
             for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):

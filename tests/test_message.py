@@ -1,18 +1,22 @@
-from dataclasses import dataclass
 import unittest
+from dataclasses import dataclass
 
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus, __messaging_protocol_version__
-from fedbiomed.common.exceptions import FedbiomedMessageError
 import fedbiomed.common.message as message
+from fedbiomed.common.constants import (
+    ErrorNumbers,
+    TrainingPlanApprovalStatus,
+    __messaging_protocol_version__,
+)
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
 
 # we also want to test the decorator
 from fedbiomed.common.message import catch_dataclass_exception
 
 
 class TestMessage(unittest.TestCase):
-    '''
+    """
     Test the Message class
-    '''
+    """
 
     # before the tests
     def setUp(self):
@@ -64,7 +68,7 @@ class TestMessage(unittest.TestCase):
                 self.fail("check_class_args: bad class name")
 
         except Exception as e:
-            #print("===== " + str(e.__class__.__name__) + " trapped: " + str(e))
+            # print("===== " + str(e.__class__.__name__) + " trapped: " + str(e))
             result = False
 
         # decode all cases
@@ -92,6 +96,7 @@ class TestMessage(unittest.TestCase):
         """
         dummy class to fully test the Message class
         """
+
         a: int
         b: str
 
@@ -113,11 +118,14 @@ class TestMessage(unittest.TestCase):
             bad_result = True
         except Exception as e:
             # we should not arrive here also
-            self.assertTrue(False,
-                            "bad exception caught: " + e.__class__.__name__ + " instead of FedbiomedMessageError")
+            self.assertTrue(
+                False,
+                "bad exception caught: "
+                + e.__class__.__name__
+                + " instead of FedbiomedMessageError",
+            )
 
-        self.assertTrue(bad_result,
-                        "dummyMessage: bad params not detected")
+        self.assertTrue(bad_result, "dummyMessage: bad params not detected")
 
         # bad params number
         bad_result = False
@@ -138,10 +146,46 @@ class TestMessage(unittest.TestCase):
             #
             self.assertTrue(False, "bad exception caught: " + e.__class__.__name__)
 
-        self.assertTrue(bad_result,
-                        "dummyMessage: bad param number not detected")
+        self.assertTrue(bad_result, "dummyMessage: bad param number not detected")
 
         pass
+
+    def test_message_to_dict_from_dict(self):
+
+        msg = message.PingRequest(researcher_id="r1")
+
+        t_msg = msg.to_dict()
+        self.assertTrue("__type_message__" in t_msg)
+        self.assertTrue("class" in t_msg["__type_message__"])
+        self.assertTrue("module" in t_msg["__type_message__"])
+
+        msg = message.Message.from_dict(t_msg)
+        self.assertIsInstance(msg, message.PingRequest)
+
+        with self.assertRaises(FedbiomedError):
+            t_msg.pop("__type_message__")
+            message.Message.from_dict(t_msg)
+
+        with self.assertRaises(FedbiomedError):
+            t = msg.to_dict()
+            t["__type_message__"].pop("class")
+            message.Message.from_dict(t)
+
+        with self.assertRaises(FedbiomedError):
+            t = msg.to_dict()
+            t["__type_message__"]["class"] = "logger"
+            message.Message.from_dict(t)
+
+        with self.assertRaises(FedbiomedError):
+            t = msg.to_dict()
+            t["__type_message__"]["class"] = "FieldDescriptor"
+            message.Message.from_dict(t)
+
+        with self.assertRaises(FedbiomedError):
+            t = msg.to_dict()
+            t["__type_message__"]["class"] = "Unkown"
+            message.Message.from_dict(t)
+
 
     def test_message_02_searchreply(self):
 
@@ -151,101 +195,92 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.SearchReply,
             expected_result=True,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             databases=[1, 2, 3],
             count=666,
-            node_id='titi')
+            node_id="titi",
+        )
 
         # all these test should fail (not enough arguments)
         self.check_class_args(
-            message.SearchReply,
-            expected_result=False,
+            message.SearchReply, expected_result=False, researcher_id="toto"
+        )
 
-            researcher_id='toto')
-
-        self.check_class_args(
-            message.SearchReply,
-            expected_result=False,
-
-            count=666)
+        self.check_class_args(message.SearchReply, expected_result=False, count=666)
 
         self.check_class_args(
-            message.SearchReply,
-            expected_result=False,
-
-            databases=[1, 2, 3])
+            message.SearchReply, expected_result=False, databases=[1, 2, 3]
+        )
 
         self.check_class_args(
-            message.SearchReply,
-            expected_result=False,
-            node_id='toto')
+            message.SearchReply, expected_result=False, node_id="toto"
+        )
 
-        self.check_class_args(
-            message.SearchReply,
-            expected_result=False)
+        self.check_class_args(message.SearchReply, expected_result=False)
 
         # too much arguments
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
-            researcher_id='toto',
+            researcher_id="toto",
             databases=[1, 2, 3],
             count=666,
-            node_id='titi',
-            extra_arg="not_allowed"
+            node_id="titi",
+            extra_arg="not_allowed",
         )
 
         # all the following should be bad (bad argument type)
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
-
-            researcher_id='toto',
-            protocol_version='99.99',
+            researcher_id="toto",
+            protocol_version="99.99",
             databases=[1, 2, 3],
             count="not_an_integer",
-            node_id='titi')
+            node_id="titi",
+        )
 
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
-
             researcher_id=True,
-            protocol_version='99.99',
+            protocol_version="99.99",
             databases=[1, 2, 3],
             count=666,
-            node_id='titi')
+            node_id="titi",
+        )
 
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
-
-            protocol_version='99.99',
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             databases=[1, 2, 3],
             count=666,
-            node_id=True)
+            node_id=True,
+        )
 
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
-            protocol_version='99.99',
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             databases="not a list",
             count=666,
-            node_id='titi')
+            node_id="titi",
+        )
 
         self.check_class_args(
             message.SearchReply,
             expected_result=False,
-            protocol_version='99.99',
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             success="not_a_boolean",
             databases=[],
             count=666,
-            node_id='titi')
+            node_id="titi",
+        )
 
         pass
 
@@ -257,77 +292,69 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.PingReply,
             expected_result=True,
-            protocol_version='99.99',
+            protocol_version="99.99",
+            researcher_id="toto",
+            node_id="titi",
+        )
 
-            researcher_id='toto',
-            node_id='titi')
+        self.check_class_args(message.PingReply, expected_result=False, node_id="titi")
 
-        self.check_class_args(
-            message.PingReply,
-            expected_result=False,
-
-            node_id='titi')
+        self.check_class_args(message.PingReply, expected_result=False, success=False)
 
         self.check_class_args(
             message.PingReply,
             expected_result=False,
-
-            success=False)
-
-        self.check_class_args(
-            message.PingReply,
-            expected_result=False,
-
-            researcher_id='toto',
-            node_id='titi',
+            researcher_id="toto",
+            node_id="titi",
             success=True,
-            extra_arg='foobar')
+            extra_arg="foobar",
+        )
 
         # bad argument type
         self.check_class_args(
             message.PingReply,
             expected_result=False,
-
-            protocol_version='99.99',
+            protocol_version="99.99",
             researcher_id=True,
-            node_id='titi',
-            success=True)
+            node_id="titi",
+            success=True,
+        )
 
         self.check_class_args(
             message.PingReply,
             expected_result=False,
-
-            protocol_version='99.99',
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             node_id=True,
-            success=True)
+            success=True,
+        )
 
         self.check_class_args(
             message.PingReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
-            success='not_a_bool')
-
-        self.check_class_args(
-            message.PingReply,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
-            success='not_a_bool')
+            protocol_version="99.99",
+            researcher_id="toto",
+            node_id="titi",
+            success="not_a_bool",
+        )
 
         self.check_class_args(
             message.PingReply,
             expected_result=False,
-            protocol_version='99.99',
+            protocol_version="99.99",
+            researcher_id="toto",
+            node_id="titi",
+            success="not_a_bool",
+        )
 
-            researcher_id='toto',
-            node_id='titi',
-            success=True)
+        self.check_class_args(
+            message.PingReply,
+            expected_result=False,
+            protocol_version="99.99",
+            researcher_id="toto",
+            node_id="titi",
+            success=True,
+        )
 
         pass
 
@@ -337,203 +364,179 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainReply,
             expected_result=True,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment',
-            state_id='state_id_1234',
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment",
+            state_id="state_id_1234",
             success=True,
-            node_id='titi',
-            dataset_id='my_data',
+            node_id="titi",
+            dataset_id="my_data",
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
             sample_size=123,
-            msg='message_in_a_bottle')
+            msg="message_in_a_bottle",
+        )
 
         # bad param number
         self.check_class_args(
-            message.TrainReply,
-            expected_result=False,
+            message.TrainReply, expected_result=False, researcher_id="toto"
+        )
 
-            researcher_id='toto')
+        self.check_class_args(
+            message.TrainReply, expected_result=False, experiment_id="experiment"
+        )
+
+        self.check_class_args(message.TrainReply, expected_result=False, success=True)
+
+        self.check_class_args(message.TrainReply, expected_result=False, node_id="titi")
+
+        self.check_class_args(
+            message.TrainReply, expected_result=False, dataset_id="my_data"
+        )
+
+        self.check_class_args(
+            message.TrainReply, expected_result=False, params={"x": 0}
+        )
+
+        self.check_class_args(
+            message.TrainReply, expected_result=False, params={"x": 0}
+        )
+
+        self.check_class_args(
+            message.TrainReply, expected_result=False, timing={"t0": 0.0, "t1": 1.0}
+        )
+
+        self.check_class_args(
+            message.TrainReply, expected_result=False, msg="message_in_a_bottle"
+        )
 
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
-
-            experiment_id='experiment')
-
-        self.check_class_args(
-            message.TrainReply,
-            expected_result=False,
-
-            success=True)
-
-        self.check_class_args(
-            message.TrainReply,
-            expected_result=False,
-
-            node_id='titi')
-
-        self.check_class_args(
-            message.TrainReply,
-            expected_result=False,
-
-            dataset_id='my_data')
-
-        self.check_class_args(
-            message.TrainReply,
-            expected_result=False,
-
-            params={"x": 0})
-
-        self.check_class_args(
-            message.TrainReply,
-            expected_result=False,
-
-            params={"x": 0})
-
-        self.check_class_args(
-            message.TrainReply,
-            expected_result=False,
-
-            timing={"t0": 0.0, "t1": 1.0})
-
-        self.check_class_args(
-            message.TrainReply,
-            expected_result=False,
-
-            msg='message_in_a_bottle')
-
-        self.check_class_args(
-            message.TrainReply,
-            expected_result=False,
-
-            researcher_id='toto',
-            experiment_id='experiment',
+            researcher_id="toto",
+            experiment_id="experiment",
             success=True,
-            node_id='titi',
-            dataset_id='my_data',
+            node_id="titi",
+            dataset_id="my_data",
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle',
+            msg="message_in_a_bottle",
             sample_size=None,
-            extra_param='dont_know_what_to_do_with_you')
+            extra_param="dont_know_what_to_do_with_you",
+        )
 
         # bad param type
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=True,
-            experiment_id='experiment',
+            experiment_id="experiment",
             success=True,
-            node_id='titi',
-            dataset_id='my_data',
+            node_id="titi",
+            dataset_id="my_data",
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle')
+            msg="message_in_a_bottle",
+        )
 
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             experiment_id=True,
             success=True,
-            node_id='titi',
-            dataset_id='my_data',
+            node_id="titi",
+            dataset_id="my_data",
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle')
+            msg="message_in_a_bottle",
+        )
 
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment',
-            success='not_a_bool',
-            node_id='titi',
-            dataset_id='my_data',
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment",
+            success="not_a_bool",
+            node_id="titi",
+            dataset_id="my_data",
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle'
-            )
+            msg="message_in_a_bottle",
+        )
 
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment',
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment",
             success=True,
             node_id=True,
-            dataset_id='my_data',
+            dataset_id="my_data",
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle')
+            msg="message_in_a_bottle",
+        )
 
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment',
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment",
             success=True,
-            node_id='titi',
+            node_id="titi",
             dataset_id=True,
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle')
+            msg="message_in_a_bottle",
+        )
 
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment',
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment",
             success=True,
-            node_id='titi',
-            dataset_id='my_data',
+            node_id="titi",
+            dataset_id="my_data",
             params_url=True,
             timing={"t0": 0.0, "t1": 1.0},
-            msg='message_in_a_bottle')
+            msg="message_in_a_bottle",
+        )
 
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment',
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment",
             success=True,
-            node_id='titi',
-            dataset_id='my_data',
+            node_id="titi",
+            dataset_id="my_data",
             params={"x": 0},
             timing="not_a_dict",
-            msg='message_in_a_bottle')
+            msg="message_in_a_bottle",
+        )
 
         self.check_class_args(
             message.TrainReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment',
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment",
             success=True,
-            node_id='titi',
-            dataset_id='my_data',
+            node_id="titi",
+            dataset_id="my_data",
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
-            msg=True)
-
+            msg=True,
+        )
 
     def test_message_05_listreply(self):
 
@@ -541,119 +544,96 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListReply,
             expected_result=True,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             success=True,
             databases=[1, 2, 3],
             count=666,
-            node_id='titi',
-            )
+            node_id="titi",
+        )
 
         # all these test should fail (not enough arguments)
         self.check_class_args(
-            message.ListReply,
-            expected_result=False,
+            message.ListReply, expected_result=False, researcher_id="toto"
+        )
 
-            researcher_id='toto')
+        self.check_class_args(message.ListReply, expected_result=False, count=666)
 
-        self.check_class_args(
-            message.ListReply,
-            expected_result=False,
-
-            count=666)
+        self.check_class_args(message.ListReply, expected_result=False, success=True)
 
         self.check_class_args(
-            message.ListReply,
-            expected_result=False,
+            message.ListReply, expected_result=False, databases=[1, 2, 3]
+        )
 
-            success=True)
-
-        self.check_class_args(
-            message.ListReply,
-            expected_result=False,
-
-            databases=[1, 2, 3])
-
-        self.check_class_args(
-            message.ListReply,
-            expected_result=False,
-
-            node_id='toto')
+        self.check_class_args(message.ListReply, expected_result=False, node_id="toto")
 
         # too much arguments
         self.check_class_args(
             message.ListReply,
             expected_result=False,
-
-            researcher_id='toto',
+            researcher_id="toto",
             success=True,
             databases=[1, 2, 3],
             count=666,
-            node_id='titi',
-            extra_arg="not_allowed"
+            node_id="titi",
+            extra_arg="not_allowed",
         )
 
         # all the following should be bad (bad argument type)
         self.check_class_args(
             message.ListReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             success=True,
             databases=[1, 2, 3],
             count="not_an_integer",
-            node_id='titi',
-            )
+            node_id="titi",
+        )
 
         self.check_class_args(
             message.ListReply,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=True,
             success=True,
             databases=[1, 2, 3],
             count=666,
-            node_id='titi',
-            )
+            node_id="titi",
+        )
 
         self.check_class_args(
             message.ListReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             success=True,
             databases=[1, 2, 3],
             count=666,
             node_id=True,
-            )
+        )
 
         self.check_class_args(
             message.ListReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             success=True,
             databases="not a list",
             count=666,
-            node_id='titi',
-            )
+            node_id="titi",
+        )
 
         self.check_class_args(
             message.ListReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             success="not_a_boolean",
             databases=[],
             count=666,
-            node_id='titi',
-            )
+            node_id="titi",
+        )
 
     def test_message_06_addscalarreply(self):
         # well formatted message
@@ -661,51 +641,52 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.Scalar,
             expected_result=True,
-            node_id='titi',
-            experiment_id='tutu',
+            node_id="titi",
+            experiment_id="tutu",
             train=True,
             test=True,
-            test_on_local_updates= True,
-            test_on_global_updates= True,
-            metric={'x': 12},
+            test_on_local_updates=True,
+            test_on_global_updates=True,
+            metric={"x": 12},
             iteration=666,
             epoch=12,
             total_samples=12,
             batch_samples=12,
             num_batches=12,
-            num_samples_trained=12)
+            num_samples_trained=12,
+        )
 
         # bad param number
         self.check_class_args(
-            message.Scalar,
-            expected_result=False,
-            num_samples_trained=12)
+            message.Scalar, expected_result=False, num_samples_trained=12
+        )
 
         self.check_class_args(
             message.Scalar,
             expected_result=False,
-            node_id='titi',
-            experiment_id='tutu',
+            node_id="titi",
+            experiment_id="tutu",
             iteration=666,
-            extra_arg='???')
+            extra_arg="???",
+        )
 
         # bad param type
         self.check_class_args(
             message.Scalar,
             expected_result=False,
-
             node_id=12,
-            experiment_id='tutu',
+            experiment_id="tutu",
             train=True,
             test=True,
             test_on_local_updates=True,
             test_on_global_updates=True,
-            metric={'x': 12},
+            metric={"x": 12},
             iteration=666,
             epoch=12,
             total_samples=12,
             batch_samples=12,
-            num_batches=12,)
+            num_batches=12,
+        )
 
         pass
 
@@ -714,107 +695,100 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=True,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
-            experiment_id='titi',
+            protocol_version="99.99",
+            researcher_id="toto",
+            node_id="titi",
+            experiment_id="titi",
             success=True,
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.APPROVED.value,
-            msg='sdrt',
-            training_plan='TP',
-            training_plan_id='id-1234',
-            )
+            msg="sdrt",
+            training_plan="TP",
+            training_plan_id="id-1234",
+        )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             node_id=12334,
-            experiment_id='titi',
+            experiment_id="titi",
             success=True,
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.REJECTED.value,
-            msg='sdrt',
-            training_plan='TP',
-            )
+            msg="sdrt",
+            training_plan="TP",
+        )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=12344,
-            node_id='12334',
-            experiment_id='titi',
+            node_id="12334",
+            experiment_id="titi",
             success=True,
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.PENDING.value,
-            msg='sdrt',
-            training_plan='TP',
-            )
+            msg="sdrt",
+            training_plan="TP",
+        )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='12344',
-            node_id='12334',
-            experiment_id='titi',
+            protocol_version="99.99",
+            researcher_id="12344",
+            node_id="12334",
+            experiment_id="titi",
             success=True,
             approval_obligation=True,
             status=True,
-            msg='sdrt',
-            training_plan='TP',
-            )
+            msg="sdrt",
+            training_plan="TP",
+        )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='12344',
-            node_id='12334',
-            experiment_id='titi',
+            protocol_version="99.99",
+            researcher_id="12344",
+            node_id="12334",
+            experiment_id="titi",
             success=True,
-            approval_obligation='True',
-            status='None',
-            msg='sdrt',
-            training_plan='TP',
-            )
+            approval_obligation="True",
+            status="None",
+            msg="sdrt",
+            training_plan="TP",
+        )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=333,
             node_id=1212,
             experiment_id=False,
-            success='not a bool',
+            success="not a bool",
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.PENDING.value,
-            msg='sdrt',
+            msg="sdrt",
             training_plan_url=123123,
-            )
+        )
 
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=333,
             node_id=1212,
             experiment_id=False,
-            success='not a bool',
+            success="not a bool",
             approval_obligation=True,
             status=TrainingPlanApprovalStatus.REJECTED.value,
-            msg='sdrt')
-
+            msg="sdrt",
+        )
 
     def test_message_08_log(self):
 
@@ -822,74 +796,54 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.Log,
             expected_result=True,
-
-            node_id='titi',
-            level='INFO',
-            msg='this is an error message',
+            node_id="titi",
+            level="INFO",
+            msg="this is an error message",
         )
 
         # bad param number
-        self.check_class_args(
-            message.Log,
-            expected_result=False,
+        self.check_class_args(message.Log, expected_result=False, researcher_id="toto")
 
-            researcher_id='toto')
+        self.check_class_args(message.Log, expected_result=False, node_id="titi")
 
-        self.check_class_args(
-            message.Log,
-            expected_result=False,
-
-            node_id='titi')
+        self.check_class_args(message.Log, expected_result=False, level="INFO")
 
         self.check_class_args(
-            message.Log,
-            expected_result=False,
-
-            level='INFO')
-
-        self.check_class_args(
-            message.Log,
-            expected_result=False,
-
-            msg='this is an error message')
-
-
-
-        self.check_class_args(
-            message.Log,
-            expected_result=False,
-
-            node_id='titi',
-            level='INFO',
-            msg='this is an error message',
-            extra_arg='???')
-
-
-        self.check_class_args(
-            message.Log,
-            expected_result=False,
-
-            node_id=False,
-            level='INFO',
-            msg='this is an error message',
+            message.Log, expected_result=False, msg="this is an error message"
         )
 
+        self.check_class_args(
+            message.Log,
+            expected_result=False,
+            node_id="titi",
+            level="INFO",
+            msg="this is an error message",
+            extra_arg="???",
+        )
 
         self.check_class_args(
             message.Log,
             expected_result=False,
-
-            node_id='titi',
-            level='INFO',
-            msg=[1, 2],)
+            node_id=False,
+            level="INFO",
+            msg="this is an error message",
+        )
 
         self.check_class_args(
             message.Log,
             expected_result=False,
+            node_id="titi",
+            level="INFO",
+            msg=[1, 2],
+        )
 
-            node_id='titi',
-            level='INFO',
-            msg=[1, 2],)
+        self.check_class_args(
+            message.Log,
+            expected_result=False,
+            node_id="titi",
+            level="INFO",
+            msg=[1, 2],
+        )
 
         pass
 
@@ -899,310 +853,262 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ErrorMessage,
             expected_result=True,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
+            protocol_version="99.99",
+            researcher_id="toto",
+            node_id="titi",
             errnum=ErrorNumbers.FB100.value,
-            extra_msg='this is an error message',
-
+            extra_msg="this is an error message",
         )
 
         # bad param number
         self.check_class_args(
-            message.ErrorMessage,
-            expected_result=False,
+            message.ErrorMessage, expected_result=False, researcher_id="toto"
+        )
 
-            researcher_id='toto')
+        self.check_class_args(
+            message.ErrorMessage, expected_result=False, node_id="titi"
+        )
+
+        self.check_class_args(
+            message.ErrorMessage, expected_result=False, errnum=ErrorNumbers.FB100.value
+        )
 
         self.check_class_args(
             message.ErrorMessage,
             expected_result=False,
-
-            node_id='titi')
-
-        self.check_class_args(
-            message.ErrorMessage,
-            expected_result=False,
-
-            errnum=ErrorNumbers.FB100.value)
+            extra_msg="this is an error message",
+        )
 
         self.check_class_args(
             message.ErrorMessage,
             expected_result=False,
-
-            extra_msg='this is an error message')
-
-        self.check_class_args(
-            message.ErrorMessage,
-            expected_result=False,
-
-            )
+        )
 
         self.check_class_args(
             message.ErrorMessage,
             expected_result=False,
-
-            researcher_id='toto',
-            node_id='titi',
+            researcher_id="toto",
+            node_id="titi",
             errnum=ErrorNumbers.FB100.value,
-            extra_msg='this is an error message',
-            extra_arg='???')
+            extra_msg="this is an error message",
+            extra_arg="???",
+        )
 
         # bad param type
         self.check_class_args(
             message.ErrorMessage,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=False,
-            node_id='titi',
+            node_id="titi",
             errnum=ErrorNumbers.FB100.value,
-            extra_msg='this is an error message',
-
+            extra_msg="this is an error message",
         )
 
         self.check_class_args(
             message.ErrorMessage,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             node_id=False,
             errnum=ErrorNumbers.FB100.value,
-            extra_msg='this is an error message',
-
+            extra_msg="this is an error message",
         )
 
         self.check_class_args(
             message.ErrorMessage,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
+            protocol_version="99.99",
+            researcher_id="toto",
+            node_id="titi",
             errnum=False,
-            extra_msg='this is an error message',
+            extra_msg="this is an error message",
         )
-
 
         pass
 
     def test_message_10_searchrequest(self):
         # well formatted message
         self.check_class_args(
-            message.SearchRequest,
-            expected_result=False,
-
-            researcher_id='toto')
+            message.SearchRequest, expected_result=False, researcher_id="toto"
+        )
 
         # bad param number
         self.check_class_args(
             message.SearchRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            tags=["data", "doto"])
-
-        self.check_class_args(
-            message.SearchRequest,
-            expected_result=False,
-            protocol_version='99.99',
-
-            )
-
-        self.check_class_args(
-            message.SearchRequest,
-            expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
             tags=["data", "doto"],
-            extra_args='???')
+        )
+
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result=False,
+            protocol_version="99.99",
+        )
+
+        self.check_class_args(
+            message.SearchRequest,
+            expected_result=False,
+            protocol_version="99.99",
+            researcher_id="toto",
+            tags=["data", "doto"],
+            extra_args="???",
+        )
 
         # bad param type
         self.check_class_args(
             message.SearchRequest,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=False,
             tags=["data", "doto"],
-            )
+        )
 
         self.check_class_args(
             message.SearchRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             tags="not_a_list",
-            )
-
-
+        )
 
     def test_message_11_pingrequest(self):
         # well formatted message
         self.check_class_args(
             message.PingRequest,
             expected_result=True,
-
-            protocol_version='99.99',
-            researcher_id='toto',
-            )
-
+            protocol_version="99.99",
+            researcher_id="toto",
+        )
 
         self.check_class_args(
             message.PingRequest,
             expected_result=False,
-
-            )
+        )
 
         self.check_class_args(
             message.PingRequest,
             expected_result=False,
-
-            researcher_id='toto',
-            extra_arg='???')
+            researcher_id="toto",
+            extra_arg="???",
+        )
 
         # bad param type
         self.check_class_args(
             message.PingRequest,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=False,
-            )
-
+        )
 
     def test_message_12_trainrequest(self):
         # well formatted message
         self.check_class_args(
             message.TrainRequest,
             expected_result=True,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment_number',
-            params= {"x": 0},
-            state_id='state_id_1234',
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment_number",
+            params={"x": 0},
+            state_id="state_id_1234",
             training_args={"a": 1, "b": 2},
             dataset_id="MNIST",
             training=True,
             model_args={"c": 3, "d": 4},
             training_plan="tp",
-            training_plan_class='my_model',
+            training_plan_class="my_model",
             secagg_arguments={
-                'secagg_servkey_id': None,
-                'secagg_random': None,
-                'secagg_clipping_range': None
+                "secagg_servkey_id": None,
+                "secagg_random": None,
+                "secagg_clipping_range": None,
             },
             round=1,
-            aggregator_args={'aggregator_name': 'fedavg'},
+            aggregator_args={"aggregator_name": "fedavg"},
             aux_vars=None,
         )
 
         # bad param number
         self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-
-            researcher_id='toto')
+            message.TrainRequest, expected_result=False, researcher_id="toto"
+        )
 
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+            experiment_id="experiment_number",
+        )
 
-            experiment_id='experiment_number')
+        self.check_class_args(
+            message.TrainRequest, expected_result=False, params={"x": 0}
+        )
+
+        self.check_class_args(
+            message.TrainRequest, expected_result=False, training_args={"a": 1, "b": 2}
+        )
+
+        self.check_class_args(
+            message.TrainRequest, expected_result=False, dataset_id="MNIS"
+        )
+
+        self.check_class_args(
+            message.TrainRequest, expected_result=False, model_args={"c": 3, "d": 4}
+        )
+
+        self.check_class_args(
+            message.TrainRequest, expected_result=False, training_plan="xxxx"
+        )
+
+        self.check_class_args(
+            message.TrainRequest, expected_result=False, training_plan_class="my_model"
+        )
 
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
+        )
 
-            params= {"x": 0})
+        self.check_class_args(
+            message.TrainRequest, expected_result=False, secagg_clipping_range="non-int"
+        )
 
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
-
-            training_args={"a": 1, "b": 2})
-
-        self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-
-            dataset_id="MNIS")
-
-        self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-
-            model_args={"c": 3, "d": 4})
-
-        self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-
-            training_plan="xxxx")
-
-        self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-
-            training_plan_class='my_model')
-
-        self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-
-            )
-
-        self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-            secagg_clipping_range='non-int')
-
-        self.check_class_args(
-            message.TrainRequest,
-            expected_result=False,
-
-            researcher_id='toto',
-            experiment_id='experiment_number',
-            params= {"x": 0},
+            researcher_id="toto",
+            experiment_id="experiment_number",
+            params={"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
             training_plan="TP",
-            training_plan_class='my_model',
-            extra_arg='???')
+            training_plan_class="my_model",
+            extra_arg="???",
+        )
 
         # bad param type
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=False,
-            experiment_id='experiment_number',
-            params= {"x": 0},
+            experiment_id="experiment_number",
+            params={"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
             training_plan="TP",
-            training_plan_class='my_model',
-            )
-
-
+            training_plan_class="my_model",
+        )
 
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment_number',
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment_number",
             params_url=False,
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
@@ -1210,33 +1116,31 @@ class TestMessage(unittest.TestCase):
             secagg_random=None,
             model_args={"c": 3, "d": 4},
             training_plan_url="http://dev.null",
-            training_plan_class='my_model',
-            )
+            training_plan_class="my_model",
+        )
 
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment_number',
-            params= {"x": 0},
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment_number",
+            params={"x": 0},
             training_args={"foo": "not_a_str"},
             dataset_id="MNIS",
             training=False,
             model_args={"c": 3, "d": 4},
             training_plan="TP",
-            training_plan_class='my_model',
-            )
+            training_plan_class="my_model",
+        )
 
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment_number',
-            params= {"x": 0},
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment_number",
+            params={"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id={"foo": "not_a_str"},
             training=False,
@@ -1244,51 +1148,47 @@ class TestMessage(unittest.TestCase):
             secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
             training_plan="TP",
-            training_plan_class='my_model',
-            )
-
+            training_plan_class="my_model",
+        )
 
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment_number',
-            params= {"x": 0},
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment_number",
+            params={"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
             model_args="not_a_dict",
             training_plan="TP",
-            training_plan_class='my_model',
-            )
+            training_plan_class="my_model",
+        )
 
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment_number',
-            params= {"x": 0},
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment_number",
+            params={"x": 0},
             training_args={"a": 1, "b": 2},
             dataset_id="MNIS",
             training=False,
             secagg_clipping_range=None,
             model_args={"c": 3, "d": 4},
             training_plan=False,
-            training_plan_class='my_model',
-            )
+            training_plan_class="my_model",
+        )
 
         self.check_class_args(
             message.TrainRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='experiment_number',
-            params= {"x": 0},
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="experiment_number",
+            params={"x": 0},
             training_args={"a": 1, "b": 2},
             training_data="MNIS",
             training=False,
@@ -1296,7 +1196,7 @@ class TestMessage(unittest.TestCase):
             model_args={"c": 3, "d": 4},
             training_plan="TP",
             training_plan_class="my_model",
-            )
+        )
 
         pass
 
@@ -1306,43 +1206,44 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ListRequest,
             expected_result=True,
-            protocol_version='99.99',
-            researcher_id='toto')
+            protocol_version="99.99",
+            researcher_id="toto",
+        )
 
         # bad param number
         self.check_class_args(
-            message.ListRequest,
-            expected_result=False,
-            tags=["data", "doto"])
+            message.ListRequest, expected_result=False, tags=["data", "doto"]
+        )
 
         self.check_class_args(
             message.ListRequest,
             expected_result=False,
-            )
+        )
 
         self.check_class_args(
             message.ListRequest,
             expected_result=False,
-            researcher_id='toto',
+            researcher_id="toto",
             tags=["data", "doto"],
-            extra_args='???')
+            extra_args="???",
+        )
 
         # bad param type
         self.check_class_args(
             message.ListRequest,
             expected_result=False,
-            protocol_version='99.99',
+            protocol_version="99.99",
             researcher_id=False,
             tags=["data", "doto"],
-            )
+        )
 
         # bad param type
         self.check_class_args(
             message.ListRequest,
             expected_result=False,
-            protocol_version='99.99',
+            protocol_version="99.99",
             researcher_id=False,
-            )
+        )
 
         pass
 
@@ -1351,52 +1252,47 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=True,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='sdsd',
-            training_plan='TP',
-            )
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="sdsd",
+            training_plan="TP",
+        )
 
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=True,
-            experiment_id='sdsd',
-            training_plan_url='do_it',
-            )
+            experiment_id="sdsd",
+            training_plan_url="do_it",
+        )
 
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             experiment_id=122323,
-            training_plan_url='do_it',
-            )
+            training_plan_url="do_it",
+        )
 
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            experiment_id='sdsd',
+            protocol_version="99.99",
+            researcher_id="toto",
+            experiment_id="sdsd",
             training_plan_url=12323,
-            )
+        )
 
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='ttot',
-            experiment_id='sdsd',
-            training_plan_url='do_it',
-            )
+            protocol_version="99.99",
+            researcher_id="ttot",
+            experiment_id="sdsd",
+            training_plan_url="do_it",
+        )
 
     def test_message_25_approval_request(self):
         """Test the approval request message fabrication/validation"""
@@ -1405,71 +1301,64 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=True,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            description='this is a description string',
-            training_plan='TP',
-            )
+            protocol_version="99.99",
+            researcher_id="toto",
+            description="this is a description string",
+            training_plan="TP",
+        )
 
         # all these test should fail (bad number of args arguments or bad type)
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
-
-            researcher_id='toto',
+            researcher_id="toto",
         )
 
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            description='this is a description string',
-            training_plan='TP',
-            unknown_extra_arg='whatever'
+            protocol_version="99.99",
+            researcher_id="toto",
+            description="this is a description string",
+            training_plan="TP",
+            unknown_extra_arg="whatever",
         )
 
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=False,
-            description='this is a description string',
-            training_plan_url='http://dev.null',
-            )
+            description="this is a description string",
+            training_plan_url="http://dev.null",
+        )
 
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             description=False,
-            training_plan_url='http://dev.null',
-            )
+            training_plan_url="http://dev.null",
+        )
 
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            description='this is a description string',
+            protocol_version="99.99",
+            researcher_id="toto",
+            description="this is a description string",
             training_plan_url=False,
-            )
+        )
 
         self.check_class_args(
             message.ApprovalRequest,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            description='this is a description string',
-            training_plan_url='http://dev.null')
-
+            protocol_version="99.99",
+            researcher_id="toto",
+            description="this is a description string",
+            training_plan_url="http://dev.null",
+        )
 
     def test_message_26_approval_reply(self):
         """Test the approval reply message fabrication/validation"""
@@ -1477,97 +1366,90 @@ class TestMessage(unittest.TestCase):
         self.check_class_args(
             message.ApprovalReply,
             expected_result=True,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
+            protocol_version="99.99",
+            researcher_id="toto",
+            node_id="titi",
             message="xxx",
-            training_plan_id='id-xxx',
+            training_plan_id="id-xxx",
             status=200,
             success=True,
-            )
+        )
 
         # all these test should fail (bad number of args arguments or bad type)
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
-
-            researcher_id='toto',
-            message="xxx"
+            researcher_id="toto",
+            message="xxx",
         )
 
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
+            protocol_version="99.99",
+            researcher_id="toto",
+            node_id="titi",
             status=200,
             success=True,
             message="xxx",
-            extra_arg='this will break'
+            extra_arg="this will break",
         )
 
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
-            protocol_version='99.99',
-
+            protocol_version="99.99",
             researcher_id=False,
             message="xxx",
-            node_id='titi',
+            node_id="titi",
             status=200,
             success=True,
-            )
+        )
 
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             message="xxx",
             node_id=False,
             status=200,
             success=True,
-            )
-
+        )
 
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
+            protocol_version="99.99",
+            researcher_id="toto",
+            node_id="titi",
             message="xxx",
             status="not an int",
             success=True,
-            )
+        )
 
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
+            protocol_version="99.99",
+            researcher_id="toto",
             message="xxx",
-            node_id='titi',
+            node_id="titi",
             status=200,
-            success=True)
+            success=True,
+        )
 
         self.check_class_args(
             message.ApprovalReply,
             expected_result=False,
-            protocol_version='99.99',
-
-            researcher_id='toto',
-            node_id='titi',
+            protocol_version="99.99",
+            researcher_id="toto",
+            node_id="titi",
             message="xxx",
             status=200,
-            success="not a bool")
+            success="not a bool",
+        )
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()

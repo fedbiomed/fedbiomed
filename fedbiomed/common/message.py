@@ -6,22 +6,18 @@ Definition of messages exchanged by the researcher and the nodes
 """
 
 import functools
+import inspect
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, get_args, Union, List
+from typing import Any, Callable, Dict, List, Optional, Union, get_args
 
-from google.protobuf.message import Message as ProtobufMessage
 from google.protobuf.descriptor import FieldDescriptor
+from google.protobuf.message import Message as ProtobufMessage
 
 import fedbiomed.transport.protocols.researcher_pb2 as r_pb2
-
-from fedbiomed.common.constants import (
-    ErrorNumbers,
-    __messaging_protocol_version__,
-    SecureAggregationSchemes,
-)
-from fedbiomed.common.utils import raise_for_version_compatibility, import_object
+from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedValueError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.utils import import_object, raise_for_version_compatibility
 
 
 def catch_dataclass_exception(cls: Callable):
@@ -49,14 +45,14 @@ def catch_dataclass_exception(cls: Callable):
             # this is the error raised by dataclass if number of parameter is wrong
             _msg = ErrorNumbers.FB601.value + ": bad number of parameters: " + str(e)
             logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
+            raise FedbiomedMessageError(_msg) from e
 
     @functools.wraps(cls)
     def wrap(cls: Callable):
         """Wrapper to the class given as parameter
 
-        Class wrapping should keep some attributes (__doc__, etc) of the initial class or the API documentation tools
-        will be mistaken
+        Class wrapping should keep some attributes (__doc__, etc) of the initial class
+        or the API documentation tools will be mistaken
 
         """
         cls.__initial_init__ = cls.__init__
@@ -67,11 +63,11 @@ def catch_dataclass_exception(cls: Callable):
     return wrap(cls)
 
 
-class Message(object):
+class Message:
     """Base class for all fedbiomed messages providing all methods
     to access the messages
 
-    The subclasses of this class will be pure data containers (no provided functions)
+    The subclass of this class will be pure data containers (no provided functions)
     """
 
     def __post_init__(self):
@@ -138,7 +134,7 @@ class Message(object):
                 ret = False
         return ret
 
-    def serialize(self) -> Dict:
+    def to_dict(self) -> Dict:
         """Serializes the message
 
         Returns:
@@ -147,22 +143,35 @@ class Message(object):
         class_ = type(self).__name__
         module_ = type(self).__module__
 
-        return {**self.get_dict(), "__type_message__": {"module": module_, "class": class_}}
+        return {
+            **self.get_dict(),
+            "__type_message__": {"module": module_, "class": class_},
+        }
 
     @staticmethod
-    def deserialize(obj: Dict):
+    def from_dict(obj: Dict):
         """De-serializes the message"""
 
         message = {**obj}
 
-        if "__type_message__" not in message:
+        if (
+            "__type_message__" not in message
+            or not isinstance(message["__type_message__"], dict)
+            or not all(
+                x_ in message["__type_message__"].keys() for x_ in ["class", "module"]
+            )
+        ):
             raise FedbiomedValueError(
-                "Message does not include '__type_message__', can not serialize"
+                "Message does not include valid '__type_message__' entry."
             )
 
         type_ = message["__type_message__"]
-        cls_ = import_object(type_["module"], type_["class"])
+        cls_ = import_object("fedbiomed.common.message", type_["class"])
 
+        if not inspect.isclass(cls_) or not issubclass(cls_, Message):
+            raise FedbiomedMessageError(
+                "Given object class is not subclass of 'Message'"
+            )
 
         raise_for_version_compatibility(
             message["protocol_version"], __messaging_protocol_version__
@@ -470,7 +479,9 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
     secagg_id: str
 
 
-# Approval messages
+# --- Node <=> Researcher messages ----------------------------------------------
+
+
 @catch_dataclass_exception
 @dataclass
 class ApprovalRequest(RequestReply, RequiresProtocolVersion):
@@ -538,6 +549,7 @@ class ErrorMessage(RequestReply, RequiresProtocolVersion):
     node_id: str
     extra_msg: str
     errnum: Optional[str] = None
+
 
 # List messages
 
@@ -886,6 +898,3 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
     optimizer_args: Optional[Dict] = None  # None for testing only
     optim_aux_var: Optional[Dict] = None  # None for testing only
     encryption_factor: Optional[List] = None  # None for testing only
-
-
-

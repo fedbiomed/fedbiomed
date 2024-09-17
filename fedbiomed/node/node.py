@@ -4,41 +4,39 @@
 """
 Core code of the node component.
 """
-from typing import Optional, Union, Callable
+from typing import Callable, Optional, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
+    ApprovalRequest,
+    ErrorMessage,
     Message,
     OverlayMessage,
-    ApprovalRequest,
-    SecaggDeleteRequest,
-    SecaggDeleteReply,
-    SecaggRequest,
-    SecaggReply,
-    TrainRequest,
-    ErrorMessage,
-    SearchRequest,
-    SearchReply,
-    PingRequest,
     PingReply,
+    PingRequest,
+    SearchReply,
+    SearchRequest,
+    SecaggDeleteReply,
+    SecaggDeleteRequest,
+    SecaggReply,
+    SecaggRequest,
     TrainingPlanStatusRequest,
+    TrainRequest,
 )
-from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.common.synchro import EventWaitExchange
-
-from fedbiomed.transport.controller import GrpcController
-from fedbiomed.transport.client import ResearcherCredentials
-
+from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.dataset_manager import DatasetManager
-from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
+from fedbiomed.node.requests import NodeToNodeRouter
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-from fedbiomed.node.requests import NodeToNodeRouter
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
+from fedbiomed.transport.client import ResearcherCredentials
+from fedbiomed.transport.controller import GrpcController
 
 
 class Node:
@@ -115,9 +113,9 @@ class Node:
 
         # Deserialize message
         try:
-            message = Message.deserialize(msg)
+            message = Message.from_dict(msg)
         except FedbiomedError as e:
-            logger.error(e)# Message was not properly formatted
+            logger.error(e)  # Message was not properly formatted
             resid = msg.get("researcher_id", "unknown_researcher_id")
             self.send_error(
                 ErrorNumbers.FB301,
@@ -125,7 +123,13 @@ class Node:
                 researcher_id=resid,
             )
         else:
-            no_print = ["aggregator_args", "aux_vars", "params", "training_plan", "overlay"]
+            no_print = [
+                "aggregator_args",
+                "aux_vars",
+                "params",
+                "training_plan",
+                "overlay",
+            ]
             msg_print = {
                 key: value
                 for key, value in message.get_dict().items()
@@ -144,14 +148,18 @@ class Node:
                 case SearchRequest.__name__:
                     databases = self.dataset_manager.search_by_tags(message.tags)
                     if len(databases) != 0:
-                        databases = self.dataset_manager.obfuscate_private_information(databases)
+                        databases = self.dataset_manager.obfuscate_private_information(
+                            databases
+                        )
                     self._grpc_client.send(
                         SearchReply(
                             request_id=message.request_id,
-                            node_id=environ['NODE_ID'],
+                            node_id=environ["NODE_ID"],
                             researcher_id=message.researcher_id,
                             databases=databases,
-                            count=len(databases)))
+                            count=len(databases),
+                        )
+                    )
 
                 case PingRequest.__name__:
                     self._grpc_client.send(
@@ -162,8 +170,10 @@ class Node:
                         )
                     )
                 case ApprovalRequest.__name__:
-                    reply = self.tp_security_manager.reply_training_plan_approval_request(
-                        message
+                    reply = (
+                        self.tp_security_manager.reply_training_plan_approval_request(
+                            message
+                        )
                     )
                     self._grpc_client.send(reply)
                 case TrainingPlanStatusRequest.__name__:
@@ -201,7 +211,6 @@ class Node:
         status = secagg_manager.remove(
             secagg_id=secagg_id, experiment_id=msg.get_param("experiment_id")
         )
-
 
         if not status:
             message = (
@@ -298,7 +307,8 @@ class Node:
             node_args=self.node_args,
             round_number=msg.get_param("round"),
             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-            aux_vars=msg.get_param("aux_vars"))
+            aux_vars=msg.get_param("aux_vars"),
+        )
 
         # the round raises an error if it cannot initialize
         err_msg = round_.initialize_arguments(msg.get_param("state_id"))

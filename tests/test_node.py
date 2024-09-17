@@ -1,61 +1,60 @@
 import copy
-from json import decoder
 import os
 import tempfile
-from typing import Any, Dict
 import unittest
-from unittest.mock import MagicMock, patch, ANY
-from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
-from fedbiomed.common.serializer import Serializer
+from json import decoder
+from typing import Any, Dict
+from unittest.mock import ANY, MagicMock, patch
 
+import torch
+from testsupport import fake_training_plan
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
 from testsupport.base_case import NodeTestCase
-
-#############################################################
+from testsupport.fake_secagg_manager import FakeSecaggServkeyManager
 
 # import dummy classes
 from testsupport.fake_uuid import FakeUuid
-from testsupport.fake_secagg_manager import FakeSecaggServkeyManager
-from testsupport import fake_training_plan
 
-import torch
-from fedbiomed.common.optimizers.declearn import (
-    YogiModule,
-    ScaffoldClientModule,
-    RidgeRegularizer,
-)
-
-from fedbiomed.node.environ import environ
 from fedbiomed.common.constants import (
     ErrorNumbers,
     SecaggElementTypes,
-    _BaseEnum,
     TrainingPlans,
     __messaging_protocol_version__,
+    _BaseEnum,
 )
-from fedbiomed.common.optimizers.optimizer import Optimizer
 from fedbiomed.common.message import (
-    Message,
-    TrainRequest,
-    PingRequest,
-    PingReply,
-    SearchRequest,
-    ListRequest,
     ApprovalRequest,
-    TrainingPlanStatusRequest,
-    SecaggRequest,
-    SecaggReply,
+    ErrorMessage,
+    ListRequest,
+    Message,
+    PingReply,
+    PingRequest,
+    SearchRequest,
     SecaggDeleteReply,
     SecaggDeleteRequest,
-    ErrorMessage,
+    SecaggReply,
+    SecaggRequest,
+    TrainingPlanStatusRequest,
+    TrainRequest,
 )
 from fedbiomed.common.models import TorchModel
+from fedbiomed.common.optimizers.declearn import (
+    RidgeRegularizer,
+    ScaffoldClientModule,
+    YogiModule,
+)
+from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
+from fedbiomed.common.optimizers.optimizer import Optimizer
+from fedbiomed.common.serializer import Serializer
+from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
-from fedbiomed.node.dataset_manager import DatasetManager
+
+#############################################################
 
 
 class TestNode(NodeTestCase):
@@ -83,28 +82,21 @@ class TestNode(NodeTestCase):
         element=0,
     )
 
-    ping_request = PingRequest(
-        researcher_id='researcher_id'
-    )
+    ping_request = PingRequest(researcher_id="researcher_id")
 
-    list_request = ListRequest(
-        researcher_id='researcher-id'
-    )
+    list_request = ListRequest(researcher_id="researcher-id")
 
-    search_request = SearchRequest(
-        researcher_id="researcher-id",
-        tags=['data']
-    )
+    search_request = SearchRequest(researcher_id="researcher-id", tags=["data"])
 
     approval_request = ApprovalRequest(
-        researcher_id='researcher-id',
-        description='hmmm',
-        training_plan="class MM:;pass"
+        researcher_id="researcher-id",
+        description="hmmm",
+        training_plan="class MM:;pass",
     )
     tp_status_request = TrainingPlanStatusRequest(
-        researcher_id='researcher-id',
-        experiment_id='experiment-id',
-        training_plan='class MM:;pass'
+        researcher_id="researcher-id",
+        experiment_id="experiment-id",
+        training_plan="class MM:;pass",
     )
 
     secagg_delete_request = SecaggDeleteRequest(
@@ -112,7 +104,6 @@ class TestNode(NodeTestCase):
         secagg_id="my_test_secagg_id",
         element=0,
         experiment_id="a_dummy_experiment_id",
-
     )
 
     @classmethod
@@ -222,14 +213,14 @@ class TestNode(NodeTestCase):
         # test 1: test normal case scenario, where `command` = 'train' or 'secagg'
 
         for message in [
-            self.train_request.serialize(),
-            self.secagg_request.serialize(),
+            self.train_request.to_dict(),
+            self.secagg_request.to_dict(),
         ]:
             # action
             self.n1.on_message(message)
 
             # checks
-            task_queue_add.assert_called_once_with(Message.deserialize(message))
+            task_queue_add.assert_called_once_with(Message.from_dict(message))
             task_queue_add.reset_mock()
 
     def test_node_03_on_message_normal_case_scenario_ping(
@@ -238,7 +229,7 @@ class TestNode(NodeTestCase):
         """Tests `on_message` method (normal case scenario), with ping command"""
 
         # action
-        self.n1.on_message(self.ping_request.serialize())
+        self.n1.on_message(self.ping_request.to_dict())
         self.grpc_send_mock.assert_called_once()
 
     @patch("fedbiomed.node.node.SecaggManager")
@@ -246,22 +237,20 @@ class TestNode(NodeTestCase):
         """Tests `on_message` method (normal case scenario), with secagg-delete command"""
 
         skm.return_value.return_value.remove.return_value = True
-        self.n1.on_message(self.secagg_delete_request.serialize())
+        self.n1.on_message(self.secagg_delete_request.to_dict())
         self.grpc_send_mock.assert_called_once()
 
-    def test_node_05_on_message_normal_case_scenario_search(
-        self
-    ):
+    def test_node_05_on_message_normal_case_scenario_search(self):
         """Tests `on_message` method (normal case scenario), with search command"""
         # action
-        self.n1.on_message(self.search_request.serialize())
+        self.n1.on_message(self.search_request.to_dict())
         self.grpc_send_mock.assert_called_once()
 
     def test_node_06_on_message_normal_case_scenario_list(self):
         """Tests `on_message` method (normal case scenario), with list command"""
 
         # action
-        self.n1.on_message(self.list_request.serialize())
+        self.n1.on_message(self.list_request.to_dict())
         self.grpc_send_mock.assert_called_once()
 
     def test_node_07_on_message_normal_case_scenario_model_status(
@@ -269,7 +258,7 @@ class TestNode(NodeTestCase):
     ):
         """Tests normal case scenario, if command is equals to 'training-plan-status"""
 
-        self.n1.on_message(self.tp_status_request.serialize())
+        self.n1.on_message(self.tp_status_request.to_dict())
         self.model_manager_mock.reply_training_plan_status_request.assert_called_once_with(
             self.tp_status_request
         )
@@ -277,17 +266,17 @@ class TestNode(NodeTestCase):
     def test_node_08_on_message_unknown_command(self):
         """Tests Exception is handled if command is not a known command
         (in `on_message` method)"""
-        ping_reply = PingReply(researcher_id='r1', node_id='n1')
+        ping_reply = PingReply(researcher_id="r1", node_id="n1")
 
         # action
-        self.n1.on_message(ping_reply.serialize())
+        self.n1.on_message(ping_reply.to_dict())
         error = self.grpc_send_mock.call_args.args[1]
         self.assertIsInstance(error, ErrorMessage)
 
     def test_node_11_on_message_fail_msg_not_deserializable(self):
         """Tests case where a error raised (because unable to deserialize message)"""
         # Not desearializable
-        ping_msg = {"researcher_id": 're1', "request_id": "1234"}
+        ping_msg = {"researcher_id": "re1", "request_id": "1234"}
 
         self.n1.on_message(ping_msg)
 
@@ -307,7 +296,6 @@ class TestNode(NodeTestCase):
         history_monitor_patch.spec = True
         history_monitor_patch.return_value = None
         round_patch.return_value.initialize_arguments.return_value = None
-
 
         round_ = self.n1.parser_task_train(self.train_request)
         self.assertIsInstance(round_, Round)
@@ -465,7 +453,6 @@ class TestNode(NodeTestCase):
             # checks if `SystemError` is caught (triggered by patched `tasks_queue.get`)
             self.n1.task_manager()
 
-
     @patch("fedbiomed.node.secagg._secagg_setups.SKManager")
     @patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
     @patch("fedbiomed.node.node.Node._task_secagg")
@@ -548,7 +535,7 @@ class TestNode(NodeTestCase):
         dataset_manager = DatasetManager()
         dataset_manager.search_by_tags = MagicMock(return_value=databases)
         n3 = Node(dataset_manager, self.model_manager_mock)
-        n3.on_message(self.search_request.serialize())
+        n3.on_message(self.search_request.to_dict())
 
         # check privacy-sensitive info a case-by-case basis
         database_info = self.grpc_send_mock.call_args[0][1].get_param("databases")[0]
@@ -571,7 +558,6 @@ class TestNode(NodeTestCase):
         self.n1._task_secagg(self.secagg_request)
         error = self.grpc_send_mock.call_args.args[1]
         self.assertIsInstance(error, ErrorMessage)
-
 
     def test_node_24_task_secagg_delete(self):
         """Tests `_task_secagg` with bad message values"""
@@ -603,6 +589,7 @@ class TestNode(NodeTestCase):
             error = self.grpc_send_mock.call_args.args[1]
             self.assertIsInstance(error, ErrorMessage)
             self.grpc_send_mock.reset_mock()
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
