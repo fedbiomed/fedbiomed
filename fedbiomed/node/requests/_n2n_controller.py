@@ -6,7 +6,13 @@ import asyncio
 import inspect
 
 from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST
-from fedbiomed.common.message import InnerMessage, OverlayMessage, NodeMessages, NodeToNodeMessages
+from fedbiomed.common.message import (
+    Message,
+    KeyRequest,
+    KeyReply,
+    InnerMessage,
+    OverlayMessage
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.synchro import EventWaitExchange
 
@@ -17,7 +23,27 @@ from fedbiomed.transport.controller import GrpcController
 
 
 class NodeToNodeController:
-    """Defines the controller for protocol messages processed by the node to node router"""
+    """Defines the controller for protocol messages processed by the node to node router
+
+
+
+    Each message type must have a handler.
+    A handler receives `overlay_msg` and `inner_msg`, returns a dict
+    which will be passed as `**kwargs` to the `final()` - types must match !
+    It may receive an asyncio.CancelledError
+
+    Each message type optionally has a final.
+    It executes only if the `handler()` completed without being cancelled
+    It won't be interrupted by an asyncio.CancelledError
+    If no `final()` exist, no action is taken after cancelling or completing the `handler()`
+
+    async def _HandlerExample(self, overlay_msg: dict, inner_msg: InnerMessage) -> Any:
+        logger.debug("Normal handler code that can be cancelled")
+        return { 'value: 3 }
+    async def _FinalExample(self, value: int) -> None:
+            logger.debug(f"Final code than cannot be cancelled. Received {value}")
+
+    """
 
     def __init__(
             self,
@@ -37,18 +63,16 @@ class NodeToNodeController:
         self._controller_data = controller_data
 
         self._command2method = {
-            'key-request': self._HandlerKeyRequest,
-            'key-reply': self._HandlerKeyReply,
-            # 'dummy-inner': self._HandlerDummyInner,
+            KeyRequest.__name__: self._HandlerKeyRequest,
+            KeyReply.__name__: self._HandlerKeyReply,
         }
 
         self._command2final = {
-            'key-request': self._FinalKeyRequest,
-            'key-reply': self._FinalKeyReply,
-            # 'dummy-inner': self._FinalDummyInner,
+            KeyRequest.__name__: self._FinalKeyRequest,
+            KeyReply.__name__: self._FinalKeyReply,
         }
 
-    async def handle(self, overlay_msg: dict, inner_msg: InnerMessage) -> Optional[dict]:
+    async def handle(self, overlay_msg: Message, inner_msg: InnerMessage) -> Optional[dict]:
         """Calls the handler for processing a received message protocol.
 
         If it does not exist, call the default handler to trigger an error.
@@ -64,12 +88,12 @@ class NodeToNodeController:
                 Empty dict or `None` if no `kwargs` expected of no final handler
         """
 
-        if inner_msg.get_param('command') in self._command2method:
-            return await self._command2method[inner_msg.get_param('command')](overlay_msg, inner_msg)
-        else:
-            return await self._HandlerDefault(overlay_msg, inner_msg)
+        if inner_msg.__name__ in self._command2method:
+            return await self._command2method[inner_msg.__name__](overlay_msg, inner_msg)
 
-    async def final(self, command, **kwargs) -> None:
+        return await self._HandlerDefault(overlay_msg, inner_msg)
+
+    async def final(self, message, **kwargs) -> None:
         """Calls the final processing for a received message protocol.
 
         This handler is optional, it may not be declared for a message.
@@ -80,12 +104,12 @@ class NodeToNodeController:
         Args:
             kwargs: Specific arguments for this message final handler
         """
-        if command in self._command2final:
+        if message in self._command2final:
             # Useful ? Allow omitting some arguments, automatically add them with None value
-            expected_args = dict(inspect.signature(self._command2final[command]).parameters).keys()
+            expected_args = dict(inspect.signature(self._command2final[message]).parameters).keys()
             kwargs.update({arg: None for arg in expected_args if arg not in kwargs})
 
-            await self._command2final[command](**kwargs)
+            await self._command2final[message](**kwargs)
 
     async def _HandlerDefault(self, overlay_msg: dict, inner_msg: InnerMessage) -> None:
         """Handler called if the handler for this message is missing.
@@ -100,24 +124,7 @@ class NodeToNodeController:
 
         logger.error(
             f"{ErrorNumbers.FB324}: Failed processing overlay message, unknown inner command "
-            f"{inner_msg.get_param('command')}. Do nothing."
-        )
-
-    # Each message type must have a handler.
-    # A handler receives `overlay_msg` and `inner_msg`, returns a dict
-    # which will be passed as `**kwargs` to the `final()` - types must match !
-    # It may receive an asyncio.CancelledError
-    #
-    # Each message type optionally has a final.
-    # It executes only if the `handler()` completed without being cancelled
-    # It won't be interrupted by an asyncio.CancelledError
-    # If no `final()` exist, no action is taken after cancelling or completing the `handler()`
-    #
-    # async def _HandlerExample(self, overlay_msg: dict, inner_msg: InnerMessage) -> Any:
-    #     logger.debug("Normal handler code that can be cancelled")
-    #     return { 'value: 3 }
-    # async def _FinalExample(self, value: int) -> None:
-    #         logger.debug(f"Final code than cannot be cancelled. Received {value}")
+            f"{inner_msg.__class__.__name__}. Do nothing.")
 
     async def _HandlerKeyRequest(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
         """Handler called for KeyRequest message.
@@ -140,25 +147,23 @@ class NodeToNodeController:
             return None
 
         # we assume the data is properly formatted
-        inner_resp = NodeToNodeMessages.format_outgoing_message(
-            {
-                'request_id': inner_msg.get_param('request_id'),
-                'node_id': environ['NODE_ID'],
-                'dest_node_id': inner_msg.get_param('node_id'),
-                'public_key': data[0]['public_key'],
-                'secagg_id': inner_msg.get_param('secagg_id'),
-                'command': 'key-reply'
-            })
-        overlay_resp = NodeMessages.format_outgoing_message(
-            {
-                'researcher_id': overlay_msg['researcher_id'],
-                'node_id': environ['NODE_ID'],
-                'dest_node_id': inner_msg.get_param('node_id'),
-                'overlay': format_outgoing_overlay(inner_resp),
-                'command': 'overlay'
-            })
+        inner_resp = KeyReply(
+            request_id=inner_msg.request_id,
+            node_id=environ['NODE_ID'],
+            dest_node_id=inner_msg.node_id,
+            public_key=data[0]['public_key'],
+            secagg_id=inner_msg.secagg_id)
+
+        overlay_resp = OverlayMessage(
+            researcher_id=overlay_msg.researcher_id,
+            node_id=environ['NODE_ID'],
+            dest_node_id=inner_msg.node_id,
+            overlay=format_outgoing_overlay(inner_resp))
+
 
         return { 'overlay_resp': overlay_resp }
+
+
 
 
     async def _FinalKeyRequest(self, overlay_resp: Optional[OverlayMessage]) -> None:
@@ -169,6 +174,27 @@ class NodeToNodeController:
         """
         if isinstance(overlay_resp, OverlayMessage):
             self._grpc_controller.send(overlay_resp)
+
+    async def _AdditiveSSharingRequest(self, overlay_resp: Optional[OverlayMessage]):
+        """Final handler called for AdditiveSSharingRequest message.
+
+        Args:
+            overlay_resp: overlay reply message to send
+        """
+
+        from_ = request.node_id
+        # Wait until node has generated its share for given secagg id
+        all_received, data = self._controller_data.wait(
+            [request.secagg_id],
+            TIMEOUT_NODE_TO_NODE_REQUEST
+        )
+
+        if not all_received:
+            return None
+
+        share = data[0]["shares"].get(from_)
+
+        return data
 
 
     async def _HandlerKeyReply(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
@@ -189,26 +215,7 @@ class NodeToNodeController:
         Args:
             inner_msg: received inner message
         """
+
         self._pending_requests.event(inner_msg.get_param('request_id'), inner_msg)
 
 
-    # async def _HandlerDummyInner(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
-    #     """Example handler for dummy-inner message.
-    #
-    #     Args:
-    #         overlay_msg: Outer message for node to node communication
-    #         inner_msg: Unpacked inner message from the outer message
-    #
-    #     Returns:
-    #         A `dict` with an arbitrary int value
-    #     """
-    #     await asyncio.sleep(3600)
-    #     return { 'value': 4 }
-
-    # async def _FinalDummyInner(self, value: int) -> None:
-    #     """Example final handler for dummy-inner message.
-    #
-    #     Args:
-    #         value: arbitrary value
-    #     """
-    #     await asyncio.sleep(value)

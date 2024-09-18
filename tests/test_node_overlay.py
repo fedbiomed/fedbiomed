@@ -40,10 +40,7 @@ class TestNodeRequestsOverlay(NodeTestCase):
             dest_node_id= 'my dest node id',
             request_id='my request id',
             secagg_id='my secagg id',
-            command='key-request',
         )
-        # nota: not mocking all subclasses like Serializer, Message, etc.
-        # would make tests (uselessly ?) too complicated
 
         # action
         dest_message = format_incoming_overlay(format_outgoing_overlay(src_message))
@@ -55,9 +52,7 @@ class TestNodeRequestsOverlay(NodeTestCase):
             self.assertEqual(src_message.get_param(k), dest_message.get_param(k))
 
 
-    @patch('fedbiomed.node.requests._overlay.format_outgoing_overlay')
-    @patch('fedbiomed.node.requests._overlay.NodeMessages.format_outgoing_message')
-    def test_overlay_02_send_nodes(self, nm_format_outgoing, format_outgoing):
+    def test_overlay_02_send_nodes(self):
         """Test send_nodes function
         """
         # prepare

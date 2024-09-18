@@ -283,11 +283,9 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
 
     message_search = SearchReply(
             researcher_id='test',
-            success=True,
             databases=[],
             node_id='node-id',
             count=1,
-            command='search',
         )
 
     message_log = FeedbackMessage(

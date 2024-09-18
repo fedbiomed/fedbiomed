@@ -20,7 +20,10 @@ from fedbiomed.common.constants import ErrorNumbers, HashingAlgorithms, Training
     TrainingPlanStatus, __messaging_protocol_version__
 from fedbiomed.common.exceptions import FedbiomedMessageError, \
     FedbiomedTrainingPlanSecurityManagerError
-
+from fedbiomed.common.message import (
+    ApprovalRequest,
+    TrainingPlanStatusRequest
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
@@ -462,40 +465,39 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
     ):
         """Tests training plan manager `reply_training_plan_status_request` method (normal case scenarii)"""
 
-        msg = {
-            'researcher_id': 'ssss',
-            'request_id': 'request_id',
-            'experiment_id': 'xxx',
-            'training_plan': 'class TestTrainingPlan:\n\tpass',
-            'command': 'training-plan-status'
-        }
+        request = TrainingPlanStatusRequest(
+            researcher_id='ssss',
+            request_id='request_id',
+            experiment_id='xxx',
+            training_plan='class TestTrainingPlan:\n\tpass',
+        )
 
         TestTrainingPlanSecurityManager.env["TRAINING_PLAN_APPROVAL"] = True
 
         self.db_mock.return_value.get.return_value = {
             "training_plan_status": "approved", "training_plan": "source_code", "training_plan_id": "id"}
-        result = self.tp_security_manager.reply_training_plan_status_request(msg)
+        result = self.tp_security_manager.reply_training_plan_status_request(request)
         self.assertEqual(result.get_param('status'), 'approved')
 
         self.db_mock.return_value.get.return_value = {"training_plan_status": "rejected", "training_plan": "source_code", "training_plan_id": "id"}
-        result = self.tp_security_manager.reply_training_plan_status_request(msg)
+        result = self.tp_security_manager.reply_training_plan_status_request(request)
         self.assertEqual(result.get_param('status'), 'rejected')
 
         self.db_mock.return_value.get.return_value = {"training_plan_status": "pending", "training_plan": "source_code", "training_plan_id": "id"}
-        result = self.tp_security_manager.reply_training_plan_status_request(msg)
+        result = self.tp_security_manager.reply_training_plan_status_request(request)
         self.assertEqual(result.get_param('status'), 'pending')
 
         TestTrainingPlanSecurityManager.env["TRAINING_PLAN_APPROVAL"] = False
-        result = self.tp_security_manager.reply_training_plan_status_request(msg)
+        result = self.tp_security_manager.reply_training_plan_status_request(request)
         self.assertEqual(result.get_param('approval_obligation'), False)
 
         self.db_mock.return_value.get.return_value = None
-        result = self.tp_security_manager.reply_training_plan_status_request(msg)
+        result = self.tp_security_manager.reply_training_plan_status_request(request)
         self.assertEqual(result.get_param('status'), 'Not Registered')
 
 
         self.db_mock.return_value.get.side_effect = Exception
-        result = self.tp_security_manager.reply_training_plan_status_request(msg)
+        result = self.tp_security_manager.reply_training_plan_status_request(request)
         self.assertEqual(result.get_param('status'), 'Error')
         self.db_mock.return_value.get.side_effect = None
 
@@ -583,46 +585,45 @@ class TestTrainingPlanSecurityManager(NodeTestCase):
         """Test training plan manager `reply_training_plan_approval_request` function.
         """
 
-        msg = {
-            'researcher_id': 'r-1',
-            'request_id': 'req-id',
-            'description': 'test',
-            'command': 'approval'
-        }
+        request = ApprovalRequest(
+            researcher_id='r-1',
+            request_id='req-id',
+            training_plan='class TrainingPlan:\n\tpass',
+            description='test',
+        )
 
-        msg.update({'training_plan': "class TrainingPlan:\n\tpass"})
         self.db_mock.return_value.get.return_value = {"name": "tp"}
-        result = self.tp_security_manager.reply_training_plan_approval_request(msg)
+        result = self.tp_security_manager.reply_training_plan_approval_request(request)
 
         self.db_mock.return_value.get.return_value = None
-        result = self.tp_security_manager.reply_training_plan_approval_request(msg)
+        result = self.tp_security_manager.reply_training_plan_approval_request(request)
 
         self.db_mock.return_value.upsert.side_effect = Exception
-        result = self.tp_security_manager.reply_training_plan_approval_request(msg)
+        result = self.tp_security_manager.reply_training_plan_approval_request(request)
         self.assertFalse(result.get_param('success'))
         self.db_mock.return_value.upsert.side_effect = None
 
         # Invalid TP code
-        msg.update({'training_plan': "class TrainingPlan"})
-        result = self.tp_security_manager.reply_training_plan_approval_request(msg)
+        request.training_plan = "class TrainingPlan"
+        result = self.tp_security_manager.reply_training_plan_approval_request(request)
         self.assertFalse(result.get_param('success'))
 
-        msg.update({'training_plan': "class TrainingPlan:\n\tpass"})
+        request.training_plan = "class TrainingPlan:\n\tpass"
         self.db_mock.return_value.get.side_effect = [None,
                                                      {"name": "tp"}]
-        result = self.tp_security_manager.reply_training_plan_approval_request(msg)
+        result = self.tp_security_manager.reply_training_plan_approval_request(request)
         self.assertTrue(result.get_param('success'))
 
         self.db_mock.return_value.get.side_effect = [None,
                                                      None,
                                                      {"name": "tp"}]
-        result = self.tp_security_manager.reply_training_plan_approval_request(msg)
+        result = self.tp_security_manager.reply_training_plan_approval_request(request)
         self.assertTrue(result.get_param('success'))
 
         self.db_mock.return_value.get.side_effect = [None,
                                                      None,
                                                      None]
-        result = self.tp_security_manager.reply_training_plan_approval_request(msg)
+        result = self.tp_security_manager.reply_training_plan_approval_request(request)
         self.assertTrue(result.get_param('success'))
         self.db_mock.return_value.get.side_effect = None
 

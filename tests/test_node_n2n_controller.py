@@ -6,14 +6,18 @@ from unittest.mock import patch, MagicMock
 from testsupport.base_case import NodeTestCase
 #############################################################
 
-from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.message import (
+    Message,
+    KeyRequest,
+    KeyReply,
+    PingRequest,
+    OverlayMessage
+)
 from fedbiomed.node.requests._n2n_controller import NodeToNodeController
-
-from testsupport.fake_message import FakeMessages
 
 
 def func_return_argument(message):
-    return message
+    return [b"x", b"y"]
 
 
 class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
@@ -34,38 +38,32 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         self.n2n_controller = NodeToNodeController(
             self.grpc_controller_mock, self.pending_requests_mock, self.controller_data_mock)
 
-        self.overlay_msg = {
-            'researcher_id': 'dummy researcher',
-            'node_id': 'dummy source overlay node',
-            'dest_node_id': 'dummy dest overlay node',
-            'overlay': ['dummy overlay content'],
-            'command': 'overlay',
-        }
-        self.inner_msg = FakeMessages({
-            'node_id': 'dummy source inner node',
-            'dest_node_id': 'dummy dest inner node',
-            'request_id': 'dummy request id',
-            'secagg_id': 'dummy secagg id',
-            'command': 'key-request',
-        })
+        self.overlay_msg = OverlayMessage(
+            researcher_id='dummy researcher',
+            node_id='dummy source overlay node',
+            dest_node_id='dummy dest overlay node',
+            overlay=['dummy overlay content'])
+
+        self.inner_msg = KeyRequest(
+            node_id='dummy source inner node',
+            dest_node_id='dummy dest inner node',
+            request_id='dummy request id',
+            secagg_id='dummy secagg id',
+        )
 
 
     def tearDown(self):
         self.format_outgoing_patch.stop()
 
-    @patch('fedbiomed.node.requests._n2n_controller.NodeToNodeMessages.format_outgoing_message')
-    @patch('fedbiomed.node.requests._n2n_controller.NodeMessages.format_outgoing_message')
-    async def test_n2n_controller_01_handle_key_request(self, nm_format_outgoing, n2nm_format_outgoing):
+    async def test_n2n_controller_01_handle_key_request(self):
         """Handle incoming message KeyRequest in node to node controller
         """
         # 1. public key is available
 
         # prepare
-        public_key = 'my dummy pubkey'
+        public_key = b'my dummy pubkey'
         self.controller_data_mock.wait.return_value = [True, [{'public_key': public_key}]]
 
-        nm_format_outgoing.side_effect = func_return_argument
-        n2nm_format_outgoing.side_effect = func_return_argument
 
         # action
         result = await self.n2n_controller.handle(self.overlay_msg, self.inner_msg)
@@ -73,9 +71,7 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         # check
         self.assertIsInstance(result, dict)
         self.assertEqual(set(result.keys()), set(['overlay_resp']))
-        self.assertEqual(result['overlay_resp']['researcher_id'], self.overlay_msg['researcher_id'])
-        self.assertEqual(result['overlay_resp']['overlay']['request_id'], self.inner_msg.get_param('request_id'))
-        self.assertEqual(result['overlay_resp']['overlay']['public_key'], public_key)
+        self.assertEqual(result['overlay_resp'].researcher_id, self.overlay_msg.researcher_id)
 
 
         # 2. public key is not available
@@ -92,14 +88,12 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
     async def test_n2n_controller_02_handle_key_reply(self):
         """Handle incoming message KeyReply in node to node controller
         """
-        # prepare
-        inner_msg = FakeMessages({
+        inner_msg = KeyReply(**{
             'node_id': 'dummy source inner node',
             'dest_node_id': 'dummy dest inner node',
             'request_id': 'dummy request id',
-            'public-bytes': b'dummy public bytes',
+            'public_key': b'dummy public bytes',
             'secagg_id': 'dummy secagg id',
-            'command': 'key-reply',
         })
 
         # action
@@ -108,49 +102,33 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         # check
         self.assertIsInstance(result, dict)
         self.assertEqual(set(result.keys()), set(['inner_msg']))
-        self.assertEqual(result['inner_msg'].get_param('public-bytes'), inner_msg.get_param('public-bytes'))
+        self.assertEqual(result['inner_msg'].public_key, inner_msg.public_key)
 
     async def test_n2n_controller_03_handle_key_default(self):
         """Handle incoming message non existing in node to node controller
         """
-        # prepare
-        inner_msg = FakeMessages({
-            'command': 'not-existing',
-        })
-
-        # action
+        # None exssting message/request
+        inner_msg = PingRequest(researcher_id='x')
         result = await self.n2n_controller.handle(self.overlay_msg, inner_msg)
-
-        # check
         self.assertIsNone(result)
 
     async def test_n2n_controller_04_final_key_request(self):
         """Final handler for key request in node to node controller
         """
         # prepare
-        overlay_msg = NodeMessages.format_outgoing_message({
+        overlay_msg = OverlayMessage(**{
             'researcher_id': 'dummy researcher',
             'node_id': 'dummy source overlay node',
             'dest_node_id': 'dummy dest overlay node',
             'overlay': ['dummy overlay content'],
-            'command': 'overlay',
         })
-
-        # action
-        await self.n2n_controller.final('key-request', overlay_resp=overlay_msg)
-
-        # check
+        await self.n2n_controller.final('KeyRequest', overlay_resp=overlay_msg)
         self.grpc_controller_mock.send.assert_called_once()
 
     async def test_n2n_controller_04_final_key_reply(self):
         """Final handler for key reply in node to node controller
         """
-        # prepare
-
-        # action
-        await self.n2n_controller.final('key-reply', inner_msg=self.inner_msg)
-
-        # check
+        await self.n2n_controller.final(KeyReply.__name__, inner_msg=self.inner_msg)
         self.pending_requests_mock.event.assert_called_once()
 
 

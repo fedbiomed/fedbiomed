@@ -13,7 +13,7 @@ from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes, Compone
     REQUEST_PREFIX
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeToNodeMessages
+from fedbiomed.common.message import KeyRequest
 from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg import DHKey, DHKeyAgreement
 from fedbiomed.common.synchro import EventWaitExchange
@@ -137,7 +137,6 @@ class SecaggBaseSetup(ABC):
             'secagg_id': self._secagg_id,
             'success': success,
             'msg': message,
-            'command': 'secagg'
         }
 
     def setup(self) -> dict:
@@ -342,13 +341,12 @@ class SecaggDHSetup(SecaggBaseSetup):
         other_nodes_messages = []
         for node in other_nodes:
             other_nodes_messages += [
-                NodeToNodeMessages.format_outgoing_message({
-                    'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
-                    'node_id': environ['NODE_ID'],
-                    'dest_node_id': node,
-                    'secagg_id': self._secagg_id,
-                    'command': 'key-request'
-                })
+                KeyRequest(
+                    request_id=REQUEST_PREFIX + str(uuid.uuid4()),
+                    node_id=environ['NODE_ID'],
+                    dest_node_id=node,
+                    secagg_id=self._secagg_id,
+                )
             ]
 
         logger.debug(f'Sending Diffie-Hellman setup for {self._secagg_id} to nodes: {other_nodes}')
@@ -426,6 +424,6 @@ class SecaggSetup:
             return SecaggSetup.element2class[element.name](**args_to_init)
         except Exception as e:
             raise FedbiomedSecaggError(
-                f"{ErrorNumbers.FB318.value}: Can not instantiate secure aggregation setup with argument "
-                f"{self.kwargs}. Error: {e}"
+                f"{ErrorNumbers.FB318.value}: Can not instantiate secure aggregation "
+                f"setup with argument {self.kwargs}. Error: {e}"
             )
