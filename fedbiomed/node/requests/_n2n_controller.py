@@ -51,7 +51,7 @@ class NodeToNodeController:
             'key-request': self._FinalKeyRequest,
             'key-reply': self._FinalKeyReply,
             'channel-request': self._FinalKeyRequest,
-            'channel-reply': self._FinalKeyReply,
+            'channel-reply': self._FinalChannelReply,
             # 'dummy-inner': self._FinalDummyInner,
         }
 
@@ -142,10 +142,10 @@ class NodeToNodeController:
                 'request_id': inner_msg.get_param('request_id'),
                 'node_id': environ['NODE_ID'],
                 'dest_node_id': inner_msg.get_param('node_id'),
-                'public_key': self._overlay.get_local_public_key(inner_msg.get_param('node_id')),
+                'public_key': await self._overlay.get_local_public_key(inner_msg.get_param('node_id')),
                 'command': 'channel-reply'
             })
-        overlay, salt = self._overlay.format_outgoing_overlay(inner_resp, overlay_msg['researcher_id'], True)
+        overlay, salt = await self._overlay.format_outgoing_overlay(inner_resp, overlay_msg['researcher_id'], True)
         overlay_resp = NodeMessages.format_outgoing_message(
             {
                 'researcher_id': overlay_msg['researcher_id'],
@@ -158,6 +158,15 @@ class NodeToNodeController:
             })
 
         return { 'overlay_resp': overlay_resp }
+
+
+    async def _FinalChannelReply(self, inner_msg: InnerMessage) -> None:
+        """Final handler called for ChannelSetupReply message.
+
+        Args:
+            inner_msg: received inner message
+        """
+        await self._overlay.set_distant_key(inner_msg.get_param('node_id'), inner_msg.get_param('public_key'))
 
 
     async def _HandlerKeyRequest(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
@@ -190,7 +199,7 @@ class NodeToNodeController:
                 'secagg_id': inner_msg.get_param('secagg_id'),
                 'command': 'key-reply'
             })
-        overlay, salt = self._overlay.format_outgoing_overlay(inner_resp, overlay_msg['researcher_id'])
+        overlay, salt = await self._overlay.format_outgoing_overlay(inner_resp, overlay_msg['researcher_id'])
         overlay_resp = NodeMessages.format_outgoing_message(
             {
                 'researcher_id': overlay_msg['researcher_id'],

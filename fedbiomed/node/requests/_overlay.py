@@ -1,11 +1,13 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-from typing import Any, List, Tuple, Optional
+
+from typing import List, Tuple, Optional
 import os
 from dataclasses import dataclass
 import threading
 import uuid
 import secrets
+import asyncio
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization, hashes
@@ -16,7 +18,7 @@ from cryptography.exceptions import InvalidSignature
 from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST, REQUEST_PREFIX
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import Message, InnerMessage, InnerRequestReply, \
+from fedbiomed.common.message import Message, InnerMessage, \
     NodeMessages, NodeToNodeMessages
 from fedbiomed.common.secagg import DHKey as DHKeyECC
 from fedbiomed.common.serializer import Serializer
@@ -80,6 +82,7 @@ class DHKey(DHKeyECC):
 class _N2nKeysEntry:
     "Stores description of one node to node channel key status"
     local_key: DHKey
+    ready_event: asyncio.Event
     distant_key: Optional[DHKey] = None
 
 
@@ -93,7 +96,7 @@ class _ChannelKeys:
     def __init__(self):
         """Class constructor"""
         self._channel_keys = {}
-        self._channel_keys_lock = threading.Lock()
+        self._channel_keys_lock = asyncio.Lock()
 
         # TODO: read saved keys from DB & insert in self._channel_keys
 
@@ -109,30 +112,31 @@ class _ChannelKeys:
             distant_node_id: unique ID of the peer node
         """
         if distant_node_id not in self._channel_keys:
-            self._channel_keys[distant_node_id] = _N2nKeysEntry(local_key=DHKey())
+            self._channel_keys[distant_node_id] = _N2nKeysEntry(local_key=DHKey(), ready_event=asyncio.Event())
 
             # TODO: save in DB entry for self._channel_keys[distant_node_id]
 
-    def get_keys(self, distant_node_id: str) -> Tuple[DHKey, DHKey]:
+    async def get_keys(self, distant_node_id: str) -> Tuple[DHKey, DHKey]:
         """Gets keys for peering with a given distant peer node on a channel
         """
-        with self._channel_keys_lock:
+        async with self._channel_keys_lock:
             self._create_channel(distant_node_id)
             return self._channel_keys[distant_node_id].local_key, self._channel_keys[distant_node_id].distant_key
 
-    def set_distant_key(self, distant_node_id: str, public_key_pem: bytes) -> None:
+    async def set_distant_key(self, distant_node_id: str, public_key_pem: bytes) -> None:
         """Sets distant (public) key of a channel for peering with a given distant peer node.
 
         Args:
             distant_node_id: unique ID of the peer node
             public_key_pem: public key in PEM format
         """
-        with self._channel_keys_lock:
+        async with self._channel_keys_lock:
             # This case should not happen, but this ensures robustness/integrity
             self._create_channel(distant_node_id)
             self._channel_keys[distant_node_id].distant_key = DHKey(public_key_pem=public_key_pem)
+            self._channel_keys[distant_node_id].ready_event.set()
 
-    def get_local_public_key(self, distant_node_id: str) -> bytes:
+    async def get_local_public_key(self, distant_node_id: str) -> bytes:
         """Gets local public key of a channel for peering with a given distant peer node.
 
         Args:
@@ -141,10 +145,10 @@ class _ChannelKeys:
         Returns:
             Local node's public key ID for this peer node as bytes
         """
-        local_key, _ = self.get_keys(distant_node_id)
+        local_key, _ = await self.get_keys(distant_node_id)
         return local_key.export_public_key()
 
-    def is_ready_channel(self, distant_node_id: str) -> bool:
+    async def is_ready_channel(self, distant_node_id: str) -> bool:
         """Checks if keys of a channel to a given distant node are ready for usage.
 
         Args:
@@ -153,7 +157,7 @@ class _ChannelKeys:
         Returns:
             True if keys for the channel are ready for usage.
         """
-        with self._channel_keys_lock:
+        async with self._channel_keys_lock:
             # New node to node channel
             self._create_channel(distant_node_id)
 
@@ -166,7 +170,16 @@ class _ChannelKeys:
 
         return True
 
+    async def wait_ready_channel(self, distant_node_id: str) -> bool:
+        async with self._channel_keys_lock:
+            # New node to node channel
+            self._create_channel(distant_node_id)
 
+        try:
+            await asyncio.wait_for(self._channel_keys[distant_node_id].ready_event.wait(), TIMEOUT_NODE_TO_NODE_REQUEST)
+            return True
+        except TimeoutError:
+            return False
 
 
 class Overlay:
@@ -193,6 +206,7 @@ class Overlay:
         default_private_key, default_public_key = self._load_default_n2n_key()
         self._default_n2n_key = _N2nKeysEntry(
             local_key=default_private_key,
+            ready_event=asyncio.Event(),
             distant_key=default_public_key
         )
 
@@ -240,7 +254,7 @@ class Overlay:
         return private_key, public_key
 
 
-    def get_local_public_key(self, distant_node_id: str) -> bytes:
+    async def get_local_public_key(self, distant_node_id: str) -> bytes:
         """Gets local public key for peering with a given distant peer node
 
         Args:
@@ -249,10 +263,20 @@ class Overlay:
         Returns:
             Local node's public key ID for this peer node
         """
-        return self._channel_keys.get_local_public_key(distant_node_id)
+        return await self._channel_keys.get_local_public_key(distant_node_id)
 
 
-    def _setup_use_channel_keys(self, distant_node_id: str, researcher_id: str, setup: bool) -> Tuple[DHKey, DHKey]:
+    async def set_distant_key(self, distant_node_id: str, public_key_pem: bytes) -> None:
+        """Sets distant (public) key of a channel for peering with a given distant peer node.
+
+        Args:
+            distant_node_id: unique ID of the peer node
+            public_key_pem: public key in PEM format
+        """
+        await self._channel_keys.set_distant_key(distant_node_id, public_key_pem)
+
+
+    async def _setup_use_channel_keys(self, distant_node_id: str, researcher_id: str, setup: bool) -> Tuple[DHKey, DHKey]:
         """Returns channel key objects for
 
         If key object for local node does not yet exist, generate it.
@@ -276,46 +300,34 @@ class Overlay:
         if setup:
             return self._default_n2n_key.local_key, self._default_n2n_key.distant_key
 
-        distant_nodes = []
-        distant_nodes_messages = []
-
-        if not self._channel_keys.is_ready_channel(distant_node_id):
-            distant_nodes += [distant_node_id]
-            distant_nodes_messages += [
-                NodeToNodeMessages.format_outgoing_message({
+        if not await self._channel_keys.is_ready_channel(distant_node_id):
+            # Contact node to node channel peer to get its public key
+            #
+            # nota: channel setup is sequential per peer-node (not optimal in setup time,
+            # but more simple implementation, plus acceptable because executed only once for channel setup)
+            distant_node_message = NodeToNodeMessages.format_outgoing_message({
                     'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
                     'node_id': environ['NODE_ID'],
                     'dest_node_id': distant_node_id,
                     'command': 'channel-request'
-                })
-            ]
+            })
 
-        # Contact node to node channel peer to get its public key
-        #
-        # nota: channel setup is sequential per peer-node (not optimal in setup time,
-        # but more simple implementation, plus acceptable because executed only once for channel setup)
-        if distant_nodes:
-            all_received, messages = self.send_nodes(
+            received = await self.send_nodes_async_setup(
                 researcher_id,
-                distant_nodes,
-                distant_nodes_messages,
-                setup=True,
+                distant_node_id,
+                distant_node_message,
             )
-            logger.debug(f"Completed node to node channel setup with success={all_received} "
+            logger.debug(f"Completed node to node channel setup with success={received} "
                          f"node_id='{environ['NODE_ID']}' distant_node_id='{distant_node_id}")
-            if not all_received:
+            if not received:
                 raise FedbiomedNodeToNodeError(
                     f"{ErrorNumbers.FB324.value}: A node did not answer during channel setup: {distant_node_id}."
                 )
 
-            # With current implementation there should be exactly one
-            for m in messages:
-                self._channel_keys.set_distant_key(distant_node_id, m.get_param('public_key'))
-
-        return self._channel_keys.get_keys(distant_node_id)
+        return await self._channel_keys.get_keys(distant_node_id)
 
 
-    def format_outgoing_overlay(self, message: Message, researcher_id: str, setup: bool = False) -> \
+    async def format_outgoing_overlay(self, message: Message, researcher_id: str, setup: bool = False) -> \
             Tuple[List[bytes], bytes]:
         """Creates an overlay message payload from an inner message.
 
@@ -338,15 +350,11 @@ class Overlay:
         if not isinstance(message, InnerMessage):
             raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: not an inner message')
 
-        local_node_private_key, distant_node_public_key = self._setup_use_channel_keys(
+        local_node_private_key, distant_node_public_key = await self._setup_use_channel_keys(
             message.get_param('dest_node_id'),
             researcher_id,
             setup
         )
-
-        logger.debug(f"DEBUG FORMAT OUTGOING WITH KEY setup={setup} {message}")
-        logger.debug(f"DEBUG FORMAT OUTGOING WITH KEY setup={setup} {local_node_private_key.export_public_key()} {distant_node_public_key.export_public_key()}")
-        logger.debug(f"DEBUG FULL CHANNEL KEYS {self._channel_keys._channel_keys}")
 
         # `salt` value is unused for now, will be used when moving to symetric encryption of overlay messages
         # Adjust length of `salt` depending on algorithm (eg: 16 bytes for ChaCha20)
@@ -390,7 +398,7 @@ class Overlay:
         ], salt
 
 
-    def format_incoming_overlay(self, overlay_msg: dict) -> InnerMessage:
+    async def format_incoming_overlay(self, overlay_msg: dict) -> InnerMessage:
         """Retrieves inner message from overlay message payload.
 
         Check signature, decrypt, deserialize the inner message
@@ -415,7 +423,7 @@ class Overlay:
             raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad type for node to node payload')
 
         local_node_private_key, distant_node_public_key = \
-            self._setup_use_channel_keys(overlay_msg['node_id'], overlay_msg['researcher_id'], overlay_msg['setup'])
+            await self._setup_use_channel_keys(overlay_msg['node_id'], overlay_msg['researcher_id'], overlay_msg['setup'])
 
         # decode and ensure only node2node (inner) messages are received
 
@@ -445,11 +453,6 @@ class Overlay:
                 f'{ErrorNumbers.FB324.value}: cannot decrypt payload: {e}') from e
 
         decrypted = Serializer.loads(bytes().join(decrypted_chunks))
-
-        logger.debug(f"DEBUG FORMAT INCOMING WITH KEY setup={overlay_msg['setup']} {decrypted}")
-        logger.debug(
-            f"DEBUG FORMAT INCOMING WITH KEY setup={overlay_msg['setup']} {local_node_private_key.export_public_key()} {distant_node_public_key.export_public_key()}")
-        logger.debug(f"DEBUG FULL CHANNEL KEYS {self._channel_keys._channel_keys}")
 
         if not isinstance(decrypted, dict) or not set(('message', 'signature')) <= set(decrypted):
             raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad inner payload format '
@@ -484,13 +487,12 @@ class Overlay:
 
         return inner_msg
 
-    def send_nodes(
+    async def send_nodes_async_setup(
             self,
             researcher_id: str,
-            nodes: List[str],
-            messages: List[InnerMessage],
-            setup: bool = False,
-    ) -> Tuple[bool, List[Any]]:
+            node: str,
+            message: InnerMessage,
+    ) -> bool:
         """Send message to some other nodes using overlay communications and wait for their replies.
 
             Args:
@@ -500,28 +502,20 @@ class Overlay:
                 setup: False for sending a message over the channel, True for a message
                     setting up the channel
             Returns:
-                status: True if all messages are received
-                replies: List of replies from each node.
+                True if channel is ready, False if channel not ready after timeout
         """
-        request_ids = []
+        overlay, salt = await self.format_outgoing_overlay(message, researcher_id, True)
+        message_overlay = NodeMessages.format_outgoing_message(
+            {
+                'researcher_id': researcher_id,
+                'node_id': environ['NODE_ID'],
+                'dest_node_id': node,
+                'overlay': overlay,
+                'setup': True,
+                'salt': salt,
+                'command': 'overlay',
+            })
 
-        for node, message in zip(nodes, messages):
-            overlay, salt = self.format_outgoing_overlay(message, researcher_id, setup)
-            message_overlay = NodeMessages.format_outgoing_message(
-                {
-                    'researcher_id': researcher_id,
-                    'node_id': environ['NODE_ID'],
-                    'dest_node_id': node,
-                    'overlay': overlay,
-                    'setup': setup,
-                    'salt': salt,
-                    'command': 'overlay',
-                })
+        self._grpc_client.send(message_overlay)
 
-            self._grpc_client.send(message_overlay)
-
-            if isinstance(message, InnerRequestReply):
-                request_ids += [message.get_param('request_id')]
-
-        replies = self._pending_requests.wait(request_ids, TIMEOUT_NODE_TO_NODE_REQUEST)
-        return replies
+        return await self._channel_keys.wait_ready_channel(node)

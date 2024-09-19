@@ -4,10 +4,12 @@
 from threading import Thread
 import asyncio
 import time
+from typing import List, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.message import Message
 from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.transport.controller import GrpcController
@@ -156,7 +158,7 @@ class _NodeToNodeAsyncRouter:
                         f"sent to {overlay_msg['dest_node_id']}. Maybe malicious activity. Ignore message."
                     )
                     return
-                inner_msg = self._overlay.format_incoming_overlay(overlay_msg)
+                inner_msg = await self._overlay.format_incoming_overlay(overlay_msg)
 
                 finally_kwargs = await self._node_to_node_controller.handle(overlay_msg, inner_msg)
                 # in case nothing is returned from the handler
@@ -244,3 +246,25 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
             logger.critical(
                 f"Failed submitting message to node to node router. Exception: {type(e).__name__}. Error message: {e}")
             raise e
+
+
+    def format_outgoing_overlay(self, message: Message, researcher_id: str) -> \
+            Tuple[List[bytes], bytes]:
+        """Creates an overlay message payload from an inner message.
+
+        Serialize, crypt, sign the inner message
+
+        Args:
+            message: Inner message to send as overlay payload
+            researcher_id: unique ID of researcher connecting the nodes
+            setup: False for sending a message over the channel, True for a message
+                setting up the channel
+
+        Returns:
+            A tuple consisting of: payload for overlay message, salt for inner message encryption
+        """
+        future = asyncio.run_coroutine_threadsafe(
+            self._overlay.format_outgoing_overlay(message, researcher_id),
+            self._loop
+        )
+        return future.result()

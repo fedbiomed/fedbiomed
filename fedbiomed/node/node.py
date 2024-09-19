@@ -57,12 +57,12 @@ class Node:
             on_message=self.on_message,
         )
 
-        pending_requests = EventWaitExchange(remove_delivered=True)
+        self._pending_requests = EventWaitExchange(remove_delivered=True)
         self._controller_data = EventWaitExchange(remove_delivered=False)
         # When implementing multiple researchers, there will probably be one Overlay per researcher
-        self._overlay = Overlay(self._grpc_client, pending_requests)
+        overlay = Overlay(self._grpc_client, self._pending_requests)
         self._n2n_router = NodeToNodeRouter(
-            self._grpc_client, self._overlay, pending_requests, self._controller_data)
+            self._grpc_client, overlay, self._pending_requests, self._controller_data)
 
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
@@ -229,8 +229,12 @@ class Node:
         setup_arguments = {key: value for (key, value) in msg.get_dict().items()}
 
         # Needed when using node to node communications
-        setup_arguments['overlay'] = self._overlay
-        setup_arguments['controller_data'] = self._controller_data
+        setup_arguments.update({
+            'n2n_router': self._n2n_router,
+            'grpc_client': self._grpc_client,
+            'pending_requests': self._pending_requests,
+            'controller_data': self._controller_data,
+        })
 
         try:
             secagg = SecaggSetup(**setup_arguments)()
