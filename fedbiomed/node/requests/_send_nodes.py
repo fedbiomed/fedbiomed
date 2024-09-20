@@ -4,7 +4,7 @@
 from typing import Any, List, Tuple
 
 from fedbiomed.common.constants import TIMEOUT_NODE_TO_NODE_REQUEST
-from fedbiomed.common.message import InnerMessage, NodeMessages, InnerRequestReply
+from fedbiomed.common.message import InnerMessage, OverlayMessage, InnerRequestReply
 from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.transport.controller import GrpcController
@@ -37,16 +37,14 @@ def send_nodes(
 
     for node, message in zip(nodes, messages):
         overlay, salt = n2n_router.format_outgoing_overlay(message, researcher_id)
-        message_overlay = NodeMessages.format_outgoing_message(
-            {
-                'researcher_id': researcher_id,
-                'node_id': environ['NODE_ID'],
-                'dest_node_id': node,
-                'overlay': overlay,
-                'setup': False,
-                'salt': salt,
-                'command': 'overlay',
-            })
+        message_overlay = OverlayMessage(
+            researcher_id=researcher_id,
+            node_id=environ['NODE_ID'],
+            dest_node_id=node,
+            overlay=overlay,
+            setup=False,
+            salt=salt,
+        )
 
         grpc_client.send(message_overlay)
 

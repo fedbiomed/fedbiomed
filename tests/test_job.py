@@ -506,7 +506,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'secagg_servkey_id': secagg_arguments.get('secagg_servkey_id'),
             'secagg_random': secagg_arguments.get('secagg_random'),
             'secagg_clipping_range': secagg_arguments.get('secagg_clipping_range'),
-            'command': 'train',
             'aggregator_args': {},
             'aux_vars': [{}, 'node-specific'],
             'state_id': state_ids[node_id],
@@ -527,7 +526,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'dataset_id': dataset_id,
             'timing': {'rtime_total': 0},
             'msg': '',
-            'command': 'train',
             'state_id': None,
             'sample_size': None,
             'encrypted': False,
@@ -545,7 +543,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'node_id': node_id,
             'errnum': 'a dummy error',
             'extra_msg': 'a dummy message',
-            'command': 'error',
         }
 
     def _get_status_request(self,
@@ -556,7 +553,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'researcher_id': environ['RESEARCHER_ID'],
             'experiment_id': 'some_id',
             'training_plan': mock_tp.source(),
-            'command': 'training-plan-status',
         }
 
     def _get_status_reply(self,
@@ -576,7 +572,6 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'msg': 'my arbitrary message',
             'training_plan': mock_tp.source(),
             'training_plan_id': '12345',
-            'command': 'training-plan-status',
         }
 
 

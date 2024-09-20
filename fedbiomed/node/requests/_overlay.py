@@ -8,9 +8,8 @@ import uuid
 import secrets
 import asyncio
 
-from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.exceptions import InvalidSignature
 
@@ -18,7 +17,7 @@ from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUES
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import Message, InnerMessage, \
-    NodeMessages, NodeToNodeMessages
+    OverlayMessage, ChannelSetupRequest
 from fedbiomed.common.secagg import DHKey as DHKeyECC
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.utils import ROOT_DIR
@@ -27,8 +26,8 @@ from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
 
-_DEFAULT_KEY_DIR = os.path.join(ROOT_DIR, 'envs', 'common', 'default_keys')
-_DEFAULT_N2N_KEY_FILE = 'default_n2n_key.pem'
+_DEFAULT_KEY_DIR = os.path.join(ROOT_DIR, "envs", "common", "default_keys")
+_DEFAULT_N2N_KEY_FILE = "default_n2n_key.pem"
 
 # chunk size must be less or equal (in bits) the smallest RSA key length used
 _SMALLEST_KEY = 2048
@@ -319,12 +318,11 @@ class OverlayChannel:
             #
             # nota: channel setup is sequential per peer-node (not optimal in setup time,
             # but more simple implementation, plus acceptable because executed only once for channel setup)
-            distant_node_message = NodeToNodeMessages.format_outgoing_message({
-                'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
-                'node_id': environ['NODE_ID'],
-                'dest_node_id': distant_node_id,
-                'command': 'channel-request'
-            })
+            distant_node_message = ChannelSetupRequest(
+                request_id=REQUEST_PREFIX + str(uuid.uuid4()),
+                node_id=environ['NODE_ID'],
+                dest_node_id=distant_node_id,
+            )
 
             received = await self.send_node_setup(
                 researcher_id,
@@ -386,9 +384,9 @@ class OverlayChannel:
 
         # sign inner payload
         signed = Serializer.dumps({
-            'message': message.get_dict(),
+            'message': message.to_dict(),
             'signature': local_node_private_key.private_key.sign(
-                Serializer.dumps(message.get_dict()),
+                Serializer.dumps(message.to_dict()),
                 padding.PSS(
                     mgf=padding.MGF1(hashes.SHA256()),
                     salt_length=padding.PSS.MAX_LENGTH
@@ -405,14 +403,14 @@ class OverlayChannel:
                 padding.OAEP(
                     mgf=padding.MGF1(algorithm=hashes.SHA256()),
                     algorithm=hashes.SHA256(),
-                    label=None
-                )
+                    label=None,
+                ),
             )
             for i in range(0, len(signed), _CHUNK_SIZE)
         ], salt
 
 
-    async def format_incoming_overlay(self, overlay_msg: dict) -> InnerMessage:
+    async def format_incoming_overlay(self, overlay_msg: OverlayMessage) -> InnerMessage:
         """Retrieves inner message from overlay message payload.
 
         Check signature, decrypt, deserialize the inner message
@@ -430,15 +428,15 @@ class OverlayChannel:
             FedbiomedNodeToNodeError: cannot verify payload integrity
             FedbiomedNodeToNodeError: sender/dest node ID don't match in overlay and inner message
         """
-        payload = overlay_msg['overlay']
+        payload = overlay_msg.overlay
         # check payload types (not yet done by message type checks, only checks it's a list)
         if not all(isinstance(p, bytes) for p in payload):
             raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad type for node to node payload')
 
         local_node_private_key, distant_node_public_key = await self._setup_use_channel_keys(
-            overlay_msg['node_id'],
-            overlay_msg['researcher_id'],
-            overlay_msg['setup']
+            overlay_msg.node_id,
+            overlay_msg.researcher_id,
+            overlay_msg.setup
         )
 
         # decode and ensure only node2node (inner) messages are received
@@ -489,17 +487,17 @@ class OverlayChannel:
             raise FedbiomedNodeToNodeError(
                 f'{ErrorNumbers.FB324.value}: cannot verify payload integrity: {e}') from e
 
-        inner_msg = NodeToNodeMessages.format_incoming_message(decrypted['message'])
+        inner_msg = Message.from_dict(decrypted['message'])
 
         # Node ID mismatch reveals either (1) malicious peer forging message (2) application internal error
-        if inner_msg.get_param('node_id') != overlay_msg['node_id']:
+        if inner_msg.node_id != overlay_msg.node_id:
             raise FedbiomedNodeToNodeError(
                 f'{ErrorNumbers.FB324.value}: Source node ID mismatch for overlay message '
-                f'inner_node_id={inner_msg.get_param("node_id")} overlay_node_id={overlay_msg["node_id"]}')
-        if inner_msg.get_param('dest_node_id') != overlay_msg['dest_node_id']:
+                f'inner_node_id={inner_msg.node_id} overlay_node_id={overlay_msg.node_id}')
+        if inner_msg.dest_node_id != overlay_msg.dest_node_id:
             raise FedbiomedNodeToNodeError(
                 f'{ErrorNumbers.FB324.value}: Destination node ID mismatch for overlay message '
-                f'inner_node_id={inner_msg.get_param("dest_node_id")} overlay_node_id={overlay_msg["dest_node_id"]}')
+                f'inner_node_id={inner_msg.dest_node_id} overlay_node_id={overlay_msg.dest_node_id}')
 
         return inner_msg
 
@@ -520,16 +518,14 @@ class OverlayChannel:
                 True if channel is ready, False if channel not ready after timeout
         """
         overlay, salt = await self.format_outgoing_overlay(message, researcher_id, True)
-        message_overlay = NodeMessages.format_outgoing_message(
-            {
-                'researcher_id': researcher_id,
-                'node_id': environ['NODE_ID'],
-                'dest_node_id': node,
-                'overlay': overlay,
-                'setup': True,
-                'salt': salt,
-                'command': 'overlay',
-            })
+        message_overlay = OverlayMessage(
+            researcher_id=researcher_id,
+            node_id=environ['NODE_ID'],
+            dest_node_id=node,
+            overlay=overlay,
+            setup=True,
+            salt=salt,
+        )
 
         self._grpc_client.send(message_overlay)
 

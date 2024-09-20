@@ -4,7 +4,7 @@ from copy import deepcopy
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
-from fedbiomed.common.message import NodeToNodeMessages
+from fedbiomed.common.message import KeyReply
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.transport.controller import GrpcController
 from testsupport.base_case import NodeTestCase
@@ -83,7 +83,6 @@ class TestSecaggBaseSetup(NodeTestCase):
                 "secagg_id": self.args["secagg_id"],
                 "success": False,
                 "msg": "Test message",
-                "command": "secagg",
             },
         )
 
@@ -294,13 +293,12 @@ class TestSecaggDHSetup(SecaggTestCase):
         for n in self.args["parties"][1:]:
             # remove first and last parties (simulates a drop out from 'node 4')
             received_msg_with_all_nodes.append(
-                NodeToNodeMessages.format_outgoing_message(
-                    {
+                KeyReply(
+                    **{
                         "request_id": "1234",
                         "node_id": n,
                         "dest_node_id": n,
                         "secagg_id": self.args["secagg_id"],
-                        "command": "key-reply",
                         "public_key": b"some-public-key",
                     }
                 )
@@ -349,13 +347,12 @@ class TestSecaggDHSetup(SecaggTestCase):
         for n in self.args["parties"][1:-2]:
             # remove first and last parties (simulates a drop out from 'node 4')
             received_msg_with_node_dropout.append(
-                NodeToNodeMessages.format_outgoing_message(
-                    {
+                KeyReply(
+                   **{
                         "request_id": "1234",
                         "node_id": n,
                         "dest_node_id": n,
                         "secagg_id": self.args["secagg_id"],
-                        "command": "key-reply",
                         "public_key": b"some-public-key",
                     }
                 )
