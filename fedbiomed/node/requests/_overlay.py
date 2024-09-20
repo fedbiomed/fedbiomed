@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.exceptions import InvalidSignature
 
+from fedbiomed.common.channel_manager import ChannelManager
 from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST, REQUEST_PREFIX
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
@@ -94,8 +95,16 @@ class _ChannelKeys:
         """Class constructor"""
         self._channel_keys = {}
         self._channel_keys_lock = asyncio.Lock()
+        self._channel_manager = ChannelManager(environ['DB_PATH'])
 
-        # TODO: read saved keys from DB & insert in self._channel_keys
+        for distant_node_id in self._channel_manager.list():
+            channel = self._channel_manager.get(distant_node_id)
+
+            # don't need to acquire _channel_keys_lock in the constructor
+            self._channel_keys[distant_node_id] = _N2nKeysEntry(
+                local_key=DHKey(private_key_pem=channel['local_key']),
+                ready_event=asyncio.Event()
+            )
 
     def _create_channel(self, distant_node_id: str) -> None:
         """Create channel for peering with a given distant peer node if it does not exist yet.
@@ -109,9 +118,10 @@ class _ChannelKeys:
             distant_node_id: unique ID of the peer node
         """
         if distant_node_id not in self._channel_keys:
-            self._channel_keys[distant_node_id] = _N2nKeysEntry(local_key=DHKey(), ready_event=asyncio.Event())
+            local_key = DHKey()
+            self._channel_manager.add(distant_node_id, local_key.export_private_key())
 
-            # TODO: save in DB entry for self._channel_keys[distant_node_id]
+            self._channel_keys[distant_node_id] = _N2nKeysEntry(local_key=local_key, ready_event=asyncio.Event())
 
     async def get_keys(self, distant_node_id: str) -> Tuple[DHKey, DHKey]:
         """Gets keys for peering with a given distant peer node on a channel

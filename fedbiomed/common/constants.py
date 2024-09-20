@@ -68,7 +68,9 @@ __node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('2')  # node state version
 __breakpoints_version__ = FBM_Component_Version('3')  # breakpoints format version
 __messaging_protocol_version__ = FBM_Component_Version('5')  # format of gRPC messages.
-__secagg_element_version__ = FBM_Component_Version('2')  # format os secagg database elements
+__secagg_element_version__ = FBM_Component_Version('2')  # format of secagg database elements
+__n2n_channel_element_version__ = FBM_Component_Version('1')  # format of n2n channels database elements
+
 # Nota: for messaging protocol version, all changes should be a major version upgrade
 
 # Max message length as bytes
@@ -348,6 +350,7 @@ class ErrorNumbers(_BaseEnum):
     FB627 = "FB627: Utility function error"
     FB628 = "FB628: Communication error"
     FB629 = "FB629: Diffie-Hellman KA error"
+    FB630 = 'FB630: Node to node channels database error'
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 
