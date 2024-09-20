@@ -53,5 +53,4 @@ def send_nodes(
         if isinstance(message, InnerRequestReply):
             request_ids += [message.get_param('request_id')]
 
-    ret =  pending_requests.wait(request_ids, TIMEOUT_NODE_TO_NODE_REQUEST)
-    return ret
+    return pending_requests.wait(request_ids, TIMEOUT_NODE_TO_NODE_REQUEST)

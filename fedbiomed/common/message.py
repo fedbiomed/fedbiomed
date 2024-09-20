@@ -14,8 +14,7 @@ from google.protobuf.descriptor import FieldDescriptor
 
 import fedbiomed.transport.protocols.researcher_pb2 as r_pb2
 
-from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__, \
-    SecureAggregationSchemes
+from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
 from fedbiomed.common.utils import raise_for_version_compatibility
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
@@ -405,6 +404,7 @@ class ChannelSetupReply(InnerRequestReply, RequiresProtocolVersion):
     """
     public_key: bytes
     command: str
+
 
 @catch_dataclass_exception
 @dataclass

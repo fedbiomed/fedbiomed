@@ -24,7 +24,7 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-from fedbiomed.node.requests import NodeToNodeRouter, Overlay
+from fedbiomed.node.requests import NodeToNodeRouter
 
 
 class Node:
@@ -59,10 +59,7 @@ class Node:
 
         self._pending_requests = EventWaitExchange(remove_delivered=True)
         self._controller_data = EventWaitExchange(remove_delivered=False)
-        # When implementing multiple researchers, there will probably be one Overlay per researcher
-        overlay = Overlay(self._grpc_client, self._pending_requests)
-        self._n2n_router = NodeToNodeRouter(
-            self._grpc_client, overlay, self._pending_requests, self._controller_data)
+        self._n2n_router = NodeToNodeRouter(self._grpc_client, self._pending_requests, self._controller_data)
 
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager

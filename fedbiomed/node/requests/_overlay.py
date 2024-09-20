@@ -4,7 +4,6 @@
 from typing import List, Tuple, Optional
 import os
 from dataclasses import dataclass
-import threading
 import uuid
 import secrets
 import asyncio
@@ -22,7 +21,6 @@ from fedbiomed.common.message import Message, InnerMessage, \
     NodeMessages, NodeToNodeMessages
 from fedbiomed.common.secagg import DHKey as DHKeyECC
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.utils import ROOT_DIR
 
 from fedbiomed.transport.controller import GrpcController
@@ -43,7 +41,7 @@ _CHUNK_SIZE = int(_SMALLEST_KEY / 8)
 class DHKey(DHKeyECC):
     """Temporarily adapts the key management for using RSA asymmetric encryption
 
-    Currently cannot use elliptic curve crypto `DHkey` with asymetric encryption.
+    Currently cannot use elliptic curve crypto `DHkey` with asymmetric encryption.
 
     Attributes:
         private_key: The user's private RSA key.
@@ -91,7 +89,7 @@ class _ChannelKeys:
 
     Attributes:
         _channel_keys: (Dict[str, _N2nKeysEntry]) key status for node to node channels
-        _channel_keys_lock: (threading.Lock) lock to ensure exclusive access to _channel_keys
+        _channel_keys_lock: (asyncio.Lock) lock to ensure exclusive access to _channel_keys
     """
     def __init__(self):
         """Class constructor"""
@@ -118,6 +116,13 @@ class _ChannelKeys:
 
     async def get_keys(self, distant_node_id: str) -> Tuple[DHKey, DHKey]:
         """Gets keys for peering with a given distant peer node on a channel
+
+        Args:
+            distant_node_id: unique ID of the peer node
+
+        Returns:
+            A tuple consisting of the public key object for the channel and the private key
+                object for the channel (or None if not known yet)
         """
         async with self._channel_keys_lock:
             self._create_channel(distant_node_id)
@@ -149,13 +154,13 @@ class _ChannelKeys:
         return local_key.export_public_key()
 
     async def is_ready_channel(self, distant_node_id: str) -> bool:
-        """Checks if keys of a channel to a given distant node are ready for usage.
+        """Checks if keys of a channel to a given distant node are ready for usage, and return immediately
 
         Args:
             distant_node_id: unique ID of the peer node
 
         Returns:
-            True if keys for the channel are ready for usage.
+            True if keys for the channel are ready for usage, False if keys are not ready.
         """
         async with self._channel_keys_lock:
             # New node to node channel
@@ -171,6 +176,14 @@ class _ChannelKeys:
         return True
 
     async def wait_ready_channel(self, distant_node_id: str) -> bool:
+        """Waits until keys of a channel to a given distant node are ready for usage, or timeout is reached.
+
+        Args:
+            distant_node_id: unique ID of the peer node
+
+        Returns:
+            True if keys for the channel are ready for usage, False if keys are not ready.
+        """
         async with self._channel_keys_lock:
             # New node to node channel
             self._create_channel(distant_node_id)
@@ -182,24 +195,24 @@ class _ChannelKeys:
             return False
 
 
-class Overlay:
-    """Provides thread safe layer for sending and receiving overlay messages.
+class OverlayChannel:
+    """Provides asyncio safe layer for sending and receiving overlay messages.
+
+    This class is not thread safe, all calls must be done within the same thread (except constructor).
     """
 
-    def __init__(self, grpc_client: GrpcController, pending_requests: EventWaitExchange):
+    def __init__(self, grpc_client: GrpcController):
         """Class constructor
 
         Args:
             grpc_client: object managing the communication with other components
-            pending_requests: object for receiving overlay node to node messages
         """
         self._grpc_client = grpc_client
-        self._pending_requests = pending_requests
 
         self._channel_keys = _ChannelKeys()
 
-        # Issue #1142 in "Crypto material management" will optionally replace current default key published with the library
-        # and used for each node for setup by a keypair generated securely for each node.
+        # Issue #1142 in "Crypto material management" will optionally replace current default key published with the
+        # library and used for each node for setup by a keypair generated securely for each node.
         # Caveat: though encrypted, current implementation does not ensure a secure overlay node2node channel ...
 
         # Default keys
@@ -276,7 +289,8 @@ class Overlay:
         await self._channel_keys.set_distant_key(distant_node_id, public_key_pem)
 
 
-    async def _setup_use_channel_keys(self, distant_node_id: str, researcher_id: str, setup: bool) -> Tuple[DHKey, DHKey]:
+    async def _setup_use_channel_keys(self, distant_node_id: str, researcher_id: str, setup: bool) \
+            -> Tuple[DHKey, DHKey]:
         """Returns channel key objects for
 
         If key object for local node does not yet exist, generate it.
@@ -306,13 +320,13 @@ class Overlay:
             # nota: channel setup is sequential per peer-node (not optimal in setup time,
             # but more simple implementation, plus acceptable because executed only once for channel setup)
             distant_node_message = NodeToNodeMessages.format_outgoing_message({
-                    'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
-                    'node_id': environ['NODE_ID'],
-                    'dest_node_id': distant_node_id,
-                    'command': 'channel-request'
+                'request_id': REQUEST_PREFIX + str(uuid.uuid4()),
+                'node_id': environ['NODE_ID'],
+                'dest_node_id': distant_node_id,
+                'command': 'channel-request'
             })
 
-            received = await self.send_nodes_async_setup(
+            received = await self.send_node_setup(
                 researcher_id,
                 distant_node_id,
                 distant_node_message,
@@ -356,7 +370,7 @@ class Overlay:
             setup
         )
 
-        # `salt` value is unused for now, will be used when moving to symetric encryption of overlay messages
+        # `salt` value is unused for now, will be used when moving to symmetric encryption of overlay messages
         # Adjust length of `salt` depending on algorithm (eg: 16 bytes for ChaCha20)
         salt = secrets.token_bytes(16)
 
@@ -405,7 +419,6 @@ class Overlay:
 
         Args:
             overlay_msg: Overlay message.
-            src_node_id: Unique ID of sender (distant) peer node
 
         Returns:
             Inner message retrieved from overlay payload
@@ -422,8 +435,11 @@ class Overlay:
         if not all(isinstance(p, bytes) for p in payload):
             raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: bad type for node to node payload')
 
-        local_node_private_key, distant_node_public_key = \
-            await self._setup_use_channel_keys(overlay_msg['node_id'], overlay_msg['researcher_id'], overlay_msg['setup'])
+        local_node_private_key, distant_node_public_key = await self._setup_use_channel_keys(
+            overlay_msg['node_id'],
+            overlay_msg['researcher_id'],
+            overlay_msg['setup']
+        )
 
         # decode and ensure only node2node (inner) messages are received
 
@@ -487,20 +503,19 @@ class Overlay:
 
         return inner_msg
 
-    async def send_nodes_async_setup(
+    async def send_node_setup(
             self,
             researcher_id: str,
             node: str,
             message: InnerMessage,
     ) -> bool:
-        """Send message to some other nodes using overlay communications and wait for their replies.
+        """Send a channel setup message to another node using overlay communications and wait for its reply.
 
             Args:
                 researcher_id: unique ID of researcher connecting the nodes
-                nodes: list of node IDs of the destination nodes
-                messages: list of the inner messages for the destination nodes
-                setup: False for sending a message over the channel, True for a message
-                    setting up the channel
+                node: unique node ID of the destination node
+                message: inner message for the destination node
+
             Returns:
                 True if channel is ready, False if channel not ready after timeout
         """

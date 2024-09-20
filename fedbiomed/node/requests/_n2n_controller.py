@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Optional
-import asyncio
 import inspect
 
 from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST
@@ -13,7 +12,7 @@ from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.transport.controller import GrpcController
 
 from fedbiomed.node.environ import environ
-from ._overlay import Overlay
+from ._overlay import OverlayChannel
 
 
 class NodeToNodeController:
@@ -22,7 +21,7 @@ class NodeToNodeController:
     def __init__(
             self,
             grpc_controller: GrpcController,
-            overlay: Overlay,
+            overlay_channel: OverlayChannel,
             pending_requests: EventWaitExchange,
             controller_data: EventWaitExchange,
     ) -> None:
@@ -30,12 +29,12 @@ class NodeToNodeController:
 
         Args:
             grpc_controller: object managing the communication with other components
-            overlay: layer for managing overlay message send and receive
+            overlay_channel: layer for managing overlay message send and receive
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for sharing data
         """
         self._grpc_controller = grpc_controller
-        self._overlay = overlay
+        self._overlay_channel = overlay_channel
         self._pending_requests = pending_requests
         self._controller_data = controller_data
 
@@ -142,10 +141,10 @@ class NodeToNodeController:
                 'request_id': inner_msg.get_param('request_id'),
                 'node_id': environ['NODE_ID'],
                 'dest_node_id': inner_msg.get_param('node_id'),
-                'public_key': await self._overlay.get_local_public_key(inner_msg.get_param('node_id')),
+                'public_key': await self._overlay_channel.get_local_public_key(inner_msg.get_param('node_id')),
                 'command': 'channel-reply'
             })
-        overlay, salt = await self._overlay.format_outgoing_overlay(inner_resp, overlay_msg['researcher_id'], True)
+        overlay, salt = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg['researcher_id'], True)
         overlay_resp = NodeMessages.format_outgoing_message(
             {
                 'researcher_id': overlay_msg['researcher_id'],
@@ -166,7 +165,7 @@ class NodeToNodeController:
         Args:
             inner_msg: received inner message
         """
-        await self._overlay.set_distant_key(inner_msg.get_param('node_id'), inner_msg.get_param('public_key'))
+        await self._overlay_channel.set_distant_key(inner_msg.get_param('node_id'), inner_msg.get_param('public_key'))
 
 
     async def _HandlerKeyRequest(self, overlay_msg: dict, inner_msg: InnerMessage) -> dict:
@@ -199,7 +198,7 @@ class NodeToNodeController:
                 'secagg_id': inner_msg.get_param('secagg_id'),
                 'command': 'key-reply'
             })
-        overlay, salt = await self._overlay.format_outgoing_overlay(inner_resp, overlay_msg['researcher_id'])
+        overlay, salt = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg['researcher_id'])
         overlay_resp = NodeMessages.format_outgoing_message(
             {
                 'researcher_id': overlay_msg['researcher_id'],
