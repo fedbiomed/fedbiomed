@@ -9,7 +9,6 @@ from testsupport.base_case import NodeTestCase
 
 #############################################################
 
-from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.message import OverlayMessage, KeyReply
 from fedbiomed.node.environ import environ
 from fedbiomed.node.requests._n2n_router import NodeToNodeRouter, _NodeToNodeAsyncRouter
@@ -32,13 +31,13 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
             "fedbiomed.node.requests._n2n_router.NodeToNodeController", autospec=True
         )
         self.n2n_controller_patch.side_effect = AsyncMock()
-        self.format_incoming_patch = patch(
-            "fedbiomed.node.requests._n2n_router.format_incoming_overlay", autospec=True
+        self.format_overlay_channel_patch = patch(
+            'fedbiomed.node.requests._n2n_router.OverlayChannel', autospec=True
         )
 
         self.async_queue_patcher = self.async_queue_patch.start()
         self.n2n_controller_patcher = self.n2n_controller_patch.start()
-        self.format_incoming_patcher = self.format_incoming_patch.start()
+        self.format_overlay_channel_patcher = self.format_overlay_channel_patch.start()
 
         self.grpc_controller_mock = MagicMock(autospec=True)
         self.pending_requests_mock = MagicMock(autospec=True)
@@ -51,10 +50,9 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         )
 
     def tearDown(self):
-
         self.async_queue_patch.stop()
         self.n2n_controller_patch.stop()
-        self.format_incoming_patch.stop()
+        self.format_overlay_channel_patch.stop()
 
     async def test_n2n_async_router_01_remove_finished_tasks(self):
         """Remove finished tasks of a n2n async router"""
@@ -196,7 +194,7 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         #
 
         # prepare
-        self.format_incoming_patcher.return_value = KeyReply(
+        self.format_overlay_channel_patcher.return_value.format_incoming_overlay.return_value = KeyReply(
             request_id="request",
             dest_node_id=environ["ID"],
             node_id="test",
@@ -212,6 +210,8 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
                 "dest_node_id": environ["NODE_ID"],
                 "overlay": [b"dummy content"],
                 "researcher_id": "r1",
+                'setup': False,
+                'salt': b'my dummy salt',
             }
         )
         # need to initialize private variable (store current active task)
@@ -221,12 +221,12 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         await self.n2n_async_router._overlay_message_process(msg)
 
         # check
-        self.format_incoming_patcher.assert_called_once()
+        self.format_overlay_channel_patcher.return_value.format_incoming_overlay.assert_called_once()
         self.n2n_controller_patcher.return_value.handle.assert_called_once()
         self.n2n_controller_patcher.return_value.final.assert_called_once()
 
         # reset
-        self.format_incoming_patcher.reset_mock()
+        self.format_overlay_channel_patcher.reset_mock()
         self.n2n_controller_patcher.reset_mock()
 
         #
@@ -240,6 +240,8 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
                 "dest_node_id": "incorrect node id",
                 "overlay": [b"dummy content"],
                 "researcher_id": "r1",
+                'setup': False,
+                'salt': b'my dummy salt',
             }
         )
 
@@ -247,12 +249,12 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         await self.n2n_async_router._overlay_message_process(msg2)
 
         # check
-        self.format_incoming_patcher.assert_not_called()
+        self.format_overlay_channel_patcher.return_value.format_incoming_overlay.assert_not_called()
         self.n2n_controller_patcher.return_value.handle.assert_not_called()
         self.n2n_controller_patcher.return_value.final.assert_not_called()
 
         # reset
-        self.format_incoming_patcher.reset_mock()
+        self.format_overlay_channel_patcher.reset_mock()
         self.n2n_controller_patcher.reset_mock()
 
         #
@@ -268,16 +270,16 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         await self.n2n_async_router._overlay_message_process(msg)
 
         # check
-        self.format_incoming_patcher.assert_called_once()
+        self.format_overlay_channel_patcher.return_value.format_incoming_overlay.assert_called_once()
         self.n2n_controller_patcher.return_value.handle.assert_called_once()
         self.n2n_controller_patcher.return_value.final.assert_not_called()
 
         # reset
-        self.format_incoming_patcher.reset_mock()
+        self.format_overlay_channel_patcher.reset_mock()
         self.n2n_controller_patcher.reset_mock()
 
         #
-        # 3. other error failure call
+        # 4. other error failure call
         #
 
         # prepare
@@ -287,12 +289,12 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         await self.n2n_async_router._overlay_message_process(msg)
 
         # check
-        self.format_incoming_patcher.assert_called_once()
+        self.format_overlay_channel_patcher.return_value.format_incoming_overlay.assert_called_once()
         self.n2n_controller_patcher.return_value.handle.assert_called_once()
         self.n2n_controller_patcher.return_value.final.assert_not_called()
 
         # reset
-        self.format_incoming_patcher.reset_mock()
+        self.format_overlay_channel_patcher.reset_mock()
         self.n2n_controller_patcher.reset_mock()
 
 
@@ -356,6 +358,8 @@ class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
             dest_node_id="test",
             overlay=[b"test"],
             researcher_id="researcher",
+            setup=False,
+            salt=b'my dummy salt',
         )
 
         self.n2n_router.submit(message)

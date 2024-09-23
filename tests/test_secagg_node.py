@@ -4,14 +4,14 @@ from copy import deepcopy
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
-from fedbiomed.common.message import KeyReply
-from fedbiomed.common.synchro import EventWaitExchange
-from fedbiomed.transport.controller import GrpcController
 from testsupport.base_case import NodeTestCase
 
 #############################################################
 
+from fedbiomed.common.message import KeyReply
+from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
+from fedbiomed.transport.controller import GrpcController
 from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg import (
     SecaggDHSetup,
@@ -20,6 +20,7 @@ from fedbiomed.node.secagg import (
     SecaggSetup,
 )
 import fedbiomed.node.secagg
+from fedbiomed.node.requests import NodeToNodeRouter
 
 
 class TestSecaggBaseSetup(NodeTestCase):
@@ -257,6 +258,7 @@ class TestSecaggDHSetup(SecaggTestCase):
         self.mock_controller_data = MagicMock(spec=EventWaitExchange)
         self.mock_grpc_controller = MagicMock(spec=GrpcController)
         self.mock_pending_requests = MagicMock(spec=EventWaitExchange)
+        self.mock_n2n_router = MagicMock(spec=NodeToNodeRouter)
         self.args = {
             "researcher_id": "my researcher",
             "secagg_id": "my secagg",
@@ -272,6 +274,7 @@ class TestSecaggDHSetup(SecaggTestCase):
         self.args["grpc_client"] = self.mock_grpc_controller
         self.args["pending_requests"] = self.mock_pending_requests
         self.args["controller_data"] = self.mock_controller_data
+        self.args['n2n_router'] = self.mock_n2n_router
 
     def tearDown(self) -> None:
         pass

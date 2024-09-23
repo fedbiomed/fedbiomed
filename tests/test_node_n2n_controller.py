@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, AsyncMock
 
 #############################################################
 # Import NodeTestCase before importing FedBioMed Module
@@ -7,7 +7,6 @@ from testsupport.base_case import NodeTestCase
 #############################################################
 
 from fedbiomed.common.message import (
-    Message,
     KeyRequest,
     KeyReply,
     PingRequest,
@@ -16,33 +15,33 @@ from fedbiomed.common.message import (
 from fedbiomed.node.requests._n2n_controller import NodeToNodeController
 
 
-def func_return_argument(message):
-    return [b"x", b"y"]
+async def func_return_argument(message, researcher_id, setup = False):
+    return [b"x", b"y"], b'salty salty'
 
 
 class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
     """Test for node2node controller module, NodeToNodeRouter class"""
 
     def setUp(self):
-        self.format_outgoing_patch = patch('fedbiomed.node.requests._n2n_controller.format_outgoing_overlay', autospec=True)
-
-        self.format_outgoing_patcher = self.format_outgoing_patch.start()
-        def fake_format_outgoing_message(message):
-            return message
-        self.format_outgoing_patcher.side_effect = func_return_argument
+        self.overlay_channel_mock = AsyncMock(autospec=True)
+        self.overlay_channel_mock.format_outgoing_overlay.side_effect = func_return_argument
+        self.overlay_channel_mock.get_local_public_key.return_value = b'a dummy key'
 
         self.grpc_controller_mock = MagicMock(autospec=True)
         self.pending_requests_mock = MagicMock(autospec=True)
         self.controller_data_mock = MagicMock(autospec=True)
 
         self.n2n_controller = NodeToNodeController(
-            self.grpc_controller_mock, self.pending_requests_mock, self.controller_data_mock)
+            self.grpc_controller_mock, self.overlay_channel_mock, self.pending_requests_mock, self.controller_data_mock)
 
         self.overlay_msg = OverlayMessage(
             researcher_id='dummy researcher',
             node_id='dummy source overlay node',
             dest_node_id='dummy dest overlay node',
-            overlay=['dummy overlay content'])
+            overlay=['dummy overlay content'],
+            setup=False,
+            salt=b'my salt',
+        )
 
         self.inner_msg = KeyRequest(
             node_id='dummy source inner node',
@@ -53,7 +52,7 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
 
 
     def tearDown(self):
-        self.format_outgoing_patch.stop()
+        pass
 
     async def test_n2n_controller_01_handle_key_request(self):
         """Handle incoming message KeyRequest in node to node controller
@@ -121,6 +120,8 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
             'node_id': 'dummy source overlay node',
             'dest_node_id': 'dummy dest overlay node',
             'overlay': ['dummy overlay content'],
+            'setup': False,
+            'salt': b'a dummy salt',
         })
         await self.n2n_controller.final('KeyRequest', overlay_resp=overlay_msg)
         self.grpc_controller_mock.send.assert_called_once()

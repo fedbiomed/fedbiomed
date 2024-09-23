@@ -307,9 +307,7 @@ class OverlayMessage(Message, RequiresProtocolVersion):
     """
 
     researcher_id: str  # Needed for source and destination node side message handling
-    node_id: (
-        str  # Needed for researcher side message handling (receiving a `ReplyTask`)
-    )
+    node_id: str  # Needed for researcher side message handling (receiving a `ReplyTask`)
     dest_node_id: str  # Needed for researcher side message handling
     overlay: list
     setup: bool

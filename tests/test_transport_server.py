@@ -31,6 +31,8 @@ overlay_message = OverlayMessage(
     node_id = 'node-id',
     dest_node_id = 'node-id-1',
     overlay= ['sss'],
+    setup=False,
+    salt=b'dummy'
 )
 
 class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
