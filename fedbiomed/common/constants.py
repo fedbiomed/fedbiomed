@@ -46,7 +46,7 @@ REQUEST_PREFIX = 'request_'
 CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 """FOLDER name for Certs directory"""
 
-TRACEBACK_LIMIT = 10
+TRACEBACK_LIMIT = 20
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 SERVER_certificate_prefix = "server_certificate"
@@ -252,7 +252,6 @@ class SecaggElementTypes(_BaseEnum):
     """
     SERVER_KEY: int = 0
     DIFFIE_HELLMAN: int = 1
-    SERVER_KEY_BIS: int = 2
 
     @staticmethod
     def get_element_from_value(element_value: int):

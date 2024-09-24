@@ -250,7 +250,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
 
             secagg_args = exp.secagg_setup(['sampled-node-1', 'sampled-node-2'])
 
-            _secagg.setup.assert_called_once_with(parties=[environ["ID"], 'sampled-node-1', 'sampled-node-2'],
+            _secagg.setup.assert_called_once_with(parties=['sampled-node-1', 'sampled-node-2'],
                                                   experiment_id=exp.id)
             self.assertDictEqual(secagg_args, {'secagg': 'arguments'})
 
@@ -271,7 +271,7 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
 
             secagg_args = exp.secagg_setup([])
 
-            _secagg.setup.assert_called_once_with(parties=[environ["ID"]],
+            _secagg.setup.assert_called_once_with(parties=[],
                                                   experiment_id=exp.id)
 
             self.assertDictEqual(secagg_args, {'secagg': 'arguments'})

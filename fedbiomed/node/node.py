@@ -10,7 +10,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
-    AdditiveSSharingRequest,
+    AdditiveSSSetupRequest,
     ApprovalRequest,
     ErrorMessage,
     Message,
@@ -143,7 +143,7 @@ class Node:
                 case (
                     TrainRequest.__name__
                     | SecaggRequest.__name__
-                    | AdditiveSSharingRequest.__name__
+                    | AdditiveSSSetupRequest.__name__
                 ):
                     self.add_task(message)
                 case SecaggDeleteRequest.__name__:
@@ -240,6 +240,8 @@ class Node:
             request: `SecaggRequest` message object to parse
         """
         setup_arguments = request.get_dict()
+        setup_arguments.pop('protocol_version')
+        setup_arguments.pop('request_id')
 
         # Properties for Node to Node communication
         setup_arguments["grpc_client"] = self._grpc_client
@@ -248,6 +250,7 @@ class Node:
 
         try:
             secagg = SecaggSetup(**setup_arguments)()
+            reply: SecaggReply = secagg.setup()
         except Exception as error_message:
             logger.error(error_message)
             return self.send_error(
@@ -256,7 +259,6 @@ class Node:
                 extra_msg=str(error_message),
             )
 
-        reply: SecaggReply = secagg.setup()
         reply.request_id = request.request_id
         return self._grpc_client.send(reply)
 
@@ -361,7 +363,7 @@ class Node:
                             errnum=ErrorNumbers.FB300,
                             extra_msg="Round error: " + str(e),
                         )
-                case SecaggRequest.__name__:
+                case SecaggRequest.__name__ | AdditiveSSSetupRequest.__name__:
                     self._task_secagg(item)
                 case _:
                     errmess = f"{ErrorNumbers.FB319.value}: Undefined request message"

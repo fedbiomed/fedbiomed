@@ -105,7 +105,7 @@ class Message:
         Args:
             param: name of the param
         """
-        return getattr(self, param)
+        return getattr(self, param, None)
 
     def get_dict(self) -> Dict[str, Any]:
         """Returns pairs (Message class attributes name, attributes values) into a dictionary
@@ -113,7 +113,7 @@ class Message:
         Returns:
             Message as dictionary
         """
-        return self.__dict__
+        return {**self.__dict__}
 
     def __validate(self, fields: Dict[str, Any]) -> bool:
         """Checks whether incoming field types match with attributes class type.

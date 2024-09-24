@@ -1,15 +1,20 @@
-# This file is originally part of Fed-BioMed
-# SPDX-License-Identifier: Apache-2.0
+"""
+This file is originally part of Fed-BioMed
+SPDX-License-Identifier: Apache-2.0
 
-"""Secure Aggregation management on the researcher"""
-import concurrent.futures
+
+Secure aggregation context setup module  to be executed on the
+server/researcher side
+
+"""
+
 import importlib
 import uuid
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import ComponentType, ErrorNumbers, SecaggElementTypes
+from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
@@ -18,7 +23,6 @@ from fedbiomed.common.message import (
     SecaggDeleteRequest,
     SecaggRequest,
 )
-from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg import AdditiveShare, AdditiveShares
 from fedbiomed.common.secagg_manager import (
     BaseSecaggManager,
@@ -50,7 +54,8 @@ class SecaggContext(ABC):
     """
     Handles a Secure Aggregation context element on the researcher side.
     """
-
+    _REQUEST_SETUP = SecaggRequest
+    _REQUEST_DELETE = SecaggDeleteRequest
     _min_num_parties: int
 
     @abstractmethod
@@ -78,18 +83,20 @@ class SecaggContext(ABC):
         try:
             self._v.validate(secagg_id, "nonempty_str_or_none")
         except ValidatorError as e:
-            errmess = f"{ErrorNumbers.FB415.value}: bad parameter `secagg_id` must be a None or non-empty string: {e}"
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+            raise FedbiomedSecaggError(
+                f"{ErrorNumbers.FB415.value}: bad parameter "
+                "`secagg_id` must be a None or non-empty string: {e}"
+            ) from e
 
         try:
             self._v.validate(parties, list)
             for p in parties:
                 self._v.validate(p, str)
         except ValidatorError as e:
-            errmess = f"{ErrorNumbers.FB415.value}: bad parameter `parties` must be a list of strings: {e}"
-            logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+            raise FedbiomedSecaggError(
+                f"{ErrorNumbers.FB415.value}: bad parameter "
+                f"`parties` must be a list of strings: {e}"
+            ) from e
 
         self._secagg_id = (
             secagg_id if secagg_id is not None else "secagg_" + str(uuid.uuid4())
@@ -108,8 +115,9 @@ class SecaggContext(ABC):
     def _raise_if_missing_parties(self, parties: List[str]):
         if len(parties) < self._min_num_parties:
             raise FedbiomedSecaggError(
-                f"{ErrorNumbers.FB415.value}: {self._element.value}, bad parameter `parties` : {parties} : need "
-                f"at least {self._min_num_parties} nodes for secure aggregation"
+                f"{ErrorNumbers.FB415.value}: {self._element.value}, bad parameter "
+                f"`parties` : {parties} : need at least {self._min_num_parties} "
+                "nodes for secure aggregation"
             )
 
     @staticmethod
@@ -170,58 +178,116 @@ class SecaggContext(ABC):
         """
         return self._context
 
-    @abstractmethod
-    def _matching_parties(self, context: dict) -> bool:
-        """Check if parties of given context are compatible with the secagg context element.
+    def _register(self, context) -> Dict:
+        """Researcher payload for creating Additive Secret Sharing secagg context element
 
         Args:
-            context: context to be compared with the secagg context element
+            context: specific secagg element context
 
         Returns:
-            True if this context can be used with this element, False if not.
+            A tuple of a `context` and a `status` for the server key context element
+        """
+        self._secagg_manager.add(
+            self._secagg_id, self._parties, context, self._experiment_id
+        )
+
+        logger.debug(
+            f"Secure aggregation context successfully created/registered for"
+            f"researcher_id='{environ['ID']}' secagg_id='{self._secagg_id}'"
+        )
+
+        return context
+
+    def _launch_request(self, request: Message):
+        """Launches and collects request responses
+
+        Args:
+            request: A request message
         """
 
-    def _create_payload(self, *args, **kwargs) -> Tuple[Union[dict, None], bool]:
-        """Researcher payload for a secagg context element
+        # Federated request should stop if any error occurs
+        policies = [
+            StopOnDisconnect(timeout=10),
+            StopOnError(),
+            StopOnTimeout(timeout=60),
+        ]
 
-        Returns:
-            a tuple of a `context` and a `status` for the context element
-        """
-        context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
-        if context is None:
-            _, status = self._create_payload_specific(*args, **kwargs)
-            context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
-        else:
-            # Need to ensure the read context has compatible parties with this element
-            if not self._matching_parties(context):
-                logger.error(
-                    f"{ErrorNumbers.FB415.value}: secagg context for {self._secagg_id} exists "
-                    f"but parties do not match"
-                )
-                status = False
-            else:
-                logger.debug(
-                    f"Secagg context for {self._secagg_id} is already existing on researcher "
-                    f"researcher_id='{environ['ID']}'"
-                )
-                status = True
-        return context, status
+        with self._requests.send(request, self._parties, policies) as fed_request:
+            replies = fed_request.replies()
+            errors = fed_request.errors()
+
+            status = not errors and not fed_request.policy.has_stopped_any()
+
+        if not status:
+            raise FedbiomedSecaggError(
+                f"Secure aggregation request: `{request.__name__}` has failed on one or more "
+                f"nodes: {fed_request.policy.report()}, Errors: {errors}"
+            )
+
+        return replies
 
     @abstractmethod
-    def _create_payload_specific(self) -> Tuple[Union[dict, None], bool]:
-        """Researcher payload for creating secagg context element, specific to a context element type.
+    def secagg_round(
+        self,
+        request: Message,
+    ) -> bool:
+        """Negotiate secagg context element action with defined parties.
+
+        Args:
+            msg: message sent to the parties during the round
 
         Returns:
-            a tuple of a `context`, and a boolean `status` for the context element.
+            True if secagg context element action could be done for all parties, False if at least
+                one of the parties could not do the context element action.
         """
 
-    def _delete_payload(self) -> Tuple[Union[dict, None], bool]:
-        """Researcher payload for secagg context element deletion
+    def setup(self) -> Dict:
+        """Setup secagg context element on defined parties.
 
         Returns:
-            a tuple of None (no context after deletion) and
-                a boolean (True if payload succeeded for this element)
+            True if secagg context element could be setup for all parties, False if at least
+                one of the parties could not setup context element.
         """
+        context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
+        if context and matching_parties_servkey(context, self._parties):
+            logger.info(
+                    f"{ErrorNumbers.FB415.value}: secagg context for {self._secagg_id} exists"
+            )
+            self._context = context['context']
+        else:
+            request = self._REQUEST_SETUP(
+                researcher_id=self._researcher_id,
+                secagg_id=self._secagg_id,
+                element=self._element.value,
+                experiment_id=self._experiment_id,
+                parties=self._parties,
+            )
+
+            self._context = self.secagg_round(request)
+
+        self._status = True
+
+        return self._status
+
+
+    def delete(self) -> bool:
+        """Delete secagg context element on defined parties.
+
+        Returns:
+            True if secagg context element could be deleted for all parties, False if at least
+                one of the parties could not delete context element.
+        """
+        self._status = False
+        self._context = None
+        request = self._REQUEST_DELETE(
+            researcher_id=self._researcher_id,
+            secagg_id=self._secagg_id,
+            element=self._element.value,
+            experiment_id=self._experiment_id,
+        )
+
+        _ = self._launch_request(request)
+
         status = self._secagg_manager.remove(self._secagg_id, self.experiment_id)
         if status:
             logger.debug(
@@ -234,90 +300,7 @@ class SecaggContext(ABC):
                 f"on researcher researcher_id='{environ['ID']}'"
             )
 
-        return None, status
-
-    def _secagg_round(
-        self,
-        msg: Message,
-        can_set_status: bool,
-        payload: Callable,
-    ) -> bool:
-        """Negotiate secagg context element action with defined parties.
-
-        Args:
-            msg: message sent to the parties during the round
-            can_set_status: `True` if this action can result in a valid secagg context
-            payload: function that holds researcher side payload for this round. Needs to return
-                a tuple of `context` and `status` for this action
-
-        Returns:
-            True if secagg context element action could be done for all parties, False if at least
-                one of the parties could not do the context element action.
-        """
-        # reset values in case `setup()` was already run (and fails during this new execution,
-        # or this is a deletion)
-        self._status = False
-        self._context = None
-        context, status = self._secagg_round_specific(msg, payload)
-
-        success = all(status.values())
-        if can_set_status and success:
-            self._status = True
-            self._context = context
-
-        return success
-
-    @abstractmethod
-    def _secagg_round_specific(
-        self,
-        msg: Message,
-        payload: Callable,
-    ) -> Tuple[dict, dict[str, bool]]:
-        """Negotiate secagg context element action with defined parties.
-
-        Args:
-            msg: message sent to the parties during the round
-            payload: function that holds researcher side payload for this round. Needs to return
-                a tuple of `context` and `status` for this action
-
-        Returns:
-            A tuple of
-                - a dict containing the context describing this secagg context element
-                - a dict where key/values are node ids/boolean with success status for secagg on each party
-        """
-
-    def setup(self) -> bool:
-        """Setup secagg context element on defined parties.
-
-        Returns:
-            True if secagg context element could be setup for all parties, False if at least
-                one of the parties could not setup context element.
-        """
-        msg = SecaggRequest(
-            researcher_id=self._researcher_id,
-            secagg_id=self._secagg_id,
-            element=self._element.value,
-            experiment_id=self._experiment_id,
-            parties=self._parties,
-        )
-        return self._secagg_round(msg, True, self._create_payload)
-
-    def delete(self) -> bool:
-        """Delete secagg context element on defined parties.
-
-        Returns:
-            True if secagg context element could be deleted for all parties, False if at least
-                one of the parties could not delete context element.
-        """
-        self._status = False
-        self._context = None
-        msg = SecaggDeleteRequest(
-            researcher_id=self._researcher_id,
-            secagg_id=self._secagg_id,
-            element=self._element.value,
-            experiment_id=self._experiment_id,
-        )
-        return self._secagg_round(msg, False, self._delete_payload)
+        return True
 
     def save_state_breakpoint(self) -> Dict[str, Any]:
         """Method for saving secagg state for saving breakpoints
@@ -368,194 +351,10 @@ class SecaggContext(ABC):
         return secagg
 
 
-class SecaggMpspdzContext(SecaggContext):
-    """
-    Handles a Secure Aggregation context element based on MPSPDZ on the researcher side.
-    """
+class SecaggServkeyContext(SecaggContext):
 
-    _min_num_parties: int = 3
-
-    def __init__(
-        self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None
-    ):
-        """Constructor of the class.
-
-        Args:
-            parties: list of parties participating in the secagg context element setup, named
-                by their unique id (`node_id`, `researcher_id`).
-                There must be at least 3 parties, and the first party is this researcher
-            experiment_id: ID of the experiment to which this secagg context element is attached.
-            secagg_id: optional secagg context element ID to use for this element.
-                Default is None, which means a unique element ID will be generated.
-
-        Raises:
-            FedbiomedSecaggError: bad argument type or value
-        """
-        super().__init__(parties, experiment_id, secagg_id)
-
-        self._raise_if_missing_parties(parties)
-
-        if environ["ID"] != parties[0]:
-            raise FedbiomedSecaggError(
-                f"{ErrorNumbers.FB415.value}: researcher should be the first party."
-            )
-
-        # one controller per secagg object to prevent any file conflict
-        self._mpc = MPCController(
-            tmp_dir=environ["TMP_DIR"],
-            component_type=ComponentType.RESEARCHER,
-            component_id=environ["ID"],
-        )
-
-    def _secagg_round_specific(
-        self,
-        msg: Message,
-        payload: Callable,
-    ) -> Tuple[dict, dict[str, bool]]:
-        """Negotiate secagg context element action with defined parties for a MPSPDZ key exchange.
-
-        Args:
-            msg: message sent to the parties during the round
-            payload: function that holds researcher side payload for this round. Needs to return
-                a tuple of `context` and `status` for this action
-
-        Returns:
-            A tuple of
-                - a dict containing the context describing this secagg context element
-                - a dict where key/values are node ids/boolean with success status for secagg on each party
-
-        Raises:
-            FedbiomedSecaggError: some parties did not answer before timeout or answered error
-            FedbiomedSecaggError: local payload did not complete before timeout
-        """
-        # Federated request should stop if any error occurs
-        policies = [
-            StopOnDisconnect(timeout=30),
-            StopOnError(),
-            StopOnTimeout(timeout=120),
-        ]
-
-        executer = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        context_future = executer.submit(payload)
-
-        with self._requests.send(msg, self._parties[1:], policies) as fed_request:
-            replies = fed_request.replies()
-            errors = fed_request.errors()
-            if fed_request.policy.has_stopped_any():
-                self._mpc.kill()
-                context_future.cancel()
-                raise FedbiomedSecaggError(
-                    "Request is not successful. Policy "
-                    f"report => {fed_request.policy.report()}. Errors => {errors}"
-                )
-
-            status = {rep.node_id: rep.success for rep in replies.values()}
-
-        try:
-            context, status[self._researcher_id] = context_future.result(timeout=120)
-        except TimeoutError:
-            self._mpc.kill()
-            context_future.cancel()
-            raise FedbiomedSecaggError(
-                "Request is not successful, timeout on researcher payload."
-            )
-
-        return context, status
-
-
-class SecaggServkeyContext(SecaggMpspdzContext):
-    """
-    Handles a Secure Aggregation server key context element on the researcher side.
-    """
-
-    def __init__(
-        self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None
-    ):
-        """Constructor of the class.
-
-        Args:
-            parties: list of parties participating in the secagg context element setup, named
-                by their unique id (`node_id`, `researcher_id`).
-                There must be at least 3 parties, and the first party is this researcher
-            experiment_id: ID of the experiment to which this secagg context element is attached.
-            secagg_id: optional secagg context element ID to use for this element.
-                Default is None, which means a unique element ID will be generated.
-
-        Raises:
-            FedbiomedSecaggError: bad argument type or value
-        """
-        self._element = SecaggElementTypes.SERVER_KEY
-        super().__init__(parties, experiment_id, secagg_id)
-
-        self._secagg_manager = _SKManager
-
-    def _matching_parties(self, context: dict) -> bool:
-        """Check if parties of given context are compatible with the secagg context element.
-
-        Args:
-            context: context to be compared with the secagg context element
-
-        Returns:
-            True if this context can be used with this element, False if not.
-        """
-        return matching_parties_servkey(context, self._parties)
-
-    def _create_payload_specific(self) -> Tuple[Union[dict, None], bool]:
-        """Researcher payload for creating server key secagg context element
-
-        Returns:
-            A tuple of a `context` and a `status` for the server key context element
-        """
-
-        ip_file, _ = _CManager.write_mpc_certificates_for_experiment(
-            path_certificates=self._mpc.mpc_data_dir,
-            path_ips=self._mpc.tmp_dir,
-            self_id=environ["ID"],
-            self_ip=environ["MPSPDZ_IP"],
-            self_port=environ["MPSPDZ_PORT"],
-            self_private_key=environ["MPSPDZ_CERTIFICATE_KEY"],
-            self_public_key=environ["MPSPDZ_CERTIFICATE_PEM"],
-            parties=self._parties,
-        )
-
-        try:
-            output = self._mpc.exec_shamir(
-                party_number=0,  # 0 stands for server/aggregator
-                num_parties=len(self._parties),
-                ip_addresses=ip_file,
-            )
-        except Exception as e:
-            raise FedbiomedSecaggError(
-                f"{ErrorNumbers.FB415.value}: Can not execute MPC protocol. {e}"
-            ) from e
-
-        # Read output
-        try:
-            with open(output, "r", encoding="UTF-8") as file:
-                server_key = file.read()
-                file.close()
-        except Exception as e:
-            raise FedbiomedSecaggError(
-                f"{ErrorNumbers.FB415.value}: Can not read server key from created after "
-                f"MPC execution. {e}"
-            ) from e
-
-        biprime = get_default_biprime()
-        context = {"server_key": int(server_key.strip()), "biprime": biprime}
-        self._secagg_manager.add(
-            self._secagg_id, self._parties, context, self._experiment_id
-        )
-        logger.debug(
-            f"Server key successfully created for researcher_id='{environ['ID']}' "
-            f"secagg_id='{self._secagg_id}'"
-        )
-
-        return context, True
-
-
-class SecaggKeyContext(SecaggContext):
-    """Handles a Additive Secret Sharing context on the Researcher side"""
-
+    # Nodes  + researcher
+    _REQUEST_SETUP = AdditiveSSSetupRequest
     _min_num_parties: int = 2
 
     def __init__(
@@ -564,125 +363,43 @@ class SecaggKeyContext(SecaggContext):
         experiment_id: str | None,
         secagg_id: str | None = None,
     ):
+        """Constructs key context class"""
         super().__init__(parties, experiment_id, secagg_id)
 
         self._element = SecaggElementTypes.SERVER_KEY
         self._raise_if_missing_parties(parties)
         self._secagg_manager = _SKManager
-        # self._shares = []
 
-    def _matching_parties(self, context: dict) -> bool:
-        """Check if parties of given context are compatible with the secagg context element.
-
-        Args:
-            context: context to be compared with the secagg context element
-
-        Returns:
-            True if this context can be used with this element, False if not.
-        """
-        return matching_parties_servkey(context, self._parties)
-
-    def _create_payload_specific(self, context) -> Tuple[Union[dict, None], bool]:
-        """Researcher payload for creating Additive Secret Sharing secagg context element
-
-        Args:
-            context: specific secagg element context
-
-        Returns:
-            A tuple of a `context` and a `status` for the server key context element
-        """
-        # context = {'key': context,
-        #            'share': self._share.reconstruct()}
-
-        self._secagg_manager.add(
-            self._secagg_id, self._parties, context, self._experiment_id
-        )
-
-        logger.debug(
-            f"Additive Secret Sharing context successfully created for researcher_id='{environ['ID']}' "
-            f"secagg_id='{self._secagg_id}'"
-        )
-
-        return context, True
-
-    def setup(self) -> bool:
-        msg = AdditiveSSSetupRequest(
-            **{
-                "researcher_id": self._researcher_id,
-                "secagg_id": self._secagg_id,
-                "element": self._element.value,
-                "experiment_id": self._experiment_id,
-                "parties": self._parties,
-            }
-        )
-
-        return self._secagg_round(msg, True, self._create_payload)
-
-    def _secagg_round_specific(
+    def secagg_round(
         self,
-        msg: Message,
-        payload: Callable,
+        request: Message,
     ) -> Tuple[dict, dict[str, bool]]:
         """Negotiate secagg context element action with defined parties for a MPSPDZ key exchange.
 
         Args:
-            msg: message sent to the parties during the round
-            payload: function that holds researcher side payload for this round. Needs to return
-                a tuple of `context` and `status` for this action
+            request: message sent to the parties during the round
 
         Returns:
             A tuple of
                 - a dict containing the context describing this secagg context element
-                - a dict where key/values are node ids/boolean with success status for secagg on each party
-
-        Raises:
-            FedbiomedSecaggError: some parties did not answer before timeout or answered error
-            FedbiomedSecaggError: local payload did not complete before timeout
+                - a dict where key/values are node ids/boolean with success status
+                    for secagg on each party
         """
 
-        # Federated request should stop if any error occurs
-        policies = [
-            StopOnDisconnect(timeout=30),
-            StopOnError(),
-            StopOnTimeout(timeout=120),
-        ]
-        # Ensure that reply from each node was received
-        status = {}
+        replies = self._launch_request(request)
+        servkey: int = AdditiveShares([AdditiveShare(rep.share) for
+            rep in replies.values()]).reconstruct()
 
-        # one controller per secagg object to prevent any file conflict
-
-        context = {"share": []}
-        with self._requests.send(msg, self._parties, policies) as fed_request:
-            replies = fed_request.replies()
-            errors = fed_request.errors()
-
-            # status = {rep.node_id: rep.success for rep in replies.values()}
-            status[self._researcher_id] = (
-                not errors and not fed_request.policy.has_stopped_any()
-            )
-
-            # Additive Secret Sharing: sum up shares from nodes
-            for rep in replies.values():
-                share = rep.share
-                context["share"].append(AdditiveShare(share))
-
-        context["share"] = AdditiveShares(context["share"]).reconstruct()
-
-        if all(status.values()):
-            # only create context if previous steps succeeded
-            _, status_researcher_payload = payload(context)
-            status[self._researcher_id] = (
-                status[self._researcher_id] and status_researcher_payload
-            )
-
-        return context, status
+        biprime = get_default_biprime()
+        context = {'server_key': -servkey, 'biprime': biprime}
+        return self._register(context)
 
 
 class SecaggDHContext(SecaggContext):
     """
     Handles a Secure Aggregation Diffie Hellman context element on the researcher side.
     """
-
+    _REQUEST = SecaggRequest
     _min_num_parties: int = 2
 
     def __init__(
@@ -704,89 +421,26 @@ class SecaggDHContext(SecaggContext):
         super().__init__(parties, experiment_id, secagg_id)
         self._element = SecaggElementTypes.DIFFIE_HELLMAN
         self._raise_if_missing_parties(parties)
-
         self._secagg_manager = _DHManager
 
-    def _matching_parties(self, context: dict) -> bool:
-        """Check if parties of given context are compatible with the secagg context element.
-
-        Args:
-            context: context to be compared with the secagg context element
-
-        Returns:
-            True if this context can be used with this element, False if not.
-        """
-        return matching_parties_servkey(context, self._parties)
-
-    def _create_payload_specific(self, context) -> Tuple[Union[dict, None], bool]:
-        """Researcher payload for creating Diffie Hellman  secagg context element
-
-        Args:
-            context: specific secagg element context
-
-        Returns:
-            A tuple of a `context` and a `status` for the server key context element
-        """
-        self._secagg_manager.add(
-            self._secagg_id, self._parties, context, self._experiment_id
-        )
-
-        logger.debug(
-            f"Diffie Hellman context successfully created for researcher_id='{environ['ID']}' "
-            f"secagg_id='{self._secagg_id}'"
-        )
-
-        return context, True
-
-    def _secagg_round_specific(
+    def secagg_round(
         self,
-        msg: Message,
-        payload: Callable,
+        request: Message,
     ) -> Tuple[dict, dict[str, bool]]:
         """Negotiate secagg context element action with defined parties for a MPSPDZ key exchange.
 
         Args:
-            msg: message sent to the parties during the round
-            payload: function that holds researcher side payload for this round. Needs to return
-                a tuple of `context` and `status` for this action
+            request: message sent to the parties during the round
 
         Returns:
             A tuple of
                 - a dict containing the context describing this secagg context element
-                - a dict where key/values are node ids/boolean with success status for secagg on each party
+                - a dict where key/values are node ids/boolean with success status for
+                    secagg on each party
 
-        Raises:
-            FedbiomedSecaggError: some parties did not answer before timeout or answered error
-            FedbiomedSecaggError: local payload did not complete before timeout
         """
-        # Federated request should stop if any error occurs
-        policies = [
-            StopOnDisconnect(timeout=30),
-            StopOnError(),
-            StopOnTimeout(timeout=120),
-        ]
-        # Ensure that reply from each node was received
-        status = {node_id: False for node_id in self._parties}
 
-        with self._requests.send(msg, self._parties, policies) as fed_request:
-            replies = fed_request.replies()
-            errors = fed_request.errors()
-
-            status = {rep.node_id: rep.success for rep in replies.values()}
-            status[self._researcher_id] = (
-                not errors and not fed_request.policy.has_stopped_any()
-            )
-
+        _ = self._launch_request(request)
         context = {}
-        # no cryptographic material on the researcher side in this case, no specific context element to save
+        return self._register(context)
 
-        if all(status.values()):
-            # only create context if previous steps succeeded
-            _, status_researcher_payload = payload(context)
-            status[self._researcher_id] = (
-                status[self._researcher_id] and status_researcher_payload
-            )
-
-        # Current implementation does not try to clean entries on successful nodes if some nodes failed (`not status`)
-
-        return context, status

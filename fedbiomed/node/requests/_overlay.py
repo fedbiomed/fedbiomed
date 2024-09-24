@@ -250,18 +250,16 @@ def send_nodes(
             dest_node_id=node,
             overlay=format_outgoing_overlay(message),
         )
-
         grpc_client.send(message_overlay)
 
         if isinstance(message, InnerRequestReply):
-            request_ids += [message.get_param("request_id")]
+            request_ids += [message.request_id]
 
     all_received, messages = pending_requests.wait(
         request_ids, TIMEOUT_NODE_TO_NODE_REQUEST
     )
-
     if not all_received and raise_if_not_all_received:
-        nodes_no_answer = set(nodes) - set(m.get_param("node_id") for m in messages)
+        nodes_no_answer = set(nodes) - set(m.node_id for m in messages)
         raise FedbiomedNodeToNodeError(
             f"{ErrorNumbers.FB318.value}: Some nodes did not answer request "
             f"{nodes_no_answer}"

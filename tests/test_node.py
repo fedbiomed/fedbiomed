@@ -36,7 +36,7 @@ from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 
-rom fedbiomed.node.node import Node
+from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
 
 #############################################################
@@ -63,7 +63,7 @@ class TestNode(NodeTestCase):
         researcher_id="r1",
         experiment_id="experiment-id",
         secagg_id="secagg-id",
-        parties=["r1", "n1", "n2"],
+        parties=["n1", "n2"],
         element=0,
     )
 
@@ -527,18 +527,18 @@ class TestNode(NodeTestCase):
         self.assertNotIn("path", database_info)
         self.assertNotIn("tabular_file", database_info["dataset_parameters"])
 
-    def test_node_23_task_secagg(self):
+    @patch("fedbiomed.node.node.SecaggSetup")
+    def test_node_23_task_secagg(self, secagg_setup):
         """Tests `_task_secagg` normal (successful) case"""
         # Test .setup()execution. It is normal the get result as success False since setup will fail
         # due to not existing certificate files
-
+        x = MagicMock()
+        secagg_setup.return_value.return_value = x
+        x.setup.return_value = MagicMock()
         self.n1._task_secagg(self.secagg_request)
-        reply = self.grpc_send_mock.call_args.args[1]
-        self.assertIsInstance(reply, SecaggReply)
-        self.grpc_send_mock.reset_mock()
 
         # Test setup error case ---------------------------------------------------------------
-        self.secagg_request.element = 12
+        x.setup.side_effect = Exception
         self.n1._task_secagg(self.secagg_request)
         error = self.grpc_send_mock.call_args.args[1]
         self.assertIsInstance(error, ErrorMessage)
