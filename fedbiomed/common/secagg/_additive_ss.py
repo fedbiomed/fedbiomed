@@ -44,33 +44,32 @@ class AdditiveSecret:
         """
         if num_shares <= 0:
             raise FedbiomedValueError("Number of shares must be greater than 0")
+
         if isinstance(self.secret, int):
-            if bit_length is not None and bit_length < int(log2(self.secret)):
-                raise FedbiomedValueError(
-                    "Bit length must be greater or equal than the secret's bit length"
-                )
-            bit_length = self.secret.bit_length() if bit_length is None else bit_length
-            shares = [random.randint(0, 2**bit_length) for _ in range(num_shares - 1)]
-            last_share = self.secret - sum(shares)
-            shares.append(last_share)
+            shares = self._shares_int(self.secret, num_shares, bit_length)
         else:
             shares = []
-            max_value = max(self.secret)
-            if bit_length is not None and bit_length < int(log2(max_value)):
-                raise FedbiomedValueError(
-                    "Bit length must be greater or equal than the largest secret's bit length"
-                )
-            bit_length = max_value.bit_length() if bit_length is None else bit_length
             for value in self.secret:
-
-                partial_shares = [
-                    random.randint(0, 2**bit_length) for _ in range(num_shares - 1)
-                ]
-                partial_shares.append(value - sum(partial_shares))
+                partial_shares = self._shares_int(value, num_shares, bit_length)
                 shares.append(partial_shares)
+
             shares = list(map(list, zip(*shares)))
 
         return AdditiveShares([AdditiveShare(share) for share in shares])
+
+    @staticmethod
+    def _shares_int(secret, num_shares, bit_length):
+        """Create given int shares"""
+
+        if bit_length is not None and bit_length < int(log2(secret)):
+            raise FedbiomedValueError(
+                "Bit length must be greater or equal than the secret's bit length"
+            )
+        bit_length = secret.bit_length() if bit_length is None else bit_length
+
+        shares = [random.randint(0, 2**bit_length) for _ in range(num_shares - 1)]
+
+        return [*shares, secret - sum(shares)]
 
 
 class AdditiveShare:
