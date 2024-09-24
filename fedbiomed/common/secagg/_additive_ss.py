@@ -96,7 +96,7 @@ class AdditiveShare:
             )
         self._value = value
 
-    def __add__(self, other: "AddtiveShare") -> "AdditiveShare":
+    def __add__(self, other: "AdditiveShare") -> "AdditiveShare":
         """
         Adds two shares together. Supports both integer and list types.
 

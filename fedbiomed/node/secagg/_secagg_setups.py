@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation setup on the node"""
-import inspect
 import random
 import uuid
 from abc import ABC, abstractmethod
@@ -12,7 +11,6 @@ from typing import List, Union
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import (
     REQUEST_PREFIX,
-    ComponentType,
     ErrorNumbers,
     SecaggElementTypes,
 )
@@ -26,7 +24,6 @@ from fedbiomed.common.message import (
     Message,
     SecaggReply,
 )
-from fedbiomed.common.mpc_controller import MPCController
 from fedbiomed.common.secagg import (
     AdditiveSecret,
     AdditiveShare,

@@ -6,7 +6,7 @@ from ._secagg_setups import (
 )
 
 from ._secagg_round import (
-   SecaggRound
+    SecaggRound
 )
 
 __all__ = [
@@ -16,4 +16,3 @@ __all__ = [
     "SecaggDHSetup",
     "SecaggRound",
 ]
-
