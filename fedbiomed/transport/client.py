@@ -16,11 +16,12 @@ from fedbiomed.common.constants import (
     MAX_SEND_RETRIES,
     ErrorNumbers,
 )
-from fedbiomed.common.exceptions import FedbiomedCommunicationError
-from fedbiomed.common.logger import logger
-from fedbiomed.common.message import FeedbackMessage, Message, TaskRequest, TaskResult
-from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
+
+from fedbiomed.common.logger import logger
+from fedbiomed.common.serializer import Serializer
+from fedbiomed.common.message import Message, TaskRequest, TaskResult, FeedbackMessage
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
 
 
 @dataclass
@@ -475,7 +476,7 @@ class Listener:
             except (Exception, GeneratorExit) as exp:
                 logger.error(
                     f"Unexpected error raised by node gRPC client in {self.__class__.__name__}: "
-                    f"{type(exp).__name__} : {exp}"
+                    f"{type(exp).__name__} : {exp}", exc_info=True
                 )
                 await self._handle_after_process(
                     ClientStatus.FAILED, True, False, self._post_handle_raise, exp

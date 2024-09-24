@@ -50,7 +50,7 @@ class Serializer:
             with open(write_to, "wb") as file:
                 file.write(ser)
                 file.close()
-        
+
         return ser
 
     @classmethod
@@ -74,9 +74,7 @@ class Serializer:
         Returns:
             Data loaded and decoded from the input bytes.
         """
-        return msgpack.unpackb(
-            data, object_hook=cls._object_hook, strict_map_key=False
-        )
+        return msgpack.unpackb(data, object_hook=cls._object_hook, strict_map_key=False)
 
     @classmethod
     def load(cls, path: str) -> Any:
@@ -102,9 +100,12 @@ class Serializer:
         """
         # Big integer
         if isinstance(obj, int):
-            return {"__type__": "int", "value": obj.to_bytes(
-                length=ceil(obj.bit_length()/8),
-                byteorder="big")}
+            return {
+                "__type__": "int",
+                "value": obj.to_bytes(
+                    length=ceil(obj.bit_length() / 8) + 1, byteorder="big", signed=True
+                ),
+            }
         if isinstance(obj, tuple):
             return {"__type__": "tuple", "value": list(obj)}
         if isinstance(obj, np.ndarray):
@@ -119,14 +120,12 @@ class Serializer:
             return {"__type__": "torch.Tensor", "value": spec}
         if isinstance(obj, Vector):
             return {"__type__": "Vector", "value": obj.coefs}
-        
+
         if isinstance(obj, MetricTypes):
             return {"__type__": "MetricTypes", "value": obj.name}
 
         # Raise on unsupported types.
-        raise FedbiomedTypeError(
-            f"Cannot serialize object of type '{type(obj)}'."
-        )
+        raise FedbiomedTypeError(f"Cannot serialize object of type '{type(obj)}'.")
 
     @staticmethod
     def _object_hook(obj: Any) -> Any:
@@ -137,7 +136,7 @@ class Serializer:
         if objtype == "tuple":
             return tuple(obj["value"])
         if objtype == "int":
-            return int.from_bytes(obj["value"], byteorder="big")
+            return int.from_bytes(obj["value"], byteorder="big", signed=True)
         if objtype == "np.ndarray":
             data, dtype, shape = obj["value"]
             return np.frombuffer(data, dtype=dtype).reshape(shape).copy()
@@ -152,9 +151,6 @@ class Serializer:
             return Vector.build(obj["value"])
         if objtype == "MetricTypes":
             return MetricTypes.get_metric_type_by_name(obj["value"])
-        
 
-        logger.warning(
-            "Encountered an object that cannot be properly deserialized."
-        )
+        logger.warning("Encountered an object that cannot be properly deserialized.")
         return obj
