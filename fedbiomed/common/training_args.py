@@ -124,7 +124,7 @@ class TrainingArgs:
             Testing arguments as dictionary
         """
         keys = ['test_ratio', 'test_on_local_updates', 'test_on_global_updates',
-                'test_metric', 'test_metric_args', 'test_batch_size']
+                'test_metric', 'test_metric_args']
         return self._extract_args(keys)
 
     def loader_arguments(self) -> Dict:
@@ -149,7 +149,6 @@ class TrainingArgs:
         keys = ["batch_maxnum",
                 "fedprox_mu",
                 "log_interval",
-                "share_persistent_buffers",
                 "dry_run",
                 "epochs",
                 "use_gpu",
@@ -290,7 +289,6 @@ class TrainingArgs:
         | dry_run | perform a single model update for testing on each node and correctly handle GPU execution |
         | batch_maxnum | prematurely break after batch_maxnum model updates for each epoch (useful for testing) |
         | test_ratio | the proportion of validation samples to total number of samples in the dataset |
-        | test_batch_size | batch size used for testing trained model wrt a set of metric |
         | test_on_local_updates | toggles validation after local training |
         | test_on_global_updates | toggles validation before local training |
         | test_metric | metric to be used for validation |
@@ -326,11 +324,6 @@ class TrainingArgs:
             "test_ratio": {
                 "rules": [float, cls._test_ratio_hook], "required": False, "default": 0.0
             },
-            "test_batch_size": {
-                "rules": [cls.optional_type(typespec=int, argname='test_batch_size')],
-                "required": False,
-                "default": 0
-            },
             "test_on_local_updates": {
                 "rules": [bool], "required": False, "default": False
             },
@@ -360,7 +353,11 @@ class TrainingArgs:
             },
             "random_seed": {
                 "rules": [cls.optional_type(typespec=int, argname='random_seed')], "required": True, "default": None
-            }
+            },
+            #MANI
+            "gpu_num": {
+                "rules": [int], "required": True, "default": -1
+            },
         }
 
     def __str__(self) -> str:
@@ -506,34 +503,11 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg)
 
-    def dict(self) -> dict:
+    def dict(self):
         """Returns a copy of the training_args as a dictionary."""
 
         ta = deepcopy(self._ta)
         return ta
-
-    def get_state_breakpoint(self):
-        """Returns JSON serializable dict as state for breakpoints"""
-
-        # TODO: This method is a temporary solution for JSON
-        # serialize error during breakpoint save operation
-        args = self.dict()
-        test_metric = args.get('test_metric')
-
-        if test_metric and isinstance(test_metric, MetricTypes):
-            args['test_metric'] = test_metric.name
-
-        return args
-
-    @classmethod
-    def load_state_breakpoint(cls, state: Dict) -> 'TrainingArgs':
-        """Loads training arguments state"""
-        if state.get('test_metric'):
-            state.update(
-                {'test_metric': MetricTypes.get_metric_type_by_name(
-                                                state.get('test_metric'))})
-
-        return cls(state)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Mimics the get() method of dict, provided for backward compatibility.

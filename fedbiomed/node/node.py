@@ -1,42 +1,27 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""
+'''
 Core code of the node component.
-"""
-from typing import Callable, Optional, Union
+'''
+from typing import Optional, Union, Callable
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import (
-    ApprovalRequest,
-    ErrorMessage,
-    Message,
-    OverlayMessage,
-    PingReply,
-    PingRequest,
-    SearchReply,
-    SearchRequest,
-    SecaggDeleteReply,
-    SecaggDeleteRequest,
-    SecaggReply,
-    SecaggRequest,
-    TrainingPlanStatusRequest,
-    TrainRequest,
-)
-from fedbiomed.common.synchro import EventWaitExchange
+from fedbiomed.common.message import NodeMessages, SecaggDeleteRequest, SecaggRequest, TrainRequest, ErrorMessage
 from fedbiomed.common.tasks_queue import TasksQueue
-from fedbiomed.node.dataset_manager import DatasetManager
+
+from fedbiomed.transport.controller import GrpcController
+from fedbiomed.transport.client import ResearcherCredentials
+
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.requests import NodeToNodeRouter
+from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
-from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
-from fedbiomed.transport.client import ResearcherCredentials
-from fedbiomed.transport.controller import GrpcController
 
 
 class Node:
@@ -48,39 +33,25 @@ class Node:
     executing tasks requested by researcher stored in the queue.
     """
 
-    def __init__(
-        self,
-        dataset_manager: DatasetManager,
-        tp_security_manager: TrainingPlanSecurityManager,
-        node_args: Union[dict, None] = None,
-    ):
+    def __init__(self,
+                 dataset_manager: DatasetManager,
+                 tp_security_manager: TrainingPlanSecurityManager,
+                 node_args: Union[dict, None] = None):
         """Constructor of the class.
 
         Attributes:
             dataset_manager: `DatasetManager` object for managing the node's datasets.
-            tp_security_manager: `TrainingPlanSecurityManager` object managing the node's
-                training plans.
+            tp_security_manager: `TrainingPlanSecurityManager` object managing the node's training plans.
             node_args: Command line arguments for node.
         """
 
-        self._tasks_queue = TasksQueue(
-            environ["MESSAGES_QUEUE_DIR"], environ["TMP_DIR"]
-        )
+        self._tasks_queue = TasksQueue(environ['MESSAGES_QUEUE_DIR'], environ['TMP_DIR'])
+        # TODO: extend for multiple researchers, currently expect only one
         res = environ["RESEARCHERS"][0]
         self._grpc_client = GrpcController(
             node_id=environ["ID"],
-            researchers=[
-                ResearcherCredentials(
-                    port=res["port"], host=res["ip"], certificate=res["certificate"]
-                )
-            ],
+            researchers=[ResearcherCredentials(port=res['port'], host=res['ip'], certificate=res['certificate'])],
             on_message=self.on_message,
-        )
-        # When implementing multiple researchers, there will probably be one per researcher.
-        self._pending_requests = EventWaitExchange(remove_delivered=True)
-        self._controller_data = EventWaitExchange(remove_delivered=False)
-        self._n2n_router = NodeToNodeRouter(
-            self._grpc_client, self._pending_requests, self._controller_data
         )
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
@@ -95,7 +66,7 @@ class Node:
         """
         self._tasks_queue.add(task)
 
-    def on_message(self, msg: dict):
+    def on_message(self, msg: dict, topic: str = None):
         """Handler to be used with `Messaging` class (ie the messager).
 
         Called when a  message arrives through the `Messaging`.
@@ -107,88 +78,99 @@ class Node:
 
         Args:
             msg: Incoming message from Researcher.
+                Must contain key named `command`, describing the nature
+                of the command (ping requests, train requests,
+                or search requests).
+                Should be formatted as a `Message`.
+            topic: Messaging topic name, decision (specially on researcher) may
+                be done regarding of the topic. Currently unused.
         """
-
-        message: Message
-
-        # Deserialize message
+        # TODO: describe all exceptions defined in this method
+        no_print = ["aggregator_args", "aux_vars", "params", "training_plan"]
+        msg_print = {key: value for key, value in msg.items() if key not in no_print}
+        logger.debug('Message received: ' + str(msg_print))
         try:
-            message = Message.from_dict(msg)
-        except FedbiomedError as e:
-            logger.error(e)  # Message was not properly formatted
-            resid = msg.get("researcher_id", "unknown_researcher_id")
-            self.send_error(
-                ErrorNumbers.FB301,
-                extra_msg="Message was not properly formatted",
-                researcher_id=resid,
-            )
-        else:
-            no_print = [
-                "aggregator_args",
-                "aux_vars",
-                "params",
-                "training_plan",
-                "overlay",
-            ]
-            msg_print = {
-                key: value
-                for key, value in message.get_dict().items()
-                if key not in no_print
-            }
-            logger.debug("Message received: " + str(msg_print))
+            # get the request from the received message (from researcher)
+            command = msg['command']
+            request = NodeMessages.format_incoming_message(msg).get_dict()
+            if command in ['train', 'secagg']:
+                # add training task to queue
+                #MANI
+                self.node_args["gpu_num"] = msg["training_args"]["gpu_num"]
+                request["model_args"] = {**request["model_args"], "node_args": self.node_args, "node_id": environ["ID"]}
+                self.add_task(request)
+            elif command == 'secagg-delete':
+                self._task_secagg_delete(NodeMessages.format_incoming_message(msg))
+            elif command == 'ping':
+                self._grpc_client.send(
+                    NodeMessages.format_outgoing_message(
+                        {
+                            'researcher_id': msg['researcher_id'],
+                            'request_id': msg['request_id'],
+                            'node_id': environ['NODE_ID'],
+                            'success': True,
+                            'command': 'pong'
+                        }))
+            elif command == 'search':
+                # Look for databases matching the tags
+                databases = self.dataset_manager.search_by_tags(msg['tags'])
+                if len(databases) != 0:
+                    databases = self.dataset_manager.obfuscate_private_information(databases)
+                self._grpc_client.send(NodeMessages.format_outgoing_message(
+                    {'request_id': msg['request_id'],
+                     'success': True,
+                     'command': 'search',
+                     'node_id': environ['NODE_ID'],
+                     'researcher_id': msg['researcher_id'],
+                     'databases': databases,
+                     'count': len(databases)}))
 
-            match message.__name__:
+            elif command == 'list':
+                # Get list of all datasets
+                databases = self.dataset_manager.list_my_data(verbose=False)
+                databases = self.dataset_manager.obfuscate_private_information(databases)
+                self._grpc_client.send(NodeMessages.format_outgoing_message(
+                    {'success': True,
+                     'request_id': msg['request_id'],
+                     'command': 'list',
+                     'node_id': environ['NODE_ID'],
+                     'researcher_id': msg['researcher_id'],
+                     'databases': databases,
+                     'count': len(databases),
+                     }))
+            elif command == 'approval':
+                # Ask for training plan approval
+                reply = self.tp_security_manager.reply_training_plan_approval_request(request)
+                self._grpc_client.send(reply)
+            elif command == 'training-plan-status':
+                # Check is training plan approved
+                reply = self.tp_security_manager.reply_training_plan_status_request(request)
+                self._grpc_client.send(reply)
+            else:
+                raise NotImplementedError('Command not found')
 
-                case TrainRequest.__name__ | SecaggRequest.__name__:
-                    self.add_task(message)
-                case SecaggDeleteRequest.__name__:
-                    self._task_secagg_delete(message)
-                case OverlayMessage.__name__:
-                    self._n2n_router.submit(message)
-                case SearchRequest.__name__:
-                    databases = self.dataset_manager.search_by_tags(message.tags)
-                    if len(databases) != 0:
-                        databases = self.dataset_manager.obfuscate_private_information(
-                            databases
-                        )
-                    self._grpc_client.send(
-                        SearchReply(
-                            request_id=message.request_id,
-                            node_id=environ["NODE_ID"],
-                            researcher_id=message.researcher_id,
-                            databases=databases,
-                            count=len(databases),
-                        )
-                    )
-
-                case PingRequest.__name__:
-                    self._grpc_client.send(
-                        PingReply(
-                            request_id=message.request_id,
-                            researcher_id=message.researcher_id,
-                            node_id=environ["ID"],
-                        )
-                    )
-                case ApprovalRequest.__name__:
-                    reply = (
-                        self.tp_security_manager.reply_training_plan_approval_request(
-                            message
-                        )
-                    )
-                    self._grpc_client.send(reply)
-                case TrainingPlanStatusRequest.__name__:
-                    reply = self.tp_security_manager.reply_training_plan_status_request(
-                        message
-                    )
-                    self._grpc_client.send(reply)
-                case _:
-                    resid = msg.get("researcher_id", "unknown_researcher_id")
-                    self.send_error(
-                        ErrorNumbers.FB301,
-                        extra_msg="This request handler is not implemented "
-                        f"{message.__class__.__name__} is not implemented",
-                        researcher_id=resid,
-                    )
+        except NotImplementedError:
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg=f"Command `{command}` is not implemented",
+                            researcher_id=resid)
+        except KeyError:
+            # FIXME: this error could be raised for other missing keys (eg
+            # researcher_id, ....)
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg="'command' property was not found",
+                            researcher_id=resid)
+        except FedbiomedMessageError:  # Message was not properly formatted
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg='Message was not properly formatted',
+                            researcher_id=resid)
+        except TypeError:  # Message was not serializable
+            resid = msg.get('researcher_id', 'unknown_researcher_id')
+            self.send_error(ErrorNumbers.FB301,
+                            extra_msg='Message was not serializable',
+                            researcher_id=resid)
 
     def _task_secagg_delete(self, msg: SecaggDeleteRequest) -> None:
         """Parse a given secagg delete task message and execute secagg delete task.
@@ -197,36 +179,36 @@ class Node:
             msg: `SecaggDeleteRequest` message object to parse
         """
 
-        secagg_id = msg.secagg_id
+        secagg_id = msg.get_param('secagg_id')
 
         reply = {
-            "node_id": environ["ID"],
-            "researcher_id": msg.researcher_id,
-            "success": True,
-            "secagg_id": secagg_id,
-            "request_id": msg.request_id,
-        }
+            'researcher_id': msg.get_param('researcher_id'),
+            'secagg_id': secagg_id,
+            'request_id': msg.request_id,
+            'command': 'secagg-delete'}
 
-        secagg_manager = SecaggManager(element=msg.get_param("element"))()
-        status = secagg_manager.remove(
-            secagg_id=secagg_id, experiment_id=msg.get_param("experiment_id")
-        )
+        try:
+            secagg_manager = SecaggManager(element=msg.get_param('element'))()
+        except Exception as e:
+            message = f'{ErrorNumbers.FB321.value}: Can not instantiate SecaggManager object {e}'
+            logger.error(message)
+            return self.reply({"success": False, "msg": message, **reply})
 
-        if not status:
-            message = (
-                f"{ErrorNumbers.FB321.value}: no such secagg context "
-                f"element in node database for node_id={environ['NODE_ID']} "
-                f"secagg_id={secagg_id}"
-            )
-            return self.send_error(
-                extra_msg=message,
-                researcher_id=msg.researcher_id,
-                request_id=msg.request_id,
-            )
+        try:
+            status = secagg_manager.remove(secagg_id=secagg_id,
+                                           job_id=msg.get_param('job_id'))
+            if status:
+                message = 'Delete request is successful'
+            else:
+                message = f"{ErrorNumbers.FB321.value}: no such secagg context element in node database for " \
+                          f"node_id={environ['NODE_ID']} secagg_id={secagg_id}"
+        except Exception as e:
+            message = f"{ErrorNumbers.FB321.value}: error during secagg delete on node_id={environ['NODE_ID']} " \
+                      f'secagg_id={secagg_id}: {e}'
+            logger.error(message)
+            status = False
 
-        return self._grpc_client.send(
-            SecaggDeleteReply(**{**reply, "msg": "Secagg context is deleted."})
-        )
+        return self.reply({"success": status, "msg": message, **reply})
 
     def _task_secagg(self, msg: SecaggRequest) -> None:
         """Parse a given secagg setup task message and execute secagg task.
@@ -236,27 +218,21 @@ class Node:
         """
         setup_arguments = {key: value for (key, value) in msg.get_dict().items()}
 
-        # Needed when using node to node communications
-        #
-        # Currently used only for Diffie-Hellman keys
-        # but we can add it for all secagg for future extension (in-app Shamir for Joye-Libert secagg)
-        setup_arguments["grpc_client"] = self._grpc_client
-        setup_arguments["pending_requests"] = self._pending_requests
-        setup_arguments["controller_data"] = self._controller_data
-
         try:
             secagg = SecaggSetup(**setup_arguments)()
         except Exception as error_message:
             logger.error(error_message)
-            return self.send_error(
-                request_id=msg.request_id,
-                researcher_id=msg.researcher_id,
-                extra_msg=str(error_message),
-            )
+            return self.reply({"researcher_id": msg.get_param('researcher_id'),
+                               "secagg_id": msg.get_param('secagg_id'),
+                               'request_id': msg.request_id,
+                               "msg": str(error_message),
+                               "success": False,
+                               "command": "secagg"})
 
         reply = secagg.setup()
-        reply.update({"request_id": msg.request_id, "node_id": environ["ID"]})
-        return self._grpc_client.send(SecaggReply(**reply))
+        reply["request_id"] = msg.request_id
+
+        return self.reply(reply)
 
     def parser_task_train(self, msg: TrainRequest) -> Union[Round, None]:
         """Parses a given training task message to create a round instance
@@ -268,106 +244,128 @@ class Node:
             a `Round` object for the training to perform, or None if no training
         """
         round_ = None
-        hist_monitor = HistoryMonitor(
-            experiment_id=msg.experiment_id,
-            researcher_id=msg.researcher_id,
-            send=self._grpc_client.send,
-        )
+        # msg becomes a TrainRequest object
+        hist_monitor = HistoryMonitor(job_id=msg.get_param('job_id'),
+                                      researcher_id=msg.get_param('researcher_id'),
+                                      send=self._grpc_client.send)
 
-        dataset_id = msg.get_param("dataset_id")
+        dataset_id = msg.get_param('dataset_id')
         data = self.dataset_manager.get_by_id(dataset_id)
 
         if data is None:
-            return self.send_error(
-                extra_msg="Did not found proper data in local datasets "
-                f'on node={environ["NODE_ID"]}',
-                request_id=msg.request_id,
-                researcher_id=msg.researcher_id,
-                errnum=ErrorNumbers.FB313,
-            )
+            logger.error('Did not found proper data in local datasets '
+                         f'on node={environ["NODE_ID"]}')
+            self._grpc_client.send(NodeMessages.format_outgoing_message(
+                {'command': "error",
+                 'request_id': msg.request_id,
+                 'node_id': environ['NODE_ID'],
+                 'researcher_id': msg.get_param('researcher_id'),
+                 'errnum': ErrorNumbers.FB313.name,
+                 'extra_msg': "Did not found proper data in local datasets"}
+            ))
+        else:
+            dlp_and_loading_block_metadata = None
+            if 'dlp_id' in data:
+                dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(data['dlp_id'])
 
-        dlp_and_loading_block_metadata = None
-        if "dlp_id" in data:
-            dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(
-                data["dlp_id"]
-            )
+            round_ = Round(training_plan=msg.get_param('training_plan'),
+                           training_plan_class=msg.get_param('training_plan_class'),
+                           model_kwargs=msg.get_param('model_args') or {},
+                           training_kwargs=msg.get_param('training_args') or {},
+                           training=msg.get_param('training') or False,
+                           dataset=data,
+                           params=msg.get_param('params'),
+                           job_id=msg.get_param('job_id'),
+                           researcher_id=msg.get_param('researcher_id'),
+                           history_monitor=hist_monitor,
+                           aggregator_args=msg.get_param('aggregator_args') or None,
+                           node_args=self.node_args,
+                           round_number=msg.get_param('round'),
+                           dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
+                           aux_vars=msg.get_param('aux_vars'))
 
-        round_ = Round(
-            training_plan=msg.get_param("training_plan"),
-            training_plan_class=msg.get_param("training_plan_class"),
-            model_kwargs=msg.get_param("model_args") or {},
-            training_kwargs=msg.get_param("training_args") or {},
-            training=msg.get_param("training") or False,
-            dataset=data,
-            params=msg.get_param("params"),
-            experiment_id=msg.get_param("experiment_id"),
-            researcher_id=msg.get_param("researcher_id"),
-            history_monitor=hist_monitor,
-            aggregator_args=msg.get_param("aggregator_args") or None,
-            node_args=self.node_args,
-            round_number=msg.get_param("round"),
-            dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-            aux_vars=msg.get_param("aux_vars"),
-        )
-
-        # the round raises an error if it cannot initialize
-        err_msg = round_.initialize_arguments(msg.get_param("state_id"))
-        if err_msg is not None:
-            self._grpc_client.send(
-                ErrorMessage(
-                    node_id=environ["ID"],
-                    errnum=ErrorNumbers.FB300,
-                    researcher_id=msg.researcher_id,
-                    extra_msg="Could not initialize arguments",
-                )
-            )
+            # the round raises an error if it cannot initialize
+            err_msg = round_.initialize_arguments(msg.get_param('state_id'))
+            if err_msg is not None:
+                self._grpc_client.send(
+                    NodeMessages.format_outgoing_message(
+                        {   'command': 'error',
+                            'node_id': environ['NODE_ID'],
+                            'errnum': ErrorNumbers.FB300,
+                            'researcher_id': msg.get_param('researcher_id'),
+                            'extra_msg': "Could not initialize arguments."}
+                    ))
 
         return round_
 
     def task_manager(self):
-        """Manages training tasks in the queue."""
+        """Manages training tasks in the queue.
+        """
 
         while True:
-            item: Message = self._tasks_queue.get()
+            item = self._tasks_queue.get()
             # don't want to treat again in case of failure
             self._tasks_queue.task_done()
 
-            logger.info(
-                f"[TASKS QUEUE] Task received by task manager: "
-                f"Researcher: {item.researcher_id} "
-                f"Experiment: {item.experiment_id}"
-            )
+            logger.info(f"[TASKS QUEUE] Task received by task manager: Command: "
+                        f"{item['command']} Researcher: {item['researcher_id']} Job: {item.get('job_id')}")
 
-            match item.__name__:
-                case TrainRequest.__name__:
+            try:
+
+                item = NodeMessages.format_incoming_message(item)
+                command = item.get_param('command')
+            except Exception as e:
+                # send an error message back to network if something wrong occured
+                self._grpc_client.send(
+                    NodeMessages.format_outgoing_message(
+                        {
+                            'command': 'error',
+                            'extra_msg': str(e),
+                            'node_id': environ['NODE_ID'],
+                            'researcher_id': 'NOT_SET',
+                            'errnum': ErrorNumbers.FB300.name
+                        }
+                    )
+                )
+            else:
+                if command == 'train':
                     try:
-                        round_ = self.parser_task_train(item)
+                        round = self.parser_task_train(item)
+
                         # once task is out of queue, initiate training rounds
-                        if round_ is not None:
-                            msg = round_.run_model_training(
-                                secagg_arguments=item.get_param("secagg_arguments"),
+                        if round is not None:
+                            # Runs model training and send message using callback
+                            msg = round.run_model_training(
+                                secagg_arguments={
+                                    'secagg_servkey_id': item.get_param('secagg_servkey_id'),
+                                    'secagg_biprime_id': item.get_param('secagg_biprime_id'),
+                                    'secagg_random': item.get_param('secagg_random'),
+                                    'secagg_clipping_range': item.get_param('secagg_clipping_range')
+                                }
                             )
                             msg.request_id = item.request_id
                             self._grpc_client.send(msg)
-                            del round_
-
-                    # TODO: Test exception
                     except Exception as e:
-                        self.send_error(
-                            request_id=item.request_id,
-                            researcher_id=item.researcher_id,
-                            errnum=ErrorNumbers.FB300,
-                            extra_msg="Round error: " + str(e),
+                        # send an error message back to network if something
+                        # wrong occured
+                        self._grpc_client.send(
+                            NodeMessages.format_outgoing_message(
+                                {
+                                    'command': 'error',
+                                    'extra_msg': 'Round error: ' + str(e),
+                                    'node_id': environ['NODE_ID'],
+                                    'researcher_id': item.get_param('researcher_id'),
+                                    'errnum': ErrorNumbers.FB300.name
+                                }
+                            )
                         )
-                case SecaggRequest.__name__:
+                        logger.debug(f"{ErrorNumbers.FB300.value}: {e}")
+                elif command == 'secagg':
                     self._task_secagg(item)
-                case _:
-                    errmess = f"{ErrorNumbers.FB319.value}: Undefined request message"
+                else:
+                    errmess = f'{ErrorNumbers.FB319.value}: "{command}"'
+                    logger.error(errmess)
                     self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
-
-    def start_protocol(self) -> None:
-        """Start the node to node router thread, for handling node to node message"""
-        self._n2n_router.start()
 
     def start_messaging(self, on_finish: Optional[Callable] = None):
         """Calls the start method of messaging class.
@@ -386,34 +384,62 @@ class Node:
         """
         return self._grpc_client.is_connected()
 
+    def reply(self, msg: dict):
+        """Send reply to researcher
+
+        Args:
+            msg:
+
+        """
+
+        try:
+            reply = NodeMessages.format_outgoing_message(
+                {'node_id': environ['ID'],
+                 **msg}
+            )
+        except FedbiomedMessageError as e:
+            logger.error(f"{ErrorNumbers.FB601.value}: {e}")
+            self.send_error(errnum=ErrorNumbers.FB601, extra_msg=f"{ErrorNumbers.FB601.value}: Can not reply "
+                                                                 f"due to incorrect message type {e}.")
+        except Exception as e:
+            logger.error(f"{ErrorNumbers.FB601.value} Unexpected error while creating node reply message {e}")
+            self.send_error(errnum=ErrorNumbers.FB601, extra_msg=f"{ErrorNumbers.FB601.value}: "
+                                                                 f"Unexpected error occurred")
+
+        else:
+            self._grpc_client.send(reply)
+
+
+
     def send_error(
-        self,
-        errnum: ErrorNumbers = ErrorNumbers.FB300,
-        extra_msg: str = "",
-        researcher_id: str = "<unknown>",
-        broadcast: bool = False,
-        request_id: str = None,
+            self,
+            errnum: ErrorNumbers,
+            extra_msg: str = "",
+            researcher_id: str = "<unknown>",
+            broadcast: bool = False
     ):
         """Sends an error message.
+
+        It is a wrapper of `Messaging.send_error()`.
 
         Args:
             errnum: Code of the error.
             extra_msg: Additional human readable error message.
             researcher_id: Destination researcher.
-            broadcast: Broadcast the message all available researchers regardless of specific researcher.
-            request_id: Optional request i to reply as error to a request.
         """
+
+        #
         try:
-            logger.error(extra_msg)
             self._grpc_client.send(
                 ErrorMessage(
-                    request_id=request_id,
+                    command='error',
                     errnum=errnum.name,
-                    node_id=environ["NODE_ID"],
+                    node_id=environ['NODE_ID'],
                     extra_msg=extra_msg,
-                    researcher_id=researcher_id,
+                    researcher_id=researcher_id
                 ),
-                broadcast=broadcast,
+                broadcast=broadcast
             )
         except Exception as e:
+            # TODO: Need to keep message local, cannot send error
             logger.error(f"{ErrorNumbers.FB601.value}: Cannot send error message: {e}")

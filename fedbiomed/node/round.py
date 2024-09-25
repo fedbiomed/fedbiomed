@@ -5,11 +5,15 @@
 implementation of Round class of the node component
 '''
 
+import atexit
 import tempfile
 import shutil
 import os
 import time
+import functools
 import uuid
+import traceback
+import sys
 from typing import Dict, Union, Any, Optional, Tuple, List
 
 
@@ -17,19 +21,20 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
 from fedbiomed.common.data import DataManager, DataLoadingPlan
 from fedbiomed.common.exceptions import (
     FedbiomedError, FedbiomedOptimizerError, FedbiomedRoundError,
-    FedbiomedUserInputError, FedbiomedSecureAggregationError
+    FedbiomedUserInputError
 )
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import TrainReply
+from fedbiomed.common.message import NodeMessages
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common import utils
+from fedbiomed.common.secagg import SecaggCrypter
 
 from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node_state_manager import NodeStateManager, NodeStateFileName
-from fedbiomed.node.secagg import SecaggRound
+from fedbiomed.node.secagg_manager import SKManager, BPrimeManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
@@ -47,7 +52,7 @@ class Round:
         training: bool ,
         dataset: dict,
         params: str,
-        experiment_id: str,
+        job_id: str,
         researcher_id: str,
         history_monitor: HistoryMonitor,
         aggregator_args: Dict[str, Any],
@@ -67,7 +72,7 @@ class Round:
             dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
                 data path, its shape, its description... . Defaults to None.
             params: parameters of the model
-            experiment_id: experiment id
+            job_id: job id
             researcher_id: researcher id
             history_monitor: Sends real-time feed-back to end-user during training
             aggregator_args: Arguments managed by and shared with the
@@ -83,11 +88,12 @@ class Round:
             aux_var: auxiliary variables of the model.
         """
 
+        self._use_secagg: bool = False
         self.dataset = dataset
         self.training_plan_source = training_plan
         self.training_plan_class = training_plan_class
         self.params = params
-        self.experiment_id = experiment_id
+        self.job_id = job_id
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
         self.aggregator_args = aggregator_args
@@ -104,16 +110,16 @@ class Round:
         self.testing_arguments = None
         self.loader_arguments = None
         self.training_arguments = None
-        self._secure_aggregation = None
+        self._secagg_crypter = SecaggCrypter()
+        self._secagg_clipping_range = None
         self._round = round_number
+        self._biprime = None
+        self._servkey = None
         self._node_state_manager: NodeStateManager = NodeStateManager(environ['DB_PATH'])
 
         self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
+        atexit.register(lambda: shutil.rmtree(self._keep_files_dir))  # remove directory
 
-    def __del__(self):
-        """Class destructor"""
-        # remove temporary files directory
-        shutil.rmtree(self._keep_files_dir)
 
     def _initialize_validate_training_arguments(self) -> Optional[Dict[str, Any]]:
         """Initialize and validate requested experiment/training arguments.
@@ -152,14 +158,77 @@ class Round:
                                             testing=not self.training)
         return self._initialize_validate_training_arguments()
 
+
+    def _configure_secagg(
+            self,
+            secagg_servkey_id: Union[str, None] = None,
+            secagg_biprime_id: Union[str, None] = None,
+            secagg_random: Union[float, None] = None,
+    ):
+        """Validates secure aggregation status
+
+        Args:
+            secagg_servkey_id: Secure aggregation ID attached to the train request
+            secagg_biprime_id: Secure aggregation Biprime context id that is going to be used for encryption
+            secagg_random: Random number to validate encryption
+
+        Returns:
+            True if secure aggregation should be used.
+
+        Raises:
+            FedbiomedRoundError: incoherent secure aggregation status
+        """
+
+        secagg_all_none = all([s is None for s in (secagg_servkey_id, secagg_biprime_id)])
+        secagg_all_defined = all([s is not None for s in (secagg_servkey_id, secagg_biprime_id)])
+
+        if not secagg_all_none and not secagg_all_defined:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Missing secagg context. Please make sure that "
+                                      f"train request contains both `secagg_servkey_id` and `secagg_biprime_id`.")
+
+        if environ["FORCE_SECURE_AGGREGATION"] and secagg_all_none:
+            raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Node requires to apply secure aggregation but "
+                                      f"Secure aggregation context for the training is not defined.")
+
+        if secagg_all_defined and not environ["SECURE_AGGREGATION"]:
+            raise FedbiomedRoundError(
+                f"{ErrorNumbers.FB314.value} Secure aggregation is not activated on the node."
+            )
+
+        if secagg_all_defined and secagg_random is None:
+            raise FedbiomedRoundError(
+                f"{ErrorNumbers.FB314.value} Secure aggregation requires to have random value to validate "
+                f"secure aggregation correctness. Please add `secagg_random` to the train request"
+            )
+
+        if secagg_all_defined:
+            self._biprime = BPrimeManager.get(secagg_id=secagg_biprime_id)
+            self._servkey = SKManager.get(secagg_id=secagg_servkey_id, job_id=self.job_id)
+
+            if self._biprime is None:
+                raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Biprime for secagg: {secagg_biprime_id} "
+                                          f"is not existing. Aborting train request.")
+
+            if self._servkey is None:
+                raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Server-key/user-key share for "
+                                          f"secagg: {secagg_servkey_id} is not existing. "
+                                          f"Aborting train request.")
+
+        return secagg_all_defined
+
+
     def run_model_training(
             self,
             secagg_arguments: Union[Dict, None] = None,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """Runs one round of model training
 
         Args:
-            secagg_arguments: arguments for secure aggregation, some are specific to the scheme
+            secagg_arguments:
+                - secagg_servkey_id: Secure aggregation Servkey context id. None means that the parameters
+                    are not going to be encrypted
+                - secagg_biprime_id: Secure aggregation Biprime context ID.
+                - secagg_random: Float value to validate secure aggregation on the researcher side
 
         Returns:
             Returns the corresponding node message, training reply instance
@@ -167,12 +236,14 @@ class Round:
         # Validate secagg status. Raises error if the training request is not compatible with
         # secure aggregation settings
         try:
-            self._secure_aggregation = SecaggRound(secagg_arguments, self.experiment_id)
-        except FedbiomedSecureAggregationError as e:
-            logger.error(str(e))
-            return self._send_round_reply(
-                success=False,
-                message='Could not configure secure aggregation on node')
+            secagg_arguments = {} if secagg_arguments is None else secagg_arguments
+            self._use_secagg = self._configure_secagg(
+                secagg_servkey_id=secagg_arguments.get('secagg_servkey_id'),
+                secagg_biprime_id=secagg_arguments.get('secagg_biprime_id'),
+                secagg_random=secagg_arguments.get('secagg_random')
+            )
+        except FedbiomedRoundError as e:
+            return self._send_round_reply(success=False, message=str(e))
 
         # Validate and load training plan
         if environ["TRAINING_PLAN_APPROVAL"]:
@@ -194,7 +265,7 @@ class Round:
             CurrentTPModule, CurrentTrainingPlan = utils.import_class_from_spec(
                 code=self.training_plan_source, class_name=self.training_plan_class)
             self.training_plan = CurrentTrainingPlan()
-        except Exception:
+        except Exception as e:
             error_message = "Cannot instantiate training plan object."
             return self._send_round_reply(success=False, message=error_message)
 
@@ -216,7 +287,7 @@ class Round:
         try:
             CurrentTPModule, self.training_plan = utils.import_class_object_from_file(
                 training_plan_file, self.training_plan_class)
-        except Exception:
+        except Exception as e:
             error_message = "Cannot load training plan object from file."
             return self._send_round_reply(success=False, message=error_message)
 
@@ -224,7 +295,7 @@ class Round:
             self.training_plan.post_init(model_args=self.model_arguments,
                                          training_args=self.training_arguments,
                                          aggregator_args=self.aggregator_args)
-        except Exception:
+        except Exception as e:
             error_message = "Can't initialize training plan with the arguments."
             return self._send_round_reply(success=False, message=error_message)
 
@@ -235,12 +306,13 @@ class Round:
                 self._load_round_state(previous_state_id)
             except Exception:
                 # don't send error details
-                return self._send_round_reply(success=False, message="Can't read previous node state.")
+                previous_state_id = None
+                #return self._send_round_reply(success=False, message="Can't read previous node state.")
 
         # Load model parameters received from researcher
         try:
             self.training_plan.set_model_params(self.params)
-        except Exception:
+        except Exception as e:
             error_message = "Cannot initialize model parameters."
             return self._send_round_reply(success=False, message=error_message)
         # ---------------------------------------------------------------------
@@ -299,7 +371,8 @@ class Round:
                     rtime_after = time.perf_counter()
                     ptime_after = time.process_time()
                 except Exception as exc:
-                    error_message = f"Cannot train model in round: {repr(exc)}"
+                    error_message = f"Cannot train model in round: {repr(exc)}; {traceback.format_exc()}"
+                    traceback.print_exc(limit=20, file=sys.stdout)
                     return self._send_round_reply(success=False, message=error_message)
 
             # Collect Optimizer auxiliary variables, if any.
@@ -336,28 +409,28 @@ class Round:
             results["sample_size"] = len(self.training_plan.training_data_loader.dataset)
 
             results["encrypted"] = False
-            model_weights = self.training_plan.after_training_params(flatten=self._secure_aggregation.use_secagg)
+            model_weights = self.training_plan.after_training_params(flatten=self._use_secagg)
 
-            if self._secure_aggregation.use_secagg:
+            if self._use_secagg:
 
                 logger.info("Encrypting model parameters. This process can take some time depending on model size.",
                             researcher_id=self.researcher_id)
 
-                model_weights = self._secure_aggregation.scheme.encrypt(
-                    params=model_weights,
+                encrypt = functools.partial(
+                    self._secagg_crypter.encrypt,
+                    num_nodes=len(self._servkey["parties"]) - 1,  # -1: don't count researcher
                     current_round=self._round,
-                    weight=results['sample_size'],
+                    key=self._servkey["context"]["server_key"],
+                    biprime=self._biprime["context"]["biprime"],
+                    weight=results["sample_size"],
+                    clipping_range=secagg_arguments.get('secagg_clipping_range')
                 )
-
+                model_weights = encrypt(params=model_weights)
                 results["encrypted"] = True
-                results["encryption_factor"] = None
-                if self._secure_aggregation.scheme.secagg_random is not None and environ['SECAGG_INSECURE_VALIDATION']:
-                    results["encryption_factor"] = self._secure_aggregation.scheme.encrypt(
-                        params=[self._secure_aggregation.scheme.secagg_random],
-                        current_round=self._round,
-                        weight=results['sample_size'])
+                results["encryption_factor"] = encrypt(params=[secagg_arguments["secagg_random"]])
                 logger.info("Encryption is completed!",
                             researcher_id=self.researcher_id)
+
             results['params'] = model_weights
             results['optimizer_args'] = self.training_plan.optimizer_args()
             results['state_id'] = self._node_state_manager.state_id
@@ -406,17 +479,17 @@ class Round:
             extend_with = {}
 
         # If round is not successful log error message
-        return TrainReply(**{
-            'node_id': environ['NODE_ID'],
-            'experiment_id': self.experiment_id,
-            'state_id': self._node_state_manager.state_id,
-            'researcher_id': self.researcher_id,
-            'success': success,
-            'dataset_id': self.dataset['dataset_id'] if success else '',
-            'msg': message,
-            'timing': timing,
-            **extend_with}
-        )
+        return NodeMessages.format_outgoing_message(
+            {'node_id': environ['NODE_ID'],
+             'job_id': self.job_id,
+             'state_id': self._node_state_manager.state_id,
+             'researcher_id': self.researcher_id,
+             'command': 'train',
+             'success': success,
+             'dataset_id': self.dataset['dataset_id'] if success else '',
+             'msg': message,
+             'timing': timing,
+             **extend_with})
 
 
     def process_optim_aux_var(self) -> Optional[str]:
@@ -460,7 +533,7 @@ class Round:
     def _load_round_state(self, state_id: str) -> None:
         """Loads optimizer state of previous `Round`, given a `state_id`.
 
-        Loads optimizer with default values if optimizer entry has not been found
+        Loads optimizer with default values if optimizer entry hasnot been found
         or if Optimizer type has changed between current and previous `Round`. Should
         be called at the begining of a `Round`, before training a model.
         If loading fails, skip the loading part and loads `Optimizer` with default values.
@@ -469,14 +542,14 @@ class Round:
             state_id: state_id from which to recover `Node`'s state
 
         Raises:
-            FedbiomedRoundError: raised if `Round` doesnot have any `experiment_id` attribute.
+            FedbiomedRoundError: raised if `Round` doesnot have any `job_id` attribute.
 
         Returns:
             True
         """
 
         # define here all the object that should be reloaded from the node state database
-        state = self._node_state_manager.get(self.experiment_id, state_id)
+        state = self._node_state_manager.get(self.job_id, state_id)
 
         optimizer_wrapper = self._get_base_optimizer()  # optimizer from TrainingPlan
         if state['optimizer_state'] is not None and \
@@ -503,7 +576,7 @@ class Round:
         [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
 
         Some piece of information such as Optimizer state are also aved in files (located under
-        $FEDBIOMED_DIR/var/node_state<node_id>/experiment_id_<experiment_id>/).
+        $FEDBIOMED_DIR/var/node_state<node_id>/job_id_<job_id>/).
         Should be called at the end of a `Round`, once the model has been trained.
 
         Entries saved in State:
@@ -514,6 +587,7 @@ class Round:
         Returns:
             `Round` state that will be saved in the database.
         """
+
         state: Dict[str, Any] = {}
         _success: bool = True
 
@@ -524,7 +598,7 @@ class Round:
         if optimizer_state is not None:
             # this condition was made so we dont save stateless optimizers
             optim_path = self._node_state_manager.generate_folder_and_create_file_name(
-                self.experiment_id,
+                self.job_id,
                 self._round,
                 NodeStateFileName.OPTIMIZER
             )
@@ -546,7 +620,7 @@ class Round:
 
         # save completed node state
 
-        self._node_state_manager.add(self.experiment_id, state)
+        self._node_state_manager.add(self.job_id, state)
         if _success:
             logger.debug("Node state saved into DataBase")
         else:
@@ -568,7 +642,7 @@ class Round:
         if isinstance(optimizer.optimizer, Optimizer):
             aux_var = optimizer.optimizer.get_aux()
 
-            if aux_var and (self._secure_aggregation is None or self._secure_aggregation.use_secagg):
+            if aux_var and self._use_secagg:
                 # TODO: remove the following warning when secagg compatibility has been fixed
                 # if secagg is used, raise a warning that encryption is not working with auxiliary variable
                 logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the '
@@ -699,8 +773,4 @@ class Round:
         # self.training_data will be equal to None
 
         # Split dataset as train and test
-
-        return data_manager.split(
-            test_ratio=test_ratio,
-            test_batch_size=self.testing_arguments.get('test_batch_size')
-        )
+        return data_manager.split(test_ratio=test_ratio)

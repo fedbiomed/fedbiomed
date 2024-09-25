@@ -36,7 +36,8 @@ def federated_averaging(model_params: List[Dict[str, Union[torch.Tensor, np.ndar
                                               'the same number of elements that list of models.'
 
     # Compute proportions
-    proportions = [n_k / sum(weights) for n_k in weights]
+    #proportions = [n_k / sum(weights) for n_k in weights]
+    proportions = [1 / len(weights) for n_k in weights]
     return weighted_sum(model_params, proportions)
 
 
@@ -50,7 +51,7 @@ def weighted_sum(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
         proportions (List[float]): weights of all items whithin model_params's list
 
     Returns:
-        Mapping[str, Union[torch.Tensor, np.ndarray]]: model resulting from the weighted sum 
+        Mapping[str, Union[torch.Tensor, np.ndarray]]: model resulting from the weigthed sum 
                                                        operation
     """
     # Empty model parameter dictionary
