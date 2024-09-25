@@ -332,6 +332,7 @@ class Node:
         """Manages training tasks in the queue."""
 
         while True:
+
             item: Message = self._tasks_queue.get()
             # don't want to treat again in case of failure
             self._tasks_queue.task_done()
@@ -341,10 +342,10 @@ class Node:
                 f"Researcher: {item.researcher_id} "
                 f"Experiment: {item.experiment_id}"
             )
+            try:
 
-            match item.__name__:
-                case TrainRequest.__name__:
-                    try:
+                match item.__name__:
+                    case TrainRequest.__name__:
                         round_ = self.parser_task_train(item)
                         # once task is out of queue, initiate training rounds
                         if round_ is not None:
@@ -355,19 +356,20 @@ class Node:
                             self._grpc_client.send(msg)
                             del round_
 
-                    # TODO: Test exception
-                    except Exception as e:
-                        self.send_error(
-                            request_id=item.request_id,
-                            researcher_id=item.researcher_id,
-                            errnum=ErrorNumbers.FB300,
-                            extra_msg="Round error: " + str(e),
-                        )
-                case SecaggRequest.__name__ | AdditiveSSSetupRequest.__name__:
-                    self._task_secagg(item)
-                case _:
-                    errmess = f"{ErrorNumbers.FB319.value}: Undefined request message"
-                    self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
+                    case SecaggRequest.__name__ | AdditiveSSSetupRequest.__name__:
+                        self._task_secagg(item)
+                    case _:
+                        errmess = f"{ErrorNumbers.FB319.value}: Undefined request message"
+                        self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
+
+            # TODO: Test exception
+            except Exception as e:
+                self.send_error(
+                    request_id=item.request_id,
+                    researcher_id=item.researcher_id,
+                    errnum=ErrorNumbers.FB300,
+                    extra_msg="Round error: " + str(e),
+            )
 
     def start_protocol(self) -> None:
         """Start the node to node router thread, for handling node to node message"""

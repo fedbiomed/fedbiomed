@@ -22,7 +22,16 @@ class AdditiveSecret:
             or (isinstance(secret, list) and all(isinstance(i, int) for i in secret))
         ):
             raise FedbiomedValueError("AdditiveSecret must be an int or a list of int")
-        self.secret = secret
+        self._secret = secret
+
+    @property
+    def secret(self) -> Union[List, int]:
+        """Getter for secret
+
+        Returns:
+            Secret value
+        """
+        return self._secret
 
     def split(
         self, num_shares: int, bit_length: Optional[int] = None
@@ -45,11 +54,11 @@ class AdditiveSecret:
         if num_shares <= 0:
             raise FedbiomedValueError("Number of shares must be greater than 0")
 
-        if isinstance(self.secret, int):
-            shares = self._shares_int(self.secret, num_shares, bit_length)
+        if isinstance(self._secret, int):
+            shares = self._shares_int(self._secret, num_shares, bit_length)
         else:
             shares = []
-            for value in self.secret:
+            for value in self._secret:
                 partial_shares = self._shares_int(value, num_shares, bit_length)
                 shares.append(partial_shares)
 

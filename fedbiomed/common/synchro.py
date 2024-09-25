@@ -166,7 +166,6 @@ class EventWaitExchange:
             )
 
         time_initial = time.time()
-        print("Waiting for:", event_ids)
         with self._pending_listeners_lock:
             self._id_counter += 1
             listener_id = self._id_counter
