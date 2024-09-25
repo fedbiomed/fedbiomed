@@ -266,8 +266,8 @@ class Requests(metaclass=SingletonMeta):
             port=environ["SERVER_PORT"],
             on_message=self.on_message,
             ssl=SSLCredentials(
-                key=environ['SERVER_SSL_KEY'],
-                cert=environ['SERVER_SSL_CERT'])
+                key=environ['FBM_CERTIFICATE_KEY'],
+                cert=environ['FBM_CERTIFICATE_PEM'])
 
         )
         self.start_messaging()

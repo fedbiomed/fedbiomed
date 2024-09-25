@@ -2,7 +2,7 @@
 
 This page describes the network communications:
 
-- between the Fed-BioMed components (`node`s, and `researcher`), aka application internal / backend communications 
+- between the Fed-BioMed components (`node`s, and `researcher`), aka application internal / backend communications
 - for user access to the Fed-BioMed components GUI
 - for Fed-BioMed software installation and docker image build
 
@@ -32,16 +32,16 @@ They cover all [deployment scenarios](./deployment.md). If multiple machines are
 | dir | source machine | destination machine | destination port | service |
 | --  | ------------   | -----------------   | --------------   | -----   |
 | out | component      | Internet            | TCP/80           | HTTP    |
-| out | component      | Internet            | TCP/443          | HTTPS   | 
+| out | component      | Internet            | TCP/443          | HTTPS   |
 
 <br>
 
-"Component" is the `node` or `researcher`. 
+"Component" is the `node` or `researcher`.
 
 For destination machine, it is simpler to authorize outbound communications to all Internet addresses for the required ports during installation. Indeed, several packaging systems are used for installation, with no guarantee of stable IP address used by the packaging server:
 
 - For all [deployment scenarios](./deployment.md): conda, pip (all components) and yarn/npm (node GUI component) packages
-- Plus for VPN/containers scenarios: dockerhub images, apt apk and cargo packages, git over https cloning, wget and curl download 
+- Plus for VPN/containers scenarios: dockerhub images, apt apk and cargo packages, git over https cloning, wget and curl download
 
 Note: when using a VPN/containers scenario, a site with very stringent requirements on `node`'s communication can avoid authorizing the above communications for installation of the node components (`node` and `gui`). For that, it needs to build the components docker image on another machine (with the above filter), save the image, copy it to the node machine, load it on the node machine. This scenario is not fully packaged and documented by Fed-BioMed but you can find [some guidelines here](https://github.com/fedbiomed/fedbiomed/blob/master/envs/vpn/README.md#specific-instructions-building-node-image-on-a-different-machine).
 
@@ -62,12 +62,9 @@ On the node component (`node` + `gui` ):
 | dir | source machine | destination machine | destination port | service   | type     | status    | comment  |
 | --  | ------------   | -----------------   | --------------   | -----     | ------   | --------  | ------   |
 | out | node           | researcher             | TCP/50051     | gRPC/TLS  | backend  | mandatory | node-researcher communications |
-| out | node           | *other nodes* + researcher | TCP/14000+ | MP-SPDZ   | backend  | optional  | secagg key negotation |
-| in  | *other nodes* + researcher | node      | TCP/14000+       | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *localhost*    | gui                 | TCP/8484         | HTTP      | user     | optional  | node GUI |
 
 * `node` and `gui` also need a shared filesystem, so they are usually installed on the same machine.
-* MP-SPDZ uses port TCP/14000 when one component runs on a machine. It also uses following port numbers when multiple components run on the same machine (one port per component).
 
 <br>
 
@@ -76,8 +73,6 @@ On the researcher component (`researcher`):
 | dir | source machine | destination machine | destination port | service   | type     | status    | comment     |
 | --  | ------------   | -----------------   | --------------   | -----     | ------   | --------  | -----       |
 | in  | *nodes*        | researcher          | TCP/50051        | gRPC/TLS  | backend  | mandatory | node-researcher communications|
-| out | researcher     | *nodes*             | TCP/14000+       | MP-SPDZ   | backend  | optional  | secagg key negotation |
-| in  | *nodes*        | researcher          | TCP/14000+       | MP-SPDZ   | backend  | optional  | secagg key negotation |
 | in  | *localhost*    | researcher          | TCP/8888         | HTTP      | user     | optional  | Jupyter     |
 | in  | *localhost*    | researcher          | TCP/6006         | HTTP      | user     | optional  | Tensorboard |
 
@@ -111,4 +106,3 @@ On the researcher component (`researcher`):
 | in  | *localhost*    | researcher          | TCP/8888         | HTTP      | user     | optional  | Jupyter     |
 | in  | *localhost*    | researcher          | TCP/6006         | HTTP      | user     | optional  | Tensorboard |
 
-In this scenario, MP-SPDZ communication tunneled within the WireGuard VPN.

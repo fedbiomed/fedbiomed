@@ -89,12 +89,6 @@ be increased for the next rounds.
 This may be because of the timeout on the researcher side. If you have low bandwidth, connection latency or
 many nodes, please try to increase timeout.
 
-### Context is set on the nodes but not on the researcher
-
-This is also because of the timeout issue. It happens when MP-SPDZ completes multi-party computation but
-can not send success status back to researcher in time. Therefore, researcher assumes that the secure aggregation
-is context is not set properly. Please increase secure aggregation timeout and re-run training round.
-
 ### Model encryption takes too much time
 
 The time of encryption depends on model size. If the model is larger, it is normal that the encryption

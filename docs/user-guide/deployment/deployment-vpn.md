@@ -69,7 +69,7 @@ In this tutorial we use the following notations:
 This part of the tutorial is executed once on the server side, before deploying the nodes.
 It covers the initial server deployment, including build, configuration and launch of containers.
 
-* download Fed-BioMed software by doing a local clone of the git repository: 
+* download Fed-BioMed software by doing a local clone of the git repository:
 
     ```bash
     [user@server $] git clone -b master https://github.com/fedbiomed/fedbiomed.git
@@ -141,11 +141,11 @@ Some commands are executed on the node side, while some commands are executed on
 
 For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that represents this specific node instance for server side management commands.
 
-* download Fed-BioMed software by doing a local clone of the git repository: 
+* download Fed-BioMed software by doing a local clone of the git repository:
 
     ```bash
     [user@node $] git clone -b master https://github.com/fedbiomed/fedbiomed.git
-    [user@node $] cd fedbiomed 
+    [user@node $] cd fedbiomed
     [user@node $] export FEDBIOMED_DIR=$PWD # use setenv for *csh
     [user@node $] cd envs/vpn/docker
     ```
@@ -208,7 +208,7 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 
     ```bash
     [user@node $] docker compose exec node wg show wg0 public-key | tr -d '\r' >/tmp/publickey-nodeside
-    ```   
+    ```
 
 * copy the public key from the node side **to the server side** via a secure channel (see above), to path `/tmp/publickey-serverside` on the server.
 
@@ -244,7 +244,7 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 * do initial node configuration
 
     ```bash
-    [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export SECAGG_INSECURE_VALIDATION=false && export SECAGG_INSECURE_VALIDATION=false && export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14001 && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run environ-node configuration create --component NODE --use-current'
+    [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export SECAGG_INSECURE_VALIDATION=false && export SECAGG_INSECURE_VALIDATION=false && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run environ-node configuration create --component NODE --use-current'
     ```
 
 
@@ -262,8 +262,8 @@ Optionally launch the node GUI :
 
     !!! note "Custom SSL certificates  for GUI"
 
-        GUI will start serving on port 8443 with self-signed certificates. These certificates will be identified as risky by the 
-        browsers, and users will have to approve them. However, it is also possible to set custom trusted SSL certificates by 
+        GUI will start serving on port 8443 with self-signed certificates. These certificates will be identified as risky by the
+        browsers, and users will have to approve them. However, it is also possible to set custom trusted SSL certificates by
         adding `crt` and `key` files to the `${FEDBIOMED_DIR}/envs/vpn/docker/gui/run_mounts/certs` directory before starting the GUI.
 
         When adding these files, please ensure that:
@@ -310,7 +310,7 @@ This part of the tutorial is optionally executed on some nodes, after deploying 
 
 ## Optionally configure Joye-Libert secure aggregation
 
-Secure aggregation provides additional security. 
+Secure aggregation provides additional security.
 **No additional configuration is needed for using LOM secure aggregation, only for using Joye-Libert secure aggregation**
 
 Optionally configure Joye-Libert secure aggregation:
@@ -358,7 +358,7 @@ Example of a few more possible commands:
 
     ```bash
     [user@node-container $] ./scripts/fedbiomed_run node dataset list
-    ```        
+    ```
 
 * optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node/run_mounts/data/my_training_plan.txt`
 
@@ -384,7 +384,7 @@ This part is executed at least once on the server after setting up the nodes:
 
         ```bash
         [user@server $] cp /tmp/my_notebook.ipynb ${FEDBIOMED_DIR}/envs/vpn/docker/researcher/run_mounts/samples/
-        ``` 
+        ```
         The notebook is now available in the Jupyter GUI under the `samples` subdirectory of the Jupyter notebook interface.
 
 * if the notebook uses Tensorboard, it can be viewed
@@ -516,7 +516,7 @@ Prefix used by Fed-BioMed's communication inside the VPN (`10.220.0.0/14`) shall
 
 Build may fail on Mac M1/M2/M3 processors for `fedbiomed/vpn-base` or `fedbiomed/vpn-basenode` due to arm64 system.
 
-By default, docker can use the images that are created for `arm64/aarch64`. But docker build files of the Fed-BioMed images and the libraries that are installed within are compatible with `amd64` type of platforms. Therefore, you may get some error while `fedbiomed_vpn` script builds images. Those errors can be during the miniconda installation, secure aggregation setup or while installing some of required pip dependencies for Fed-BioMed environment. You can fix this problem by setting environment variable that declares default default docker platform to force docker to use linux/amd64. 
+By default, docker can use the images that are created for `arm64/aarch64`. But docker build files of the Fed-BioMed images and the libraries that are installed within are compatible with `amd64` type of platforms. Therefore, you may get some error while `fedbiomed_vpn` script builds images. Those errors can be during the miniconda installation, secure aggregation setup or while installing some of required pip dependencies for Fed-BioMed environment. You can fix this problem by setting environment variable that declares default default docker platform to force docker to use linux/amd64.
 
 ```
 export DOCKER_DEFAULT_PLATFORM=linux/amd64

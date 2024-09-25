@@ -152,14 +152,6 @@ class FedbiomedMetricError(FedbiomedError):
     pass
 
 
-class FedbiomedMPCControllerError(FedbiomedError):
-    """
-    Certificate error
-    """
-    pass
-
-
-
 class FedbiomedNodeStateAgentError(FedbiomedError):
     """
     Error in Node State Agent

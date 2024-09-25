@@ -36,8 +36,11 @@ class ResearcherConfig(Config):
         self._cfg['server'] = {
             'host': grpc_host,
             'port': grpc_port,
-            'pem' : os.path.relpath(pem_file, os.path.join(self.root, CONFIG_FOLDER_NAME)),
-            'key' : os.path.relpath(key_file, os.path.join(self.root, CONFIG_FOLDER_NAME))
+        }
+
+        self._cfg["certificate"] = {
+            "private_key": os.path.relpath(key_file, os.path.join(self.root, CONFIG_FOLDER_NAME)),
+            "public_key": os.path.relpath(pem_file, os.path.join(self.root, CONFIG_FOLDER_NAME))
         }
 
         self._cfg['security'] = {

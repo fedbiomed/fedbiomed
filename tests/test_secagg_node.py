@@ -31,21 +31,15 @@ class SecaggTestCase(NodeTestCase):
 
     def setUp(self) -> None:
         self.patch_skm = patch.object(fedbiomed.node.secagg._secagg_setups, "SKManager")
-        self.patch_cm = patch.object(fedbiomed.node.secagg._secagg_setups, "_CManager")
 
         self.mock_skm = self.patch_skm.start()
-        self.mock_cm = self.patch_cm.start()
 
-        unittest.mock.MagicMock.mpc_data_dir = unittest.mock.PropertyMock(
-            return_value="dummy/path/to/output"
-        )
         unittest.mock.MagicMock.tmp_dir = unittest.mock.PropertyMock(
             return_value=environ["TMP_DIR"]
         )
 
     def tearDown(self) -> None:
         self.patch_skm.stop()
-        self.patch_cm.stop()
 
 
 class TestSecaggServkeySetup(SecaggTestCase):

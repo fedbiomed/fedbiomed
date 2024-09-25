@@ -11,25 +11,27 @@ import argparse
 import importlib
 import os
 import sys
-
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict
-from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import DB_FOLDER_NAME, MPSPDZ_certificate_prefix, ComponentType
-from fedbiomed.common.logger import logger
-from fedbiomed.common.utils import get_existing_component_db_names, \
-    get_all_existing_certificates, \
-    get_method_spec, \
-    ROOT_DIR
-from fedbiomed.common.config import Config
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME
+from typing import Dict, List, Optional
 
-RED = '\033[1;31m'  # red
-YLW = '\033[1;33m'  # yellow
-GRN = '\033[1;32m'  # green
-NC = '\033[0m'  # no color
-BOLD = '\033[1m'
+from fedbiomed.common.certificate_manager import CertificateManager
+from fedbiomed.common.config import Config
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME, DB_FOLDER_NAME, ComponentType
+from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.logger import logger
+from fedbiomed.common.utils import (
+    ROOT_DIR,
+    get_all_existing_certificates,
+    get_existing_component_db_names,
+    get_method_spec,
+    read_file
+)
+
+RED = "\033[1;31m"  # red
+YLW = "\033[1;33m"  # yellow
+GRN = "\033[1;32m"  # green
+NC = "\033[0m"  # no color
+BOLD = "\033[1m"
 
 
 class CLIArgumentParser:
@@ -54,24 +56,27 @@ class ConfigNameAction(ABC, argparse.Action):
     This action class gets the config file name and set environ object before
     executing any command.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Sets environ by default if option string for config is not present.
         # The default is defined by the argument parser.
-        if not set(self.option_strings).intersection(set(sys.argv)) and \
-                not set(['--help', '-h']).intersection(set(sys.argv)) and \
-                len(sys.argv) > 2:
+        if (
+            not set(self.option_strings).intersection(set(sys.argv))
+            and not set(["--help", "-h"]).intersection(set(sys.argv))
+            and len(sys.argv) > 2
+        ):
             self.set_environ(self.default)
 
     def __call__(self, parser, namespace, values, option_string=None):
         """When argument is called"""
 
-        if not set(['--help', '-h']).intersection(set(sys.argv)):
+        if not set(["--help", "-h"]).intersection(set(sys.argv)):
             self.set_environ(values)
 
     @abstractmethod
-    def import_environ(self) -> 'Environ':
+    def import_environ(self) -> "Environ":
         """Implements environ import
 
 
@@ -86,7 +91,7 @@ class ConfigNameAction(ABC, argparse.Action):
           config_file: Name of the config file that is activate
         """
 
-        print(f'\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #')
+        print(f"\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #")
         os.environ["CONFIG_FILE"] = config_file
 
         environ = self.import_environ()
@@ -108,71 +113,72 @@ class ConfigurationParser(CLIArgumentParser):
         """Initializes argument parser for creating configuration file."""
 
         self._parser = self._subparser.add_parser(
-            'configuration',
-            help='The helper for generating or updating component configuration files, see `configuration -h`'
-                 ' for more details')
+            "configuration",
+            help="The helper for generating or updating component configuration files, see `configuration -h`"
+            " for more details",
+        )
 
         self._parser.set_defaults(func=self.default)
 
         # Common parser to register common arguments for create and refresh
         common_parser = argparse.ArgumentParser(add_help=False)
         common_parser.add_argument(
-            '-r',
-            '--root',
-            metavar='ROOT_PATH_FEDBIOMED',
+            "-r",
+            "--root",
+            metavar="ROOT_PATH_FEDBIOMED",
             type=str,
-            nargs='?',
+            nargs="?",
             default=None,
-            help='Root directory for configuration and Fed-BioMed setup')
+            help="Root directory for configuration and Fed-BioMed setup",
+        )
 
         # Add arguments
         common_parser.add_argument(
-            '-n',
-            '--name',
-            metavar='CONFIGURATION_FILE_NAME',
+            "-n",
+            "--name",
+            metavar="CONFIGURATION_FILE_NAME",
             type=str,
-            nargs='?',
+            nargs="?",
             required=False,
-            help='Name of configuration file')
+            help="Name of configuration file",
+        )
 
         common_parser.add_argument(
-            '-c',
-            '--component',
-            metavar='COMPONENT_TYPE[ NODE|RESEARCHER ]',
+            "-c",
+            "--component",
+            metavar="COMPONENT_TYPE[ NODE|RESEARCHER ]",
             type=str,
-            nargs='?',
+            nargs="?",
             required=True,
-            help='Component type NODE or RESEARCHER')
-
+            help="Component type NODE or RESEARCHER",
+        )
 
         # Create sub parser under `configuration` command
         configuration_sub_parsers = self._parser.add_subparsers()
 
         create = configuration_sub_parsers.add_parser(
-            'create',
+            "create",
             parents=[common_parser],
             help="Creates configuration file for the specified component if it does not exist. "
-                 "If the configuration file exists, leave it unchanged"
+            "If the configuration file exists, leave it unchanged",
         )
 
         refresh = configuration_sub_parsers.add_parser(
-            'refresh',
+            "refresh",
             parents=[common_parser],
-            help="Refreshes the configuration file by overwriting parameters without changing component ID"
+            help="Refreshes the configuration file by overwriting parameters without changing component ID",
         )
 
         create.add_argument(
-            '-uc',
-            '--use-current',
+            "-uc",
+            "--use-current",
             action="store_true",
-            help="Creates configuration only if there isn't an existing one"
+            help="Creates configuration only if there isn't an existing one",
         )
 
         create.add_argument(
-            '-f',
-            '--force',
-            action="store_true",
-            help='Force configuration create')
+            "-f", "--force", action="store_true", help="Force configuration create"
+        )
 
         create.set_defaults(func=self.create)
         refresh.set_defaults(func=self.refresh)
@@ -183,10 +189,12 @@ class ConfigurationParser(CLIArgumentParser):
         # fedbiomed.common to fedbiomed.node or fedbiomed.researcher
         # To be suppressed when redesigning the imports
         if component.lower() == "node":
-            NodeConfig = importlib.import_module('fedbiomed.node.config').NodeConfig
+            NodeConfig = importlib.import_module("fedbiomed.node.config").NodeConfig
             config = NodeConfig(root=root, name=name, auto_generate=False)
         elif component.lower() == "researcher":
-            ResearcherConfig = importlib.import_module('fedbiomed.researcher.config').ResearcherConfig
+            ResearcherConfig = importlib.import_module(
+                "fedbiomed.researcher.config"
+            ).ResearcherConfig
             config = ResearcherConfig(root=root, name=name, auto_generate=False)
         else:
             print(f"Undefined component type {component}")
@@ -213,26 +221,29 @@ class ConfigurationParser(CLIArgumentParser):
         # Use exisintg one (do nothing)
         elif config.is_config_existing() and not args.force:
             if not args.use_current:
-                print(f"Configuration file \"{config.path}\" is alreay existing for name \"{config.name}\". "
-                      "Please use --force option to overwrite")
+                print(
+                    f'Configuration file "{config.path}" is alreay existing for name "{config.name}". '
+                    "Please use --force option to overwrite"
+                )
                 exit(101)
             # Generate wont do anything
             config.generate()
         else:
-            logger.info(f"Generation new configuration file \"{config.name}\"")
+            logger.info(f'Generation new configuration file "{config.name}"')
             config.generate()
 
     def refresh(self, args):
-        """Refreshes configuration file """
+        """Refreshes configuration file"""
 
         config = self._create_config_instance(args.component, args.root, args.name)
-        print("Refreshing configuration file using current environment variables. This operation will overwrite"
-              "existing configuration file without changing component id.")
+        print(
+            "Refreshing configuration file using current environment variables. This operation will overwrite"
+            "existing configuration file without changing component id."
+        )
 
         # Refresh
         config.refresh()
         print("Configuration has been updated!")
-
 
 
 class CommonCLI:
@@ -242,14 +253,13 @@ class CommonCLI:
 
     def __init__(self) -> None:
         self._parser: argparse.ArgumentParser = argparse.ArgumentParser(
-            prog='fedbiomed_run',
-            formatter_class=argparse.RawTextHelpFormatter
+            prog="fedbiomed_run", formatter_class=argparse.RawTextHelpFormatter
         )
 
         self._subparsers = self._parser.add_subparsers()
         self._certificate_manager: CertificateManager = CertificateManager()
         self._environ = None
-        self._description: str = ''
+        self._description: str = ""
         self._args = None
 
         # Initialize configuration parser
@@ -311,7 +321,7 @@ class CommonCLI:
         self._environ = environ
 
     @staticmethod
-    def config_action(this: 'CommonCLI', component: ComponentType):
+    def config_action(this: "CommonCLI", component: ComponentType):
         """Returns CLI argument action for config file name"""
         return ConfigNameAction
 
@@ -357,31 +367,31 @@ class CommonCLI:
         for arg_parser in self._arg_parsers_classes:
             p = arg_parser(self._subparsers)
             p.initialize()
-            self._arg_parsers.update({arg_parser.__name__ : p})
+            self._arg_parsers.update({arg_parser.__name__: p})
 
         self.initialize_certificate_parser()
 
     def initialize_magic_dev_environment_parsers(self) -> None:
         """Initializes argument parser for the option to create development environment."""
         magic = self._subparsers.add_parser(
-            'certificate-dev-setup',
-            description="Prepares development environment by registering certificates of each component created in a "
-                        "single clone of Fed-BioMed. Parses configuration files ends with '.ini' that are created "
-                        "in 'etc' directory. This setup requires to have one 'researcher' and at least 2 nodes.",
-            help="Prepares development environment by registering certificates of each component created in a single "
-                 "clone of Fed-BioMed."
+            "certificate-dev-setup",
+            description="Prepares development environment by registering certificates"
+                "of each component created in a single clone of Fed-BioMed. Parses configuration "
+                "files ends with '.ini' that are created in 'etc' directory. This setup requires "
+                "to have one 'researcher' and at least 2 nodes.",
+            help="Prepares development environment by registering certificates of each "
+                "component created in a single clone of Fed-BioMed.",
         )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
-
     def initialize_certificate_parser(self):
-        """Common arguments """
+        """Common arguments"""
 
         # Add certificate sub parser (sub-command)
         certificate_parser = self._subparsers.add_parser(
-            'certificate',
+            "certificate",
             help="Command to manage certificates in node and researcher components. "
-                 "Please see 'certificate --help' for more information.",
+            "Please see 'certificate --help' for more information.",
             prog="fedbiomed_run [ node | researcher ] [--config [CONFIG_FILE]] certificate",
         )
 
@@ -393,34 +403,36 @@ class CommonCLI:
         # Create sub parser under `certificate` command
         certificate_sub_parsers = certificate_parser.add_subparsers(
             description="Commands that can be used with the option `certificate`",
-            title="Subcommands"
+            title="Subcommands",
         )
 
         register_parser = certificate_sub_parsers.add_parser(
-            'register',
-            help="Register certificate of specified party. Please run 'fedbiomed_run [COMPONENT SPECIFICATION] "
-                 "certificate register --help'"
+            "register",
+            help="Register certificate of specified party. Please run 'fedbiomed_run "
+                "[COMPONENT SPECIFICATION] certificate register --help'",
         )  # command register
 
         list_parser = certificate_sub_parsers.add_parser(
-            'list',
-            help="Lists registered certificates"
+            "list", help="Lists registered certificates"
         )  # command list
         delete_parser = certificate_sub_parsers.add_parser(
-            'delete',
-            help="Deletes specified certificate from database")  # command delete
+            "delete", help="Deletes specified certificate from database"
+        )  # command delete
 
         # Command `certificate generate`
         generate = certificate_sub_parsers.add_parser(
-            'generate',
+            "generate",
             help="Generates certificate for given component/party if files don't exist yet. "
-                 "Overwrites existing certificate file if '--force' option is given. "
-                 "Uses an alternate directory if '--path DIRECTORY' is given")
+            "Overwrites existing certificate file if '--force' option is given. "
+            "Uses an alternate directory if '--path DIRECTORY' is given",
+        )
 
         # Command `certificate generate`
         prepare = certificate_sub_parsers.add_parser(
-            'registration-instructions',
-            help="Prepares certificate of current component to send other FL participant through trusted channel.")
+            "registration-instructions",
+            help="Prepares certificate of current component to send other FL participant"
+                "through trusted channel.",
+        )
 
         register_parser.set_defaults(func=self._register_certificate)
         list_parser.set_defaults(func=self._list_certificates)
@@ -430,79 +442,70 @@ class CommonCLI:
 
         # Add arguments
         register_parser.add_argument(
-            '-pk',
-            '--public-key',
-            metavar='PUBLIC_KEY',
+            "-pk",
+            "--public-key",
+            metavar="PUBLIC_KEY",
             type=str,
-            nargs='?',
+            nargs="?",
             required=True,
-            help='Certificate/key that will be registered')
+            help="Certificate/key that will be registered",
+        )
 
         register_parser.add_argument(
-            '-pi',
-            '--party-id',
-            metavar='PUBLIC_ID',
+            "-pi",
+            "--party-id",
+            metavar="PUBLIC_ID",
             type=str,
-            nargs='?',
+            nargs="?",
             required=True,
-            help="ID of the party to which the certificate is to be registered (component ID).")
+            help="ID of the party to which the certificate is to be registered (component ID).",
+        )
 
         register_parser.add_argument(
-            '--ip',
-            metavar='IP_ADDRESS',
-            type=str,
-            nargs='?',
-            required=True,
-            help="IP address of the component which the certificate will be saved.")
-
-        register_parser.add_argument(
-            '--port',
-            metavar='PORT',
-            type=int,
-            nargs='?',
-            required=True,
-            help="Port number of the component which the certificate will be saved.")
-
-        register_parser.add_argument(
-            '--upsert',
+            "--upsert",
             action="store_true",
-            help="Updates if certificate of given party id is already existing.")
+            help="Updates if certificate of given party id is already existing.",
+        )
 
         generate.add_argument(
-            '--path',
+            "--path",
             type=str,
-            nargs='?',
+            nargs="?",
             required=False,
-            help="The path where certificates will be saved. By default it will overwrite existing certificate.")
+            help="The path where certificates will be saved. By default it will overwrite"
+                "existing certificate.",
+        )
 
         generate.add_argument(
-            '-f',
-            '--force',
+            "-f",
+            "--force",
             action="store_true",
-            help="Forces to overwrite certificate files"
+            help="Forces to overwrite certificate files",
         )
 
     def _create_magic_dev_environment(self, dummy: None):
-        """Creates development environment for MPSDPZ"""
+        """Creates development environment with cert registration
+
+        This option registers activate component certificates for authentication
+        purposes.
+        """
 
         db_names = get_existing_component_db_names()
         certificates = get_all_existing_certificates()
 
         if len(certificates) <= 2:
             print(f"\n{RED}Error!{NC}")
-            print(f"{BOLD}There is {len(certificates)} Fed-BioMed component(s) created.For 'certificate-dev-setup' "
-                  f"you should have at least 3 components created{NC}\n")
+            print(
+                f"{BOLD}There is {len(certificates)} Fed-BioMed component(s) created.For "
+                f"'certificate-dev-setup' you should have at least 3 components created{NC}\n"
+            )
             return
 
         for id_, db_name in db_names.items():
             print(f"Registering certificates for component {id_} ------------------")
             # Sets DB
             self._certificate_manager.set_db(
-                os.path.join(
-                    ROOT_DIR,
-                    DB_FOLDER_NAME,
-                    f"{db_name}.json"
-                )
+                os.path.join(ROOT_DIR, DB_FOLDER_NAME, f"{db_name}.json")
             )
 
             for certificate in certificates:
@@ -512,7 +515,9 @@ class CommonCLI:
                 try:
                     self._certificate_manager.insert(**certificate, upsert=True)
                 except FedbiomedError as e:
-                    CommonCLI.error(f"Can not register certificate for {certificate['party_id']}: {e}")
+                    CommonCLI.error(
+                        f"Can not register certificate for {certificate['party_id']}: {e}"
+                    )
 
                 print(f"Certificate of {certificate['party_id']} has been registered.")
 
@@ -523,38 +528,48 @@ class CommonCLI:
             args: Arguments that are passed after `certificate generate` command
         """
 
-        if not args.force and (os.path.isfile(f"{args.path}/{MPSPDZ_certificate_prefix}.key") or
-                               os.path.isfile(f"{args.path}/{MPSPDZ_certificate_prefix}.key")):
+        if not args.force and (
+            os.path.isfile(f"{args.path}/certificate.key")
+            or os.path.isfile(f"{args.path}/certificate.pem")
+        ):
 
-            CommonCLI.error(f"Certificate is already existing in {MPSPDZ_certificate_prefix}. \n "
-                            f"Please use -f | --force option to overwrite existing certificate.")
+            CommonCLI.error(
+                "Certificate is already existing in. \n "
+                "Please use -f | --force option to overwrite existing certificate."
+            )
 
-        path = os.path.join(self._environ["CERT_DIR"], f"cert_{self._environ['ID']}") if not args.path else args.path
+        path = (
+            os.path.join(self._environ["CERT_DIR"], f"cert_{self._environ['ID']}")
+            if not args.path
+            else args.path
+        )
 
         try:
             CertificateManager.generate_self_signed_ssl_certificate(
                 certificate_folder=path,
-                certificate_name=MPSPDZ_certificate_prefix,
-                component_id=self._environ["ID"]
+                certificate_name="FBM_certificate",
+                component_id=self._environ["ID"],
             )
         except FedbiomedError as e:
             CommonCLI.error(f"Can not generate certificate. Please see: {e}")
 
-        CommonCLI.success(f"Certificate has been successfully generated in : {args.path} \n")
+        CommonCLI.success(
+            f"Certificate has been successfully generated in : {args.path} \n"
+        )
 
-        print(f"Please make sure in {os.getenv('CONFIG_FILE', 'component')}, the section [mpspdz] `public_key` "
-              f"and `private_key` has new generated certificate files : \n\n"
-              f"{BOLD}Certificates are saved in {NC}\n"
-              f"{args.path}/{MPSPDZ_certificate_prefix}.key \n"
-              f"{args.path}/{MPSPDZ_certificate_prefix}.pem \n\n"
-              f"{YLW}IMPORTANT:{NC}\n"
-              f"{BOLD}Since the certificate is renewed please ask other parties "
-              f"to register your new certificate.{NC}\n")
-
-        pass
+        print(
+            f"Please make sure in {os.getenv('CONFIG_FILE', 'component')}, the section "
+            "`public_key` and `private_key` has new generated certificate files : \n\n"
+            f"{BOLD}Certificates are saved in {NC}\n"
+            f"{path}/certificate.key \n"
+            f"{path}/certificate.pem \n\n"
+            f"{YLW}IMPORTANT:{NC}\n"
+            f"{BOLD}Since the certificate is renewed please ask other parties "
+            f"to register your new certificate.{NC}\n"
+        )
 
     def _register_certificate(self, args: argparse.Namespace):
-        """ Registers certificate with given parameters
+        """Registers certificate with given parameters
 
         Args:
             args: Parser arguments
@@ -566,18 +581,18 @@ class CommonCLI:
                 certificate_path=args.public_key,
                 party_id=args.party_id,
                 upsert=args.upsert,
-                ip=args.ip,
-                port=args.port
             )
         except FedbiomedError as exp:
             print(exp)
             sys.exit(1)
         else:
             print(f"{GRN}Success!{NC}")
-            print(f"{BOLD}Certificate has been successfully created for party: {args.party_id}.{NC}")
+            print(
+                f"{BOLD}Certificate has been successfully created for party: {args.party_id}.{NC}"
+            )
 
     def _list_certificates(self, args: argparse.Namespace):
-        """ Lists saved certificates """
+        """Lists saved certificates"""
         print(f"{GRN}Listing registered certificates...{NC}")
 
         self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
@@ -587,9 +602,9 @@ class CommonCLI:
 
         self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
         certificates = self._certificate_manager.list(verbose=False)
-        options = [d['party_id'] for d in certificates]
+        options = [d["party_id"] for d in certificates]
         msg = "Select the certificate to delete:\n"
-        msg += "\n".join([f'{i}) {d}' for i, d in enumerate(options, 1)])
+        msg += "\n".join([f"{i}) {d}" for i, d in enumerate(options, 1)])
         msg += "\nSelect: "
 
         while True:
@@ -597,70 +612,74 @@ class CommonCLI:
                 opt_idx = int(input(msg)) - 1
                 assert opt_idx in range(len(certificates))
 
-                party_id = certificates[opt_idx]['party_id']
+                party_id = certificates[opt_idx]["party_id"]
                 self._certificate_manager.delete(party_id=party_id)
-                CommonCLI.success(f"Certificate for '{party_id}' has been successfully removed")
+                CommonCLI.success(
+                    f"Certificate for '{party_id}' has been successfully removed"
+                )
                 return
             except (ValueError, IndexError, AssertionError):
-                CommonCLI.error('Invalid option. Please, try again.')
+                CommonCLI.error("Invalid option. Please, try again.")
 
     def _prepare_certificate_for_registration(self, args: argparse.Namespace):
-        """Prints instruction to registration of the certificate by the other parties """
+        """Prints instruction to registration of the certificate by the other parties"""
 
-        try:
-            with open(self._environ["MPSPDZ_CERTIFICATE_PEM"], 'r') as file:
-                certificate = file.read()
-                file.close()
-        except Exception as e:
-            CommonCLI.error(f"Error while reading certificate: {e}")
+        certificate = read_file(
+            self._environ.get("FEDBIOMED_CERTIFICATE_PEM", self._environ.get("SERVER_SSL_CERT")
+        ))
 
-        else:
-            print("Hi There! \n\n")
-            print("Please find following certificate to register \n")
-            print(certificate)
+        print("Hi There! \n\n")
+        print("Please find following certificate to register \n")
+        print(certificate)
 
-            print(f"{BOLD}Please follow the instructions below to register this certificate:{NC}\n\n")
+        print(
+            f"{BOLD}Please follow the instructions below to register this certificate:{NC}\n\n"
+        )
 
-            print(" 1- Copy certificate content into a file e.g 'Hospital1.pem'")
-            print(" 2- Change your directory to 'fedbiomed' root")
-            print(f" 3- Run: \"scripts/fedbiomed_run [node | researcher] certificate register -pk [PATH WHERE "
-                  f"CERTIFICATE IS SAVED] -pi {self._environ['ID']}  --ip {self._environ['MPSPDZ_IP']} "
-                  f"--port {self._environ['MPSPDZ_PORT']}\" ")
-            print("    Examples commands to use for VPN/docker mode:")
-            print("      ./scripts/fedbiomed_run node certificate register -pk ./etc/cert-secagg "
-                  f"-pi {self._environ['ID']} --ip {self._environ['MPSPDZ_IP']} --port {self._environ['MPSPDZ_PORT']}")
-            print("      ./scripts/fedbiomed_run researcher certificate register -pk ./etc/cert-secagg "
-                  f"-pi {self._environ['ID']} --ip {self._environ['MPSPDZ_IP']} --port {self._environ['MPSPDZ_PORT']}")
-        pass
+        print(" 1- Copy certificate content into a file e.g 'Hospital1.pem'")
+        print(" 2- Change your directory to 'fedbiomed' root")
+        print(
+            f" 3- Run: scripts/fedbiomed_run [node | researcher] certificate register"
+            f"-pk [PATH WHERE CERTIFICATE IS SAVED] -pi {self._environ['ID']}"
+        )
+        print("    Examples commands to use for VPN/docker mode:")
+        print(
+            "      ./scripts/fedbiomed_run node certificate register -pk ./etc/cert-secagg "
+            f"-pi {self._environ['ID']}"
+        )
+        print(
+            "      ./scripts/fedbiomed_run researcher certificate register "
+            f"-pk ./etc/cert-secagg -pi {self._environ['ID']}"
+        )
 
-    def parse_args(self, args_ = None):
+    def parse_args(self, args_=None):
         """Parse arguments after adding the arguments
 
         !!! warning "Attention"
                 Please make sure this method is called after all necessary arguments are set
         """
         args, unknown_args = self._parser.parse_known_args(args_)
-        if hasattr(args, 'func'):
+        if hasattr(args, "func"):
             specs = get_method_spec(args.func)
             if specs:
                 # If default function has 2 arguments
                 if len(specs) > 1:
                     return args.func(args, unknown_args)
-                else:
-                    # Run parser_args to raise error for unrecognized arguments
-                    if unknown_args:
-                        args = self._parser.parse_args(args_)
-                    args.func(args)
+
+                # Run parser_args to raise error for unrecognized arguments
+                if unknown_args:
+                    args = self._parser.parse_args(args_)
+                args.func(args)
             else:
                 # Raise for unrecognized arguments
                 if unknown_args:
                     self._parser.parse_args(args_)
                 args.func()
         else:
-            args = self._parser.print_help()
+            self._parser.print_help()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli = CommonCLI()
     # Initialize only development magic parser
     cli.initialize_magic_dev_environment_parsers()

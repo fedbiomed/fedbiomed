@@ -56,7 +56,7 @@ Tip: build images from a clean file tree (avoid copying modified/config/temporar
 
 ### (optional) building all images
 
-Optionally build all images in one command. 
+Optionally build all images in one command.
 Usually build each image separately when initializing each container (see after)
 
 ```bash
@@ -113,12 +113,12 @@ Run this only at first launch of container or after cleaning :
 * build container
 ```bash
 [user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build basenode
-[user@node $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build node
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build node
 ```
-  Alternative: build an (thiner) image without GPU support if you will never use it 
+  Alternative: build an (thiner) image without GPU support if you will never use it
 ```bash
 [user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build basenode-no-gpu
-[user@build $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build node
+[user@build $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build node
 ```
 
 Then follow the common instructions for nodes (below).
@@ -144,12 +144,12 @@ On the build machine
 * build container
 ```bash
 [user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build basenode
-[user@build $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build node
+[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build node
 ```
-  Alternative: build an (thiner) image without GPU support if you will never use it 
+  Alternative: build an (thiner) image without GPU support if you will never use it
 ```bash
 [user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build basenode-no-gpu
-[user@build $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build node
+[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build node
 ```
 * save image for container
 ```bash
@@ -187,7 +187,7 @@ Then follow the common instructions for nodes (below).
 
 #### common instructions: in all cases
 
-Always follow this paragraph for initializing a node, whether you build it on the same machine 
+Always follow this paragraph for initializing a node, whether you build it on the same machine
 or another machine.
 
 Run this only at first launch of container or after cleaning :
@@ -347,7 +347,7 @@ Then follow the common instructions for gui (below).
 
 #### common instructions: in all cases
 
-Always follow this paragraph for initializing a gui, whether you build it on the same machine 
+Always follow this paragraph for initializing a gui, whether you build it on the same machine
 or another machine.
 
 Run this for all launches of the container :
@@ -371,7 +371,7 @@ By default, only connections from `localhost` are authorized. To enable connecti
 [user@node $] GUI_SERVER_IP=0.0.0.0 docker compose up -d gui
 ```
   - connect to `https://${NODE_IP}:8443`
-  - **warning** allowing connections from non-`localhost` exposes the gui to attacks from the network. Only use with proper third party security measures (web proxy, firewall, certificate signed by well known authority, etc.) 
+  - **warning** allowing connections from non-`localhost` exposes the gui to attacks from the network. Only use with proper third party security measures (web proxy, firewall, certificate signed by well known authority, etc.)
 
 
 
@@ -382,7 +382,7 @@ Run this only at first launch of container or after cleaning :
 * build container
 ```bash
 [user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build base
-[user@researcher $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build researcher
+[user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build researcher
 ```
 * generate VPN client for this container (see above in vpnserver)
 * configure the VPN client for this container
@@ -565,7 +565,7 @@ Note : can also use commands in the form, so you don't have to be in the docker 
 [user@network $] docker image prune -f
 ```
 
-### node 
+### node
 
 ```bash
 [user@node $] cd ./envs/vpn/docker
@@ -632,18 +632,18 @@ Same as node
 
 ## managing peers in vpnserver
 
-Peers in VPN server can be listed or removed through `configure_peer.py`. 
+Peers in VPN server can be listed or removed through `configure_peer.py`.
 
 **Example:**
 
-Following code snippet will generate configuration for a `node` component with a unique name of `NODETAG` and register its public key in VPN server. 
+Following code snippet will generate configuration for a `node` component with a unique name of `NODETAG` and register its public key in VPN server.
 ```bash
 [user@network $] docker compose up -d vpnserver
 [user@network $] docker compose exec vpnserver bash
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py genconf node NODETAG
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py add node NODETAG FSCB4ftV0SLqRKNDp7JL1KUzhxjKYkWEQonF/D8fpVo=
 ```
-After running above commands, there will be one peer registered under the node`. These 
+After running above commands, there will be one peer registered under the node`. These
 peers can be listed with the `list` command.
 
 ```bash
@@ -653,7 +653,7 @@ type        id       prefix         peers
 ----------  -------  -------------  ------------------------------------------------
 node        NODETAG      10.221.0.2/32  ['FSCB4ftV0SLqRKNDp7JL1KUzhxjKYkWEQonF/D8fpVo=']
 ```
-A peer can have multiple registered keys: 
+A peer can have multiple registered keys:
 
 ```bash
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py add node NODETAG 3OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=
@@ -664,7 +664,7 @@ type        id       prefix         peers
 node        NODETAG      10.221.0.2/32  ['FSCB4ftV0SLqRKNDp7JL1KUzhxjKYkWEQonF/D8fpVo=', '3OIHVWcDq5+CaDKrQ3G3QAuVnr41ONVFBto1ylBroZg=']
 ```
 
-To remove registered keys of the peer from VPN server: 
+To remove registered keys of the peer from VPN server:
 ```bash
 [root@vpnserver-container #] python ./vpn/bin/configure_peer.py remove node NODETAG
 >>> Output:
@@ -673,9 +673,9 @@ type        id       prefix         peers
 node        NODETAG      10.221.0.2/32  []
 ```
 
-`remove` command removes only the registered keys for the given peer. Since the configuration files are not removed from 
-the `config_peers` directory, `list` command will still list removed peers. This will allow you to register new key 
-for the peer without generating configuration file all over again. 
+`remove` command removes only the registered keys for the given peer. Since the configuration files are not removed from
+the `config_peers` directory, `list` command will still list removed peers. This will allow you to register new key
+for the peer without generating configuration file all over again.
 
 Config files of peers can be removed with the `removeconf` flag.
 
@@ -694,6 +694,6 @@ Different values at build time and runtime is also supported by `vpnserver` and 
 
 Example : build a researcher container with a default user/group `fedbiomed` (id `1234`), run it with the same account as the account on the researcher machine.
 ```bash
-[user@researcher $] MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ ../../../.gitmodules | grep 'url =' | awk '{ print $3 }')" MPSPDZ_COMMIT="$(cd ../../../modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')" CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build researcher
+[user@researcher $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build researcher
 [user@researcher $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose up -d researcher
 ```

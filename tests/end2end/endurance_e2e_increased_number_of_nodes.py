@@ -14,8 +14,6 @@ from helpers import (
     get_data_folder,
     create_researcher,
     create_multiple_nodes,
-    configure_secagg,
-    secagg_certificate_registration,
     generate_sklearn_classification_dataset
 
 )
@@ -30,9 +28,6 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 def setup(port, post_session, request):
     """Setup fixture for the module"""
 
-    configure_secagg()
-
-    print(port)
     with create_multiple_nodes(port, 10) as nodes:
 
         p1, _, _ = generate_sklearn_classification_dataset()
@@ -44,7 +39,6 @@ def setup(port, post_session, request):
             "data_type": "csv",
             "path": p1}
 
-        secagg_certificate_registration()
 
         for node in nodes:
             print(node)

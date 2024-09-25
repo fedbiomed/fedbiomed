@@ -48,7 +48,7 @@ CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 
 TRACEBACK_LIMIT = 20
 
-MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
+DEFAULT_CERT_NAME = "FBM_certificate"
 SERVER_certificate_prefix = "server_certificate"
 
 # !!! info "Instructions for developers"
@@ -63,7 +63,7 @@ SERVER_certificate_prefix = "server_certificate"
 # major version, else the minor version. Micro versions are supported but their use is currently discouraged.
 
 __version__ = FBM_Component_Version('5.3.0')  # Fed-BioMed software version
-__researcher_config_version__ = FBM_Component_Version('2')  # researcher config file version
+__researcher_config_version__ = FBM_Component_Version('3')  # researcher config file version
 __node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('2')  # node state version
 __breakpoints_version__ = FBM_Component_Version('3')  # breakpoints format version
@@ -117,7 +117,7 @@ class MessageType(_BaseEnum):
         try:
             return getattr(cls, type_.upper())
         except AttributeError as exp:
-            raise FedbiomedError(f"There is no MessageType as {type_}")
+            raise FedbiomedError(f"There is no MessageType as {type_}") from exp
 
 
 class ComponentType(_BaseEnum):

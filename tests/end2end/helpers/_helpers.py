@@ -113,30 +113,6 @@ def start_nodes(
     return processes, t
 
 
-def configure_secagg():
-    """Configures secure aggregation environment"""
-
-    # Darwin does long installation therefore if shamir protocol is already
-    # complied do not do other compilation.
-    if platform.system() == 'Darwin':
-        MP_SPDZ_BASEDIR = os.path.join(FEDBIOMED_SCRIPTS, '..', 'modules', 'MP-SPDZ')
-        if os.path.isfile(os.path.join(MP_SPDZ_BASEDIR, 'shamir-party.x')):
-            print("MP-SDPZ is already configured")
-            return
-
-    script = os.path.join(FEDBIOMED_SCRIPTS, 'fedbiomed_configure_secagg')
-    _ = shell_process(
-        [f"HOMEBREW_NO_INSTALL_FROM_API=1", script, 'node'],
-        wait=True
-    )
-
-
-def secagg_certificate_registration():
-    """Registers certificates of all components whose configs are available"""
-
-    return fedbiomed_run(['certificate-dev-setup'], wait=True, on_failure=default_on_failure)
-
-
 def execute_script(file: str, activate: str = 'researcher'):
     """Executes given scripts"""
 
@@ -191,7 +167,7 @@ def clear_component_data(config: Config):
 
 def clear_node_data(config: Config):
     """Clears data relative to Node, such as configuration file, database,
-    node state, mpspdz material
+    node state
 
     Args:
         config: configuration object of the Node
@@ -211,11 +187,11 @@ def clear_node_data(config: Config):
         print("[INFO] Removing folder ", _task_queue_dir)
         shutil.rmtree(_task_queue_dir)
 
-    # remove node's mpspdz material
-    _mpspdz_material_files = ('private_key', 'public_key')
-    for mpspdz_file in _mpspdz_material_files:
-        mpspdz_material = config.get('mpspdz', mpspdz_file,)
-        _material_to_remove = os.path.join(CONFIG_DIR, mpspdz_material)
+    # remove node's ssl material
+    _cert_material_files = ('private_key', 'public_key')
+    for cert_file in _cert_material_files:
+        cert_material = config.get('certificate', cert_file,)
+        _material_to_remove = os.path.join(CONFIG_DIR, cert_material)
         _material_to_remove_folder = os.path.dirname(_material_to_remove)
         if not os.path.lexists(_material_to_remove_folder):
             continue
@@ -223,7 +199,6 @@ def clear_node_data(config: Config):
         shutil.rmtree(_material_to_remove_folder)  # remove the whole folder of cert
 
     # remove database
-    # FIXME: below we assume database is in the `VAR_DIR` folder
     _database_file_path = config.get('default', 'db')
 
     os.remove(os.path.join(VAR_DIR, _database_file_path))
@@ -246,13 +221,8 @@ def clear_researcher_data(config: Config):
     if os.path.lexists(_database_file_path):
         os.remove(os.path.join(VAR_DIR, _database_file_path))
 
-    # Remove Researcher mpspdz material
     # Remove Researcher certificates and keys
-    _certificate_materials = ('pem', 'key',)
-    _mpspdz_material = ('private_key', 'public_key',)
-
-    for section, materials in zip(('server', 'mpspdz',), (_certificate_materials, _mpspdz_material,)):
-        _clear_files(config, section, materials)
+    _clear_files(config, 'certificate', ('private_key', 'public_key'))
 
     # remove Researcher config file
     _clear_config_file_component(config)

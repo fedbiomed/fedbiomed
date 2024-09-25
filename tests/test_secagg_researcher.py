@@ -38,32 +38,19 @@ class BaseTestCaseSecaggContext(
             self, "fedbiomed.researcher.secagg._secagg_context.Requests"
         )
 
-        self.patch_cm = patch.object(
-            fedbiomed.researcher.secagg._secagg_context, "_CManager"
-        )
         # self.patch_requests = patch("fedbiomed.researcher.secagg._secagg_context.Requests")
         self.patch_skmanager = patch.object(
             fedbiomed.researcher.secagg._secagg_context, "_SKManager"
         )
 
-        self.mock_cm = self.patch_cm.start()
         # self.m_requests = self.patch_requests.start()
         self.mock_skmanager = self.patch_skmanager.start()
 
-        # Set MOCK variables
-        self.mock_cm.write_mpc_certificates_for_experiment.return_value = (
-            "dummy/ip",
-            [],
-        )
-        unittest.mock.MagicMock.mpc_data_dir = unittest.mock.PropertyMock(
-            return_value="dummy/path/to/output"
-        )
         unittest.mock.MagicMock.tmp_dir = unittest.mock.PropertyMock(
             return_value=environ["TMP_DIR"]
         )
 
     def tearDown(self) -> None:
-        self.patch_cm.stop()
         self.patch_skmanager.stop()
         super().tearDown()
 

@@ -10,7 +10,6 @@ from typing import Any, Optional, Dict
 
 from fedbiomed.common.constants import (
     ErrorNumbers,
-    MPSPDZ_certificate_prefix,
     CONFIG_FOLDER_NAME,
     VAR_FOLDER_NAME,
     DB_PREFIX,
@@ -22,7 +21,6 @@ from fedbiomed.common.utils import (
     ROOT_DIR,
 )
 from fedbiomed.common.certificate_manager import (
-    retrieve_ip_and_port,
     generate_certificate,
 )
 from fedbiomed.common.exceptions import FedbiomedError
@@ -163,19 +161,6 @@ class Config(metaclass=ABCMeta):
             db_path, os.path.join(self.root, CONFIG_FOLDER_NAME)
         )
 
-        ip, port = retrieve_ip_and_port(self.root)
-
-        # Generate self-signed certificates
-        key_file, pem_file = generate_certificate(
-            root=self.root, component_id=component_id, prefix=MPSPDZ_certificate_prefix
-        )
-
-        self._cfg["mpspdz"] = {
-            "private_key": os.path.relpath(key_file, os.path.join(self.root, "etc")),
-            "public_key": os.path.relpath(pem_file, os.path.join(self.root, "etc")),
-            "mpspdz_ip": ip,
-            "mpspdz_port": port,
-        }
 
         # Calls child class add_parameterss
         self.add_parameters()

@@ -2,8 +2,6 @@ import time
 import pytest
 
 from helpers import (
-    configure_secagg,
-    secagg_certificate_registration,
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
@@ -37,7 +35,6 @@ def setup(port, post_session, request):
     # Configure secure aggregation
     print("Configure secure aggregation ---------------------------------------------")
     print(f"USING PORT {port} for researcher server")
-    configure_secagg()
 
     print("Creating components ---------------------------------------------")
     with create_multiple_nodes(
@@ -53,8 +50,6 @@ def setup(port, post_session, request):
         print("Creating researcher component -------------------------------------------")
         researcher = create_researcher(port=port)
 
-        print("Register certificates ---------------------------------------------")
-        secagg_certificate_registration()
 
         print("Adding first dataset --------------------------------------------")
         add_dataset_to_node(node_1, dataset)
@@ -88,14 +83,12 @@ def extra_node_force_secagg(port):
         })
 
     add_dataset_to_node(node_3, dataset)
-    # Re execute certificate registraiton
-    secagg_certificate_registration()
 
     # Starts the nodes
     node_processes, thread = start_nodes([node_3])
 
     # Give some time to researcher
-    time.sleep(10)
+    time.sleep(15)
 
     yield
 
@@ -116,14 +109,12 @@ def extra_node_no_validation(port):
         })
 
     add_dataset_to_node(node_3, dataset)
-    # Re execute certificate registraiton
-    secagg_certificate_registration()
 
     # Starts the nodes
     node_processes, thread = start_nodes([node_3])
 
     # Give some time to researcher
-    time.sleep(10)
+    time.sleep(15)
 
     yield
 
@@ -150,7 +141,7 @@ def extra_nodes_for_lom(port):
 
         # start nodes and give some time to start
         node_processes, _ = start_nodes([node_1, node_2, node_3])
-        time.sleep(10)
+        time.sleep(15)
 
 
         yield
