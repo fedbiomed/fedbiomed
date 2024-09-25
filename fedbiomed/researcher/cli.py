@@ -41,21 +41,35 @@ class ResearcherControl(CLIArgumentParser):
             nargs="?",
             required=False,
             help="The directory where jupyter notebook will be started.")
-        start.set_defaults(func=self.start)
 
+        start.add_argument(
+            "--enable-password",
+            "-psswd",
+            #type=bool,
+            #nargs="?",
+            required=False,
+            action="store_true",
+            help="Adds additional security by enabling password/token in order to reach the notebook")
+
+        start.set_defaults(func=self.start)
 
     def start(self, args):
         """Starts jupyter notebook"""
 
 
         options = ['--NotebookApp.use_redirect_file=false']
-
+        if not args.enable_password:
+            # TODO: see #1194: set password for user instead of using token
+            print("!!!!!! WARNING NOTEBOOK AUTHENTICATION DISABLED !!!!!")
+            options.append('--NotebookApp.password=""')
+            options.append('--NotebookApp.token=""')
         if args.directory:
             options.append(f"--notebook-dir={args.directory}")
 
         command = ["jupyter", "notebook"]
         command = [*command, *options]
-        process = subprocess.Popen(command)
+
+        process = subprocess.Popen(' '.join(command), shell=True)
 
         try:
             process.wait()
