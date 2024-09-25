@@ -19,14 +19,14 @@ class MockRequestGrpc(unittest.TestCase):
 
 class MockRequestModule:
 
-    def setUp(self, module = None) -> None:
+    def setUp(self, module = None, send_fed_req_conf: dict = {}) -> None:
 
-        module = module if module else "fedbiomed.researcher.request.Requests"  
+        module = module if module else "fedbiomed.researcher.requests.Requests"
         self.patch_requests = patch(module)
 
         self.mock_requests = self.patch_requests.start()
 
-        self.mock_federated_request = MagicMock(spec=FederatedRequest)
+        self.mock_federated_request = MagicMock(spec=FederatedRequest, **send_fed_req_conf)
         self.mock_policy  = MagicMock(spec=PolicyController)
         self.fake_search_reply = {}
         type(self.mock_federated_request).policy  = PropertyMock(return_value=self.mock_policy)

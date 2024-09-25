@@ -24,6 +24,7 @@ export RESEARCHER_SERVER_PORT=50051
 export PYTHONPATH=/fedbiomed
 export MPSPDZ_IP=$VPN_IP
 export MPSPDZ_PORT=14000
+export SECAGG_INSECURE_VALIDATION=False
 su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; conda activate fedbiomed-researcher ; \
     ./scripts/fedbiomed_run configuration create --component researcher --use-current; cd notebooks ; \
     jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' " $CONTAINER_USER &

@@ -6,7 +6,7 @@ Data Management classes
 """
 
 
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd

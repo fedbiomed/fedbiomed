@@ -19,7 +19,7 @@ In Fed-BioMed, we currently work on providing various solutions for this heterog
  
 ## Fed-BioMed `Aggregators`:
 
-Fed-BioMed `Aggregators` are showcased in the following [tutorial](../tutorials/pytorch/05-aggregation-in-fed-biomed). 
+Fed-BioMed `Aggregators` are showcased in the following [tutorial](../../../tutorials/pytorch/04-Aggregation_in_Fed-BioMed).
 
 ### Federated Averaging (FedAveraging)
 

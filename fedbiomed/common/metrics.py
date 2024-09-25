@@ -104,7 +104,7 @@ class Metrics(object):
 
         if y_pred is not None and not isinstance(y_pred, (np.ndarray, list)):
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_pred` should an instance "
-                                       f"of `np.ndarray`, but got {type(y_true)} ")
+                                       f"of `np.ndarray`, but got {type(y_pred)} ")
 
         y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
         result = self.metrics[metric.name](y_true, y_pred, **kwargs)
@@ -300,8 +300,9 @@ class Metrics(object):
         try:
             return metrics.mean_absolute_error(y_true, y_pred, multioutput=multi_output, **kwargs)
         except Exception as e:
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_ABSOLUTE_ERROR`"
-                                       f" {str(e)}")
+            raise FedbiomedMetricError(
+                f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_ABSOLUTE_ERROR`"
+                f" {str(e)}") from e
 
     @staticmethod
     def explained_variance(y_true: Union[np.ndarray, list],
@@ -359,19 +360,26 @@ class Metrics(object):
         Raises:
             FedbiomedMetricError: Invalid shape of `y_true` or `y_pred`
         """
+        y_pred = np.array(y_pred)
+        y_true = np.array(y_true)
 
-        # Squeeze array [[1],[2],[3]] to [1,2,3]
-        y_pred = np.squeeze(y_pred)
-        y_true = np.squeeze(y_true)
+        # Special case to support batch_size=1: issue #1013
+        if y_true.ndim == 2 and len(y_true[0]) == 1:
+            y_true = np.squeeze(y_true)
+
+        if y_pred.ndim == 2 and len(y_pred[0]) == 1:
+            y_pred = np.squeeze(y_pred)
+        # ------------------------------------------------
 
         if y_pred.ndim == 0:
             y_pred = y_pred.reshape((1,))
         if y_true.ndim == 0:
             y_true = y_true.reshape((1,))
 
-        if len(y_pred) != len(y_true):
+        if y_pred.shape[0] != y_true.shape[0]:
             raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions and true values should have"
-                                       f"equal number of samples, {len(y_true)}, {len(y_pred)}")
+                                       f"equal number of samples, but got y_true = {len(y_true)}, and"
+                                       f" y_pred= {len(y_pred)}")
 
         # Get shape of the prediction should be 1D or 2D array
         shape_y_pred = y_pred.shape
@@ -379,34 +387,37 @@ class Metrics(object):
 
         # Shape of the prediction array should be (samples, outputs) or (samples, )
         if len(shape_y_pred) > 2 or len(shape_y_true) > 2:
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions or true values are not in "
-                                       f"supported shape {y_pred.shape}, `{y_true.shape}`, should be 1D or 2D "
-                                       f"list/array. If it isa special case,  please consider creating a custom "
-                                       f"`testing_step` method in training plan")
+            raise FedbiomedMetricError(
+                f"{ErrorNumbers.FB611.value}: Predictions or true values are not in "
+                f"supported shape {y_pred.shape}, `{y_true.shape}`, should be 1D or 2D "
+                f"list/array. If it isa special case,  please consider creating a custom "
+                f"`testing_step` method in training plan")
 
         if Metrics._is_array_of_str(y_pred) != Metrics._is_array_of_str(y_true):
-            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predicted values and true values have "
-                                       f"different types `int` and `str`")
+            raise FedbiomedMetricError(
+                f"{ErrorNumbers.FB611.value}: Predicted values and true values have "
+                f"different types `int` and `str`")
 
         if Metrics._is_array_of_str(y_pred):
             if metric.metric_category() is _MetricCategory.REGRESSION:
-                raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Can not apply metric `{metric.name}` "
-                                           f"to non-numeric prediction results")
+                raise FedbiomedMetricError(
+                    f"{ErrorNumbers.FB611.value}: Can not apply metric `{metric.name}` "
+                    f"to non-numeric prediction results")
             return y_true, y_pred
 
         output_shape_y_pred = shape_y_pred[1] if len(shape_y_pred) == 2 else 0  # 0 for 1D array
         output_shape_y_true = shape_y_true[1] if len(shape_y_true) == 2 else 0  # 0 for 1D array
-
         if metric.metric_category() is _MetricCategory.CLASSIFICATION_LABELS:
             if output_shape_y_pred == 0 and output_shape_y_true == 0:
                 # If y_pred contains labels as integer, do not use threshold cut
-                if sum(y_pred) != sum([round(i) for i in y_pred]):
+                if sum(y_pred) != sum(round(i) for i in y_pred):
                     y_pred = np.where(y_pred > 0.5, 1, 0)
 
-                if sum(y_true) != sum([round(i) for i in y_true]):
+                if sum(y_true) != sum(round(i) for i in y_true):
                     y_true = np.where(y_true > 0.5, 1, 0)
-                    logger.warning(f"Target data seems to be a regression, metric {metric.name} might "
-                                   "not be appropriate", broadcast=True)
+                    logger.warning(
+                        f"Target data seems to be a regression, metric {metric.name} might "
+                        "not be appropriate", broadcast=True)
 
             # If y_true is one 2D array and y_pred is 1D array
             # Example: y_true: [ [0,1], [1,0]] | y_pred : [0.1, 0.5]
@@ -415,24 +426,20 @@ class Metrics(object):
                 y_true = np.argmax(y_true, axis=1)
 
             # If y_pred is 2D array where each array and y_true is 1D array of classes
-            # Example: y_true: [0,1,1,2,] | y_pred : [[-0.2, 0.3, 0.5], [0.5, -1.2, 1,2 ], [0.5, -1.2, 1,2 ]]
+            # Example: y_true: [0,1,1,2,] | y_pred : [[-0.2, 0.3, 0.5],
+            # [0.5, -1.2, 1,2 ], [0.5, -1.2, 1,2 ]]
             elif output_shape_y_pred > 0 and output_shape_y_true == 0:
                 y_pred = np.argmax(y_pred, axis=1)
 
             # If y_pred and y_true is 2D array
             # Example: y_true: [ [0,1],[1,0]] | y_pred : [[-0.2, 0.3], [0.5, 1,2 ]]
             elif output_shape_y_pred > 0 and output_shape_y_true > 0:
-
                 if output_shape_y_pred != output_shape_y_true:
-                    raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Can not convert values to class labels, "
-                                               f"shape of predicted and true values do not match.")
+                    raise FedbiomedMetricError(
+                        f"{ErrorNumbers.FB611.value}: Can not convert values to class labels, "
+                        f"shapes of predicted and true values do not match.")
                 y_pred = np.argmax(y_pred, axis=1)
                 y_true = np.argmax(y_true, axis=1)
-
-        elif metric.metric_category() is _MetricCategory.REGRESSION:
-            if output_shape_y_pred != output_shape_y_true:
-                raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: For the metric `{metric.name}` multiple "
-                                           f"output regression is not supported")
 
         return y_true, y_pred
 
@@ -448,9 +455,9 @@ class Metrics(object):
         """
 
         if len(list_.shape) == 1:
-            return True if isinstance(list_[0], str) else False
-        else:
-            return True if isinstance(list_[0][0], str) else False
+            return isinstance(list_[0], str)
+
+        return isinstance(list_[0][0], str)
 
     @staticmethod
     def _configure_multiclass_parameters(y_true: np.ndarray,

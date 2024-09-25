@@ -78,7 +78,7 @@ class TorchDataManager(object):
         """
         return self._create_torch_data_loader(self._dataset, **self._loader_arguments)
 
-    def split(self, test_ratio: float) -> Tuple[Union[DataLoader, None], Union[DataLoader, None]]:
+    def split(self, test_ratio: float, test_batch_size: Union[int, None]) -> Tuple[Union[DataLoader, None], Union[DataLoader, None]]:
         """ Splitting PyTorch Dataset into train and validation.
 
         Args:
@@ -124,8 +124,11 @@ class TorchDataManager(object):
 
         self._subset_train, self._subset_test = random_split(self._dataset, [train_samples, test_samples])
 
+        if not test_batch_size:
+
+            test_batch_size = len(self._subset_test)
         loaders = (self._subset_loader(self._subset_train, **self._loader_arguments),
-                   self._subset_loader(self._subset_test, batch_size=len(self._subset_test)))
+                   self._subset_loader(self._subset_test, batch_size = test_batch_size))
 
         return loaders
 

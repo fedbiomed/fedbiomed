@@ -14,6 +14,19 @@ from fedbiomed.researcher.environ import environ
 
 print(environ['RESEARCHER_ID'])
 ```
+
+Descriptions of researcher Global Variables:
+
+- RESEARCHER_ID           : id of the researcher
+- ID                      : equals to researcher id
+- TENSORBOARD_RESULTS_DIR : path for writing tensorboard log files
+- EXPERIMENTS_DIR         : folder for saving experiments
+- MESSAGES_QUEUE_DIR      : Path for writing queue files
+- SERVER_HOST             : Hostname or IP of gRPC server
+- SERVER_PORT             : TCP port of gRPC server
+- SERVER_SSL_KEY          : Path to certificate private key file for gRPC
+- SERVER_SSL_CERT         : Path to certificate PEM file for gRPC
+
 """
 
 import sys

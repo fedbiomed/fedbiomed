@@ -39,3 +39,7 @@ class ResearcherConfig(Config):
             'pem' : os.path.relpath(pem_file, os.path.join(self.root, CONFIG_FOLDER_NAME)),
             'key' : os.path.relpath(key_file, os.path.join(self.root, CONFIG_FOLDER_NAME))
         }
+
+        self._cfg['security'] = {
+            'secagg_insecure_validation': os.getenv('SECAGG_INSECURE_VALIDATION', True)
+        }

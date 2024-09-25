@@ -38,6 +38,7 @@ nav:
         - 'Create Your Custom Training Plan': './tutorials/pytorch/02_Create_Your_Custom_Training_Plan.ipynb'
         - 'Regression Example with Used Cars Dataset': './tutorials/pytorch/03_PyTorch_Used_Cars_Dataset_Example.ipynb'
         - 'Aggregators in Fed-BioMed': './tutorials/pytorch/04-Aggregation_in_Fed-BioMed.ipynb'
+        - 'Transfer-Learning in Fed-BioMed': './tutorials/pytorch/05_Transfer-learning_tutorial_usingDenseNet-121.ipynb'
       - MONAI:
         - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb'
         - '2D Image Registration with MedNIST': './tutorials/monai/02_monai-2d-image-registration.ipynb'
@@ -87,22 +88,33 @@ nav:
       - "Secure Aggregation":
           - "Introduction": './user-guide/secagg/introduction.md'
           - "Configuration": './user-guide/secagg/configuration.md'
-          - "Certificate Registration": './user-guide/secagg/certificate-registration.md'
           - "Managing Secure Aggregation in Researcher": './user-guide/secagg/researcher-interface.md'
+          - "Joye-Libert Cert. Registration": './user-guide/secagg/certificate-registration.md'
     - Developer:
         - 'API Reference':
             - Common:
+                - 'Certificate Manager': './developer/api/common/certificate_manager.md'
+                - CLI: './developer/api/common/cli.md'
+                - Config: './developer/api/common/config.md'
                 - Constants: './developer/api/common/constants.md'
                 - Data: './developer/api/common/data.md'
+                - DB: './developer/api/common/db.md'
                 - Environ: './developer/api/common/environ.md'
                 - Exceptions: './developer/api/common/exceptions.md'
+                - IPython: './developer/api/common/ipython.md'
                 - Json: './developer/api/common/json.md'
                 - Logger: './developer/api/common/logger.md'
                 - Message: './developer/api/common/message.md'
-                - Messaging: './developer/api/common/messaging.md'
+                - Metrics: './developer/api/common/metrics.md'
                 - Model: './developer/api/common/models.md'
+                - 'MPC controller': './developer/api/common/mpc_controller.md'
                 - Optimizers: './developer/api/common/optimizers.md'
-                - Repository: './developer/api/common/repository.md'
+                - Privacy: './developer/api/common/privacy.md'
+                - Secagg: './developer/api/common/secagg.md'
+                - 'Secagg Manager': './developer/api/common/secagg_manager.md'
+                - Serializer: './developer/api/common/serializer.md'
+                - Singleton: './developer/api/common/singleton.md'
+                - Synchro: './developer/api/common/synchro.md'
                 - TasksQueue: './developer/api/common/tasks_queue.md'
                 - TrainingPlans: './developer/api/common/training_plans.md'
                 - TrainingArgs: './developer/api/common/training_args.md'
@@ -110,24 +122,37 @@ nav:
                 - Validator: './developer/api/common/validator.md'
             - Node:
                 - CLI: './developer/api/node/cli.md'
+                - 'CLI Utils': './developer/api/node/cli_utils.md'
+                - Config: './developer/api/node/config.md'
                 - DatasetManager: './developer/api/node/dataset_manager.md'
+                - Environ: './developer/api/node/environ.md'
+                - HistoryMonitor: './developer/api/node/history_monitor.md'
                 - Node: './developer/api/node/node.md'
                 - NodeStateManager: './developer/api/node/node_state_manager.md'
-                - TrainingPlanSecurityManager: './developer/api/node/training_plan_security_manager.md'
-                - HistoryMonitor: './developer/api/node/history_monitor.md'
+                - Requests: './developer/api/node/requests.md'
                 - Round: './developer/api/node/round.md'
+                - Secagg: './developer/api/node/secagg.md'
+                - 'Secagg Manager': './developer/api/node/secagg_manager.md'
+                - TrainingPlanSecurityManager: './developer/api/node/training_plan_security_manager.md'
             - Researcher:
                 - Aggregators: './developer/api/researcher/aggregators.md'
+                - CLI: './developer/api/researcher/cli.md'
+                - Config: './developer/api/researcher/config.md'
                 - Datasets: './developer/api/researcher/datasets.md'
-                - Experiment: './developer/api/researcher/experiment.md'
+                - Environ: './developer/api/researcher/environ.md'
+                - Federated Workflows: './developer/api/researcher/federated_workflows.md'
                 - Filetools: './developer/api/researcher/filetools.md'
                 - Jobs: './developer/api/researcher/jobs.md'
                 - Monitor: './developer/api/researcher/monitor.md'
                 - NodeStateAgent: './developer/api/researcher/node_state_agent.md'
                 - Requests: './developer/api/researcher/requests.md'
-                - Strategies: './developer/api/researcher/strategies.md'
                 - Secagg: './developer/api/researcher/secagg.md'
-
+                - Strategies: './developer/api/researcher/strategies.md'
+            - Transport:
+                - Client: './developer/api/transport/client.md'
+                - Controller: './developer/api/transport/controller.md'
+                - NodeAgent: './developer/api/transport/node_agent.md'
+                - Server: './developer/api/transport/server.md'
         - 'Usage and Tools': './developer/usage_and_tools.md'
         - 'Continuous Integration': './developer/ci.md'
         - 'Definition of Done': './developer/definition-of-done.md'
@@ -141,6 +166,16 @@ nav:
 
 extra:
   NewsPosts:
+      'Release-9-2024':
+          name: 'A new release of Fed-BioMed (v5.23) is out!'
+          desc: 'A new release of Fed-BioMed is now available, introducing LOM secure aggregation !'
+          link: '/news/Release-09-2024'
+          image: 'assets/img/v5.3.png'
+      'Release-5-2024':
+          name: 'A new release of Fed-BioMed (v5.2) is out!'
+          desc: 'A new release of Fed-BioMed is now available, fixing known issues and introducing new end-to-end test facility'
+          link: '/news/Release-05-2024'
+          image: 'assets/img/v5.2.jpg'
       'WAICF-2024':
           name: 'Fed-BioMed @ WAICF 2024'
           desc: 'Fed-BioMed at WAICF 2024 on February 8-9'
@@ -265,6 +300,7 @@ plugins:
       default_handler: python
       handlers:
         python:
+          paths: fedbiomed
           import:
             - https://requests.readthedocs.io/en/master/objects.inv
             - https://numpy.org/doc/stable/objects.inv

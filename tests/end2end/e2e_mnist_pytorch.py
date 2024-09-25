@@ -117,9 +117,10 @@ def test_02_mnist_pytorch_experiment_validation():
         'optimizer_args': {
             "lr" : 1e-3
         },
-        'num_updates': 1,
+        'num_updates': 100,
+        'test_batch_size': 128,
         'dry_run': False,
-        'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
+        #'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
     }
 
     exp = Experiment(
@@ -130,7 +131,7 @@ def test_02_mnist_pytorch_experiment_validation():
         round_limit=rounds,
         aggregator=FedAverage(),
         node_selection_strategy=None,
-                tensorboard=True,
+        tensorboard=True,
         save_breakpoints=True)
     exp.set_test_ratio(0.1)
     exp.set_test_on_local_updates(True)
@@ -151,9 +152,10 @@ def test_03_mnist_pytorch_experiment_scaffold():
         'optimizer_args': {
             "lr" : 1e-3
         },
-        'num_updates': 1,
+        'num_updates': 100,
+        'test_batch_size': 128,
         'dry_run': False,
-        'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
+        #'batch_maxnum': 100 # Fast pass for development : only use ( batch_maxnum * batch_size ) samples
     }
 
     exp = Experiment(
@@ -164,7 +166,7 @@ def test_03_mnist_pytorch_experiment_scaffold():
         round_limit=rounds,
         aggregator=Scaffold(),
         node_selection_strategy=None,
-                tensorboard=True,
+        tensorboard=True,
         save_breakpoints=True)
     exp.set_test_ratio(0.1)
     exp.set_test_on_local_updates(True)

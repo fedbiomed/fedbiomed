@@ -17,7 +17,8 @@ from fedbiomed.common.constants import ErrorNumbers, MAX_SEND_RETRIES
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage
+from fedbiomed.common.message import Message, TaskResponse, TaskRequest, FeedbackMessage, \
+    OverlayMessage, ResearcherMessages
 from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
 
 
@@ -166,7 +167,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                 # Deserialize message
                 message = Serializer.loads(reply)
 
-                # Replies are handles by node agent callbacks
+                # Replies are handled by node agent callbacks
                 node = await self._agent_store.get(message["node_id"])
                 await node.on_reply(message)
 
@@ -267,7 +268,7 @@ class _GrpcAsyncServer:
             ])
 
         self._loop = asyncio.get_running_loop()
-        self._agent_store = AgentStore(loop=self._loop)
+        self._agent_store = AgentStore(loop=self._loop, on_forward=self._on_forward)
 
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(
@@ -297,6 +298,17 @@ class _GrpcAsyncServer:
         finally:
             if self._debug:
                 logger.debug("gRPC server has stopped")
+
+    async def _on_forward(self, message: OverlayMessage) -> None:
+        """Handle overlay messages received by the server by forwarding them to the destination node.
+
+        Args:
+            message: Message to forward
+        """
+        # caveat: intentionally use `_GrpcAyncServer.send()`
+        # if using `self.send()` it uses `GrpcServer.send()`, normally used from another thread
+        # if using `super().send()` it's less explicit
+        await _GrpcAsyncServer.send(self, message, message.dest_node_id)
 
 
     async def send(self, message: Message, node_id: str) -> None:

@@ -1,16 +1,27 @@
 # Fed-BioMed changelog
 
-## 2024-05-27 version 5.1.1
+## 2024-09-05 version 5.3.0
 
-- add a [concrete-ml](https://docs.zama.ai/concrete-ml) example
-- robustify and redesign gRPC communication layer
+- introduce fast secure aggregation using Low-Overhead Masking (LOM) scheme and in-app Diffie-Hellman key exchange
+- add feature for choosing the batch size for testing (validation) facility
+- add transfer learning tutorial
+- fix make optional potentially insecure consistency check (validation) for secure aggregation
+- fix issue with validation when `test_batch_size=1`
+- multiple fixes in documentation and tutorials
+
+## 2024-05-27 version 5.2.0
+
+- redesign `Job` and `Experiment` classes, introducing `federated_workflow` class
 - introduce end-to-end and testing facility
+- fix, robustify and redesign gRPC communication layer
+- add a concrete-ml example
 - improve logging facility
+- fix SecAgg (`Experiment` with more 4 nodes or more was failing)
 - fix quantization process for secure aggregation
-- review notebooks. Remove unrelevant ones
-- fix related to gRPC and SecAgg (`Experiment` with more than 4 Nodes was failing)
-- refactor `Job` and `Experiment` classes, introducing `federated_workflow` class
-- fix and extend `model` class, by handling buffers layers such as batch normalization layers
+- review notebooks. Remove unrelevant ones.
+- fix and extend `model` class, by handling buffers layers such as batch normalization layers.
+- multiple fixes for breakpoint
+- add a [concrete-ml](https://docs.zama.ai/concrete-ml) example
 
 ## 2024-02-19 version 5.1.0
 

@@ -67,7 +67,7 @@ def setup_components(port, post_session, request):
         kill_subprocesses(node_processes)
         thread.join()
 
-        print("Cleareaniing component data")
+        print("Clearing component data")
         clear_node_data(node_1)
         clear_node_data(node_2)
 

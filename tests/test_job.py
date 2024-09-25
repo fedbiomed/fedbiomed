@@ -576,6 +576,7 @@ class TestJob(ResearcherTestCase, MockRequestModule):
             'status': status,
             'msg': 'my arbitrary message',
             'training_plan': mock_tp.source(),
+            'training_plan_id': '12345',
             'command': 'training-plan-status',
         }
 

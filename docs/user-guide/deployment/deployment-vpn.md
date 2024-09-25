@@ -244,7 +244,7 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 * do initial node configuration
 
     ```bash
-    [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14001 && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run environ-node configuration create --component NODE --use-current'
+    [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export SECAGG_INSECURE_VALIDATION=false && export SECAGG_INSECURE_VALIDATION=false && export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14001 && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run environ-node configuration create --component NODE --use-current'
     ```
 
 
@@ -308,12 +308,15 @@ Optionally deploy a second node instance on the same node (useful for testing pu
 This part of the tutorial is optionally executed on some nodes, after deploying the server.
 
 
-## Optionally configure secure aggregation
+## Optionally configure Joye-Libert secure aggregation
 
-Optionally configure secure aggregation for additional security:
+Secure aggregation provides additional security. 
+**No additional configuration is needed for using LOM secure aggregation, only for using Joye-Libert secure aggregation**
 
-* for [the server side](./deployment-vpn-secagg.md#configure-secure-aggregation-for-the-server-side)
-* for [the node side](./deployment-vpn-secagg.md#configure-secure-aggregation-for-the-node-side)
+Optionally configure Joye-Libert secure aggregation:
+
+* for [the server side](./deployment-vpn-secagg.md#configure-joye-libert-secure-aggregation-for-the-server-side)
+* for [the node side](./deployment-vpn-secagg.md#configure-joye-libert-secure-aggregation-for-the-node-side)
 
 This part of the tutorial is optionally executed once on each node and once on the server.
 It is necessary before this component can use secure aggregation in an experiment.
