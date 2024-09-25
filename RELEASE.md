@@ -122,10 +122,10 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
   export HOTFIX_NAME=521-short-description
   ```
 
-- set the hotfix version tag for the release (or use this tag directly in commands).For example, if the previous version was `v5.3.0`, it becomes `v5.3.1`.
+- set the hotfix version tag for the release (or use this tag directly in commands).For example, if the previous version was `v5.3.1`, it becomes `v5.3.2`.
 
   ```bash
-  export HOTFIX_TAG=v5.3.1
+  export HOTFIX_TAG=v5.3.2
   ```
 
 - fork a `hotfix/$HOTFIX_NAME` branch from `master`, and checkout the `hotfix/$HOTFIX_NAME` branch
