@@ -43,12 +43,25 @@ class ResearcherControl(CLIArgumentParser):
             help="The directory where jupyter notebook will be started.")
 
         start.add_argument(
-            "--enable-password",
-            "-psswd",
+            "--disable-auth",
             #type=bool,
             #nargs="?",
             required=False,
             action="store_true",
+            help="Disables security for reaching the notebook")
+
+        start.add_argument(
+            "--notebook-port",
+            type=str,
+            nargs="?",
+            required=False,
+            help="Adds additional security by enabling password/token in order to reach the notebook")
+
+        start.add_argument(
+            "--notebook-ip",
+            nargs="?",
+            type=str,
+            required=False,
             help="Adds additional security by enabling password/token in order to reach the notebook")
 
         start.set_defaults(func=self.start)
@@ -56,9 +69,14 @@ class ResearcherControl(CLIArgumentParser):
     def start(self, args):
         """Starts jupyter notebook"""
 
+        options = []
+        if args.notebook_port:
+            options.append(f'--port={args.notebook_port}')
 
-        options = ['--NotebookApp.use_redirect_file=false']
-        if not args.enable_password:
+        if args.notebook_ip:
+            options.append(f'--ip={args.notebook_ip}')
+
+        if args.disable_auth:
             # TODO: see #1194: set password for user instead of using token
             print("!!!!!! WARNING NOTEBOOK AUTHENTICATION DISABLED !!!!!")
             options.append('--NotebookApp.password=""')
@@ -66,10 +84,11 @@ class ResearcherControl(CLIArgumentParser):
         if args.directory:
             options.append(f"--notebook-dir={args.directory}")
 
+        options.append('--NotebookApp.use_redirect_file=false')
         command = ["jupyter", "notebook"]
         command = [*command, *options]
 
-        process = subprocess.Popen(' '.join(command), shell=True)
+        process = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE)
 
         try:
             process.wait()
