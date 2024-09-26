@@ -2,11 +2,11 @@ from ._secagg_setups import (
     SecaggSetup,
     SecaggBaseSetup,
     SecaggServkeySetup,
-    SecaggDHSetup
+    SecaggDHSetup,
 )
 
 from ._secagg_round import (
-   SecaggRound
+    SecaggRound
 )
 
 __all__ = [
@@ -14,6 +14,5 @@ __all__ = [
     "SecaggSetup",
     "SecaggServkeySetup",
     "SecaggDHSetup",
-    "SecaggRound"
+    "SecaggRound",
 ]
-

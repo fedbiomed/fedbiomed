@@ -46,7 +46,7 @@ REQUEST_PREFIX = 'request_'
 CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 """FOLDER name for Certs directory"""
 
-TRACEBACK_LIMIT = 10
+TRACEBACK_LIMIT = 20
 
 MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
 SERVER_certificate_prefix = "server_certificate"
@@ -251,7 +251,7 @@ class SecaggElementTypes(_BaseEnum):
         DIFFIE_HELLMAN: one pair of DH key for each node party, public key shared with other node parties
     """
     SERVER_KEY: int = 0
-    DIFFIE_HELLMAN: int = 2
+    DIFFIE_HELLMAN: int = 1
 
     @staticmethod
     def get_element_from_value(element_value: int):
@@ -345,6 +345,7 @@ class ErrorNumbers(_BaseEnum):
     FB627 = "FB627: Utility function error"
     FB628 = "FB628: Communication error"
     FB629 = "FB629: Diffie-Hellman KA error"
+    FB630 = "FB630: Additive Secret Sharing error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

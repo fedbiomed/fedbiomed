@@ -10,6 +10,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
+    AdditiveSSSetupRequest,
     ApprovalRequest,
     ErrorMessage,
     Message,
@@ -139,7 +140,11 @@ class Node:
 
             match message.__name__:
 
-                case TrainRequest.__name__ | SecaggRequest.__name__:
+                case (
+                    TrainRequest.__name__
+                    | SecaggRequest.__name__
+                    | AdditiveSSSetupRequest.__name__
+                ):
                     self.add_task(message)
                 case SecaggDeleteRequest.__name__:
                     self._task_secagg_delete(message)
@@ -228,35 +233,34 @@ class Node:
             SecaggDeleteReply(**{**reply, "msg": "Secagg context is deleted."})
         )
 
-    def _task_secagg(self, msg: SecaggRequest) -> None:
+    def _task_secagg(self, request: SecaggRequest) -> None:
         """Parse a given secagg setup task message and execute secagg task.
 
         Args:
-            msg: `SecaggRequest` message object to parse
+            request: `SecaggRequest` message object to parse
         """
-        setup_arguments = {key: value for (key, value) in msg.get_dict().items()}
+        setup_arguments = request.get_dict()
+        setup_arguments.pop('protocol_version')
+        setup_arguments.pop('request_id')
 
-        # Needed when using node to node communications
-        #
-        # Currently used only for Diffie-Hellman keys
-        # but we can add it for all secagg for future extension (in-app Shamir for Joye-Libert secagg)
+        # Properties for Node to Node communication
         setup_arguments["grpc_client"] = self._grpc_client
         setup_arguments["pending_requests"] = self._pending_requests
         setup_arguments["controller_data"] = self._controller_data
 
         try:
             secagg = SecaggSetup(**setup_arguments)()
+            reply: SecaggReply = secagg.setup()
         except Exception as error_message:
             logger.error(error_message)
             return self.send_error(
-                request_id=msg.request_id,
-                researcher_id=msg.researcher_id,
+                request_id=request.request_id,
+                researcher_id=request.researcher_id,
                 extra_msg=str(error_message),
             )
 
-        reply = secagg.setup()
-        reply.update({"request_id": msg.request_id, "node_id": environ["ID"]})
-        return self._grpc_client.send(SecaggReply(**reply))
+        reply.request_id = request.request_id
+        return self._grpc_client.send(reply)
 
     def parser_task_train(self, msg: TrainRequest) -> Union[Round, None]:
         """Parses a given training task message to create a round instance
@@ -328,6 +332,7 @@ class Node:
         """Manages training tasks in the queue."""
 
         while True:
+
             item: Message = self._tasks_queue.get()
             # don't want to treat again in case of failure
             self._tasks_queue.task_done()
@@ -337,10 +342,10 @@ class Node:
                 f"Researcher: {item.researcher_id} "
                 f"Experiment: {item.experiment_id}"
             )
+            try:
 
-            match item.__name__:
-                case TrainRequest.__name__:
-                    try:
+                match item.__name__:
+                    case TrainRequest.__name__:
                         round_ = self.parser_task_train(item)
                         # once task is out of queue, initiate training rounds
                         if round_ is not None:
@@ -351,19 +356,20 @@ class Node:
                             self._grpc_client.send(msg)
                             del round_
 
-                    # TODO: Test exception
-                    except Exception as e:
-                        self.send_error(
-                            request_id=item.request_id,
-                            researcher_id=item.researcher_id,
-                            errnum=ErrorNumbers.FB300,
-                            extra_msg="Round error: " + str(e),
-                        )
-                case SecaggRequest.__name__:
-                    self._task_secagg(item)
-                case _:
-                    errmess = f"{ErrorNumbers.FB319.value}: Undefined request message"
-                    self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
+                    case SecaggRequest.__name__ | AdditiveSSSetupRequest.__name__:
+                        self._task_secagg(item)
+                    case _:
+                        errmess = f"{ErrorNumbers.FB319.value}: Undefined request message"
+                        self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
+
+            # TODO: Test exception
+            except Exception as e:
+                self.send_error(
+                    request_id=item.request_id,
+                    researcher_id=item.researcher_id,
+                    errnum=ErrorNumbers.FB300,
+                    extra_msg="Round error: " + str(e),
+            )
 
     def start_protocol(self) -> None:
         """Start the node to node router thread, for handling node to node message"""
@@ -400,7 +406,8 @@ class Node:
             errnum: Code of the error.
             extra_msg: Additional human readable error message.
             researcher_id: Destination researcher.
-            broadcast: Broadcast the message all available researchers regardless of specific researcher.
+            broadcast: Broadcast the message all available researchers
+                regardless of specific researcher.
             request_id: Optional request i to reply as error to a request.
         """
         try:
