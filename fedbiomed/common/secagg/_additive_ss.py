@@ -6,6 +6,8 @@ from fedbiomed.common.exceptions import FedbiomedTypeError, FedbiomedValueError
 
 
 class AdditiveSecret:
+    """Manages additive secret.
+    """
 
     def __init__(self, secret: Union[int, List[int]]) -> None:
         """
@@ -41,15 +43,14 @@ class AdditiveSecret:
         The sum of the shares will equal the original secret.
 
         Args:
-            num_shares (int): The number of shares to generate.
-            bit_length (Optional[int], optional): The bit length of the shares. Defaults to None.
+            num_shares: The number of shares to generate.
+            bit_length: The bit length of the shares. Defaults to None.
 
         Returns:
             AdditiveShares  object representing the split shares.
 
         Raises:
             FedbiomedValueError: If the number of shares is less than or equal to 0.
-            FedbiomedValueError: If the bit length is smaller than the secret's bit length.
         """
         if num_shares <= 0:
             raise FedbiomedValueError("Number of shares must be greater than 0")
@@ -67,8 +68,20 @@ class AdditiveSecret:
         return AdditiveShares([AdditiveShare(share) for share in shares])
 
     @staticmethod
-    def _shares_int(secret, num_shares, bit_length):
-        """Create given int shares"""
+    def _shares_int(secret: int, num_shares: int, bit_length: Optional[int]) -> List[int]:
+        """Create given int shares
+
+        Args:
+            secret: The secret
+            num_shares: The number of shares to generate.
+            bit_length: The bit length of the shares. Defaults to None.
+
+        Returns:
+            Additive shares as integers
+
+        Raises:
+            FedbiomedValueError: If the bit length is smaller than the secret's bit length.
+        """
 
         if bit_length is not None and bit_length < int(log2(secret)):
             raise FedbiomedValueError(
