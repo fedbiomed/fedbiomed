@@ -186,7 +186,17 @@ class NodeToNodeController:
         Args:
             inner_msg: received inner message
         """
-        await self._overlay_channel.set_distant_key(inner_msg.get_param('node_id'), inner_msg.get_param('public_key'))
+        if not await self._overlay_channel.set_distant_key(
+            inner_msg.node_id,
+            inner_msg.public_key,
+            inner_msg.request_id,
+        ):
+            logger.warning(
+                f"{ErrorNumbers.FB324}: Received channel key of unregistered "
+                f"peer node {inner_msg.node_id} "
+                f"or reply to non existing request {inner_msg.request_id}. "
+                f"Distant node may be confused or it may be an attack."
+            )
 
     async def _HandlerKeyRequest(  # pylint: disable=C0103
         self, overlay_msg: OverlayMessage, inner_msg: InnerMessage

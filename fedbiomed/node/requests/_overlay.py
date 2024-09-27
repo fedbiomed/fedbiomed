@@ -3,7 +3,7 @@
 
 from typing import List, Tuple, Optional
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import uuid
 import secrets
 import asyncio
@@ -81,6 +81,7 @@ class _N2nKeysEntry:
     "Stores description of one node to node channel key status"
     local_key: DHKey
     ready_event: asyncio.Event
+    pending_requests: list[str] = field(default_factory=list)
     distant_key: Optional[DHKey] = None
 
 
@@ -121,7 +122,10 @@ class _ChannelKeys:
             local_key = DHKey()
             self._channel_manager.add(distant_node_id, local_key.export_private_key())
 
-            self._channel_keys[distant_node_id] = _N2nKeysEntry(local_key=local_key, ready_event=asyncio.Event())
+            self._channel_keys[distant_node_id] = _N2nKeysEntry(
+                local_key=local_key,
+                ready_event=asyncio.Event()
+            )
 
     async def get_keys(self, distant_node_id: str) -> Tuple[DHKey, DHKey]:
         """Gets keys for peering with a given distant peer node on a channel
@@ -135,20 +139,56 @@ class _ChannelKeys:
         """
         async with self._channel_keys_lock:
             self._create_channel(distant_node_id)
-            return self._channel_keys[distant_node_id].local_key, self._channel_keys[distant_node_id].distant_key
+            return self._channel_keys[distant_node_id].local_key, \
+                   self._channel_keys[distant_node_id].distant_key
 
-    async def set_distant_key(self, distant_node_id: str, public_key_pem: bytes) -> None:
-        """Sets distant (public) key of a channel for peering with a given distant peer node.
+    async def add_pending_request(
+            self,
+            distant_node_id: str,
+            request_id: str
+    ) -> None:
+        """Adds a pending request for a channel with a given distant peer node
+
+        Args:
+            distant_node_id: unique ID of the peer node
+            request_id: unique ID of the request
+        """
+        async with self._channel_keys_lock:
+            self._channel_keys[distant_node_id].pending_requests.append(request_id)
+
+    async def set_distant_key(
+            self,
+            distant_node_id: str,
+            public_key_pem: bytes,
+            request_id: str,
+    ) -> bool:
+        """Sets distant (public) key of a channel for peering with a given
+            distant peer node.
+
+        Distant key is not set if no channel exists for that `distant_node_id`
+            or if the `request_id` does not match a pending request
 
         Args:
             distant_node_id: unique ID of the peer node
             public_key_pem: public key in PEM format
+            request_id: unique ID of the request
+
+        Returns:
+            True if the distant key was set, False if it was not set
         """
+        dh_key = DHKey(public_key_pem=public_key_pem)
+
         async with self._channel_keys_lock:
-            # This case should not happen, but this ensures robustness/integrity
-            self._create_channel(distant_node_id)
-            self._channel_keys[distant_node_id].distant_key = DHKey(public_key_pem=public_key_pem)
+            if distant_node_id not in self._channel_keys \
+                    or request_id not in \
+                    self._channel_keys[distant_node_id].pending_requests:
+                return False
+
+            self._channel_keys[distant_node_id].distant_key = dh_key
+            r = self._channel_keys[distant_node_id].pending_requests
+            r.pop(r.index(request_id))
             self._channel_keys[distant_node_id].ready_event.set()
+            return True
 
     async def get_local_public_key(self, distant_node_id: str) -> bytes:
         """Gets local public key of a channel for peering with a given distant peer node.
@@ -162,28 +202,6 @@ class _ChannelKeys:
         local_key, _ = await self.get_keys(distant_node_id)
         return local_key.export_public_key()
 
-    async def is_ready_channel(self, distant_node_id: str) -> bool:
-        """Checks if keys of a channel to a given distant node are ready for usage, and return immediately
-
-        Args:
-            distant_node_id: unique ID of the peer node
-
-        Returns:
-            True if keys for the channel are ready for usage, False if keys are not ready.
-        """
-        async with self._channel_keys_lock:
-            # New node to node channel
-            self._create_channel(distant_node_id)
-
-            # Channel not fully setup
-            #
-            # note: there may be an ongoing KeyChannelRequest. In that case, we send
-            # another (redundant) request. Each answer updates (completes) the distant_key
-            if not self._channel_keys[distant_node_id].distant_key:
-                return False
-
-        return True
-
     async def wait_ready_channel(self, distant_node_id: str) -> bool:
         """Waits until keys of a channel to a given distant node are ready for usage, or timeout is reached.
 
@@ -193,10 +211,6 @@ class _ChannelKeys:
         Returns:
             True if keys for the channel are ready for usage, False if keys are not ready.
         """
-        async with self._channel_keys_lock:
-            # New node to node channel
-            self._create_channel(distant_node_id)
-
         try:
             await asyncio.wait_for(self._channel_keys[distant_node_id].ready_event.wait(), TIMEOUT_NODE_TO_NODE_REQUEST)
             return True
@@ -288,14 +302,31 @@ class OverlayChannel:
         return await self._channel_keys.get_local_public_key(distant_node_id)
 
 
-    async def set_distant_key(self, distant_node_id: str, public_key_pem: bytes) -> None:
-        """Sets distant (public) key of a channel for peering with a given distant peer node.
+    async def set_distant_key(
+            self,
+            distant_node_id: str,
+            public_key_pem: bytes,
+            request_id: str,
+    ) -> bool:
+        """Sets distant (public) key of a channel for peering with a given
+            distant peer node.
+
+        Distant key is not set if no channel exists for that `distant_node_id`
+            or if the `request_id` does not match a pending request
 
         Args:
             distant_node_id: unique ID of the peer node
             public_key_pem: public key in PEM format
+            request_id: unique ID of the request
+
+        Returns:
+            True if the distant key was set, False if it was not set
         """
-        await self._channel_keys.set_distant_key(distant_node_id, public_key_pem)
+        return await self._channel_keys.set_distant_key(
+            distant_node_id,
+            public_key_pem,
+            request_id
+        )
 
 
     async def _setup_use_channel_keys(self, distant_node_id: str, researcher_id: str, setup: bool) \
@@ -323,7 +354,8 @@ class OverlayChannel:
         if setup:
             return self._default_n2n_key.local_key, self._default_n2n_key.distant_key
 
-        if not await self._channel_keys.is_ready_channel(distant_node_id):
+        local_key, distant_key = await self._channel_keys.get_keys(distant_node_id)
+        if not distant_key:
             # Contact node to node channel peer to get its public key
             #
             # nota: channel setup is sequential per peer-node (not optimal in setup time,
@@ -334,6 +366,10 @@ class OverlayChannel:
                 dest_node_id=distant_node_id,
             )
 
+            await self._channel_keys.add_pending_request(
+                distant_node_id,
+                distant_node_message.request_id
+            )
             received = await self.send_node_setup(
                 researcher_id,
                 distant_node_id,
@@ -346,7 +382,9 @@ class OverlayChannel:
                     f"{ErrorNumbers.FB324.value}: A node did not answer during channel setup: {distant_node_id}."
                 )
 
-        return await self._channel_keys.get_keys(distant_node_id)
+            return await self._channel_keys.get_keys(distant_node_id)
+
+        return local_key, distant_key
 
 
     async def format_outgoing_overlay(self, message: Message, researcher_id: str, setup: bool = False) -> \
