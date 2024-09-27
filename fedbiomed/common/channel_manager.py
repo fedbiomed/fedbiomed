@@ -35,7 +35,7 @@ class ChannelManager:
             self._db = TinyDB(db_path)
             self._db.table_class = DBTable
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB630.value}: failed to access the database with error: {e}'
+            errmess = f'{ErrorNumbers.FB631.value}: failed to access the database with error: {e}'
             logger.error(errmess)
             raise FedbiomedNodeToNodeError(errmess)
 
@@ -54,7 +54,7 @@ class ChannelManager:
             FedbiomedNodeToNodeError: if entry already exists
         """
         if self.get(distant_node_id) is not None:
-            errmess = f'{ErrorNumbers.FB630.value}: error adding element in table "{self._table}": ' \
+            errmess = f'{ErrorNumbers.FB631.value}: error adding element in table "{self._table}": ' \
                       f' an entry already exists for distant_node_id={distant_node_id}'
             logger.error(errmess)
             raise FedbiomedNodeToNodeError(errmess)
@@ -71,7 +71,7 @@ class ChannelManager:
         try:
             channels = [ channel['distant_node_id'] for channel in self._table.all() ]
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB630.value}: failed listing elements in the database table "{self._table}" ' \
+            errmess = f'{ErrorNumbers.FB631.value}: failed listing elements in the database table "{self._table}" ' \
                       f'with error: {e}'
             logger.error(errmess)
             raise FedbiomedNodeToNodeError(errmess)
@@ -100,13 +100,13 @@ class ChannelManager:
                 (self._query.distant_node_id == distant_node_id)
             )
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB630.value}: failed searching the database table "{self._table}" ' \
+            errmess = f'{ErrorNumbers.FB631.value}: failed searching the database table "{self._table}" ' \
                       f'for channel distant_node_id="{distant_node_id}" with error: {e}'
             logger.error(errmess)
             raise FedbiomedNodeToNodeError(errmess)
 
         if len(entries) > 1:
-            errmess = f'{ErrorNumbers.FB630.value}: database table "{self._table}" is inconsistent: ' \
+            errmess = f'{ErrorNumbers.FB631.value}: database table "{self._table}" is inconsistent: ' \
                       f'found {len(entries)} entries with unique distant_node_id={distant_node_id}'
             logger.error(errmess)
             raise FedbiomedNodeToNodeError(errmess)
@@ -149,7 +149,7 @@ class ChannelManager:
         try:
             self._table.insert(channel)
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB630.value}: failed adding an entry in table "{self._table}" ' \
+            errmess = f'{ErrorNumbers.FB631.value}: failed adding an entry in table "{self._table}" ' \
                       f'for distant_node_id={distant_node_id} with error: {e}'
             logger.error(errmess)
             raise FedbiomedNodeToNodeError(errmess)
@@ -178,7 +178,7 @@ class ChannelManager:
                 (self._query.distant_node_id == distant_node_id)
             )
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB630.value}: failed removing an entry from table "{self._table}" ' \
+            errmess = f'{ErrorNumbers.FB631.value}: failed removing an entry from table "{self._table}" ' \
                       f'for channel distant_node_id={distant_node_id} with error: {e}'
             logger.error(errmess)
             raise FedbiomedNodeToNodeError(errmess)

@@ -105,7 +105,7 @@ class Message:
         Args:
             param: name of the param
         """
-        return getattr(self, param)
+        return getattr(self, param, None)
 
     def get_dict(self) -> Dict[str, Any]:
         """Returns pairs (Message class attributes name, attributes values) into a dictionary
@@ -113,7 +113,7 @@ class Message:
         Returns:
             Message as dictionary
         """
-        return self.__dict__
+        return {**self.__dict__}
 
     def __validate(self, fields: Dict[str, Any]) -> bool:
         """Checks whether incoming field types match with attributes class type.
@@ -503,6 +503,19 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
     secagg_id: str
 
 
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSharingRequest(InnerRequestReply, RequiresProtocolVersion):
+    secagg_id: str
+
+
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSharingReply(InnerRequestReply, RequiresProtocolVersion):
+    secagg_id: str
+    share: list | int
+
+
 # --- Node <=> Researcher messages ----------------------------------------------
 
 
@@ -573,9 +586,6 @@ class ErrorMessage(RequestReply, RequiresProtocolVersion):
     node_id: str
     extra_msg: str
     errnum: Optional[str] = None
-
-
-# List messages
 
 
 @catch_dataclass_exception
@@ -744,7 +754,7 @@ class SecaggDeleteReply(RequestReply, RequiresProtocolVersion):
 
 
 @catch_dataclass_exception
-@dataclass
+@dataclass(kw_only=True)
 class SecaggRequest(RequestReply, RequiresProtocolVersion):
     """Describes a secagg context element setup request message sent by the researcher
 
@@ -787,9 +797,21 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
     success: bool
     node_id: str
     msg: Optional[str] = None
+    msg: str
 
 
-# TrainingPlanStatus messages
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSSetupRequest(SecaggRequest):
+    """Message to request secure aggregation setup from researcher to nodes"""
+
+
+@catch_dataclass_exception
+@dataclass(kw_only=True)
+class AdditiveSSSetupReply(SecaggReply):
+    """Message that instantiated on the node side to reply secagg setup request from researcher"""
+
+    share: int | list
 
 
 @catch_dataclass_exception
@@ -822,8 +844,8 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
         experiment_id: experiment id related to the experiment
         success: True if the node process the request as expected, false
             if any exception occurs
-        approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
-            in the node for training.
+        approval_obligation : Approval mode for node. True, if
+            training plan approval is enabled/required in the node for training.
         status: a `TrainingPlanApprovalStatus` value describing the approval status
         msg: Message from node based on state of the reply
         training_plan: The training plan that has been checked for approval

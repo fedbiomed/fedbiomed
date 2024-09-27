@@ -10,7 +10,14 @@ from fedbiomed.common.constants import (
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
 
 # we also want to test the decorator
-from fedbiomed.common.message import catch_dataclass_exception
+from fedbiomed.common.message import (
+    AdditiveSSharingReply,
+    AdditiveSSharingRequest,
+    AdditiveSSSetupReply,
+    AdditiveSSSetupRequest,
+    Message,
+    catch_dataclass_exception,
+)
 
 
 class TestMessage(unittest.TestCase):
@@ -100,6 +107,46 @@ class TestMessage(unittest.TestCase):
         a: int
         b: str
 
+    def test_message_additive_secret_sharing(self):
+
+        AdditiveSSharingRequest(
+            **{
+                "node_id": "1234",
+                "dest_node_id": "dataset_node_1234",
+                "secagg_id": "secagg_id_1234",
+            }
+        )
+
+        AdditiveSSharingReply(
+            **{
+                "node_id": "1234",
+                "dest_node_id": "dataset_node_1234",
+                "secagg_id": "secagg_id_1234",
+                "share": 12,
+            }
+        )
+
+        AdditiveSSSetupRequest(
+            **{
+                "researcher_id": "researcher_1234",
+                "secagg_id": "secagg_1234",
+                "element": 0,
+                "experiment_id": "exp",
+                "parties": ["12"],
+            }
+        )
+
+        AdditiveSSSetupReply(
+            **{
+                "success": True,
+                "researcher_id": "researcher_1234",
+                "secagg_id": "secagg_1234",
+                "node_id": "node_id_1234",
+                "msg": "test",
+                "share": 111,
+            }
+        )
+
     def test_message_01_dummy(self):
 
         m0 = self.DummyMessage(1, "test")
@@ -185,7 +232,6 @@ class TestMessage(unittest.TestCase):
             t = msg.to_dict()
             t["__type_message__"]["class"] = "Unkown"
             message.Message.from_dict(t)
-
 
     def test_message_02_searchreply(self):
 

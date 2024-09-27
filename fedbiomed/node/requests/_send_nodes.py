@@ -3,7 +3,8 @@
 
 from typing import Any, List, Tuple
 
-from fedbiomed.common.constants import TIMEOUT_NODE_TO_NODE_REQUEST
+from fedbiomed.common.constants import TIMEOUT_NODE_TO_NODE_REQUEST, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.message import InnerMessage, OverlayMessage, InnerRequestReply
 from fedbiomed.common.synchro import EventWaitExchange
 
@@ -20,6 +21,7 @@ def send_nodes(
         researcher_id: str,
         nodes: List[str],
         messages: List[InnerMessage],
+        raise_if_not_all_received: bool = False,
 ) -> Tuple[bool, List[Any]]:
     """Send message to some other nodes using overlay communications and wait for their replies.
         Args:
@@ -29,6 +31,8 @@ def send_nodes(
             researcher_id: unique ID of researcher connecting the nodes
             nodes: list of node IDs of the destination nodes
             messages: list of the inner messages for the destination nodes
+            raise_if_not_all_received: if True, raise exception if not all answers from nodes were received.
+                Default to False, return with `status` to False when not all answers from nodes were received.
         Returns:
             status: True if all messages are received
             replies: List of replies from each node.
@@ -51,4 +55,12 @@ def send_nodes(
         if isinstance(message, InnerRequestReply):
             request_ids += [message.get_param('request_id')]
 
-    return pending_requests.wait(request_ids, TIMEOUT_NODE_TO_NODE_REQUEST)
+    all_received, replies = pending_requests.wait(request_ids, TIMEOUT_NODE_TO_NODE_REQUEST)
+    if not all_received and raise_if_not_all_received:
+        nodes_no_answer = set(nodes) - set(m.node_id for m in replies)
+        raise FedbiomedNodeToNodeError(
+            f"{ErrorNumbers.FB318.value}: Some nodes did not answer request "
+            f"{nodes_no_answer}"
+        )
+
+    return all_received, replies

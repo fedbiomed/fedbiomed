@@ -21,7 +21,7 @@ class _SecaggSchemeRound(ABC):
     """Common class for all secure aggregation types handling of a training round on node
     """
 
-    _min_num_parties: int = 3
+    _min_num_parties: int = 2
     """Min number of parties"""
 
     def __init__(
@@ -138,7 +138,7 @@ class _JLSRound(_SecaggSchemeRound):
             List of encrypted parameters
         """
         return SecaggCrypter().encrypt(
-            num_nodes=len(self._secagg_servkey["parties"]) - 1,  # -1: don't count researcher
+            num_nodes=len(self._secagg_servkey["parties"]),  # -1: don't count researcher
             current_round=current_round,
             params=params,
             key=self._secagg_servkey["context"]["server_key"],

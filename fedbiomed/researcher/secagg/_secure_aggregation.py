@@ -2,20 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import functools
+import importlib
 import math
 import random
-import importlib
-from typing import List, Union, Dict, Any, Optional, Callable
 from abc import ABC, abstractmethod
-
-from ._secagg_context import SecaggServkeyContext, SecaggDHContext
-from fedbiomed.researcher.environ import environ
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
-from fedbiomed.common.secagg import SecaggCrypter, SecaggLomCrypter
 from fedbiomed.common.logger import logger
+from fedbiomed.common.secagg import SecaggCrypter, SecaggLomCrypter
+from fedbiomed.researcher.environ import environ
 
+from ._secagg_context import SecaggDHContext, SecaggServkeyContext
 
 
 class SecureAggregation:
@@ -25,7 +24,7 @@ class SecureAggregation:
         self,
         *args,
         scheme: SecureAggregationSchemes = SecureAggregationSchemes.LOM,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Constructs secure aggregation class
 
@@ -43,7 +42,7 @@ class SecureAggregation:
                 self.__secagg = LomSecureAggregation(*args, **kwargs)
             case SecureAggregationSchemes.JOYE_LIBERT:
                 self.__secagg = JoyeLibertSecureAggregation(*args, **kwargs)
-            case _ :
+            case _:
                 self.__secagg = LomSecureAggregation(*args, **kwargs)
 
     def __getattr__(self, item: str):
@@ -53,11 +52,10 @@ class SecureAggregation:
              item: Requested item from class
         """
 
-        if item in ('save_state_breakpoint'):
+        if item in ("save_state_breakpoint"):
             return object.__getattribute__(self, item)
 
         return self.__secagg.__getattribute__(item)
-
 
     @abstractmethod
     def save_state_breakpoint(self) -> Dict[str, Any]:
@@ -74,21 +72,18 @@ class SecureAggregation:
             "class": type(self).__name__,
             "module": self.__module__,
             "arguments": {
-                'scheme': self.__scheme.value,
+                "scheme": self.__scheme.value,
             },
             "attributes": {},
             "attributes_states": {
                 "_SecureAggregation__secagg": self.__secagg.save_state_breakpoint()
-            }
+            },
         }
 
         return state
 
     @classmethod
-    def load_state_breakpoint(
-            cls,
-            state: Dict
-    ) -> 'SecureAggregation':
+    def load_state_breakpoint(cls, state: Dict) -> "SecureAggregation":
         """Create a `SecureAggregation` object from a saved state
 
         Args:
@@ -97,13 +92,11 @@ class SecureAggregation:
         Returns:
             The created `SecureAggregation` object
         """
-        secagg = cls(
-            scheme=SecureAggregationSchemes(state['arguments']['scheme'])
-        )
+        secagg = cls(scheme=SecureAggregationSchemes(state["arguments"]["scheme"]))
 
         for name, val in state["attributes_states"].items():
 
-            _sub_cls = getattr(importlib.import_module(val['module']), val["class"])
+            _sub_cls = getattr(importlib.import_module(val["module"]), val["class"])
             instance = _sub_cls.load_state_breakpoint(val)
             setattr(secagg, name, instance)
 
@@ -132,9 +125,9 @@ class _SecureAggregation(ABC):
 
     @abstractmethod
     def __init__(
-            self,
-            active: bool = True,
-            clipping_range: Union[None, int] = None,
+        self,
+        active: bool = True,
+        clipping_range: Union[None, int] = None,
     ) -> None:
         """Class constructor
 
@@ -157,8 +150,9 @@ class _SecureAggregation(ABC):
                 f"but got {type(active)} "
             )
 
-        if clipping_range is not None and \
-                (not isinstance(clipping_range, int) or isinstance(clipping_range, bool)):
+        if clipping_range is not None and (
+            not isinstance(clipping_range, int) or isinstance(clipping_range, bool)
+        ):
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Clipping range should be None or an integer, "
                 f"but got not {type(clipping_range)}"
@@ -218,8 +212,8 @@ class _SecureAggregation(ABC):
 
         if not isinstance(status, bool):
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: The argument `status` for activation should be True or False, "
-                f"but got {type(status)} "
+                f"{ErrorNumbers.FB417.value}: The argument `status` for activation "
+                f"should be True or False, but got {type(status)} "
             )
 
         self._active = status
@@ -234,17 +228,14 @@ class _SecureAggregation(ABC):
             Arguments that are going to be attached to the experiment.
         """
         return {
-            'secagg_random': self._secagg_random,
-            'secagg_clipping_range': self.clipping_range,
-            'secagg_scheme': self._scheme.value,
-            'parties': self._parties,
+            "secagg_random": self._secagg_random,
+            "secagg_clipping_range": self.clipping_range,
+            "secagg_scheme": self._scheme.value,
+            "parties": self._parties,
         }
 
     @abstractmethod
-    def setup(self,
-              parties: List[str],
-              experiment_id: str,
-              force: bool = False):
+    def setup(self, parties: List[str], experiment_id: str, force: bool = False):
         """Setup secure aggregation instruments.
 
         Requires setting `parties` and `experiment_id` if they are not set in previous secagg
@@ -263,12 +254,14 @@ class _SecureAggregation(ABC):
 
         if not isinstance(parties, list):
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Expected argument `parties` list but got {type(parties)}"
+                f"{ErrorNumbers.FB417.value}: Expected argument `parties` list but "
+                f"got {type(parties)}"
             )
 
         if not isinstance(experiment_id, str):
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Expected argument `experiment_id` string but got {type(parties)}"
+                f"{ErrorNumbers.FB417.value}: Expected argument `experiment_id` "
+                f"string but got {type(parties)}"
             )
 
         self._configure_round(parties, experiment_id)
@@ -289,11 +282,7 @@ class _SecureAggregation(ABC):
         # Updates experiment id if it is provided
         self._experiment_id = experiment_id
 
-    def _configure_round(
-            self,
-            parties: List[str],
-            experiment_id: str
-    ) -> None:
+    def _configure_round(self, parties: List[str], experiment_id: str) -> None:
         """Configures secure aggregation for each round.
 
         This method checks the round state and creates secagg context element if
@@ -306,7 +295,7 @@ class _SecureAggregation(ABC):
         """
 
         self._secagg_random = None
-        if environ['SECAGG_INSECURE_VALIDATION'] is True:
+        if environ["SECAGG_INSECURE_VALIDATION"] is True:
             # For each round it generates new secagg random float
             self._secagg_random = round(random.uniform(0, 1), 3)
 
@@ -314,18 +303,15 @@ class _SecureAggregation(ABC):
             self._set_secagg_contexts(parties, experiment_id)
 
         elif set(self._parties) != set(parties):
-            logger.info(f"Parties of the experiment has changed. Re-creating secure "
-                        f"aggregation context creation for the experiment {self._experiment_id}")
+            logger.info(
+                f"Parties of the experiment has changed. Re-creating secure "
+                f"aggregation context creation for the experiment {self._experiment_id}"
+            )
             self._set_secagg_contexts(parties, experiment_id)
 
     @abstractmethod
     def aggregate(
-        self,
-        *args,
-        model_params,
-        total_sample_size,
-        encryption_factors,
-        **kwargs
+        self, *args, model_params, total_sample_size, encryption_factors, **kwargs
     ) -> List[List[int]]:
         """Algorithm specific aggregation implementation"""
 
@@ -337,37 +323,37 @@ class _SecureAggregation(ABC):
     ) -> bool:
         """Validate given inputs"""
 
-        # at this point we know `isinstance(encryption_factors, dict) and len(encryption_factors) == num_nodes`
         if any(v is None for v in encryption_factors.values()):
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Secure aggregation consistency insecure validation has been "
-                "set on the researcher but the encryption factors are not provided. Some nodes may use "
-                "`SECAGG_INSECURE_VALIDATION` to `False` for security reason. Please use consistent setup "
-                "between researcher and nodes.")
+                f"{ErrorNumbers.FB417.value}: Secure aggregation consistency insecure "
+                "validation has been set on the researcher but the encryption factors "
+                "are not provided. Some nodes may use `SECAGG_INSECURE_VALIDATION` to "
+                "`False` for security reason. Please use consistent setup "
+                "between researcher and nodes."
+            )
 
         logger.info("Validating secure aggregation results...")
         encryption_factors = [f for k, f in encryption_factors.items()]
 
         validation: List[float]
-
         if num_expected_params:
             validation = aggregate(params=encryption_factors, num_expected_params=1)
         else:
             validation = aggregate(params=encryption_factors)
-
-        if len(validation) != 1 or not math.isclose(validation[0], self._secagg_random, abs_tol=0.03):
+        if len(validation) != 1 or not math.isclose(
+            validation[0], self._secagg_random, abs_tol=0.03
+        ):
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Aggregation has failed due to incorrect decryption."
             )
         logger.info("Validation is completed.")
 
-
     def _aggregate(
-            self,
-            model_params: Dict[str, List[int]],
-            encryption_factors: Dict[str, Union[List[int], None]],
-            aggregate: Callable,
-            num_expected_params: int | None = None,
+        self,
+        model_params: Dict[str, List[int]],
+        encryption_factors: Dict[str, Union[List[int], None]],
+        aggregate: Callable,
+        num_expected_params: int | None = None,
     ) -> List[float]:
         """Aggregates given model parameters
 
@@ -391,12 +377,14 @@ class _SecureAggregation(ABC):
 
         logger.info(
             "Aggregating encrypted parameters. This process may take some time depending"
-            "on model size.")
+            "on model size."
+        )
         # Aggregate parameters
         params = [p for _, p in model_params.items()]
         if num_expected_params:
             aggregated_params = aggregate(
-                params=params, num_expected_params=num_expected_params)
+                params=params, num_expected_params=num_expected_params
+            )
         else:
             aggregated_params = aggregate(params=params)
 
@@ -414,23 +402,20 @@ class _SecureAggregation(ABC):
             "class": type(self).__name__,
             "module": self.__module__,
             "arguments": {
-                'active': self._active,
-                'clipping_range': self.clipping_range,
+                "active": self._active,
+                "clipping_range": self.clipping_range,
             },
             "attributes": {
                 "_experiment_id": self._experiment_id,
-                "_parties": self._parties
-            }
+                "_parties": self._parties,
+            },
         }
 
         return state
 
     @classmethod
     @abstractmethod
-    def load_state_breakpoint(
-            cls,
-            state: Dict
-    ) -> 'SecureAggregation':
+    def load_state_breakpoint(cls, state: Dict) -> "SecureAggregation":
         """Create a `SecureAggregation` object from a saved state
 
         Args:
@@ -461,9 +446,9 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
     """
 
     def __init__(
-            self,
-            active: bool = True,
-            clipping_range: Union[None, int] = None,
+        self,
+        active: bool = True,
+        clipping_range: Union[None, int] = None,
     ) -> None:
         """Class constructor
 
@@ -485,7 +470,6 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         self._secagg_crypter: SecaggCrypter = SecaggCrypter()
         self._scheme = SecureAggregationSchemes.JOYE_LIBERT
 
-
     @property
     def servkey(self) -> Union[None, SecaggServkeyContext]:
         """Gets servkey object
@@ -502,15 +486,16 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
             Arguments that are going to be attached to the experiment.
         """
         arguments = super().train_arguments()
-        arguments.update({
-            'secagg_servkey_id': self._servkey.secagg_id if self._servkey is not None else None,
-        })
+        arguments.update(
+            {
+                "secagg_servkey_id": (
+                    self._servkey.secagg_id if self._servkey is not None else None
+                ),
+            }
+        )
         return arguments
 
-    def setup(self,
-              parties: List[str],
-              experiment_id: str,
-              force: bool = False):
+    def setup(self, parties: List[str], experiment_id: str, force: bool = False):
         """Setup secure aggregation instruments.
 
         Requires setting `parties` and `experiment_id` if they are not set in previous secagg
@@ -548,19 +533,18 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         super()._set_secagg_contexts(parties, experiment_id)
 
         self._servkey = SecaggServkeyContext(
-            parties=self._parties,
-            experiment_id=self._experiment_id
+            parties=self._parties, experiment_id=self._experiment_id
         )
 
     def aggregate(
-            self,
-            *args,
-            round_: int,
-            total_sample_size: int,
-            model_params: Dict[str, List[int]],
-            encryption_factors: Dict[str, Union[List[int], None]] = {},
-            num_expected_params: int = 1,
-            **kwargs
+        self,
+        *args,
+        round_: int,
+        total_sample_size: int,
+        model_params: Dict[str, List[int]],
+        encryption_factors: Dict[str, Union[List[int], None]] = {},
+        num_expected_params: int = 1,
+        **kwargs,
     ) -> List[float]:
         """Aggregates given model parameters
 
@@ -581,25 +565,28 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         if self._servkey is None:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Servkey context is "
-                f"not configured. Please setup secure aggregation before the aggregation.")
+                f"not configured. Please setup secure aggregation before the aggregation."
+            )
 
         if not self._servkey.status:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, one of Biprime or Servkey context is "
-                f"not set properly")
+                f"not set properly"
+            )
 
-        key = self._servkey.context["context"]["server_key"]
-        biprime = self._servkey.context["context"]["biprime"]
-
+        key = self._servkey.context["server_key"]
+        biprime = self._servkey.context["biprime"]
         num_nodes = len(model_params)
 
-        aggregate = functools.partial(self._secagg_crypter.aggregate,
-                                      current_round=round_,
-                                      num_nodes=num_nodes,
-                                      key=key,
-                                      total_sample_size=total_sample_size,
-                                      biprime=biprime,
-                                      clipping_range=self.clipping_range)
+        aggregate = functools.partial(
+            self._secagg_crypter.aggregate,
+            current_round=round_,
+            num_nodes=num_nodes,
+            key=key,
+            total_sample_size=total_sample_size,
+            biprime=biprime,
+            clipping_range=self.clipping_range,
+        )
 
         return self._aggregate(
             model_params,
@@ -616,18 +603,20 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         """
         state = super().save_state_breakpoint()
 
-        state["attributes"].update({
-            "_servkey": self._servkey.save_state_breakpoint() if
-            self._servkey is not None else None,
-        })
+        state["attributes"].update(
+            {
+                "_servkey": (
+                    self._servkey.save_state_breakpoint()
+                    if self._servkey is not None
+                    else None
+                ),
+            }
+        )
 
         return state
 
     @classmethod
-    def load_state_breakpoint(
-            cls,
-            state: Dict
-    ) -> 'SecureAggregation':
+    def load_state_breakpoint(cls, state: Dict) -> "SecureAggregation":
         """Create a `SecureAggregation` object from a saved state
 
         Args:
@@ -637,8 +626,11 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
             The created `SecureAggregation` object
         """
         if state["attributes"]["_servkey"] is not None:
-            state["attributes"]["_servkey"] = SecaggServkeyContext. \
-                load_state_breakpoint(state=state["attributes"]["_servkey"])
+            state["attributes"]["_servkey"] = (
+                SecaggServkeyContext.load_state_breakpoint(
+                    state=state["attributes"]["_servkey"]
+                )
+            )
 
         return super().load_state_breakpoint(state)
 
@@ -656,9 +648,9 @@ class LomSecureAggregation(_SecureAggregation):
     """
 
     def __init__(
-            self,
-            active: bool = True,
-            clipping_range: Union[None, int] = None,
+        self,
+        active: bool = True,
+        clipping_range: Union[None, int] = None,
     ) -> None:
         """Class constructor
 
@@ -696,15 +688,16 @@ class LomSecureAggregation(_SecureAggregation):
             Arguments that are going to be attached to the experiment.
         """
         arguments = super().train_arguments()
-        arguments.update({
-            'secagg_dh_id': self._dh.secagg_id if self._dh is not None else None,
-        })
+        arguments.update(
+            {
+                "secagg_dh_id": self._dh.secagg_id if self._dh is not None else None,
+            }
+        )
         return arguments
 
-    def setup(self,
-              parties: List[str],
-              experiment_id: str,
-              force: bool = False) -> bool:
+    def setup(
+        self, parties: List[str], experiment_id: str, force: bool = False
+    ) -> bool:
         """Setup secure aggregation instruments.
 
         Requires setting `parties` and `experiment_id` if they are not set in previous secagg
@@ -724,9 +717,7 @@ class LomSecureAggregation(_SecureAggregation):
             FedbiomedSecureAggregationError: Invalid argument type
         """
 
-        parties = list(
-            filter(lambda x: x != environ["ID"], parties)
-        )
+        parties = list(filter(lambda x: x != environ["ID"], parties))
 
         super().setup(parties, experiment_id, force)
 
@@ -747,17 +738,16 @@ class LomSecureAggregation(_SecureAggregation):
         super()._set_secagg_contexts(parties, experiment_id)
 
         self._dh = SecaggDHContext(
-            parties=self._parties,
-            experiment_id=self._experiment_id
+            parties=self._parties, experiment_id=self._experiment_id
         )
 
     def aggregate(
-            self,
-            *args,
-            model_params: Dict[str, List[int]],
-            total_sample_size: int,
-            encryption_factors: Dict[str, Union[List[int], None]] = {},
-            **kwargs
+        self,
+        *args,
+        model_params: Dict[str, List[int]],
+        total_sample_size: int,
+        encryption_factors: Dict[str, Union[List[int], None]] = {},
+        **kwargs,
     ) -> List[float]:
         """Aggregates given model parameters
 
@@ -775,25 +765,28 @@ class LomSecureAggregation(_SecureAggregation):
 
         if self._dh is None:
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Diffie Hellman context is "
-                f"not configured. Please setup secure aggregation before the aggregation.")
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Diffie "
+                "Hellman context is not configured. Please setup secure aggregation "
+                "before the aggregation."
+            )
 
         if not self._dh.status:
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Diffie Hellman context is "
-                f"not set properly")
+                f"{ErrorNumbers.FB417.value}: Can not aggregate parameters, Diffie "
+                "Hellman context is not set properly"
+            )
 
         aggregate = functools.partial(
             self._secagg_crypter.aggregate,
             total_sample_size=total_sample_size,
-            clipping_range=self.clipping_range)
+            clipping_range=self.clipping_range,
+        )
 
         return self._aggregate(
             model_params,
             encryption_factors,
             aggregate,
         )
-
 
     def save_state_breakpoint(self) -> Dict[str, Any]:
         """Saves state of the secagg
@@ -803,17 +796,18 @@ class LomSecureAggregation(_SecureAggregation):
         """
         state = super().save_state_breakpoint()
 
-        state["attributes"].update({
-            "_dh": self._dh.save_state_breakpoint() if self._dh is not None else None,
-        })
+        state["attributes"].update(
+            {
+                "_dh": (
+                    self._dh.save_state_breakpoint() if self._dh is not None else None
+                ),
+            }
+        )
 
         return state
 
     @classmethod
-    def load_state_breakpoint(
-            cls,
-            state: Dict
-    ) -> 'SecureAggregation':
+    def load_state_breakpoint(cls, state: Dict) -> "SecureAggregation":
         """Create a `SecureAggregation` object from a saved state
 
         Args:
@@ -823,7 +817,8 @@ class LomSecureAggregation(_SecureAggregation):
             The created `SecureAggregation` object
         """
         if state["attributes"]["_dh"] is not None:
-            state["attributes"]["_dh"] = SecaggDHContext. \
-                load_state_breakpoint(state=state["attributes"]["_dh"])
+            state["attributes"]["_dh"] = SecaggDHContext.load_state_breakpoint(
+                state=state["attributes"]["_dh"]
+            )
 
         return super().load_state_breakpoint(state)
