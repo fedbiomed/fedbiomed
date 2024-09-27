@@ -34,11 +34,14 @@ from fedbiomed.common.secagg import (
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.utils import get_default_biprime
 from fedbiomed.node.environ import environ
-from fedbiomed.node.requests import send_nodes
+from fedbiomed.node.requests import send_nodes, NodeToNodeRouter
 from fedbiomed.node.secagg_manager import DHManager, SecaggManager, SKManager
 from fedbiomed.transport.controller import GrpcController
 
-_CManager = CertificateManager(db_path=environ["DB_PATH"])
+
+_CManager = CertificateManager(
+    db_path=environ["DB_PATH"]
+)
 
 
 class SecaggBaseSetup(ABC):
@@ -62,9 +65,9 @@ class SecaggBaseSetup(ABC):
         Args:
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
+            parties: List of parties participating in the secagg context element setup
             experiment_id: ID of the experiment to which this secagg context element
                 is attached
-            parties: List of parties participating in the secagg context element setup
 
         Raises:
             FedbiomedSecaggError: bad argument type or value
@@ -182,20 +185,23 @@ class SecaggBaseSetup(ABC):
 class _SecaggNN(SecaggBaseSetup):
 
     def __init__(
-        self,
-        *args,
-        grpc_client: GrpcController,
-        pending_requests: EventWaitExchange,
-        controller_data: EventWaitExchange,
-        **kwargs,
+            self,
+            *args,
+            n2n_router: NodeToNodeRouter,
+            grpc_client: GrpcController,
+            pending_requests: EventWaitExchange,
+            controller_data: EventWaitExchange,
+            **kwargs,
     ):
         """Constructor of the class.
 
         Args:
+            n2n_router: object managing node to node messages
             grpc_client: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for passing data to the node controller
-            *args**kwargs: Please see [SecaggBaseSetup]
+            *args: Please see [SecaggBaseSetup]
+            **kwargs: Please see [SecaggBaseSetup]
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
@@ -203,6 +209,7 @@ class _SecaggNN(SecaggBaseSetup):
         super().__init__(*args, **kwargs)
 
         # self._secagg_manager = SKManager
+        self._n2n_router = n2n_router
         self._grpc_client = grpc_client
         self._pending_requests = pending_requests
         self._controller_data = controller_data
@@ -211,6 +218,7 @@ class _SecaggNN(SecaggBaseSetup):
         """Sends given message to nodes"""
 
         return send_nodes(
+            self._n2n_router,
             self._grpc_client,
             self._pending_requests,
             self._researcher_id,

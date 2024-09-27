@@ -2,19 +2,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
-import time
 from threading import Thread
+import time
+from typing import List, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import InnerMessage, Message, OverlayMessage
+from fedbiomed.common.message import Message, OverlayMessage, InnerMessage
 from fedbiomed.common.synchro import EventWaitExchange
-from fedbiomed.node.environ import environ
+
 from fedbiomed.transport.controller import GrpcController
 
+from fedbiomed.node.environ import environ
+from ._overlay import OverlayChannel
 from ._n2n_controller import NodeToNodeController
-from ._overlay import format_incoming_overlay
+
 
 # Maximum number of pending messages in the node to node router input queue
 MAX_N2N_ROUTER_QUEUE_SIZE = 1000
@@ -40,8 +42,13 @@ class _NodeToNodeAsyncRouter:
             controller_data: object for sharing data
         """
         self._grpc_controller = grpc_controller
+        # When implementing multiple researchers, there will probably be one OverlayChannel per researcher
+        self._overlay_channel = OverlayChannel(self._grpc_controller)
         self._node_to_node_controller = NodeToNodeController(
-            self._grpc_controller, pending_requests, controller_data
+            self._grpc_controller,
+            self._overlay_channel,
+            pending_requests,
+            controller_data
         )
 
         self._queue = asyncio.Queue(MAX_N2N_ROUTER_QUEUE_SIZE)
@@ -107,7 +114,7 @@ class _NodeToNodeAsyncRouter:
         self._task_clean_active_tasks = asyncio.create_task(self._clean_active_tasks())
 
         while True:
-            msg = await self._queue.get()
+            msg: OverlayMessage = await self._queue.get()
             self._queue.task_done()
 
             async with self._active_tasks_lock:
@@ -137,7 +144,7 @@ class _NodeToNodeAsyncRouter:
                 f"Discard message. Exception: {type(e).__name__}. Error message: {e}"
             )
 
-    async def _overlay_message_process(self, overlay_msg: Message) -> None:
+    async def _overlay_message_process(self, overlay_msg: OverlayMessage) -> None:
         """Main function for a task processing a received message.
 
         Args:
@@ -153,7 +160,7 @@ class _NodeToNodeAsyncRouter:
                         "Ignore message."
                     )
                     return
-                inner_msg: InnerMessage = format_incoming_overlay(overlay_msg.overlay)
+                inner_msg: InnerMessage = await self._overlay_channel.format_incoming_overlay(overlay_msg)
 
                 finally_kwargs = await self._node_to_node_controller.handle(
                     overlay_msg, inner_msg
@@ -173,9 +180,9 @@ class _NodeToNodeAsyncRouter:
 
             except asyncio.CancelledError as e:
                 logger.error(
-                    f"{ErrorNumbers.FB324}: Task {asyncio.current_task().get_name()} "
-                    "was cancelled before completing. Error message: {e}. Overlay "
-                    f"message: {overlay_msg.overlay.__name__}, {e}"
+                    f"{ErrorNumbers.FB324}: Task {asyncio.current_task().get_name()} was cancelled "
+                    f"before completing. Error message: {e}. Overlay message: "
+                    f"{overlay_msg.overlay.__name__}"
                 )
             else:
                 await self._node_to_node_controller.final(
@@ -240,3 +247,25 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
                 f"Exception: {type(e).__name__}. Error message: {e}"
             )
             raise e
+
+
+    def format_outgoing_overlay(self, message: Message, researcher_id: str) -> \
+            Tuple[List[bytes], bytes]:
+        """Creates an overlay message payload from an inner message.
+
+        Serialize, crypt, sign the inner message
+
+        Args:
+            message: Inner message to send as overlay payload
+            researcher_id: unique ID of researcher connecting the nodes
+            setup: False for sending a message over the channel, True for a message
+                setting up the channel
+
+        Returns:
+            A tuple consisting of: payload for overlay message, salt for inner message encryption
+        """
+        future = asyncio.run_coroutine_threadsafe(
+            self._overlay_channel.format_outgoing_overlay(message, researcher_id),
+            self._loop
+        )
+        return future.result()

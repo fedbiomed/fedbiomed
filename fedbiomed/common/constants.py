@@ -67,8 +67,10 @@ __researcher_config_version__ = FBM_Component_Version('2')  # researcher config 
 __node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('2')  # node state version
 __breakpoints_version__ = FBM_Component_Version('3')  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version('4')  # format of gRPC messages.
-__secagg_element_version__ = FBM_Component_Version('2')  # format os secagg database elements
+__messaging_protocol_version__ = FBM_Component_Version('5')  # format of gRPC messages.
+__secagg_element_version__ = FBM_Component_Version('2')  # format of secagg database elements
+__n2n_channel_element_version__ = FBM_Component_Version('1')  # format of n2n channels database elements
+
 # Nota: for messaging protocol version, all changes should be a major version upgrade
 
 # Max message length as bytes
@@ -81,7 +83,10 @@ MAX_SEND_RETRIES = 5
 MAX_RETRIEVE_ERROR_RETRIES = 5
 
 # Timeout for a node to node request
-TIMEOUT_NODE_TO_NODE_REQUEST = 10
+#
+# Intentionally high to support scaling to great number of nodes
+# In typical scenario 5 seconds is enough with 10 nodes
+TIMEOUT_NODE_TO_NODE_REQUEST = 30
 
 
 class _BaseEnum(Enum):
@@ -346,6 +351,7 @@ class ErrorNumbers(_BaseEnum):
     FB628 = "FB628: Communication error"
     FB629 = "FB629: Diffie-Hellman KA error"
     FB630 = "FB630: Additive Secret Sharing error"
+    FB631 = 'FB631: Node to node channels database error'
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

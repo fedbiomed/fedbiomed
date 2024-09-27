@@ -299,18 +299,19 @@ class OverlayMessage(Message, RequiresProtocolVersion):
         node_id: Id of the source node of the overlay message
         dest_node_id: Id of the destination node of the overlay message
         overlay: payload of the message to be forwarded unchanged to the destination node
-        command: Command string
+        setup: True if this is a channel setup message, False if this is an application layer message
+        salt: value used for salting the key derivation for this message
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
 
     researcher_id: str  # Needed for source and destination node side message handling
-    node_id: (
-        str  # Needed for researcher side message handling (receiving a `ReplyTask`)
-    )
+    node_id: str  # Needed for researcher side message handling (receiving a `ReplyTask`)
     dest_node_id: str  # Needed for researcher side message handling
     overlay: list
+    setup: bool
+    salt: bytes
 
 
 @dataclass(kw_only=True)
@@ -441,6 +442,29 @@ class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
 
 
 # --- Node <=> Node messages ----------------------------------------------------
+
+@catch_dataclass_exception
+@dataclass
+class ChannelSetupRequest(InnerRequestReply, RequiresProtocolVersion):
+    """Message for requesting peer node key for securing a n2n channel.
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
+
+@catch_dataclass_exception
+@dataclass
+class ChannelSetupReply(InnerRequestReply, RequiresProtocolVersion):
+    """Message for reply peer node key for securing a n2n channel.
+
+    Attributes:
+        public_key: public key of replying node
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    public_key: bytes
 
 
 @catch_dataclass_exception

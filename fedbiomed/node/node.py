@@ -77,12 +77,11 @@ class Node:
             ],
             on_message=self.on_message,
         )
-        # When implementing multiple researchers, there will probably be one per researcher.
+
         self._pending_requests = EventWaitExchange(remove_delivered=True)
         self._controller_data = EventWaitExchange(remove_delivered=False)
-        self._n2n_router = NodeToNodeRouter(
-            self._grpc_client, self._pending_requests, self._controller_data
-        )
+        self._n2n_router = NodeToNodeRouter(self._grpc_client, self._pending_requests, self._controller_data)
+
         self.dataset_manager = dataset_manager
         self.tp_security_manager = tp_security_manager
 
@@ -243,10 +242,13 @@ class Node:
         setup_arguments.pop('protocol_version')
         setup_arguments.pop('request_id')
 
-        # Properties for Node to Node communication
-        setup_arguments["grpc_client"] = self._grpc_client
-        setup_arguments["pending_requests"] = self._pending_requests
-        setup_arguments["controller_data"] = self._controller_data
+        # Needed when using node to node communications
+        setup_arguments.update({
+            'n2n_router': self._n2n_router,
+            'grpc_client': self._grpc_client,
+            'pending_requests': self._pending_requests,
+            'controller_data': self._controller_data,
+        })
 
         try:
             secagg = SecaggSetup(**setup_arguments)()

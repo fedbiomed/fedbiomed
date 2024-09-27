@@ -1,26 +1,27 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import asyncio
 import inspect
 from typing import Optional
 
-from fedbiomed.common.constants import TIMEOUT_NODE_TO_NODE_REQUEST, ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     AdditiveSSharingReply,
     AdditiveSSharingRequest,
+    ChannelSetupRequest,
+    ChannelSetupReply,
     InnerMessage,
     KeyReply,
     KeyRequest,
-    Message,
     OverlayMessage,
 )
 from fedbiomed.common.synchro import EventWaitExchange
-from fedbiomed.node.environ import environ
+
 from fedbiomed.transport.controller import GrpcController
 
-from ._overlay import format_outgoing_overlay
+from fedbiomed.node.environ import environ
+from ._overlay import OverlayChannel
 
 
 class NodeToNodeController:
@@ -47,19 +48,22 @@ class NodeToNodeController:
     """
 
     def __init__(
-        self,
-        grpc_controller: GrpcController,
-        pending_requests: EventWaitExchange,
-        controller_data: EventWaitExchange,
+            self,
+            grpc_controller: GrpcController,
+            overlay_channel: OverlayChannel,
+            pending_requests: EventWaitExchange,
+            controller_data: EventWaitExchange,
     ) -> None:
         """Constructor of the class.
 
         Args:
             grpc_controller: object managing the communication with other components
+            overlay_channel: layer for managing overlay message send and receive
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for sharing data
         """
         self._grpc_controller = grpc_controller
+        self._overlay_channel = overlay_channel
         self._pending_requests = pending_requests
         self._controller_data = controller_data
 
@@ -68,6 +72,8 @@ class NodeToNodeController:
             KeyReply.__name__: self._HandlerKeyReply,
             AdditiveSSharingRequest.__name__: self._AdditiveSSharingRequest,
             AdditiveSSharingReply.__name__: self._HandlerAdditiveSSharingReply,
+            ChannelSetupRequest.__name__: self._HandlerChannelRequest,
+            ChannelSetupReply.__name__: self._HandlerKeyReply,
         }
 
         self._command2final = {
@@ -75,10 +81,12 @@ class NodeToNodeController:
             KeyReply.__name__: self._FinalKeyReply,
             AdditiveSSharingRequest.__name__: self._FinalAdditiveSSharingRequest,
             AdditiveSSharingReply.__name__: self._FinalAdditiveSSharingReply,
+            ChannelSetupRequest.__name__: self._FinalKeyRequest,
+            ChannelSetupReply.__name__: self._FinalChannelReply,
         }
 
     async def handle(
-        self, overlay_msg: Message, inner_msg: InnerMessage
+        self, overlay_msg: OverlayMessage, inner_msg: InnerMessage
     ) -> Optional[dict]:
         """Calls the handler for processing a received message protocol.
 
@@ -123,7 +131,7 @@ class NodeToNodeController:
             await self._command2final[message](**kwargs)
 
     async def _HandlerDefault(  # pylint: disable=C0103
-        self, overlay_msg: dict, inner_msg: InnerMessage
+        self, overlay_msg: OverlayMessage, inner_msg: InnerMessage
     ) -> None:
         """Handler called if the handler for this message is missing.
 
@@ -140,8 +148,58 @@ class NodeToNodeController:
             f"{inner_msg.__class__.__name__}. Do nothing."
         )
 
+    async def _HandlerChannelRequest(self, overlay_msg: OverlayMessage, inner_msg: InnerMessage) -> dict:
+        """Handler called for ChannelSetupRequest message.
+
+        Args:
+            overlay_msg: Outer message for node to node communication
+            inner_msg: Unpacked inner message from the outer message
+
+        Returns:
+            A `dict` with overlay reply message
+        """
+        # we assume the data is properly formatted
+        inner_resp = ChannelSetupReply(
+            request_id=inner_msg.request_id,
+            node_id=environ['NODE_ID'],
+            dest_node_id=inner_msg.node_id,
+            public_key=await self._overlay_channel.get_local_public_key(inner_msg.node_id))
+
+        overlay, salt = await self._overlay_channel.format_outgoing_overlay(
+            inner_resp,
+            overlay_msg.researcher_id,
+            True
+        )
+        overlay_resp = OverlayMessage(
+            researcher_id=overlay_msg.researcher_id,
+            node_id=environ['NODE_ID'],
+            dest_node_id=inner_msg.node_id,
+            overlay=overlay,
+            setup=True,
+            salt=salt)
+
+        return { 'overlay_resp': overlay_resp }
+
+    async def _FinalChannelReply(self, inner_msg: InnerMessage) -> None:
+        """Final handler called for ChannelSetupReply message.
+
+        Args:
+            inner_msg: received inner message
+        """
+        if not await self._overlay_channel.set_distant_key(
+            inner_msg.node_id,
+            inner_msg.public_key,
+            inner_msg.request_id,
+        ):
+            logger.warning(
+                f"{ErrorNumbers.FB324}: Received channel key of unregistered "
+                f"peer node {inner_msg.node_id} "
+                f"or reply to non existing request {inner_msg.request_id}. "
+                f"Distant node may be confused or it may be an attack."
+            )
+
     async def _HandlerKeyRequest(  # pylint: disable=C0103
-        self, overlay_msg: dict, inner_msg: InnerMessage
+        self, overlay_msg: OverlayMessage, inner_msg: InnerMessage
     ) -> dict:
         """Handler called for KeyRequest message.
 
@@ -154,7 +212,8 @@ class NodeToNodeController:
         """
         # Wait until node has generated its DH keypair
         all_received, data = self._controller_data.wait(
-            [inner_msg.get_param("secagg_id")], TIMEOUT_NODE_TO_NODE_REQUEST
+            [inner_msg.secagg_id],
+            TIMEOUT_NODE_TO_NODE_REQUEST
         )
 
         # Don't send reply message if the public key is not available after a timeout
@@ -170,14 +229,16 @@ class NodeToNodeController:
             secagg_id=inner_msg.secagg_id,
         )
 
+        overlay, salt = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg.researcher_id)
         overlay_resp = OverlayMessage(
             researcher_id=overlay_msg.researcher_id,
             node_id=environ["NODE_ID"],
             dest_node_id=inner_msg.node_id,
-            overlay=format_outgoing_overlay(inner_resp),
-        )
+            overlay=overlay,
+            setup=False,
+            salt=salt)
 
-        return {"overlay_resp": overlay_resp}
+        return { 'overlay_resp': overlay_resp }
 
     async def _FinalKeyRequest(  # pylint: disable=C0103
         self, overlay_resp: Optional[OverlayMessage]
@@ -191,7 +252,7 @@ class NodeToNodeController:
             self._grpc_controller.send(overlay_resp)
 
     async def _AdditiveSSharingRequest(  # pylint: disable=C0103
-        self, overlay_msg: OverlayMessage, request: Optional[OverlayMessage]
+        self, overlay_msg: OverlayMessage, request: Optional[InnerMessage]
     ):
         """Final handler called for AdditiveSSharingRequest message.
 
@@ -210,7 +271,7 @@ class NodeToNodeController:
 
         share = data[0]["shares"].get(from_)
 
-        inner_msg = AdditiveSSharingReply(
+        inner_resp = AdditiveSSharingReply(
             request_id=request.request_id,
             node_id=environ["ID"],
             dest_node_id=from_,
@@ -218,14 +279,17 @@ class NodeToNodeController:
             share=share,
         )
 
-        overlay_msg = OverlayMessage(
+        overlay, salt = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg.researcher_id)
+        overlay_resp = OverlayMessage(
             researcher_id=overlay_msg.researcher_id,
             node_id=environ["ID"],
             dest_node_id=request.node_id,
-            overlay=format_outgoing_overlay(inner_msg),
+            overlay=overlay,
+            setup=False,
+            salt=salt,
         )
 
-        return {"overlay_resp": overlay_msg}
+        return {"overlay_resp": overlay_resp}
 
     async def _FinalAdditiveSSharingRequest(  # pylint: disable=C0103
         self, overlay_resp: Optional[OverlayMessage]
@@ -239,7 +303,7 @@ class NodeToNodeController:
             self._grpc_controller.send(overlay_resp)
 
     async def _HandlerKeyReply(  # pylint: disable=C0103
-        self, overlay_msg: dict, inner_msg: InnerMessage
+        self, overlay_msg: OverlayMessage, inner_msg: InnerMessage
     ) -> dict:
         """Handler called for KeyReply message.
 

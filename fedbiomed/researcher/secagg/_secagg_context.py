@@ -251,7 +251,7 @@ class SecaggContext(ABC):
         context = self._secagg_manager.get(self._secagg_id, self._experiment_id)
         if context and matching_parties_servkey(context, self._parties):
             logger.info(
-                    f"{ErrorNumbers.FB415.value}: secagg context for {self._secagg_id} exists"
+                f"{ErrorNumbers.FB415.value}: secagg context for {self._secagg_id} exists"
             )
             self._context = context['context']
         else:
