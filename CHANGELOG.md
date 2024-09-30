@@ -1,5 +1,8 @@
 # Fed-BioMed changelog
 
+## 2024-09-05 version 5.3.1
+- fix [issue #1194](https://github.com/fedbiomed/fedbiomed/issues/1194): token or password is required
+
 ## 2024-09-05 version 5.3.0
 
 - introduce fast secure aggregation using Low-Overhead Masking (LOM) scheme and in-app Diffie-Hellman key exchange
