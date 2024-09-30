@@ -16,8 +16,6 @@ dependencies:
   # https://jupyter-notebook.readthedocs.io/en/latest/migrate_to_notebook7.html
   - notebook ~=6.5.0
   - jupyter ~=1.0.0
-  # for nbconvert and token handling to jupyter
-  - jupyter_contrib_nbextensions ~=0.7.0
   - ipython ~=8.13.2
   # tests
   - pytest ~=7.2.0
