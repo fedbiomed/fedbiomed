@@ -301,6 +301,7 @@ class OverlayMessage(Message, RequiresProtocolVersion):
         overlay: payload of the message to be forwarded unchanged to the destination node
         setup: True if this is a channel setup message, False if this is an application layer message
         salt: value used for salting the key derivation for this message
+        nonce: value used for noncing the encryption for this message
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -309,9 +310,10 @@ class OverlayMessage(Message, RequiresProtocolVersion):
     researcher_id: str  # Needed for source and destination node side message handling
     node_id: str  # Needed for researcher side message handling (receiving a `ReplyTask`)
     dest_node_id: str  # Needed for researcher side message handling
-    overlay: list
+    overlay: bytes
     setup: bool
     salt: bytes
+    nonce: bytes
 
 
 @dataclass(kw_only=True)
