@@ -431,11 +431,17 @@ class OverlayChannel:
             Inner message retrieved from overlay payload
 
         Raises:
+            FedbiomedNodeToNodeError: bad message type
             FedbiomedNodeToNodeError: cannot decrypt payload
             FedbiomedNodeToNodeError: bad inner payload format
             FedbiomedNodeToNodeError: cannot verify payload integrity
             FedbiomedNodeToNodeError: sender/dest node ID don't match in overlay and inner message
         """
+        # robustify from developer error (try to encapsulate a bad message type)
+        if not isinstance(overlay_msg, OverlayMessage):
+            raise FedbiomedNodeToNodeError(f'{ErrorNumbers.FB324.value}: not an overlay message')
+
+
         _, distant_node_public_key, derived_key = await self._setup_use_channel_keys(
             overlay_msg.node_id,
             overlay_msg.researcher_id,

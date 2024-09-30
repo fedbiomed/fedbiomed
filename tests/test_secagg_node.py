@@ -118,7 +118,7 @@ class TestSecaggServkeySetup(SecaggTestCase):
     def test_secagg_key_02_setup(self, skmanager_add):
         """Tests key setup for additive key"""
         secagg_addss = SecaggServkeySetup(**self.args)
-        self.mock_n2n_router.format_outgoing_overlay.return_value = [b'overlay'], b'salt'
+        self.mock_n2n_router.format_outgoing_overlay.return_value = b'overlay', b'salt', b'nonce'
 
         self.mock_pending_requests.wait.side_effect = FedbiomedError
         reply = secagg_addss.setup()
@@ -180,7 +180,7 @@ class TestSecaggServkeySetup(SecaggTestCase):
                 self.args["parties"].append(f"node{i}")
 
             send_nodes_mock.return_value = True, messages
-            self.mock_n2n_router.format_outgoing_overlay.return_value = [b'overlay'], b'salt'
+            self.mock_n2n_router.format_outgoing_overlay.return_value = b'overlay', b'salt', b'nonce'
 
             with (
                 patch(

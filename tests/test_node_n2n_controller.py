@@ -16,7 +16,7 @@ from fedbiomed.node.requests._n2n_controller import NodeToNodeController
 
 
 async def func_return_argument(message, researcher_id, setup = False):
-    return [b"x", b"y"], b'salty salty'
+    return b"payload payload", b'salty salty', b'noncy noncy'
 
 
 class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
@@ -38,9 +38,10 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
             researcher_id='dummy researcher',
             node_id='dummy source overlay node',
             dest_node_id='dummy dest overlay node',
-            overlay=['dummy overlay content'],
+            overlay=b'dummy overlay content',
             setup=False,
             salt=b'my salt',
+            nonce=b'my own nonce',
         )
 
         self.inner_msg = KeyRequest(
@@ -119,9 +120,10 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
             'researcher_id': 'dummy researcher',
             'node_id': 'dummy source overlay node',
             'dest_node_id': 'dummy dest overlay node',
-            'overlay': ['dummy overlay content'],
+            'overlay': b'dummy overlay content',
             'setup': False,
             'salt': b'a dummy salt',
+            'nonce': b'my own nonce',
         })
         await self.n2n_controller.final('KeyRequest', overlay_resp=overlay_msg)
         self.grpc_controller_mock.send.assert_called_once()
