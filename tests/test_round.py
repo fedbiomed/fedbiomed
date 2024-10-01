@@ -34,6 +34,7 @@ from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.node.environ import environ
 from fedbiomed.node.node_state_manager import NodeStateFileName
 from fedbiomed.node.round import Round
+from fedbiomed.node.secagg._secagg_round import _SecaggSchemeRound
 
 # Needed to access length of dataset from Round class
 class FakeLoader:
@@ -622,12 +623,10 @@ class TestRound(NodeTestCase):
         self.assertRaises(FedbiomedRoundError, self.r1.collect_optim_aux_var)
 
     @patch("fedbiomed.common.utils.import_class_object_from_file")
-    @patch("fedbiomed.node.round.BPrimeManager.get")
-    @patch("fedbiomed.node.round.SKManager.get")
+    @patch("fedbiomed.node.round.SecaggRound")
     def test_round_26_run_model_training_secagg_with_optim_aux_var(
         self,
-        servkey_get,
-        biprime_get,
+        secagg_round,
         ic_from_file,
     ):
         """Test the training loop with both SecAgg and optimizer AuxVar."""
@@ -657,15 +656,14 @@ class TestRound(NodeTestCase):
         # Patch things to approve the training plan and use it in the round.
         environ["TRAINING_PLAN_APPROVAL"] = False
         ic_from_file.return_value = (MagicMock(), training_plan)
-        # Set up forceful secagg configuration.
-        servkey_get.return_value = {
-            "parties": ["r-1", "n-1", "n-2"], "context" : {"server_key": 123445}
-        }
-        biprime_get.return_value = {
-            "parties": ["r-1", "n-1", "n-2"], "context" : {"biprime": 123445}
-        }
+
         environ["SECURE_AGGREGATION"] = True
         environ["FORCE_SECURE_AGGREGATION"] = True
+
+        scheme = MagicMock(spec=_SecaggSchemeRound)
+        type(secagg_round.return_value).scheme = scheme
+        scheme.encrypt.return_value = [11,22,33,44,55]
+
         # Patch the data splitting method. This is ugly, but unavoidable.
         self.r1._split_train_and_test_data = MagicMock(
             return_value=(FakeLoader(), FakeLoader())
@@ -677,6 +675,8 @@ class TestRound(NodeTestCase):
             'secagg_random': 1.12,
             'secagg_servkey_id': '1234',
             'secagg_biprime_id': '1234',
+            'parties': ['n1', 'n2'],
+            'secagg_scheme': SecureAggregationSchemes.JOYE_LIBERT
         })
         # Verify that the routine succeeded and model parameters were encryped.
         assert isinstance(msg_test, TrainReply)

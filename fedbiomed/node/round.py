@@ -191,9 +191,10 @@ class Round:
                 return self._send_round_reply(
                     False,
                     f'Requested training plan is not approved by the node: {environ["NODE_ID"]}')
-            else:
-                logger.info(f'Training plan has been approved by the node {training_plan_["name"]}',
-                            researcher_id=self.researcher_id)
+            logger.info(
+                f'Training plan has been approved by the node {training_plan_["name"]}',
+                researcher_id=self.researcher_id
+            )
 
         # Import training plan, save to file, reload, instantiate a training plan
         try:
@@ -416,12 +417,11 @@ class Round:
             )
             cryptable = [x / sample_size for x in cryptable]
             # Encrypt both model parameters and optimizer aux var at once.
-            encrypted_wgt = self._secure_aggregation.scheme.encrypt(
+            encrypted = self._secure_aggregation.scheme.encrypt(
                     params=model_weights + cryptable,
                     current_round=self._round,
                     weight=sample_size,
             )
-
             # Separate batch encrypted model parameters and optimizer aux var.
             encrypted_wgt = encrypted[:len(model_weights)]
             encrypted_aux = EncryptedAuxVar(
@@ -437,19 +437,24 @@ class Round:
                 "This process can take some time depending on model size.",
                 researcher_id=self.researcher_id,
             )
-            encrypted_wgt = encrypt(params=model_weights)
+            encrypted_wgt = self._secure_aggregation.scheme.encrypt(
+                    params=model_weights,
+                    current_round=self._round,
+                    weight=sample_size,
+            )
             encrypted_aux = None
-        
+
         encrypted_rng = None
         # At any rate, produce encryption factors.
-        if self._secure_aggregation.scheme.secagg_random is not None and environ['SECAGG_INSECURE_VALIDATION']:
+        if self._secure_aggregation.scheme.secagg_random is not None and \
+            environ['SECAGG_INSECURE_VALIDATION']:
             encrypted_rng = self._secure_aggregation.scheme.encrypt(
                         params=[self._secure_aggregation.scheme.secagg_random],
                         current_round=self._round,
                         weight=sample_size)
 
         logger.info("Encryption was completed!", researcher_id=self.researcher_id)
-        
+
         return encrypted_wgt, encrypted_rng, encrypted_aux
 
     def _send_round_reply(

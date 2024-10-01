@@ -38,6 +38,7 @@ from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.secagg import SecureAggregation
+from fedbiomed.researcher.secagg._secure_aggregation import _SecureAggregation
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
@@ -257,11 +258,11 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
         # ------------------------------------------------------------
 
         # Run once with secure aggregation ----------------------------------------
-        secagg = MagicMock(spec=SecureAggregation, instance=True)
+        secagg = MagicMock(spec=_SecureAggregation, instance=True)
         type(secagg).active = True
         #type(secagg).return_value = MagicMock(spec=_SecureAggregation)
         exp.set_round_limit(6)
-        exp.set_secagg(secagg)
+        exp._secagg = secagg
         exp.run_once()
         exp.set_secagg(False)
         # -------------------------------------------------------------------------
