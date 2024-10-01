@@ -1,16 +1,10 @@
 FROM fedbiomed/vpn-basenode
 
-# MP-SPDZ negotiation for node1
-EXPOSE 14001
-# MP-SPDZ negotiation for node2
-EXPOSE 14002
-
 ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP
 ARG CONTAINER_USER
-ARG MPSPDZ_COMMIT
-ARG MPSPDZ_URL
+
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
 # + make it persistent at runtime (pass this variable to container)
@@ -19,8 +13,7 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 # alpine does not accept users/groups with numerical names
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
-ENV MPSPDZ_COMMIT=${MPSPDZ_COMMIT}
-ENV MPSPDZ_URL=${MPSPDZ_URL}
+
 
 RUN apt-get update && apt-get install -y apt-utils wget git
 RUN apt-get -y install rsync
@@ -52,9 +45,9 @@ COPY envs/common /fedbiomed/envs/common
 COPY envs/common /fedbiomed/envs/common_reference
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
-COPY MP-SPDZ /fedbiomed/MP-SPDZ
+
 # Alternative option : git clone & strip unused dirs
-#  - ensures working with clean repo (docker build begins with a stat(), hangs for 
+#  - ensures working with clean repo (docker build begins with a stat(), hangs for
 #    a long time if you have zillion files in notebooks/data)
 #  - ensures using develop branch (good or bad)
 
@@ -68,10 +61,6 @@ USER $CONTAINER_USER:$CONTAINER_GROUP
 RUN conda env update --file ./envs/vpn/conda/fedbiomed-node.yaml && \
 	pip cache purge && conda clean -a -y
 # need clean/purge to be in the same command line to shrink image
-
-# Initialize secure aggregation
-# passing MPSPDZ_COMMIT and MPSPDZ_URL variables to the script
-RUN /fedbiomed/scripts/fedbiomed_configure_secagg node clone
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
