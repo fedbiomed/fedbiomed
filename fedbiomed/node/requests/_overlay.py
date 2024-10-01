@@ -359,7 +359,7 @@ class OverlayChannel:
         return local_key, distant_key, derived_key
 
 
-    async def format_outgoing_overlay(self, message: Message, researcher_id: str, setup: bool = False) -> \
+    async def format_outgoing_overlay(self, message: InnerMessage, researcher_id: str, setup: bool = False) -> \
             Tuple[bytes, bytes, bytes]:
         """Creates an overlay message payload from an inner message.
 

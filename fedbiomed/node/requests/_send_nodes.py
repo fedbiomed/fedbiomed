@@ -24,6 +24,7 @@ def send_nodes(
         raise_if_not_all_received: bool = False,
 ) -> Tuple[bool, List[Any]]:
     """Send message to some other nodes using overlay communications and wait for their replies.
+
         Args:
             n2n_router: object managing node to node messages
             grpc_client: object managing the communication with other components
@@ -36,6 +37,9 @@ def send_nodes(
         Returns:
             status: True if all messages are received
             replies: List of replies from each node.
+        
+        Raises:
+            FedbiomedNodeToNodeError: not all answers received and raise_if_not_all_received is True
     """
     request_ids = []
 

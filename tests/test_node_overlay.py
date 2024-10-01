@@ -17,20 +17,134 @@ from fedbiomed.common.message import Message, KeyRequest, InnerMessage, OverlayM
 from fedbiomed.common.secagg._dh import DHKeyAgreement
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.controller import GrpcController
-from fedbiomed.node.requests._overlay import OverlayChannel
+from fedbiomed.node.requests._overlay import OverlayChannel, _ChannelKeys
 
 
-class TestNodeRequestsOverlay(unittest.IsolatedAsyncioTestCase, NodeTestCase):
+class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, NodeTestCase):
+    """Test for node overlay communications module channel keys handling"""
+
+    def setUp(self):
+        self.asyncio_event_patch = patch('fedbiomed.node.requests._overlay.asyncio.Event', autospec=True)
+        self.channel_manager_patch = patch('fedbiomed.node.requests._overlay.ChannelManager', autospec=True)
+        self.dhkey_agreement_patch = patch('fedbiomed.node.requests._overlay.DHKeyAgreement.agree')
+        self.asyncio_waitfor_patch = patch('fedbiomed.node.requests._overlay.asyncio.wait_for')
+
+
+        self.asyncio_event_mock = self.asyncio_event_patch.start()
+        self.channel_manager_mock = self.channel_manager_patch.start()
+        self.asyncio_waitfor_mock = self.asyncio_waitfor_patch.start()
+
+        self.grpc_controller_mock = MagicMock(spec=GrpcController)
+
+        self.inner_message = InnerMessage(
+            node_id= 'my node id',
+            dest_node_id= 'my dest node id',
+        )
+
+        self.overlay_channel = OverlayChannel(self.grpc_controller_mock)
+        self.default_private_key, _ = self.overlay_channel._load_default_n2n_key()
+        # needs to be 32 bytes long for ChaCha20
+        self.derived_key = b'k' * 32
+
+        self.channel_keys = _ChannelKeys()
+
+    def tearDown(self):
+        self.channel_manager_patch.stop()
+        self.asyncio_event_patch.stop()
+        self.asyncio_waitfor_patch.stop()
+
+    async def test_channel_keys_01_basic(self):
+        """Basic operations on channel keys object"""
+
+        # prepare
+        node1 = 'node1'
+        node2 = 'node2'
+        request1 = 'request1'
+        request2 = 'request2'
+        channel_keys2 = self.overlay_channel._channel_keys
+
+        # action
+        local_key1a, distant_key1a = await self.channel_keys.get_keys(node1)
+        await self.channel_keys.add_pending_request(node1, request1)
+        set1 = await self.channel_keys.set_distant_key(node1, self.default_private_key.export_public_key(), request1)
+        local_key1b, distant_key1b = await self.channel_keys.get_keys(node1)
+        local_public1 = await self.channel_keys.get_local_public_key(node1)
+
+        local_key2a, distant_key2a = await channel_keys2.get_keys(node2)
+        await channel_keys2.add_pending_request(node2, request2)
+        set2 = await self.overlay_channel.set_distant_key(node2, self.default_private_key.export_public_key(), request2)
+        local_key2b, distant_key2b = await channel_keys2.get_keys(node2)
+        local_public2 = await self.overlay_channel.get_local_public_key(node2)
+
+        set3 = await self.channel_keys.set_distant_key('non existing node', self.default_private_key.export_public_key(), 'any request')
+
+        # test
+        self.assertEqual(local_key1a, local_key1b)
+        self.assertEqual(distant_key1a, None)
+        self.assertTrue(set1)
+        self.assertEqual(distant_key1b.export_public_key(), self.default_private_key.export_public_key())
+        self.assertEqual(local_public1, local_key1a.export_public_key())
+
+        self.assertEqual(local_key2a, local_key2b)
+        self.assertEqual(distant_key2a, None)
+        self.assertTrue(set2)
+        self.assertEqual(distant_key2b.export_public_key(), self.default_private_key.export_public_key())
+        self.assertEqual(local_public2, local_key2a.export_public_key())
+
+        self.assertFalse(set3)
+
+    async def test_channel_keys_02_wait_ready_channel(self):
+        """Test channel keys object wait_ready_channel"""
+        # prepare
+        node_id = 'any node'
+        await self.channel_keys.get_keys(node_id)
+
+        # 1. completes before timeout
+        is_ready = await self.channel_keys.wait_ready_channel(node_id)
+        self.assertTrue(is_ready)
+
+        # 2. timeout before completes
+        self.asyncio_waitfor_mock.side_effect = TimeoutError
+        is_ready = await self.channel_keys.wait_ready_channel(node_id)
+        self.assertFalse(is_ready)
+
+    async def test_channel_keys_03_init_load_keys(self):
+        """Test channel keys object constructor reloading keys"""
+        # prepare
+        node1 = 'node1'
+        node2 = 'node2'
+        self.channel_manager_mock.return_value.list.return_value = [node1, node2]
+        self.channel_manager_mock.return_value.get.return_value = {'local_key': self.default_private_key.export_private_key()}
+
+        # need to re-instantiate after mocking
+        channel_keys = _ChannelKeys()
+
+        # action
+        kn1 = await channel_keys.get_local_public_key(node1)
+        kn2 = await channel_keys.get_local_public_key(node2)
+        kn3 = await channel_keys.get_local_public_key('other node')
+
+        # check
+        self.assertEqual(kn1, self.default_private_key.export_public_key())
+        self.assertEqual(kn2, self.default_private_key.export_public_key())
+        self.assertNotEqual(kn3, self.default_private_key.export_public_key())
+
+
+
+
+class TestNodeRequestsOverlayChannel(unittest.IsolatedAsyncioTestCase, NodeTestCase):
     """Test for node overlay communications module"""
 
     def setUp(self):
         self.asyncio_event_patch = patch('fedbiomed.node.requests._overlay.asyncio.Event', autospec=True)
         self.channel_manager_patch = patch('fedbiomed.node.requests._overlay.ChannelManager', autospec=True)
         self.dhkey_agreement_patch = patch('fedbiomed.node.requests._overlay.DHKeyAgreement.agree')
+        self.asyncio_waitfor_patch = patch('fedbiomed.node.requests._overlay.asyncio.wait_for')
 
         self.asyncio_event_mock = self.asyncio_event_patch.start()
         self.channel_manager_mock = self.channel_manager_patch.start()
         self.dhkey_agreement_mock = self.dhkey_agreement_patch.start()
+        self.asyncio_waitfor_mock = self.asyncio_waitfor_patch.start()
 
         self.grpc_controller_mock = MagicMock(spec=GrpcController)
 
@@ -43,12 +157,14 @@ class TestNodeRequestsOverlay(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         self.default_private_key, _ = self.overlay_channel._load_default_n2n_key()
 
         # needs to be 32 bytes long for ChaCha20
-        self.dhkey_agreement_mock.return_value = b'k' * 32
+        self.derived_key = b'k' * 32
+        self.dhkey_agreement_mock.return_value = self.derived_key
 
     def tearDown(self):
         self.channel_manager_patch.stop()
         self.asyncio_event_patch.stop()
         self.dhkey_agreement_patch.stop()
+        self.asyncio_waitfor_patch.stop()
 
     async def test_overlay_01_format_out_in(self):
         """Test outgoing + incoming formatting function
@@ -63,6 +179,8 @@ class TestNodeRequestsOverlay(unittest.IsolatedAsyncioTestCase, NodeTestCase):
             request_id='my request id',
             secagg_id='my secagg id',
         )
+
+        # 1. correct message
 
         # action
         payload, salt, nonce = await self.overlay_channel.format_outgoing_overlay(src_message, researcher_id, setup=True)
@@ -83,7 +201,19 @@ class TestNodeRequestsOverlay(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         for k in src_message.get_dict().keys():
             self.assertEqual(src_message.get_param(k), dest_message.get_param(k))
 
-    async def test_overlay_03_format_outgoing_failure_arguments(self):
+        # 2. node_id mismatch
+        overlay_message.node_id = 'another node id'
+        with self.assertRaises(FedbiomedNodeToNodeError):
+            await self.overlay_channel.format_incoming_overlay(overlay_message)
+
+        # 3. dest_node_id mismatch
+        overlay_message.node_id = node_id
+        overlay_message.dest_node_id = 'another dest node id'
+        with self.assertRaises(FedbiomedNodeToNodeError):
+            await self.overlay_channel.format_incoming_overlay(overlay_message)
+
+
+    async def test_overlay_02_format_outgoing_failure_arguments(self):
         """Test outgoing formatting function failure because of bad arguments
         """
         # prepare
@@ -99,7 +229,7 @@ class TestNodeRequestsOverlay(unittest.IsolatedAsyncioTestCase, NodeTestCase):
             with self.assertRaises(FedbiomedNodeToNodeError):
                 await self.overlay_channel.format_outgoing_overlay(m, 'dummy_researcher_id')
 
-    async def test_overlay_05_format_incoming_failure_arguments(self):
+    async def test_overlay_03_format_incoming_failure_arguments(self):
         """Test incoming formatting function failure because of bad arguments
         """
         # prepare
@@ -118,7 +248,7 @@ class TestNodeRequestsOverlay(unittest.IsolatedAsyncioTestCase, NodeTestCase):
             with self.assertRaises(FedbiomedNodeToNodeError):
                 await self.overlay_channel.format_incoming_overlay(m)
 
-    async def test_overlay_07_format_incoming_failure_decrypt(self):
+    async def test_overlay_04_format_incoming_failure_decrypt(self):
         """Test incoming formatting function failure at decryption with bad payload
         """
         # prepare
@@ -137,7 +267,7 @@ class TestNodeRequestsOverlay(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         with self.assertRaises(FedbiomedNodeToNodeError):
             await self.overlay_channel.format_incoming_overlay(overlay_message)
 
-    async def test_overlay_08_format_incoming_failure_bad_message_content(self):
+    async def test_overlay_05_format_incoming_failure_bad_message_content(self):
         """Test incoming formatting function failure bad encrypted message content
         """
         # prepare
@@ -173,7 +303,7 @@ class TestNodeRequestsOverlay(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         with self.assertRaises(FedbiomedNodeToNodeError):
             await self.overlay_channel.format_incoming_overlay(overlay_message)
 
-    async def test_overlay_09_format_incoming_failure_bad_message_signature(self):
+    async def test_overlay_06_format_incoming_failure_bad_message_signature(self):
         """Test incoming formatting function failure bad encrypted message signature
         """
         # prepare
@@ -189,17 +319,6 @@ class TestNodeRequestsOverlay(unittest.IsolatedAsyncioTestCase, NodeTestCase):
                 ec.ECDSA(hashes.SHA256()),
             )
         })
-        #payload = [
-        #    self.default_private_key.public_key.encrypt(
-        #        signed[i:i + _CHUNK_SIZE],
-        #        padding.OAEP(
-        #            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-        #            algorithm=hashes.SHA256(),
-        #            label=None
-        #        )
-        #    )
-        #    for i in range(0, len(signed), _CHUNK_SIZE)
-        #]
         derived_key = DHKeyAgreement(
             self.inner_message.node_id, self.default_private_key, salt
         ).agree(self.inner_message.dest_node_id, self.default_private_key.export_public_key())
@@ -222,6 +341,54 @@ class TestNodeRequestsOverlay(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         # action + check
         with self.assertRaises(FedbiomedNodeToNodeError):
             await self.overlay_channel.format_incoming_overlay(overlay_message)
+
+    async def test_overlay_08_setup_use_channel_keys(self):
+        """Test key setup function for n2n channels
+        """
+
+        # prepare
+        distant_node_id = 'my distant node'
+        researcher_id = 'my_researcher'
+        salt = b'1' * 32
+
+        # 1. receive distant node's key
+
+        channel_keys_patch = patch('fedbiomed.node.requests._overlay._ChannelKeys', autospec=True)
+        channel_keys_mock = channel_keys_patch.start()
+        channel_keys_mock.return_value.get_keys.side_effect = [
+            # for case 1.
+            (self.default_private_key, None),
+            (self.default_private_key, self.default_private_key),
+            # for case 2.
+            (self.default_private_key, None),
+            (self.default_private_key, self.default_private_key),
+        ]
+        # need to re-instantiate for mock to be active
+        self.overlay_channel = OverlayChannel(self.grpc_controller_mock)
+
+        # action
+        local_key, distant_key, derived_key = await self.overlay_channel._setup_use_channel_keys(
+            distant_node_id, researcher_id, False, salt
+        )
+
+        # test
+        self.assertEqual(local_key.export_public_key(), self.default_private_key.export_public_key())
+        self.assertEqual(distant_key.export_public_key(), self.default_private_key.export_public_key())
+        self.assertEqual(derived_key, self.derived_key)
+
+        # 2. don't receive distant node's key
+
+        # prepare
+        channel_keys_mock.return_value.wait_ready_channel.return_value = False
+
+        # action
+        with self.assertRaises(FedbiomedNodeToNodeError):
+            local_key, distant_key, derived_key = await self.overlay_channel._setup_use_channel_keys(
+                distant_node_id, researcher_id, False, salt
+            )
+
+        # clean
+        channel_keys_patch.stop()
 
     @patch('fedbiomed.node.requests._overlay._DEFAULT_N2N_KEY_FILE', 'non_existing_filename')
     async def test_overlay_10_load_default_key_failure(self):

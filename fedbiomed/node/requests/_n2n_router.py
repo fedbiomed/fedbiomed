@@ -249,7 +249,7 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
             raise e
 
 
-    def format_outgoing_overlay(self, message: Message, researcher_id: str) -> \
+    def format_outgoing_overlay(self, message: InnerMessage, researcher_id: str) -> \
             Tuple[bytes, bytes, bytes]:
         """Creates an overlay message payload from an inner message.
 
