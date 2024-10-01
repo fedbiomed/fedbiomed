@@ -909,12 +909,8 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     training_plan_class: str
     round: int
     aggregator_args: Dict
-    aux_vars: Optional[list] = None
+    secagg_arguments: Optional[Dict] = None
     optim_aux_var: Optional[Dict] = None
-    secagg_servkey_id: Optional[str] = None
-    secagg_biprime_id: Optional[str] = None
-    secagg_random: Optional[float] = None
-    secagg_clipping_range: Optional[int] = None
 
 
 @catch_dataclass_exception

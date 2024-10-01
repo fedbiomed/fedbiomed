@@ -326,7 +326,7 @@ class Node:
             node_args=self.node_args,
             round_number=msg.get_param("round"),
             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-            aux_vars= aux_vars=msg.get_param('optim_aux_var'),
+            aux_vars=msg.get_param('optim_aux_var'),
         )
 
         # the round raises an error if it cannot initialize

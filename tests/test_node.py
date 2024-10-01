@@ -330,7 +330,6 @@ class TestNode(NodeTestCase):
             },
             "round": 1,
             'researcher_id': 'researcher_id_1234',
-            'command': 'train',
             'dataset_id': 'dataset_id_1234',
             'training': True,
             'aggregator_args': {},
@@ -407,6 +406,8 @@ class TestNode(NodeTestCase):
 
         # checks
         round_patch.assert_called_once_with(
+            training_plan=dict_msg_1_dataset['training_plan'],
+            training_plan_class=dict_msg_1_dataset['training_plan_class'],
             model_kwargs=dict_msg_1_dataset['model_args'],
             training_kwargs=dict_msg_1_dataset['training_args'],
             training=True,
@@ -415,11 +416,9 @@ class TestNode(NodeTestCase):
             experiment_id=dict_msg_1_dataset['experiment_id'],
             researcher_id=dict_msg_1_dataset['researcher_id'],
             history_monitor=unittest.mock.ANY,
-            aggregator_args=None,
             node_args=None,
-            training_plan=dict_msg_1_dataset['training_plan'],
-            training_plan_class=dict_msg_1_dataset['training_plan_class'],
-            round_number=1,
+            aggregator_args=None,
+            round_number=0,
             dlp_and_loading_block_metadata=None,
             aux_vars=dict_msg_1_dataset['optim_aux_var']
         )
@@ -460,7 +459,6 @@ class TestNode(NodeTestCase):
             "element": 33,
             "experiment_id": "my_experiment",
             "parties": [],
-            "command": "secagg",
         }
         task_secagg_patch.return_value = None
         self.grpc_send_mock.return_value = None
