@@ -14,4 +14,4 @@ fault-tolerant-secure-agg implementation in `ftsa/protocols/buildingblocks/JoyeL
 that can be found in Fed-BioMed in `fedbiomed/common/secagg/_jls.py`
 
 - version: main branch on 2023-04-13 commit f7806de
-- SPDZ-License-Identifier: MIT
+- SPDX-License-Identifier: MIT
