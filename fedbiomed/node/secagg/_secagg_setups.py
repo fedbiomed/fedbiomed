@@ -8,7 +8,6 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import List, Union
 
-from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import (
     REQUEST_PREFIX,
     ErrorNumbers,
@@ -37,11 +36,6 @@ from fedbiomed.node.environ import environ
 from fedbiomed.node.requests import send_nodes, NodeToNodeRouter
 from fedbiomed.node.secagg_manager import DHManager, SecaggManager, SKManager
 from fedbiomed.transport.controller import GrpcController
-
-
-_CManager = CertificateManager(
-    db_path=environ["DB_PATH"]
-)
 
 
 class SecaggBaseSetup(ABC):

@@ -69,11 +69,9 @@ class NodeEnviron:
         self._values['TRAINING_PLAN_APPROVAL'] = True
         self._values['HASHING_ALGORITHM'] = 'SHA256'
 
-        self._values['MPSPDZ_IP'] = 'localhost'
-        self._values['MPSPDZ_PORT'] = 1111
 
-        self._values['MPSPDZ_CERTIFICATE_KEY'] = 'dummy/path'
-        self._values['MPSPDZ_CERTIFICATE_PEM'] = 'dummy/path'
+        self._values['FBM_CERTIFICATE_KEY'] = 'dummy/path'
+        self._values['FBM_CERTIFICATE_PEM'] = 'dummy/path'
 
     def set_environment(self):
         """Dummy set environ"""

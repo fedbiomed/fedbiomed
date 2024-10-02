@@ -79,7 +79,6 @@ jobs:
               - 'envs/development/conda/**'
               - 'envs/build/**'
               - 'modules/**'
-              - 'MP-SPDZ/**'
               - '.github/**'
 
       - name: Run unit tests

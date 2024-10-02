@@ -13,7 +13,6 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
@@ -42,8 +41,6 @@ from fedbiomed.researcher.requests import (
     StopOnError,
     StopOnTimeout,
 )
-
-_CManager = CertificateManager(db_path=environ["DB_PATH"])
 
 # Instantiate one manager for each secagg element type
 _SKManager = SecaggServkeyManager(environ["DB_PATH"])
@@ -374,7 +371,7 @@ class SecaggServkeyContext(SecaggContext):
         self,
         request: Message,
     ) -> Tuple[dict, dict[str, bool]]:
-        """Negotiate secagg context element action with defined parties for a MPSPDZ key exchange.
+        """Negotiate secagg context element action with defined parties for secret sharing.
 
         Args:
             request: message sent to the parties during the round
@@ -427,7 +424,7 @@ class SecaggDHContext(SecaggContext):
         self,
         request: Message,
     ) -> Tuple[dict, dict[str, bool]]:
-        """Negotiate secagg context element action with defined parties for a MPSPDZ key exchange.
+        """Negotiate secagg context element action with defined parties for DH key exchange.
 
         Args:
             request: message sent to the parties during the round

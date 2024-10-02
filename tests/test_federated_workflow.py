@@ -4,7 +4,6 @@ from itertools import product
 
 #############################################################
 # Import ResearcherTestCase before importing any FedBioMed Module
-from fedbiomed.common.mpc_controller import MPCController
 from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_researcher_secagg import FakeSecAgg

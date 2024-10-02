@@ -7,9 +7,15 @@ import configparser
 from typing import List, Dict
 
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.constants import DB_PREFIX, VAR_FOLDER_NAME, \
-    CACHE_FOLDER_NAME, CONFIG_FOLDER_NAME, TMP_FOLDER_NAME
-
+from fedbiomed.common.constants import (
+    DB_PREFIX,
+    VAR_FOLDER_NAME,
+    CACHE_FOLDER_NAME,
+    CONFIG_FOLDER_NAME,
+    TMP_FOLDER_NAME,
+    ComponentType
+)
+from ._utils import read_file
 
 
 def _get_fedbiomed_root() -> str:
@@ -78,24 +84,20 @@ def get_component_certificate_from_config(
     component_id = config.get("default", "id")
     component_type = config.get("default", "component")
 
-    ip = config.get("mpspdz", "mpspdz_ip")
-    port = config.get("mpspdz", "mpspdz_port")
-    certificate_path = os.path.join(os.path.dirname(config_path), config.get("mpspdz", "public_key"))
+    certificate = config.get("certificate", "public_key")
+    certificate_path = os.path.join(
+        os.path.dirname(config_path), certificate)
 
     if not os.path.isfile(certificate_path):
-        raise FedbiomedError(f"The certificate for component '{component_id}' not found in {certificate_path}")
+        raise FedbiomedError(
+            f"The certificate for component '{component_id}' not found in {certificate_path}"
+        )
 
-    try:
-        with open(certificate_path, 'r') as file:
-            certificate = file.read()
-    except Exception as e:
-        raise FedbiomedError(f"Error while reading certificate -> {certificate_path}. Error: {e}")
+    certificate = read_file(certificate_path)
 
     return {
         "party_id": component_id,
         "certificate": certificate,
-        "ip": ip,
-        "port": port,
         "component": component_type
     }
 
@@ -112,8 +114,8 @@ def get_all_existing_certificates() -> List[Dict[str, str]]:
     This method parse all available configs in `etc` directory.
 
     Returns:
-        List of certificate objects that contain  component type as `component`, party id `id`, public key content
-        (not path)  as `certificate`.
+        List of certificate objects that contain  component type as `component`,
+            party id `id`, public key content (not path)  as `certificate`.
     """
 
     config_files = get_all_existing_config_files()

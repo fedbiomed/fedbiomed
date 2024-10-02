@@ -17,12 +17,7 @@ Description of the common Global Variables:
 - CACHE_DIR                   : Cache directory of Fed-BioMed
 - TMP_DIR                     : Temporary directory
 - DB_PATH                     : TinyDB database path where datasets/training_plans/loading plans are saved
-- PORT_INCREMENT_FILE         : File for storing next port to be allocated for MP-SPDZ
-- CERT_DIR                    : Directory for storing certificates for MP-SPDZ
-- MPSPDZ_IP                   : MP-SPDZ endpoint IP of component
-- MPSPDZ_PORT                 : MP-SPDZ endpoint TCP port of component
-- MPSPDZ_CERTIFICATE_KEY      : Path to certificate private key file for MP-SPDZ
-- MPSPDZ_CERTIFICATE_PEM      : Path to certificate PEM file for MP-SPDZ
+- CERT_DIR                    : Directory for storing certificates for the component.
 - SECAGG_INSECURE_VALIDATION  : True if the use of secagg consistency validation is allowed,
                                 though it introduces room for honest but curious attack on secagg crypto.
 '''
@@ -137,29 +132,11 @@ class Environ(metaclass=SingletonABCMeta):
 
 
         self._values['DB_PATH'] = os.path.normpath(
-            os.path.join(self._values["ROOT_DIR"], CONFIG_FOLDER_NAME, self.config.get('default', 'db'))
+            os.path.join(
+                self._values["ROOT_DIR"], CONFIG_FOLDER_NAME, self.config.get('default', 'db'))
         )
 
-        # initialize other directories
-        self._values['PORT_INCREMENT_FILE'] = os.path.join(root_dir, CONFIG_FOLDER_NAME, "port_increment")
         self._values['CERT_DIR'] = os.path.join(root_dir, CERTS_FOLDER_NAME)
-
-
-        self._values["MPSPDZ_IP"] = os.getenv("MPSPDZ_IP",
-                                              self.config.get("mpspdz", "mpspdz_ip"))
-        self._values["MPSPDZ_PORT"] = os.getenv("MPSPDZ_PORT",
-                                                self.config.get("mpspdz", "mpspdz_port"))
-
-        public_key = self.config.get("mpspdz", "public_key")
-        private_key = self.config.get("mpspdz", "private_key")
-        self._values["MPSPDZ_CERTIFICATE_KEY"] = os.getenv(
-            "MPSPDZ_CERTIFICATE_KEY",
-            os.path.join(self._values["CONFIG_DIR"], private_key)
-        )
-        self._values["MPSPDZ_CERTIFICATE_PEM"] = os.getenv(
-            "MPSPDZ_CERTIFICATE_PEM",
-            os.path.join(self._values["CONFIG_DIR"], public_key)
-        )
 
         # Optional secagg_insecure_validation optional in config file
         secagg_insecure_validation = self.config.get(

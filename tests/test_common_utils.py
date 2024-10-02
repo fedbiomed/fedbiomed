@@ -25,8 +25,8 @@ class TestCommonConfigUtils(unittest.TestCase):
         root = _get_fedbiomed_root()
         dirpaths_to_check = [root, os.path.join(root,"fedbiomed"), os.path.join(root, "fedbiomed/common"), os.path.join(root, "fedbiomed/node"), os.path.join(root, "fedbiomed/researcher") ]
         for dirpath in dirpaths_to_check:
-          self.assertTrue( os.path.exists(dirpath), f"a required path does not exist. Offending value = {dirpath}" ) 
-          self.assertTrue( os.path.isdir(dirpath), f"a required path is not a directory. Offending value = {dirpath}" ) 
+          self.assertTrue( os.path.exists(dirpath), f"a required path does not exist. Offending value = {dirpath}" )
+          self.assertTrue( os.path.isdir(dirpath), f"a required path is not a directory. Offending value = {dirpath}" )
 
     @patch("fedbiomed.common.utils._config_utils.configparser")
     def test_02_common_config_utils_get_component_config(self,
@@ -55,10 +55,9 @@ class TestCommonConfigUtils(unittest.TestCase):
             "component": "NODE"
         }
 
-        cfg["mpspdz"] = {
-            "mpspdz_ip": "localhost",
-            "mpspdz_port": 1234,
-            "public_key": "path/to/certificate"
+        cfg["certificate"]= {
+            "public_key": 'xx/xx/xx',
+            "private_key": 'xx/xx/xx',
         }
 
         mock_get_component_config.return_value = cfg
@@ -79,9 +78,8 @@ class TestCommonConfigUtils(unittest.TestCase):
 
             self.assertDictEqual(cert, {'certificate': 'test-certificate',
                                         'component': 'NODE',
-                                        'ip': 'localhost',
                                         'party_id': 'node-id',
-                                        'port': '1234'}
+                                        }
                                  )
 
     def test_03_common_config_utils_get_all_existing_config_files(self):

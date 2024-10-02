@@ -22,8 +22,6 @@ from helpers import (
     create_researcher,
     get_data_folder,
     create_multiple_nodes,
-    configure_secagg,
-    secagg_certificate_registration,
     generate_sklearn_classification_dataset
 )
 
@@ -34,7 +32,6 @@ from experiments.training_plans.sklearn import (
     SkLearnClassifierTrainingPlanDeclearn,
     SGDRegressorTrainingPlanDeclearn,
     SGDRegressorTrainingPlanDeclearnScaffold,
-    SkLearnClassifierTrainingPlanCustomTesting
 )
 
 from fedbiomed.researcher.federated_workflows import Experiment
@@ -368,13 +365,6 @@ def test_08_sklearn_adni_regressor_with_scaffold():
 
 def test_09_seklearn_adni_regressor_with_secureaggregation():
     """Test SGDRegressor by activating secure aggregation"""
-
-    # Configure secure aggregation setup
-    configure_secagg()
-
-
-    print("Register certificates ---------------------------------------------")
-    secagg_certificate_registration()
 
 
     # select nodes participating to this experiment

@@ -114,7 +114,7 @@ class TestNodeConfig(BaseConfigTest):
         self.assertTrue('researcher' in sections)
         self.assertTrue('default' in sections)
         self.assertTrue('security' in sections)
-        self.assertTrue('mpspdz' in sections)
+        self.assertTrue('certificate' in sections)
 
 
 
@@ -129,8 +129,8 @@ class TestResearcherConfig(BaseConfigTest):
 
         r_ip = config.get('server', 'host')
         r_port = config.get('server', 'port')
-        r_pem = config.get('server', 'pem')
-        r_key = config.get('server', 'key')
+        r_pem = config.get('certificate', 'private_key')
+        r_key = config.get('certificate', 'public_key')
 
         self.assertTrue(r_ip)
         self.assertTrue(r_port)
@@ -145,4 +145,3 @@ class TestResearcherConfig(BaseConfigTest):
 
         self.assertTrue('server' in sections)
         self.assertTrue('default' in sections)
-        self.assertTrue('mpspdz' in sections)

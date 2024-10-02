@@ -30,15 +30,15 @@ def read_file(path):
         FedbiomedError: If the file is not existing or readable.
     """
     try:
-        with open(path, "r") as file:
+        with open(path, "r", encoding="UTF-8") as file:
             content = file.read()
             file.close()
     except Exception as e:
         raise FedbiomedError(
             f"{ErrorNumbers.FB627.value}: Can not read file {path}. Error: {e}"
-        )
-    else:
-        return content
+        ) from e
+
+    return content
 
 
 def get_class_source(cls: Callable) -> str:
