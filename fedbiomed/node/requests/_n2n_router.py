@@ -250,7 +250,7 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
 
 
     def format_outgoing_overlay(self, message: Message, researcher_id: str) -> \
-            Tuple[List[bytes], bytes]:
+            Tuple[bytes, bytes, bytes]:
         """Creates an overlay message payload from an inner message.
 
         Serialize, crypt, sign the inner message
@@ -262,7 +262,8 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
                 setting up the channel
 
         Returns:
-            A tuple consisting of: payload for overlay message, salt for inner message encryption
+            A tuple consisting of: payload for overlay message, salt for inner message
+                encryption key, nonce for the inner message encryption
         """
         future = asyncio.run_coroutine_threadsafe(
             self._overlay_channel.format_outgoing_overlay(message, researcher_id),

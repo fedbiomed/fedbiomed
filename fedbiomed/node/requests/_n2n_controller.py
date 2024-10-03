@@ -165,7 +165,7 @@ class NodeToNodeController:
             dest_node_id=inner_msg.node_id,
             public_key=await self._overlay_channel.get_local_public_key(inner_msg.node_id))
 
-        overlay, salt = await self._overlay_channel.format_outgoing_overlay(
+        overlay, salt, nonce = await self._overlay_channel.format_outgoing_overlay(
             inner_resp,
             overlay_msg.researcher_id,
             True
@@ -176,7 +176,8 @@ class NodeToNodeController:
             dest_node_id=inner_msg.node_id,
             overlay=overlay,
             setup=True,
-            salt=salt)
+            salt=salt,
+            nonce=nonce)
 
         return { 'overlay_resp': overlay_resp }
 
@@ -229,14 +230,15 @@ class NodeToNodeController:
             secagg_id=inner_msg.secagg_id,
         )
 
-        overlay, salt = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg.researcher_id)
+        overlay, salt, nonce = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg.researcher_id)
         overlay_resp = OverlayMessage(
             researcher_id=overlay_msg.researcher_id,
             node_id=environ["NODE_ID"],
             dest_node_id=inner_msg.node_id,
             overlay=overlay,
             setup=False,
-            salt=salt)
+            salt=salt,
+            nonce=nonce)
 
         return { 'overlay_resp': overlay_resp }
 
@@ -279,7 +281,7 @@ class NodeToNodeController:
             share=share,
         )
 
-        overlay, salt = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg.researcher_id)
+        overlay, salt, nonce = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg.researcher_id)
         overlay_resp = OverlayMessage(
             researcher_id=overlay_msg.researcher_id,
             node_id=environ["ID"],
@@ -287,6 +289,7 @@ class NodeToNodeController:
             overlay=overlay,
             setup=False,
             salt=salt,
+            nonce=nonce,
         )
 
         return {"overlay_resp": overlay_resp}

@@ -25,7 +25,9 @@ class TestNodeRequestsSendNodes(NodeTestCase):
         """Test send_nodes function
         """
         # prepare
-        self.n2n_router_mock.format_outgoing_overlay.return_value = ([b'overlay bytes dummmy'], b'salt dummy')
+        self.n2n_router_mock.format_outgoing_overlay.return_value = (
+            b'overlay bytes dummmy', b'salt dummy', b'nonce dummy'
+        )
 
         def pending_requests_wait(request_ids, timeout):
             return True, request_ids

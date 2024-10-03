@@ -159,7 +159,7 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
 
         message = {
             "dest_node_id": environ["NODE_ID"],
-            "overlay": "dummy content",
+            "overlay": b"dummy content",
         }
         self.async_queue_patcher.return_value.get.side_effect = [
             message,
@@ -208,10 +208,11 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
             **{
                 "node_id": "n1",
                 "dest_node_id": environ["NODE_ID"],
-                "overlay": [b"dummy content"],
+                "overlay": b"dummy content",
                 "researcher_id": "r1",
                 'setup': False,
                 'salt': b'my dummy salt',
+                'nonce': b'my dummy nonce',
             }
         )
         # need to initialize private variable (store current active task)
@@ -238,10 +239,11 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
             **{
                 "node_id": "n1",
                 "dest_node_id": "incorrect node id",
-                "overlay": [b"dummy content"],
+                "overlay": b"dummy content",
                 "researcher_id": "r1",
                 'setup': False,
                 'salt': b'my dummy salt',
+                'nonce': b'my dummy nonce',
             }
         )
 
@@ -356,10 +358,11 @@ class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         message = OverlayMessage(
             node_id="test",
             dest_node_id="test",
-            overlay=[b"test"],
+            overlay=b"test payload",
             researcher_id="researcher",
             setup=False,
             salt=b'my dummy salt',
+            nonce=b'my dummy nonce',
         )
 
         self.n2n_router.submit(message)

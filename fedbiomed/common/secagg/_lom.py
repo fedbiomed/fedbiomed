@@ -6,12 +6,11 @@ from multiprocessing import Pool, cpu_count
 import numpy as np
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
-from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.hazmat.backends import default_backend
 
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecaggError
+from fedbiomed.common.exceptions import FedbiomedSecaggError
 
 _MAX_ROUND=1000
 

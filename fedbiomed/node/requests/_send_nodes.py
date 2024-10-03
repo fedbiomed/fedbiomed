@@ -40,7 +40,7 @@ def send_nodes(
     request_ids = []
 
     for node, message in zip(nodes, messages):
-        overlay, salt = n2n_router.format_outgoing_overlay(message, researcher_id)
+        overlay, salt, nonce = n2n_router.format_outgoing_overlay(message, researcher_id)
         message_overlay = OverlayMessage(
             researcher_id=researcher_id,
             node_id=environ['NODE_ID'],
@@ -48,6 +48,7 @@ def send_nodes(
             overlay=overlay,
             setup=False,
             salt=salt,
+            nonce=nonce,
         )
 
         grpc_client.send(message_overlay)
