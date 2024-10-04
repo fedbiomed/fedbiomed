@@ -29,7 +29,7 @@ class TrainingJob(Job):
         experiment_id: str,
         round_: int,
         training_plan: BaseTrainingPlan,
-        training_args: Union[dict, TrainingArgs],
+        training_args: TrainingArgs,
         model_args: Optional[dict],
         data: FederatedDataSet,
         nodes_state_ids: Dict[str, str],

@@ -933,12 +933,12 @@ class Experiment(TrainingPlanWorkflow):
                 they are meant to receive and process.
         """
         # Gather parameters that need aggregate-decryption.
-        if not optim_auxvar:
-            encrypted = model_params
-            encrypted_auxvar = None  # type: Optional[EncryptedAuxVar]
-            aggregated_auxvar = None  # type: Optional[Dict[str, AuxVar]]
-            n_aux_var = 0
-        else:
+        encrypted = model_params
+        encrypted_auxvar = None  # type: Optional[EncryptedAuxVar]
+        aggregated_auxvar = None  # type: Optional[Dict[str, AuxVar]]
+        n_aux_var = 0
+
+        if optim_auxvar:
             # Ensure auxiliary variables have the same node-order as model
             # parameters, type-check and pre-aggregate them.
             encrypted_auxvar = self._preaggregate_encrypted_optim_auxvar(
