@@ -9,7 +9,7 @@ from testsupport.base_case import NodeTestCase
 
 #############################################################
 
-from fedbiomed.common.message import OverlayMessage, KeyReply
+from fedbiomed.common.message import OverlayMessage, KeyReply, InnerMessage
 from fedbiomed.node.environ import environ
 from fedbiomed.node.requests._n2n_router import NodeToNodeRouter, _NodeToNodeAsyncRouter
 
@@ -372,6 +372,18 @@ class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         self.async_patcher.run_coroutine_threadsafe.side_effect = DummyException
         with self.assertRaises(DummyException):
             self.n2n_router.submit(message)
+
+    def test_n2n_router_04_format_outgoing_overlay(self):
+        """Call format_outgoing_overlay of a n2n router"""
+        # correct message
+        message = InnerMessage(
+            node_id="test",
+            dest_node_id="test",
+        )
+
+        # action + test
+        self.n2n_router.format_outgoing_overlay(message, 'my researcher')
+        self.async_patcher.run_coroutine_threadsafe.assert_called_once()
 
 
 if __name__ == "__main__":  # pragma: no cover

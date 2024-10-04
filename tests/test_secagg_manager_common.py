@@ -6,6 +6,8 @@ import os
 
 import inspect
 
+from testsupport.fake_tiny_db import FakeTinyDB, FakeQuery
+
 from fedbiomed.common.constants import SecaggElementTypes, __secagg_element_version__
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.secagg_manager import SecaggDhManager, SecaggServkeyManager
@@ -17,65 +19,6 @@ class FakeSingleton:
     @property
     def table(self):
         return self._obj.table()
-
-
-class FakeTinyDB:
-    def __init__(self, path):
-        self._table = FakeTable()
-
-    def table(self, *args, **kwargs):
-        return self._table
-
-
-class FakeQuery:
-    def __init__(self):
-        class FakeSecaggId:
-            def __init__(self):
-                self.exists_value = True
-            def exists(self):
-                return self.exists_value
-            def one_of(self, id):
-                return True
-        self.secagg_id = FakeSecaggId()
-        class Type():
-            def exists(self):
-                return True
-        self.type = Type()
-
-
-class FakeTable:
-    def __init__(self):
-        self.entries = []
-        self.exception_insert = False
-        self.exception_upsert = False
-        self.exception_search = False
-        self.exception_remove = False
-
-    def insert(self, entry):
-        if self.exception_insert:
-            raise FedbiomedSecaggError('mocked exception')
-        else:
-            self.entries.append(entry)
-
-    def upsert(self, entry, condition):
-        if self.exception_upsert:
-            raise FedbiomedSecaggError('mocked exception')
-        else:
-            self.entries.append(entry)
-
-
-    def search(self, *args, **kwargs):
-        if self.exception_search:
-            raise FedbiomedSecaggError('mocked exception')
-        else:
-            return self.entries
-
-    def remove(self, *args, **kwargs):
-        if self.exception_remove:
-            raise FedbiomedSecaggError('mocked exception')
-        else:
-            self.entries = []
-            return True
 
 
 class TestBaseSecaggManager(unittest.TestCase):
