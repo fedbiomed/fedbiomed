@@ -3,17 +3,20 @@
 
 """MsgPack serialization utils, wrapped into a namespace class."""
 
+import dataclasses
 from math import ceil
 from typing import Any, Optional
 
 import msgpack
 import numpy as np
 import torch
-from declearn.model.api import Vector
+from declearn.model.api import Vector, VectorSpec
+from declearn.utils import json_pack, json_unpack
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 
 __all__ = [
     "Serializer",
@@ -108,6 +111,8 @@ class Serializer:
             }
         if isinstance(obj, tuple):
             return {"__type__": "tuple", "value": list(obj)}
+        if isinstance(obj, set):
+            return {"__type__": "set", "value": list(obj)}
         if isinstance(obj, np.ndarray):
             spec = [obj.tobytes(), obj.dtype.name, list(obj.shape)]
             return {"__type__": "np.ndarray", "value": spec}
@@ -120,10 +125,14 @@ class Serializer:
             return {"__type__": "torch.Tensor", "value": spec}
         if isinstance(obj, Vector):
             return {"__type__": "Vector", "value": obj.coefs}
-
+        if isinstance(obj, VectorSpec):
+            return {"__type__": "VectorSpec", "value": dataclasses.asdict(obj)}
+        if isinstance(obj, AuxVar):
+            return {"__type__": "AuxVar", "value": json_pack(obj)}
         if isinstance(obj, MetricTypes):
             return {"__type__": "MetricTypes", "value": obj.name}
-
+        if isinstance(obj, EncryptedAuxVar):
+            return {"__type__": "EncryptedAuxVar", "value": obj.to_dict()}
         # Raise on unsupported types.
         raise FedbiomedTypeError(f"Cannot serialize object of type '{type(obj)}'.")
 
@@ -137,6 +146,8 @@ class Serializer:
             return tuple(obj["value"])
         if objtype == "int":
             return int.from_bytes(obj["value"], byteorder="big", signed=True)
+        if objtype == "set":
+            return set(obj["value"])
         if objtype == "np.ndarray":
             data, dtype, shape = obj["value"]
             return np.frombuffer(data, dtype=dtype).reshape(shape).copy()
@@ -149,8 +160,15 @@ class Serializer:
             return torch.from_numpy(array)
         if objtype == "Vector":
             return Vector.build(obj["value"])
+        if objtype == "VectorSpec":
+            return VectorSpec(**obj["value"])
+        if objtype == "AuxVar":
+            return json_unpack(obj["value"])
         if objtype == "MetricTypes":
             return MetricTypes.get_metric_type_by_name(obj["value"])
-
-        logger.warning("Encountered an object that cannot be properly deserialized.")
+        if objtype == "EncryptedAuxVar":
+            return EncryptedAuxVar.from_dict(obj["value"])
+        logger.warning(
+            "Encountered an object that cannot be properly deserialized."
+        )
         return obj

@@ -891,7 +891,7 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
         round: number of rounds already executed for this experiment
         aggregator_args: ??
         aux_var: Optimizer auxiliary variables
-        secagg_arguments: Arguments for secure aggregation
+        optim_aux_var: Optional dict of Optimizer auxiliary variables
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -909,8 +909,8 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     training_plan_class: str
     round: int
     aggregator_args: Dict
-    aux_vars: Optional[list] = None
     secagg_arguments: Optional[Dict] = None
+    optim_aux_var: Optional[Dict] = None
 
 
 @catch_dataclass_exception

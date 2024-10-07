@@ -329,11 +329,11 @@ class TestNode(NodeTestCase):
                 "secagg_clipping_range": None,
             },
             "round": 1,
-            "researcher_id": "researcher_id_1234",
-            "dataset_id": "dataset_id_1234",
-            "training": True,
-            "aggregator_args": {},
-            "aux_vars": ["url_shared_aux_var", "url_bynode_aux_var"],
+            'researcher_id': 'researcher_id_1234',
+            'dataset_id': 'dataset_id_1234',
+            'training': True,
+            'aggregator_args': {},
+            "optim_aux_var": None,
         }
         # we convert this dataset into a string
         msg1_dataset = TrainRequest(**dict_msg_1_dataset)
@@ -349,21 +349,21 @@ class TestNode(NodeTestCase):
 
         # checks
         round_patch.assert_called_once_with(
-            model_kwargs=dict_msg_1_dataset["model_args"],
-            training_kwargs=dict_msg_1_dataset["training_args"],
+            model_kwargs=dict_msg_1_dataset['model_args'],
+            training_kwargs=dict_msg_1_dataset['training_args'],
             training=True,
             dataset=self.database_id,
-            params=dict_msg_1_dataset["params"],
-            experiment_id=dict_msg_1_dataset["experiment_id"],
-            researcher_id=dict_msg_1_dataset["researcher_id"],
+            params=dict_msg_1_dataset['params'],
+            experiment_id=dict_msg_1_dataset['experiment_id'],
+            researcher_id=dict_msg_1_dataset['researcher_id'],
             history_monitor=unittest.mock.ANY,
             aggregator_args=None,
             node_args=None,
-            training_plan=dict_msg_1_dataset["training_plan"],
-            training_plan_class=dict_msg_1_dataset["training_plan_class"],
+            training_plan=dict_msg_1_dataset['training_plan'],
+            training_plan_class=dict_msg_1_dataset['training_plan_class'],
             round_number=1,
             dlp_and_loading_block_metadata=None,
-            aux_vars=dict_msg_1_dataset["aux_vars"],
+            aux_vars=dict_msg_1_dataset['optim_aux_var']
         )
 
     @patch("fedbiomed.node.node.Round", autospec=True)
@@ -387,9 +387,9 @@ class TestNode(NodeTestCase):
             "researcher_id": "researcher_id_1234",
             "secagg_arguments": None,
             "dataset_id": "dataset_id_1234",
-            "aggregator_args": {},
-            "aux_vars": ["single_url_aux_var"],
             "round": 0,
+            'aggregator_args': {},
+            "optim_aux_var": None
         }
 
         #
@@ -406,21 +406,21 @@ class TestNode(NodeTestCase):
 
         # checks
         round_patch.assert_called_once_with(
-            model_kwargs=dict_msg_1_dataset["model_args"],
-            training_kwargs=dict_msg_1_dataset["training_args"],
+            training_plan=dict_msg_1_dataset['training_plan'],
+            training_plan_class=dict_msg_1_dataset['training_plan_class'],
+            model_kwargs=dict_msg_1_dataset['model_args'],
+            training_kwargs=dict_msg_1_dataset['training_args'],
             training=True,
             dataset=self.database_id,
-            params=dict_msg_1_dataset["params"],
-            experiment_id=dict_msg_1_dataset["experiment_id"],
-            researcher_id=dict_msg_1_dataset["researcher_id"],
+            params=dict_msg_1_dataset['params'],
+            experiment_id=dict_msg_1_dataset['experiment_id'],
+            researcher_id=dict_msg_1_dataset['researcher_id'],
             history_monitor=unittest.mock.ANY,
-            aggregator_args=None,
             node_args=None,
-            training_plan=dict_msg_1_dataset["training_plan"],
-            training_plan_class=dict_msg_1_dataset["training_plan_class"],
+            aggregator_args=None,
             round_number=0,
             dlp_and_loading_block_metadata=None,
-            aux_vars=dict_msg_1_dataset["aux_vars"],
+            aux_vars=dict_msg_1_dataset['optim_aux_var']
         )
 
     @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
@@ -459,7 +459,6 @@ class TestNode(NodeTestCase):
             "element": 33,
             "experiment_id": "my_experiment",
             "parties": [],
-            "command": "secagg",
         }
         task_secagg_patch.return_value = None
         self.grpc_send_mock.return_value = None
