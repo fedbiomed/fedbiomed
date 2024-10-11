@@ -115,17 +115,11 @@ def fork_process(
         *args: optional args
         **kwargs: optional kwargs
     """
-    child_pid = os.fork()
-    if child_pid == 0:
-        commandcode = command(*args, **kwargs)
-        if not isinstance(commandcode, int):
-            # return code not supported in that case
-            commandcode = 0
-        os._exit(commandcode)
-    else:
-        returncode = os.waitpid(child_pid, 0)
+    context = multiprocessing.get_context('spawn')
+    p = context.Process(target=command, args=args, kwargs=kwargs)
+    p.run()
 
-    if returncode[1] != 0:
+    if isinstance(p.exitcode, int) and p.exitcode != 0:
         # Other exceptions are caught by pytest
         pytest.exit(f"Error: Forked process failed {command}. Args: {args} {kwargs} "
                     "Please check the outputs.")
