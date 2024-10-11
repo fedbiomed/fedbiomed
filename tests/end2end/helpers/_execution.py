@@ -103,28 +103,6 @@ def kill_process(process):
         print('Parent process has became zombie process after killing child procesess')
 
 
-def fork_process(
-    command: Callable,
-    *args,
-    **kwargs,
-):
-    """Executes forked process
-
-    Args:
-        command: Command to execute in forked process
-        *args: optional args
-        **kwargs: optional kwargs
-    """
-    context = multiprocessing.get_context('spawn')
-    p = context.Process(target=command, args=args, kwargs=kwargs)
-    p.run()
-
-    if isinstance(p.exitcode, int) and p.exitcode != 0:
-        # Other exceptions are caught by pytest
-        pytest.exit(f"Error: Forked process failed {command}. Args: {args} {kwargs} "
-                    "Please check the outputs.")
-
-
 def shell_process(
     command: list,
     activate: str = None,
