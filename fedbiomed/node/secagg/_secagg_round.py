@@ -251,8 +251,10 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
             sn = secagg_arguments.get('secagg_scheme')
 
             if sn is None:
-                raise FedbiomedSecureAggregationError(f"{ErrorNumbers.FB318.value}: Secagg scheme value missing in "
-                                                      "the argument `secagg_arguments`")
+                raise FedbiomedSecureAggregationError(
+                    f"{ErrorNumbers.FB318.value}: Secagg scheme value missing in "
+                    "the argument `secagg_arguments`"
+                )
             try:
                 _scheme = SecureAggregationSchemes(sn)
             except ValueError as e:
