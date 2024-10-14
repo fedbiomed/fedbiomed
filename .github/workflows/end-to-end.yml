@@ -1,3 +1,4 @@
+---
 name: New End-to-End Test
 run-name: fedbiomed-e2e-tests
 permissions: write-all
@@ -9,14 +10,25 @@ on:
     branches:
       - 'develop'
       - 'master'
+      - 'feature/1226-use-poetry-as-package-manager'
 
 jobs:
   e2e-test-auto:
     name: e2e tests
+    defaults:
+      run:
+        shell:  bash -l {0}
+
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22-04, fedora38, macosx-m1]
+        os:
+          - ubuntu-22-04
+          - fedora38
+          - macosx-m1
+        python-version:
+          - '3.10'
+
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -24,22 +36,14 @@ jobs:
         id: e2e-checkout
         uses: actions/checkout@v4
 
-      - name: Clear environment and re-install
-        id: env-reinstall
-        run: |
-          source ~/.bashrc
-          # conda remove -n fedbiomed-researcher --all -y
-          # conda remove -n fedbiomed-node --all -y
-          conda env update -f ./envs/development/conda/fedbiomed-researcher.yaml
-          conda env update -f ./envs/development/conda/fedbiomed-node.yaml
-        shell: bash -l {0}
+      - name: Install Python using Pyenv
+        uses: ./.github/actions/setup-pyenv
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Run end-to-end tests
         id: e2e-tests-with-pytest
         run: |
-          echo "Launching end-to-end tests" # to check from time to time
-          source ~/.bashrc
-          source ./scripts/fedbiomed_environment researcher
-          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed pytest -rfp -s -v tests/end2end/e2e_*.py
+          pyenv global ${{ matrix.python-version }}
+          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed tox -r -m e2e
         shell: bash -l {0}
-
