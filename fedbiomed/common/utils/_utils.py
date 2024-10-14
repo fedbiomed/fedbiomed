@@ -10,7 +10,6 @@ import uuid
 
 from collections.abc import Iterable
 from typing import Callable, Iterator, List, Optional, Union, Any, Tuple
-from IPython.core.magics.code import extract_symbols
 
 import torch
 import numpy as np
@@ -18,6 +17,8 @@ import numpy as np
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.ipython import is_ipython
+
+
 
 
 def read_file(path):
@@ -66,6 +67,11 @@ def get_class_source(cls: Callable) -> str:
     if status:
         file = get_ipython_class_file(cls)
         codes = "".join(inspect.linecache.getlines(file))
+
+        # Import only on IPython interface
+        module = importlib.import_module("IPython.core.magics.code")
+        extract_symbols = module.extract_symbols
+        print(extract_symbols)
         class_code = extract_symbols(codes, cls.__name__)[0][0]
         return class_code
 
