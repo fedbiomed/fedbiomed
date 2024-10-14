@@ -10,7 +10,8 @@ from helpers import (
     clear_researcher_data,
     training_plan_operation,
     create_node,
-    create_researcher
+    create_researcher,
+    get_data_folder
 )
 
 from experiments.training_plans.mnist_model_approval import TrainingPlanApprovalTP
@@ -24,7 +25,8 @@ dataset = {
     "description": "MNIST DATASET",
     "tags": "#MNIST,#dataset",
     "data_type": "default",
-    "path": "./data/"
+    "path": get_data_folder('MNIST-e2e-test')
+
 }
 
 # Set up nodes and start

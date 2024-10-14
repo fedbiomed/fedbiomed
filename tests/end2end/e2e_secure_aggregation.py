@@ -11,7 +11,8 @@ from helpers import (
     clear_experiment_data,
     create_multiple_nodes,
     create_node,
-    create_researcher
+    create_researcher,
+    get_data_folder,
 )
 
 from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
@@ -25,7 +26,7 @@ dataset = {
     "description": "MNIST DATASET",
     "tags": "#MNIST,#dataset",
     "data_type": "default",
-    "path": "./data/"
+    "path": get_data_folder('MNIST-e2e-test')
 }
 
 # Set up nodes and start
