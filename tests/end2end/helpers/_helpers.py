@@ -130,7 +130,6 @@ def execute_python(file: str, activate: str):
 
     return shell_process(
         command=["python", f'{file}'],
-        activate=activate,
         wait=True,
         on_failure=default_on_failure
     )
@@ -140,7 +139,6 @@ def execute_ipython(file: str, activate: str):
 
     return shell_process(
         command=["ipython", "-c", f'"%run {file}"'],
-        activate=activate,
         wait=True,
         on_failure=default_on_failure
     )
@@ -385,10 +383,14 @@ def create_researcher(
         config_name=f"config_researcher_{uuid.uuid4()}.ini",
         config_sections=config_sections,
     )
-
     os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
     from fedbiomed.researcher.config import config
     config.load(name=researcher.name)
+
+    from fedbiomed.researcher.environ import ResearcherEnviron, environ
+    from fedbiomed.researcher.config import ResearcherConfig
+    ResearcherEnviron._objects[ResearcherEnviron]._config = ResearcherConfig()
+    ResearcherEnviron._objects[ResearcherEnviron].set_environment()
 
     return researcher
 

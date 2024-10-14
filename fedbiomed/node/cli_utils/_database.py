@@ -167,8 +167,11 @@ def add_database(
         if not os.path.exists(path):
             logger.critical("provided path does not exists: " + path)
 
-    logger.info(f"PATH VALUE {path}")
-    # Add database
+        path = os.path.abspath(path)
+
+    path = os.path.abspath(path)
+    logger.info(f"Dataset absolute path: {path}")
+
     try:
         dataset_manager.add_database(name=name,
                                      tags=tags,
