@@ -132,12 +132,16 @@ class LOM:
         """
 
         num_nodes = len(node_ids)
-        _max_bit_length = self._values_bit - math.log2(num_nodes)
-        # FIXME: is a ceiling missing in this equation (ceil(math.log2(num_nodes)))
-        if any(val.bit_length() > _max_bit_length for val in x_u_tau):
+        _max_param_bits = max(val.bit_length() for val in x_u_tau)
+        _node_bits = math.ceil(math.log2(num_nodes))
+
+        if _max_param_bits > self._values_bit - _node_bits:
+            _max_nodes = 2**(self._values_bit - _max_param_bits) - 1
+            _missing_bits = _max_param_bits + _node_bits - self._values_bit
             raise FedbiomedSecaggError(
-                f"{ErrorNumbers.FB417.value}: Bit length of one or more values of input vector has more bits "
-                f"that {_max_bit_length}. This could lead to computation overflow"
+                f"{ErrorNumbers.FB417.value}: Computation overflow using LOM secagg "
+                f"with current settings. Cannot use more than {_max_nodes} nodes or need to "
+                f"reduce sample number on this node to use {_missing_bits} bit(s) less."
             )
 
         x_u_tau = np.array(x_u_tau, dtype=self._vector_dtype)
@@ -170,12 +174,12 @@ class LOM:
 
         return encrypted_params.tolist()
 
-    def aggregate(self, list_y_u_tau: List[int]) -> List[int]:
+    def aggregate(self, list_y_u_tau: List[List[int]]) -> List[int]:
         """
         Aggregates multiple vectors into a single vector.
 
         Args:
-            list_y_u_tau: A dictionary of vectors from different nodes.
+            list_y_u_tau: A list of vectors from different nodes.
 
         Returns:
             The aggregated vector.

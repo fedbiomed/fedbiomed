@@ -101,8 +101,8 @@ def quantize(
 
     _check_clipping_range(weights, clipping_range)
 
-    # CAVEAT: ensure to be converting from `float` to `uint64`` (no intermediate `int64`)
-    # Process ensures an to compute an `int`` in the range [0, target_range -1]
+    # CAVEAT: ensure to be converting from `float` to `uint64` (no intermediate `int64`)
+    # Process ensures to compute an `int`` in the range [0, target_range -1]
     # This enables to use at most 2**64 as target_range (max value of `uint` - 1)
     f = np.vectorize(
         lambda x: min(
