@@ -136,7 +136,7 @@ class LOM:
         _node_bits = math.ceil(math.log2(num_nodes))
 
         if _max_param_bits > self._values_bit - _node_bits:
-            _max_nodes = 2**(self._values_bit - _max_param_bits) - 1
+            _max_nodes = 2**(self._values_bit - _max_param_bits)
             _missing_bits = _max_param_bits + _node_bits - self._values_bit
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB417.value}: Computation overflow using LOM secagg "
