@@ -186,7 +186,7 @@ class LOM:
         """
         list_y_u_tau = np.array(list_y_u_tau, dtype=self._vector_dtype)
         decrypted_vector = np.sum(list_y_u_tau, axis=0)
-        decrypted_vector = decrypted_vector.astype(np.int32)
+        decrypted_vector = decrypted_vector.astype(np.uint32)
         decrypted_vector = decrypted_vector.tolist()
 
         return decrypted_vector
