@@ -16,6 +16,8 @@ dependencies:
   # https://jupyter-notebook.readthedocs.io/en/latest/migrate_to_notebook7.html
   - notebook ~=6.5.0
   - jupyter ~=1.0.0
+  # for nbconvert and token handling to jupyter
+  - jupyter_contrib_nbextensions ~=0.7.0
   - ipython ~=8.13.2
   # tests
   - pytest ~=7.2.0
@@ -59,8 +61,6 @@ dependencies:
       - pandas ~=2.0.1
       - tensorboard ~=2.13.0
       - python-minifier ~=2.5.0
-      # for nbconvert
-      - jupyter-contrib-nbextensions >=0.7.0,<0.8.0
       - pathvalidate ~=3.0.0
       # temporary: install matplotlib before it is pulled by flamby
       # matplotlib >= 3.8.4 introduce issue 1176 with current packages version
