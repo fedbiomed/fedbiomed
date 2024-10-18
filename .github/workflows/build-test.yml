@@ -1,3 +1,5 @@
+---
+
 name: Fed-BioMed Build test
 run-name: Fed-BioMed Build test
 on:
@@ -12,14 +14,13 @@ on:
     branches:
       - master
       - develop
-      - 'feature/479-bug-in-integration-test' # \todo To remove when merging.
+      - 'feature/479-bug-in-integration-test'  # todo To remove when merging.
 
 jobs:
 
   build-doc:
     name: Test documentation build
     runs-on: ubuntu-latest
-    # if: ${{ github.event_name == 'push' || github.event.pull_request.opened == true }}
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to repository
@@ -38,30 +39,40 @@ jobs:
               - 'envs/build/**'
               - 'mkdocs.yml'
               - 'README.md'
-    
+
       - name: Setup python
-        if: steps.filter.outputs.docs == 'true' 
+        if: steps.filter.outputs.docs == 'true'
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11' 
+          python-version: '3.11'
 
       - name: Install Dependencies
-        if: steps.filter.outputs.docs == 'true' 
+        if: steps.filter.outputs.docs == 'true'
         run: pip install -r envs/build/docs-requirements.txt
 
       - name: Build documentation
-        if: steps.filter.outputs.docs == 'true' 
-        # Version number for testing purposes should respect to standart which is vMajor.Minor.Patch 
-        run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-main --build-current-as v1.0.1 
+        if: steps.filter.outputs.docs == 'true'
+        # Version number for testing purposes should
+        # respect to standart which is vMajor.Minor.Patch
+        run: |
+          scripts/docs/fedbiomed_doc.sh --build-dir build-repo \
+            --build-main --build-current-as v1.0.1
 
   unit-test:
-    name: unit tests
+    name: Unit test with ${{ matrix.env }} on ${{ matrix.os }}
+    defaults:
+      run:
+        shell:  bash -l {0}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22-04, fedora38, macosx-m1]
+        os:
+          - ubuntu-22-04
+          - fedora38
+          - macosx-m1
+        python-version:
+          - 3.10
     runs-on: ${{ matrix.os }}
-      
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to commit
@@ -80,13 +91,26 @@ jobs:
               - 'envs/build/**'
               - 'modules/**'
               - '.github/**'
+              - 'pyproject.toml'
+              - 'poetry.lock'
 
-      - name: Run unit tests
-        id: unit-test
-        uses: ./.github/actions/unit-tests
-        if: steps.filter.outputs.module == 'true'
+      - name: Install Python ${{ matrix.python-version }}
+        uses: gabrielfalcao/pyenv-action@v18
         with:
-          test-dir: tests
+          default: "${{ matrix.python-version }}"
+          command: pip install -U pip  # upgrade pip after installing python
+
+      - name: Install dependencies
+        run: |
+          which python
+          pyenv --help
+          pyenv local ${{ matrix.python-version }}
+          python -m pip install --upgrade pip
+          python -m pip install tox
+
+      - name: Run tests
+        if: steps.filter.outputs.module == 'true'
+        run: tox -r
 
       - name: Upload coverage reports to Codecov
         if: steps.filter.outputs.module == 'true' && matrix.os != 'macosx-m1'
@@ -94,19 +118,18 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: tests/coverage.xml
-          flags: unittests-${{ matrix.os }} # optional
-          name: codecov-umbrella # optional
-          fail_ci_if_error: true # optional (default = false)
-          verbose: true # optional (default = false)
-      
+          flags: unittests-${{ matrix.os }}  # optional
+          name: codecov-umbrella  # optional
+          fail_ci_if_error: true  # optional (default = false)
+          verbose: true  # optional (default = false)
+
       - name: Notify upload impossible on m1
         if: steps.filter.outputs.module == 'true' && matrix.os == 'macosx-m1'
         run: |
-          echo "No codecov-action available for macos-m1" # to check from time to time
-          
-          
-  mnist-test: 
-    name: Test MNIST Notebook 
+          echo "No codecov-action available for macos-m1"
+
+  mnist-test:
+    name: Test MNIST Notebook
     strategy:
       fail-fast: false
       matrix:
@@ -138,5 +161,3 @@ jobs:
           ./scripts/configure_conda node
           ./scripts/run_test_mnist ../../../..
         shell: bash -l {0}
-
-

@@ -67,7 +67,6 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 pytestdebug.log
-
 # Translations
 *.mo
 
@@ -390,7 +389,6 @@ gui/config_gui.ini
 *queue*/
 db.json
 queue_manager/
-*.ini
 !config_gui.ini
 db_client_*.json
 queue_manager_client_*
@@ -409,7 +407,7 @@ trained_model
 .scannerwork
 
 
-# Docs 
+# Docs
 build
 public
 build-tmp

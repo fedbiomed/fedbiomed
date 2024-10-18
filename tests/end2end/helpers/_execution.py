@@ -105,7 +105,6 @@ def kill_process(process):
 
 def shell_process(
     command: list,
-    activate: str = None,
     wait: bool = False,
     pipe: bool = True,
     on_failure: Callable | None = None
@@ -115,17 +114,10 @@ def shell_process(
     Args:
         command: List of commands (do not add fedbiomed run it is
             automatically added)
-        activate: Name of the component that the conda environment will be activated
             before executing the command
         wait: If true function will block until the command is completed. Otherwise,
             it will return process object that is running in the background.
     """
-
-    if activate:
-        if not activate in ["node", "researcher"]:
-            ValueError(f"Please select 'node' or 'researcher' not '{activate}'")
-
-        command[:0] = ["source", FEDBIOMED_ENVIRONMENT, activate, ";"]
 
     pipe_ = True
 
@@ -162,7 +154,7 @@ def fedbiomed_run(
         command: List of command
         wait: Wait until command is completed (blocking or non-blocking option)
     """
-    command.insert(0, FEDBIOMED_RUN)
+    command.insert(0, "fedbiomed")
     return shell_process(command=command, wait=wait, pipe=pipe, on_failure=on_failure)
 
 
