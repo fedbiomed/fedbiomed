@@ -21,10 +21,7 @@ If the necessary modules are not installed, you may encounter an exit error on m
 macOS 14 (1407) or later required, have instead 14 (1406)!
 ```
 
-If this occurs, you can install `python-itk` by running:
-
-- On macOS: `brew install python-itk`
-- On Linux: `sudo apt-get install tk-dev`
+If this occurs, you can install `python-itk` by running `brew install python-itk`
 
 After installing, reinstall the Python version using `pyenv` to ensure the correct setup.
 
@@ -34,4 +31,10 @@ This issue may also occur if you're using a `conda` virtual environment. To ensu
 conda install -c conda-forge itk
 ```
 ---
+
+## Tkinter error on Linux
+
+Similar to macOS, on Linux you may encounter errors due to the lack of the tkinter module installed on your local machine. On Linux systems, please run sudo apt-get install python3-tk before creating a pyenv for a specific Python version, or before using any other virtual environment tool.
+
+On Fedora, please use sudo dnf install tk-devel.
 
