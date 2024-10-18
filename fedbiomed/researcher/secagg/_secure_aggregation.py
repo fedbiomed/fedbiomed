@@ -150,9 +150,7 @@ class _SecureAggregation(ABC):
                 f"but got {type(active)} "
             )
 
-        if clipping_range is not None and (
-            not isinstance(clipping_range, int) or isinstance(clipping_range, bool)
-        ):
+        if clipping_range is not None and not isinstance(clipping_range, int):
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Clipping range should be None or an integer, "
                 f"but got not {type(clipping_range)}"

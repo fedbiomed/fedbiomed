@@ -1,5 +1,6 @@
 import time
 import pytest
+import copy
 
 from helpers import (
     add_dataset_to_node,
@@ -147,6 +148,33 @@ def extra_nodes_for_lom(port):
         yield
 
         kill_subprocesses(node_processes)
+
+@pytest.fixture
+def extra_nodes_for_lom_8_nodes(port):
+
+    with create_multiple_nodes(
+        port = port,
+        num_nodes = 6,
+        config_sections = {
+            'security': {'secure_aggregation': 'True'},
+            'researcher': {'port': port}
+        }
+    ) as nodes:
+
+        node_1, node_2, node_3, node_4, node_5, node_6 = nodes
+
+        for node in nodes:
+             add_dataset_to_node(node, dataset)
+
+        # start nodes and give some time to start
+        node_processes, _ = start_nodes([node_1, node_2, node_3, node_4, node_5, node_6])
+        time.sleep(15)
+
+
+        yield
+
+        kill_subprocesses(node_processes)
+
 
 #############################################
 ### Start writing tests
@@ -312,3 +340,27 @@ def test_06_secagg_lom_pytorch_breakpoint(extra_nodes_for_lom):
 
     # Clear
     clear_experiment_data(loaded_exp)
+
+
+def test_07_secagg_pytorch_lom_8_nodes(extra_nodes_for_lom_8_nodes):
+    """Secagg using LOM with 8 nodes, which raised some bugs regarding
+    failure tests and values conversion
+    """
+
+    training_args_8 = copy.deepcopy(training_args)
+    training_args_8['dry_run'] = True
+
+    exp = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=MyTrainingPlan,
+        training_args=training_args_8,
+        round_limit=1,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+        secagg=SecureAggregation(scheme=SecAggSchemes.LOM)
+    )
+    exp.run()
+
+    # Cleaning!
+    clear_experiment_data(exp)
