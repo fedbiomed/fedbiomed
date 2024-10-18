@@ -3,17 +3,29 @@
 
 """Unit tests for SecAgg-related tools for optimizer auxiliary variables."""
 
+import copy
 import dataclasses
 import unittest
 import secrets
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
-from unittest.mock import MagicMock
-
+from unittest.mock import MagicMock, patch
+#############################################################
+# Import NodeTestCase before importing FedBioMed Module
+from fedbiomed.common.constants import SecureAggregationSchemes
+from fedbiomed.common.models import TorchModel
+from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
+from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
+from fedbiomed.common.secagg._secagg_crypter import SecaggLomCrypter
+from fedbiomed.researcher.secagg._secure_aggregation import SecureAggregation
+from testsupport.base_case import NodeTestCase
+#############################################################
 import declearn
 import declearn.model.torch
+from fedbiomed.node.secagg._secagg_round import SecaggRound
 import numpy as np
-import torch
 
+import torch
+import torch.nn as nn
 from fedbiomed.common.optimizers import (
     AuxVar,
     EncryptedAuxVar,
@@ -24,6 +36,7 @@ from fedbiomed.common.optimizers import (
 from fedbiomed.common.optimizers.declearn import (
     ScaffoldAuxVar,
     ScaffoldClientModule,
+    ScaffoldServerModule
 )
 from fedbiomed.common.secagg import SecaggCrypter
 from fedbiomed.common.serializer import Serializer
@@ -332,6 +345,7 @@ class TestAuxVarSecAgg(unittest.TestCase):
         # Flatten, encrypt and wrap up auxiliary variables.
         flat_a, *specs_a = flatten_auxvar_for_secagg(aux_a)
         flat_b, *specs_b = flatten_auxvar_for_secagg(aux_b)
+        print("TEST", flat_a, encrypt(flat_a, skey_a))
         enc_a = EncryptedAuxVar([encrypt(flat_a, skey_a)], *specs_a)
         enc_b = EncryptedAuxVar([encrypt(flat_b, skey_b)], *specs_b)
         n_params = sum(spec[1] for mod in enc_a.enc_specs for spec in mod)
@@ -378,3 +392,288 @@ class TestAuxVarSecAgg(unittest.TestCase):
         for key, val_exp in exp_scaffold.delta.coefs.items():
             val_res = res_scaffold.delta.coefs[key]
             assert np.allclose(val_exp.cpu().numpy(), val_res.cpu().numpy(), atol=1e-2)
+
+    def test_secagg_auxvar_jls_xx(self):
+        data = torch.Tensor([[1, 1, 1 ,1],
+                             [1, 0, 0, 1], 
+                             [1, 0, 0, 0],
+                             [0, 0, 0, 0],
+                             [1, 0, 0, 1]])
+        targets = torch.Tensor([[1, 1], [1, 0], [1,1], [0,0], [0,1]])
+        loss_fct = torch.nn.MSELoss()
+
+
+        self._torch_model = TorchModel(nn.Linear(4,2))
+        lr = .1
+        optim = DeclearnOptimizer(self._torch_model, 
+                                  FedOptimizer(lr=lr, modules=[ScaffoldClientModule()]))
+        optim.init_training()
+        optim.zero_grad()
+
+        out = optim._model.model.forward(data)
+        loss = loss_fct(out, targets)
+        loss.backward()
+        optim.step()
+
+        aux_var = optim.get_aux()
+        flat_a, enc_specs_a, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(aux_var)
+        flat_w = optim._model.flatten()
+        w = optim._model.get_weights()
+        researcher_optim = DeclearnOptimizer(copy.deepcopy(self._torch_model), 
+                                  FedOptimizer(lr=lr, modules=[ScaffoldServerModule()]))
+
+        for p in researcher_optim._model.model.parameters():
+            p.data.fill_(0)
+        #result = self.perform_secure_aggregation(copy.deepcopy(), copy.deepcopy(aux_var))
+
+        # encrypt material
+
+        biprime = int.from_bytes(  # 1024-bits biprime number
+            b'\xe2+!\x9a\xdc\xc3.\xcaY\x1b\xd6\xfdH\xfc1\xaeG6\xc0O\xa5\x9a'
+            b'\x8bi)i \xac=\x88\xb5\xfdo\xac\xadS\x80\xb3xL\xa6\xc7\xca]\x17'
+            b'\xb1\x16\rB\x8f"\xb1*\x12.J`\xc8AW\x92\xd0\t\x14*fwx"o\xff\xca'
+            b'\xec\x8e\x86G\x7f\x9c\xdf?\x00}&\xa8b\xcd\n!\xa9\x1f\xc0\x99{'
+            b'\x91h"\xe6,j\x87\xf6\xa6\xee0\xc5_\xdbi\x93\xea\x80qJ\x12\xbc'
+            b'\xd7,AE\xb5\xdc\xf1\xf5\x962\xcdms',
+            byteorder="big",
+        )
+        skey_a = secrets.randbits(2040)
+
+        encrypted_aux_var = SecaggCrypter().encrypt(
+                params=flat_a,
+                key=skey_a,
+                num_nodes=2,
+                current_round=1,
+                biprime=biprime,
+                clipping_range=3,
+            )
+
+        encrypted_model_weights = SecaggCrypter().encrypt(
+                params=flat_w,
+                key=skey_a,
+                num_nodes=2,
+                current_round=1,
+                biprime=biprime,
+                clipping_range=3,
+            )
+        
+        enc_a = EncryptedAuxVar([encrypted_aux_var], enc_specs_a, cleartext_a, clear_cls_a)
+
+        enc_aux_var = enc_a + enc_a
+        n_params = sum(spec[1] for mod in enc_a.enc_specs for spec in mod)
+        # decrypt
+
+        aux_var_decrypted = SecaggCrypter().aggregate(
+                params=enc_aux_var.encrypted,
+                key=-(skey_a + skey_a),
+                total_sample_size=2,
+                num_nodes=2,
+                current_round=1,
+                biprime=biprime,
+                clipping_range=3,
+                num_expected_params=n_params,
+            )
+        
+        aux_var_decrypted = unflatten_auxvar_after_secagg(aux_var_decrypted,
+                                                          enc_specs_a*2, 
+                                                          cleartext_a*2,
+                                                          clear_cls_a*2)
+        aggregate_encrypted_model_w = [encrypted_model_weights] *2  # concatenate encrypted model weights
+
+        deciphered_model_weights = SecaggCrypter().aggregate(
+            params=aggregate_encrypted_model_w,
+             key=-(skey_a + skey_a),
+                total_sample_size=2,
+                num_nodes=2,
+                current_round=1,
+                biprime=biprime,
+                clipping_range=3,
+                num_expected_params=n_params, # works because size of aux_var=size of model
+        )
+
+        researcher_optim._model.set_weights(researcher_optim._model.unflatten(deciphered_model_weights))
+        researcher_optim.set_aux(aux_var_decrypted)
+        print(researcher_optim._model.model.state_dict())
+        print(aux_var_decrypted)
+        print(flat_a)
+
+
+# idea: test encrypted value if array is full of zeros: check how works encryption in this case
+class TestAuxVarSecAgg2(NodeTestCase):
+    @patch('fedbiomed.node.secagg._secagg_round.DHManager')
+    def test_secagg_xx_scaffold_and_weights_lom_encryption(self, dhmanager_patch):
+
+        data = torch.Tensor([[1, 1, 1 ,1],
+                             [1, 0, 0, 1], 
+                             [1, 0, 0, 0],
+                             [0, 0, 0, 0],
+                             [1, 0, 0, 1]])
+        targets = torch.Tensor([[1, 1], [1, 0], [1,1], [0,0], [0,1]])
+        loss_fct = torch.nn.MSELoss()
+
+
+        self._torch_model = TorchModel(nn.Linear(4,2))
+        lr = .1
+        optim = DeclearnOptimizer(self._torch_model, 
+                                  FedOptimizer(lr=lr, modules=[ScaffoldClientModule()]))
+        optim.init_training()
+        optim.zero_grad()
+
+        out = optim._model.model.forward(data)
+        loss = loss_fct(out, targets)
+        loss.backward()
+        optim.step()
+
+        aux_var = optim.get_aux()
+        print("aux var", aux_var)
+
+        flat_a, enc_specs_a, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(aux_var)
+        #flat_b, enc_specs_b, cleartext_b, clear_cls_b = flatten_auxvar_for_secagg(aux_var)
+
+        party_a = cleartext_a[0]['clients'].pop()
+        #party_b = cleartext_b[0]['clients'].pop()
+        self.env._values["ID"] = party_a
+        # simulate correct encryption on Node side (model_weights+ )
+        self.env._values["SECURE_AGGREGATION"] = True
+        exp_id = 'experiment_id_1234'
+        c_round = 1
+        sample_size = len(targets)
+
+        secagg_args = {'secagg_scheme': 2,
+                       #'secagg_random': .123,
+                       'secagg_clipping_range':3,
+                       'parties': [party_a, party_a],
+                       'secagg_dh_id': 'secagg_id_xxxx'}
+        
+        dhmanager_patch.get.return_value = {'parties': secagg_args['parties'],
+                                            'context': {party_a: b"\xba\xb2\xf2'\xa3\xa7\xb6\xee\x15uM\xf6j\x0f\xa9\xf8B}/ \x81]3\xa9p\x8b\xee\x9e:\xa8i("}
+        }
+        lom_secagg_party_a = SecaggRound(secagg_args, experiment_id=exp_id)
+
+        # process with party_a
+        ## encrypt only aux var for party a
+        encrypted_aux_var_a = lom_secagg_party_a.scheme.encrypt(flat_a, c_round, weight=sample_size)
+        encrypted_aux_var_a = EncryptedAuxVar([encrypted_aux_var_a], enc_specs_a, cleartext_a, clear_cls_a)
+
+        ## encrypt only  model weights
+        flat_w = optim._model.flatten()
+        encrypted_model_weights_a = lom_secagg_party_a.scheme.encrypt(flat_w, c_round, weight=sample_size)
+
+        # process with party_b
+        dhmanager_patch.get.return_value = {'parties': secagg_args['parties'],
+                                            'context': {party_a: b"\xba\xb2\xf2'\xa3\xa7\xb6\xee\x15uM\xf6j\x0f\xa9\xf8B}/ \x81]3\xa9p\x8b\xee\x9e:\xa8i("}
+        }
+        lom_secagg_party_b = SecaggRound(secagg_args, experiment_id=exp_id)
+        ## encrypt only aux var for party b
+        encrypted_aux_var_b = lom_secagg_party_b.scheme.encrypt(flat_a, c_round, weight=sample_size)
+        encrypted_aux_var_b = EncryptedAuxVar([encrypted_aux_var_b], enc_specs_a, cleartext_a, clear_cls_a)
+        ## encrypt model weights
+        encrypted_model_weights_b = lom_secagg_party_b.scheme.encrypt(flat_w, c_round, weight=sample_size)
+        print("results", encrypted_aux_var_a)
+
+        # decrypt
+        lom_secagg_agg = SecaggLomCrypter()
+        #encrypted_model_weights = [enc_params*2 for enc_params in encrypted_model_weights]
+        #print(encrypted_model_weights)
+        n_params = len(optim._model.flatten())
+        
+
+        decrypted_weights = lom_secagg_agg.aggregate([encrypted_model_weights_a, encrypted_model_weights_b],
+                                                      total_sample_size=n_params)
+        
+
+        decrypted_aux_var = lom_secagg_agg.aggregate([encrypted_aux_var_a.encrypted[0], encrypted_aux_var_b.encrypted[0]],
+                                                     total_sample_size=n_params)
+        print(decrypted_weights)
+        print(flat_w)
+
+        print(decrypted_aux_var)
+        print(flat_a, )
+
+        researcher_optim = DeclearnOptimizer(copy.deepcopy(self._torch_model), 
+                                  FedOptimizer(lr=lr, modules=[ScaffoldServerModule()]))
+
+        for p in researcher_optim._model.model.parameters():
+            p.data.fill_(0)
+
+        researcher_optim._model.set_weights(researcher_optim._model.unflatten(decrypted_weights))
+        retrieved_aux_var = unflatten_auxvar_after_secagg(decrypted_aux_var,
+                                                          enc_specs_a*2, 
+                                                          cleartext_a*2,
+                                                          clear_cls_a*2
+                                                          )
+        researcher_optim.set_aux(retrieved_aux_var)
+        for k, n in optim._model.model.state_dict().items():
+            print(k)
+        for (k_n, n_layer), (k_r, r_layer) in zip(optim._model.model.state_dict().items(),
+                                                   researcher_optim._model.model.state_dict().items()):
+            for n_val, r_val in zip(n_layer, r_layer):
+                self.assertTrue(torch.any(torch.isclose(n_val, r_val, atol=1e-3)))
+
+
+    @patch('fedbiomed.researcher.secagg._secagg_context.Requests')
+    @patch('fedbiomed.researcher.secagg._secagg_context.SecaggDHContext')
+    @patch('fedbiomed.node.secagg._secagg_round.DHManager')
+    def test_secagg_xx_lom_aux_var(self, dhmanager_patch,  server_start_patch,request_patch):
+        #dhmanager_patch.get.return_value = {'parties';[]}
+
+        # TODO: test with 2 clients, and with more clients
+
+        # modifying environment
+        self.env._values["SECURE_AGGREGATION"] = True
+
+        aux_a = generate_scaffold_aux_var()
+        aux_b = generate_scaffold_aux_var()
+
+        expect = {key: val_a + aux_b[key] for key, val_a in aux_a.items()}
+        # Flatten, encrypt and wrap up auxiliary variables.
+        flat_a, enc_specs_a, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(aux_a)
+        flat_b, enc_specs_b, cleartext_b, clear_cls_b = flatten_auxvar_for_secagg(aux_b)
+        print(flat_a, "/n", enc_specs_a, "/n",cleartext_a, "/n", clear_cls_a, "/n" ,expect)
+        
+        #  `sample_size`=1
+        print()
+        print(cleartext_a[0])
+        c_round = 1
+        sample_size = 1
+        exp_id = 'experiment_id_1234'
+        party_a, party_b = cleartext_a[0]['clients'].pop(), cleartext_b[0]['clients'].pop()
+        self.env._values["ID"] = party_a
+        secagg_args = {'secagg_scheme': 2,
+                       #'secagg_random': .123,
+                       'secagg_clipping_range':None,
+                       'parties': [party_a, party_b],
+                       'secagg_dh_id': 'secagg_id_xxxx'}
+        dhmanager_patch.get.return_value = {'parties': secagg_args['parties'],
+                                            'context': {party_b: b"\xba\xb2\xf2'\xa3\xa7\xb6\xee\x15uM\xf6j\x0f\xa9\xf8B}/ \x81]3\xa9p\x8b\xee\x9e:\xa8i("}
+        }
+        lom_secagg = SecaggRound(secagg_args, experiment_id=exp_id)
+
+        encrypted_a = lom_secagg.scheme.encrypt(flat_a, current_round=c_round, weight=sample_size)
+
+        dhmanager_patch.get.return_value = {'parties': secagg_args['parties'],
+                                            'context': {party_a: b"\xba\xb2\xf2'\xa3\xa7\xb6\xee\x15uM\xf6j\x0f\xa9\xf8B}/ \x81]3\xa9p\x8b\xee\x9e:\xa8i("}
+        }
+        encrypted_b = lom_secagg.scheme.encrypt(flat_b, current_round=c_round, weight=sample_size)
+
+        encrypted_a = EncryptedAuxVar(encrypted_a, enc_specs_a, cleartext_a, clear_cls_a)
+        encrypted_b = EncryptedAuxVar(encrypted_b, enc_specs_b, cleartext_b, clear_cls_b)
+        print(flat_a, encrypted_a)
+
+        print("expecting", enc_specs_a)
+        # mimicks `_preaggregate_encrypted_optim_auxvar` method
+        
+        # aggregation
+        secagg = SecureAggregation(scheme=SecureAggregationSchemes.LOM)
+
+        self.assertEqual(encrypted_a.get_num_expected_params(), encrypted_b.get_num_expected_params())
+        n_samples = sum([encrypted_a.get_num_expected_params(), encrypted_b.get_num_expected_params()])
+
+        encrypted_model_weights = {p: enc for p, enc in zip([party_a, party_b], (encrypted_a, encrypted_b,))}
+        
+        secagg.setup(parties=[party_a, party_b], experiment_id=exp_id)
+        
+        flatten = secagg.aggregate(round=c_round, 
+                                   total_sample_size=n_samples,
+                                   model_params=encrypted_model_weights,
+                                   num_expected_params= encrypted_a.get_num_expected_params())
