@@ -52,7 +52,7 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
             JoyeLibertSecureAggregation(clipping_range="Not an integer")
 
         with self.assertRaises(FedbiomedSecureAggregationError):
-            JoyeLibertSecureAggregation(clipping_range=True)
+            JoyeLibertSecureAggregation(clipping_range=[True])
 
     def test_jl_secure_aggregation_02_activate(self):
         """Tests secure aggregation activation"""
