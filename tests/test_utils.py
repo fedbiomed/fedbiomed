@@ -5,8 +5,9 @@ import fedbiomed.common.utils as fed_utils
 import fedbiomed.common.utils
 
 from fedbiomed.common.exceptions import FedbiomedError
-from unittest.mock import patch
 
+from unittest.mock import patch
+from unittest.mock import MagicMock
 
 
 # Dummy Class for testing its source --------------------
@@ -26,10 +27,14 @@ class TestUtils(unittest.TestCase):
     @patch('fedbiomed.common.utils._utils.is_ipython')
     @patch('fedbiomed.common.utils.get_ipython_class_file')
     @patch('inspect.linecache.getlines')
-    def test_utils_01_get_class_source(self,
-                                       mock_get_lines,
-                                       mock_get_ipython_class_file,
-                                       mock_is_ipython):
+    @patch('fedbiomed.common.utils._utils.importlib')
+    def test_utils_01_get_class_source(
+        self,
+        mock_importlib,
+        mock_get_lines,
+        mock_get_ipython_class_file,
+        mock_is_ipython
+    ):
         """
         Tests getting class source
         """
@@ -44,6 +49,8 @@ class TestUtils(unittest.TestCase):
         mock_get_lines.return_value = class_source
         mock_get_ipython_class_file.return_value = None
         mock_is_ipython.return_value = True
+        mock_importlib.import_module.return_value.\
+            extract_symbols.return_value = [[expected_cls_source]]
 
         codes = fed_utils.get_class_source(TestClass)
         self.assertEqual(codes, expected_cls_source)
@@ -64,6 +71,7 @@ class TestUtils(unittest.TestCase):
         # Test normal case
         result = fed_utils.get_ipython_class_file(TestClass)
         self.assertTrue(os.path.isfile(result), 'The result of class_file is not a file')
+
 
         with patch.object(fedbiomed.common.utils._utils, 'hasattr') as mock_hasattr:
             mock_hasattr.return_value = False
