@@ -32,10 +32,6 @@ RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER || :
 
 # Install miniconda
-ENV CONDA_VERBOSITY=3
-ENV CONDA_DEBUG=1
-ENV PYTHONVERBOSE=1
-
 RUN wget -q --directory-prefix=$HOME https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
         bash $HOME/Miniconda3-latest-Linux-x86_64.sh -b -p /miniconda && \
         rm -f $HOME/Miniconda3-latest-Linux-x86_64.sh
