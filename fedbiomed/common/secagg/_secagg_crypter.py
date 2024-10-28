@@ -307,11 +307,14 @@ class SecaggLomCrypter(SecaggCrypter):
         """LOM Secure aggregation to encrypt and aggregate
 
         Args:
-            nonce: `nonce` to use in encryption
+            nonce: `nonce` to use in encryption. Needs to be the same between the parties of
+                the LOM computation. Can be disclosed (public). Must not be re-used.
         """
         if nonce:
-            random.seed(nonce)
-            nonce = random.getrandbits(128).to_bytes(16, 'big')
+            # The security relies on the non-reuse of the nonce.
+            # We also need to ensure 128 bits
+            # Padding is enough, using `random()` is misleading (no additional security)
+            nonce = str.encode(nonce).zfill(16)[:16]
 
         self._lom = LOM(nonce)
 

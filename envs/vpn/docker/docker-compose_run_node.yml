@@ -1,5 +1,3 @@
-version: "3.7"
-
 #
 # Minimal configuration for only running a node component from a saved image
 #

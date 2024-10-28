@@ -103,34 +103,6 @@ def kill_process(process):
         print('Parent process has became zombie process after killing child procesess')
 
 
-def fork_process(
-    command: Callable,
-    *args,
-    **kwargs,
-):
-    """Executes forked process
-
-    Args:
-        command: Command to execute in forked process
-        *args: optional args
-        **kwargs: optional kwargs
-    """
-    child_pid = os.fork()
-    if child_pid == 0:
-        commandcode = command(*args, **kwargs)
-        if not isinstance(commandcode, int):
-            # return code not supported in that case
-            commandcode = 0
-        os._exit(commandcode)
-    else:
-        returncode = os.waitpid(child_pid, 0)
-
-    if returncode[1] != 0:
-        # Other exceptions are caught by pytest
-        pytest.exit(f"Error: Forked process failed {command}. Args: {args} {kwargs} "
-                    "Please check the outputs.")
-
-
 def shell_process(
     command: list,
     activate: str = None,

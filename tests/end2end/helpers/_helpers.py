@@ -18,19 +18,16 @@ import functools
 from contextlib import contextmanager
 from typing import Dict, Any, Tuple, Callable, List
 
-import pytest
-
 from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME, ComponentType
 from fedbiomed.common.config import Config
 from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR
 
 from ._execution import (
-    fork_process,
     shell_process,
     fedbiomed_run,
     execute_in_paralel,
 )
-from .constants import CONFIG_PREFIX, FEDBIOMED_SCRIPTS, End2EndError
+from .constants import CONFIG_PREFIX, End2EndError
 
 
 
@@ -357,10 +354,7 @@ def create_component(
     if _SecaggTableSingleton in _SecaggTableSingleton._objects:
         del _SecaggTableSingleton._objects[_SecaggTableSingleton]
 
-    # For now, executing in another process is not mandatory
-    # This is provision for future to prevent in config generation event
-    # (eg: creating a singleton object) to propagate to this process
-    fork_process(config.generate)
+    config.generate()
 
     # need to update configuration in parent process
     config.read()
