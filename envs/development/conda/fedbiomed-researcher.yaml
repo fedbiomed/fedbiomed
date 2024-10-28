@@ -68,7 +68,7 @@ dependencies:
       # FLamby
       - git+https://github.com/owkin/FLamby@main
       # declearn
-      - declearn[torch1] ~=2.5.0
+      - declearn[torch1] ~=2.6.0
       - gmpy2 >=2.1,< 2.2
       # grpc
       - grpcio ~=1.60.0

@@ -821,6 +821,7 @@ class Experiment(TrainingPlanWorkflow):
             )
 
         # Process optimizer auxiliary variables if any.
+        
         if aggregated_auxvar:
             self._agg_optimizer.set_aux(aggregated_auxvar)
 
@@ -945,11 +946,11 @@ class Experiment(TrainingPlanWorkflow):
                 {node: optim_auxvar[node] for node in model_params}
             )
             # Concatenate model parameters and optimizer auxiliary variables.
-            encrypted = {}
-            for idx, node in enumerate(model_params):
-                encrypted[node] = (
-                    model_params[node] + encrypted_auxvar.encrypted[idx]
-                )
+            # encrypted = {}
+            # for idx, node in enumerate(model_params):
+            #     encrypted[node] = (
+            #         model_params[node] + encrypted_auxvar.encrypted[idx]
+            #     )
             n_aux_var = encrypted_auxvar.get_num_expected_params()
         # Perform secure aggregation of all encrypted parameters.
         exclude_buffers = not self.training_args()['share_persistent_buffers']
@@ -958,22 +959,37 @@ class Experiment(TrainingPlanWorkflow):
                 exclude_buffers=exclude_buffers
             )
         )
-        flattened = self._secagg.aggregate(
+        # flattened = self._secagg.aggregate(
+        #     round_=self._round_current,
+        #     encryption_factors=encryption_factors,
+        #     total_sample_size=total_sample_size,
+        #     model_params=encrypted,
+        #     num_expected_params=num_expected_params + n_aux_var,
+        # )
+        flattened_model_weights = self._secagg.aggregate(
             round_=self._round_current,
             encryption_factors=encryption_factors,
             total_sample_size=total_sample_size,
             model_params=encrypted,
-            num_expected_params=num_expected_params + n_aux_var,
+            num_expected_params=num_expected_params,
         )
         # Split out aggregated auxiliary variables (if any) and unflatten them.
         if encrypted_auxvar:
             # Separate auxiliary variables from model parameters.
-            flattened, flat_auxv = flattened[:-n_aux_var], flattened[-n_aux_var:]
+            #flattened, flat_auxv = flattened[:-n_aux_var], flattened[-n_aux_var:]
             # Undo normalization by total number of samples.
-            flat_auxv = [x * total_sample_size for x in flat_auxv]
+            flattened_aux_var = self._secagg.aggregate(
+                round_=self._round_current,
+                encryption_factors=encryption_factors,
+                total_sample_size=total_sample_size, #len(encrypted_auxvar.encrypted),
+                model_params=encrypted_auxvar.encrypted,
+                num_expected_params=n_aux_var,
+            )
+
+            #flat_auxv = [x * total_sample_size for x in flattened_aux_var]  # perform weighted average
             # Recover cleartext AuxVar instances from values and specs.
             aggregated_auxvar = unflatten_auxvar_after_secagg(
-                decrypted=flat_auxv,
+                decrypted=flattened_aux_var,
                 enc_specs=encrypted_auxvar.enc_specs,
                 cleartext=encrypted_auxvar.cleartext,
                 clear_cls=encrypted_auxvar.clear_cls,
@@ -981,7 +997,7 @@ class Experiment(TrainingPlanWorkflow):
         # Unflatten aggregated model parameters.
         aggregated_params: Dict[str, Union[torch.Tensor, np.ndarray]] = (
             self.training_plan().get_model_wrapper_class().unflatten(
-                flattened, exclude_buffers=exclude_buffers
+                flattened_model_weights, exclude_buffers=exclude_buffers
             )
         )
         # Return aggregated model parameters and optimizer auxiliary variables.
@@ -1017,6 +1033,7 @@ class Experiment(TrainingPlanWorkflow):
                 "1+ nodes, in spite of SecAgg being active.\nNodes that sent "
                 f"cleartext data are the following: {failed}."
             )
+        # this converts List[List[List[int]]] -> List[List[int]]
         return sum(auxvar[1:], start=auxvar[0])
 
     def _run_agg_optimizer(

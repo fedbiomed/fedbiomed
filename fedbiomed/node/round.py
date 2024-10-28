@@ -172,6 +172,7 @@ class Round:
         """
         # Validate secagg status. Raises error if the training request is not compatible with
         # secure aggregation settings
+
         try:
             self._secure_aggregation = SecaggRound(secagg_arguments, self.experiment_id)
         except FedbiomedSecureAggregationError as e:
@@ -310,6 +311,7 @@ class Round:
                     return self._send_round_reply(success=False, message=error_message)
 
             # Collect Optimizer auxiliary variables, if any.
+
             try:
                 results['optim_aux_var'] = self.collect_optim_aux_var()
             except (FedbiomedOptimizerError, FedbiomedRoundError) as exc:
@@ -405,6 +407,7 @@ class Round:
                 encrypted optimizer auxiliary variables, if any.
         """
         # Case when optimizer auxiliary variables are to be encrypted.
+        # TODO; find a way to encrypt safely aux var with model weights
         if optim_aux_var:
             logger.info(
                 "Encrypting model parameters and optimizer auxiliary variables."
@@ -415,21 +418,32 @@ class Round:
             cryptable, enc_specs, cleartext, clear_cls = (
                 flatten_auxvar_for_secagg(optim_aux_var)
             )
-            cryptable = [x / sample_size for x in cryptable]
-            # Encrypt both model parameters and optimizer aux var at once.
-            encrypted = self._secure_aggregation.scheme.encrypt(
-                    params=model_weights + cryptable,
-                    current_round=self._round,
-                    weight=sample_size,
+            #cryptable = [x / sample_size for x in cryptable] # ?? already done while encrypting
+            # Encrypt both model parameters and optimizer aux var at once. -> NO
+            encrypted_aux = self._secure_aggregation.scheme.encrypt(
+                            params=cryptable,
+                            current_round=self._round,
+                            weight=sample_size,
             )
-            # Separate batch encrypted model parameters and optimizer aux var.
-            encrypted_wgt = encrypted[:len(model_weights)]
             encrypted_aux = EncryptedAuxVar(
-                encrypted=[encrypted[len(model_weights):]],
+                encrypted=[encrypted_aux],
                 enc_specs=enc_specs,
                 cleartext=cleartext,
                 clear_cls=clear_cls,
             )
+            # encrypted = self._secure_aggregation.scheme.encrypt(
+            #         params=model_weights + cryptable,
+            #         current_round=self._round,
+            #         weight=sample_size,
+            # )
+            # Separate batch encrypted model parameters and optimizer aux var.
+            # encrypted_wgt = encrypted[:len(model_weights)]
+            # encrypted_aux = EncryptedAuxVar(
+            #     encrypted=[encrypted[len(model_weights):]],
+            #     enc_specs=enc_specs,
+            #     cleartext=cleartext,
+            #     clear_cls=clear_cls,
+            # )
         # Case when there are only model parameters to encrypt.
         else:
             logger.info(
@@ -437,12 +451,18 @@ class Round:
                 "This process can take some time depending on model size.",
                 researcher_id=self.researcher_id,
             )
-            encrypted_wgt = self._secure_aggregation.scheme.encrypt(
+            # encrypted_wgt = self._secure_aggregation.scheme.encrypt(
+            #         params=model_weights,
+            #         current_round=self._round,
+            #         weight=sample_size,
+            # )
+            encrypted_aux = None
+
+        encrypted_wgt = self._secure_aggregation.scheme.encrypt(
                     params=model_weights,
                     current_round=self._round,
                     weight=sample_size,
             )
-            encrypted_aux = None
 
         encrypted_rng = None
         # At any rate, produce encryption factors.
@@ -710,6 +730,7 @@ class Round:
         try:
             data_manager = self.training_plan.training_data()
         except TypeError as e:
+            # FIXME; TypeError could occur whithin the training_data method.
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                                       f"{str(training_plan_type)} should not take any arguments."
                                       f"Instead, the following error occurred: {repr(e)}")
