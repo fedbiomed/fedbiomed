@@ -13,16 +13,16 @@ from fedbiomed.common.constants import ComponentType
 
 
 __intro__ = """
-   __         _ _     _                          _ 
+   __         _ _     _                          _
   / _|       | | |   (_)                        | |
  | |_ ___  __| | |__  _  ___  _ __ ___   ___  __| |
  |  _/ _ \/ _` | '_ \| |/ _ \| '_ ` _ \ / _ \/ _` |
- | ||  __/ (_| | |_) | | (_) | | | | | |  __/ (_| |    _ 
- |_| \___|\__,_|_.__/|_|\___/|_| |_| |_|\___|\__,_|   | |              
-                     _ __ ___  ___  ___  __ _ _ __ ___| |__   ___ _ __ 
+ | ||  __/ (_| | |_) | | (_) | | | | | |  __/ (_| |    _
+ |_| \___|\__,_|_.__/|_|\___/|_| |_| |_|\___|\__,_|   | |
+                     _ __ ___  ___  ___  __ _ _ __ ___| |__   ___ _ __
                     | '__/ _ \/ __|/ _ \/ _` | '__/ __| '_ \ / _ \ '__|
-                    | | |  __/\__ \  __/ (_| | | | (__| | | |  __/ |   
-                    |_|  \___||___/\___|\__,_|_|  \___|_| |_|\___|_|   
+                    | | |  __/\__ \  __/ (_| | | | (__| | | |  __/ |
+                    |_|  \___||___/\___|\__,_|_|  \___|_| |_|\___|_|
 """
 
 
@@ -89,7 +89,7 @@ class ResearcherCLI(CommonCLI):
             _this = self
             _component = ComponentType.RESEARCHER
 
-            def import_environ(self) -> 'fedbiomed.researcher.environ.Environ':
+            def set_component(self, config_name: str) -> 'fedbiomed.researcher.environ.Environ':
                 """Import environ"""
                 return importlib.import_module("fedbiomed.researcher.environ").environ
 

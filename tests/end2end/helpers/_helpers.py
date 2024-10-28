@@ -388,6 +388,11 @@ def create_researcher(
 
     os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
 
+    from fedbiomed.researcher.environ import ResearcherEnviron, environ
+    from fedbiomed.researcher.config import ResearcherConfig
+    ResearcherEnviron._objects[ResearcherEnviron]._config = ResearcherConfig()
+    ResearcherEnviron._objects[ResearcherEnviron].set_environment()
+
     return researcher
 
 def training_plan_operation(

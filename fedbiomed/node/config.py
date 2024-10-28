@@ -11,8 +11,6 @@ from fedbiomed.common.constants import (
 from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.config import Config
 
-# Important: Do not import environ class in this module
-# It will cause problem of recursive import
 
 class NodeConfig(Config):
 
