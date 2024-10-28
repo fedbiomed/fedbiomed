@@ -1,14 +1,13 @@
+'''
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-'''Send information from node to researcher during the training
+
+Send information from node to researcher during the training
 '''
 
 from typing import Union, Dict, Callable
-
 from fedbiomed.common.message import FeedbackMessage, Scalar
-from fedbiomed.node.environ import environ
-from fedbiomed.common.logger import logger
 
 
 class HistoryMonitor:
@@ -16,6 +15,7 @@ class HistoryMonitor:
     """
 
     def __init__(self,
+                 node_id: str,
                  experiment_id: str,
                  researcher_id: str,
                  send: Callable):
@@ -26,6 +26,7 @@ class HistoryMonitor:
             researcher_id: TODO
             client: TODO
         """
+        self._node_id = node_id
         self.experiment_id = experiment_id
         self.researcher_id = researcher_id
         self.send = send
@@ -64,7 +65,7 @@ class HistoryMonitor:
         self.send(
             FeedbackMessage(researcher_id=self.researcher_id,
                             scalar=Scalar(**{
-                                'node_id': environ['NODE_ID'],
+                                'node_id': self._node_id,
                                 'experiment_id': self.experiment_id,
                                 'train': train,
                                 'test': test,

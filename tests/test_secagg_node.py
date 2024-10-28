@@ -1,12 +1,9 @@
+import os
+import tempfile
 import unittest
 from copy import deepcopy
 from unittest.mock import MagicMock, mock_open, patch
 
-#############################################################
-# Import NodeTestCase before importing FedBioMed Module
-from testsupport.base_case import NodeTestCase
-
-#############################################################
 from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
 from fedbiomed.common.message import (
     AdditiveSSharingReply,
@@ -27,20 +24,19 @@ import fedbiomed.node.secagg
 from fedbiomed.node.requests import NodeToNodeRouter
 
 
-class SecaggTestCase(NodeTestCase):
+class SecaggTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.patch_skm = patch.object(fedbiomed.node.secagg._secagg_setups, "SKManager")
 
-        self.mock_skm = self.patch_skm.start()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db = os.path.join(self.temp_dir.name, 'test.json')
 
         unittest.mock.MagicMock.tmp_dir = unittest.mock.PropertyMock(
-            return_value=environ["TMP_DIR"]
+            return_value=self.temp_dir
         )
 
     def tearDown(self) -> None:
-        self.patch_skm.stop()
-
+        self.temp_dir.cleanup()
 
 class TestSecaggServkeySetup(SecaggTestCase):
 
@@ -51,6 +47,8 @@ class TestSecaggServkeySetup(SecaggTestCase):
         self.mock_pending_requests = MagicMock(spec=EventWaitExchange)
         self.mock_n2n_router = MagicMock(spec=NodeToNodeRouter)
         self.args = {
+            "db": self.db,
+            "node_id": "test-node-id",
             "researcher_id": "my researcher",
             "secagg_id": "my secagg",
             "experiment_id": "my_experiment_id",
@@ -217,12 +215,14 @@ class TestSecaggDHSetup(SecaggTestCase):
         self.mock_pending_requests = MagicMock(spec=EventWaitExchange)
         self.mock_n2n_router = MagicMock(spec=NodeToNodeRouter)
         self.args = {
+            "db": self.db,
+            "node_id": "test_node_id",
             "researcher_id": "my researcher",
             "secagg_id": "my secagg",
             "experiment_id": "my_experiment_id",
             "parties": [
                 "my researcher",
-                environ["ID"],
+                'test-node-id',
                 "my node2",
                 "my node3",
                 "my_node4",
@@ -290,17 +290,14 @@ class TestSecaggDHSetup(SecaggTestCase):
         self.assertTrue(reply.success)
 
 
-class TestSecaggSetup(NodeTestCase):
+class TestSecaggSetup(SecaggTestCase):
 
-    def setUp(self) -> None:
-        pass
-
-    def tearDown(self) -> None:
-        pass
 
     def test_secagg_setup_01_initialization(self):
         # Raise element type
         args = {
+            "db": self.db,
+            "node_id": "test-node-id",
             "experiment_id": "experiment-id",
             "element": 0,
             "secagg_id": "secagg-id",

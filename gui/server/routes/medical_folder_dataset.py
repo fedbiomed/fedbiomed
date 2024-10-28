@@ -21,7 +21,7 @@ from . import api
 from config import config
 
 
-dataset_manager = DatasetManager()
+dataset_manager = DatasetManager(config["NODE_DB_PATH"])
 
 # Medical Folder Controller
 mf_controller = MedicalFolderController()

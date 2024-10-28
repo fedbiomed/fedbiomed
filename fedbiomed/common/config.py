@@ -104,6 +104,11 @@ class Config(metaclass=ABCMeta):
 
         return self._cfg.get(section, key, **kwargs)
 
+    def getbool(self, section, key, **kwargs) -> bool:
+        """Gets boolean value from config"""
+
+        return self._cfg.get(section, key, **kwargs).lower() in ('true', '1')
+
     def set(self, section, key, value) -> None:
         """Sets config section values
 

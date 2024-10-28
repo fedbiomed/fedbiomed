@@ -10,7 +10,6 @@ from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.transport.controller import GrpcController
 
-from fedbiomed.node.environ import environ
 from ._n2n_router import NodeToNodeRouter
 
 
@@ -37,7 +36,7 @@ def send_nodes(
         Returns:
             status: True if all messages are received
             replies: List of replies from each node.
-        
+
         Raises:
             FedbiomedNodeToNodeError: not all answers received and raise_if_not_all_received is True
     """
@@ -47,7 +46,7 @@ def send_nodes(
         overlay, salt, nonce = n2n_router.format_outgoing_overlay(message, researcher_id)
         message_overlay = OverlayMessage(
             researcher_id=researcher_id,
-            node_id=environ['NODE_ID'],
+            node_id=n2n_router.node_id,
             dest_node_id=node,
             overlay=overlay,
             setup=False,

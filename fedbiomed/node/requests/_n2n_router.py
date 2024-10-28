@@ -13,7 +13,6 @@ from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.transport.controller import GrpcController
 
-from fedbiomed.node.environ import environ
 from ._overlay import OverlayChannel
 from ._n2n_controller import NodeToNodeController
 
@@ -30,6 +29,8 @@ class _NodeToNodeAsyncRouter:
 
     def __init__(
         self,
+        node_id: str,
+        db: str,
         grpc_controller: GrpcController,
         pending_requests: EventWaitExchange,
         controller_data: EventWaitExchange,
@@ -37,14 +38,20 @@ class _NodeToNodeAsyncRouter:
         """Class constructor.
 
         Args:
+            node_id: ID of the active node.
+            db: Path to database file.
             grpc_controller: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for sharing data
         """
+
+        self._node_id = node_id
         self._grpc_controller = grpc_controller
-        # When implementing multiple researchers, there will probably be one OverlayChannel per researcher
-        self._overlay_channel = OverlayChannel(self._grpc_controller)
+        # When implementing multiple researchers, there will probably be
+        # one OverlayChannel per researcher
+        self._overlay_channel = OverlayChannel(self._node_id, db, self._grpc_controller)
         self._node_to_node_controller = NodeToNodeController(
+            self._node_id,
             self._grpc_controller,
             self._overlay_channel,
             pending_requests,
@@ -59,6 +66,11 @@ class _NodeToNodeAsyncRouter:
         self._active_tasks_lock = asyncio.Lock()
 
         self._task_clean_active_tasks = None
+
+    @property
+    def node_id(self):
+        """Returns the node id"""
+        return  self._node_id
 
     def _remove_finished_task(self, task: asyncio.Task) -> None:
         """Callback launched when a task completes.
@@ -153,9 +165,9 @@ class _NodeToNodeAsyncRouter:
 
         try:
             try:
-                if overlay_msg.dest_node_id != environ["NODE_ID"]:
+                if overlay_msg.dest_node_id != self._node_id:
                     logger.error(
-                        f"{ErrorNumbers.FB324}: Node {environ['NODE_ID']} received an overlay "
+                        f"{ErrorNumbers.FB324}: Node {self._node_id} received an overlay "
                         f"message sent to {overlay_msg.dest_node_id}. Maybe malicious activity. "
                         "Ignore message."
                     )
@@ -202,6 +214,8 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
 
     def __init__(
         self,
+        node_id: str,
+        db: str,
         grpc_controller: GrpcController,
         pending_requests: EventWaitExchange,
         controller_data: EventWaitExchange,
@@ -213,7 +227,7 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for sharing data with the controller
         """
-        super().__init__(grpc_controller, pending_requests, controller_data)
+        super().__init__(node_id, db, grpc_controller, pending_requests, controller_data)
 
         self._thread = Thread(target=self._run, args=(), daemon=True)
 
