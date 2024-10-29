@@ -744,7 +744,8 @@ class Experiment(TrainingPlanWorkflow):
         # Setup aggregator
         self._aggregator.set_training_plan_type(self.training_plan().type())
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
-                                      training_plan=self.training_plan())
+                                      training_plan=self.training_plan(),
+                                      secagg=self.secagg.active)
         model_params_before_round = self.training_plan().after_training_params()
         aggregator_args = self._aggregator.create_aggregator_args(model_params_before_round,
                                                                   training_nodes)
@@ -942,15 +943,10 @@ class Experiment(TrainingPlanWorkflow):
         if optim_auxvar:
             # Ensure auxiliary variables have the same node-order as model
             # parameters, type-check and pre-aggregate them.
-            encrypted_auxvar = self._preaggregate_encrypted_optim_auxvar(
-                {node: optim_auxvar[node] for node in model_params}
-            )
+
             # Concatenate model parameters and optimizer auxiliary variables.
-            # encrypted = {}
-            # for idx, node in enumerate(model_params):
-            #     encrypted[node] = (
-            #         model_params[node] + encrypted_auxvar.encrypted[idx]
-            #     )
+            encrypted_auxvar = EncryptedAuxVar.concatenate_from_dict(optim_auxvar)
+
             n_aux_var = encrypted_auxvar.get_num_expected_params()
         # Perform secure aggregation of all encrypted parameters.
         exclude_buffers = not self.training_args()['share_persistent_buffers']
@@ -959,13 +955,7 @@ class Experiment(TrainingPlanWorkflow):
                 exclude_buffers=exclude_buffers
             )
         )
-        # flattened = self._secagg.aggregate(
-        #     round_=self._round_current,
-        #     encryption_factors=encryption_factors,
-        #     total_sample_size=total_sample_size,
-        #     model_params=encrypted,
-        #     num_expected_params=num_expected_params + n_aux_var,
-        # )
+
         flattened_model_weights = self._secagg.aggregate(
             round_=self._round_current,
             encryption_factors=encryption_factors,
@@ -976,17 +966,15 @@ class Experiment(TrainingPlanWorkflow):
         # Split out aggregated auxiliary variables (if any) and unflatten them.
         if encrypted_auxvar:
             # Separate auxiliary variables from model parameters.
-            #flattened, flat_auxv = flattened[:-n_aux_var], flattened[-n_aux_var:]
             # Undo normalization by total number of samples.
             flattened_aux_var = self._secagg.aggregate(
                 round_=self._round_current,
                 encryption_factors=encryption_factors,
-                total_sample_size=total_sample_size, #len(encrypted_auxvar.encrypted),
-                model_params=encrypted_auxvar.encrypted,
+                total_sample_size=total_sample_size,
+                model_params=encrypted_auxvar.get_mapping_encrypted_aux_var(),
                 num_expected_params=n_aux_var,
             )
 
-            #flat_auxv = [x * total_sample_size for x in flattened_aux_var]  # perform weighted average
             # Recover cleartext AuxVar instances from values and specs.
             aggregated_auxvar = unflatten_auxvar_after_secagg(
                 decrypted=flattened_aux_var,
@@ -1002,39 +990,6 @@ class Experiment(TrainingPlanWorkflow):
         )
         # Return aggregated model parameters and optimizer auxiliary variables.
         return aggregated_params, aggregated_auxvar
-
-    def _preaggregate_encrypted_optim_auxvar(
-        self,
-        nodes_auxvar: Dict[str, EncryptedAuxVar],
-    ) -> EncryptedAuxVar:
-        """Pre-aggregate encrypted node-wise optimizer auxiliary variables.
-
-        Args:
-            nodes_auxvar: Dict of node-wise optimizer auxiliary variables,
-                wrapped as `EncryptedAuxVar` instances.
-
-        Returns:
-            Pre-aggregated optimizer auxiliary variables, as a single
-            `EncryptedAuxVar` instance that still needs decryption.
-
-        Raises:
-            FedbiomedExperimentError: If any node sent non-encrypted data.
-        """
-        failed = []  # type: List[str]
-        auxvar = []  # type: List[EncryptedAuxVar]
-        for node_name, node_data in nodes_auxvar.items():
-            if isinstance(node_data, EncryptedAuxVar):
-                auxvar.append(node_data)
-            else:
-                failed.append(node_name)
-        if failed:
-            raise FedbiomedExperimentError(
-                "Received non-encrypted optimizer auxiliary variables from "
-                "1+ nodes, in spite of SecAgg being active.\nNodes that sent "
-                f"cleartext data are the following: {failed}."
-            )
-        # this converts List[List[List[int]]] -> List[List[int]]
-        return sum(auxvar[1:], start=auxvar[0])
 
     def _run_agg_optimizer(
         self,
