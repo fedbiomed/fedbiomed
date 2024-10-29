@@ -244,11 +244,11 @@ class EncryptedAuxVar:
             for _, size, _ in module_specs
         )
 
-    def aggregate(
+    def concatenate(
         self,
         other: Self,
     ) -> Self:
-        """Aggregate a pair of EncryptedAuxVar into a single instance.
+        """Concatenates a pair of EncryptedAuxVar into a single instance.
 
         Args:
             other: `EncryptedAuxVar` instance to be aggregated with this one.
@@ -315,10 +315,21 @@ class EncryptedAuxVar:
         self,
         other: Self,
     ) -> Self:
-        """Overload addition operator to call `self.aggregate`."""
+        """Overload addition operator to call `self.concatenate`."""
         if not isinstance(other, self.__class__):
             return NotImplemented
-        return self.aggregate(other)
+        return self.concatenate(other)
+
+    @classmethod
+    def concatenate_from_dict(cls, data: Dict[str, Self]) -> Self:
+        auxvar = list(data.values())
+        # this converts List[List[List[int]]] -> List[List[int]]
+        obj = sum(auxvar[1:], start=auxvar[0])
+        return cls(obj.encrypted, obj.enc_specs, obj.cleartext, obj.clear_cls)
+
+    def get_mapping_encrypted_aux_var(self) -> Dict[str, List[int]]:
+        nodes_id = list(self.cleartext[0]['clients'])
+        return {n: p for n,p in zip(nodes_id, self.encrypted)}
 
     def to_dict(
         self,

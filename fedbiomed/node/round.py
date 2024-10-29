@@ -351,7 +351,6 @@ class Round:
                 model_weights, enc_factor, aux_var = self._encrypt_weights_and_auxvar(
                     model_weights=model_weights,
                     optim_aux_var=results["optim_aux_var"],
-                    secagg_arguments=secagg_arguments,
                     sample_size=results["sample_size"],
                 )
                 results["encrypted"] = True
@@ -388,7 +387,6 @@ class Round:
         self,
         model_weights: List[float],
         optim_aux_var: Dict[str, AuxVar],
-        secagg_arguments: Dict[str, Any],
         sample_size: int,
     ) -> Tuple[List[int], List[int], Optional[EncryptedAuxVar]]:
         """Encrypt model weights and (opt.) optimizer auxiliary variables.
@@ -396,7 +394,6 @@ class Round:
         Args:
             model_weights: Flattened model parameters to encrypt.
             optim_aux_var: Optional optimizer auxiliary variables to encrypt.
-            secagg_arguments: Hyper-parameters for secure aggregation.
             sample_size: Number of training samples (used to weight model
                 parameters).
 
@@ -407,7 +404,7 @@ class Round:
                 encrypted optimizer auxiliary variables, if any.
         """
         # Case when optimizer auxiliary variables are to be encrypted.
-        # TODO; find a way to encrypt safely aux var with model weights
+        # TODO; find a way to encrypt safely aux var with model weights at the same time
         if optim_aux_var:
             logger.info(
                 "Encrypting model parameters and optimizer auxiliary variables."
@@ -431,19 +428,7 @@ class Round:
                 cleartext=cleartext,
                 clear_cls=clear_cls,
             )
-            # encrypted = self._secure_aggregation.scheme.encrypt(
-            #         params=model_weights + cryptable,
-            #         current_round=self._round,
-            #         weight=sample_size,
-            # )
-            # Separate batch encrypted model parameters and optimizer aux var.
-            # encrypted_wgt = encrypted[:len(model_weights)]
-            # encrypted_aux = EncryptedAuxVar(
-            #     encrypted=[encrypted[len(model_weights):]],
-            #     enc_specs=enc_specs,
-            #     cleartext=cleartext,
-            #     clear_cls=clear_cls,
-            # )
+
         # Case when there are only model parameters to encrypt.
         else:
             logger.info(
@@ -459,10 +444,10 @@ class Round:
             encrypted_aux = None
 
         encrypted_wgt = self._secure_aggregation.scheme.encrypt(
-                    params=model_weights,
-                    current_round=self._round,
-                    weight=sample_size,
-            )
+                            params=model_weights,
+                            current_round=self._round,
+                            weight=sample_size,
+                    )
 
         encrypted_rng = None
         # At any rate, produce encryption factors.

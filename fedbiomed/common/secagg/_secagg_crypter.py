@@ -185,10 +185,6 @@ class SecaggCrypter:
                 f"does not match the number of nodes has been set for the encrypter. There might "
                 f"be some nodes did not answered to training request or num of clients of "
                 "`ParameterEncrypter` has not been set properly before train request.")
-        if isinstance(params, dict):
-            # FIXME: this should not happen
-            params = list(params.values())
-
 
         if not isinstance(params, list) or not all(isinstance(p, list) for p in params):
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: The parameters to aggregate should be a "
@@ -413,9 +409,6 @@ class SecaggLomCrypter(SecaggCrypter):
              FedbiomedSecaggCrypterError: aggregation issue
         """
         start = time.process_time()
-        if isinstance(params, dict):
-            # FIXME: this should not happen
-            params = list(params.values())
 
         if not isinstance(params, list) or not all(isinstance(p, list) for p in params):
             raise FedbiomedSecaggCrypterError(f"{ErrorNumbers.FB624}: The parameters to aggregate should be a "
