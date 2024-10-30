@@ -100,23 +100,24 @@ It is possible to access the secagg instance through the experiment object in or
 
 ```python
 from fedbiomed.researcher.federated_workflows import Experiment
-from fedbiomed.researcher.environ import environ
 
 exp = Experiment(secagg=True,
                  #....
                  )
 
 exp.secagg.setup(
-    parties= parties=[environ["ID"]] + exp.filtered_federation_nodes(),
-    experiment_id=exp.id
+    parties= parties=[exp.researcher_id] + exp.filtered_federation_nodes(),
+    experiment_id=exp.id,
+    researcher_id=exp.researcher_id
 )
 
 ```
 If a context has already been set, you can use the force argument to forcefully recreate the context.
 ```python
 exp.secagg.setup(
-    parties= parties=[environ["ID"]] + exp.filtered_federation_nodes(),
+    parties= parties=[exp.researcher_id] + exp.filtered_federation_nodes(),
     experiment_id=exp.id,
+    researcher_id=exp.researcher_id # or config.get('default', 'id')
     force=True
 )
 ```

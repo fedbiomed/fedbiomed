@@ -440,8 +440,8 @@ Use notebooks from outside the researcher container :
 Use tensorboard from outside the researcher container :
 * connect to `http://localhost:8888` from your browser and use embedded tensorboard in your notebook as in the `./notebooks/general-tensorboard.ipynb` example :
 ```python
-from fedbiomed.researcher.environ import environ
-tensorboard_dir = environ['TENSORBOARD_RESULTS_DIR']
+from fedbiomed.researcher.config import config
+tensorboard_dir = config.vars['TENSORBOARD_RESULTS_DIR']
 ```
 ```python
 %load_ext tensorboard

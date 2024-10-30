@@ -108,6 +108,8 @@ def start_node(name, node_args):
     """Starts the node"""
 
     config = NodeConfig(name=name, auto_generate=False)
+
+    print(config)
     config.read()
     _node = Node(config, node_args)
 

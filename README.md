@@ -387,8 +387,8 @@ During training, the scalar values (loss) will be writen in the `runs` directory
 First you should import `TENSORBOARD_RESULTS_DIR` from researcher environment in another cell
 
 ```python
-from fedbiomed.researcher.environ import environ
-tensorboard_dir = environ['TENSORBOARD_RESULTS_DIR']
+from fedbiomed.researcher.config import config
+tensorboard_dir = config.vars['TENSORBOARD_RESULTS_DIR']
 ```
 
 Load tensorboard extension in a different code block.

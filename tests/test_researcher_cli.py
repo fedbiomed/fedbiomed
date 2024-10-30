@@ -1,8 +1,6 @@
 import unittest
 import argparse
 from unittest.mock import patch
-from testsupport.fake_researcher_environ import ResearcherEnviron
-from testsupport.base_case import ResearcherTestCase
 from fedbiomed.researcher.cli import ResearcherCLI, ResearcherControl
 from fedbiomed.common.cli import CommonCLI
 
@@ -38,7 +36,7 @@ class TestResearcherControl(unittest.TestCase):
         with self.assertRaises(KeyboardInterrupt):
             self.control.start(args)
 
-class TestResearcherCLI(ResearcherTestCase):
+class TestResearcherCLI(unittest.TestCase):
 
     def setUp(self) -> None:
         self.cli = ResearcherCLI()

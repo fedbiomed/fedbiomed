@@ -29,39 +29,49 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 
 class Config(metaclass=ABCMeta):
-    """Base Config class"""
+    """Base Config class
+
+    Attributes:
+        root: Root directory of the component.
+        name: Config name (e.g config.ini or config-n1.ini).
+        path: Absolute path to configuration.
+        vars: A dictionary that contains configuration related variables. Such
+            as dynamic paths that relies of component root etc.
+    """
 
     _DEFAULT_CONFIG_FILE_NAME: str = "config"
     _COMPONENT_TYPE: str
     _CONFIG_VERSION: str
 
-    def __init__(
-        self, root=None, name: Optional[str] = None, auto_generate: bool = True
-    ) -> None:
-        """Initializes config"""
+    _cfg: configparser.ConfigParser
+    root: str
+    path: str
+    name: str
 
+    vars: Dict[str, Any] = {}
+
+    def __init__(
+        self,
+        root: str | None = None,
+        name: Optional[str] = None,
+        auto_generate: bool = True
+    ) -> None:
+        """Initializes configuration
+
+        Args:
+            root: Root directory for the component
+            name: Component configuration file name (e.g `config-n1.ini`
+                corresponds to `<root>/constants.CONFIG_FOLDER_NAME/config-n1.ini`).
+        """
         # First try to get component specific config file name, then CONFIG_FILE
         default_config = os.getenv(
             f"{self._COMPONENT_TYPE}_CONFIG_FILE",
             os.getenv("CONFIG_FILE", self._DEFAULT_CONFIG_FILE_NAME),
         )
 
-        self.root = root
         self._cfg = configparser.ConfigParser()
         self.name = name if name else default_config
-
-        if self.root:
-            self.path = os.path.join(self.root, CONFIG_FOLDER_NAME, self.name)
-            self.root = self.root
-        else:
-            self.path = os.path.join(CONFIG_DIR, self.name)
-            self.root = ROOT_DIR
-
-        # Creates setup folders if not existing
-        create_fedbiomed_setup_folders(self.root)
-
-        if auto_generate:
-            self.generate()
+        self.load(self.name, root, auto_generate)
 
     @classmethod
     @abstractmethod
@@ -72,6 +82,38 @@ class Config(metaclass=ABCMeta):
     @abstractmethod
     def _CONFIG_VERSION(cls):  # pylint: disable=C0103
         """Abstract attribute to oblige defining component type"""
+
+    def load(
+        self,
+        name: str,
+        root: str | None = None,
+        auto_generate: bool = True
+    ) -> None:
+        """Load configuration from given name and root
+
+        This implementation allows to load configuration after Config class
+        is instantiated.
+
+        Args:
+            name: Name of the config file
+            root: Root directory where component files will be saved
+            auto_generate: Generated all component files, folder, including
+                configuration file.
+        """
+        self.name = name
+
+        if root:
+            self.path = os.path.join(root, CONFIG_FOLDER_NAME, self.name)
+            self.root = root
+        else:
+            self.path = os.path.join(CONFIG_DIR, self.name)
+            self.root = ROOT_DIR
+
+        if auto_generate:
+            self.generate()
+
+        # Creates setup folders if not existing
+        create_fedbiomed_setup_folders(self.root)
 
     def is_config_existing(self) -> bool:
         """Checks if config file exists
@@ -138,7 +180,11 @@ class Config(metaclass=ABCMeta):
                 ErrorNumbers.FB600.value + ": cannot save config file: " + self.path
             ) from exp
 
-    def generate(self, force: bool = False, id: Optional[str] = None) -> bool:
+    def generate(
+        self,
+        force: bool = False,
+        id: Optional[str] = None
+    ) -> None:
         """ "Generate configuration file
 
         Args:
@@ -147,31 +193,44 @@ class Config(metaclass=ABCMeta):
         """
 
         # Check if configuration is already existing
-        if self.is_config_existing() and not force:
-            return self.read()
+        if not self.is_config_existing() or force:
+                        # Create default section
+            component_id = id if id else f"{self._COMPONENT_TYPE}_{uuid.uuid4()}"
 
-        # Create default section
-        component_id = id if id else f"{self._COMPONENT_TYPE}_{uuid.uuid4()}"
+            self._cfg["default"] = {
+                "id": component_id,
+                "component": self._COMPONENT_TYPE,
+                "version": str(self._CONFIG_VERSION),
+            }
 
-        self._cfg["default"] = {
-            "id": component_id,
-            "component": self._COMPONENT_TYPE,
-            "version": str(self._CONFIG_VERSION),
-        }
-
-        db_path = os.path.join(
-            self.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{component_id}.json"
-        )
-        self._cfg["default"]["db"] = os.path.relpath(
-            db_path, os.path.join(self.root, CONFIG_FOLDER_NAME)
-        )
+            db_path = os.path.join(
+                self.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{component_id}.json"
+            )
+            self._cfg["default"]["db"] = os.path.relpath(
+                db_path, os.path.join(self.root, CONFIG_FOLDER_NAME)
+            )
 
 
-        # Calls child class add_parameterss
-        self.add_parameters()
+            # Calls child class add_parameterss
+            self.add_parameters()
 
-        # Write configuration file
-        return self.write()
+            # Write configuration file
+            self.write()
+        else:
+            self.read()
+
+        self._update_vars()
+
+    def _update_vars(self):
+        """Updates dynamic variables"""
+        # Updates dynamic variables
+
+        self.vars.update({
+            'MESSAGES_QUEUE_DIR': os.path.join(self.root, 'queue_messages'),
+            'TMP_DIR': os.path.join(self.root, VAR_FOLDER_NAME, 'tmp')
+        })
+
+        os.makedirs(self.vars['TMP_DIR'], exist_ok=True)
 
     @abstractmethod
     def add_parameters(self):
