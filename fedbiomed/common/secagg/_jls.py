@@ -498,7 +498,6 @@ class BaseKey:
         Returns:
             list of tau values
         """
-        #import pdb; pdb.set_trace()
         taus = (np.arange(0, len_, dtype=mpz) << self._public_param.bits // 2) | tau
 
         return [self._public_param.hashing_function(t) for t in taus]
