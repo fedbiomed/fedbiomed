@@ -1,8 +1,11 @@
 import unittest
 import argparse
+import tempfile
 import configparser
-import sys, io, os
-from unittest.mock import MagicMock, PropertyMock, patch
+import sys
+import io
+import os
+from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 import fedbiomed
@@ -15,6 +18,9 @@ from fedbiomed.node.cli import (
     TrainingPlanArgumentParser,
     start_node
 )
+
+from fedbiomed.node.config import NodeConfig
+
 from fedbiomed.node.cli_utils._medical_folder_dataset import get_map_modalities2folders_from_cli, \
     add_medical_folder_dataset_from_cli
 from fedbiomed.node.cli_utils import add_database
@@ -187,6 +193,7 @@ class TestNodeControl(unittest.TestCase):
     def test_03_node_control__start(self, mock_node):
         """Tests node start"""
 
+
         cfg = configparser.ConfigParser()
         cfg["security"] = {
             'training_plan_apprival': 'true',
@@ -195,27 +202,32 @@ class TestNodeControl(unittest.TestCase):
         cfg["default"] = {
             'id': 'test-id'
         }
-        type(mock_node.return_value).config = PropertyMock(cfg)
 
-        args= {"gpu": False}
-        start_node('config.ini', args)
-        mock_node.return_value.task_manager.assert_called_once()
-        mock_node.return_value.task_manager.reset_mock()
+        with tempfile.TemporaryDirectory() as temp_:
+            config = NodeConfig(temp_, name='test.ini')
+            config._cfg = cfg
+            with patch('fedbiomed.node.cli.NodeConfig', autospec=True) as mock_config:
+                print(config)
+                mock_config.return_value = config
+                args= {"gpu": False}
+                start_node('config.ini', args)
+                mock_node.return_value.task_manager.assert_called_once()
+                mock_node.return_value.task_manager.reset_mock()
 
-        args= {"gpu": False}
-        cfg["security"]["training_plan_approval"] = 'false'
-        start_node('config.ini', args)
-        mock_node.return_value.task_manager.assert_called_once()
+                args= {"gpu": False}
+                config._cfg["security"]["training_plan_approval"] = 'false'
+                start_node('config.ini', args)
+                mock_node.return_value.task_manager.assert_called_once()
 
-        with patch.object(fedbiomed.node.cli, "logger") as logger:
-            mock_node.return_value.task_manager.side_effect = FedbiomedError
-            start_node('config.ini', args)
-            logger.critical.assert_called_once()
-            logger.critical.reset_mock()
+                with patch.object(fedbiomed.node.cli, "logger") as logger:
+                    mock_node.return_value.task_manager.side_effect = FedbiomedError
+                    start_node('config.ini', args)
+                    logger.critical.assert_called_once()
+                    logger.critical.reset_mock()
 
-            mock_node.return_value.task_manager.side_effect = Exception
-            start_node('config.ini', args)
-            logger.critical.assert_called_once()
+                    mock_node.return_value.task_manager.side_effect = Exception
+                    start_node('config.ini', args)
+                    logger.critical.assert_called_once()
 
 
 

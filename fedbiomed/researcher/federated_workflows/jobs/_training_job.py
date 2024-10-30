@@ -174,7 +174,6 @@ class TrainingJob(Job):
         with self.RequestTimer(self._nodes) as timer:  # compute request time
             # Send training request
             with self._reqs.send(messages, self._nodes, self._policies) as federated_req:
-
                 errors = federated_req.errors()
                 replies = federated_req.replies()
 

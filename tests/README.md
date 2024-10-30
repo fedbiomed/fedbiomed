@@ -157,37 +157,6 @@ Remark: a test file may implement more than one class (we may for example create
 
 We may also provide two test file for the same purpose. The choice depend on the content of the tests and on the code which can be shared between these files (for example, we may implement a connexion to a gRPC server in a setupMethod() if we include the two classes in a single test file.
 
-### How to mock environ in a test
-
-Environ for the components are mocked by the classes `NodeTestCase` and `ResearcherTestCase`.
-Please use `NodeTestCase` for the classes that uses `environ` on the node side adn `ResearcherTestCase`
-for the classes on researcher side. Your test class should inherit one of them. Example:
-
-```python
-
-class TestDatasetManager(NodeTestCase):
-
-    #......
-
-
-if __name__ == '__main__':
-    unittest.main()
-```
-
-NodeTestCase or ResearcherTestCase should be imported before importing any other Fed-BioMed or test support modules.
-
-**Note:** `cls.env` can be used in order to modify/remove environ variable values.
-
-**IMPORTANT**: It is required to add `super().setUpClass()` in child's `setUpClass` method if it is added into test
-class. Same for `tearDownClass()`
-
-
-
-#### test\_environ\_common.py
-
-This file tests the fedbiomed.common.environ module. It is the only test which does not use fake\_*\_environ.
-Reciprocally: all others tests **must** use the mocked environ.
-
 
 ### setUp/tearDown
 

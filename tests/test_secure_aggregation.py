@@ -1,12 +1,13 @@
 import re
 import unittest
+import tempfile
+
 from secrets import token_bytes
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 from requests import Request
-from testsupport.base_case import ResearcherTestCase
-from testsupport.base_mocks import MockRequestGrpc, MockRequestModule
+from testsupport.base_mocks import MockRequestModule
 
 from fedbiomed.common.constants import SecureAggregationSchemes
 from fedbiomed.common.exceptions import (
@@ -16,31 +17,38 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.secagg import LOM
 from fedbiomed.common.utils import multiply, quantize
-from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.secagg import (
     JoyeLibertSecureAggregation,
     LomSecureAggregation,
     SecureAggregation,
 )
 
+from fedbiomed.researcher.config import config
 
-class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
+test_id = 'researcher-test-id'
+
+class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
 
     def setUp(self) -> None:
 
         super().setUp(module="fedbiomed.researcher.secagg._secagg_context.Requests")
+
+        self.temp_dir = tempfile.TemporaryDirectory()
+        config.load(root=self.temp_dir.name, name='test.ini')
+
         self.p1 = patch(
             "fedbiomed.researcher.secagg._secure_aggregation.SecaggServkeyContext.setup",
             autospec=True,
         )
-
         self.p1.start()
-
         self.secagg = JoyeLibertSecureAggregation()
+
+
 
     def tearDown(self) -> None:
         super().tearDown()
         self.p1.stop()
+        self.temp_dir.cleanup()
 
     def test_jl_secure_aggregation_01_init_raises(self):
         """Tests invalid argument for __init__"""
@@ -70,24 +78,26 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
         """Test round configuration for"""
 
         self.secagg._configure_round(
-            parties=[environ["ID"], "node-1", "node-2"],
+            researcher_id=test_id,
+            parties=[test_id, "node-1", "node-2"],
             experiment_id="exp-id-1",
         )
 
-        self.assertListEqual(self.secagg.parties, [environ["ID"], "node-1", "node-2"])
+        self.assertListEqual(self.secagg.parties, [test_id, "node-1", "node-2"])
         self.assertEqual(self.secagg.experiment_id, "exp-id-1")
 
         # Add new paty
         self.secagg.setup(
-            parties=[environ["ID"], "node-1", "node-2", "new_party"],
+            researcher_id=test_id,
+            parties=[test_id, "node-1", "node-2", "new_party"],
             experiment_id="exp-id-1",
         )
 
         self.assertListEqual(
-            self.secagg._parties, [environ["ID"], "node-1", "node-2", "new_party"]
+            self.secagg._parties, [test_id, "node-1", "node-2", "new_party"]
         )
         self.assertListEqual(
-            self.secagg._parties, [environ["ID"], "node-1", "node-2", "new_party"]
+            self.secagg._parties, [test_id, "node-1", "node-2", "new_party"]
         )
 
         self.assertIsNotNone(self.secagg._servkey)
@@ -95,7 +105,8 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
     def test_jl_secure_aggregation_05_secagg_context_ids_and_context(self):
         """Test getters for secagg and servkey context ids"""
         self.secagg.setup(
-            parties=[environ["ID"], "node-1", "node-2", "new_party"],
+            researcher_id=test_id,
+            parties=[test_id, "node-1", "node-2", "new_party"],
             experiment_id="exp-id-1",
         )
 
@@ -106,24 +117,27 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
         """Test secagg setup by setting Biprime and Servkey"""
 
         with self.assertRaises(FedbiomedSecureAggregationError):
-            self.secagg.setup(parties="oops", experiment_id="exp-id-1")
+            self.secagg.setup(researcher_id=test_id, parties="oops", experiment_id="exp-id-1")
 
         with self.assertRaises(FedbiomedSecureAggregationError):
             self.secagg.setup(
-                parties=[environ["ID"], "node-1", "node-2", "new_party"],
+                researcher_id=test_id,
+                parties=[test_id, "node-1", "node-2", "new_party"],
                 experiment_id=1345,
             )
 
         # Execute setup
         self.secagg.setup(
-            parties=[environ["ID"], "node-1", "node-2", "new_party"],
+            researcher_id=test_id,
+            parties=[test_id, "node-1", "node-2", "new_party"],
             experiment_id="exp-id-1",
         )
 
     def test_jl_secure_aggregation_07_train_arguments(self):
 
         self.secagg.setup(
-            parties=[environ["ID"], "node-1", "node-2", "new_party"],
+            researcher_id=test_id,
+            parties=[test_id, "node-1", "node-2", "new_party"],
             experiment_id="exp-id-1",
         )
 
@@ -152,7 +166,8 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
 
         # Configure for round
         self.secagg.setup(
-            parties=[environ["ID"], "node-1", "node-2", "new_party"],
+            researcher_id=test_id,
+            parties=[test_id, "node-1", "node-2", "new_party"],
             experiment_id="exp-id-1",
         )
 
@@ -225,7 +240,8 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
     def test_jl_secure_aggregation_09_save_state_breakpoint(self):
         # Configure for round
         self.secagg.setup(
-            parties=[environ["ID"], "node-1", "node-2", "new_party"],
+            researcher_id=test_id,
+            parties=[test_id, "node-1", "node-2", "new_party"],
             experiment_id="exp-id-1",
         )
 
@@ -242,10 +258,11 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
 
     def test_jl_secure_aggregation_10_load_state_breakpoint(self):
         experiment_id = "exp-id-1"
-        parties = [environ["ID"], "node-1", "node-2", "new_party"]
+        parties = [test_id, "node-1", "node-2", "new_party"]
 
         # Configure for round
         self.secagg.setup(
+            researcher_id=test_id,
             parties=parties,
             experiment_id="exp-id-1",
         )
@@ -260,7 +277,15 @@ class TestJLSecureAggregation(MockRequestModule, ResearcherTestCase):
         self.assertListEqual(secagg.parties, parties)
 
 
-class TestSecureAggregationWrapper(ResearcherTestCase):
+class TestSecureAggregationWrapper(unittest.TestCase):
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        config.load(root=self.temp_dir.name, name='test.ini')
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
     def check_specific_method_belongs_to_class(self, original_obj, obj):
         methods_names = dir(original_obj)
 
@@ -302,15 +327,21 @@ class TestSecureAggregationWrapper(ResearcherTestCase):
             self.check_specific_method_belongs_to_class(loaded_sa, cl)
 
 
-class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
+class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp(module="fedbiomed.researcher.secagg._secagg_context.Requests")
+
+        self.temp_dir = tempfile.TemporaryDirectory()
+        config.load(root=self.temp_dir.name, name='test.ini')
         self.clipping_range = 10**3
         self.args = {"active": True, "clipping_range": self.clipping_range}
         self.lom = LomSecureAggregation(**self.args)
-        self.parties = [environ["ID"], "node-1", "node-2", "node-3"]
+        self.parties = [test_id, "node-1", "node-2", "node-3"]
         self.experiment_id = "my_experiment_id"
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
 
     def create_protected_vector(
         self, round, params_1, params_2, params_3, clipping_range, weight
@@ -383,7 +414,7 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
             module="fedbiomed.researcher.secagg._secagg_context.Requests",
             send_fed_req_conf=send_fed_req,
         )
-        status = self.lom.setup(self.parties, self.experiment_id)
+        status = self.lom.setup(self.parties, self.experiment_id, test_id)
         self.assertIsNotNone(self.lom.dh)
         self.assertTrue(status)
         self.assertIsInstance(status, bool)
@@ -400,7 +431,7 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
         )
         self.lom = LomSecureAggregation(**self.args)
         with self.assertRaises(FedbiomedSecaggError):
-            status = self.lom.setup(self.parties, self.experiment_id)
+            status = self.lom.setup(self.parties, self.experiment_id, test_id)
 
         state = self.lom.save_state_breakpoint()
         lom = LomSecureAggregation.load_state_breakpoint(state)
@@ -417,7 +448,7 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
             module="fedbiomed.researcher.secagg._secagg_context.Requests",
             send_fed_req_conf=send_fed_req,
         )
-        self.lom.setup(self.parties, self.experiment_id)
+        self.lom.setup(self.parties, self.experiment_id, test_id)
         self.lom._secagg_random = None
 
         pv = self.create_protected_vector(
@@ -441,7 +472,7 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
         ######## WARNING #######
         # NEVER touch  self.lom._dh
         # FOR UNKNOWN REASON, IT CONFLICTS WITH OTHER TESTS AND EVERYTHING WILL FAIL
-        # MOCKED RESEATCHER_ID WILL NOT BE THE SAME AS environ["ID"], WHICH IS ASSUMED
+        # MOCKED RESEATCHER_ID WILL NOT BE THE SAME AS test_id, WHICH IS ASSUMED
         # FOR OTHER TESTS
         with self.assertRaises(FedbiomedSecureAggregationError):
             self.lom.aggregate(
@@ -468,7 +499,7 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
         )
         with self.assertRaises(FedbiomedSecureAggregationError):
             lom = LomSecureAggregation(**self.args)
-            lom.setup(self.parties, self.experiment_id)
+            lom.setup(self.parties, self.experiment_id, test_id)
             lom.aggregate(
                 round_=1,
                 total_sample_size=100,
@@ -494,7 +525,7 @@ class TestLomSecureAggregation(MockRequestModule, ResearcherTestCase):
                 send_fed_req_conf=send_fed_req,
             )
             lom = LomSecureAggregation(**self.args)
-            lom.setup(self.parties, self.experiment_id)
+            lom.setup(self.parties, self.experiment_id, test_id)
             lom.aggregate(
                 round_=1,
                 total_sample_size=100,

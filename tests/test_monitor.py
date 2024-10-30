@@ -1,16 +1,9 @@
 import os
 import shutil
 import unittest
+import tempfile
 from unittest.mock import patch, MagicMock
 
-
-#############################################################
-# Import ResearcherTestCase before importing any FedBioMed Module
-from testsupport.base_case import ResearcherTestCase
-#############################################################
-
-
-from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.monitor import Monitor, MetricStore  # noqa
 
 
@@ -25,7 +18,7 @@ def create_file(file_name: str):
         f.write("this is a test. This file should be removed")
 
 
-class TestMonitor(ResearcherTestCase):
+class TestMonitor(unittest.TestCase):
     """
     Test `Monitor` class
     Args:
@@ -44,23 +37,15 @@ class TestMonitor(ResearcherTestCase):
         self.mock_summary_writer.return_value = MagicMock()
         self.mock_add_scalar.return_value = MagicMock()
 
-        self.monitor = Monitor()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.monitor = Monitor(self.temp_dir.name)
 
     # after the tests
     def tearDown(self):
 
-        # Clean all files in tmp/runs tensorboard results directory
-        for files in os.listdir(environ['TENSORBOARD_RESULTS_DIR']):
-            path = os.path.join(environ['TENSORBOARD_RESULTS_DIR'], files)
-            try:
-                shutil.rmtree(path)
-            except OSError:
-                os.remove(path)
-
         self.patch_summary_writer.stop()
         self.patch_add_scalar.stop()
-
-        pass
+        self.temp_dir.cleanup()
 
     @patch('fedbiomed.researcher.monitor.Monitor._remove_logs')
     def test_monitor_01_initialization(self,
@@ -74,7 +59,7 @@ class TestMonitor(ResearcherTestCase):
         create_file(test_file)
 
         # 2nd call to monitor
-        _ = Monitor()
+        _ = Monitor(self.temp_dir.name)
         patch_remove_logs.assert_called_once()
 
     def test_monitor_02_remove_logs_as_file(self):
@@ -83,16 +68,16 @@ class TestMonitor(ResearcherTestCase):
         using _remove_logs method
         """
 
-        test_file = os.path.join(environ['TENSORBOARD_RESULTS_DIR'], "test_file")
+        test_file = os.path.join(self.temp_dir.name, "test_file")
         create_file(test_file)
         self.monitor._remove_logs()
         self.assertFalse(os.path.isfile(test_file), "Tensorboard log file has not been removed properly")
 
     def test_monitor_03_remove_logs_if_directory(self):
 
-        test_dir = os.path.join(environ['TENSORBOARD_RESULTS_DIR'], 'test')
+        test_dir = os.path.join(self.temp_dir.name, 'test')
         os.mkdir(test_dir)
-        test_file = os.path.join(environ['TENSORBOARD_RESULTS_DIR'], 'test', "test_file")
+        test_file = os.path.join(self.temp_dir.name, 'test', "test_file")
         create_file(test_file)
 
         self.monitor._remove_logs()

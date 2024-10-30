@@ -34,17 +34,13 @@ from fedbiomed.common.utils import (
     matching_parties_servkey,
 )
 from fedbiomed.common.validator import Validator, ValidatorError
-from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.config import config
 from fedbiomed.researcher.requests import (
     Requests,
     StopOnDisconnect,
     StopOnError,
     StopOnTimeout,
 )
-
-# Instantiate one manager for each secagg element type
-_SKManager = SecaggServkeyManager(environ["DB_PATH"])
-_DHManager = SecaggDhManager(environ["DB_PATH"])
 
 
 class SecaggContext(ABC):
@@ -57,11 +53,17 @@ class SecaggContext(ABC):
 
     @abstractmethod
     def __init__(
-        self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None
+        self,
+        researcher_id: str,
+        parties: List[str],
+        experiment_id: str,
+        secagg_id: Union[str, None] = None
     ):
         """Constructor of the class.
 
         Args:
+            db: Path to researcher database file.
+            researcher_id: ID of the researcher that context will be created for.
             parties: list of parties participating in the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher
@@ -95,12 +97,13 @@ class SecaggContext(ABC):
                 f"`parties` must be a list of strings: {e}"
             ) from e
 
+        self._researcher_id = researcher_id
+        self._db = config.vars["DB"]
         self._secagg_id = (
             secagg_id if secagg_id is not None else "secagg_" + str(uuid.uuid4())
         )
         self._parties = parties
-        self._researcher_id = environ["ID"]
-        self._requests = Requests()
+        self._requests = Requests(config)
         self._status = False
         self._context = None
         self._experiment_id = experiment_id
@@ -190,7 +193,7 @@ class SecaggContext(ABC):
 
         logger.debug(
             f"Secure aggregation context successfully created/registered for"
-            f"researcher_id='{environ['ID']}' secagg_id='{self._secagg_id}'"
+            f"researcher_id='{self._researcher_id}' secagg_id='{self._secagg_id}'"
         )
 
         return context
@@ -288,13 +291,13 @@ class SecaggContext(ABC):
         status = self._secagg_manager.remove(self._secagg_id, self.experiment_id)
         if status:
             logger.debug(
-                f"Context element successfully deleted for researcher_id='{environ['ID']}' "
+                f"Context element successfully deleted for researcher_id='{self._researcher_id}' "
                 f"secagg_id='{self._secagg_id}'"
             )
         else:
             logger.error(
                 f"{ErrorNumbers.FB415.value}: No such context element secagg_id={self._secagg_id} "
-                f"on researcher researcher_id='{environ['ID']}'"
+                f"on researcher researcher_id='{self._researcher_id}'"
             )
 
         return True
@@ -313,11 +316,11 @@ class SecaggContext(ABC):
                 "secagg_id": self._secagg_id,
                 "parties": self._parties,
                 "experiment_id": self._experiment_id,
+                "researcher_id": self._researcher_id,
             },
             "attributes": {
                 "_status": self._status,
                 "_context": self._context,
-                "_researcher_id": self._researcher_id,
             },
         }
         return state
@@ -334,14 +337,7 @@ class SecaggContext(ABC):
         # Get class
         cls = getattr(importlib.import_module(state["module"]), state["class"])
 
-        # Validate experiment id
-        spec = get_method_spec(cls)
-        if "experiment_id" in spec:
-            secagg = cls(**state["arguments"])
-        else:
-            state["arguments"].pop("experiment_id")
-            secagg = cls(**state["arguments"])
-
+        secagg = cls(**state["arguments"])
         for key, value in state["attributes"].items():
             setattr(secagg, key, value)
 
@@ -356,16 +352,18 @@ class SecaggServkeyContext(SecaggContext):
 
     def __init__(
         self,
+        researcher_id,
         parties: List[str],
-        experiment_id: str | None,
+        experiment_id: str,
         secagg_id: str | None = None,
     ):
         """Constructs key context class"""
-        super().__init__(parties, experiment_id, secagg_id)
+        super().__init__(researcher_id, parties, experiment_id, secagg_id)
 
         self._element = SecaggElementTypes.SERVER_KEY
         self._raise_if_missing_parties(parties)
-        self._secagg_manager = _SKManager
+        self._secagg_manager = SecaggServkeyManager(self._db)
+
 
     def secagg_round(
         self,
@@ -400,7 +398,11 @@ class SecaggDHContext(SecaggContext):
     _min_num_parties: int = 2
 
     def __init__(
-        self, parties: List[str], experiment_id: str, secagg_id: Union[str, None] = None
+        self,
+        researcher_id: str,
+        parties: List[str],
+        experiment_id: str,
+        secagg_id: Union[str, None] = None
     ):
         """Constructor of the class.
 
@@ -415,10 +417,10 @@ class SecaggDHContext(SecaggContext):
         Raises:
             FedbiomedSecaggError: bad argument type or value
         """
-        super().__init__(parties, experiment_id, secagg_id)
+        super().__init__(researcher_id, parties, experiment_id, secagg_id)
         self._element = SecaggElementTypes.DIFFIE_HELLMAN
         self._raise_if_missing_parties(parties)
-        self._secagg_manager = _DHManager
+        self._secagg_manager = SecaggDhManager(self._db)
 
     def secagg_round(
         self,

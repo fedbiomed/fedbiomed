@@ -14,13 +14,11 @@ from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.transport.controller import GrpcController
 
-from fedbiomed.node.environ import environ
 from fedbiomed.node.secagg import (
     SecaggDHSetup,
     SecaggServkeySetup,
     SecaggSetup,
 )
-import fedbiomed.node.secagg
 from fedbiomed.node.requests import NodeToNodeRouter
 
 
@@ -49,11 +47,11 @@ class TestSecaggServkeySetup(SecaggTestCase):
         self.args = {
             "db": self.db,
             "node_id": "test-node-id",
-            "researcher_id": "my researcher",
+            "researcher_id": "my-researcher",
             "secagg_id": "my secagg",
             "experiment_id": "my_experiment_id",
             "parties": [
-                environ["ID"],
+                "my-researcher",
                 "node2",
                 "node3",
                 "node4",
@@ -163,7 +161,7 @@ class TestSecaggServkeySetup(SecaggTestCase):
         ) in get_rand_values.values():
             messages = []
             self.args["parties"] = [
-                environ["ID"],
+                'my-researcher',
             ]
             for i, val in enumerate(node_shares_val):
                 messages.append(

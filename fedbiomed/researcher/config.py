@@ -6,7 +6,9 @@ import os
 from fedbiomed.common.constants import (
     SERVER_certificate_prefix,
     __researcher_config_version__,
-    CONFIG_FOLDER_NAME
+    CONFIG_FOLDER_NAME,
+    VAR_FOLDER_NAME,
+    TENSORBOARD_FOLDER_NAME
 )
 
 from fedbiomed.common.certificate_manager import generate_certificate
@@ -42,7 +44,25 @@ class ResearcherConfig(Config):
             "private_key": os.path.relpath(key_file, os.path.join(self.root, CONFIG_FOLDER_NAME)),
             "public_key": os.path.relpath(pem_file, os.path.join(self.root, CONFIG_FOLDER_NAME))
         }
-
         self._cfg['security'] = {
             'secagg_insecure_validation': os.getenv('SECAGG_INSECURE_VALIDATION', True)
         }
+
+
+    def _update_vars(self):
+        """Updates component dynamic vars"""
+
+        super()._update_vars()
+
+        self.vars.update({
+            'EXPERIMENTS_DIR': os.path.join(self.root, VAR_FOLDER_NAME, 'experiments'),
+            'TENSORBOARD_RESULTS_DIR': os.path.join(self.root, TENSORBOARD_FOLDER_NAME),
+            'DB': os.path.join(self.root, CONFIG_FOLDER_NAME, self._cfg.get('default', 'db'))
+        })
+
+        os.makedirs(self.vars['EXPERIMENTS_DIR'], exist_ok=True)
+        os.makedirs(self.vars['TENSORBOARD_RESULTS_DIR'], exist_ok=True)
+
+
+config_name = os.environ.get("FBM_RESEARCHER_CONFIG_FILE", 'config_researcher.ini')
+config = ResearcherConfig(name=config_name)

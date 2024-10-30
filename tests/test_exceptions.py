@@ -7,34 +7,6 @@ class TestException(unittest.TestCase):
     Test exceptions class hierarchy
     '''
 
-    def test_exception_environ(self):
-
-        flag = False
-        try:
-            raise FedbiomedEnvironError("test")
-
-        except FedbiomedEnvironError as e:
-            flag = True
-
-        except Exception as e:
-            flag - False
-
-        self.assertTrue(flag, "Bad exception was caught for FedbiomedEnvironError")
-
-
-        flag = False
-        try:
-            raise FedbiomedEnvironError("test")
-
-        except FedbiomedError as e:
-            flag = True
-
-        except Exception as e:
-            flag - False
-
-        self.assertTrue(flag, "Bad exception was caught for FedbiomedEnvironError")
-
-
     def test_exception_logger(self):
 
         flag = False

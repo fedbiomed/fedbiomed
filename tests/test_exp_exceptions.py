@@ -1,17 +1,12 @@
 import unittest
 from unittest.mock import patch
 
-#############################################################
-# Import ResearcherTestCase before importing any FedBioMed Module
-from testsupport.base_case import ResearcherTestCase
-#############################################################
-
 import fedbiomed.researcher.federated_workflows._federated_workflow
 from fedbiomed.common.exceptions import FedbiomedSilentTerminationError, FedbiomedError
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
 
 
-class TestExpExceptions(ResearcherTestCase):
+class TestExpExceptions(unittest.TestCase):
     """ Test class for experiment.exp_exception """
 
     def setUp(self) -> None:
