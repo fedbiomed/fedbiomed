@@ -155,6 +155,10 @@ class DeclearnOptimizer(BaseOptimizer):
                 f" but got an object with type {type(optimizer)}."
             )
         super().__init__(model, optimizer)
+        #self.optimizer.init_round()
+
+    def init_training(self):
+        super().init_training()
         self.optimizer.init_round()
 
     def step(self):
@@ -277,6 +281,7 @@ class DeclearnOptimizer(BaseOptimizer):
 
         reloaded_optim = FedOptimizer.load_state(optim_state)
         self.optimizer = reloaded_optim
+
         return self
 
     def _collect_common_optimodules(self,

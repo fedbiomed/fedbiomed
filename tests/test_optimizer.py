@@ -15,6 +15,7 @@ from declearn.model.api import Vector
 from declearn.optimizer import Optimizer as DeclearnOptimizer
 from declearn.optimizer.modules import OptiModule
 from declearn.optimizer.regularizers import Regularizer
+from declearn.optimizer.schedulers import Scheduler
 
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
 from fedbiomed.common.optimizers.declearn import (
@@ -80,8 +81,8 @@ class TestOptimizer(unittest.TestCase):
         Apache-2.0 license.
         """
         # Set up an optimizer with mock attributes.
-        lrate = mock.MagicMock()
-        decay = mock.MagicMock()
+        lrate = mock.MagicMock(spec=Scheduler)
+        decay = mock.MagicMock(spec=Scheduler)
         modules = [
             mock.create_autospec(OptiModule, instance=True) for _ in range(3)
         ]
@@ -97,6 +98,7 @@ class TestOptimizer(unittest.TestCase):
         # Set up mock Vector inputs. Run them through the Optimizer.
         grads = mock.create_autospec(Vector, instance=True)
         weights = mock.create_autospec(Vector, instance=True)
+
         updates = optim.step(grads, weights)
         # Check that the inputs went through the expected plug-ins pipeline.
         inputs = grads  # initial inputs
@@ -107,12 +109,13 @@ class TestOptimizer(unittest.TestCase):
             mod.run.assert_called_once_with(inputs)
             inputs = mod.run.return_value
         # Check that the learning rate was properly applied.
-        lrate.__neg__.assert_called_once()  # -1 * lrate
-        lrate.__neg__.return_value.__mul__.assert_called_once_with(inputs)
-        output = lrate.__neg__.return_value.__mul__.return_value
+
+        lrate.get_next_rate.return_value.__neg__.assert_called_once()  # -1 * lrate
+        lrate.get_next_rate.return_value.__neg__.return_value.__mul__.assert_called_once_with(inputs)
+        output = lrate.get_next_rate.return_value.__neg__.return_value.__mul__.return_value
         # Check that the weight-decay term was properly applied.
-        decay.__mul__.assert_called_once_with(weights)
-        output.__isub__.assert_called_once_with(decay.__mul__.return_value)
+        decay.get_next_rate.return_value.__mul__.assert_called_once_with(weights)
+        output.__isub__.assert_called_once_with(decay.get_next_rate.return_value.__mul__.return_value)
         # Check that the outputs match the expected ones.
         self.assertIs(updates, output.__isub__.return_value)
 

@@ -172,7 +172,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
 
     def test_declearnoptimizer_03_step_method_1_TorchOptimizer(self):
 
-        optim = FedOptimizer(lr=1)
+        optim = FedOptimizer(lr=1.)
 
         # initilise optimizer wrappers
         initialized_torch_optim_wrappers = (
@@ -201,7 +201,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
 
 
     def test_declearnoptimizer_03_step_method_2_SklearnOptimizer(self):
-        optim = FedOptimizer(lr=1)
+        optim = FedOptimizer(lr=1.)
         num_features = 4
         num_classes = 2
 
@@ -278,10 +278,9 @@ class TestDeclearnOptimizer(unittest.TestCase):
         learning_rate = .12345
         w_decay = .54321
 
-        optim = FedOptimizer(lr=learning_rate, decay=w_decay)
-
         for model_wrappers in (self._torch_model_wrappers, self._sklearn_model_wrappers):
             for model in model_wrappers:
+                optim = FedOptimizer(lr=learning_rate, decay=w_decay)
                 optim_wrapper = DeclearnOptimizer(model, optim)
                 state = optim_wrapper.save_state()
 
@@ -348,8 +347,9 @@ class TestDeclearnOptimizer(unittest.TestCase):
                     prev = previous_round_optim_state['states'][module_name]
                     current = current_round_optim_state['states'][module_name]
                     current_after_loading = current_round_optim_state_after_loading['states'][module_name]
-                    self.assertNotEqual(prev, current)
-                    self.assertEqual(current, current_after_loading)
+                    if module_name not in ('lrate', 'w_decay'):
+                        self.assertNotEqual(prev, current)
+                        self.assertEqual(current, current_after_loading)
                 self.assertNotEqual(
                     previous_round_optim_state['config']['lrate'],
                     current_round_optim_state_after_loading['config']['lrate']
@@ -614,7 +614,7 @@ class TestTorchBasedOptimizer(unittest.TestCase):
 
     def test_torchbasedoptimizer_02_step(self):
         # check that declearn and torch plain SGD optimization step give the same result
-        declearn_optim = FedOptimizer(lr=1)
+        declearn_optim = FedOptimizer(lr=1.)
         torch_optim_type = torch.optim.SGD
 
         data = torch.Tensor([[1,1,1,1]])
