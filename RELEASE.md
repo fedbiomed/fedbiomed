@@ -17,7 +17,7 @@ git pull --prune
 - check that the CI for `develop` builds correctly (github checks)
 - set the release version tag for the release (or use this tag directly in commands)
 ```bash
-export RELEASE_TAG=v5.3.0
+export RELEASE_TAG=v5.4.0
 ```
 - fork a `release/$RELEASE_TAG` branch from `develop`, and checkout the `release/$RELEASE_TAG` branch
 ```bash
