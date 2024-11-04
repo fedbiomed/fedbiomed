@@ -308,20 +308,6 @@ Optionally deploy a second node instance on the same node (useful for testing pu
 This part of the tutorial is optionally executed on some nodes, after deploying the server.
 
 
-## Optionally configure Joye-Libert secure aggregation
-
-Secure aggregation provides additional security.
-**No additional configuration is needed for using LOM secure aggregation, only for using Joye-Libert secure aggregation**
-
-Optionally configure Joye-Libert secure aggregation:
-
-* for [the server side](./deployment-vpn-secagg.md#configure-joye-libert-secure-aggregation-for-the-server-side)
-* for [the node side](./deployment-vpn-secagg.md#configure-joye-libert-secure-aggregation-for-the-node-side)
-
-This part of the tutorial is optionally executed once on each node and once on the server.
-It is necessary before this component can use secure aggregation in an experiment.
-
-
 ## Use the node
 
 This part is executed at least once on each node, after deploying the node side containers.
