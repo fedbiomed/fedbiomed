@@ -46,9 +46,9 @@ REQUEST_PREFIX = 'request_'
 CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 """FOLDER name for Certs directory"""
 
-TRACEBACK_LIMIT = 10
+TRACEBACK_LIMIT = 20
 
-MPSPDZ_certificate_prefix = "MPSPDZ_certificate"
+DEFAULT_CERT_NAME = "FBM_certificate"
 SERVER_certificate_prefix = "server_certificate"
 
 # !!! info "Instructions for developers"
@@ -62,13 +62,15 @@ SERVER_certificate_prefix = "server_certificate"
 # 2. bump the version below: if your change breaks backward compatibility you must increase the
 # major version, else the minor version. Micro versions are supported but their use is currently discouraged.
 
-__version__ = FBM_Component_Version('5.3.0')  # Fed-BioMed software version
-__researcher_config_version__ = FBM_Component_Version('2')  # researcher config file version
+__version__ = FBM_Component_Version('5.4.0')  # Fed-BioMed software version
+__researcher_config_version__ = FBM_Component_Version('3')  # researcher config file version
 __node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('2')  # node state version
 __breakpoints_version__ = FBM_Component_Version('3')  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version('4')  # format of gRPC messages.
-__secagg_element_version__ = FBM_Component_Version('2')  # format os secagg database elements
+__messaging_protocol_version__ = FBM_Component_Version('5')  # format of gRPC messages.
+__secagg_element_version__ = FBM_Component_Version('2')  # format of secagg database elements
+__n2n_channel_element_version__ = FBM_Component_Version('1')  # format of n2n channels database elements
+
 # Nota: for messaging protocol version, all changes should be a major version upgrade
 
 # Max message length as bytes
@@ -81,7 +83,10 @@ MAX_SEND_RETRIES = 5
 MAX_RETRIEVE_ERROR_RETRIES = 5
 
 # Timeout for a node to node request
-TIMEOUT_NODE_TO_NODE_REQUEST = 10
+#
+# Intentionally high to support scaling to great number of nodes
+# In typical scenario 5 seconds is enough with 10 nodes
+TIMEOUT_NODE_TO_NODE_REQUEST = 30
 
 
 class _BaseEnum(Enum):
@@ -112,7 +117,7 @@ class MessageType(_BaseEnum):
         try:
             return getattr(cls, type_.upper())
         except AttributeError as exp:
-            raise FedbiomedError(f"There is no MessageType as {type_}")
+            raise FedbiomedError(f"There is no MessageType as {type_}") from exp
 
 
 class ComponentType(_BaseEnum):
@@ -125,18 +130,6 @@ class ComponentType(_BaseEnum):
 
     RESEARCHER: int = 1
     NODE: int = 2
-
-
-
-class BiprimeType(_BaseEnum):
-    """Constant values for secure aggregation biprime type that will be saved into db
-
-    Attributes:
-        DYNAMIC: means biprime dynamically added after negoti
-        DEFAULT: means biprime is a default one provided by Fed-BioMed
-    """
-    DYNAMIC = 'dynamic'
-    DEFAULT = 'default'
 
 
 class HashingAlgorithms(_BaseEnum):
@@ -260,12 +253,10 @@ class SecaggElementTypes(_BaseEnum):
 
     Attributes:
         SERVER_KEY: server key split between the parties
-        BIPRIME: biprime shared between the parties
         DIFFIE_HELLMAN: one pair of DH key for each node party, public key shared with other node parties
     """
     SERVER_KEY: int = 0
-    BIPRIME: int = 1
-    DIFFIE_HELLMAN: int = 2
+    DIFFIE_HELLMAN: int = 1
 
     @staticmethod
     def get_element_from_value(element_value: int):
@@ -359,6 +350,8 @@ class ErrorNumbers(_BaseEnum):
     FB627 = "FB627: Utility function error"
     FB628 = "FB628: Communication error"
     FB629 = "FB629: Diffie-Hellman KA error"
+    FB630 = "FB630: Additive Secret Sharing error"
+    FB631 = 'FB631: Node to node channels database error'
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

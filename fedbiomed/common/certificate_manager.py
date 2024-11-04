@@ -2,26 +2,30 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import ipaddress
 import os
 import random
-import ipaddress
+from typing import Dict, List, Optional, Tuple, Union
 
 from OpenSSL import crypto
-from typing import List, Union, Tuple, Optional, Dict
-from tinydb import TinyDB, Query
-from tinydb.table import Table
 from tabulate import tabulate
+from tinydb import Query, TinyDB
+from tinydb.table import Table
 
-from fedbiomed.common.constants import ComponentType, MPSPDZ_certificate_prefix, NODE_PREFIX, ErrorNumbers, \
-    CONFIG_FOLDER_NAME, CERTS_FOLDER_NAME
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedCertificateError
-from fedbiomed.common.utils import read_file
+from fedbiomed.common.constants import (
+    CERTS_FOLDER_NAME,
+    CONFIG_FOLDER_NAME,
+    NODE_PREFIX,
+    ComponentType,
+    ErrorNumbers,
+)
 from fedbiomed.common.db import DBTable
-
+from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
+from fedbiomed.common.utils import read_file
 
 
 class CertificateManager:
-    """ Certificate manager to manage certificates of parties
+    """Certificate manager to manage certificates of parties
 
     Attrs:
         _db: TinyDB database to store certificates
@@ -51,22 +55,20 @@ class CertificateManager:
         self._db: Table = db.table("Certificates")
 
     def insert(
-            self,
-            certificate: str,
-            party_id: str,
-            component: str,
-            ip: str,
-            port: str,
-            upsert: bool = False
+        self,
+        certificate: str,
+        party_id: str,
+        component: str,
+        upsert: bool = False,
     ) -> Union[int, list[int]]:
-        """ Inserts new certificate
+        """Inserts new certificate
 
         Args:
             certificate: Public-key for the FL parties
             party_id: ID of the party
             component: Node or researcher,
-            ip: MP-SPDZ IP of the component which the certificate will be registered
-            port: MP-SPDZ Port of the component which the certificate will be registered
+            ip: IP of the component which the certificate will be registered
+            port: Port of the component which the certificate will be registered
             upsert: Update document with new data if it is existing
 
         Returns:
@@ -77,34 +79,29 @@ class CertificateManager:
         """
         certificate_ = self.get(party_id=party_id)
         if not certificate_:
-            return self._db.insert(dict(
-                certificate=certificate,
-                party_id=party_id,
-                component=component,
-                ip=ip,
-                port=port
-            ))
-
-        elif upsert:
-            return self._db.upsert(
-                dict(
-                    certificate=certificate,
-                    component=component,
-                    party_id=party_id,
-                    ip=ip,
-                    port=port
-                ),
-                self._query.party_id == party_id
+            return self._db.insert(
+                {
+                    "certificate": certificate,
+                    "party_id": party_id,
+                    "component": component,
+                }
             )
-        else:
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Party {party_id} already registered. Please use `upsert=True` or "
-                f"'--upsert' option through CLI")
 
-    def get(
-            self,
-            party_id: str
-    ) -> Union[dict, None]:
+        if upsert:
+            return self._db.upsert(
+                {
+                    "certificate": certificate,
+                    "component": component,
+                    "party_id": party_id,
+                },
+                self._query.party_id == party_id,
+            )
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: Party {party_id} already registered. "
+            "Please use `upsert=True` or '--upsert' option through CLI"
+        )
+
+    def get(self, party_id: str) -> Union[dict, None]:
         """Gets certificate/public key  of given party
 
         Args:
@@ -117,10 +114,7 @@ class CertificateManager:
         v = self._db.get(self._query.party_id == party_id)
         return v
 
-    def delete(
-            self,
-            party_id
-    ) -> List[int]:
+    def delete(self, party_id) -> List[int]:
         """Deletes given party from table
 
         Args:
@@ -133,7 +127,7 @@ class CertificateManager:
         return self._db.remove(self._query.party_id == party_id)
 
     def list(self, verbose: bool = False) -> List[dict]:
-        """ Lists registered certificates.
+        """Lists registered certificates.
 
         Args:
             verbose: Prints list of registered certificates in tabular format
@@ -146,29 +140,25 @@ class CertificateManager:
         if verbose:
             to_print = copy.deepcopy(certificates)
             for doc in to_print:
-                doc.pop('certificate')
+                doc.pop("certificate")
 
-            print(tabulate(to_print, headers='keys'))
+            print(tabulate(to_print, headers="keys"))
 
         return certificates
 
     def register_certificate(
-            self,
-            certificate_path: str,
-            party_id: str,
-            ip: str,
-            port: int,
-            upsert: bool = False
+        self,
+        certificate_path: str,
+        party_id: str,
+        upsert: bool = False,
     ) -> Union[int, List[int]]:
-        """ Registers certificate
+        """Registers certificate
 
         Args:
             certificate_path: Path where certificate/key file stored
             party_id: ID of the FL party which the certificate will be registered
-            ip:  MP-SPDZ IP address of the party where MP-SPDZ create communication
-            port: MP-SPDZ port of the party
-            upsert: If `True` overwrites existing certificate for specified party. If `False` and the certificate for
-                the specified party already existing it raises error.
+            upsert: If `True` overwrites existing certificate for specified party.  If `False`
+                and the certificate for the specified party already existing it raises error.
 
         Returns:
             The document ID of registered certificated.
@@ -183,152 +173,25 @@ class CertificateManager:
             )
 
         # Read certificate content
-        with open(certificate_path) as file:
-            certificate_content = file.read()
-            file.close()
+        certificate_content = read_file(certificate_path)
 
         # Save certificate in database
-        component = ComponentType.NODE.name if party_id.startswith(NODE_PREFIX) else ComponentType.RESEARCHER.name
+        component = (
+            ComponentType.NODE.name
+            if party_id.startswith(NODE_PREFIX)
+            else ComponentType.RESEARCHER.name
+        )
 
         return self.insert(
             certificate=certificate_content,
             party_id=party_id,
-            ip=ip,
-            port=port,
             component=component,
             upsert=upsert,
         )
 
-    def write_mpc_certificates_for_experiment(
-            self,
-            parties: List[str],
-            path_certificates: str,
-            path_ips: str,
-            self_id: str,
-            self_ip: str,
-            self_port: int,
-            self_private_key: str,
-            self_public_key: str
-    ) -> Tuple[str, List[str]]:
-        """ Writes certificates into given directory respecting the order
-
-        !!! info "Certificate Naming Convention"
-                MP-SPDZ requires saving certificates respecting the naming convention `P<PARTY_ID>.pem`. Party ID should
-                be integer in the order of [0,1, ...].  Therefore, the order of parties are critical in the sense of
-                naming files in given folder path. Files will be named as `P[ORDER].pem` to make it compatible with
-                MP-SPDZ.
-
-        Args:
-            parties: ID of the parties (nodes/researchers) will join FL experiment.y
-            path_certificates: The path where certificate files will be writen
-            path_ips: Path where ip addresses will be saved
-            self_id: ID of the component that will launch MP-SPDZ protocol
-            self_ip: IP of the component that will launch MP-SPDZ protocol
-            self_port: Port of the component that will launch MP-SPDZ protocol
-            self_private_key: Path to MPSPDZ public key
-            self_public_key: Path to MPSDPZ private key
-
-        Returns:
-            Path where ip addresses are saved
-            List of written certificates files (paths).
-
-        Raises:
-            FedbiomedCertificateError: - If certificate for given party is not existing in the database
-                - If given path is not a directory
-        """
-
-        if not os.path.isdir(path_certificates):
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Specified `path_certificates` argument should be a directory. "
-                f"`path_certificates` is not a directory or it is not existing. {path_certificates}"
-            )
-
-        if not os.path.isdir(path_ips):
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Specified `path_ips` argument should be a directory. `path_ips` is not a "
-                f"directory or it is not existing. {path_ips}"
-            )
-
-
-        path_certificates = os.path.abspath(path_certificates)
-        path_ips = os.path.abspath(path_ips)
-        self_private_key = os.path.abspath(self_private_key)
-        self_public_key = os.path.abspath(self_public_key)
-
-        ip_addresses = os.path.join(path_ips, "ip_addresses")
-        # Files already writen into directory
-        writen_certificates = []
-
-        # Function remove writen files in case of error
-        def remove_writen_files():
-            for wf in writen_certificates:
-                if os.path.isfile(wf):
-                    os.remove(wf)
-
-            if os.path.isfile(ip_addresses):
-                os.remove(ip_addresses)
-
-        if os.path.isfile(ip_addresses):
-            os.remove(ip_addresses)
-
-        # Get certificate for each party
-        try:
-            for index, party in enumerate(parties):
-
-                # Self certificate requires to
-                if party == self_id:
-                    self_certificate_key = read_file(self_private_key)
-                    self_certificate_pem = read_file(self_public_key)
-
-                    key = os.path.join(path_certificates, f"P{index}.key")
-                    pem = os.path.join(path_certificates, f"P{index}.pem")
-
-                    self._write_certificate_file(key, self_certificate_key)
-                    self._write_certificate_file(pem, self_certificate_pem)
-                    self._append_new_ip_address(ip_addresses, self_ip, self_port, self_id)
-                    writen_certificates.extend([key, pem])
-
-                    continue
-
-                # Remote parties
-                party_object = self.get(party)
-                if not party_object:
-                    remove_writen_files()
-                    raise FedbiomedCertificateError(
-                        f"{ErrorNumbers.FB619.value}: Certificate for {party} is not existing. Certificates  of "
-                        f"each federated training participant should be present. {self_id} should register certificate "
-                        f"of {party}."
-                    )
-
-                path_ = os.path.join(path_certificates, f"P{index}.pem")
-                self._write_certificate_file(path_, party_object["certificate"])
-                writen_certificates.append(path_)
-
-                self._append_new_ip_address(
-                    ip_addresses,
-                    party_object["ip"],
-                    party_object["port"],
-                    party_object["party_id"]
-                )
-
-        except FedbiomedCertificateError as e:
-            # Remove all writen file in case of an error
-            remove_writen_files()
-            raise FedbiomedCertificateError(e)
-
-        except FedbiomedError as e:
-            remove_writen_files()
-            raise FedbiomedCertificateError(f"{ErrorNumbers.FB619.value}: {e}")
-
-        except Exception as e:
-            remove_writen_files()
-            raise FedbiomedCertificateError(f"{ErrorNumbers.FB619.value}: Undetermined error: {e}")
-
-        return ip_addresses, writen_certificates
-
     @staticmethod
     def _write_certificate_file(path: str, certificate: str) -> None:
-        """ Writes certificate file
+        """Writes certificate file
 
         Args:
             path: Filesystem path the file will be writen
@@ -338,51 +201,27 @@ class CertificateManager:
             FedbiomedCertificateError: If certificate can not be writen into given path
         """
         try:
-            with open(path, 'w') as file:
+            with open(path, "w", encoding="UTF-8") as file:
                 file.write(certificate)
                 file.close()
         except Exception as e:
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Can not write certificate file {path}. Aborting the operation. "
-                f"Please check raised exception: {e}"
-            )
-
-    @staticmethod
-    def _append_new_ip_address(path: str, ip: str, port: int, party_id: str):
-        """Append new address to the file where the ip address of the parties are kept
-
-        Args:
-            path: Path to IP addresses file
-            ip: IP address
-            port: Port number
-            party_id: ID of the party corresponds to given IP and port
-
-        Raises:
-            FedbiomedCertificateError: If new ip address can not be appended into the given file path (file).
-        """
-        try:
-            with open(path, 'a') as file:
-                file.write(f"{ip}:{port}\n")
-                file.close()
-
-        except Exception as e:
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Can not write ip address of component: {party_id}. Aborting the "
-                f"operation. Please check raised exception: {e}"
-            )
+                f"{ErrorNumbers.FB619.value}: Can not write certificate file {path}. "
+                f"Aborting the operation. Please check raised exception: {e}"
+            ) from e
 
     @staticmethod
     def generate_self_signed_ssl_certificate(
-            certificate_folder,
-            certificate_name: str = MPSPDZ_certificate_prefix,
-            component_id: str = "unknown",
-            subject: Optional[Dict[str, str]] = None
+        certificate_folder,
+        certificate_name: str = "FBM_",
+        component_id: str = "unknown",
+        subject: Optional[Dict[str, str]] = None,
     ) -> Tuple[str, str]:
         """Creates self-signed certificates
 
         Args:
-            certificate_folder: The path where certificate files `.pem` and `.key` will be saved. Path should be
-                absolute.
+            certificate_folder: The path where certificate files `.pem` and `.key`
+                will be saved. Path should be absolute.
             certificate_name: Name of the certificate file.
             component_id: ID of the component
 
@@ -391,18 +230,19 @@ class CertificateManager:
             public_key: Certificate file
 
         Raises:
-            FedbiomedCertificateError: If certificate directory is invalid or an error occurs while writing certificate
-                files in given path.
+            FedbiomedCertificateError: If certificate directory is invalid or an error
+                occurs while writing certificate files in given path.
 
         !!! info "Certificate files"
-                Certificate files will be saved in the given directory as `certificates.key` for private key
-                `certificate.pem` for public key.
+                Certificate files will be saved in the given directory as
+                `certificates.key` for private key `certificate.pem` for public key.
         """
         subject = subject or {}
 
         if not os.path.abspath(certificate_folder):
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Certificate path should be absolute: {certificate_folder}"
+                f"{ErrorNumbers.FB619.value}: Certificate path should be absolute: "
+                f"{certificate_folder}"
             )
 
         if not os.path.isdir(certificate_folder):
@@ -413,9 +253,8 @@ class CertificateManager:
         pkey = crypto.PKey()
         pkey.generate_key(crypto.TYPE_RSA, 2048)
 
-
-        cn = subject.get('CommonName', '*')
-        on = subject.get('OrganizationName', component_id)
+        cn = subject.get("CommonName", "*")
+        on = subject.get("OrganizationName", component_id)
 
         x509 = crypto.X509()
         subject = x509.get_subject()
@@ -426,10 +265,13 @@ class CertificateManager:
         extensions = []
         try:
             if ipaddress.ip_address(cn):
-                extensions.append(crypto.X509Extension(
-                    type_name=b'subjectAltName',
-                    critical=False,
-                    value=f'IP:{cn}'.encode('ASCII')))
+                extensions.append(
+                    crypto.X509Extension(
+                        type_name=b"subjectAltName",
+                        critical=False,
+                        value=f"IP:{cn}".encode("ASCII"),
+                    )
+                )
         except ValueError:
             pass
         if extensions:
@@ -440,7 +282,7 @@ class CertificateManager:
         x509.set_pubkey(pkey)
         x509.set_serial_number(random.randrange(100000))
         x509.set_version(2)
-        x509.sign(pkey, 'SHA256')
+        x509.sign(pkey, "SHA256")
 
         # Certificate names
         key_file = os.path.join(certificate_folder, f"{certificate_name}.key")
@@ -453,7 +295,7 @@ class CertificateManager:
         except Exception as e:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Can not write public key: {e}"
-            )
+            ) from e
 
         try:
             with open(pem_file, "wb") as f:
@@ -462,53 +304,17 @@ class CertificateManager:
         except Exception as e:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Can not write public key: {e}"
-            )
+            ) from e
 
         return key_file, pem_file
 
-
-def retrieve_ip_and_port(
-        root: str, 
-        new: bool = False,
-        increment: Union[int, None] = None
-) -> Tuple[str, str]:
-
-    # Get IP from global environment
-    ip = os.getenv('MPSPDZ_IP', "localhost")
-
-    increment_file = os.path.join(root, CONFIG_FOLDER_NAME, 'port_increment')
-
-    if os.path.isfile(increment_file) and new is False:
-        with open(increment_file, "r+") as file:
-            port_increment = file.read()
-            if port_increment != "":
-                port = int(port_increment) + 1
-                file.truncate(0)
-                file.close()
-
-                # Renew port in the  file
-                _ = retrieve_ip_and_port(
-                    root,
-                    new=True,
-                    increment=port)
-            else:
-                _, port = retrieve_ip_and_port(
-                    root,
-                    new=True)
-    else:
-        with open(increment_file, "w") as file:
-            port = os.getenv('MPSPDZ_PORT', 14000) if increment is None else increment
-            file.write(f"{port}")
-            file.close()
-
-    return ip, port
 
 
 def generate_certificate(
     root,
     component_id,
     prefix: Optional[str] = None,
-    subject: Optional[Dict[str, str]] = None
+    subject: Optional[Dict[str, str]] = None,
 ) -> Tuple[str, str]:
     """Generates certificates
 
@@ -520,26 +326,28 @@ def generate_certificate(
         pem_file: The path where public key file is saved
 
     Raises:
-        FedbiomedEnvironError: If certificate directory for the component has already `certificate.pem` or
-            `certificate.key` files generated.
+        FedbiomedEnvironError: If certificate directory for the component has already
+            `certificate.pem` or `certificate.key` files generated.
     """
 
     certificate_path = os.path.join(root, CERTS_FOLDER_NAME, f"cert_{component_id}")
 
-    if os.path.isdir(certificate_path) \
-            and (os.path.isfile(os.path.join(certificate_path, "certificate.key")) or
-                 os.path.isfile(os.path.join(certificate_path, "certificate.pem"))):
+    if os.path.isdir(certificate_path) and (
+        os.path.isfile(os.path.join(certificate_path, "certificate.key"))
+        or os.path.isfile(os.path.join(certificate_path, "certificate.pem"))
+    ):
+        raise ValueError(
+            f"Certificate generation is aborted. Directory {certificate_path} has already "
+            f"certificates. Please remove those files to regenerate"
+        )
 
-        raise ValueError(f"Certificate generation is aborted. Directory {certificate_path} has already "
-                         f"certificates. Please remove those files to regenerate")
-    else:
-        os.makedirs(certificate_path, exist_ok=True)
+    os.makedirs(certificate_path, exist_ok=True)
 
     key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
         certificate_folder=certificate_path,
-        certificate_name=prefix if prefix else '',
+        certificate_name=prefix if prefix else "",
         component_id=component_id,
-        subject=subject
+        subject=subject,
     )
 
     return key_file, pem_file

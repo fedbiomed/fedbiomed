@@ -49,53 +49,50 @@ def exp_exceptions(function):
     @functools.wraps(function)
     def payload(*args, **kwargs):
         code = 0
-        try:
-            ret = function(*args, **kwargs)
-        except FedbiomedSilentTerminationError:
-            # handle the case of nested calls will exception decorator
-            raise
-        except SystemExit as e:
-            # handle the sys.exit() from other clauses
-            sys.exit(e)
-        except KeyboardInterrupt:
-            code = 1
-            print(
-                '\n--------------------',
-                'Fed-BioMed researcher stopped due to keyboard interrupt',
-                '--------------------',
-                sep=os.linesep)
-            logger.critical('Fed-BioMed researcher stopped due to keyboard interrupt')
-        except FedbiomedError as e:
-            code = 1
-            print(
-                '\n--------------------',
-                f'Fed-BioMed researcher stopped due to exception:\n{str(e)}',
-                '--------------------',
-                sep=os.linesep)
-            # redundant, should be already logged when raising exception
-            # logger.critical(f'Fed-BioMed researcher stopped due to exception:\n{str(e)}')
-        except BaseException as e:
-            code = 3
-            print(
-                '\n--------------------',
-                f'Fed-BioMed researcher stopped due to unknown error:\n{str(e)}',
-                'More details in the backtrace extract below',
-                '--------------------',
-                sep=os.linesep)
-            # at most 5 backtrace entries to avoid too long output
-            traceback.print_exc(limit=5, file=sys.stdout)
-            print('--------------------')
-            logger.critical(f'Fed-BioMed stopped due to unknown error:\n{str(e)}')
 
-        if code != 0:
-            if is_ipython():
-                # raise a silent specific exception, don't exit the interactive kernel
-                raise FedbiomedSilentTerminationError
-            else:
-                # exit the process
+        if not os.environ.get('FEDBIOMED_DEBUG'):
+            try:
+                ret = function(*args, **kwargs)
+            except FedbiomedSilentTerminationError:
+                raise
+            except SystemExit as e:
+                sys.exit(e)
+            except KeyboardInterrupt:
+                code = 1
+                print(
+                    '\n--------------------',
+                    'Fed-BioMed researcher stopped due to keyboard interrupt',
+                    '--------------------',
+                    sep=os.linesep)
+                logger.critical('Fed-BioMed researcher stopped due to keyboard interrupt')
+            except FedbiomedError as e:
+                code = 1
+                print(
+                    '\n--------------------',
+                    f'Fed-BioMed researcher stopped due to exception:\n{str(e)}',
+                    '--------------------',
+                    sep=os.linesep)
+            except BaseException as e:
+                code = 3
+                print(
+                    '\n--------------------',
+                    f'Fed-BioMed researcher stopped due to unknown error:\n{str(e)}',
+                    'More details in the backtrace extract below',
+                    '--------------------',
+                    sep=os.linesep)
+                # at most 5 backtrace entries to avoid too long output
+                traceback.print_exc(limit=5, file=sys.stdout)
+                print('--------------------')
+                logger.critical(f'Fed-BioMed stopped due to unknown error:\n{str(e)}')
+
+            if code != 0:
+                if is_ipython():
+                    raise FedbiomedSilentTerminationError
                 sys.exit(code)
 
-        return ret
+            return ret
+
+        return function(*args, **kwargs)
 
     return payload
 
@@ -683,11 +680,14 @@ class FederatedWorkflow(ABC):
         """Retrieves the secagg arguments for setup."""
         secagg_arguments = {}
         if self._secagg.active:
-
-            if not self._secagg.setup(parties=[environ["ID"]] + sampled_nodes, experiment_id=self._experiment_id):
-                msg = f"{ErrorNumbers.FB417.value}: Could not setup secure aggregation crypto context."
-                logger.critical(msg)
-                raise FedbiomedSecureAggregationError(msg)
+            if not self._secagg.setup(
+                parties=sampled_nodes,
+                experiment_id=self._experiment_id,
+            ):
+                raise FedbiomedSecureAggregationError(
+                    f"{ErrorNumbers.FB417.value}: Could not setup secure aggregation crypto "
+                    "context."
+                )
             secagg_arguments = self._secagg.train_arguments()
         return secagg_arguments
 
@@ -811,8 +811,9 @@ class FederatedWorkflow(ABC):
         loaded_exp._tags = saved_state.get('tags')
         loaded_exp.set_nodes(saved_state.get('nodes'))
         loaded_exp.set_experimentation_folder(saved_state.get('experimentation_folder'))
-        saved_state_secagg = saved_state.get('secagg')
-        loaded_exp.set_secagg(eval(saved_state_secagg['class']).load_state_breakpoint(saved_state_secagg))
+
+        secagg = SecureAggregation.load_state_breakpoint(saved_state.get('secagg'))
+        loaded_exp.set_secagg(secagg)
         loaded_exp._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
         loaded_exp.set_save_breakpoints(True)
 

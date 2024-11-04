@@ -90,7 +90,6 @@ class TrainingPlanCheckJob(Job):
             'researcher_id': self._researcher_id,
             'experiment_id': self._experiment_id,
             'training_plan': self._training_plan.source(),
-            'command': 'training-plan-status'
         })
 
         # Send message to each node that has been found after dataset search request

@@ -70,8 +70,6 @@ class TestResearcherCLI(ResearcherTestCase):
         register_options = choices["register"]._positionals._option_string_actions
         self.assertTrue("--party-id" in register_options)
         self.assertTrue("--public-key" in register_options)
-        self.assertTrue("--ip" in register_options)
-        self.assertTrue("--port" in register_options)
 
         generate_options = choices["generate"]._positionals._option_string_actions
         self.assertTrue("--path" in generate_options)

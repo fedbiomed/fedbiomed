@@ -1,9 +1,8 @@
 import time
 import pytest
+import copy
 
 from helpers import (
-    configure_secagg,
-    secagg_certificate_registration,
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
@@ -37,7 +36,6 @@ def setup(port, post_session, request):
     # Configure secure aggregation
     print("Configure secure aggregation ---------------------------------------------")
     print(f"USING PORT {port} for researcher server")
-    configure_secagg()
 
     print("Creating components ---------------------------------------------")
     with create_multiple_nodes(
@@ -53,8 +51,6 @@ def setup(port, post_session, request):
         print("Creating researcher component -------------------------------------------")
         researcher = create_researcher(port=port)
 
-        print("Register certificates ---------------------------------------------")
-        secagg_certificate_registration()
 
         print("Adding first dataset --------------------------------------------")
         add_dataset_to_node(node_1, dataset)
@@ -88,14 +84,12 @@ def extra_node_force_secagg(port):
         })
 
     add_dataset_to_node(node_3, dataset)
-    # Re execute certificate registraiton
-    secagg_certificate_registration()
 
     # Starts the nodes
     node_processes, thread = start_nodes([node_3])
 
     # Give some time to researcher
-    time.sleep(10)
+    time.sleep(15)
 
     yield
 
@@ -116,14 +110,12 @@ def extra_node_no_validation(port):
         })
 
     add_dataset_to_node(node_3, dataset)
-    # Re execute certificate registraiton
-    secagg_certificate_registration()
 
     # Starts the nodes
     node_processes, thread = start_nodes([node_3])
 
     # Give some time to researcher
-    time.sleep(10)
+    time.sleep(15)
 
     yield
 
@@ -150,12 +142,39 @@ def extra_nodes_for_lom(port):
 
         # start nodes and give some time to start
         node_processes, _ = start_nodes([node_1, node_2, node_3])
-        time.sleep(10)
+        time.sleep(15)
 
 
         yield
 
         kill_subprocesses(node_processes)
+
+@pytest.fixture
+def extra_nodes_for_lom_8_nodes(port):
+
+    with create_multiple_nodes(
+        port = port,
+        num_nodes = 6,
+        config_sections = {
+            'security': {'secure_aggregation': 'True'},
+            'researcher': {'port': port}
+        }
+    ) as nodes:
+
+        node_1, node_2, node_3, node_4, node_5, node_6 = nodes
+
+        for node in nodes:
+             add_dataset_to_node(node, dataset)
+
+        # start nodes and give some time to start
+        node_processes, _ = start_nodes([node_1, node_2, node_3, node_4, node_5, node_6])
+        time.sleep(15)
+
+
+        yield
+
+        kill_subprocesses(node_processes)
+
 
 #############################################
 ### Start writing tests
@@ -321,3 +340,27 @@ def test_06_secagg_lom_pytorch_breakpoint(extra_nodes_for_lom):
 
     # Clear
     clear_experiment_data(loaded_exp)
+
+
+def test_07_secagg_pytorch_lom_8_nodes(extra_nodes_for_lom_8_nodes):
+    """Secagg using LOM with 8 nodes, which raised some bugs regarding
+    failure tests and values conversion
+    """
+
+    training_args_8 = copy.deepcopy(training_args)
+    training_args_8['dry_run'] = True
+
+    exp = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=MyTrainingPlan,
+        training_args=training_args_8,
+        round_limit=1,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+        secagg=SecureAggregation(scheme=SecAggSchemes.LOM)
+    )
+    exp.run()
+
+    # Cleaning!
+    clear_experiment_data(exp)

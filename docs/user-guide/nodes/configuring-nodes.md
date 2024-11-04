@@ -51,14 +51,9 @@ The configuration file is structured following the sections below:
     - `version`: Version of the configuration format to avoid using older configuration files with recent Fed-BioMed versions.
     - `db`: Relative path to the node's database, from this configuration file
 
-- **MPSDPZ (Secure Aggregation MPC module)**
-    - MP-SDPZ is the library used for secure aggregation to be able to generate private/public keys securely. This library is used only when specific secure aggregation scheme is activated (Joye-Libert). Please see the details [Here](../secagg/configuration.md).
-    - `private_key`: Path to private key to use in secure HTTP connection.
-    - `public_key`: Path to public key to share with other parties (nodes and researcher) use in secure HTTP connection.
-    - `mpspdz_ip`: The IP address that will be used for launching MP-SPDZ instance.
-    - `mpsdpz_port`: The port that will be used for launching MP-SPDZ instance.
-    - `allow_default_biprimes`: Boolean (True/False) to allow default biprimes for key generation.
-    - `default_biprimes_dir` ": Relative path to the directory where default biprimes files are kept, from this configuration file
+- **Authentication and Identification**
+    - `private_key`: Path to private key to use identify the component.
+    - `public_key`: Path to public key to share with other parties (nodes and researcher) to verify its identify.
 
 - **Researcher:**
     - `ip`: The IP address of the researcher component that the node will connect to.
@@ -81,14 +76,6 @@ id = node_73768d5f-6a66-47de-8533-1291c4ef59d1
 component = NODE
 version = 2
 db = ../var/db_NODE_94572b0f-f55c-4167-b729-f16247c35a04.json
-
-[mpspdz]
-private_key = certs/cert_node_73768d5f-6a66-47de-8533-1291c4ef59d1/MPSPDZ_certificate.key
-public_key = certs/cert_node_73768d5f-6a66-47de-8533-1291c4ef59d1/MPSPDZ_certificate.pem
-mpspdz_ip = localhost
-mpspdz_port = 14004
-allow_default_biprimes = True
-default_biprimes_dir = ../envs/common/default_biprimes
 
 [security]
 hashing_algorithm = SHA256

@@ -25,7 +25,7 @@ class TestResearcherEnviron(unittest.TestCase):
         self.patch_open.start()
 
         self.config_mock.return_value.get.side_effect = [
-            'db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key', 'True',  # Common
+            'db.json', 'True',  # Common
             'researcher-id', 'localhost', '50051', 'pir-key', 'pub-key']  # Node
 
         environ_module_dir = os.path.join(os.path.dirname(
@@ -41,7 +41,7 @@ class TestResearcherEnviron(unittest.TestCase):
         ## Reset
         self.config_mock.return_value.get.side_effect = None
         self.config_mock.return_value.get.side_effect = [
-            '../var/db.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key', 'True',  # Common
+            '../var/db.json', 'True',  # Common
             'researcher-id', 'localhost', '50051', 'pir-key', 'pub-key']  # Node
 
         if ResearcherEnviron in ResearcherEnviron._objects:
@@ -58,7 +58,7 @@ class TestResearcherEnviron(unittest.TestCase):
         """Tests setting variables for researcher environ"""
 
         self.config_mock.return_value.get.side_effect = [
-            '../var/db_researcher-1.json', 'mpspdz-localhost', 'port-14000', 'True', 'c.pem', 'c.key', 'True',
+            '../var/db_researcher-1.json', 'True',
             'researcher-1', 'localhost', '50051', 'pir-key', 'pub-key']
 
         self.environ.set_environment()
@@ -72,7 +72,7 @@ class TestResearcherEnviron(unittest.TestCase):
                          os.path.join("test/var", "queue_messages"))
         self.assertEqual(self.environ._values["DB_PATH"],
                          os.path.join("test/var", "db_researcher-1.json"))
-        
+
         self.assertEqual(self.environ._values["SERVER_HOST"], "localhost")
         self.assertEqual(self.environ._values["SERVER_PORT"], "50051")
 

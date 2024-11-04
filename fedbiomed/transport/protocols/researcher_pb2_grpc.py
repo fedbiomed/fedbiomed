@@ -54,7 +54,7 @@ class ResearcherServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ReplyTask(self, request_iterator, context):
-        """RPC to send task replies 
+        """RPC to send task replies
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

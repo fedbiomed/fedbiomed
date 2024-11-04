@@ -20,7 +20,7 @@ from fedbiomed.common.exceptions import (
     FedbiomedUserInputError, FedbiomedSecureAggregationError
 )
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import NodeMessages
+from fedbiomed.common.message import TrainReply
 from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -355,7 +355,7 @@ class Round:
                     results["encryption_factor"] = self._secure_aggregation.scheme.encrypt(
                         params=[self._secure_aggregation.scheme.secagg_random],
                         current_round=self._round,
-                        weight=results['sample_size'])                 
+                        weight=results['sample_size'])
                 logger.info("Encryption is completed!",
                             researcher_id=self.researcher_id)
             results['params'] = model_weights
@@ -373,7 +373,7 @@ class Round:
                 del self.training_plan
                 del CurrentTPModule
             except Exception:
-                logger.debug(f'Exception raised while deleting training plan instance')
+                logger.debug('Exception raised while deleting training plan instance')
 
             return self._send_round_reply(success=True,
                                           timing={'rtime_training': rtime_after - rtime_before,
@@ -406,17 +406,17 @@ class Round:
             extend_with = {}
 
         # If round is not successful log error message
-        return NodeMessages.format_outgoing_message(
-            {'node_id': environ['NODE_ID'],
-             'experiment_id': self.experiment_id,
-             'state_id': self._node_state_manager.state_id,
-             'researcher_id': self.researcher_id,
-             'command': 'train',
-             'success': success,
-             'dataset_id': self.dataset['dataset_id'] if success else '',
-             'msg': message,
-             'timing': timing,
-             **extend_with})
+        return TrainReply(**{
+            'node_id': environ['NODE_ID'],
+            'experiment_id': self.experiment_id,
+            'state_id': self._node_state_manager.state_id,
+            'researcher_id': self.researcher_id,
+            'success': success,
+            'dataset_id': self.dataset['dataset_id'] if success else '',
+            'msg': message,
+            'timing': timing,
+            **extend_with}
+        )
 
 
     def process_optim_aux_var(self) -> Optional[str]:

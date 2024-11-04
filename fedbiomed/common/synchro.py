@@ -1,14 +1,13 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List, Tuple, Optional, Any
 import threading
 import time
+from typing import Any, List, Optional, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedSynchroError
 from fedbiomed.common.logger import logger
-
 
 # Maximum delay a triggered event is kept
 MAX_TRIGGERED_EVENT_TIMEOUT = 60
@@ -76,29 +75,38 @@ class EventWaitExchange:
                 # check if all events for this listener ids are received and pending
                 all_event_ids = list(self._triggered_events.keys())
                 for lid in listener_ids:
-                    if all([reqid in all_event_ids for reqid in self._pending_listeners[lid]['event_ids']]):
+                    if all(
+                        reqid in all_event_ids
+                        for reqid in self._pending_listeners[lid]["event_ids"]
+                    ):
                         all_events += [lid]
 
         return all_events
 
     def _clean_triggered_events(self) -> None:
-        """Clean out obsolete entries from the triggered event table.
-        """
+        """Clean out obsolete entries from the triggered event table."""
 
         time_current = time.time()
         # Cast to list() needed to avoid error because dict changes during iteration
         for reqid in list(self._triggered_events.keys()):
-            if self._triggered_events[reqid]['start_time'] + MAX_TRIGGERED_EVENT_TIMEOUT + GRACE_TRIGGERED_EVENT \
-                    < time_current:
+            if (
+                self._triggered_events[reqid]["start_time"]
+                + MAX_TRIGGERED_EVENT_TIMEOUT
+                + GRACE_TRIGGERED_EVENT
+                < time_current
+            ):
                 # this triggered event is obsolete
                 del self._triggered_events[reqid]
-                logger.debug(f"{ErrorNumbers.FB324}: Clean obsolete entry {reqid} from triggered event table.")
+                logger.debug(
+                    f"{ErrorNumbers.FB324}: Clean obsolete entry {reqid} from triggered"
+                    "event table."
+                )
 
                 # In case a pending listener waits on this event, it is blocked until its timeout
                 # and then fails (not all data are delivered).
 
-        # Note: don't clean entries from `self._pending_listeners` as this is always done at the end of the `wait()`
-
+        # Note: don't clean entries from `self._pending_listeners` as this is always done at
+        # the end of the `wait()`
 
     def event(self, event_id: str, event_data: Any) -> None:
         """Add an entry to the table of triggered event
@@ -114,19 +122,18 @@ class EventWaitExchange:
 
             # In case a event already exists for this ID, overwrite it with the newer one
             self._triggered_events[event_id] = {
-                'start_time': time.time(),
-                'data': event_data,
+                "start_time": time.time(),
+                "data": event_data,
             }
-
         # check if added event completes some listeners
         completed_listeners = self._all_events()
         with self._pending_listeners_lock:
             for completed_listener in completed_listeners:
-                # check: listener may have been removed since tested `_all_events` as we didn't keep the lock
+                # check: listener may have been removed since tested `_all_events`
+                # as we didn't keep the lock
                 if completed_listener in self._pending_listeners:
                     # wake up waiting listener
-                    self._pending_listeners[completed_listener]['event'].set()
-
+                    self._pending_listeners[completed_listener]["event"].set()
 
     def wait(self, event_ids: list[str], timeout: float) -> Tuple[bool, List[Any]]:
         """Wait for a registered listener to complete.
@@ -148,24 +155,31 @@ class EventWaitExchange:
         """
 
         # Check value for timeout, as bad value may cause hard to detect problems
-        if not isinstance(timeout, (float, int)) or timeout < 0 or timeout > MAX_TRIGGERED_EVENT_TIMEOUT:
-            raise FedbiomedSynchroError(f"{ErrorNumbers.FB324}: Cannot wait {timeout} seconds. "
-                                        f"Should be int or float between 0 and {MAX_TRIGGERED_EVENT_TIMEOUT}")
+        if (
+            not isinstance(timeout, (float, int))
+            or timeout < 0
+            or timeout > MAX_TRIGGERED_EVENT_TIMEOUT
+        ):
+            raise FedbiomedSynchroError(
+                f"{ErrorNumbers.FB324}: Cannot wait {timeout} seconds. "
+                f"Should be int or float between 0 and {MAX_TRIGGERED_EVENT_TIMEOUT}"
+            )
 
         time_initial = time.time()
-
         with self._pending_listeners_lock:
             self._id_counter += 1
             listener_id = self._id_counter
             event = threading.Event()
             self._pending_listeners[listener_id] = {
-                'start_time': time_initial,
-                'event': event,
-                'event_ids': event_ids,
+                "start_time": time_initial,
+                "event": event,
+                "event_ids": event_ids,
             }
 
         # wait until all events are triggered or timeout is reached
-        while not self._all_events(listener_id) and (time.time() < time_initial + timeout):
+        while not self._all_events(listener_id) and (
+            time.time() < time_initial + timeout
+        ):
             # be sure not to hold any lock when waiting !
             event.wait(time_initial + timeout - time.time())
             event.clear()
@@ -173,18 +187,21 @@ class EventWaitExchange:
         with self._pending_listeners_lock:
             with self._triggered_events_lock:
                 # check if all events were received (and are still available for delivery)
-                all_received = set(self._pending_listeners[listener_id]['event_ids']).\
-                    issubset(set(self._triggered_events.keys()))
+                all_received = set(
+                    self._pending_listeners[listener_id]["event_ids"]
+                ).issubset(set(self._triggered_events.keys()))
 
                 # create list of delivered data
-                events_data = [self._triggered_events[reqid]['data']
-                               for reqid in self._pending_listeners[listener_id]['event_ids']
-                               if reqid in self._triggered_events]
+                events_data = [
+                    self._triggered_events[reqid]["data"]
+                    for reqid in self._pending_listeners[listener_id]["event_ids"]
+                    if reqid in self._triggered_events
+                ]
 
                 if self._remove_delivered:
                     # remove all events for this request from the triggered events available
                     # for delivery
-                    for reqid in self._pending_listeners[listener_id]['event_ids']:
+                    for reqid in self._pending_listeners[listener_id]["event_ids"]:
                         if reqid in self._triggered_events:
                             self._triggered_events.pop(reqid)
 

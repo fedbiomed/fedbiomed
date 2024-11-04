@@ -16,12 +16,6 @@
 *.pyc
 __pycache__/
 
-
-# MP-SDPZ
-bin/*.x
-MP-SPDZ_build
-
-
 ### Django.Python Stack ###
 # Byte-compiled / optimized / DLL files
 *.py[cod]

@@ -8,7 +8,7 @@ from testsupport.base_case import NodeTestCase
 
 from fedbiomed.common.constants import _BaseEnum
 from fedbiomed.common.exceptions import FedbiomedSecaggError
-from fedbiomed.common.secagg_manager import SecaggDhManager, SecaggServkeyManager, SecaggBiprimeManager
+from fedbiomed.common.secagg_manager import SecaggDhManager, SecaggServkeyManager
 from fedbiomed.node.secagg_manager import SecaggManager
 
 
@@ -26,12 +26,8 @@ class TestSecaggManager(NodeTestCase):
         secagg_setup = SecaggManager(0)()
         self.assertIsInstance(secagg_setup, SecaggServkeyManager)
 
-        # Test biprime manager
-        secagg_setup = SecaggManager(1)()
-        self.assertIsInstance(secagg_setup, SecaggBiprimeManager)
-
         # Test DH manager
-        secagg_setup = SecaggManager(2)()
+        secagg_setup = SecaggManager(1)()
         self.assertIsInstance(secagg_setup, SecaggDhManager)
 
         # Raise element type error
@@ -48,7 +44,7 @@ class TestSecaggManager(NodeTestCase):
             ]
 
             with self.assertRaises(FedbiomedSecaggError):
-                SecaggManager(0)()        
+                SecaggManager(0)()
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

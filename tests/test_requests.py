@@ -13,9 +13,6 @@ from threading import Semaphore
 from testsupport.base_case import ResearcherTestCase
 #############################################################
 
-
-from testsupport.fake_message import FakeMessages
-
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.constants import MessageType
 from fedbiomed.common.message import Log, Scalar, SearchReply, SearchRequest, ErrorMessage, ApprovalReply
@@ -68,12 +65,6 @@ class TestRequests(ResearcherTestCase):
 
         super().setUpClass()
 
-        # defining common side effect functions
-        def msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
-            fake_node_msg = FakeMessages(msg)
-            return fake_node_msg
-
-        cls.msg_side_effect = msg_side_effect
 
     def setUp(self):
         """Setup Requests and patches for testing"""
@@ -91,8 +82,6 @@ class TestRequests(ResearcherTestCase):
         self.grpc_server_patcher6 = patch('fedbiomed.transport.server.GrpcServer.get_all_nodes', autospec=True)
         self.fed_req_enter_patcher1 = patch('fedbiomed.researcher.requests.FederatedRequest.__enter__', autospec=True)
         self.req_patcher4 = patch('fedbiomed.common.tasks_queue.TasksQueue.__init__')
-        self.req_patcher5 = patch('fedbiomed.common.message.ResearcherMessages.format_outgoing_message')
-        self.req_patcher6 = patch('fedbiomed.common.message.ResearcherMessages.format_incoming_message')
 
         self.tp_abstract_patcher.start()
 
@@ -105,15 +94,11 @@ class TestRequests(ResearcherTestCase):
         self.grpc_server_get_all_nodes = self.grpc_server_patcher6.start()
         self.fed_req_enter = self.fed_req_enter_patcher1.start()
         self.task_queue_init = self.req_patcher4.start()
-        self.format_outgoing_message = self.req_patcher5.start()
-        self.format_incoming_message = self.req_patcher6.start()
 
         self.grpc_server_init.return_value = None
         self.grpc_server_start.return_value = None
         self.grpc_server_send.return_value = None
         self.task_queue_init.return_value = None
-        self.format_outgoing_message.side_effect = TestRequests.msg_side_effect
-        self.format_incoming_message.side_effect = TestRequests.msg_side_effect
 
         # current directory
         self.cwd = os.path.dirname(
@@ -141,8 +126,6 @@ class TestRequests(ResearcherTestCase):
         self.grpc_server_patcher6.stop()
         self.fed_req_enter_patcher1.stop()
         self.req_patcher4.stop()
-        self.req_patcher5.stop()
-        self.req_patcher6.stop()
 
         pass
 
@@ -221,8 +204,7 @@ class TestRequests(ResearcherTestCase):
         msg_logger = {'researcher_id': 'DummyID',
                       'node_id': 'DummyNodeID',
                       'level': 'critical',
-                      'msg': '{"message" : "Dummy Message"}',
-                      'command': 'log'}
+                      'msg': '{"message" : "Dummy Message"}'}
         self.requests.print_node_log_message(msg_logger)
         mock_logger_info.assert_called_once()
 
@@ -235,8 +217,7 @@ class TestRequests(ResearcherTestCase):
 
         sr = SearchRequest(
             researcher_id="researhcer-id",
-            tags=["x"],
-            command="search"
+            tags=["x"]
         )
 
         request_1 = self.requests.send(sr, None)
@@ -251,7 +232,6 @@ class TestRequests(ResearcherTestCase):
     def test_request_08_ping_nodes(self):
         """ Testing ping method """
 
-        self.req_patcher5.stop()
         self.requests.ping_nodes()
         self.fed_req_enter.assert_called_once()
 
@@ -268,9 +248,7 @@ class TestRequests(ResearcherTestCase):
                     {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
                     {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
                 ],
-                'success': True,
-                'count': 2,
-                'command': 'search'}),
+                'count': 2}),
             'node-2': SearchReply(**{
                 'node_id': 'node-2',
                 'researcher_id': 'r-xxx',
@@ -278,9 +256,7 @@ class TestRequests(ResearcherTestCase):
                     {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
                     {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
                 ],
-                'success': True,
-                'count': 2,
-                'command': 'search'})
+                'count': 2})
         }
 
         fed_req = MagicMock()
@@ -289,7 +265,7 @@ class TestRequests(ResearcherTestCase):
                                                               node_id="node-3",
                                                               errnum="x",
                                                               extra_msg="x",
-                                                              command="err" )}
+                                                            )}
 
         send.return_value.__enter__.return_value = fed_req
         tags = ['test']
@@ -320,16 +296,12 @@ class TestRequests(ResearcherTestCase):
                     {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'},
                     {'data_type': 'csv', 'tags': ['ss', 'ss'], 'shape': [1, 2], 'name': 'data'}
                 ],
-                'success': True,
-                'count': 2,
-                'command': 'list'}),
+                'count': 2}),
             'node-2': SearchReply(**{
                 'node_id': 'node-2',
                 'researcher_id': 'r-xxx',
                 'databases': [],
-                'success': True,
-                'count': 0,
-                'command': 'list'})
+                'count': 0})
         }
 
         fed_req = MagicMock()
@@ -337,8 +309,7 @@ class TestRequests(ResearcherTestCase):
         fed_req.errors.return_value = {'node-3': ErrorMessage(researcher_id="r",
                                                               node_id="node-3",
                                                               errnum="x",
-                                                              extra_msg="x",
-                                                              command="err" )}
+                                                              extra_msg="x")}
 
         send.return_value.__enter__.return_value = fed_req
         r = self.requests.list()
@@ -398,12 +369,10 @@ class TestRequests(ResearcherTestCase):
         fed_req.errors.return_value = {'node-3': ErrorMessage(researcher_id="r",
                                                               node_id="node-3",
                                                               errnum="x",
-                                                              extra_msg="x",
-                                                              command="err" )}
+                                                              extra_msg="x")}
 
 
         fed_req.replies.return_value = {"dummy-id-1": ApprovalReply(**{
-            'command': 'approval',
             'node_id': 'dummy-id-1',
             'success': True,
             'training_plan_id': 'id-xx',
@@ -412,6 +381,8 @@ class TestRequests(ResearcherTestCase):
             "status": True})}
 
         tp = MagicMock(spec=FakeTorchTrainingPlan2)
+        tp.source.return_value = 'TP'
+
         mock_import.return_value = ('dummy', tp)
         result = self.requests.training_plan_approve(tp,
                                                      "test-training-plan-1",

@@ -39,8 +39,6 @@ To ensure fedbiomed will work fine, you need to install before :
 * conda
 * git
 
-`docker` is not needed anymore for using development environment, unless you use secure aggregation with MP-SPDZ for multi party computation and plan to [rebuild the Shamir protocol binary](./MP-SPDZ/README.md)
-
 ### clone repo
 
 Clone the Fed-BioMed repository for running the software :
@@ -346,9 +344,9 @@ They can also be installed using `pip` (required python version 3.11), as in the
 pip install -r envs/development/docs-requirements.txt
 ```
 
-Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in doc-strings.   
+Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in doc-strings.
 
-```shell 
+```shell
 cd ${FEDBIOMED_DIR}
 ./scripts/docs/fedbiomed_doc.sh serve
 ```
@@ -545,7 +543,7 @@ It is also possible to start GUI on specific host and port, By default it is sta
 it you can modify following command.
 
 The GUI is based on HTTPS and by default, it will generate a self-signed certificate for you. Butyou can also start GUI specifying the certificate and the private key
-names you want to use for HTTPS support. **Please note that they must be in `${FEDBIOMED_DIR}/etc` folder.**  
+names you want to use for HTTPS support. **Please note that they must be in `${FEDBIOMED_DIR}/etc` folder.**
 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config '<name-of-the-config-file> gui --data-folder '<path-for-data-folder>' ' cert '<name-of-certificate>' key '<name-of-private-key>' start
@@ -615,37 +613,3 @@ you will be able to see changes on the ``localhost:8484`` URL which serve built 
 ```shell
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
 ```
-
-## Secure Aggregation Setup: Dev
-
-Fed-BioMed uses MP-SPDZ to provide secure aggregation of the model parameters. Running secure aggregation in Fed-BioMed 
-is optional which makes MP-SPDZ installation/configuration optional as well. Fed-BioMed will be able to run
-FL experiment without MP-SPDZ as long as secure aggregation is not activated on the nodes and the researcher
-components. 
-
-### Configuring MP-SPDZ 
-
-Configuration or installation can be done  with the following command by specifying the Fed-BioMed component. 
-If node and the researcher will be started in the same clone if Fed-BioMed running following command with once
-(`node` or `researcher`) will be enough.  For macOS, the operating system (Darwin) should higher than `High Sierra (10.13)`
-
-
-```bash
-${FEDBIOMED_DIR}/scripts/fedbiomed_configure_secagg (node|researcher)
-```
-
-
-### Running MP-SPDZ protocols 
-
-MP-SPDZ protocols for secure aggregation and multi party computation will be executed internally by 
-Fed-BioMed node and researcher components. The script for executing the protocols is located in 
-`${FEDBIOMED_DIR}/scripts/fedbiomed_mpc`. Please run following commands to see instructions and usage. 
-
-```bash
-${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) --help
-${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* compile --help
-${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* exec --help
-${FEDBIOMED_DIR}/scripts/fedbiomed_mpc (node | researcher) *WORKDIR* shamir-server-key --help
-
-```
-

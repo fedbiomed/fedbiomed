@@ -31,14 +31,13 @@ class FakeSecaggSetup:
         return self._experiment_id
 
     def setup(self) -> SecaggReply:
-        return NodeMessages.format_outgoing_message(
-            {
+        return SecaggReply(
+            **{
                 'researcher_id': self._researcher_id,
                 'secagg_id': self._secagg_id,
                 'success': self._success,
                 'node_id': environ['NODE_ID'],
                 'msg': self._message,
-                'command': 'secagg'
             }
         ).get_dict()
 
@@ -47,7 +46,3 @@ class FakeSecaggServkeySetup(FakeSecaggSetup):
     def element(self) -> str:
         return SecaggElementTypes.SERVER_KEY
 
-
-class FakeSecaggBiprimeSetup(FakeSecaggSetup):
-    def element(self) -> str:
-        return SecaggElementTypes.BIPRIME

@@ -30,15 +30,15 @@ def read_file(path):
         FedbiomedError: If the file is not existing or readable.
     """
     try:
-        with open(path, "r") as file:
+        with open(path, "r", encoding="UTF-8") as file:
             content = file.read()
             file.close()
     except Exception as e:
         raise FedbiomedError(
             f"{ErrorNumbers.FB627.value}: Can not read file {path}. Error: {e}"
-        )
-    else:
-        return content
+        ) from e
+
+    return content
 
 
 def get_class_source(cls: Callable) -> str:
@@ -100,6 +100,32 @@ def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[An
     return module, train_class_instance
 
 
+
+def import_object(module: str, obj_name: str) -> Any:
+    """Imports given object/class from given module
+
+
+    Args:
+        module: Module that the object will be imported from
+        obj_name: Name of the object or class defined in the module
+
+    Returns:
+        Python object
+    """
+    try:
+        module = importlib.import_module(module)
+    except ModuleNotFoundError as exp:
+        raise FedbiomedError(f"Specified module is not existing. {exp}") from exp
+
+    try:
+        obj_ = getattr(module, obj_name)
+    except AttributeError as exp:
+        raise FedbiomedError(f"{ErrorNumbers.FB627}, Attribute error while loading the class "
+                             f"{obj_name} from {module}. Error: {exp}") from exp
+
+
+    return obj_
+
 def import_class_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:
     """Import a module from a file and return a specified class of the module.
 
@@ -127,16 +153,8 @@ def import_class_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]
     module = match.group(1)
     sys.path.insert(0, os.path.dirname(module_path))
 
-    try:
-        module = importlib.import_module(module)
-    except ModuleNotFoundError as exp:
-        raise FedbiomedError(f"Specified module is not existing. {exp}") from exp
 
-    try:
-        class_ = getattr(module, class_name)
-    except AttributeError as exp:
-        raise FedbiomedError(f"{ErrorNumbers.FB627}, Attribute error while loading the class "
-                             f"{class_name} from {module_path}. Error: {exp}") from exp
+    class_ = import_object(module, class_name)
     sys.path.pop(0)
 
     return module, class_

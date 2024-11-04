@@ -17,25 +17,25 @@ from fedbiomed.transport.protocols.researcher_pb2 import TaskRequest, TaskResult
 example_task = SearchRequest(
     researcher_id="r-id",
     tags=["test"],
-    command='search'
 )
 
 reply = SearchReply(
     researcher_id='researcher-id',
     node_id='node-id',
-    success=True,
     databases=[],
     count=0,
-    command='search'
 )
 
 overlay_message = OverlayMessage(
     researcher_id = 'test-id',
     node_id = 'node-id',
     dest_node_id = 'node-id-1',
-    overlay= ['sss'],
-    command='overlay'
+    overlay = b'sss',
+    setup = False,
+    salt = b'dummy',
+    nonce = b'any nonce',
 )
+
 
 class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
 

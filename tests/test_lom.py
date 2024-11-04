@@ -5,7 +5,7 @@ import unittest
 import pytest
 import numpy as np
 
-from secrets import token_bytes
+from secrets import token_bytes, token_urlsafe
 
 from fedbiomed.common.secagg import PRF, LOM  # Assuming the class definitions are in lom.py
 from fedbiomed.common.secagg import SecaggLomCrypter
@@ -122,10 +122,9 @@ def test_03_lom_protect_big_int(pairwise_keys):
 
 
 @pytest.fixture
-def lom_crypter(pairwise_keys):
+def lom_crypter():
 
-
-    _, nonce, _ = pairwise_keys
+    nonce = token_urlsafe(16)
     return SecaggLomCrypter(nonce)
 
 

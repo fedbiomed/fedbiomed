@@ -17,7 +17,14 @@ from python_minifier import minify
 
 from fedbiomed.common.constants import MessageType, REQUEST_PREFIX
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ResearcherMessages, ErrorMessage, Message
+from fedbiomed.common.message import (
+    PingRequest,
+    ListRequest,
+    ApprovalRequest,
+    SearchRequest,
+    ErrorMessage,
+    Message
+)
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.utils import import_class_object_from_file
@@ -259,8 +266,8 @@ class Requests(metaclass=SingletonMeta):
             port=environ["SERVER_PORT"],
             on_message=self.on_message,
             ssl=SSLCredentials(
-                key=environ['SERVER_SSL_KEY'],
-                cert=environ['SERVER_SSL_CERT'])
+                key=environ['FBM_CERTIFICATE_KEY'],
+                cert=environ['FBM_CERTIFICATE_PEM'])
 
         )
         self.start_messaging()
@@ -325,10 +332,7 @@ class Requests(metaclass=SingletonMeta):
         Returns:
             List of ID of up and running nodes
         """
-        ping = ResearcherMessages.format_outgoing_message({
-            'researcher_id': environ["ID"],
-            'command': "ping"}
-        )
+        ping = PingRequest(researcher_id=environ["ID"])
         with self.send(ping, policies=[DiscardOnTimeout(5)]) as federated_req:
             nodes_online = [node_id for node_id, reply in federated_req.replies().items()]
 
@@ -369,10 +373,9 @@ class Requests(metaclass=SingletonMeta):
         Returns:
             A dict with node_id as keys, and list of dicts describing available data as values
         """
-        message = ResearcherMessages.format_outgoing_message(
-            {'researcher_id': environ['RESEARCHER_ID'],
-             'tags': tags,
-             'command': 'search'}
+        message = SearchRequest(
+            researcher_id=environ['RESEARCHER_ID'],
+            tags=tags,
         )
 
         data_found = {}
@@ -404,10 +407,7 @@ class Requests(metaclass=SingletonMeta):
             A dict with node_id as keys, and list of dicts describing available data as values
         """
 
-        message = ResearcherMessages.format_outgoing_message(
-            {"researcher_id": environ['RESEARCHER_ID'],
-             "command": "list"}
-        )
+        message = ListRequest(researcher_id=environ['RESEARCHER_ID'])
 
         data_found = {}
         with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
@@ -482,13 +482,12 @@ class Requests(metaclass=SingletonMeta):
             # minify does not provide any specific exception
             logger.error(f"This file is not a python file ({e})")
             return {}
-
+        print(tp_source)
         # send message to node(s)
-        message = ResearcherMessages.format_outgoing_message({
-            'researcher_id': environ['RESEARCHER_ID'],
-            'description': str(description),
-            'training_plan': tp_source,
-            'command': 'approval'})
+        message = ApprovalRequest(
+            researcher_id=environ['RESEARCHER_ID'],
+            description=str(description),
+            training_plan=tp_source)
 
         with self.send(message, nodes, policies=policies) as federated_req:
             errors = federated_req.errors()

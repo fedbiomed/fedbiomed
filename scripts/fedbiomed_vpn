@@ -366,8 +366,7 @@ containers_build() {
         echo "- stopping '$i' container"
         $DOCKER_COMPOSE rm -sf $i >/dev/null
         echo "- building '$i' container"
-        MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
-            CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
             CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
             CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
             $DOCKER_COMPOSE build $i
@@ -449,8 +448,7 @@ containers_start() {
     # if image is not build `docker compose up ` will automatically build it
 
     # start vpnserver first
-    MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
-        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+    CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
         CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
         CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
         $DOCKER_COMPOSE up -d vpnserver
@@ -473,8 +471,7 @@ containers_start() {
 
         echo "- starting $i container"
         $DOCKER_COMPOSE rm -sf $CONTAINER >/dev/null
-        MPSPDZ_URL=$MPSPDZ_URL MPSPDZ_COMMIT=$MPSPDZ_COMMIT \
-            CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
             CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
             CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
             $DOCKER_COMPOSE up -d $CONTAINER
@@ -542,8 +539,6 @@ GPU=0
 RUN_NODE=0
 RUN_RESEARCHER=0
 RUN_ARGS=""
-MPSPDZ_COMMIT="$(cd $basedir/modules ; git ls-tree HEAD | grep MP-SPDZ | awk '{ print $3 }')"
-MPSPDZ_URL="$(grep -A 2 modules/MP-SPDZ $basedir/.gitmodules | grep 'url =' | awk '{ print $3 }')"
 
 #
 check_prerequisite

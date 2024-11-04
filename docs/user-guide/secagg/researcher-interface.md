@@ -89,12 +89,6 @@ be increased for the next rounds.
 This may be because of the timeout on the researcher side. If you have low bandwidth, connection latency or
 many nodes, please try to increase timeout.
 
-### Context is set on the nodes but not on the researcher
-
-This is also because of the timeout issue. It happens when MP-SPDZ completes multi-party computation but
-can not send success status back to researcher in time. Therefore, researcher assumes that the secure aggregation
-is context is not set properly. Please increase secure aggregation timeout and re-run training round.
-
 ### Model encryption takes too much time
 
 The time of encryption depends on model size. If the model is larger, it is normal that the encryption
@@ -127,4 +121,4 @@ exp.secagg.setup(
 )
 ```
 
-The outcome of the setup action can vary depending on the secure aggregation scheme used. For example, in the Joye-Libert scheme, the setup action generates a `biprime` and `servkey`. In contrast, the LOM scheme only tracks the secure aggregation setup status of the participating nodes. This ensures that all participating nodes have created their own context/elements for training before the system sends the train request.
+The outcome of the setup action can vary depending on the secure aggregation scheme used. For example, in the Joye-Libert scheme, the setup action generates `servkey`, and attaches a default biprime number into its context. In contrast, the LOM scheme only tracks the secure aggregation setup status of the participating nodes. This ensures that all participating nodes have created their own context/elements for training before the system sends the train request.

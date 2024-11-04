@@ -11,7 +11,6 @@ Operating a second node instance on the same node machine is mostly equivalent t
 - *node* by **node2**
 - *gui* by **gui2**
 - *NODETAG* by **NODE2TAG**
-- *MPSPDZ_PORT=14001* by **MPSPDZ_PORT=14002**
 - *`https://localhost:8443`* by **`https://localhost:8444`**
 
 
@@ -101,7 +100,7 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 * do initial node configuration
 
     ```bash
-    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export MPSPDZ_IP=$VPN_IP && export MPSPDZ_PORT=14002 && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run environ-node configuration create --component NODE --use-current'
+    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}' && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run environ-node configuration create --component NODE --use-current'
     ```
 
 Optionally launch the node GUI :
@@ -166,7 +165,7 @@ Example of a few more possible commands:
 
     ```bash
     [user@node2-container $] ./scripts/fedbiomed_run node dataset list
-    ```        
+    ```
 
 * optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node2/run_mounts/data/my_training_plan.txt`
 
@@ -174,61 +173,3 @@ Example of a few more possible commands:
     [user@node2-container $] ./scripts/fedbiomed_run node training-plan register
     ```
     Indicate `/data/my_training_plan.txt` as path of the training plan file.
-
-
-## Configure Joye-Libert secure aggregation for the server side, for a second node instance
-
-This part of the tutorial is optionally executed once on each node that runs a second node instance.
-It is necessary before this component can use secure aggregation in an experiment.
-
-* reuse the `/tmp/cert-secagg` created on this node for the first node instance
-
-    Make the server secagg certificate available to the node:
-
-    ```bash
-    [user@node $] cp /tmp/cert-secagg ./node2/run_mounts/etc/cert-secagg
-    ```
-
-* [connect to the `node2` container](#use-the-second-node-instance-on-the-same-node-machine) using the command line
-
-    * register the researcher certificate using the **researcher ID, IP address and port as indicated in the server registration instructions**, in this example
-
-        ```bash
-        [user@node2-container $] # this is an example, please cut-paste from your registration instructions
-        [user@node2-container $] # ./scripts/fedbiomed_run node certificate register -pk ./etc/cert-secagg -pi researcher_2bd34852-830b-48f0-9f58-613f3e643d42  --ip 10.222.0.2 --port 14000
-        ```
-
-    * check the deployed certificate
-
-        ```bash
-        [user@node2-container $] ./scripts/fedbiomed_run node certificate list
-        ```
-
-
-## Configure Joye-Libert secure aggregation for the node side, for a second node instance
-
-This part of the tutorial is optionally executed once on each node that runs a second node instance.
-It is necessary before this component can use secure aggregation in an experiment.
-
-* reuse the `/tmp/cert-secagg` created on this node for the first node instance
-
-    Make the node secagg certificate available to the other node:
-
-    ```bash
-    [user@othernode $] cp /tmp/cert-secagg ./node2/run_mounts/etc/cert-secagg
-    ```
-
-* [connect to the `node2` container](#use-the-second-node-instance-on-the-same-node-machine) using the command line
-
-    * register the node certificate using the **node ID, IP address and port as indicated in the node registration instructions**, in this example
-
-        ```bash
-        [user@othernode2-container $] # this is an example, please cut-paste from your registration instructions
-        [user@othernode2-container $] # ./scripts/fedbiomed_run node certificate register -pk ./etc/cert-secagg -pi node_964bdca9-809d-49b8-a9c4-8ba3d108c1ae  --ip 10.221.0.2 --port 14001
-        ```
-
-    * check the deployed certificate
-
-        ```bash
-        [user@othernode2-container $] ./scripts/fedbiomed_run node certificate list
-        ```

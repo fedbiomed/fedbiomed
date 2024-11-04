@@ -13,16 +13,13 @@ class BaseConfigTest(unittest.TestCase):
     def setUp(self):
         self.patch_fed_folders = patch('fedbiomed.common.config.create_fedbiomed_setup_folders')
         self.patch_open = patch('builtins.open')
-        
-        self.patch_biprime_manager = patch('fedbiomed.common.config.SecaggBiprimeManager')
-        self.biprime_manager = self.patch_biprime_manager.start()
+
         self.open_mock = self.patch_open.start()
         self.create_fed_folders_mock = self.patch_fed_folders.start()
 
     def tearDown(self):
         self.patch_open.stop()
         self.patch_fed_folders.stop()
-        self.patch_biprime_manager.stop()
 
 
 class TestConfig(BaseConfigTest):
@@ -37,7 +34,6 @@ class TestConfig(BaseConfigTest):
     def tearDown(self):
 
         self.patch_.stop()
-        pass
 
         return super().tearDown()
 
@@ -118,7 +114,7 @@ class TestNodeConfig(BaseConfigTest):
         self.assertTrue('researcher' in sections)
         self.assertTrue('default' in sections)
         self.assertTrue('security' in sections)
-        self.assertTrue('mpspdz' in sections)
+        self.assertTrue('certificate' in sections)
 
 
 
@@ -133,8 +129,8 @@ class TestResearcherConfig(BaseConfigTest):
 
         r_ip = config.get('server', 'host')
         r_port = config.get('server', 'port')
-        r_pem = config.get('server', 'pem')
-        r_key = config.get('server', 'key')
+        r_pem = config.get('certificate', 'private_key')
+        r_key = config.get('certificate', 'public_key')
 
         self.assertTrue(r_ip)
         self.assertTrue(r_port)
@@ -149,4 +145,3 @@ class TestResearcherConfig(BaseConfigTest):
 
         self.assertTrue('server' in sections)
         self.assertTrue('default' in sections)
-        self.assertTrue('mpspdz' in sections)

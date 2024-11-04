@@ -76,22 +76,28 @@ class ResearcherEnviron(Environ):
                                                 self._config.get('server', 'port'))
 
 
-        self._values["SERVER_SSL_KEY"] = os.path.join(self._values["CONFIG_DIR"], self._config.get('server', 'key'))
-        self._values["SERVER_SSL_CERT"] = os.path.join(self._values["CONFIG_DIR"], self._config.get('server', 'pem'))
+        self._values["FBM_CERTIFICATE_KEY"] = os.path.join(
+            self._values["CONFIG_DIR"], self._config.get('certificate', 'private_key')
+        )
+        self._values["FBM_CERTIFICATE_PEM"] = os.path.join(
+            self._values["CONFIG_DIR"], self._config.get('certificate', 'public_key')
+        )
+
 
         for _key in 'TENSORBOARD_RESULTS_DIR', 'EXPERIMENTS_DIR':
             dir = self._values[_key]
             if not os.path.isdir(dir):
                 try:
                     os.makedirs(dir)
-                except FileExistsError:
-                    _msg = ErrorNumbers.FB600.value + ": path already exists but is not a directory " + dir
-                    logger.critical(_msg)
-                    raise FedbiomedEnvironError(_msg)
-                except OSError:
-                    _msg = ErrorNumbers.FB600.value + ": cannot create environment subtree in: " + dir
-                    logger.critical(_msg)
-                    raise FedbiomedEnvironError(_msg)
+                except FileExistsError as exp:
+                    raise FedbiomedEnvironError(
+                        f"{ErrorNumbers.FB600.value}: path already exists but is not a "
+                        f"directory {dir}"
+                    ) from exp
+                except OSError as exp:
+                    raise FedbiomedEnvironError(
+                        f"{ErrorNumbers.FB600.value}: cannot create environment subtree in: {dir}"
+                    ) from exp
 
     def info(self):
         """Print useful information at environment creation"""

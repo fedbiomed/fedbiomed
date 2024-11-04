@@ -1,5 +1,16 @@
 # Fed-BioMed changelog
 
+## 2024-11-04 version 5.4.0
+
+- introduce in-application implementation of Shamir Additive Secret Sharing (ASS) for Joye-Libert secure aggregation
+- remove dependency to MP-SPDZ library, using in-app ASS
+- introduce node to node messages security for honest but curious scenario to support in-app ASS
+- improve node to node messages implementation to use symmetric encryption
+- refactor `Message` class, improving API to upper layers
+- fix researcher jupyter notebook automatic token transmission not working
+- fix LOM secagg researcher side aggregation error for values >= 2**31
+- misc give clearer node side error message in case of overflow with LOM secagg
+
 ## 2024-09-05 version 5.3.0
 
 - introduce fast secure aggregation using Low-Overhead Masking (LOM) scheme and in-app Diffie-Hellman key exchange

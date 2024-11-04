@@ -22,7 +22,6 @@ from testsupport.base_case import NodeTestCase
 #############################################################
 
 from testsupport.fake_training_plan import FakeModel, DeclearnAuxVarModel
-from testsupport.fake_message import FakeMessages
 from testsupport.fake_uuid import FakeUuid
 from testsupport.testing_data_loading_block import ModifyGetItemDP, LoadingBlockTypesForTesting
 from testsupport import fake_training_plan
@@ -58,13 +57,6 @@ class TestRound(NodeTestCase):
         # Sets mock environ for the test -------------------
         super().setUpClass()
         # --------------------------------------------------
-
-        # we define here common side effect functions
-        def node_msg_side_effect(msg: Dict[str, Any]) -> Dict[str, Any]:
-            fake_node_msg = FakeMessages(msg)
-            return fake_node_msg
-
-        cls.node_msg_side_effect = node_msg_side_effect
 
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.__init__')
     def setUp(self,
@@ -139,13 +131,11 @@ class TestRound(NodeTestCase):
 
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.format_outgoing_message')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('uuid.uuid4')
     def test_round_01_run_model_training_normal_case(self,
                                                      uuid_patch,
                                                      tp_security_manager_patch,
-                                                     node_msg_patch,
                                                      mock_split_test_train_data,
                                                      ):
         """tests correct execution and message parameters.
@@ -163,7 +153,6 @@ class TestRound(NodeTestCase):
 
 
 
-        node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
 
         # test 1: case where argument `model_kwargs` = None
@@ -174,7 +163,6 @@ class TestRound(NodeTestCase):
         # check results
         self.assertTrue(msg_test1.get_dict().get('success', False))
         self.assertEqual(msg_test1.get_dict().get('params', False), {"coefs": [1, 2, 3, 4]})
-        self.assertEqual(msg_test1.get_dict().get('command', False), 'train')
 
 
         # test 2: redo test 1 but with the case where `model_kwargs` != None
@@ -188,10 +176,8 @@ class TestRound(NodeTestCase):
         # check values in message (output of `run_model_training`)
         self.assertTrue(msg_test2.get_dict().get('success', False))
         self.assertEqual({"coefs": [1, 2, 3, 4]}, msg_test2.get_dict().get('params', False))
-        self.assertEqual('train', msg_test2.get_dict().get('command', False))
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('uuid.uuid4')
@@ -199,7 +185,6 @@ class TestRound(NodeTestCase):
                                                              uuid_patch,
                                                              tp_security_manager_patch,
                                                              import_module_patch,
-                                                             node_msg_patch,
                                                              mock_split_train_and_test_data):
         """tests if all methods of `model` have been called after instanciating
         (in run_model_training)"""
@@ -221,7 +206,6 @@ class TestRound(NodeTestCase):
         uuid_patch.return_value = FakeUuid()
         tp_security_manager_patch.return_value = (True, {'name': "model_name"})
         import_module_patch.return_value = FakeModule
-        node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = (FakeLoader, FakeLoader)
 
         self.r1.training_kwargs = {}
@@ -257,13 +241,11 @@ class TestRound(NodeTestCase):
             mock_after_training_params.assert_called_once()
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('uuid.uuid4')
     def test_round_03_test_run_model_training_with_real_model(self,
                                                               uuid_patch,
                                                               tp_security_manager_patch,
-                                                              node_msg_patch,
                                                               mock_split_train_and_test_data):
         """tests normal case scenario with a real model file"""
         FakeModel.SLEEPING_TIME = 0
@@ -271,7 +253,6 @@ class TestRound(NodeTestCase):
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         tp_security_manager_patch.return_value = (True, {'name': "model_name"})
-        node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = (True, True)
 
         # create dummy_model
@@ -295,7 +276,6 @@ class TestRound(NodeTestCase):
         # checks
 
         self.assertTrue(msg_test.get_dict().get('success', False))
-        self.assertEqual('train', msg_test.get_dict().get('command', False))
 
 
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
@@ -315,13 +295,11 @@ class TestRound(NodeTestCase):
         self.assertFalse(msg_test.get_param('success'))
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('uuid.uuid4')
     def test_round_06_run_model_training_import_error(self,
                                                       uuid_patch,
                                                       tp_security_manager_patch,
-                                                      node_msg_patch,
                                                       mock_split_train_and_test_data):
         """tests case where the import/loading of the model have failed"""
 
@@ -330,7 +308,6 @@ class TestRound(NodeTestCase):
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         tp_security_manager_patch.return_value = (True, {'name': "model_name"})
-        node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_train_and_test_data.return_value = None
 
         self.ic_from_file_mock.side_effect = Exception
@@ -429,10 +406,8 @@ class TestRound(NodeTestCase):
         self.assertEqual(dataset[0], 'modified-value')
 
     @patch('fedbiomed.node.round.Round._split_train_and_test_data')
-    @patch('fedbiomed.common.message.NodeMessages.format_incoming_message')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('uuid.uuid4')
-    @patch("fedbiomed.node.secagg._secagg_round.BPrimeManager.get")
     @patch("fedbiomed.node.secagg._secagg_round.SKManager.get")
     @patch('fedbiomed.node.secagg._secagg_round.DHManager.get')
     @patch("fedbiomed.common.secagg._secagg_crypter.SecaggLomCrypter.encrypt")
@@ -440,10 +415,8 @@ class TestRound(NodeTestCase):
                                                 lom_crypter_encrpyt_patch,
                                                 dhmanager_get,
                                                 servkey_get,
-                                                biprime_get,
                                                 uuid_patch,
                                                 tp_security_manager_patch,
-                                                node_msg_patch,
                                                 mock_split_test_train_data):
         """tests correct execution and message parameters.
          """
@@ -463,13 +436,14 @@ class TestRound(NodeTestCase):
         # initialisation of patchers
         uuid_patch.return_value = FakeUuid()
         tp_security_manager_patch.return_value = (True, {'name': "model_name"})
-        node_msg_patch.side_effect = TestRound.node_msg_side_effect
         mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
 
 
         # Secagg configuration
-        servkey_get.return_value = {"context" : {"server_key": 123445}, "parties": ["r-1", "n-1", "n-2"]}
-        biprime_get.return_value = {"context" : {"biprime": 123445}, "parties": ["r-1", "n-1", "n-2"]}
+        servkey_get.return_value = {
+            "context" : {"server_key": 123445, "biprime": 123445},
+            "parties": ["r-1", "n-1", "n-2"]}
+
         environ["SECURE_AGGREGATION"] = True
         environ["FORCE_SECURE_AGGREGATION"] = True
 
@@ -480,7 +454,6 @@ class TestRound(NodeTestCase):
             "parties": ["r-1", "n-1", "n-2"],
             'secagg_random': 1.12,
             'secagg_servkey_id': '1234',
-            'secagg_biprime_id': '1234',
         })
 
         self.assertTrue(msg_test_jl.success)
@@ -496,7 +469,6 @@ class TestRound(NodeTestCase):
             "parties": ["r-1", "n-1", "n-2"],
             'secagg_random': 1.12,
             'secagg_servkey_id': '1234',
-            'secagg_biprime_id': '1234',
         })
 
         self.assertTrue(msg_test_dh.success)

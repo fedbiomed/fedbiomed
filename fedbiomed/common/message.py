@@ -1,24 +1,23 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-'''
+"""
 Definition of messages exchanged by the researcher and the nodes
-'''
+"""
 
 import functools
+import inspect
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, get_args, Union, List
+from typing import Any, Callable, Dict, List, Optional, Union, get_args
 
-from google.protobuf.message import Message as ProtobufMessage
 from google.protobuf.descriptor import FieldDescriptor
+from google.protobuf.message import Message as ProtobufMessage
 
 import fedbiomed.transport.protocols.researcher_pb2 as r_pb2
-
-from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__, \
-    SecureAggregationSchemes
-from fedbiomed.common.utils import raise_for_version_compatibility
-from fedbiomed.common.exceptions import FedbiomedMessageError
+from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
+from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedValueError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.utils import import_object, raise_for_version_compatibility
 
 
 def catch_dataclass_exception(cls: Callable):
@@ -40,20 +39,20 @@ def catch_dataclass_exception(cls: Callable):
         """
 
         try:
-            self.__class__.__dict__['__initial_init__'](self, *args, **kwargs)
+            self.__class__.__dict__["__initial_init__"](self, *args, **kwargs)
 
         except TypeError as e:
             # this is the error raised by dataclass if number of parameter is wrong
             _msg = ErrorNumbers.FB601.value + ": bad number of parameters: " + str(e)
             logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
+            raise FedbiomedMessageError(_msg) from e
 
     @functools.wraps(cls)
     def wrap(cls: Callable):
-        """ Wrapper to the class given as parameter
+        """Wrapper to the class given as parameter
 
-        Class wrapping should keep some attributes (__doc__, etc) of the initial class or the API documentation tools
-        will be mistaken
+        Class wrapping should keep some attributes (__doc__, etc) of the initial class
+        or the API documentation tools will be mistaken
 
         """
         cls.__initial_init__ = cls.__init__
@@ -64,16 +63,15 @@ def catch_dataclass_exception(cls: Callable):
     return wrap(cls)
 
 
-class Message(object):
+class Message:
     """Base class for all fedbiomed messages providing all methods
     to access the messages
 
-    The subclasses of this class will be pure data containers (no provided functions)
+    The subclass of this class will be pure data containers (no provided functions)
     """
 
-
     def __post_init__(self):
-        """ Post init of dataclass
+        """Post init of dataclass
 
         - remark: this is not check by @dataclass
 
@@ -83,9 +81,23 @@ class Message(object):
         """
 
         if not self.__validate(self.__dataclass_fields__.items()):
-            _msg = ErrorNumbers.FB601.value + ": bad input value for message: " + self.__str__()[0:1000] + "..."
+            _msg = (
+                ErrorNumbers.FB601.value
+                + ": bad input value for message: "
+                + self.__str__()[0:1000]
+                + "..."
+            )
             logger.critical(_msg)
             raise FedbiomedMessageError(_msg)
+
+    @property
+    def __name__(self) -> str:
+        """Property for message name
+
+        Returns:
+            Message type name
+        """
+        return type(self).__name__
 
     def get_param(self, param: str):
         """Get the value of a given param
@@ -93,7 +105,7 @@ class Message(object):
         Args:
             param: name of the param
         """
-        return getattr(self, param)
+        return getattr(self, param, None)
 
     def get_dict(self) -> Dict[str, Any]:
         """Returns pairs (Message class attributes name, attributes values) into a dictionary
@@ -101,7 +113,7 @@ class Message(object):
         Returns:
             Message as dictionary
         """
-        return self.__dict__
+        return {**self.__dict__}
 
     def __validate(self, fields: Dict[str, Any]) -> bool:
         """Checks whether incoming field types match with attributes class type.
@@ -116,9 +128,58 @@ class Message(object):
         for field_name, field_def in fields:
             value = getattr(self, field_name)
             if not isinstance(value, field_def.type):
-                logger.critical(f"{field_name}: '{value}' instead of '{field_def.type}'")
+                logger.critical(
+                    f"{field_name}: '{value}' instead of '{field_def.type}'"
+                )
                 ret = False
         return ret
+
+    def to_dict(self) -> Dict:
+        """Serializes the message
+
+        Returns:
+            Serializes data class into a dict
+        """
+        class_ = type(self).__name__
+        module_ = type(self).__module__
+
+        return {
+            **self.get_dict(),
+            "__type_message__": {"module": module_, "class": class_},
+        }
+
+    @staticmethod
+    def from_dict(obj: Dict):
+        """De-serializes the message"""
+
+        message = {**obj}
+
+        if (
+            "__type_message__" not in message
+            or not isinstance(message["__type_message__"], dict)
+            or not all(
+                x_ in message["__type_message__"].keys() for x_ in ["class", "module"]
+            )
+        ):
+            raise FedbiomedValueError(
+                "Message does not include valid '__type_message__' entry."
+            )
+
+        type_ = message["__type_message__"]
+        cls_ = import_object("fedbiomed.common.message", type_["class"])
+
+        if not inspect.isclass(cls_) or not issubclass(cls_, Message):
+            raise FedbiomedMessageError(
+                "Given object class is not subclass of 'Message'"
+            )
+
+        raise_for_version_compatibility(
+            message["protocol_version"], __messaging_protocol_version__
+        )
+
+        message.pop("__type_message__")
+
+        return cls_(**message)
 
     def to_proto(self):
         """Converts recursively python dataclass to gRPC proto"""
@@ -126,19 +187,15 @@ class Message(object):
         proto_dict = {}
         for key, _ in self.__dataclass_fields__.items():
             param = self.get_param(key)
-            if hasattr(param, '__PROTO_TYPE__'):
+            if hasattr(param, "__PROTO_TYPE__"):
                 proto_dict.update({key: self.get_param(key).to_proto()})
             else:
                 proto_dict.update({key: self.get_param(key)})
 
         return self.__PROTO_TYPE__(**proto_dict)
 
-
     @classmethod
-    def from_proto(
-        cls,
-        proto: ProtobufMessage
-    ) -> Dict[str, Any]:
+    def from_proto(cls, proto: ProtobufMessage) -> Dict[str, Any]:
         """Converts given protobuf to python Dict"""
 
         dict_ = {}
@@ -149,7 +206,6 @@ class Message(object):
             for one_of, _ in one_ofs.items():
                 if field.name == proto.WhichOneof(one_of):
                     one_of_field = True
-
 
             # If the field is oneof and options are in message type
             if one_of_field and field.type == FieldDescriptor.TYPE_MESSAGE:
@@ -166,7 +222,9 @@ class Message(object):
                     )
 
                 if not hasattr(args[0], "__PROTO_TYPE__"):
-                    raise FedbiomedMessageError(f"Dataclass {args[0]} should have attribute '__PROTO_TYPE__'")
+                    raise FedbiomedMessageError(
+                        f"Dataclass {args[0]} should have attribute '__PROTO_TYPE__'"
+                    )
 
                 dict_.update(
                     {field.name: args[0].from_proto(getattr(proto, field.name))}
@@ -201,6 +259,7 @@ class Message(object):
 # - Request/Reply regrouping
 #
 
+
 @dataclass
 class ProtoSerializableMessage(Message):
     pass
@@ -213,6 +272,7 @@ class RequestReply(Message):
     Attributes:
         request_id: unique ID for this request-reply
     """
+
     request_id: Optional[str] = None
 
 
@@ -239,16 +299,21 @@ class OverlayMessage(Message, RequiresProtocolVersion):
         node_id: Id of the source node of the overlay message
         dest_node_id: Id of the destination node of the overlay message
         overlay: payload of the message to be forwarded unchanged to the destination node
-        command: Command string
+        setup: True if this is a channel setup message, False if this is an application layer message
+        salt: value used for salting the key derivation for this message
+        nonce: value used for noncing the encryption for this message
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str  # Needed for source and destination node side message handling
-    node_id: str        # Needed for researcher side message handling (receiving a `ReplyTask`)
-    dest_node_id: str   # Needed for researcher side message handling
-    overlay: list
-    command: str
+    node_id: str  # Needed for researcher side message handling (receiving a `ReplyTask`)
+    dest_node_id: str  # Needed for researcher side message handling
+    overlay: bytes
+    setup: bool
+    salt: bytes
+    nonce: bytes
 
 
 @dataclass(kw_only=True)
@@ -261,6 +326,7 @@ class InnerMessage(Message):
         node_id: Id of the source node sending the mess
         dest_node_id: Id of the destination node of the overlay message
     """
+
     # Needed by destination node for easily identifying source node.
     # Not needed for security if message is securely signed by source node.
     node_id: str
@@ -279,6 +345,7 @@ class InnerRequestReply(InnerMessage):
     Attributes:
         request_id: unique ID for this request-reply
     """
+
     request_id: Optional[str] = None
 
 
@@ -287,7 +354,8 @@ class InnerRequestReply(InnerMessage):
 
 @dataclass
 class Log(ProtoSerializableMessage):
-    """Describes the message type for log coming from node to researcher """
+    """Describes the message type for log coming from node to researcher"""
+
     __PROTO_TYPE__ = r_pb2.FeedbackMessage.Log
 
     node_id: str
@@ -318,6 +386,7 @@ class Scalar(ProtoSerializableMessage):
         FedbiomedMessageError: triggered if message's fields validation failed
 
     """
+
     __PROTO_TYPE__ = r_pb2.FeedbackMessage.Scalar
 
     node_id: str
@@ -338,6 +407,7 @@ class Scalar(ProtoSerializableMessage):
 @dataclass
 class TaskRequest(ProtoSerializableMessage, RequiresProtocolVersion):
     """Task request message from node to researcher"""
+
     __PROTO_TYPE__ = r_pb2.TaskRequest
     node: str
 
@@ -345,6 +415,7 @@ class TaskRequest(ProtoSerializableMessage, RequiresProtocolVersion):
 @dataclass
 class TaskResponse(ProtoSerializableMessage):
     """Response for task request"""
+
     __PROTO_TYPE__ = r_pb2.TaskResponse
 
     size: int
@@ -355,6 +426,7 @@ class TaskResponse(ProtoSerializableMessage):
 @dataclass
 class TaskResult(ProtoSerializableMessage):
     """Response for task request"""
+
     __PROTO_TYPE__ = r_pb2.TaskResult
 
     size: int
@@ -373,6 +445,29 @@ class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
 
 # --- Node <=> Node messages ----------------------------------------------------
 
+@catch_dataclass_exception
+@dataclass
+class ChannelSetupRequest(InnerRequestReply, RequiresProtocolVersion):
+    """Message for requesting peer node key for securing a n2n channel.
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
+
+@catch_dataclass_exception
+@dataclass
+class ChannelSetupReply(InnerRequestReply, RequiresProtocolVersion):
+    """Message for reply peer node key for securing a n2n channel.
+
+    Attributes:
+        public_key: public key of replying node
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+    public_key: bytes
+
 
 @catch_dataclass_exception
 @dataclass
@@ -383,13 +478,12 @@ class KeyRequest(InnerRequestReply, RequiresProtocolVersion):
 
     Attributes:
         secagg_id: unique ID of this secagg context element
-        command: Command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     secagg_id: str
-    command: str
 
 
 @catch_dataclass_exception
@@ -402,30 +496,31 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
     Attributes:
         public_key: public key of replying node
         secagg_id: unique ID of this secagg context element
-        command: Command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     public_key: bytes
     secagg_id: str
-    command: str
 
-# Example of  of one-wway (not request-reply) inner message
-#
-# @catch_dataclass_exception
-# @dataclass
-# class DummyInner(InnerMessage, RequiresProtocolVersion):
-#     """Dummy example of one-wway (not request-reply) inner message
-#     """
-#     dummy: str     # Temporary dummy payload
-#     command: str
+
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSharingRequest(InnerRequestReply, RequiresProtocolVersion):
+    secagg_id: str
+
+
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSharingReply(InnerRequestReply, RequiresProtocolVersion):
+    secagg_id: str
+    share: list | int
 
 
 # --- Node <=> Researcher messages ----------------------------------------------
 
 
-# Approval messages
 @catch_dataclass_exception
 @dataclass
 class ApprovalRequest(RequestReply, RequiresProtocolVersion):
@@ -435,15 +530,14 @@ class ApprovalRequest(RequestReply, RequiresProtocolVersion):
         researcher_id: id of the researcher that sends the request
         description: description of the training plan
         training_plan: The training plan that is going to be checked for approval
-        command: request command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     description: str
     training_plan: str
-    command: str
 
 
 @catch_dataclass_exception
@@ -458,25 +552,25 @@ class ApprovalReply(RequestReply, RequiresProtocolVersion):
         message: currently unused (empty string)
         node_id: Node id that replys the request
         status: status code for the request (obsolete, always 0)
-        command: Reply command string
         success: Request was successfully sumbitted to node (not yet approved)
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     training_plan_id: str | None
     message: str
     node_id: str
     status: int
-    command: str
     success: bool
 
 
 # Error message
 
+
 @catch_dataclass_exception
-@dataclass
+@dataclass(kw_only=True)
 class ErrorMessage(RequestReply, RequiresProtocolVersion):
     """Describes an error message sent by the node.
 
@@ -485,19 +579,16 @@ class ErrorMessage(RequestReply, RequiresProtocolVersion):
         node_id: ID of the node that sends error message
         errnum: Error ID/Number
         extra_msg: Additional message regarding the error
-        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     node_id: str
-    errnum: str
     extra_msg: str
-    command: str
+    errnum: Optional[str] = None
 
-
-# List messages
 
 @catch_dataclass_exception
 @dataclass
@@ -507,14 +598,12 @@ class ListRequest(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        command: Request command string
 
     Raises:
        FedbiomedMessageError: triggered if message's fields validation failed
     """
 
     researcher_id: str
-    command: str
 
 
 @catch_dataclass_exception
@@ -529,7 +618,6 @@ class ListReply(RequestReply, RequiresProtocolVersion):
         databases: List of datasets
         node_id: Node id that replys the request
         count: Number of datasets
-        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -540,10 +628,10 @@ class ListReply(RequestReply, RequiresProtocolVersion):
     databases: list
     node_id: str
     count: int
-    command: str
 
 
 # Ping messages
+
 
 @catch_dataclass_exception
 @dataclass
@@ -552,14 +640,12 @@ class PingRequest(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that send ping request
-        command: Request command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
-    researcher_id: str
-    command: str
 
+    researcher_id: str
 
 
 @catch_dataclass_exception
@@ -571,18 +657,17 @@ class PingReply(RequestReply, RequiresProtocolVersion):
         researcher_id: Id of the researcher that will receive the reply
         node_id: Node id that replys the request
         succes: True if the node process the request as expected, false if any exception occurs
-        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     node_id: str
-    success: bool
-    command: str
 
 
 # Search messages
+
 
 @catch_dataclass_exception
 @dataclass
@@ -592,14 +677,13 @@ class SearchRequest(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: ID of the researcher that sends the request
         tags: Tags for search request
-        command: Request command string
 
     Raises:
        FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     tags: list
-    command: str
 
 
 @catch_dataclass_exception
@@ -613,20 +697,19 @@ class SearchReply(RequestReply, RequiresProtocolVersion):
         databases: List of datasets
         node_id: Node id that replys the request
         count: Number of datasets
-        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
-    success: bool
     databases: list
     node_id: str
     count: int
-    command: str
 
 
 # Secure aggregation messages
+
 
 @catch_dataclass_exception
 @dataclass
@@ -638,20 +721,19 @@ class SecaggDeleteRequest(RequestReply, RequiresProtocolVersion):
         secagg_id: ID of secagg context element that is sent by researcher
         element: Type of secagg context element
         experiment_id: Id of the experiment to which this secagg context element is attached
-        command: Request command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     secagg_id: str
     element: int
     experiment_id: Optional[str]
-    command: str
 
 
 @catch_dataclass_exception
-@dataclass
+@dataclass(kw_only=True)
 class SecaggDeleteReply(RequestReply, RequiresProtocolVersion):
     """Describes a secagg context element delete reply message sent by the node
 
@@ -661,21 +743,20 @@ class SecaggDeleteReply(RequestReply, RequiresProtocolVersion):
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies to the request
         msg: Custom message
-        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     secagg_id: str
     success: bool
     node_id: str
-    msg: str
-    command: str
+    msg: Optional[str] = None
 
 
 @catch_dataclass_exception
-@dataclass
+@dataclass(kw_only=True)
 class SecaggRequest(RequestReply, RequiresProtocolVersion):
     """Describes a secagg context element setup request message sent by the researcher
 
@@ -685,21 +766,20 @@ class SecaggRequest(RequestReply, RequiresProtocolVersion):
         element: Type of secagg context element
         experiment_id: Id of the experiment to which this secagg context element is attached
         parties: List of parties participating to the secagg context element setup
-        command: Request command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     secagg_id: str
     element: int
-    experiment_id: Optional[str]
+    experiment_id: str
     parties: list
-    command: str
 
 
 @catch_dataclass_exception
-@dataclass
+@dataclass(kw_only=True)
 class SecaggReply(RequestReply, RequiresProtocolVersion):
     """Describes a secagg context element setup reply message sent by the node
 
@@ -709,20 +789,32 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies to the request
         msg: Custom message
-        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     secagg_id: str
     success: bool
     node_id: str
+    msg: Optional[str] = None
     msg: str
-    command: str
 
 
-# TrainingPlanStatus messages
+@catch_dataclass_exception
+@dataclass
+class AdditiveSSSetupRequest(SecaggRequest):
+    """Message to request secure aggregation setup from researcher to nodes"""
+
+
+@catch_dataclass_exception
+@dataclass(kw_only=True)
+class AdditiveSSSetupReply(SecaggReply):
+    """Message that instantiated on the node side to reply secagg setup request from researcher"""
+
+    share: int | list
+
 
 @catch_dataclass_exception
 @dataclass
@@ -733,16 +825,14 @@ class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
         researcher_id: Id of the researcher that sends the request
         experiment_id: experiment id related to the experiment.
         training_plan_url: The training plan that is going to be checked for approval
-        command: Request command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
-   """
+    """
 
     researcher_id: str
     experiment_id: str
     training_plan: str
-    command: str
 
 
 @catch_dataclass_exception
@@ -756,12 +846,11 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
         experiment_id: experiment id related to the experiment
         success: True if the node process the request as expected, false
             if any exception occurs
-        approval_obligation : Approval mode for node. True, if training plan approval is enabled/required
-            in the node for training.
+        approval_obligation : Approval mode for node. True, if
+            training plan approval is enabled/required in the node for training.
         status: a `TrainingPlanApprovalStatus` value describing the approval status
         msg: Message from node based on state of the reply
         training_plan: The training plan that has been checked for approval
-        command: Reply command string
         training_plan_id: Unique training plan identifier, can be None in case of
             success false.
 
@@ -778,11 +867,11 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
     status: str
     msg: str
     training_plan: str
-    command: str
     training_plan_id: Optional[str]
 
 
 # Train messages
+
 
 @catch_dataclass_exception
 @dataclass
@@ -799,7 +888,6 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
         model_args: Arguments to initialize training plan class
         training_plan: Source code of training plan
         training_plan_class: Class name of the training plan
-        command: Reply command string
         round: number of rounds already executed for this experiment
         aggregator_args: ??
         aux_var: Optimizer auxiliary variables
@@ -808,6 +896,7 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     experiment_id: str
     state_id: Optional[str]
@@ -818,7 +907,6 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     params: dict
     training_plan: str
     training_plan_class: str
-    command: str
     round: int
     aggregator_args: Dict
     aux_vars: Optional[list] = None
@@ -839,11 +927,11 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
         params_url: URL of parameters uploaded by node
         timing: Timing statistics
         msg: Custom message
-        command: Reply command string
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
+
     researcher_id: str
     experiment_id: str
     success: bool
@@ -851,7 +939,6 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
     dataset_id: str
     timing: dict
     msg: str
-    command: str
     state_id: Optional[str] = None
     sample_size: Optional[int] = None
     encrypted: bool = False
@@ -859,152 +946,3 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
     optimizer_args: Optional[Dict] = None  # None for testing only
     optim_aux_var: Optional[Dict] = None  # None for testing only
     encryption_factor: Optional[List] = None  # None for testing only
-
-
-class MessageFactory:
-    """Pack message contents into the appropriate Message class."""
-    @staticmethod
-    def _raise_for_missing_command(params: Dict[str, Any]):
-        """Raise FedBiomedMessageError if input does not contain the `command` key"""
-        if "command" not in params:
-            _msg = ErrorNumbers.FB601.value + ": message type not specified"
-            logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
-
-    @staticmethod
-    def _validate_message_type_or_raise(message_type: str, type_map: Dict[str, Message]):
-        """Raise FedbiomedMessageError if `message_tpe` not in `type_map`"""
-        if message_type not in type_map:
-            _msg = ErrorNumbers.FB601.value + ": bad message type for format_incoming_message: {}".format(message_type)
-            logger.error(_msg)
-            raise FedbiomedMessageError(_msg)
-
-    @classmethod
-    def format_incoming_message(cls, params: Dict[str, Any]) -> Message:
-        """Format a dictionary representing an incoming message into the appropriate Message class.
-
-        Packs the input into the appropriate Message class representing an incoming message.
-        The type of Message class is inferred from the `command` key in the input dictionary.
-        This function also validates:
-
-        - the legacy of the message
-        - the structure of the received message
-
-        Attributes:
-            params: the dictionary of key-value pairs extracted from the received message.
-
-        Raises:
-            FedbiomedMessageError: if 'command' field is not present in `params`
-            FedbiomedMessageError: if the component is not allowed to receive the message
-
-        Returns:
-            The received message formatted as an instance of the appropriate Message class
-        """
-        MessageFactory._raise_for_missing_command(params)
-        message_type = params['command']
-        MessageFactory._validate_message_type_or_raise(message_type, cls.INCOMING_MESSAGE_TYPE_TO_CLASS_MAP)
-        raise_for_version_compatibility(
-            params['protocol_version'],
-            __messaging_protocol_version__
-        )
-        return cls.INCOMING_MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-
-    @classmethod
-    def format_outgoing_message(cls, params: Dict[str, Any]) -> Message:
-        """Format a dictionary representing an outgoing message into the appropriate Message class.
-
-        Packs the input into the appropriate Message class representing an outbound message.
-        The type of Message class is inferred from the `command` key in the input dictionary.
-        This function also validates:
-
-        - the legacy of the message
-        - the structure of the received message
-
-        Attributes:
-            params: the dictionary of key-value pairs to be packed into the outgoing message.
-
-        Raises:
-            FedbiomedMessageError: if 'command' field is not present in `params`
-            FedbiomedMessageError: if the component is not allowed to send the message
-
-        Returns:
-            The outbound message formatted as an instance of the appropriate Message class
-        """
-
-        MessageFactory._raise_for_missing_command(params)
-        message_type = params['command']
-        MessageFactory._validate_message_type_or_raise(message_type, cls.OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP)
-        params['protocol_version'] = str(__messaging_protocol_version__)  # inject procotol version only in outgoing msg
-        return cls.OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP[message_type](**params)
-
-
-class ResearcherMessages(MessageFactory):
-    """Specializes MessageFactory for Researcher.
-
-    Researchers send requests and receive replies.
-    """
-    INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
-                                          'search': SearchReply,
-                                          'pong': PingReply,
-                                          'error': ErrorMessage,
-                                          'list': ListReply,
-                                          'add_scalar': Scalar,
-                                          'training-plan-status': TrainingPlanStatusReply,
-                                          'approval': ApprovalReply,
-                                          'secagg': SecaggReply,
-                                          'secagg-delete': SecaggDeleteReply,
-                                          'overlay': OverlayMessage,
-                                          }
-
-    OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
-                                          'search': SearchRequest,
-                                          'ping': PingRequest,
-                                          'list': ListRequest,
-                                          'training-plan-status': TrainingPlanStatusRequest,
-                                          'approval': ApprovalRequest,
-                                          'secagg': SecaggRequest,
-                                          'secagg-delete': SecaggDeleteRequest,
-                                          'overlay': OverlayMessage,
-                                          }
-
-
-class NodeMessages(MessageFactory):
-    """Specializes MessageFactory for Node side messages Node <=> Researcher
-
-    Node send replies and receive requests.
-    """
-    INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainRequest,
-                                          'search': SearchRequest,
-                                          'ping': PingRequest,
-                                          'list': ListRequest,
-                                          'training-plan-status': TrainingPlanStatusRequest,
-                                          'approval': ApprovalRequest,
-                                          'secagg': SecaggRequest,
-                                          'secagg-delete': SecaggDeleteRequest,
-                                          'overlay': OverlayMessage,
-                                          }
-
-    OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = {'train': TrainReply,
-                                          'search': SearchReply,
-                                          'pong': PingReply,
-                                          'error': ErrorMessage,
-                                          'add_scalar': Scalar,
-                                          'list': ListReply,
-                                          'training-plan-status': TrainingPlanStatusReply,
-                                          'approval': ApprovalReply,
-                                          'secagg': SecaggReply,
-                                          'secagg-delete': SecaggDeleteReply,
-                                          'overlay': OverlayMessage,
-                                          }
-
-
-class NodeToNodeMessages(MessageFactory):
-    """Specializes MessageFactory for message from Node to Node
-    """
-    INCOMING_MESSAGE_TYPE_TO_CLASS_MAP = {'key-request': KeyRequest,
-                                          'key-reply': KeyReply,
-                                          # Example of  of one-wway (not request-reply) inner message
-                                          # 'dummy-inner': DummyInner,
-                                          }
-
-    OUTGOING_MESSAGE_TYPE_TO_CLASS_MAP = INCOMING_MESSAGE_TYPE_TO_CLASS_MAP
