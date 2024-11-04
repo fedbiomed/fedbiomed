@@ -144,12 +144,18 @@ class Config(metaclass=ABCMeta):
     def get(self, section, key, **kwargs) -> str:
         """Returns value for given key and section"""
 
-        return self._cfg.get(section, key, **kwargs)
+        return self._get(section, key, **kwargs)
 
     def getbool(self, section, key, **kwargs) -> bool:
         """Gets boolean value from config"""
 
-        return self._cfg.get(section, key, **kwargs).lower() in ('true', '1')
+        return self._get(section, key, **kwargs).lower() in ('true', '1')
+
+
+    def _get(self, section, key, **kwargs) -> str:
+        """ """
+        environ_key = f"FBM_{section.upper()}_{key.upper()}"
+        return os.environ.get(environ_key, self._cfg.get(section, key, **kwargs))
 
     def set(self, section, key, value) -> None:
         """Sets config section values

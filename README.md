@@ -136,8 +136,8 @@ $ ./scripts/fedbiomed_run node --config another_config.ini start
 * if you want to change the default IP address used to join the fedbiomed researcher component (localhost), you can provide it at launch time:
 
 ```
-$ RESEARCHER_SERVER_HOST=192.168.0.100 ./scripts/fedbiomed_run node start
-$ RESEARCHER_SERVER_HOST=192.168.0.100./scripts/fedbiomed_run researcher start
+$ FBM_RESEARCHER_IP=192.168.0.100 ./scripts/fedbiomed_run node start
+$ FBM_SERVER_HOST=192.168.0.100./scripts/fedbiomed_run researcher start
 ```
 
 (adjust the 192.168.0.100 IP address to your configuration)
@@ -456,7 +456,7 @@ Provided hashing algorithms are `SHA256`, `SHA384`, `SHA512`, `SHA3_256`, `SHA3_
 To enable `training_plan_approval` mode and `allow_default_training_plans` node, start the following command.
 
 ```shell
-ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node --config config-n1.ini start
+FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node --config config-n1.ini start
 ```
 
 This command will start the node with training plan approval activated mode even the config file has been set as `training_plan_aproval = False`. However it doesn't change the config file. If there is no config file named `config-n1.ini` it creates a config file for the node with enabled training plan approval mode.
@@ -471,7 +471,7 @@ training_plan_approval = True
 For starting node with disabled training plan approval and default training plans;
 
 ```shell
-ENABLE_TRAINING_PLAN_APPROVAL=False ALLOW_DEFAULT_TRAINING_PLANS=False ./scripts/fedbiomed_run node --config config-n1.ini start
+FBM_SECURITY_TRAINING_PLAN_APPROVAL=False FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=False ./scripts/fedbiomed_run node --config config-n1.ini start
 ```
 
 #### Default TrainingPlans
