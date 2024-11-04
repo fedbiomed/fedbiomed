@@ -53,15 +53,16 @@ git push origin release/$RELEASE_TAG
   git push origin $RELEASE_TAG
   ```
 
+- check that the documentation pipeline completes successfully
+  * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
+  * check that `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
+  * review carefully the log details for the build
+
 - do the merge
   *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
   * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
 - if merge conflicts occur, solve them
 
-- check that the documentation pipeline completes successfully
-  * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
-  * `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
-  * review carefully the log details for the build
 - browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected
 
 - optionally sync your local clone of `master` with new version of remote
@@ -170,15 +171,15 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
   git push origin $HOTFIX_TAG
   ```
 
+- check that the documentation pipeline completes successfully
+  * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
+  * check that `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
+  * review carefully the log details for the build
+
 - do the merge
   *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
   * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
 - if merge conflicts occur, solve them
-
-- check that the documentation pipeline completes successfully
-  * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
-  * `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
-  * review carefully the log details for the build
 
 - browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected
 
