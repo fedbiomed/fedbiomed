@@ -338,7 +338,7 @@ class _SecureAggregation(ABC):
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Secure aggregation consistency insecure "
                 "validation has been set on the researcher but the encryption factors "
-                "are not provided. Some nodes may use `SECAGG_INSECURE_VALIDATION` to "
+                "are not provided. Some nodes may use `FBM_SECURIRY_SECAGG_INSECURE_VALIDATION` to "
                 "`False` for security reason. Please use consistent setup "
                 "between researcher and nodes."
             )

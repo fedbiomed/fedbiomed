@@ -24,8 +24,8 @@ class ResearcherConfig(Config):
     def add_parameters(self):
         """Generate researcher config"""
 
-        grpc_host = os.getenv('RESEARCHER_SERVER_HOST', 'localhost')
-        grpc_port = os.getenv('RESEARCHER_SERVER_PORT', '50051')
+        grpc_host = os.getenv('FBM_SERVER_HOST', 'localhost')
+        grpc_port = os.getenv('FBM_SERVER_PORT', '50051')
 
         # Generate certificate for gRPC server
         key_file, pem_file = generate_certificate(
@@ -45,7 +45,7 @@ class ResearcherConfig(Config):
             "public_key": os.path.relpath(pem_file, os.path.join(self.root, CONFIG_FOLDER_NAME))
         }
         self._cfg['security'] = {
-            'secagg_insecure_validation': os.getenv('SECAGG_INSECURE_VALIDATION', True)
+            'secagg_insecure_validation': os.getenv('FBM_SECURITY_SECAGG_INSECURE_VALIDATION', True)
         }
 
 
