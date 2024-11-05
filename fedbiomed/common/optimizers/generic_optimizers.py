@@ -131,7 +131,10 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
 
     def send_to_device(self, device: str, idx: Optional[int] = None):
         """GPU support"""
-        pass
+
+    def count_nb_auxvar(self) -> int:
+        """Counts number of auxiliary variables needed for the given optimizer"""
+        return 0
 
 
 class DeclearnOptimizer(BaseOptimizer):
@@ -187,6 +190,9 @@ class DeclearnOptimizer(BaseOptimizer):
     def get_aux(self) -> Optional[Dict[str, AuxVar]]:
         aux = self.optimizer.get_aux()
         return aux
+
+    def count_nb_auxvar(self) -> int:
+        return len(self.optimizer.get_aux_names())
 
     def load_state(self, optim_state: Dict[str, Any], load_from_state: bool = False) -> 'DeclearnOptimizer':
         """Reconfigures optimizer from a given state (contained in `optim_state` argument).

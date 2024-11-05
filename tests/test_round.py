@@ -522,6 +522,7 @@ class TestRound(NodeTestCase):
         mock_optim = create_autospec(Optimizer, instance=True)
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
         mock_b_opt.optimizer = mock_optim
+        mock_b_opt.count_nb_auxvar.return_value = 0
         # Attach the former to the Round's mock TrainingPlan.
         self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
         self.r1.training_plan.optimizer.return_value = mock_b_opt

@@ -525,6 +525,13 @@ class Round:
                 "TrainingPlan Optimizer failed to ingest the provided "
                 f"auxiliary variables: {repr(exc)}"
             )
+        # early stop if secagg is activated and optimizer has more than one module that accepts
+        # auxiliary variable
+        if optimizer.count_nb_auxvar() > 1 and self._secure_aggregation.use_secagg:
+            return (
+                "Can not parse more than one `declearn` module requiring auxiliary variables while"
+                " Secure Aggregation activated. Aborting..."
+            )
         return None
 
     def _load_round_state(self, state_id: str) -> None:
