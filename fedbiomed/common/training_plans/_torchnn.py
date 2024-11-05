@@ -25,7 +25,6 @@ from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
 from fedbiomed.common.utils import get_method_spec
 
 
-
 ModelInputType = Union[torch.Tensor, Dict, List, Tuple]
 
 
@@ -320,7 +319,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             logger.warning('Node training model on CPU, though researcher requested GPU', broadcast=True)
 
         # Set device for training
-        self._device = "cpu"
+
         if use_cuda:
             if node_args['gpu_num'] is not None:
                 if node_args['gpu_num'] in range(torch.cuda.device_count()):
@@ -331,6 +330,10 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                     self._device = "cuda"
             else:
                 self._device = "cuda"
+            self._optimizer.send_to_device(True, node_args['gpu_num'])
+        else:
+            self._device = "cpu"
+            self._optimizer.send_to_device(False)  # specific to declearn
 
         logger.debug(f"Using device {self._device} for training "
                      f"(cuda_available={cuda_available}, gpu={node_args['gpu']}, "
