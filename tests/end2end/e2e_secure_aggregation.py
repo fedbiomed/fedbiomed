@@ -14,8 +14,9 @@ from helpers import (
     create_researcher
 )
 
-from experiments.training_plans.mnist_pytorch_training_plan import MyTrainingPlan
-
+from experiments.training_plans.mnist_pytorch_training_plan import MnistModelScaffoldDeclearn, MyTrainingPlan
+from fedbiomed.common.optimizers import Optimizer
+from fedbiomed.common.optimizers.declearn import ScaffoldServerModule
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.secagg import SecureAggregation, SecureAggregationSchemes as SecAggSchemes
@@ -363,4 +364,64 @@ def test_07_secagg_pytorch_lom_8_nodes(extra_nodes_for_lom_8_nodes):
     exp.run()
 
     # Cleaning!
+    clear_experiment_data(exp)
+
+
+def test_08_mnist_pytorch_experiment_declearn_scaffold_jls():
+    model_args = {}
+    tags = ['#MNIST', '#dataset']
+    training_args = {
+    'loader_args': { 'batch_size': 48, }, 
+    'optimizer_args': {
+        "lr" : 1e-3
+    },
+    'num_updates': 200, 
+    'dry_run': False,  }
+
+    rounds = 5
+    exp = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=MnistModelScaffoldDeclearn,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+        tensorboard=True,
+        secagg=SecureAggregation(scheme=SecAggSchemes.JOYE_LIBERT),
+        save_breakpoints=True)
+    fed_opt = Optimizer(lr=.8, modules=[ScaffoldServerModule()])
+    exp.set_agg_optimizer(fed_opt)
+
+    exp.run()
+    clear_experiment_data(exp)
+
+
+def test_09_mnist_pytorch_experiment_declearn_scaffold_lom():
+    model_args = {}
+    tags = ['#MNIST', '#dataset']
+    training_args = {
+    'loader_args': { 'batch_size': 48, }, 
+    'optimizer_args': {
+        "lr" : 1e-3
+    },
+    'num_updates': 200, 
+    'dry_run': False,  }
+
+    rounds = 5
+    exp = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=MnistModelScaffoldDeclearn,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+        tensorboard=True,
+        secagg=SecureAggregation(scheme=SecAggSchemes.LOM),
+        save_breakpoints=True)
+    fed_opt = Optimizer(lr=.8, modules=[ScaffoldServerModule()])
+    exp.set_agg_optimizer(fed_opt)
+
+    exp.run()
     clear_experiment_data(exp)

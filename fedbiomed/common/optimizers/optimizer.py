@@ -3,7 +3,7 @@
 
 """Optimizer class wrapping the declearn-issued Optimizer."""
 
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from declearn.model.api import Vector
 from declearn.optimizer import Optimizer as DeclearnOptimizer
@@ -206,6 +206,15 @@ class Optimizer:
                 f"{ErrorNumbers.FB621.value}: `Optimizer.set_aux`: {exc}"
             ) from exc
 
+    def get_aux_names(self) -> List[str]:
+        """Gathers list of names of modules requiring auxiliary variables"""
+        aux_names = []
+
+        for module in self._optimizer.modules:
+            if module.aux_name is not None:
+                aux_names.append(module.aux_name)
+        return aux_names
+
     def get_state(self) -> Dict[str, Any]:
         """Return the configuration and current states of this Optimizer.
 
@@ -260,5 +269,4 @@ class Optimizer:
     def send_to_device(self, device: Union[str, bool], idx: Optional[int] = None):
         """GPU support"""
         # for now GPU support on Researcher side is disabled
-        # FIXME: use device parameters to trigger GPU usage on the Researcher
         set_device_policy(device, idx)

@@ -1245,7 +1245,9 @@ class Experiment(TrainingPlanWorkflow):
         loaded_exp.set_aggregator(bkpt_aggregator)
         # load training replies
         loaded_exp.load_training_replies(saved_state.get("training_replies"))
-        logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
+        logger.info(
+            f"Experimentation reload from {breakpoint_folder_path if breakpoint_folder_path else 'last save'} successful!"
+            )
 
         return loaded_exp
 
