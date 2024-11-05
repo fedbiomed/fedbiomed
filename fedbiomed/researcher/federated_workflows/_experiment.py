@@ -1011,6 +1011,9 @@ class Experiment(TrainingPlanWorkflow):
         # If no Optimizer is used, return the inputs.
         if self._agg_optimizer is None:
             return aggregated_params
+
+        # disable GPU on Researcher
+        self._agg_optimizer.send_to_device(False)
         # Run any start-of-round routine.
         self._agg_optimizer.init_round()
         # Recover the aggregated model updates, wrapped as a Vector.

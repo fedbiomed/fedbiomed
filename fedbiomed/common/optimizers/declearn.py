@@ -5,7 +5,7 @@
 
 from typing import Dict
 
-
+from declearn.utils import set_device_policy, get_device_policy
 from declearn.optimizer.regularizers import (
     Regularizer,
     FedProxRegularizer,
@@ -43,7 +43,9 @@ __all__ = [
     "ScaffoldClientModule",
     "ScaffoldServerModule",
     "YogiModule",
-    "YogiMomentumModule"
+    "YogiMomentumModule",
+    "get_device_policy",
+    "set_device_policy"
 ]
 
 _REGULARIZERS = (

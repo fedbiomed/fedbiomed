@@ -399,7 +399,7 @@ class TestExperiment(ResearcherTestCase, MockRequestModule):
             exp.run_once()
         self.assertListEqual(
             [name for name, *_ in _agg_optim.method_calls],
-            ["get_aux", "init_round", "step"],
+            ["get_aux", "send_to_device", "init_round", "step"],
             "Aggregator optimizer did not receive expected ordered calls"
         )
 

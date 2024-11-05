@@ -129,12 +129,16 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         logger.warning("save_state method of optimizer not implemented, cannot save optimizer status")
         return None
 
+    def send_to_device(self, device: str, idx: Optional[int] = None):
+        """GPU support"""
+        pass
+
 
 class DeclearnOptimizer(BaseOptimizer):
     """Base Optimizer subclass to use a declearn-backed Optimizer."""
     _model_cls: Tuple[Type] = (TorchModel, SkLearnModel)
     optimizer = None
-    model = None
+    #model = None
 
 
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer]):
@@ -358,6 +362,9 @@ class DeclearnOptimizer(BaseOptimizer):
         else:
             raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value}: Method optimizer_processing should be used "
                                           f"only with SkLearnModel, but model is {self._model}")
+
+    def send_to_device(self, device: str, idx: int | None = None):
+        self.optimizer.send_to_device(device, idx)
 
 
 class NativeTorchOptimizer(BaseOptimizer):

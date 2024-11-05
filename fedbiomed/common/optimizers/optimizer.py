@@ -9,6 +9,7 @@ from declearn.model.api import Vector
 from declearn.optimizer import Optimizer as DeclearnOptimizer
 from declearn.optimizer.modules import AuxVar, OptiModule
 from declearn.optimizer.regularizers import Regularizer
+from fedbiomed.common.optimizers.declearn import set_device_policy
 from typing_extensions import Self
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -255,3 +256,9 @@ class Optimizer:
             modules=optim.modules,
             regularizers=optim.regularizers,
         )
+
+    def send_to_device(self, device: Union[str, bool], idx: Optional[int] = None):
+        """GPU support"""
+        # for now GPU support on Researcher side is disabled
+        # FIXME: use device parameters to trigger GPU usage on the Researcher
+        set_device_policy(device, idx)
