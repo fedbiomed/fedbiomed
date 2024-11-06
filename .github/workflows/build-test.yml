@@ -42,11 +42,14 @@ jobs:
         if: steps.filter.outputs.docs == 'true'
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
 
       - name: Install Dependencies
         if: steps.filter.outputs.docs == 'true'
-        run: pip install -r envs/build/docs-requirements.txt
+        run: poetry install --dev-only
 
       - name: Build documentation
         if: steps.filter.outputs.docs == 'true'
