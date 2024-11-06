@@ -4,7 +4,7 @@
 """Researcher CLI """
 import subprocess
 import importlib
-
+import os
 
 from typing import List, Dict
 
@@ -13,16 +13,16 @@ from fedbiomed.common.constants import ComponentType
 
 
 __intro__ = """
-   __         _ _     _                          _ 
+   __         _ _     _                          _
   / _|       | | |   (_)                        | |
  | |_ ___  __| | |__  _  ___  _ __ ___   ___  __| |
  |  _/ _ \/ _` | '_ \| |/ _ \| '_ ` _ \ / _ \/ _` |
- | ||  __/ (_| | |_) | | (_) | | | | | |  __/ (_| |    _ 
- |_| \___|\__,_|_.__/|_|\___/|_| |_| |_|\___|\__,_|   | |              
-                     _ __ ___  ___  ___  __ _ _ __ ___| |__   ___ _ __ 
+ | ||  __/ (_| | |_) | | (_) | | | | | |  __/ (_| |    _
+ |_| \___|\__,_|_.__/|_|\___/|_| |_| |_|\___|\__,_|   | |
+                     _ __ ___  ___  ___  __ _ _ __ ___| |__   ___ _ __
                     | '__/ _ \/ __|/ _ \/ _` | '__/ __| '_ \ / _ \ '__|
-                    | | |  __/\__ \  __/ (_| | | | (__| | | |  __/ |   
-                    |_|  \___||___/\___|\__,_|_|  \___|_| |_|\___|_|   
+                    | | |  __/\__ \  __/ (_| | | | (__| | | |  __/ |
+                    |_|  \___||___/\___|\__,_|_|  \___|_| |_|\___|_|
 """
 
 
@@ -53,9 +53,11 @@ class ResearcherControl(CLIArgumentParser):
         if args.directory:
             options.append(f"--notebook-dir={args.directory}")
 
+        current_env = os.environ.copy()
+        #comp_root = os.environ.get("FBM_RESEARCHER_COMPONENT_ROOT", None)
         command = ["jupyter", "notebook"]
         command = [*command, *options]
-        process = subprocess.Popen(command)
+        process = subprocess.Popen(command, env=current_env)
 
         try:
             process.wait()
@@ -89,8 +91,15 @@ class ResearcherCLI(CommonCLI):
             _this = self
             _component = ComponentType.RESEARCHER
 
-            def import_environ(self) -> 'fedbiomed.researcher.environ.Environ':
+            def import_environ(self, config_file: str | None = None) -> 'fedbiomed.researcher.environ.Environ':
                 """Import environ"""
+                if config_file:
+                    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = os.path.abspath(config_file)
+                else:
+                    print("Component is not specified: Using 'fbm-researcher' in current working directory")
+                    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = \
+                        os.path.join(os.getcwd(), 'fbm-researcher')
+
                 return importlib.import_module("fedbiomed.researcher.environ").environ
 
 
@@ -100,7 +109,7 @@ class ResearcherCLI(CommonCLI):
         # and researcher is seperated
         self._parser.add_argument(
             "--config",
-            "-cf",
+            "-c",
             nargs="?",
             action=ConfigNameActionResearcher,
             default="config_researcher.ini",

@@ -1,13 +1,18 @@
 import os
 import re
 import uuid
+from flask import request
 
 from fedbiomed.common.exceptions import FedbiomedError
-from config import config
-from db import node_database
-from flask import request, current_app
-from middlewares import middleware, common
-from schemas import AddDataSetRequest, \
+from fedbiomed.common.data import MedicalFolderLoadingBlockTypes
+
+from fedbiomed.node.dataset_manager import DatasetManager
+
+from . import api
+from ..config import config
+from ..db import node_database
+from ..middlewares import middleware, common
+from ..schemas import AddDataSetRequest, \
     RemoveDatasetRequest, \
     UpdateDatasetRequest, \
     PreviewDatasetRequest, \
@@ -15,12 +20,8 @@ from schemas import AddDataSetRequest, \
     ListDatasetRequest, \
     GetCsvData, \
     ReadDataLoadingPlan
-from utils import success, error, validate_request_data, response
-from fedbiomed.common.data import MedicalFolderLoadingBlockTypes
-from fedbiomed.node.dataset_manager import DatasetManager
-from . import api
+from ..utils import success, error, validate_request_data, response
 
-# Initialize Fed-BioMed DatasetManager
 dataset_manager = DatasetManager()
 
 DATA_PATH_RW = config['DATA_PATH_RW']

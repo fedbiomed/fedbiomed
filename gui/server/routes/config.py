@@ -1,11 +1,10 @@
 import re
-
-from utils import response
-from config import config
-from fedbiomed.node.environ import environ
 from flask_jwt_extended import jwt_required
-from . import api
 
+from fedbiomed.node.environ import environ
+
+from . import api
+from ..utils import response
 
 @api.route('/config/node-id', methods=['GET'])
 def node_id():

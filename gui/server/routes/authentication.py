@@ -2,20 +2,29 @@ import re
 import uuid
 from datetime import datetime
 from hashlib import sha512
-from middlewares import middleware
-from db import user_database
 from flask import request
-from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, unset_jwt_cookies,
-                                verify_jwt_in_request, get_jwt)
+from flask_jwt_extended import (
+    jwt_required,
+    create_access_token,
+    create_refresh_token,
+    unset_jwt_cookies,
+    get_jwt
+)
 
-from helpers.auth_helpers import check_password_format, get_user_by_email, set_password_hash, check_mail_format, \
-    check_password_hash, admin_required
-
-from utils import error, response
 from fedbiomed.common.constants import UserRoleType, UserRequestStatus
-from schemas import ValidateUserFormRequest, ValidateLoginRequest
-from middlewares.auth_validation import validate_email_register, validate_password
-from utils import validate_request_data
+
+from ..helpers.auth_helpers import  (
+    get_user_by_email,
+    set_password_hash,
+    check_password_hash
+)
+
+from ..utils import error, response
+from ..schemas import ValidateUserFormRequest, ValidateLoginRequest
+from ..middlewares.auth_validation import validate_email_register, validate_password
+from ..middlewares import middleware
+from ..utils import validate_request_data
+from ..db import user_database
 from . import api, auth
 
 user_table = user_database.table('Users')
@@ -28,12 +37,12 @@ query = user_database.query()
 @middleware(middlewares=[validate_password])
 def update_password():
     """ API endpoint to update user's password.
-    Before changing password, checks if User email in JSON is the same stored in the JWT 
-    
+    Before changing password, checks if User email in JSON is the same stored in the JWT
+
     Request {application/json}:
         email (str): user's email
         password (str): new password user wants to update
-    
+
     Response {application/json}:
         400:
             error   : Boolean error status (False)
@@ -44,7 +53,7 @@ def update_password():
             success : Boolean value indicates that the request is success
             result  : null
             message : The message for response
-    
+
     """
     req = request.json
     email, password, old_password = req['email'], req['password'], req['old_password']
@@ -145,7 +154,7 @@ def auto_auth():
     user_info = get_jwt()
 
     return response(user_info), 200
-    
+
 
 @auth.route('/token/login', methods=['POST'])
 @validate_request_data(schema=ValidateLoginRequest)

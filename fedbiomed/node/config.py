@@ -9,7 +9,7 @@ from fedbiomed.common.constants import (
     __node_config_version__
 )
 from fedbiomed.common.certificate_manager import generate_certificate
-from fedbiomed.common.config import Config
+from fedbiomed.common.config import Component, Config
 
 # Important: Do not import environ class in this module
 # It will cause problem of recursive import
@@ -17,8 +17,9 @@ from fedbiomed.common.config import Config
 class NodeConfig(Config):
 
     _DEFAULT_CONFIG_FILE_NAME: str = 'config_node.ini'
-    _COMPONENT_TYPE: str = 'NODE'
     _CONFIG_VERSION: str = __node_config_version__
+
+    COMPONENT_TYPE: str = 'NODE'
 
     def add_parameters(self):
         """Generate `Node` config"""
@@ -47,3 +48,14 @@ class NodeConfig(Config):
             'ip': os.getenv('RESEARCHER_SERVER_HOST', 'localhost'),
             'port': os.getenv('RESEARCHER_SERVER_PORT', '50051')
         }
+
+class NodeComponent(Component):
+    """Fed-BioMed Node Component Class
+
+    This class is used for creating and validating components
+    by given component root directory
+    """
+    _config_cls = NodeConfig
+    _default_component_name = 'fbm-node'
+
+node_component = NodeComponent()

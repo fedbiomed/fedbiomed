@@ -1,14 +1,19 @@
 from datetime import datetime
-
 from flask import request
-from utils import success, error, validate_request_data, response
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
-from gui.server.schemas import DeleteTrainingPlanRequest, ListTrainingPlanRequest, ApproveRejectTrainingPlanRequest, \
-    TrainingPlanPreviewRequest
+
 from . import api
+from ..schemas import (
+    DeleteTrainingPlanRequest,
+    ListTrainingPlanRequest,
+    ApproveRejectTrainingPlanRequest,
+    TrainingPlanPreviewRequest
+)
+from ..utils import success, error, validate_request_data, response
+
 
 TP_SECURITY_MANAGER = TrainingPlanSecurityManager()
 
@@ -24,18 +29,18 @@ def list_training_plans():
     Request {application/json}:
             sort_by (str): sort result along one column in the database
             select_status (str): filter result by training plan statuses {Pending, Rejected, Approved}
-            
+
     Response {application/json}:
         400:
             success   : Boolean error status (False)
             result  : null
-            message : Message about error. 
+            message : Message about error.
 
         200:
             success : Boolean value indicates that the request is success
             result  : list of training plans, sorted or filtered depending on [`sort_by`] or [`select_status`]
                       arguments
-            message : null  
+            message : null
     """
     req = request.json
     sort_by = req.get('sort_by', None)
