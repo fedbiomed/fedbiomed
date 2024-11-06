@@ -1,15 +1,20 @@
 from datetime import datetime
-
 from flask import request
-from utils import success, error, validate_request_data, response
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
-from gui.server.schemas import DeleteTrainingPlanRequest, ListTrainingPlanRequest, ApproveRejectTrainingPlanRequest, \
-    TrainingPlanPreviewRequest
+
 from . import api
-from config import config
+from ..config import config
+from ..schemas import (
+    DeleteTrainingPlanRequest,
+    ListTrainingPlanRequest,
+    ApproveRejectTrainingPlanRequest,
+    TrainingPlanPreviewRequest
+)
+from ..utils import success, error, validate_request_data, response
+
 
 TP_SECURITY_MANAGER = TrainingPlanSecurityManager(
     db=config["NODE_DB_PATH"],

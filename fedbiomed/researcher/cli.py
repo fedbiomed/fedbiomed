@@ -5,7 +5,7 @@
 import os
 import subprocess
 import importlib
-
+import os
 
 from typing import List, Dict
 
@@ -54,9 +54,11 @@ class ResearcherControl(CLIArgumentParser):
         if args.directory:
             options.append(f"--notebook-dir={args.directory}")
 
+        current_env = os.environ.copy()
+        #comp_root = os.environ.get("FBM_RESEARCHER_COMPONENT_ROOT", None)
         command = ["jupyter", "notebook"]
         command = [*command, *options]
-        process = subprocess.Popen(command)
+        process = subprocess.Popen(command, env=current_env)
 
         try:
             process.wait()
@@ -90,27 +92,30 @@ class ResearcherCLI(CommonCLI):
             _this = self
             _component = ComponentType.RESEARCHER
 
-            def set_component(self, config_name: str) -> None:
+            def set_component(self, config_file: str) -> None:
                 """Import configuration
 
                 Args:
                     config_name: Name of the config file for the component
                 """
-                config_file = os.environ.get("CONFIG_FILE")
                 if config_file:
-                    os.environ["FBM_RESEARCHER_CONFIG_FILE"] = config_file
+                    os.environ["FBM_RESEARCHER_CONFIG_FILE"] = os.path.abspath(
+                        config_file
+                    )
+                else:
+                    print(
+                        "Component is not specified: Using 'fbm-researcher' in "
+                        "current working directory"
+                    )
+                    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = \
+                        os.path.join(os.getcwd(), 'fbm-researcher')
 
                 module = importlib.import_module("fedbiomed.researcher.config")
                 self._this.config = module.config
 
-
-        # Config parameter is not necessary. Python client (user in jupyter notebook)
-        # will always use default config file which is `researcher_config`
-        # However, this argument will play important role once researcher back-end (orhestrator)
-        # and researcher is seperated
         self._parser.add_argument(
-            "--config",
-            "-cf",
+            "--path",
+            "-p",
             nargs="?",
             action=ConfigNameActionResearcher,
             default=DEFAULT_CONFIG_FILE_NAME_RESEARCHER,

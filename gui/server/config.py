@@ -1,23 +1,28 @@
 import os
 import sys
 import configparser
-
 from fedbiomed.common.constants import CONFIG_FOLDER_NAME, DEFAULT_CONFIG_FILE_NAME_NODE
-
 from fedbiomed.node.config import NodeConfig
+import shutil
+
+from fedbiomed.common.utils import ROOT_DIR
+from fedbiomed.node.config import NodeConfig
+
+from .utils import get_node_id
 
 cfg = configparser.ConfigParser()
 
 
 class Config(dict):
 
+
+    node_config: NodeConfig
+
     def __init__(self):
         """
             Config class to update configuration for Flask
         """
         self.configuration = {}
-
-
         # Updates self.configuration
         self.generate_config()
 
@@ -43,13 +48,16 @@ class Config(dict):
 
 
         # Configuration of Flask APP to be able to access Fed-BioMed node information
-        self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_DIR', '/fedbiomed')
-        # Get name of the config file or default value
-        self.configuration['NODE_CONFIG_FILE'] = os.getenv('NODE_CONFIG_FILE',
-                                                           DEFAULT_CONFIG_FILE_NAME_NODE)
+        self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv(
+            'FBM_NODE_COMPONENT_ROOT', '/fedbiomed'
+        )
+        conf = os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], 'etc', 'config_gui.ini')
+        if not os.path.isfile(conf):
+            default_config = os.path.join(ROOT_DIR, 'gui', 'config_gui.ini')
+            shutil.copy(default_config, conf)
 
         # Config file that is located in ${FEDBIOMED_DIR}/gui directory
-        cfg.read(os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], 'gui', 'config_gui.ini'))
+        cfg.read(conf)
 
 
         # Data path ----------------------------------------------------------------
@@ -71,56 +79,41 @@ class Config(dict):
         self.configuration['DEFAULT_ADMIN_CREDENTIAL'] = {'email': cfg.get('init_admin', 'email'),
                                                           'password': cfg.get('init_admin', 'password')}
 
-        # -------------------------------------------------------------------
+        # Get name of the config file default is "config_node.ini"
+        self.configuration['NODE_CONFIG_FILE'] = os.getenv('NODE_CONFIG_FILE',
+                                                           "config.ini")
 
         # Node config file -----------------------------------------------------
-        # Node configuration
-        self.node_config = NodeConfig(
-            root=self.configuration['NODE_FEDBIOMED_ROOT'],
-            name=self.configuration["NODE_CONFIG_FILE"]
+        self.node_config = NodeConfig(root=self.configuration["NODE_FEDBIOMED_ROOT"])
+        node_id = self.node_config.get('default', 'id')
+        self.configuration['ID'] = node_id
+
+        # Set DB_PATH based on given node id
+        self.configuration['NODE_DB_PATH'] = os.path.join(
+            self.configuration["NODE_FEDBIOMED_ROOT"], 'etc', self.node_config.get('default', 'db')
         )
-        # Exact configuration file path
-        self.configuration['NODE_CONFIG_FILE_PATH'] = self.node_config.path
-
-
-        # Append Fed-BioMed root dir as a python path
-        sys.path.append(self.configuration['NODE_FEDBIOMED_ROOT'])
-
-        # correct config file
-        os.environ["CONFIG_FILE"] = self.configuration['NODE_CONFIG_FILE_PATH']
-
-        # Set node NODE_DI
-        self.configuration['ID'] = self.node_config.get('default', 'id')
-
-        self.configuration['NODE_DB_PATH'] = os.path.abspath(
-            os.path.join(
-                self.configuration['NODE_FEDBIOMED_ROOT'],
-                CONFIG_FOLDER_NAME,
-                self.node_config.get('default', 'db')
-            )
-        )
-
         # Set GUI_PATH based on given node id
-        self.configuration['GUI_DB_PATH'] = \
-            os.path.join(self.configuration["NODE_FEDBIOMED_ROOT"],
-                         'var',
-                         'gui_db_' + self.configuration['ID'] + '.json')
+        self.configuration['GUI_DB_PATH'] = os.path.join(
+            self.configuration["NODE_FEDBIOMED_ROOT"],
+            'var',
+            'gui_db_' + self.configuration['ID'] + '.json'
+        )
 
         # Enable debug mode
-        self.configuration['DEBUG'] = os.getenv('DEBUG', 'True').lower() in \
+        self.configuration['DEBUG'] = os.getenv('FBM_DEBUG', 'True').lower() in \
                                       ('true', 1, True, 'yes')
 
-        # TODO: Let users decide which port they would like to use
         # Serve  configurations PORT and IP
-        self.configuration['PORT'] = os.getenv('PORT', cfg.get('server', 'PORT', fallback=8484))
-        self.configuration['HOST'] = os.getenv('HOST', cfg.get('server', 'HOST', fallback='localhost'))
+        self.configuration['PORT'] = os.getenv(
+            'FBM_GUI_PORT', cfg.get('server', 'PORT', fallback=8484)
+        )
+        self.configuration['HOST'] = os.getenv(
+            'FBM_GUI_HOST', cfg.get('server', 'HOST', fallback='localhost')
+        )
 
         # Log information for setting up a node connection
         print(f'INFO: Fed-BioMed Node root dir has been set as '
               f'{self.configuration["NODE_FEDBIOMED_ROOT"]} \n')
-
-        print(f'INFO: Fed-BioMed  Node config file is '
-              f'{self.configuration["NODE_CONFIG_FILE"]} \n')
 
         print(f'INFO: Services are going to be configured for the node '
               f'{self.configuration["ID"]} \n')
