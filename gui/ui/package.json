@@ -36,7 +36,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "BUILD_PATH='./ui-dist' react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -52,7 +52,7 @@
       "last 1 safari version"
     ]
   },
-  "packageManager": "yarn@3.5.1",
+  "packageManager": "yarn@1.22.2",
   "devDependencies": {
     "yarn-upgrade-all": "^0.7.2"
   }

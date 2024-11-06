@@ -7,10 +7,7 @@
 .#*
 \#*
 .ccls-cache
-.vscode
-
-
-### Generic ###
+.vscbuild### Generic ###
 *.log
 *.pot
 *.pyc
@@ -163,7 +160,7 @@ node_modules
 gui/ui/.yarn
 gui/ui/.pnp.cjs
 gui/ui/.pnp.loader.mjs
-
+!gui/ui/dist
 # testing
 coverage
 
@@ -180,8 +177,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-package-lock.json
-yarn.lock
 # -----------------------------------------------------------
 
 ### JupyterNotebooks ###

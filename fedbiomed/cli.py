@@ -41,19 +41,16 @@ researcher_p.set_defaults(func=researcher)
 
 def run():
     """Runs the CLI"""
-    try:
-        # This part executes know arguments
-        args, extra = cli.parser.parse_known_args()
-        # Forward arguments to Node or Researcher CLI
-        if hasattr(args, "func") and args.func in [node, researcher]:
-            args.func(extra)
-        elif hasattr(args, "func"):
-            args.func(args)
-        # If there is no command provided
-        else:
-            cli.parse_args(["--help"])
-    except:
-        print(traceback.format_exc())
+    # This part executes know arguments
+    args, extra = cli.parser.parse_known_args()
+    # Forward arguments to Node or Researcher CLI
+    if hasattr(args, "func") and args.func in [node, researcher]:
+        args.func(extra)
+    elif hasattr(args, "func"):
+        args.func(args)
+    # If there is no command provided
+    else:
+        cli.parse_args(["--help"])
 
 if __name__ == "__main__":
         run()
