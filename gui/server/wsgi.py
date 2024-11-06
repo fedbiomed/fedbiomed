@@ -1,5 +1,5 @@
-from config import config
-from application import app
+from .config import config
+from .application import app
 
 # Production
 if __name__ == '__main__':

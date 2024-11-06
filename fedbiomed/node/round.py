@@ -108,12 +108,13 @@ class Round:
         self._round = round_number
         self._node_state_manager: NodeStateManager = NodeStateManager(environ['DB_PATH'])
 
-        self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self._keep_files_dir = self._temp_dir.name
 
     def __del__(self):
         """Class destructor"""
         # remove temporary files directory
-        shutil.rmtree(self._keep_files_dir)
+        self._temp_dir.cleanup()
 
     def _initialize_validate_training_arguments(self) -> Optional[Dict[str, Any]]:
         """Initialize and validate requested experiment/training arguments.

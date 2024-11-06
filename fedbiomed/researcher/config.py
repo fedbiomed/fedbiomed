@@ -10,14 +10,14 @@ from fedbiomed.common.constants import (
 )
 
 from fedbiomed.common.certificate_manager import generate_certificate
-from fedbiomed.common.config import Config
+from fedbiomed.common.config import Component, Config
 
 
 class ResearcherConfig(Config):
 
-    _DEFAULT_CONFIG_FILE_NAME: str = 'config_researcher.ini'
-    _COMPONENT_TYPE: str = 'RESEARCHER'
-    _CONFIG_VERSION: str = __researcher_config_version__
+    _CONFIG_VERSION = __researcher_config_version__
+
+    COMPONENT_TYPE: str = 'RESEARCHER'
 
     def add_parameters(self):
         """Generate researcher config"""
@@ -46,3 +46,15 @@ class ResearcherConfig(Config):
         self._cfg['security'] = {
             'secagg_insecure_validation': os.getenv('SECAGG_INSECURE_VALIDATION', True)
         }
+
+
+class ResearcherComponent(Component):
+    """Fed-BioMed Node Component Class
+
+    This class is used for creating and validating components
+    by given component root directory
+    """
+    _config_cls = ResearcherConfig
+    _default_component_name = 'fbm-researcher'
+
+researcher_component = ResearcherComponent()

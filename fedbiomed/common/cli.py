@@ -12,11 +12,10 @@ import importlib
 import os
 import sys
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.config import Config
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, DB_FOLDER_NAME, ComponentType
+from fedbiomed.common.constants import DB_FOLDER_NAME, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import (
@@ -36,11 +35,13 @@ BOLD = "\033[1m"
 
 class CLIArgumentParser:
 
-    def __init__(self, subparser: argparse.ArgumentParser):
+    def __init__(self, subparser: argparse.ArgumentParser, parser = None):
 
         self._subparser = subparser
         # Parser that is going to be add using subparser
         self._parser = None
+
+        self._main_parser = parser
 
     def default(self, args: argparse.Namespace = None) -> None:
         """Default function for subparser command"""
@@ -67,7 +68,8 @@ class ConfigNameAction(ABC, argparse.Action):
             and not set(["--help", "-h"]).intersection(set(sys.argv))
             and len(sys.argv) > 2
         ):
-            self.set_environ(self.default)
+            self.set_environ()
+        super().__init__(*args, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
         """When argument is called"""
@@ -75,8 +77,10 @@ class ConfigNameAction(ABC, argparse.Action):
         if not set(["--help", "-h"]).intersection(set(sys.argv)):
             self.set_environ(values)
 
+        setattr(namespace, self.dest, values)
+
     @abstractmethod
-    def import_environ(self) -> "Environ":
+    def import_environ(self, config_file: str | None = None) -> "Environ":
         """Implements environ import
 
 
@@ -84,17 +88,15 @@ class ConfigNameAction(ABC, argparse.Action):
             Environ object
         """
 
-    def set_environ(self, config_file: str):
+    def set_environ(self, config_file: str | None = None):
         """Sets environ
 
         Args:
           config_file: Name of the config file that is activate
         """
 
-        print(f"\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #")
-        os.environ["CONFIG_FILE"] = config_file
-
-        environ = self.import_environ()
+        print(f"\n# {GRN}Using component located at:{NC} {BOLD}{config_file}{NC} #")
+        environ = self.import_environ(config_file)
 
         os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = environ["ID"]
 
@@ -106,14 +108,14 @@ class ConfigNameAction(ABC, argparse.Action):
         logger.setLevel("DEBUG")
 
 
-class ConfigurationParser(CLIArgumentParser):
+class ComponentParser(CLIArgumentParser):
     """Instantiates configuration parser"""
 
     def initialize(self):
         """Initializes argument parser for creating configuration file."""
 
         self._parser = self._subparser.add_parser(
-            "configuration",
+            "component",
             help="The helper for generating or updating component configuration files, see `configuration -h`"
             " for more details",
         )
@@ -128,19 +130,8 @@ class ConfigurationParser(CLIArgumentParser):
             metavar="ROOT_PATH_FEDBIOMED",
             type=str,
             nargs="?",
-            default=None,
+            required=True,
             help="Root directory for configuration and Fed-BioMed setup",
-        )
-
-        # Add arguments
-        common_parser.add_argument(
-            "-n",
-            "--name",
-            metavar="CONFIGURATION_FILE_NAME",
-            type=str,
-            nargs="?",
-            required=False,
-            help="Name of configuration file",
         )
 
         common_parser.add_argument(
@@ -154,24 +145,24 @@ class ConfigurationParser(CLIArgumentParser):
         )
 
         # Create sub parser under `configuration` command
-        configuration_sub_parsers = self._parser.add_subparsers()
+        component_sub_parsers = self._parser.add_subparsers()
 
-        create = configuration_sub_parsers.add_parser(
+        create = component_sub_parsers.add_parser(
             "create",
             parents=[common_parser],
             help="Creates configuration file for the specified component if it does not exist. "
             "If the configuration file exists, leave it unchanged",
         )
 
-        refresh = configuration_sub_parsers.add_parser(
+        refresh = component_sub_parsers.add_parser(
             "refresh",
             parents=[common_parser],
             help="Refreshes the configuration file by overwriting parameters without changing component ID",
         )
 
         create.add_argument(
-            "-uc",
-            "--use-current",
+            "-eo",
+            "--exist-ok",
             action="store_true",
             help="Creates configuration only if there isn't an existing one",
         )
@@ -183,24 +174,21 @@ class ConfigurationParser(CLIArgumentParser):
         create.set_defaults(func=self.create)
         refresh.set_defaults(func=self.refresh)
 
-    def _create_config_instance(self, component, root, name):
-
-        # TODO: this implementation is a temporary hack as it introduces a dependency of
-        # fedbiomed.common to fedbiomed.node or fedbiomed.researcher
-        # To be suppressed when redesigning the imports
+    def _get_component_instance(self, component):
+        """ """
         if component.lower() == "node":
-            NodeConfig = importlib.import_module("fedbiomed.node.config").NodeConfig
-            config = NodeConfig(root=root, name=name, auto_generate=False)
+            config_node = importlib.import_module("fedbiomed.node.config")
+            _component = config_node.node_component
         elif component.lower() == "researcher":
-            ResearcherConfig = importlib.import_module(
+            config_researcher = importlib.import_module(
                 "fedbiomed.researcher.config"
-            ).ResearcherConfig
-            config = ResearcherConfig(root=root, name=name, auto_generate=False)
+            )
+            _component = config_researcher.researcher_component
         else:
             print(f"Undefined component type {component}")
-            exit(101)
+            sys.exit(101)
 
-        return config
+        return _component
 
     def create(self, args):
         """CLI Handler for creating configuration file and assets for given component
@@ -211,37 +199,40 @@ class ConfigurationParser(CLIArgumentParser):
             files.
         """
 
-        config = self._create_config_instance(args.component, args.root, args.name)
+        component = self._get_component_instance(args.component)
 
         # Overwrite force configuration file
-        if config.is_config_existing() and args.force:
-            print("Overwriting existing configuration file")
-            config.generate(force=True)
-
-        # Use exisintg one (do nothing)
-        elif config.is_config_existing() and not args.force:
-            if not args.use_current:
-                print(
-                    f'Configuration file "{config.path}" is alreay existing for name "{config.name}". '
-                    "Please use --force option to overwrite"
+        if component.is_component_existing(args.root):
+            if not args.exist_ok:
+                CommonCLI.error(
+                    "Component is already existing in given directory. To ignore "
+                    "this error please execute component creation using `--exist-ok`"
                 )
-                exit(101)
-            # Generate wont do anything
-            config.generate()
-        else:
-            logger.info(f'Generation new configuration file "{config.name}"')
-            config.generate()
+            else:
+                CommonCLI.success(
+                    "Component is already exsiting. Using existing component."
+                )
+                sys.exit(0)
+
+        logger.info(f"Creating a new component in the directory {args.root}")
+        component.create(args.root)
 
     def refresh(self, args):
         """Refreshes configuration file"""
 
-        config = self._create_config_instance(args.component, args.root, args.name)
-        print(
-            "Refreshing configuration file using current environment variables. This operation will overwrite"
-            "existing configuration file without changing component id."
-        )
+        component = self._get_component_instance(args.component)
+        if not component.is_component_existing(args.root):
+            CommonCLI.error(
+                "There is no component existing in the given directory."
+                "Can not refresh non-existing component."
+            )
 
-        # Refresh
+        print(
+            "Refreshing configuration file using current environment variables. "
+            "This operation will overwrite existing configuration file without changing "
+            "component id."
+        )
+        config = component.create(args.root)
         config.refresh()
         print("Configuration has been updated!")
 
@@ -263,7 +254,7 @@ class CommonCLI:
         self._args = None
 
         # Initialize configuration parser
-        self.configuration_parser = ConfigurationParser(self._subparsers)
+        self.configuration_parser = ComponentParser(self._subparsers)
 
     @property
     def parser(self) -> argparse.ArgumentParser:
@@ -365,7 +356,7 @@ class CommonCLI:
         """
 
         for arg_parser in self._arg_parsers_classes:
-            p = arg_parser(self._subparsers)
+            p = arg_parser(self._subparsers, self._parser)
             p.initialize()
             self._arg_parsers.update({arg_parser.__name__: p})
 

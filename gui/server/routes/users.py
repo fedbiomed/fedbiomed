@@ -1,25 +1,26 @@
 import uuid
 import secrets
 import string
-from fedbiomed.common.constants import UserRequestStatus
-from gui.server.routes import admin_required
-from middlewares import middleware
-from middlewares.auth_validation import validate_email_register, validate_password
-from . import api
-from utils import success, error, validate_request_data, response
-
+from tinydb import where
 from flask import request
 from flask_jwt_extended import jwt_required, get_jwt
 from datetime import datetime
-from tinydb import where
-from db import user_database
-from schemas import ValidateAdminRequestAction, \
-    ValidateUserFormRequest, \
-    ValidateUserRemoveRequest, \
-    ValidateUserChangeRoleRequest
-from helpers.auth_helpers import set_password_hash
+
+from fedbiomed.common.constants import UserRequestStatus
 from fedbiomed.common.constants import UserRoleType
 
+from ..db import user_database
+from ..schemas import (
+    ValidateAdminRequestAction,
+    ValidateUserFormRequest,
+    ValidateUserRemoveRequest,
+    ValidateUserChangeRoleRequest
+)
+from ..middlewares.auth_validation import validate_email_register, validate_password
+from ..middlewares import middleware
+from ..helpers.auth_helpers import set_password_hash, admin_required
+from ..utils import error, validate_request_data, response
+from . import api
 
 user_table = user_database.table('Users')
 user_requests_table = user_database.table('Requests')

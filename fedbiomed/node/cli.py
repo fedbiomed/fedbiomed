@@ -4,7 +4,6 @@
 """
 Command line user interface for the node component
 """
-
 import argparse
 import json
 import os
@@ -14,10 +13,13 @@ import time
 import importlib
 import functools
 import subprocess
+import importlib.util
 
 from multiprocessing import Process
 from typing import Union, List, Dict
 from types import FrameType
+from pathlib import Path
+
 
 from fedbiomed.common.constants import ErrorNumbers, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
@@ -472,75 +474,83 @@ class GUIControl(CLIArgumentParser):
 
     def initialize(self):
         """Initializes GUI commands"""
-        self._parser = self._subparser.add_parser("gui", add_help=False, help="Action to manage Node user interface")
+        self._parser = self._subparser.add_parser(
+            "gui", add_help=False, help="Action to manage Node user interface"
+        )
         self._parser.set_defaults(func=self.forward)
 
+        gui_subparsers = self._parser.add_subparsers()
+        start = gui_subparsers.add_parser('start')
 
-#        gui_subparsers = self._parser.add_subparsers()
-#        start = gui_subparsers.add_parser('start')
-#
-#
-#        # TODO: Implement argument parsing and execution in python
-#        start.add_argument(
-#            "--data-folder",
-#           "-df",
-#            type=str,
-#            nargs="?",
-#            default="data",  # data folder in root directory
-#            required=False)
-#
-#        start.add_argument(
-#            "--cert-file",
-#            "-cf",
-#            type=str,
-#            nargs="?",
-#            required=False,
-#            help="Name of the certificate to use in order to enable HTTPS. "
-#                 "If cert file doesn't exist script will raise an error.")
-#
-#        start.add_argument(
-#            "--key-file",
-#            "-kf",
-#            type=str,
-#            nargs="?",
-#            required=False,
-#            help="Name of the private key for the SSL certificate. "
-#                 "If the key file doesn't exist, the script will raise an error.")
-#
-#        start.add_argument(
-#            "--port",
-#            "-p",
-#            type=str,
-#            nargs="?",
-#            default="8484",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.add_argument(
-#            "--host",
-#            "-ho",
-#            type=str,
-#            default="localhost",
-#            nargs="?",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.add_argument(
-#            "--debug",
-#            "-dbg",
-#            action="store_true",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.add_argument(
-#            "--recreate",
-#            "-rc",
-#            action="store_true",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.set_defaults(func=self.forward)
-#
+
+        start.add_argument(
+            "--data-folder",
+           "-df",
+            type=str,
+            nargs="?",
+            default="data",  # data folder in root directory
+            required=False)
+
+        start.add_argument(
+            "--cert-file",
+            "-cf",
+            type=str,
+            nargs="?",
+            required=False,
+            help="Name of the certificate to use in order to enable HTTPS. "
+                 "If cert file doesn't exist script will raise an error.")
+
+        start.add_argument(
+            "--key-file",
+            "-kf",
+            type=str,
+            nargs="?",
+            required=False,
+            help="Name of the private key for the SSL certificate. "
+                 "If the key file doesn't exist, the script will raise an error.")
+
+        start.add_argument(
+            "--port",
+            "-p",
+            type=str,
+            nargs="?",
+            default="8484",
+            required=False,
+            help="HTTP port that GUI will be served. Default is `8484`")
+
+        start.add_argument(
+            "--host",
+            "-ho",
+            type=str,
+            default="localhost",
+            nargs="?",
+            required=False,
+            help="HTTP port that GUI will be served. Default is `8484`")
+
+        start.add_argument(
+            "--debug",
+            "-dbg",
+            action="store_true",
+            required=False,
+            help="HTTP port that GUI will be served. Default is `8484`")
+
+        start.add_argument(
+            "--recreate",
+            "-rc",
+            action="store_true",
+            required=False,
+            help="Re-creates gui build")
+
+        start.add_argument(
+            "--development",
+            "-dev",
+            action="store_true",
+            required=False,
+            help="If it is set, GUI will start in development mode."
+        )
+
+        start.set_defaults(func=self.forward)
+
 
 
     def forward(self, args, extra_args):
@@ -549,36 +559,51 @@ class GUIControl(CLIArgumentParser):
         TODO: Implement argument GUI parseing and execution
         """
 
-#        commad = []
-#        command.extend(['--data-folder', args.data_folder, '--port', args.port, '--host', args.host])
+        fedbiomed_root = os.path.abspath(args.config)
+
+        os.environ.update({
+            "DATA_PATH": os.path.abspath(args.data_folder),
+            "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
+        })
+        current_env = os.environ.copy()
+
+        gui_server = importlib.import_module("fedbiomed.gui.wsgi")
 
 
-#        if args.key_file:
-#            command.extend(['--key-file', args.key_file])
-#
-#        if args.cert_file:
-#            command.extend(['--cert-file', args.cert_file])
-#
-#        if args.recreate:
-#            command.append('--recreate')
-#
-#        if args.debug:
-#            command.append('--debug')
+        if args.key_file and args.cert_file:
+            certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file ]
+        else:
+            certificate = []
 
-
-        gui_script = os.path.abspath(os.path.join(__file__, '..', '..', '..', 'scripts', 'fedbiomed_gui'))
-        command = [gui_script, *extra_args]
-        process = subprocess.Popen(command)
+        host_port = ["--host", args.host, "--port", args.port]
+        if args.development:
+            command = [
+                "FLASK_ENV=development",
+                f"FLASK_APP={gui_server.__file__}",
+                "flask",
+                "run",
+                *host_port,
+                *certificate
+            ]
+        else:
+            command = [
+                "gunicorn",
+                "--workers",
+                "1",
+                # str(os.cpu_count()),
+                *certificate,
+                "-b",
+                f"{args.host}:{args.port}",
+                "--access-logfile",
+                "-",
+                "fedbiomed.gui.wsgi:app"
+            ]
 
         try:
-            process.wait()
-        except KeyboardInterrupt:
-            try:
-                process.terminate()
-            except Exception:
-                pass
-            process.wait()
-
+            with subprocess.Popen(" ".join(command), env=current_env, shell=True) as proc:
+                proc.wait()
+        except Exception as e:
+            print(e)
 
 class NodeCLI(CommonCLI):
 
@@ -607,13 +632,21 @@ class NodeCLI(CommonCLI):
             _this = self
             _component = ComponentType.NODE
 
-            def import_environ(self) -> 'fedbiomed.node.environ.Environ':
+            def import_environ(self, config_file: str | None = None) -> 'fedbiomed.node.environ.Environ':
                 """Imports dynamically node environ object"""
+
+                if config_file:
+                    os.environ["FBM_NODE_COMPONENT_ROOT"] = os.path.join(config_file)
+                else:
+                    print("Component is not specified: Using 'fbm-researcher' in current working directory...")
+                    os.environ["FBM_NODE_COMPONENT_ROOT"] = \
+                        os.path.join(os.getcwd(), 'fbm-node')
+
                 return importlib.import_module("fedbiomed.node.environ").environ
 
         self._parser.add_argument(
             "--config",
-            "-cf",
+            "-c",
             nargs="?",
             action=ConfigNameActionNode,
             default="config_node.ini",

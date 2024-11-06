@@ -1,13 +1,14 @@
 import re
 from hashlib import sha512
-from db import user_database
 from flask import request
 from functools import wraps
-from fedbiomed.common.constants import UserRoleType
-from utils import error, response
 from flask_jwt_extended import (jwt_required, create_access_token, create_refresh_token, unset_jwt_cookies,
                                 verify_jwt_in_request, get_jwt)
 
+from fedbiomed.common.constants import UserRoleType
+
+from ..db import user_database
+from ..utils import error, response
 
 user_table = user_database.table('Users')
 query = user_database.query()

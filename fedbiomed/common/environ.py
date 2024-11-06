@@ -39,12 +39,14 @@ from fedbiomed.common.utils import (
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonABCMeta
-
+from fedbiomed.common.config import Config
 
 class Environ(metaclass=SingletonABCMeta):
     """Singleton class contains all variables for researcher or node"""
 
-    def __init__(self, root_dir: str = None):
+    _config: Config
+
+    def __init__(self):
         """Class constructor
 
         Args:
@@ -55,12 +57,11 @@ class Environ(metaclass=SingletonABCMeta):
             FedbiomedEnvironError: If component type is invalid
         """
         # dict with contains all configuration values
+
         self._values = {}
-        self._root_dir = root_dir
-        self._config = None
 
     @property
-    def config(self):
+    def config(self) -> Config:
         """Returns config object"""
         return self._config
 
@@ -110,36 +111,22 @@ class Environ(metaclass=SingletonABCMeta):
              FedbiomedEnvironError: In case of error (OS errors usually)
         """
 
-        # guess the fedbiomed package top dir if no root dir is given
-        if self._root_dir is None:
-            root_dir = ROOT_DIR
-
-            # initialize main directories
-            self._values['ROOT_DIR'] = root_dir
-            self._values['CONFIG_DIR'] = CONFIG_DIR
-            self._values['VAR_DIR'] = VAR_DIR
-            self._values['CACHE_DIR'] = CACHE_DIR
-            self._values['TMP_DIR'] = TMP_DIR
-        else:
-            root_dir = self._root_dir
-            # initialize main directories
-
-            self._values['ROOT_DIR'] = root_dir
-            self._values['CONFIG_DIR'] = os.path.join(root_dir, CONFIG_FOLDER_NAME)
-            self._values['VAR_DIR'] = os.path.join(root_dir, VAR_FOLDER_NAME)
-            self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], CACHE_FOLDER_NAME)
-            self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], TMP_FOLDER_NAME)
+        self._values['ROOT_DIR'] =  self._config.root
+        self._values['CONFIG_DIR'] = os.path.join(self._config.root, CONFIG_FOLDER_NAME)
+        self._values['VAR_DIR'] = os.path.join(self._config.root, VAR_FOLDER_NAME)
+        self._values['CACHE_DIR'] = os.path.join(self._values['VAR_DIR'], CACHE_FOLDER_NAME)
+        self._values['TMP_DIR'] = os.path.join(self._values['VAR_DIR'], TMP_FOLDER_NAME)
 
 
         self._values['DB_PATH'] = os.path.normpath(
             os.path.join(
-                self._values["ROOT_DIR"], CONFIG_FOLDER_NAME, self.config.get('default', 'db'))
+                self._values["ROOT_DIR"], CONFIG_FOLDER_NAME, self._config.get('default', 'db'))
         )
 
-        self._values['CERT_DIR'] = os.path.join(root_dir, CERTS_FOLDER_NAME)
+        self._values['CERT_DIR'] = os.path.join(self._config.root, CERTS_FOLDER_NAME)
 
         # Optional secagg_insecure_validation optional in config file
-        secagg_insecure_validation = self.config.get(
+        secagg_insecure_validation = self._config.get(
             'security', 'secagg_insecure_validation', fallback='true')
         self._values["SECAGG_INSECURE_VALIDATION"] = os.getenv(
             'SECAGG_INSECURE_VALIDATION',

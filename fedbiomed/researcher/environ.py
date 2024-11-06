@@ -37,16 +37,18 @@ from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.constants import ComponentType, ErrorNumbers, \
     TENSORBOARD_FOLDER_NAME, TRACEBACK_LIMIT
 from fedbiomed.common.environ import Environ
-from fedbiomed.researcher.config import ResearcherConfig
+from fedbiomed.researcher.config import Config, researcher_component
 
 
 class ResearcherEnviron(Environ):
 
-    def __init__(self, root_dir: str = None):
+    def __init__(self, root_dir: str  | None = None):
         """Constructs ResearcherEnviron object """
-        super().__init__(root_dir=root_dir)
+        super().__init__()
 
-        self._config = ResearcherConfig(root_dir)
+        root_dir = os.environ.get('FBM_RESEARCHER_COMPONENT_ROOT', root_dir)
+        self._config: Config = researcher_component.create(root_dir)
+        self._root_dir = self._config.root
 
         logger.setLevel("DEBUG")
         # Set component type

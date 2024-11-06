@@ -1,7 +1,8 @@
 from flask import request
-from utils import error
 
 from fedbiomed.node.dataset_manager import DatasetManager
+
+from ..utils import error
 
 # Initialize Fed-BioMed DatasetManager
 dataset_manager = DatasetManager()
