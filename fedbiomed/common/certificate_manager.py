@@ -330,7 +330,7 @@ def generate_certificate(
             `certificate.pem` or `certificate.key` files generated.
     """
 
-    certificate_path = os.path.join(root, CERTS_FOLDER_NAME, f"cert_{component_id}")
+    certificate_path = os.path.join(root, CERTS_FOLDER_NAME)
 
     if os.path.isdir(certificate_path) and (
         os.path.isfile(os.path.join(certificate_path, "certificate.key"))

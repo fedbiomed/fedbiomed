@@ -15,7 +15,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, List
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.config import is_config_existing, get_config_path, get_config_name
+from fedbiomed.common.config import (
+    is_config_existing,
+    get_config_path,
+    get_config_name
+)
 from fedbiomed.common.constants import (
     CONFIG_FOLDER_NAME,
     DB_FOLDER_NAME,
@@ -23,6 +27,7 @@ from fedbiomed.common.constants import (
     DEFAULT_CONFIG_FILE_NAME_NODE,
     DEFAULT_CONFIG_FILE_NAME_RESEARCHER,
 )
+from fedbiomed.common.constants import DB_FOLDER_NAME, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import (
@@ -42,11 +47,13 @@ BOLD = "\033[1m"
 
 class CLIArgumentParser:
 
-    def __init__(self, subparser: argparse.ArgumentParser):
+    def __init__(self, subparser: argparse.ArgumentParser, parser = None):
 
         self._subparser = subparser
         # Parser that is going to be add using subparser
         self._parser = None
+
+        self._main_parser = parser
 
     def default(self, args: argparse.Namespace = None) -> None:
         """Default function for subparser command"""
@@ -75,6 +82,7 @@ class ConfigNameAction(ABC, argparse.Action):
             len(sys.argv) > 2
         ):
             self._create_config(self.default)
+        super().__init__(*args, **kwargs)
 
     def __call__(self, parser, namespace, values: str, option_string = None) -> None:
         """When argument is called"""
@@ -82,10 +90,11 @@ class ConfigNameAction(ABC, argparse.Action):
         if not set(["--help", "-h"]).intersection(set(sys.argv)):
             self._create_config(values)
 
+        setattr(namespace, self.dest, values)
+
     @abstractmethod
     def set_component(self, config_name: str) -> None:
         """Implements configuration import
-
         Args:
           config_name: Name of the config file for the component
         """
@@ -99,23 +108,22 @@ class ConfigNameAction(ABC, argparse.Action):
 
         print(f"\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #")
         os.environ["CONFIG_FILE"] = config_file
-
         self.set_component(config_file)
 
         # this may be changed on command line or in the node configuration file
         logger.setLevel("DEBUG")
 
 
-class ConfigurationParser(CLIArgumentParser):
+class ComponentParser(CLIArgumentParser):
     """Instantiates configuration parser"""
 
     def initialize(self):
         """Initializes argument parser for creating configuration file."""
 
         self._parser = self._subparser.add_parser(
-            "configuration",
-            help="The helper for generating or updating component configuration files, "
-            "see `configuration -h` for more details",
+            "component",
+            help="The helper for generating or updating component configuration files, see `configuration -h`"
+            " for more details",
         )
 
         self._parser.set_defaults(func=self.default)
@@ -128,19 +136,8 @@ class ConfigurationParser(CLIArgumentParser):
             metavar="ROOT_PATH_FEDBIOMED",
             type=str,
             nargs="?",
-            default=None,
+            required=True,
             help="Root directory for configuration and Fed-BioMed setup",
-        )
-
-        # Add arguments
-        common_parser.add_argument(
-            "-n",
-            "--name",
-            metavar="CONFIGURATION_FILE_NAME",
-            type=str,
-            nargs="?",
-            required=False,
-            help="Name of configuration file",
         )
 
         common_parser.add_argument(
@@ -154,25 +151,18 @@ class ConfigurationParser(CLIArgumentParser):
         )
 
         # Create sub parser under `configuration` command
-        configuration_sub_parsers = self._parser.add_subparsers()
+        component_sub_parsers = self._parser.add_subparsers()
 
-        create = configuration_sub_parsers.add_parser(
+        create = component_sub_parsers.add_parser(
             "create",
             parents=[common_parser],
             help="Creates configuration file for the specified component if it does not exist. "
             "If the configuration file exists, leave it unchanged",
         )
 
-        refresh = configuration_sub_parsers.add_parser(
-            "refresh",
-            parents=[common_parser],
-            help="Refreshes the configuration file by overwriting parameters without "
-                 "changing component ID",
-        )
-
         create.add_argument(
-            "-uc",
-            "--use-current",
+            "-eo",
+            "--exist-ok",
             action="store_true",
             help="Creates configuration only if there isn't an existing one",
         )
@@ -182,27 +172,25 @@ class ConfigurationParser(CLIArgumentParser):
         )
 
         create.set_defaults(func=self.create)
-        refresh.set_defaults(func=self.refresh)
 
-    def _create_config_instance(self, component, root, name):
-
-        # TODO: this implementation is a temporary hack as it introduces a dependency of
-        # fedbiomed.common to fedbiomed.node or fedbiomed.researcher
-        # To be suppressed when redesigning the imports
+    def _get_component_instance(self, component):
+        """ """
         if component.lower() == "node":
-            NodeConfig = importlib.import_module("fedbiomed.node.config").NodeConfig
-            config = NodeConfig(root=root, name=name, auto_generate=False)
-        else:
-            # Generate config file with the proper name, not the default name
+           config_node = importlib.import_module("fedbiomed.node.config")
+           _component = config_node.node_component
+        elif component.lower() == "researcher":
+            # TODO: Add name arguments - Check implementation in develop
             if name:
                 os.environ["FBM_RESEARCHER_CONFIG_FILE"] = name
-
-            ResearcherConfig = importlib.import_module(
+            config_researcher = importlib.import_module(
                 "fedbiomed.researcher.config"
-            ).ResearcherConfig
-            config = ResearcherConfig(root=root, name=name, auto_generate=False)
+            )
+            _component = config_researcher.researcher_component
+        else:
+            print(f"Undefined component type {component}")
+            sys.exit(101)
 
-        return config
+        return _component
 
     def create(self, args):
         """CLI Handler for creating configuration file and assets for given component
@@ -216,41 +204,39 @@ class ConfigurationParser(CLIArgumentParser):
             exit(101)
 
         name = get_config_name(args.name, args.component, default_config)
-        is_config_existing_before = is_config_existing(get_config_path(args.root, name))
-
-        config = self._create_config_instance(args.component, args.root, args.name)
-
-        # Overwrite force configuration file
-        if is_config_existing_before and args.force:
-            print("Overwriting existing configuration file")
-            config.generate(force=True)
-
-        # Use existing one (do nothing)
-        elif is_config_existing_before and not args.force:
-            if not args.use_current:
-                print(
-                    f'Configuration file "{config.path}" is alreay existing for name '
-                    "{config.name}. Please use --force option to overwrite"
-                )
-                exit(101)
-            # Generate wont do anything
-            config.generate()
-        else:
-            logger.info(f'Generation new configuration file "{config.name}"')
-            config.generate()
-
-    def refresh(self, args):
-        """Refreshes configuration file"""
-
-        config = self._create_config_instance(args.component, args.root, args.name)
-        print(
-            "Refreshing configuration file using current environment variables. This operation "
-            "will overwrite existing configuration file without changing component id."
+        is_config_existing_before = is_config_existing(
+            get_config_path(args.root, name)
         )
 
-        # Refresh
-        config.refresh()
-        print("Configuration has been updated!")
+        component = self._get_component_instance(args.component)
+
+        # TODO: Check issue ofcreating default component while geenrating non-default
+        # Overwrite force configuration file
+        #if is_config_existing_before and args.force:
+        #    print("Overwriting existing configuration file")
+        #    config.generate(force=True)
+
+        ## Use existing one (do nothing)
+        #elif is_config_existing_before and not args.force:
+        #    if not args.use_current:
+        #        print(
+        #            f'Configuration file "{config.path}" is alreay existing for name '
+        #            "{config.name}. Please use --force option to overwrite"
+
+        if component.is_component_existing(args.root):
+            if not args.exist_ok:
+                CommonCLI.error(
+                    "Component is already existing in given directory. To ignore "
+                    "this error please execute component creation using `--exist-ok`"
+                )
+            else:
+                CommonCLI.success(
+                    "Component is already exsiting. Using existing component."
+                )
+                sys.exit(0)
+
+        logger.info(f"Creating a new component in the directory {args.root}")
+        component.create(args.root)
 
 
 class CommonCLI:
@@ -271,7 +257,7 @@ class CommonCLI:
         self.config = None
 
         # Initialize configuration parser
-        self.configuration_parser = ConfigurationParser(self._subparsers)
+        self.configuration_parser = ComponentParser(self._subparsers)
 
     @property
     def parser(self) -> argparse.ArgumentParser:
@@ -364,7 +350,7 @@ class CommonCLI:
         """
 
         for arg_parser in self._arg_parsers_classes:
-            p = arg_parser(self._subparsers)
+            p = arg_parser(self._subparsers, self._parser)
             p.initialize()
             self._arg_parsers.update({arg_parser.__name__: p})
 

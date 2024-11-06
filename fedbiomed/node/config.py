@@ -10,7 +10,7 @@ from fedbiomed.common.constants import (
     DEFAULT_CONFIG_FILE_NAME_NODE
 )
 from fedbiomed.common.certificate_manager import generate_certificate
-from fedbiomed.common.config import Config
+from fedbiomed.common.config import Component, Config
 
 
 class NodeConfig(Config):
@@ -18,6 +18,8 @@ class NodeConfig(Config):
     _DEFAULT_CONFIG_FILE_NAME: str = DEFAULT_CONFIG_FILE_NAME_NODE
     _COMPONENT_TYPE: str = 'NODE'
     _CONFIG_VERSION: str = __node_config_version__
+
+    COMPONENT_TYPE: str = 'NODE'
 
     def add_parameters(self):
         """Generate `Node` config"""
@@ -46,3 +48,14 @@ class NodeConfig(Config):
             'ip': os.getenv('FBM_RESEARCHER_IP', 'localhost'),
             'port': os.getenv('FBM_RESEARCHER_PORT', '50051')
         }
+
+class NodeComponent(Component):
+    """Fed-BioMed Node Component Class
+
+    This class is used for creating and validating components
+    by given component root directory
+    """
+    _config_cls = NodeConfig
+    _default_component_name = 'fbm-node'
+
+node_component = NodeComponent()

@@ -125,12 +125,13 @@ class Round:
         self._node_state_manager: NodeStateManager = NodeStateManager(
             self._dir, self._node_id, self._db
         )
-        self._keep_files_dir = tempfile.mkdtemp()
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self._keep_files_dir = self._temp_dir.name
 
     def __del__(self):
         """Class destructor"""
         # remove temporary files directory
-        shutil.rmtree(self._keep_files_dir)
+        self._temp_dir.cleanup()
 
     def _initialize_validate_training_arguments(self) -> Optional[Dict[str, Any]]:
         """Initialize and validate requested experiment/training arguments.
@@ -427,7 +428,7 @@ class Round:
             sample_size: Number of training samples (used to weight model
                 parameters).
             secagg_insecure_validation: True if (potentially insecure) consistency check is enabled
-                
+
         Returns:
             encrypted_weights: Encrypted model parameters, as a list of int.
             encryption_factor: Encryptiong factor (based on a secagg argument).

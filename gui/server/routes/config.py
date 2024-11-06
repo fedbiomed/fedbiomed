@@ -1,7 +1,8 @@
-from utils import response
-from config import config
-from . import api
+from flask_jwt_extended import
 
+from . import api
+from ..utils import response
+from ..config import config
 
 @api.route('/config/node-id', methods=['GET'])
 def node_id():
