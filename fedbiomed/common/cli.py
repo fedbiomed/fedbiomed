@@ -233,7 +233,7 @@ class ComponentParser(CLIArgumentParser):
                 CommonCLI.success(
                     "Component is already exsiting. Using existing component."
                 )
-                sys.exit(0)
+                return
 
         logger.info(f"Creating a new component in the directory {args.root}")
         component.create(args.root)

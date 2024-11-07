@@ -18,7 +18,7 @@ from helpers import (
     start_nodes,
     kill_subprocesses,
     clear_experiment_data,
-    clear_researcher_data,
+    clear_component_data,
     create_researcher,
     get_data_folder,
     create_multiple_nodes,
@@ -112,7 +112,7 @@ def setup(port, post_session, request):
         thread.join()
 
         print("Clearing researcher data")
-        clear_researcher_data(researcher)
+        clear_component_data(researcher)
 
 
 
