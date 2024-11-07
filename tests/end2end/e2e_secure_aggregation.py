@@ -6,8 +6,7 @@ from helpers import (
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
-    clear_node_data,
-    clear_researcher_data,
+    clear_component_data,
     clear_experiment_data,
     create_multiple_nodes,
     create_node,
@@ -69,7 +68,7 @@ def setup(port, post_session, request):
         thread.join()
 
         print("Clearing researcher data")
-        clear_researcher_data(researcher)
+        clear_component_data(researcher)
 
 
 @pytest.fixture
@@ -96,7 +95,7 @@ def extra_node_force_secagg(port):
 
     kill_subprocesses(node_processes)
     thread.join()
-    clear_node_data(node_3)
+    clear_component_data(node_3)
 
 @pytest.fixture
 def extra_node_no_validation(port):
@@ -122,7 +121,7 @@ def extra_node_no_validation(port):
 
     kill_subprocesses(node_processes)
     thread.join()
-    clear_node_data(node_3)
+    clear_component_data(node_3)
 
 @pytest.fixture
 def extra_nodes_for_lom(port):
@@ -210,7 +209,7 @@ def test_01_secagg_joye_libert_pytorch_experiment_basic():
     exp.run()
     clear_experiment_data(exp)
 
-def test_02_secagg_joye_libert_pytorch_breakpoint():
+def test_02_secagg_joye_libert_pytorch_breakpoint(setup):
     """Tests running experiment with breakpoint and loading it while secagg active"""
 
     exp = Experiment(

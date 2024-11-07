@@ -1,4 +1,5 @@
 import unittest
+import tempfile
 
 from unittest.mock import patch
 
@@ -11,16 +12,15 @@ from fedbiomed.common.exceptions import FedbiomedVersionError, FedbiomedError
 class BaseConfigTest(unittest.TestCase):
 
     def setUp(self):
-        self.patch_fed_folders = patch('fedbiomed.common.config.create_fedbiomed_setup_folders')
         self.patch_open = patch('builtins.open')
 
         self.open_mock = self.patch_open.start()
-        self.create_fed_folders_mock = self.patch_fed_folders.start()
+
+        self.tem = tempfile.TemporaryDirectory()
 
     def tearDown(self):
         self.patch_open.stop()
-        self.patch_fed_folders.stop()
-
+        self.tem.cleanup()
 
 class TestConfig(BaseConfigTest):
     """Tests base methods of Config class"""
@@ -41,7 +41,7 @@ class TestConfig(BaseConfigTest):
     @patch('fedbiomed.common.config.configparser.ConfigParser')
     def test_01_read(self, config_parser):
 
-        config = Config(auto_generate=False)
+        config = Config(root=self.tem.name, auto_generate=False)
         config._CONFIG_VERSION = '0.99'
 
         with self.assertRaises(FedbiomedVersionError):
@@ -51,20 +51,18 @@ class TestConfig(BaseConfigTest):
 
         # With autogenereate
         with patch('fedbiomed.common.config.Config.generate') as gen:
-            config = Config(auto_generate=True)
+            config = Config(root=self.tem.name, auto_generate=True)
             gen.assert_called_once()
 
 
     def test_02_init_with_root(self):
 
-        Config(auto_generate=False, root='test')
-        # Should called wth root
-        self.create_fed_folders_mock.assert_called_once_with('test')
+        Config(auto_generate=False, root=self.tem.name)
 
 
     def test_03_is_config_existing(self):
 
-        config = Config(auto_generate=False, root='test')
+        config = Config(root=self.tem.name, auto_generate=False)
         r = config.is_config_existing()
         self.assertFalse(r)
 
@@ -75,7 +73,7 @@ class TestConfig(BaseConfigTest):
     def test_04_refresh(self, read_, is_existing, generate):
 
         is_existing.return_value = False
-        config = Config(auto_generate=False, root='test', name='test')
+        config = Config(auto_generate=False, root=self.tem.name)
         with self.assertRaises(FedbiomedError):
             config.refresh()
 
@@ -92,7 +90,7 @@ class TestNodeConfig(BaseConfigTest):
 
     def test_01_node_config_generate(self):
 
-        config = NodeConfig(root='tests')
+        config = NodeConfig(root=self.tem.name)
         print(config._cfg['default'])
 
         component = config.get('default', 'component')
@@ -107,7 +105,7 @@ class TestNodeConfig(BaseConfigTest):
 
     def test_02_node_config_sections(self):
 
-        config = NodeConfig(root='test')
+        config = NodeConfig(root=self.tem.name)
 
         sections = config.sections()
 
@@ -122,7 +120,7 @@ class TestResearcherConfig(BaseConfigTest):
 
     def test_01_researcher_config_generate(self):
 
-        config = ResearcherConfig(root='tests')
+        config = ResearcherConfig(root=self.tem.name)
 
         component = config.get('default', 'component')
         self.assertEqual('researcher', component.lower())
@@ -139,7 +137,7 @@ class TestResearcherConfig(BaseConfigTest):
 
     def test_02_researcher_config_sections(self):
 
-        config = ResearcherConfig(root='test')
+        config = ResearcherConfig(root=self.tem.name)
 
         sections = config.sections()
 

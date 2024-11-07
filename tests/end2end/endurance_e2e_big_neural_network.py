@@ -8,7 +8,7 @@ from helpers import (
     start_nodes,
     kill_subprocesses,
     clear_experiment_data,
-    clear_researcher_data,
+    clear_component_data,
     get_data_folder,
     create_researcher,
     create_multiple_nodes
@@ -47,7 +47,7 @@ def setup(port, post_session, request):
         kill_subprocesses(node_processes)
         thread.join()
         print("Clearing component data")
-        clear_researcher_data(researcher)
+        clear_component_data(researcher)
 
 #############################################
 ### Start writing tests

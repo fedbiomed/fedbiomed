@@ -55,7 +55,8 @@ class NodeEnviron(Environ):
         super().__init__()
 
         r = os.environ.get('FBM_NODE_COMPONENT_ROOT', root_dir)
-        self._root_dir = r
+        self._config: Config = node_component.create(r)
+        self._root_dir = self._config.root
 
         logger.setLevel("DEBUG")
         self._values["COMPONENT_TYPE"] = ComponentType.NODE
@@ -65,9 +66,6 @@ class NodeEnviron(Environ):
 
     def set_environment(self):
         """Initializes environment variables"""
-
-        self._config: Config = node_component.create(self._root_dir)
-        self._root_dir = self._config.root
 
         # Sets common variable
         super().set_environment()

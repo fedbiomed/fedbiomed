@@ -6,9 +6,8 @@ from helpers import (
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
-    clear_node_data,
+    clear_component_data,
     clear_experiment_data,
-    clear_researcher_data,
     get_data_folder,
     create_node,
     create_researcher
@@ -61,9 +60,9 @@ def setup(port, post_session, request):
         thread.join()
 
         print("Clearing component data")
-        clear_node_data(node_1)
-        clear_node_data(node_2)
-        clear_researcher_data(researcher)
+        clear_component_data(node_1)
+        clear_component_data(node_2)
+        clear_component_data(researcher)
 
     # Good to wait 3 second to give time to nodes start
     print("Sleep 5 seconds. Giving some time for nodes to start")

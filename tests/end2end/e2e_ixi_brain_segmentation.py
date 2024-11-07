@@ -13,8 +13,8 @@ from helpers import (
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
-    clear_researcher_data,
     clear_experiment_data,
+    clear_component_data,
     get_data_folder,
     create_researcher,
     create_multiple_nodes
@@ -149,7 +149,7 @@ def setup(post_session, port, request):
         yield
 
         kill_subprocesses(node_processes)
-        clear_researcher_data(researcher)
+        clear_component_data(researcher)
 
 #############################################
 ### Start writing tests

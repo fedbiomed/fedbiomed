@@ -55,7 +55,7 @@ class NodeComponent(Component):
     This class is used for creating and validating components
     by given component root directory
     """
-    _config_cls = NodeConfig
+    config_cls = NodeConfig
     _default_component_name = 'fbm-node'
 
 node_component = NodeComponent()
