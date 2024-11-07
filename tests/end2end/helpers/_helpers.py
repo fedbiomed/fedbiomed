@@ -18,9 +18,9 @@ import functools
 from contextlib import contextmanager
 from typing import Dict, Any, Tuple, Callable, List
 
-from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME, ComponentType
+from fedbiomed.common.constants import VAR_FOLDER_NAME, TENSORBOARD_FOLDER_NAME, ComponentType
 from fedbiomed.common.config import Config
-from fedbiomed.common.utils import ROOT_DIR, CONFIG_DIR, VAR_DIR
+from fedbiomed.common.utils import ROOT_DIR
 
 from ._execution import (
     shell_process,
@@ -29,7 +29,7 @@ from ._execution import (
 )
 from .constants import CONFIG_PREFIX, End2EndError
 
-
+temporary_test_directory = tempfile.TemporaryDirectory()
 
 class PytestThread(threading.Thread):
     """Extension of Thread for PyTest to be able to fail thread properly"""
@@ -61,7 +61,7 @@ def add_dataset_to_node(
     with open(d_file, "w", encoding="UTF-8") as file:
         json.dump(dataset, file)
 
-    command = ["node", "--config", config.name, "dataset", "add", "--file", d_file]
+    command = ["node", "--config", config.root, "dataset", "add", "--file", d_file]
     _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
     tempdir_.cleanup()
 
@@ -88,14 +88,14 @@ def start_nodes(
     processes = []
     for c in configs:
         # Keep it for debugging purposes
-        if 'fail' in c.name:
+        if 'fail_my_component' in c.root:
             processes.append(
                 fedbiomed_run(
-                    ['node', "--config", c.name, 'unkown-commnad'], pipe=False))
+                    ['node', "--config", c.root, 'unkown-commnad'], pipe=False))
         else:
             processes.append(
                 fedbiomed_run(
-                    ["node", "--config", c.name, "start"], pipe=False))
+                    ["node", "--config", c.root, "start"], pipe=False))
 
     t = PytestThread(
         target=execute_in_paralel,
@@ -149,124 +149,7 @@ def clear_component_data(config: Config):
 
     # extract Component Type from config file
 
-    _component_type = config.get('default', 'component')
-
-    if _component_type == ComponentType.NODE.name:
-
-        clear_node_data(config)
-
-    elif _component_type == ComponentType.RESEARCHER.name:
-
-        clear_researcher_data(config)
-
-
-def clear_node_data(config: Config):
-    """Clears data relative to Node, such as configuration file, database,
-    node state
-
-    Args:
-        config: configuration object of the Node
-    """
-    node_id = config.get('default', 'id')
-    # remove node's state
-    _node_state_dir = os.path.join(VAR_DIR, f"node_state_{node_id}")
-
-    if os.path.lexists(_node_state_dir):
-        print("[INFO] Removing folder ", _node_state_dir)
-        shutil.rmtree(_node_state_dir)
-
-    # remove node's taskqueue
-    _task_queue_dir = os.path.join(VAR_DIR,
-                                    f'queue_manager_{node_id}')
-    if os.path.lexists(_task_queue_dir):
-        print("[INFO] Removing folder ", _task_queue_dir)
-        shutil.rmtree(_task_queue_dir)
-
-    # remove node's ssl material
-    _cert_material_files = ('private_key', 'public_key')
-    for cert_file in _cert_material_files:
-        cert_material = config.get('certificate', cert_file,)
-        _material_to_remove = os.path.join(CONFIG_DIR, cert_material)
-        _material_to_remove_folder = os.path.dirname(_material_to_remove)
-        if not os.path.lexists(_material_to_remove_folder):
-            continue
-        print("[INFO] Removing folder ", _material_to_remove_folder)
-        shutil.rmtree(_material_to_remove_folder)  # remove the whole folder of cert
-
-    # remove database
-    _database_file_path = config.get('default', 'db')
-
-    os.remove(os.path.join(VAR_DIR, _database_file_path))
-    # remove Node's config file
-    _clear_config_file_component(config)
-
-
-def clear_researcher_data(config: Config):
-    """Clears data relative to Researcher, mainly Researcher database, Researcher configuration file
-    and files relative to secure aggregation and certificates
-
-    Args:
-        config: configuration object of Researcher
-    """
-    # ATTENTION: breakpoints should be removed when using
-    # Experiment cleaning methods
-
-    # remove Researcher database (should be done before deleting configuration file)
-    _database_file_path = config.get('default', 'db')
-    if os.path.lexists(_database_file_path):
-        os.remove(os.path.join(VAR_DIR, _database_file_path))
-
-    # Remove Researcher certificates and keys
-    _clear_files(config, 'certificate', ('private_key', 'public_key'))
-
-    # remove Researcher config file
-    _clear_config_file_component(config)
-
-
-def _clear_files(config: Config, section: str, materials: Tuple[str]):
-    """Clears files detailed in a config file, for a given section and a tuple of items
-    stored in that section, that correspond to a path pointing to a file.
-
-    If the method has cleared all element of a folder (ie the folder has became empty),
-    delete the empty folder.
-
-    Args:
-        config: Configuration of the component
-        section: Section in config
-        materials: Keys in section
-
-    """
-    for material in materials:
-        _path_to_material = os.path.join(CONFIG_DIR,
-                                         config.get(section, material))
-
-        if os.path.lexists(_path_to_material):
-
-            print("[INFO] Removing file ", _path_to_material)
-            os.remove(_path_to_material)
-
-        _default_folder = os.path.dirname(_path_to_material)
-        if os.path.lexists(_default_folder) and not os.listdir(_default_folder):
-            # remove default folder containing certificates (if empty)
-            print("[INFO] Removing folder ", _default_folder)
-            shutil.rmtree(_default_folder)
-
-def _clear_config_file_component(config: Config):
-    """Clears configuration file of a Component (either Node or Researcher)
-
-    Args:
-        config: Configuration of the component.
-    """
-    _component_type = config.get('default', 'component')
-
-    # remove config file
-    if config.is_config_existing():
-        print("[INFO] Removing file ", config.path)
-        os.remove(config.path)
-
-    # TODO: remove temporary file created when using notebook (located in ./var/tmp_xxx)
-    print(f"[INFO] {_component_type} with id"
-          f"{config.get('default', 'id')} has been cleared")
+    shutil.rmtree(config.root)
 
 
 def clear_experiment_data(exp: 'Experiment'):
@@ -300,24 +183,25 @@ def clear_experiment_data(exp: 'Experiment'):
     if Requests in Requests._objects:
         del Requests._objects[Requests]
 
-    tensorboard_folder = os.path.join(ROOT_DIR, TENSORBOARD_FOLDER_NAME)
-    tensorboard_files = os.listdir(tensorboard_folder)
-    for file in tensorboard_files:
-        shutil.rmtree(os.path.join(tensorboard_folder, file))
-    print("[INFO] Removing folder content ", tensorboard_folder)
+    #tensorboard_folder = os.path.join(config.root, TENSORBOARD_FOLDER_NAME)
+    #tensorboard_files = os.listdir(tensorboard_folder)
+    #for file in tensorboard_files:
+    #    shutil.rmtree(os.path.join(tensorboard_folder, file))
+    #print("[INFO] Removing folder content ", tensorboard_folder)
 
     # remove breakpoints folder created during experimentation from the default folder (if any)
-    _exp_dir = os.path.join(VAR_DIR, "experiments")
-    current_experimentation_folder = os.path.join(_exp_dir, exp._experimentation_folder)
+    #_exp_dir = os.path.join(config.root, VAR_FOLDER_NAME, "experiments")
+    #current_experimentation_folder = os.path.join(_exp_dir, exp._experimentation_folder)
 
-    print("[INFO] Removing breakpoints", current_experimentation_folder)
-    if os.path.isdir(current_experimentation_folder):
-        shutil.rmtree(current_experimentation_folder)
+    #print("[INFO] Removing breakpoints", current_experimentation_folder)
+    #if os.path.isdir(current_experimentation_folder):
+    #    shutil.rmtree(current_experimentation_folder)
 
 
 def create_component(
     component_type: ComponentType,
-    config_name: str,
+    directory: str,
+    component_name: str,
     config_sections: Dict[str, Dict[str, Any]] = None,
     use_prefix: bool = True
 ) -> Config:
@@ -332,17 +216,15 @@ def create_component(
     """
 
     if component_type == ComponentType.NODE:
-        config = importlib.import_module("fedbiomed.node.config").NodeConfig
+        comp = importlib.import_module("fedbiomed.node.config").node_component
     elif component_type == ComponentType.RESEARCHER:
-        config = importlib.import_module("fedbiomed.researcher.config").ResearcherConfig
+        comp = importlib.import_module("fedbiomed.researcher.config").researcher_component
+    else:
+        raise ValueError(f'Urecognized component type {component_type}')
 
-    config_name = f"{CONFIG_PREFIX}{config_name}" if use_prefix else config_name
-    config = config(name=config_name, auto_generate=False)
-
-    # If there is already a component created first clear everything and recreate
-    # if os.path.isfile(os.path.join(CONFIG_DIR, config_name)):
-    #    config.generate()
-    #    clear_component_data(config)
+    component_name = f"{CONFIG_PREFIX}{component_name}" if use_prefix else component_name
+    root = os.path.join(directory, component_name)
+    config = comp.create(root=root)
 
     # Need to remove secagg table singleton
     # because it was created when we import from researcher modules
@@ -352,11 +234,8 @@ def create_component(
     if _SecaggTableSingleton in _SecaggTableSingleton._objects:
         del _SecaggTableSingleton._objects[_SecaggTableSingleton]
 
-    config.generate()
-
     # need to update configuration in parent process
     config.read()
-
 
     if config_sections:
         for section, value in config_sections.items():
@@ -380,14 +259,14 @@ def create_researcher(
 
     researcher = create_component(
         ComponentType.RESEARCHER,
-        config_name=f"config_researcher_{uuid.uuid4()}.ini",
+        directory=temporary_test_directory.name,
+        component_name=f"config_researcher_{uuid.uuid4()}.ini",
         config_sections=config_sections,
     )
-    os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
-
+    os.environ['FBM_RESEARCHER_COMPONENT_ROOT'] = researcher.root
     from fedbiomed.researcher.environ import ResearcherEnviron, environ
     from fedbiomed.researcher.config import ResearcherConfig
-    ResearcherEnviron._objects[ResearcherEnviron]._config = ResearcherConfig()
+    ResearcherEnviron._objects[ResearcherEnviron]._config = ResearcherConfig(researcher.root)
     ResearcherEnviron._objects[ResearcherEnviron].set_environment()
 
     return researcher
@@ -410,7 +289,7 @@ def training_plan_operation(
         raise ValueError('The argument operation should be one of apprive or reject')
 
 
-    command = ["node", "--config", config.name, "training-plan",
+    command = ["node", "--config", config.root, "training-plan",
                operation, "--id", training_plan_id]
     _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
 
@@ -439,7 +318,8 @@ def create_node(port, config_sections:Dict | None = None):
 
     c_com = functools.partial(create_component,
         component_type=ComponentType.NODE,
-        config_name=f"config_e2e_{uuid.uuid4()}.ini")
+        directory=temporary_test_directory.name,
+        component_name=f"config_e2e_{uuid.uuid4()}.ini")
 
     config_sections = config_sections or {}
     config_sections.update({'researcher': {'port': port}})
@@ -479,7 +359,7 @@ def create_multiple_nodes(
 
     # Clear node data
     for node in nodes:
-        clear_node_data(node)
+        clear_component_data(node)
 
 
 

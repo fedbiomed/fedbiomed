@@ -4168,11 +4168,11 @@ files = [
 test = ["pytest (>=6.0.0)", "setuptools (>=65)"]
 
 [extras]
-flamby = ["flamby"]
-gui = ["cachelib", "flask"]
+all = []
+gui = ["Flask-JWT-Extended", "cachelib", "flask", "gunicorn"]
 researcher = ["matplotlib", "pathvalidate", "tensorboard"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.11"
-content-hash = "5ca2d3f2aa28fca89669a177a6260d18d8c8744582a06adb9ec953bae033085f"
+content-hash = "04c7b572ade05a951bf6776a6d8568590556029a9abce5f083ed036462c2b8fb"

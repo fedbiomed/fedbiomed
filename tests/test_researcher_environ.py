@@ -2,8 +2,9 @@ import os
 import importlib
 import unittest
 import inspect
+import tempfile
 import configparser
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedEnvironError
@@ -15,13 +16,9 @@ class TestResearcherEnviron(unittest.TestCase):
     def setUp(self) -> None:
         """Setup test for each test function"""
 
-        self.patch_config = patch('fedbiomed.researcher.config.ResearcherConfig')
-        self.config_mock = self.patch_config.start()
+        self.config_mock = MagicMock()
 
-        self.patch_mkdir = patch('os.mkdir')
         self.patch_open = patch('builtins.open')
-
-        self.patch_mkdir.start()
         self.patch_open.start()
 
         self.config_mock.return_value.get.side_effect = [
@@ -32,9 +29,12 @@ class TestResearcherEnviron(unittest.TestCase):
                 os.path.abspath(inspect.getfile(inspect.currentframe()))
             ), "..", "fedbiomed", "researcher", "environ.py")
 
+        self.tem = tempfile.TemporaryDirectory()
+        os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = self.tem.name
         self.env = importlib.machinery.SourceFileLoader(
             "environ_for_test_node", environ_module_dir)\
             .load_module()
+        del os.environ["FBM_RESEARCHER_COMPONENT_ROOT"]
 
         ResearcherEnviron = self.env.ResearcherEnviron
 
@@ -47,31 +47,26 @@ class TestResearcherEnviron(unittest.TestCase):
         if ResearcherEnviron in ResearcherEnviron._objects:
             del ResearcherEnviron._objects[ResearcherEnviron]
 
-        self.environ = ResearcherEnviron(root_dir='test')
+        self.tem = tempfile.TemporaryDirectory()
+        self.environ = ResearcherEnviron(root_dir=self.tem.name)
 
     def tearDown(self) -> None:
-        self.patch_mkdir.stop()
         self.patch_open.stop()
-        self.patch_config.stop()
+        self.tem.cleanup()
 
     def test_01_researcher_environ_set_component_specific_variables(self):
         """Tests setting variables for researcher environ"""
 
-        self.config_mock.return_value.get.side_effect = [
-            '../var/db_researcher-1.json', 'True',
-            'researcher-1', 'localhost', '50051', 'pir-key', 'pub-key']
-
         self.environ.set_environment()
 
-        self.assertEqual(self.environ._values["ID"], "researcher-1")
         self.assertEqual(self.environ._values["EXPERIMENTS_DIR"],
-                         os.path.join("test/var", "experiments"))
+                         os.path.join(self.tem.name, "var", "experiments"))
         self.assertEqual(self.environ._values["TENSORBOARD_RESULTS_DIR"],
-                         os.path.join("test", "runs"))
+                         os.path.join(self.tem.name, "runs"))
         self.assertEqual(self.environ._values["MESSAGES_QUEUE_DIR"],
-                         os.path.join("test/var", "queue_messages"))
+                         os.path.join(self.tem.name, "var", "queue_messages"))
         self.assertEqual(self.environ._values["DB_PATH"],
-                         os.path.join("test/var", "db_researcher-1.json"))
+                         os.path.join(self.tem.name, "var", f"db_{self.environ['ID']}.json"))
 
         self.assertEqual(self.environ._values["SERVER_HOST"], "localhost")
         self.assertEqual(self.environ._values["SERVER_PORT"], "50051")

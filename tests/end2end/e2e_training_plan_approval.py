@@ -2,12 +2,11 @@ import time
 import pytest
 
 from helpers import (
+    clear_component_data,
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
-    clear_node_data,
     clear_experiment_data,
-    clear_researcher_data,
     training_plan_operation,
     create_node,
     create_researcher,
@@ -70,10 +69,10 @@ def setup_components(port, post_session, request):
         thread.join()
 
         print("Clearing component data")
-        clear_node_data(node_1)
-        clear_node_data(node_2)
+        clear_component_data(node_1)
+        clear_component_data(node_2)
 
-        clear_researcher_data(researcher)
+        clear_component_data(researcher)
 
     request.addfinalizer(clear)
 

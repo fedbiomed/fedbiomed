@@ -78,12 +78,12 @@ grpcio = "~1.60.0"
 grpcio-tools = "~1.60.0"
 unet = ">=0.7.7,<0.8.0"
 pygments = "^2.18.0"
+flamby = { git = "https://github.com/owkin/FLamby", branch = "main" }
 
 # Extra dependencies
 pathvalidate = "~=3.0.0"
 matplotlib = ">=3.8.0,<3.8.4"
 tensorboard = "~=2.13.0"
-flamby = { git = "https://github.com/owkin/FLamby", branch = "main" }
 
 # Node gui
 flask = ">=2.3.1,<24.0"
@@ -92,6 +92,12 @@ Flask-JWT-Extended = ">=4.4.4,<4.5.0"
 cachelib = ">=0.10.2,<0.11.0"
 gunicorn = {version = "^23.0.0", extras = ["gui"]}
 
+# Jupyter
+jupyter = "~1.0.0"
+ipython = "~8.13.2"
+nb_conda_kernels = "~2.5.1"
+ipykernel = "~6.29.0"
+
 
 [tool.poetry.extras]
 researcher = [
@@ -99,7 +105,6 @@ researcher = [
 	"matplotlib",
 	"tensorboard",
 ]
-
 gui = [
 	"flask",
 	"jsonscheme",
@@ -108,9 +113,24 @@ gui = [
 	"gunicorn"
 ]
 
-flamby = [
-	"flamby"
+jupyter = [
+	"jupyter",
+	"ipython",
+	"nb_conda_kernels",
+	"ipykernel"
 ]
+
+all = [
+	"pathvalidate",
+	"matplotlib",
+	"tensorboard",
+	"flask",
+	"jsonscheme",
+	"Flask-JWT-Extended",
+	"cachelib",
+	"gunicorn"
+]
+
 
 [tool.poetry.group.dev.dependencies]
 pytest = "~7.2"

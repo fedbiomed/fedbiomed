@@ -10,8 +10,6 @@ from ._helpers import (
     create_component,
     add_dataset_to_node,
     clear_component_data,
-    clear_node_data,
-    clear_researcher_data,
     start_nodes,
     clear_experiment_data,
     execute_script,
@@ -21,7 +19,8 @@ from ._helpers import (
     create_researcher,
     create_node,
     get_data_folder,
-    create_multiple_nodes
+    create_multiple_nodes,
+    temporary_test_directory
 )
 
 from ._execution import (
