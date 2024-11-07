@@ -292,7 +292,7 @@ class Config(metaclass=ABCMeta):
             )
 
         # Read the config
-        self._cfg.read(self.path)
+        self._cfg.read(self.config_path)
         id = self._cfg["default"]["id"]
 
         # Generate by keeping the component ID
@@ -301,7 +301,7 @@ class Config(metaclass=ABCMeta):
 
 class Component:
 
-    _config_cls: type
+    config_cls: type
     _config: Config
     _default_component_name: str
 
@@ -316,12 +316,12 @@ class Component:
             root = os.path.join(os.getcwd(), self._default_component_name)
 
         reference = self.validate(root)
-        config = self._config_cls(root, auto_generate=False)
+        config = self.config_cls(root, auto_generate=False)
 
         if not os.path.isfile(reference):
             create_fedbiomed_setup_folders(root)
             with open(os.path.join(root, '.fedbiomed'), 'w', encoding='UTF-8') as file_:
-                file_.write(self._config_cls.COMPONENT_TYPE)
+                file_.write(self.config_cls.COMPONENT_TYPE)
             config.generate()
             config.write()
         else:
@@ -359,10 +359,11 @@ class Component:
 
         if iscomp:
             comp_type = read_file(ref)
-            if comp_type != self._config_cls.COMPONENT_TYPE:
+            if comp_type != self.config_cls.COMPONENT_TYPE:
                 raise ValueError(
                     f'Component directory has already been initilazed for component type {comp_type}'
                     ' can not overwrite or reuse it for component type '
-                    f'{self._config_cls.COMPONENT_TYPE}')
+                    f'{self.config_cls.COMPONENT_TYPE}')
 
         return ref
+

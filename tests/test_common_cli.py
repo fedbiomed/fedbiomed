@@ -6,36 +6,40 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from fedbiomed.common.cli import CommonCLI, ConfigurationParser
+from fedbiomed.common.cli import CommonCLI, ComponentParser
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 
 from fedbiomed.researcher.config import ResearcherConfig
 
-class TestConfigurationParser(unittest.TestCase):
+class TestComponentParser(unittest.TestCase):
 
     def setUp(self):
 
         self.main_parser = argparse.ArgumentParser()
         self.parser = self.main_parser.add_subparsers()
-        self.conf_parser = ConfigurationParser(subparser=self.parser)
+        self.conf_parser = ComponentParser(subparser=self.parser)
         self.conf_parser.initialize()
-        pass
+
+        self.tem = tempfile.TemporaryDirectory()
+
+
 
     def tearDown(self):
+        self.tem.cleanup()
         pass
 
-    def test_01_configuration_parser_initialize(self):
+    def test_01_component_parser_initialize(self):
         """Tests argument initialization"""
-        self.assertTrue("configuration" in self.conf_parser._subparser.choices)
+        self.assertTrue("component" in self.conf_parser._subparser.choices)
         self.assertTrue(
             "create"
-            in self.conf_parser._subparser.choices["configuration"]
+            in self.conf_parser._subparser.choices["component"]
             ._subparsers._group_actions[0]
             .choices
         )
         self.assertEqual(
-            self.conf_parser._subparser.choices["configuration"]
+            self.conf_parser._subparser.choices["component"]
             ._subparsers._group_actions[0]
             .choices["create"]
             ._defaults["func"]
@@ -43,47 +47,33 @@ class TestConfigurationParser(unittest.TestCase):
             "create",
         )
 
-    @patch("builtins.print")
-    @patch("builtins.open")
-    @patch("fedbiomed.node.config.NodeConfig")
-    @patch("fedbiomed.researcher.config.ResearcherConfig")
-    def test_02_configuration_parser_create(
+    def test_02_component_parser_create(
         self,
-        rconfig,
-        nconfig,
-        mock_open,
+    ):
+        args = self.main_parser.parse_args(
+            ["component", "create", "--root", self.tem.name, "--component", "NODE", "-eo"]
+        )
+        self.conf_parser.create(args)
+
+        args = self.main_parser.parse_args(
+            ["component", "create", "--root", self.tem.name, "--component", "RESEARCHER", "-eo"]
+        )
+        self.conf_parser.create(args)
+
+    @patch("builtins.print")
+    def test_03_component_parser_refresh(
+        self,
         mock_print,
     ):
         args = self.main_parser.parse_args(
-            ["configuration", "create", "--component", "NODE", "-uc"]
+            ["component", "create", "--root", self.tem.name, "--component",  "NODE"]
         )
         self.conf_parser.create(args)
-        nconfig.return_value.generate.assert_called_once()
-
-        mock_print.reset_mock()
-        args = self.main_parser.parse_args(
-            ["configuration", "create", "--component", "RESEARCHER", "-uc"]
-        )
-        self.conf_parser.create(args)
-        rconfig.return_value.generate.assert_called_once()
-
-    @patch("builtins.print")
-    @patch("builtins.open")
-    @patch("fedbiomed.node.config.NodeConfig")
-    @patch("fedbiomed.researcher.config.ResearcherConfig")
-    def test_03_configuration_parser_refresh(
-        self,
-        rconfig,
-        nconfig,
-        mock_open,
-        mock_print,
-    ):
 
         args = self.main_parser.parse_args(
-            ["configuration", "refresh", "--component", "NODE", "-n", "config"]
+            ["component", "refresh", "--root", self.tem.name, "--component",  "NODE"]
         )
         self.conf_parser.refresh(args)
-        nconfig.return_value.refresh.assert_called()
 
 
 class TestCommonCLI(unittest.TestCase):
@@ -132,7 +122,7 @@ class TestCommonCLI(unittest.TestCase):
         self.cli.initialize_optional()
 
         self.assertTrue("certificate-dev-setup" in self.cli._subparsers.choices)
-        self.assertTrue("configuration" in self.cli._subparsers.choices)
+        self.assertTrue("component" in self.cli._subparsers.choices)
 
     def test_04_common_cli_initialize_magic_dev_environment_parsers(self):
         self.cli.initialize_magic_dev_environment_parsers()
