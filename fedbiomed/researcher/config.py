@@ -79,7 +79,7 @@ class ResearcherComponent(Component):
     This class is used for creating and validating components
     by given component root directory
     """
-    _config_cls = ResearcherConfig
+    config_cls = ResearcherConfig
     _default_component_name = 'fbm-researcher'
 
 researcher_component = ResearcherComponent()
