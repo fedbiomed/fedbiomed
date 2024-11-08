@@ -1,6 +1,6 @@
 from flask_jwt_extended import
 
-from . import api
+from .api import api
 from ..utils import response
 from ..config import config
 

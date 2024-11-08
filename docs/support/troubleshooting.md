@@ -4,6 +4,23 @@ This page contains some frequently encountered problems, and their solutions.
 
 ---
 
+## Missing Python interpreter in Jupyter notebook
+
+If Fed-BioMed is installed in a virtual environment such as `virtualenv` or `conda`, executing `fedbiomed researcher -c <component-dir>` may not use the correct Python interpreter. This issue can be resolved by installing the necessary packages for the virtual environment tool, either automatically or by manually registering a Python kernel.
+
+For Conda users, installing `nb_conda_kernels` will automatically detect the Python interpreters from created virtual environments and allow you to select them.
+
+For other tools, you may need to install `ipykernel` and register the Python interpreter manually. After activating your virtual environment, execute the following command:
+```bash
+python -m ipykernel install --user --name=<project-kernel-name>
+```
+This will make the Python environment used by the virtual environment selectable in Jupyter Notebook.
+
+Another option is to add the Python path to the PATH variable:
+```bash
+export PATH=<path/to/python3>:$PATH
+```
+
 ## Tkinter Error on macOS or Missing `python-itk` Package
 
 Fed-BioMed uses the `itk` module in its CLI to launch a file explorer for selecting files and folders. However, some systems or Python environment managers may not include `python-itk`, which can cause failures—for example, when adding datasets into nodes via the Fed-BioMed CLI. If you're using tools like `pyenv` to install different Python versions without `python-itk` being present on your system, this will result in a Python installation without the correct `itk` module.
