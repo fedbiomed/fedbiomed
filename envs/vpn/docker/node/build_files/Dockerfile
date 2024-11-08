@@ -5,6 +5,8 @@ ARG CONTAINER_UID
 ARG CONTAINER_GROUP
 ARG CONTAINER_USER
 
+ARG PYTHON_VERSION="3.10"
+
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
 # + make it persistent at runtime (pass this variable to container)
@@ -15,7 +17,13 @@ ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 
-RUN apt-get update && apt-get install -y apt-utils wget git
+RUN apt-get update && apt-get install -y libgmp3-dev libmpfr-dev libmpc-dev apt-utils wget git \
+	python-tk python${PYTHON_VERSION} python3-pip
+
+# Create alias
+RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip
+
 RUN apt-get -y install rsync
 
 # read config.env in interactive shells & setup for reading it in entrypoint
@@ -27,14 +35,6 @@ RUN [ "$CONTAINER_GROUP" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GR
 RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER || :
 
-# Install miniconda
-RUN wget -q --directory-prefix=$HOME https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-        bash $HOME/Miniconda3-latest-Linux-x86_64.sh -b -p /miniconda && \
-        rm -f $HOME/Miniconda3-latest-Linux-x86_64.sh
-# easier to install in a fixed path, not in alternate account home :
-# cannot use "ENV PATH=${PATH}:${HOME}/miniconda/bin" : wont work because
-# ${HOME} not defined in ENV command, only in RUN/etc. (executing in subshell)
-ENV PATH=${PATH}:/miniconda/bin
 
 COPY ./envs/vpn/docker/node/build_files/entrypoint*.bash /
 # Setup subset of fedbiomed code tree
@@ -45,6 +45,9 @@ COPY envs/common /fedbiomed/envs/common
 COPY envs/common /fedbiomed/envs/common_reference
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
+COPY gui /fedbiomed/gui
+COPY pyproject.toml /fedbiomed/pyproject.toml
+COPY README.md /fedbiomed/README.md
 
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for
@@ -56,11 +59,8 @@ RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
-# Configure conda env in context of alternate account
-# another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
-RUN conda env update --file ./envs/vpn/conda/fedbiomed-node.yaml && \
-	pip cache purge && conda clean -a -y
-# need clean/purge to be in the same command line to shrink image
+# Installs fedbiomed and necessary modules
+RUN /bin/pip install -I .
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
