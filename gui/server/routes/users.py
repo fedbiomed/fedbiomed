@@ -20,7 +20,7 @@ from ..middlewares.auth_validation import validate_email_register, validate_pass
 from ..middlewares import middleware
 from ..helpers.auth_helpers import set_password_hash, admin_required
 from ..utils import error, validate_request_data, response
-from . import api
+from .api import api
 
 user_table = user_database.table('Users')
 user_requests_table = user_database.table('Requests')

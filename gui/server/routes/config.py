@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required
 
 from fedbiomed.node.environ import environ
 
-from . import api
+from .api import api
 from ..utils import response
 
 @api.route('/config/node-id', methods=['GET'])

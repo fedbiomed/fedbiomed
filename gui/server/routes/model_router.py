@@ -5,7 +5,7 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
-from . import api
+from .api import api
 from ..schemas import (
     DeleteTrainingPlanRequest,
     ListTrainingPlanRequest,
