@@ -1,148 +1,119 @@
-[tool.poetry]
+[project]
 name = "fedbiomed"
-version = "5.3.0"
-description = "Collaborative learning framework"
+version = "v5.3.0"
+description = "Collaborative learning"
 authors = [
-	"Sergen Cansiz <sergen.cansiz@inria.fr>",
-	"Marc Vesion <marc.vesion@infira.fr>",
-	"Marco Lorenzi <marco.lorenzi@inria.fr>",
-	"Francesco Cremonesi <francesco.cremonesi@inria.fr>",
-	"Yannick Bouillard <yannick.bouillard@inria.fr>",
-	"Lucie Chambon <lucie.chambon@inria.fr>",
-	"Riccardo Taiello <riccardo.taiello@inria.fr>",
-	"Erwan Demairy <erwan.demairy@inria.fr>",
-	"Thibaud Kloczko <thibaud.kloczko@inria.fr>",
-	"Paul Andrey <paul.andrey@inria.fr>",
-	"Jean-Luc Szpyrka <jean-juc.szpyrka@inria.fr>",
-	"Maya Assal",
-	"Samy-Safwan Ayed",
-	"Irene Balelli",
-	"Nathan Bigaud",
-	"Tristan Cabel",
-	"Gaurav D. Chaudary",
-	"Nejma El Kourdachi",
-	"Yann Fraboni",
-	"Lena Le Quintrec",
-	"Nathan Lapel",
-	"Jonathan Levy",
-	"Riham Nehmeh",
-	"Ange Ouya",
-	"Prapoojitha Santosha-Dasari",
-	"Jose-Francisco Saray-Villamizar",
-	"Andrea Senacheribbe",
-	"Santiago-Smith Silva-Rincon",
-	"Carlos Zubiaga",
+   	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
+	{name = "Marc Vesion", email = "marc.vesion@infira.fr"},
+#	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
+#	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
+#	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
+#	{name = "Lucie Chambon <lucie.chambon@inria.fr>"},
+#	{name = "Riccardo Taiello <riccardo.taiello@inria.fr>"},
+#	{name = "Erwan Demairy <erwan.demairy@inria.fr>"},
+#	{name = "Thibaud Kloczko <thibaud.kloczko@inria.fr>"},
+#	{name = "Paul Andrey <paul.andrey@inria.fr>"},
+#	{name = "Jean-Luc Szpyrka <jean-juc.szpyrka@inria.fr>"},
+#	{name = "Maya Assal"},
+#	{name = "Samy-Safwan Ayed"},
+#	{name = "Irene Balelli"},
+#	{name = "Nathan Bigaud"},
+#	{name = "Tristan Cabel"},
+#	{name = "Gaurav D. Chaudary"},
+#	{name = "Nejma El Kourdachi"},
+#	{name = "Yann Fraboni"},
+#	{name = "Lena Le Quintrec"},
+#	{name = "Nathan Lapel"},
+#	{name = "Jonathan Levy"},
+#	{name = "Riham Nehmeh"},
+#	{name = "Ange Ouya"},
+#	{name = "Prapoojitha Santosha-Dasari"},
+#	{name = "Jose-Francisco Saray-Villamizar"},
+#	{name = "Andrea Senacheribbe"},
+#	{name = "Santiago-Smith Silva-Rincon"},
+#	{name = "Carlos Zubiaga"},
 ]
 
-license = "Apache 2.0"
+dependencies = [
+	"tinydb ~=4.7.1",
+	"validators >=0.20.0,<0.21.0",
+	"tabulate >=0.9.0,<0.10.0",
+	"psutil ~=6.0.0",
+	"requests  ~=2.29",
+	"packaging   ~=23.1",
+	"cryptography ~=40.0",
+	"pyopenssl ~=23.1.1",
+	"joblib  ~=1.2",
+	"itk  ~=5.3",
+	"scipy  >=1.10.0,<1.11.0",
+	"scikit-learn  >=1.2.0,<1.3.0",
+	"torch  ~=1.13.0",
+	"torchvision  >=0.14.0,<0.15.0",
+	"opacus  >=1.4.0,<1.4.1",
+	"monai  >=1.1.0,<1.2.0",
+	"msgpack  ~=1.0",
+	"persist-queue  >=0.5.1,<0.6.0",
+	"pandas  ~=2.0.1",
+	"python-minifier  ~=2.11",
+	"declearn[torch1]  ~=2.3.2",
+	"gmpy2  >=2.1,< 2.2",
+	"grpcio  ~=1.60.0",
+	"grpcio-tools  ~=1.60.0",
+	"unet  >=0.7.7,<0.8.0",
+	"pygments ~=2.18.0",
+	"FLamby @ git+https://github.com/owkin/FLamby@main"
+]
+
+requires-python = "<3.11,>=3.10"
 readme = "README.md"
+license = {text = "Apache 2.0"}
 
-
-packages = [
-	{include = "fedbiomed"},
-]
-
-include = [
-	{path = "gui/server", format = ["sdist", "wheel"]},
-	{path = "gui/ui/public", format = ["sdist", "wheel"] },
-	{path = "envs/common", format = ["sdist", "wheel"]},
-	{path = "scripts", format = ["sdist", "wheel"]},
-	{path = "notebooks", format = ["sdist", "wheel"]},
-]
-
-[tool.poetry.dependencies]
-python = ">=3.10,<3.11"
-tinydb = "~4.7.1"
-validators = ">=0.20.0,<0.21.0"
-tabulate = ">=0.9.0,<0.10.0"
-psutil = "~6.0.0"
-requests = "~2.29"
-packaging  = "~23.1"
-cryptography ="~40.0"
-pyopenssl ="~23.1.1"
-joblib = "~1.2"
-itk = "~5.3"
-scipy = ">=1.10.0,<1.11.0"
-scikit-learn = ">=1.2.0,<1.3.0"
-torch = "~1.13.0"
-torchvision = ">=0.14.0,<0.15.0"
-opacus = ">=1.4.0,<1.4.1"
-monai = ">=1.1.0,<1.2.0"
-msgpack = "~1.0"
-persist-queue = ">=0.5.1,<0.6.0"
-pandas = "~2.0.1"
-python-minifier = "~2.11"
-declearn =  { version = "~2.3.2", extras = ["torch1"] }
-gmpy2 = ">=2.1,< 2.2"
-grpcio = "~1.60.0"
-grpcio-tools = "~1.60.0"
-unet = ">=0.7.7,<0.8.0"
-pygments = "^2.18.0"
-flamby = { git = "https://github.com/owkin/FLamby", branch = "main" }
-
-# Extra dependencies
-pathvalidate = "~=3.0.0"
-matplotlib = ">=3.8.0,<3.8.4"
-tensorboard = "~=2.13.0"
-
-# Node gui
-flask = ">=2.3.1,<24.0"
-jsonschema = ">=4.17.3,<4.18.0"
-Flask-JWT-Extended = ">=4.4.4,<4.5.0"
-cachelib = ">=0.10.2,<0.11.0"
-gunicorn = {version = "^23.0.0", extras = ["gui"]}
-
-# Jupyter
-jupyter = "~1.0.0"
-ipython = "~8.13.2"
-nb_conda_kernels = "~2.5.1"
-ipykernel = "~6.29.0"
-
-
-[tool.poetry.extras]
+[project.optional-dependencies]  # This is optional dependencies
 researcher = [
-	"pathvalidate",
-	"matplotlib",
-	"tensorboard",
+	"pathvalidate ~=3.0.0",
+	"matplotlib >=3.8.0,<3.8.4",
+	"tensorboard ~=2.13.0",
 ]
+
 gui = [
-	"flask",
-	"jsonscheme",
-	"Flask-JWT-Extended",
-	"cachelib",
-	"gunicorn"
+	"flask >=2.3.1,<24.0",
+	"jsonschema >=4.17.3,<4.18.0",
+	"Flask-JWT-Extended >=4.4.4,<4.5.0",
+	"cachelib >=0.10.2,<0.11.0",
+	"gunicorn ~=23.0.0"
 ]
 
 jupyter = [
 	"jupyter",
-	"ipython",
-	"nb_conda_kernels",
-	"ipykernel"
 ]
 
-all = [
-	"pathvalidate",
-	"matplotlib",
-	"tensorboard",
-	"flask",
-	"jsonscheme",
-	"Flask-JWT-Extended",
-	"cachelib",
-	"gunicorn"
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel.force-include]
+"gui" = "fedbiomed/gui"
+"envs" = "fedbiomed/envs"
+"notebooks" = "fedbiomed/notebooks"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.dev-dependencies]
+test = ["pytest", "pytest-cov", "tox"]
+lint = ["flake8", "black"]
+docs = [
+	"mkdocs-material==9.5.18",
+	"mkdocs-jupyter==0.24.1",
+	"mkdocs-minify-plugin==0.6.4",
+	"mkdocstrings-python==1.10.8",
 ]
 
-
-[tool.poetry.group.dev.dependencies]
-pytest = "~7.2"
-pytest-cov = "~4.1"
-tox = "~4"
-mkdocs-material = "9.5.18"
-mkdocs-jupyter = "0.24.1"
-mkdocs-minify-plugin = "0.6.4"
-mkdocstrings-python = "1.10.8"
-
-[tool.poetry.scripts]
+[project.scripts]
 fedbiomed = "fedbiomed.cli:run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 pythonpath = ["tests", "tests/end2end"]
@@ -150,10 +121,3 @@ testpaths = ["tests"]
 addopts = [
     "--import-mode=importlib",
 ]
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-
-

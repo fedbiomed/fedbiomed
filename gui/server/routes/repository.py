@@ -3,7 +3,7 @@ import re
 
 from flask import request
 
-from . import api
+from .api import api
 from ..config import config
 from ..schemas import ListDataFolder
 from ..utils import error, validate_request_data, response, file_stats

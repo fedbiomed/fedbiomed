@@ -8,7 +8,7 @@ from fedbiomed.common.data import MedicalFolderLoadingBlockTypes
 
 from fedbiomed.node.dataset_manager import DatasetManager
 
-from . import api
+from .api import api
 from ..config import config
 from ..db import node_database
 from ..middlewares import middleware, common

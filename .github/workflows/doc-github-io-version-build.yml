@@ -2,11 +2,11 @@ name: Publish NEW TAG in fedbiomed/fedbiomed.github.io
 on:
   push:
     # Pattern matched against refs/tags
-    tags:        
-      - '*' 
+    tags:
+      - '*'
   release:
     types: [published]
-    
+
 jobs:
   build-doc:
     name: Publish version in fedbioemd/fedbiomed.github.io repository
@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Checkout to commmit
         uses: actions/checkout@v3
-      
+
       - name: Checkout to fedbiomed.github.io
         uses: actions/checkout@v3
         with:
@@ -35,20 +35,23 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v4
         with:
-            python-version: '3.11' 
+            python-version: '3.10'
+
+      - name: Setup PDM
+        uses: pdm-project/setup-pdm@v4
 
       - name: Install Dependencies
-        run: pip install -r envs/build/docs-requirements.txt
+        run: pdm install -G docs
 
       - name: Build documentation
         run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-current-as "${{ env.RELEASE_VERSION }}"
-      
+
       - name: Publish new version - Pushes new version to fedbiomed/fedbiomed.github.io
         run: |
           cd build-repo
           git add .
-          git commit -m "Deploy documentation version: ${{ env.RELEASE_VERSION }}" 
-          git pull --no-edit --no-rebase  
+          git commit -m "Deploy documentation version: ${{ env.RELEASE_VERSION }}"
+          git pull --no-edit --no-rebase
           if [ ! git commit -a -m "Pulling recent changes" ]; then
             echo "o changes to commit"
           fi

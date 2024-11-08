@@ -25,8 +25,11 @@ def _get_fedbiomed_root() -> str:
         Absolute path of Fed-BioMed root directory
     """
 
-    return os.path.abspath(os.path.join(__file__, '..', "..", "..", ".."))
+    root =  os.path.abspath(os.path.join(__file__, '..', "..", ".."))
+    if "envs" in os.listdir(root):
+        return root
 
+    return os.path.abspath(os.path.join(root, '..'))
 
 # Main directories definition
 ROOT_DIR = _get_fedbiomed_root()

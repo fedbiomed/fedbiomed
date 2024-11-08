@@ -244,7 +244,7 @@ class CommonCLI:
 
     def __init__(self) -> None:
         self._parser: argparse.ArgumentParser = argparse.ArgumentParser(
-            prog="fedbiomed_run", formatter_class=argparse.RawTextHelpFormatter
+            prog="fedbiomed", formatter_class=argparse.RawTextHelpFormatter
         )
 
         self._subparsers = self._parser.add_subparsers()
@@ -383,7 +383,7 @@ class CommonCLI:
             "certificate",
             help="Command to manage certificates in node and researcher components. "
             "Please see 'certificate --help' for more information.",
-            prog="fedbiomed_run [ node | researcher ] [--config [CONFIG_FILE]] certificate",
+            prog="fedbiomed [ node | researcher ] [--config [CONFIG_FILE]] certificate",
         )
 
         def print_help(args):
@@ -399,7 +399,7 @@ class CommonCLI:
 
         register_parser = certificate_sub_parsers.add_parser(
             "register",
-            help="Register certificate of specified party. Please run 'fedbiomed_run "
+            help="Register certificate of specified party. Please run 'fedbiomed' "
                 "[COMPONENT SPECIFICATION] certificate register --help'",
         )  # command register
 
@@ -630,16 +630,16 @@ class CommonCLI:
         print(" 1- Copy certificate content into a file e.g 'Hospital1.pem'")
         print(" 2- Change your directory to 'fedbiomed' root")
         print(
-            f" 3- Run: scripts/fedbiomed_run [node | researcher] certificate register"
+            f" 3- Run: fedbiomed [node | researcher] certificate register"
             f"-pk [PATH WHERE CERTIFICATE IS SAVED] -pi {self._environ['ID']}"
         )
         print("    Examples commands to use for VPN/docker mode:")
         print(
-            "      ./scripts/fedbiomed_run node certificate register -pk ./etc/cert-secagg "
+            "      fedbiomed node certificate register -pk ./etc/cert-secagg "
             f"-pi {self._environ['ID']}"
         )
         print(
-            "      ./scripts/fedbiomed_run researcher certificate register "
+            "      fedbiomed researcher certificate register "
             f"-pk ./etc/cert-secagg -pi {self._environ['ID']}"
         )
 

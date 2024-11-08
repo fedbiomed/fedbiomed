@@ -7,7 +7,7 @@ from fedbiomed.common.data import MedicalFolderController
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import DatasetManager
 
-from . import api
+from .api import api
 from ..config import config
 from ..cache import cached
 from ..db import node_database
