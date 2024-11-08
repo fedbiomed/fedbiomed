@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - master
-    
+
 jobs:
   build-doc:
     name: Publish main in fedbioemd/fedbiomed.github.io repository
@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Checkout to commit
         uses: actions/checkout@v3
-      
+
       - name: Checkout tools repo
         uses: actions/checkout@v3
         with:
@@ -32,10 +32,13 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v4
         with:
-            python-version: '3.11' 
+            python-version: '3.10'
+
+      - name: Setup PDM
+        uses: pdm-project/setup-pdm@v4
 
       - name: Install Dependencies
-        run: pip install -r envs/build/docs-requirements.txt
+        run: pdm install -G docs
 
       - name: Build documentation
         run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-main
@@ -44,8 +47,8 @@ jobs:
         run: |
           cd build-repo
           git add .
-          git commit -m "Deploy main documentation pages" 
-          git pull --no-edit --no-rebase  
+          git commit -m "Deploy main documentation pages"
+          git pull --no-edit --no-rebase
           if [ ! git commit -a -m "Pulling recent changes" ]; then
             echo "o changes to commit"
           fi

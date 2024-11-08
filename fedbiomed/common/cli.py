@@ -246,7 +246,7 @@ class CommonCLI:
 
     def __init__(self) -> None:
         self._parser: argparse.ArgumentParser = argparse.ArgumentParser(
-            prog="fedbiomed_run", formatter_class=argparse.RawTextHelpFormatter
+            prog="fedbiomed", formatter_class=argparse.RawTextHelpFormatter
         )
 
         self._subparsers = self._parser.add_subparsers()
@@ -378,7 +378,7 @@ class CommonCLI:
             "certificate",
             help="Command to manage certificates in node and researcher components. "
             "Please see 'certificate --help' for more information.",
-            prog="fedbiomed_run [ node | researcher ] [--config [CONFIG_FILE]] certificate",
+            prog="fedbiomed [ node | researcher ] [--config [CONFIG_FILE]] certificate",
         )
 
         def print_help(args):
@@ -394,8 +394,8 @@ class CommonCLI:
 
         register_parser = certificate_sub_parsers.add_parser(
             "register",
-            help="Register certificate of specified party. Please run 'fedbiomed_run "
-                 "[COMPONENT SPECIFICATION] certificate register --help'",
+            help="Register certificate of specified party. Please run 'fedbiomed' "
+                "[COMPONENT SPECIFICATION] certificate register --help'",
         )  # command register
 
         list_parser = certificate_sub_parsers.add_parser(

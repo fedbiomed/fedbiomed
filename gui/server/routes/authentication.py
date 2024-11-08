@@ -25,7 +25,7 @@ from ..middlewares.auth_validation import validate_email_register, validate_pass
 from ..middlewares import middleware
 from ..utils import validate_request_data
 from ..db import user_database
-from . import api, auth
+from .api import api, auth
 
 user_table = user_database.table('Users')
 user_requests_table = user_database.table('Requests')

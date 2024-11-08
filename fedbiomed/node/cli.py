@@ -143,15 +143,15 @@ def start_node(name, node_args):
         logger.info('Starting task manager')
         _node.task_manager()  # handling training tasks in queue
 
-    except FedbiomedError:
-        logger.critical("Node stopped.")
+    except FedbiomedError as exp:
+        logger.critical(f"Node stopped. {exp}")
         # we may add extra information for the user depending on the error
 
     except Exception as exp:
         # must send info to the researcher (no mqqt should be handled
         # by the previous FedbiomedError)
         _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
-        logger.critical("Node stopped.")
+        logger.critical(f"Node stopped. {exp}")
 
 
 
@@ -578,9 +578,6 @@ class GUIControl(CLIArgumentParser):
         })
         current_env = os.environ.copy()
 
-        gui_server = importlib.import_module("fedbiomed.gui.wsgi")
-
-
         if args.key_file and args.cert_file:
             certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file ]
         else:
@@ -607,7 +604,7 @@ class GUIControl(CLIArgumentParser):
                 f"{args.host}:{args.port}",
                 "--access-logfile",
                 "-",
-                "fedbiomed.gui.wsgi:app"
+                "fedbiomed.gui.server.wsgi:app"
             ]
 
         try:
