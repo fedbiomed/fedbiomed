@@ -38,6 +38,7 @@ dependencies:
   # git notebook striper - TODO: consider removing if not used anymore ...
   - nbstripout >=0.6.1,<0.7.0
   - joblib >=1.2.0,<1.3.0
+  - dcm2niix
   # other
   - pip:
       # no itk available from conda for macosx-m1
