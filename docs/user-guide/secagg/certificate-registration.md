@@ -25,7 +25,7 @@ The command below generates registration instructions to assist in the process o
 component in the participating parties. This command must be executed by the researcher component, and the instructions sent to other parties for registration.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run researcher certificate registration-instructions
+fedbiomed researcher certificate registration-instructions
 ```
 
 the output is:
@@ -61,10 +61,10 @@ Please follow the instructions below to register this certificate:
 
  1- Copy certificate content into a file e.g 'Hospital1.pem'
  2- Change your directory to 'fedbiomed' root
- 2- Run: "./scripts/fedbiomed_run [node | researcher] certificate register -pk [PATH WHERE CERTIFICATE IS SAVED] -pi researcher_e1c5c101-0c79-43b1-8bf1-d70b06b91830  --ip 193.0.0.1 --port 14002"
+ 2- Run: "fedbiomed [node | researcher] certificate register -pk [PATH WHERE CERTIFICATE IS SAVED] -pi researcher_e1c5c101-0c79-43b1-8bf1-d70b06b91830  --ip 193.0.0.1 --port 14002"
     Examples commands to use for VPN/docker mode:
-      ./scripts/fedbiomed_run node certificate register -pk ./etc/cert-secagg -pi researcher_e1c5c101-0c79-43b1-8bf1-d70b06b91830 --ip 193.0.0.1 --port 14002
-      ./scripts/fedbiomed_run researcher certificate register -pk ./etc/cert-secagg -pi researcher_e1c5c101-0c79-43b1-8bf1-d70b06b91830 --ip 193.0.0.1 --port 14002
+      fedbiomed node certificate register -pk ./etc/cert-secagg -pi researcher_e1c5c101-0c79-43b1-8bf1-d70b06b91830 --ip 193.0.0.1 --port 14002
+      fedbiomed researcher certificate register -pk ./etc/cert-secagg -pi researcher_e1c5c101-0c79-43b1-8bf1-d70b06b91830 --ip 193.0.0.1 --port 14002
 ```
 
 The aforementioned instructions provide essential details for registering a party among the other participants in a
@@ -82,7 +82,7 @@ Certificates of other parties should be registered with their component ID, IP a
 be copied and saved in a file. Then, the file path is given with the option `-pk`.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run [node | researcher] certificate register -pk <certificate-file-path> -pi <component-id> --ip  <IP> --port <PORT>"
+fedbiomed [node | researcher] certificate register -pk <certificate-file-path> -pi <component-id> --ip  <IP> --port <PORT>"
 ```
 
 One of `[node | researcher]` must be chosen according to component type that registers the certificate.
@@ -105,7 +105,7 @@ After all the components are created, please run the following command to comple
 environment.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run certificate-dev-setup
+fedbiomed certificate-dev-setup
 ```
 
 !!! warning "Important"

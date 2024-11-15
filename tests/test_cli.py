@@ -204,7 +204,7 @@ class TestNodeControl(unittest.TestCase):
         }
 
         with tempfile.TemporaryDirectory() as temp_:
-            config = NodeConfig(temp_, name='test.ini')
+            config = NodeConfig(temp_)
             config._cfg = cfg
             with patch('fedbiomed.node.cli.NodeConfig', autospec=True) as mock_config:
                 print(config)
@@ -237,10 +237,9 @@ class TestNodeCLI(unittest.TestCase):
 
     def test_01_node_cli_init(self):
         """Tests intialization"""
+
         self.node_cli = NodeCLI()
-        self.node_cli.parse_args(["--config", "config_n1.ini", 'dataset', 'list'])
-
-
+        self.node_cli.parse_args(["-y", "--path", "fbm-node", 'dataset', 'list'])
 
 
 class TestCli(unittest.TestCase):

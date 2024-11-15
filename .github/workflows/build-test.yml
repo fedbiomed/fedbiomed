@@ -22,7 +22,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Detect documentation changes
         uses: dorny/paths-filter@master
@@ -56,6 +56,7 @@ jobs:
         # Version number for testing purposes should
         # respect to standart which is vMajor.Minor.Patch
         run: |
+          source .venv/bin/activate
           scripts/docs/fedbiomed_doc.sh --build-dir build-repo \
             --build-main --build-current-as v1.0.1
 
@@ -68,9 +69,12 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-22-04
-          - fedora38
-          - macosx-m1
+          - ubuntu-latest
+          - windows-latest
+          - ubuntu-22.04
+          - macos-latest
+          - fedora-38
+          - macos-m1
         python-version:
           - '3.10'
 
@@ -78,7 +82,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to commit
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Filter module related changes
         uses: dorny/paths-filter@master
@@ -96,16 +100,34 @@ jobs:
               - 'pyproject.toml'
               - 'poetry.lock'
 
-      - name: Install Python using Pyenv
+      - name: Install Python using Pyenv on Unix-like systems
+        if: matrix.os != 'windows-latest'
         uses: ./.github/actions/setup-pyenv
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install Python on Windows
+        if: matrix.os == 'windows-latest'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.module == 'true'
+        run: |
+          pip install tox
+
       - name: Run tests
         if: steps.filter.outputs.module == 'true'
         run: |
-          pyenv global ${{ matrix.python-version }}
-          tox -r
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            tox -r
+          else
+            pyenv local ${{ matrix.python-version }}
+            tox -r
+          fi
+        shell: bash -l {0}
 
       - name: Upload coverage reports to Codecov
         if: steps.filter.outputs.module == 'true' && matrix.os != 'macosx-m1'
@@ -132,9 +154,11 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-22-04
-          - fedora38
-          - macosx-m1
+          - ubuntu-latest
+          - ubuntu-22.04
+          - macos-latest
+          - fedora-38
+          - macos-m1
         python-version:
           - '3.10'
     runs-on: ${{ matrix.os }}
@@ -167,4 +191,3 @@ jobs:
           pyenv global ${{ matrix.python-version }}
           FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
             tox -r -m e2e -- e2e_mnist_pytorch.py
-

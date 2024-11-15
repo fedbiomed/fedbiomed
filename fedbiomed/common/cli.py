@@ -15,17 +15,12 @@ from abc import ABC, abstractmethod
 from typing import Dict, List
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.config import (
-    is_config_existing,
-    get_config_path,
-    get_config_name
-)
 from fedbiomed.common.constants import (
     CONFIG_FOLDER_NAME,
     DB_FOLDER_NAME,
     ComponentType,
-    DEFAULT_CONFIG_FILE_NAME_NODE,
-    DEFAULT_CONFIG_FILE_NAME_RESEARCHER,
+    DEFAULT_NODE_NAME,
+    DEFAULT_RESEARCHER_NAME,
 )
 from fedbiomed.common.constants import DB_FOLDER_NAME, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
@@ -63,7 +58,7 @@ class CLIArgumentParser:
         return None
 
 
-class ConfigNameAction(ABC, argparse.Action):
+class ComponentDirectoryAction(ABC, argparse.Action):
     """Action for the argument config
 
     This action class gets the config file name and set config object before
@@ -82,6 +77,7 @@ class ConfigNameAction(ABC, argparse.Action):
             len(sys.argv) > 2
         ):
             self._create_config(self.default)
+
         super().__init__(*args, **kwargs)
 
     def __call__(self, parser, namespace, values: str, option_string = None) -> None:
@@ -93,24 +89,38 @@ class ConfigNameAction(ABC, argparse.Action):
         setattr(namespace, self.dest, values)
 
     @abstractmethod
-    def set_component(self, config_name: str) -> None:
+    def set_component(self, component_dir: str) -> None:
         """Implements configuration import
+
         Args:
-          config_name: Name of the config file for the component
+            component_dir: Name of the config file for the component
         """
 
-    def _create_config(self, config_file: str):
+    def _create_config(self, component_dir: str):
         """Sets configuration
-
-        Args:
+       Args:
           config_file: Name of the config file that is activated
         """
+        print(f"\n# {GRN}Using component located at:{NC} {BOLD}{component_dir}{NC} #")
 
-        print(f"\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #")
-        os.environ["CONFIG_FILE"] = config_file
-        self.set_component(config_file)
+        cdir = os.path.abspath(component_dir)
 
-        # this may be changed on command line or in the node configuration file
+        if not os.path.isdir(cdir) and not '-y' in sys.argv:
+            print(
+                f"{BOLD}Action Needed{NC}: Action execution for a component not existing. "
+                f"The component directory is not existing in the path {cdir}. \n"
+                "Do you want to create this component to continue: (y/N)"
+                )
+            x = input()
+
+            if not x.lower() == "y":
+                 sys.exit("Operation is called.")
+            else:
+                print(f"{GRN}Creating component directory:{NC}{cdir}")
+
+        self.set_component(component_dir)
+
+        # this may be changed on command line or in the config_node.ini
         logger.setLevel("DEBUG")
 
 
@@ -131,13 +141,13 @@ class ComponentParser(CLIArgumentParser):
         # Common parser to register common arguments for create and refresh
         common_parser = argparse.ArgumentParser(add_help=False)
         common_parser.add_argument(
-            "-r",
-            "--root",
-            metavar="ROOT_PATH_FEDBIOMED",
+            "-p",
+            "--path",
+            metavar="COMPONENT_PATH",
             type=str,
             nargs="?",
-            required=True,
-            help="Root directory for configuration and Fed-BioMed setup",
+            required=False,
+            help="Path to specificy where Fed-BioMed component will be intialized.",
         )
 
         common_parser.add_argument(
@@ -173,15 +183,13 @@ class ComponentParser(CLIArgumentParser):
 
         create.set_defaults(func=self.create)
 
-    def _get_component_instance(self, component):
-        """ """
+    def _get_component_instance(self, path: str, component: str):
+        """Gets component"""
         if component.lower() == "node":
            config_node = importlib.import_module("fedbiomed.node.config")
            _component = config_node.node_component
         elif component.lower() == "researcher":
-            # TODO: Add name arguments - Check implementation in develop
-            if name:
-                os.environ["FBM_RESEARCHER_CONFIG_FILE"] = name
+            os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = path
             config_researcher = importlib.import_module(
                 "fedbiomed.researcher.config"
             )
@@ -195,48 +203,52 @@ class ComponentParser(CLIArgumentParser):
     def create(self, args):
         """CLI Handler for creating configuration file and assets for given component
         """
-        if args.component.lower() == "node":
-            default_config = DEFAULT_CONFIG_FILE_NAME_NODE
-        elif args.component.lower() == "researcher":
-            default_config = DEFAULT_CONFIG_FILE_NAME_RESEARCHER
-        else:
-            print(f"Undefined component type {args.component}")
-            exit(101)
 
-        name = get_config_name(args.name, args.component, default_config)
-        is_config_existing_before = is_config_existing(
-            get_config_path(args.root, name)
-        )
-
-        component = self._get_component_instance(args.component)
-
-        # TODO: Check issue ofcreating default component while geenrating non-default
-        # Overwrite force configuration file
-        #if is_config_existing_before and args.force:
-        #    print("Overwriting existing configuration file")
-        #    config.generate(force=True)
-
-        ## Use existing one (do nothing)
-        #elif is_config_existing_before and not args.force:
-        #    if not args.use_current:
-        #        print(
-        #            f'Configuration file "{config.path}" is alreay existing for name '
-        #            "{config.name}. Please use --force option to overwrite"
-
-        if component.is_component_existing(args.root):
-            if not args.exist_ok:
-                CommonCLI.error(
-                    "Component is already existing in given directory. To ignore "
-                    "this error please execute component creation using `--exist-ok`"
-                )
+        if not args.path:
+            if args.component.lower() == "researcher":
+                component_path = os.path.join(os.getcwd(), DEFAULT_RESEARCHER_NAME)
             else:
-                CommonCLI.success(
-                    "Component is already exsiting. Using existing component."
-                )
-                return
+                component_path = os.path.join(os.getcwd(), DEFAULT_NODE_NAME)
+        else:
+            component_path = args.path
 
-        logger.info(f"Creating a new component in the directory {args.root}")
-        component.create(args.root)
+        # Researcher specific case ----------------------------------------------------
+        # This is a special case since researcher import
+        if args.component.lower() == "researcher":
+            if DEFAULT_RESEARCHER_NAME in component_path  and \
+                os.path.isdir(component_path):
+                if not args.exist_ok:
+                    CommonCLI.error(
+                        f"Default component is already existing. In the directry {component_path}"
+                        "please remove existing one to reinisiate"
+                    )
+                    sys.exit(1)
+                else:
+                    CommonCLI.success(
+                        "Component is already exsiting. Using existing component."
+                    )
+                    sys.exit(0)
+            else:
+                self._get_component_instance(component_path, args.component)
+                return
+        else:
+            component = self._get_component_instance(component_path, args.component)
+            # Overwrite force configuration file
+            if component.is_component_existing(component_path):
+                if not args.exist_ok:
+                    CommonCLI.error(
+                        f"Component is already existing in the directory `{component_path}`. To ignore "
+                       "this error please execute component creation using `--exist-ok`"
+                )
+                else:
+                    CommonCLI.success(
+                        "Component is already exsiting. Using existing component."
+                    )
+                    return
+
+            component.initiate(component_path)
+
+        CommonCLI.success(f"Component has been initialized in {component_path}")
 
 
 class CommonCLI:
@@ -310,6 +322,12 @@ class CommonCLI:
 
         return self._description
 
+
+    @staticmethod
+    def config_action(this: "CommonCLI", component: ComponentType):
+        """Returns CLI argument action for config file name"""
+        return ComponentDirectoryAction
+
     @staticmethod
     def error(message: str) -> None:
         """Prints given error message
@@ -349,6 +367,11 @@ class CommonCLI:
         This parser classes will be added by child classes.
         """
 
+        self._parser.add_argument(
+            "-y",
+            action="store_true"
+        )
+
         for arg_parser in self._arg_parsers_classes:
             p = arg_parser(self._subparsers, self._parser)
             p.initialize()
@@ -378,7 +401,7 @@ class CommonCLI:
             "certificate",
             help="Command to manage certificates in node and researcher components. "
             "Please see 'certificate --help' for more information.",
-            prog="fedbiomed [ node | researcher ] [--config [CONFIG_FILE]] certificate",
+            prog="fedbiomed [ node | researcher ] [--path [COMPONENT_DIRECTORY]] certificate",
         )
 
         def print_help(args):

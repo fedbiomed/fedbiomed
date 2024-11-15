@@ -51,29 +51,14 @@ class TestComponentParser(unittest.TestCase):
         self,
     ):
         args = self.main_parser.parse_args(
-            ["component", "create", "--root", self.tem.name, "--component", "NODE", "-eo"]
+            ["component", "create", "--path", self.tem.name, "--component", "NODE", "-eo"]
         )
         self.conf_parser.create(args)
 
         args = self.main_parser.parse_args(
-            ["component", "create", "--root", self.tem.name, "--component", "RESEARCHER", "-eo"]
+            ["component", "create", "--path", self.tem.name, "--component", "RESEARCHER", "-eo"]
         )
         self.conf_parser.create(args)
-
-    @patch("builtins.print")
-    def test_03_component_parser_refresh(
-        self,
-        mock_print,
-    ):
-        args = self.main_parser.parse_args(
-            ["component", "create", "--root", self.tem.name, "--component",  "NODE"]
-        )
-        self.conf_parser.create(args)
-
-        args = self.main_parser.parse_args(
-            ["component", "refresh", "--root", self.tem.name, "--component",  "NODE"]
-        )
-        self.conf_parser.refresh(args)
 
 
 class TestCommonCLI(unittest.TestCase):
@@ -372,20 +357,20 @@ class TestCommonCLI(unittest.TestCase):
         self.cli.initialize_certificate_parser()
 
         args = self.cli.parser.parse_args(["certificate", "list"])
-        sys.argv = ["fedbiomed_run", "certificate", "list"]
+        sys.argv = ["fedbiomed", "certificate", "list"]
         self.cli.parse_args()
         mock_list.assert_called_once_with(verbose=True)
 
         self.cli.initialize_magic_dev_environment_parsers()
         args = self.cli.parser.parse_args(["certificate-dev-setup"])
 
-        sys.argv = ["fedbiomed_run", "certificate-dev-setup"]
+        sys.argv = ["fedbiomed", "certificate-dev-setup"]
         self.cli.parse_args()
         mock_dev_environment.assert_called_once_with(args, [])
 
         with self.assertRaises(SystemExit):
             # node argument is not known yet
-            sys.argv = ["fedbiomed_run", "node", "dataset"]
+            sys.argv = ["fedbiomed", "node", "dataset"]
             self.cli.parse_args()
 
 
