@@ -7,7 +7,7 @@
 source /entrypoint_functions.bash
 
 init_misc_environ
-change_path_owner "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
+change_path_owner "/fbm-node" "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
 
 
 # To avoid envsubst to over write default nginx variables

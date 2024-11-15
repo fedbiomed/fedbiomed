@@ -1,0 +1,188 @@
+#!/bin/bash
+#
+# configure a development environment for each component (node, researcher, gui)
+#
+
+#
+# find the directory containing all sources
+#
+# this works then source this file !!!!
+#
+# detect how the file is run
+([[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]] ||
+ [[ -n $KSH_VERSION && $(cd "$(dirname -- "$0")" &&
+    printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] ||
+ [[ -n $BASH_VERSION ]] && (return 0 2>/dev/null)) && sourced=1 || sourced=0
+
+[[ "${sourced}" == "0" ]] &&
+    echo "This file MUST be sourced from a BASH shell (and not executed) to benefit from the environment" && exit -1
+
+[[ "$KSH_VERSION" ]] && echo "This script only works from a BASH or ZSH shell - You may still use the fedbiomed_run command" && return
+
+#Activate conda with any of the next commands
+#source ~/miniconda3/bin/activate
+#source ~/.bashrcx
+eval "$(conda shell.bash hook)"
+
+#
+# helpers
+#
+environment_printvar() {
+    if [ -z "$2" ]
+    then
+        echo "$1: None"
+    else
+        echo "$1: $2"
+    fi
+}
+
+environment_info() {
+    environment_printvar "Conda   env   " "${CONDA_DEFAULT_ENV}"
+    environment_printvar "Python  env   " "${PYTHONPATH}"
+    environment_printvar "FEDBIOMED_DIR " "${FEDBIOMED_DIR}"
+    environment_printvar "Server  host  " "${RESEARCHER_SERVER_HOST}"
+    environment_printvar "Server  port  " "${RESEARCHER_SERVER_PORT}"
+}
+
+development_env() {
+    export FEDBIOMED_DIR=$basedir
+    if [[ -n "$1" ]] ; then
+        export IP_ADDRESS=$1
+        [[ -z "$RESEARCHER_SERVER_HOST" ]] && { export RESEARCHER_SERVER_HOST="${IP_ADDRESS}" ; }
+    else
+        export IP_ADDRESS=localhost
+    fi
+}
+
+environment_reset() {
+    verbose=$1
+    [[ ! -z "$verbose" ]] && echo "** Deactivating all environment"
+    conda deactivate
+    unset PYTHONPATH
+    unset RESEARCHER_SERVER_HOST
+    unset RESEARCHER_SERVER_PORT
+    unset IP_ADDRESS
+    [[ ! -z "$verbose" ]] && environment_info
+}
+
+activate_node() {
+    verbose=$1
+    [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-node environment"
+    conda activate fedbiomed-node
+    export PYTHONPATH=$basedir
+    [[ ! -z "$verbose" ]] && environment_info
+}
+
+activate_researcher() {
+    verbose=$1
+    [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-researcher environment"
+    conda activate fedbiomed-researcher
+    export PYTHONPATH=$basedir
+    [[ ! -z "$verbose" ]] && environment_info
+}
+
+activate_gui() {
+    verbose=$1
+    [[ ! -z "$verbose" ]] && echo "** Activating fedbiomed-gui environment"
+    conda activate fedbiomed-gui
+    #unset PYTHONPATH
+    export PYTHONPATH=$basedir
+    [[ ! -z "$verbose" ]] && environment_info
+}
+
+#
+# main
+#
+
+# detect my own name (then sourced)
+[[ -n "$ZSH_NAME" ]] || myname=${BASH_SOURCE[0]}
+[[ -n "$ZSH_NAME" ]] && myname=${(%):-%x}
+basedir=$(cd $(dirname $myname)/.. || exit ; pwd)
+
+# initialize development environment for....
+case $1 in
+
+    clean)
+        echo "** Cleaning all caches / temporary files"
+        # node/researcher/gui cleaners
+        conda deactivate
+        environment_reset
+        activate_node
+        if [ -f ${basedir}/scripts/clean_node.py ]
+        then
+            echo " * Node cleaning"
+            conda deactivate
+            environment_reset
+            activate_node
+            python ${basedir}/scripts/clean_node.py
+        fi
+
+        # gui cleaning
+        echo " * Node GUI cleaning"
+        gui_temp_paths='
+            var/gui-build
+            gui/ui/node_modules
+            gui/ui/yarn.lock
+            gui/ui/.yarn
+            gui/ui/.pnp.cjs
+            gui/ui/.pnp.loader.mjs
+        '
+        for p in $gui_temp_paths ; do
+            if [ -e "${basedir}/$p" ] ; then
+                echo "[INFO] Removing directory ${basedir}/$p"
+                rm -rf ${basedir}/$p
+            fi
+        done
+
+        environment_reset
+        activate_researcher
+        if [ -f ${basedir}/scripts/clean_researcher.py ]
+        then
+            echo " * Researcher cleaning"
+            conda deactivate
+            environment_reset
+            activate_researcher
+            python ${basedir}/scripts/clean_researcher.py
+        fi
+
+        conda deactivate
+        environment_reset
+        ;;
+
+    reset)
+        conda deactivate
+        environment_reset verbose
+        ;;
+
+    node|n)
+        conda deactivate
+        development_env $2
+        activate_node "$3"
+        ;;
+
+    researcher|r)
+        conda deactivate
+        development_env $2
+        activate_researcher "$3"
+        ;;
+
+    gui)
+        conda deactivate
+        development_env $2
+        activate_gui verbose
+        ;;
+
+    *)
+        conda deactivate
+        cat <<EOF
+Usage: fedbiomed_environment node [IP_ADDRESS] |researcher [IP_ADDRESS] |gui |reset|clean
+
+Please specify:
+- node [IP_ADDRESS], researcher [IP_ADDRESS], gui : to activate an environment
+        with optional IP_ADDRESS (eg 10.1.2.3 or host.foo) for joining researcher
+        component (default: localhost)
+- reset                     : to leave the current environment
+- clean                     : to clean all caches, tempo files,...
+EOF
+        ;;
+esac

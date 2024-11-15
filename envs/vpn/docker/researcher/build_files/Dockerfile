@@ -66,7 +66,6 @@ COPY README.md /fedbiomed/README.md
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fbm-researcher
 WORKDIR /fedbiomed
-USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Install fedbiomed and its requirements
 RUN pip install '.[researcher]'
@@ -81,6 +80,9 @@ ENV FBM_RESEARCHER_COMPONENT_ROOT=/fbm-researcher
 
 # Activates fedbiomed command for root too.
 ENV PATH="$HOME/.local/bin:$PATH"
+
+
+WORKDIR /
 
 # Launch as root to manage VPN
 USER root:root

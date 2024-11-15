@@ -45,6 +45,7 @@ from fedbiomed.common.constants import (
 from fedbiomed.common.environ import Environ
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.utils import ROOT_DIR
 from fedbiomed.node.config import Config, node_component
 
 
@@ -58,7 +59,9 @@ class NodeEnviron(Environ):
         self._config: Config = node_component.create(r)
         self._root_dir = self._config.root
 
-        logger.setLevel("DEBUG")
+        loglevel = os.environ.get("FBM_LOG_LEVEL", "INFO")
+        logger.setLevel(loglevel)
+
         self._values["COMPONENT_TYPE"] = ComponentType.NODE
 
         if autoset:
@@ -79,7 +82,7 @@ class NodeEnviron(Environ):
         )
 
         self._values["DEFAULT_TRAINING_PLANS_DIR"] = os.path.join(
-            self._values["ROOT_DIR"], "envs", "common", "default_training_plans"
+            ROOT_DIR, "envs", "common", "default_training_plans"
         )
 
         # default directory for saving training plans that are approved / waiting
