@@ -169,7 +169,7 @@ class TestNode(unittest.TestCase):
         # use temp_dir, and when done:
         self.db = os.path.join(self.temp_dir.name, 'test-db.json')
         # creating Node objects
-        self.node_config = NodeConfig(auto_generate=False)
+        self.node_config = NodeConfig(self.temp_dir.name)
         self.config = configparser.ConfigParser()
         self.config["default"] = {
             "id": "test-id",

@@ -43,7 +43,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         self.mock_import_class_object.return_value = None, self.mock_tp
 
         self.temp_dir = tempfile.TemporaryDirectory()
-        config.load(root=self.temp_dir.name, name='test.ini')
+        config.load(root=self.temp_dir.name)
 
 
     def tearDown(self):

@@ -116,7 +116,7 @@ where ENV chosen from:
 * in a new terminal:
 
 ```
-$ ./scripts/fedbiomed_run node start
+$ fedbiomed node start
 ```
 
 * this will launch a new node
@@ -124,20 +124,20 @@ $ ./scripts/fedbiomed_run node start
 * you may also upload new data on this node with:
 
 ```
-$ ./scripts/fedbiomed_run node dataset add
+$ fedbiomed node dataset add
 ```
 
 * you may also specify a new config file for the node (usefull then running multiple test nodes on the same host)
 
 ```
-$ ./scripts/fedbiomed_run node --config another_config.ini start
+$ fedbiomed node --path ./my-second-node start
 ```
 
 * if you want to change the default IP address used to join the fedbiomed researcher component (localhost), you can provide it at launch time:
 
 ```
-$ FBM_RESEARCHER_IP=192.168.0.100 ./scripts/fedbiomed_run node start
-$ FBM_SERVER_HOST=192.168.0.100./scripts/fedbiomed_run researcher start
+$ FBM_RESEARCHER_IP=192.168.0.100 fedbiomed node start
+$ FBM_SERVER_HOST=192.168.0.100 fedbiomed researcher start
 ```
 
 (adjust the 192.168.0.100 IP address to your configuration)
@@ -149,7 +149,7 @@ If this option is given at the first launch or after a clean, it is saved in the
 * in a new terminal:
 
 ```
-$ ./scripts/fedbiomed_run researcher start
+$ fedbiomed researcher start
 ```
 
 * this will launch a new jupyter notebook working in the **notebooks** repository. Some notebooks are available:
@@ -255,7 +255,7 @@ To setup **all** these components, you should:
 ./scripts/fedbiomed_vpn status
 ```
 
-- run a **fedbiomed_run** command inside the node component. Eg:
+- run a **fedbiomed** command inside the node component. Eg:
 
 ```
 ./scripts/fedbiomed_vpn node dataset add --mnist /data
@@ -341,7 +341,7 @@ They can also be installed using `pip` (required python version 3.11), as in the
 - Warning: if not using a `conda` or `pip` virtual environment, your global settings are modified.
 
 ```
-pip install -r envs/development/docs-requirements.txt
+pip install -r envs/build/docs-requirements.txt
 ```
 
 Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in doc-strings.
@@ -456,7 +456,7 @@ Provided hashing algorithms are `SHA256`, `SHA384`, `SHA512`, `SHA3_256`, `SHA3_
 To enable `training_plan_approval` mode and `allow_default_training_plans` node, start the following command.
 
 ```shell
-FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node --config config-n1.ini start
+FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed node -p my-node start
 ```
 
 This command will start the node with training plan approval activated mode even the config file has been set as `training_plan_aproval = False`. However it doesn't change the config file. If there is no config file named `config-n1.ini` it creates a config file for the node with enabled training plan approval mode.
@@ -471,7 +471,7 @@ training_plan_approval = True
 For starting node with disabled training plan approval and default training plans;
 
 ```shell
-FBM_SECURITY_TRAINING_PLAN_APPROVAL=False FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=False ./scripts/fedbiomed_run node --config config-n1.ini start
+FBM_SECURITY_TRAINING_PLAN_APPROVAL=False FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=False fedbiomed node -d my-node start
 ```
 
 #### Default TrainingPlans
@@ -484,7 +484,7 @@ Default training plans are located in the `envs/common/default_training_plans/` 
 New training plans can be registered using `fedbiomed_run` scripts with `training-plan register` option.
 
 ```shell
-./scripts/fedbiomed_run node --config config-n1.ini training-plan register
+fedbiomed node -d my-node training-plan register
 ```
 
 The CLI asks for the name of the training plan, description and the path where training plan file is stored. **Model files should be saved as txt in the file system for registration**. This is because these files are for only hashing purposes not for loading modules.
@@ -494,7 +494,7 @@ The CLI asks for the name of the training plan, description and the path where t
 Following command is used for deleting registered training plans.
 
 ```
-./scripts/fedbiomed_run node --config config-n1.ini training-plan delete
+fedbiomed node -d my-node training-plan delete
 ```
 
 Output of this command will list registered training plans with their name and id. It will ask to select training plan file you would like to remove. For example, in the follwing example, typing `1`  will remove the `MyModel` from registered/approved list of training plans.
@@ -514,7 +514,7 @@ Following command is used for updating registered training plans. It updates cho
 can provide same training plan file to update its content.
 
 ```
-./scripts/fedbiomed_run node --config config-n1.ini training-plan update
+fedbiomed node -d my-node training-plan update
 ```
 
 ## Fed-BioMed Node GUI
@@ -528,16 +528,15 @@ located on the `${FEDBIOMED_DIR}/gui` directory.
 Node GUI can be started using Fed-BioMed CLI.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run node [--config [CONFIG_FILE_NAME]] gui --data-folder '<path-for-data-folder>' start
+fedbiomed node [--path [COMPONENT_DIRECTORY]] gui --data-folder '<path-for-data-folder>' start
 ```
 
 Arguments:
 
-- ``data-folder``: Data folder represents the folder path where datasets have been stored. It can be absolute or relative path.
-If it is relative path, Fed-BioMed base directory is going to be used as reference. **If `datafolder` is not provided. Script will look for
+- ``data-folder``: Data folder represents the folder path where datasets have been stored. It can be absolute or relative path. If it is relative path, Fed-BioMed base directory is going to be used as reference. **If `datafolder` is not provided. Script will look for
 `data` folder in the Fed-BioMed root directory and if it doesn't exist it will raise an error.**
-- ``--config``: Config file represents the name of the configuration file which is going to be used for GUI. If it is not
-provided, default will be``config_node.ini``.
+- ``--path``: Component directory  whose GUI will be launched which is going to be used for GUI. If it is not
+provided, default will be `fbm-node` that is created in directory where the command is executed. If component directory is not existing a default node component will instantiated in the given directory if the parent directory is existing.
 
 It is also possible to start GUI on specific host and port, By default it is started `localhost` as host and `8484` as port.  To change
 it you can modify following command.
@@ -546,13 +545,13 @@ The GUI is based on HTTPS and by default, it will generate a self-signed certifi
 names you want to use for HTTPS support. **Please note that they must be in `${FEDBIOMED_DIR}/etc` folder.**
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config '<name-of-the-config-file> gui --data-folder '<path-for-data-folder>' ' cert '<name-of-certificate>' key '<name-of-private-key>' start
+fedbiomed node --path <path/to/component/directory> gui --data-folder '<path-for-data-folder>' ' cert '<name-of-certificate>' key '<name-of-private-key>' start
 ```
 
 **IMPORTANT:** Please always consider providing `data-folder` argument while starting the GUI.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini gui data-folder ../data  --port 80 --host 0.0.0.0 start
+fedbiomed node -d my-node gui data-folder ../data  --port 80 --host 0.0.0.0 start
 
 ```
 
@@ -563,7 +562,7 @@ is already built (means that `gui/ui/node_modules` and `var/gui-build` folders e
 reinstall and rebuild, please add `--recreate` flag in the command same as below,
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run node gui data-folder ../data --recreate start
+fedbiomed node gui data-folder ../data --recreate start
 ```
 
 
@@ -573,9 +572,9 @@ It is possible to start multiple Node GUIs for different nodes as long as the ht
 commands below starts three Node GUI for the nodes; config-n1.ini, config-n2.ini and config-n3.ini on the ports respectively, `8181`, `8282` and `8383`.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini gui --data-folder ../data --port 8181 start
-${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n2.ini gui --data-folder ../data --port 8282 start
-${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n2.ini gui --data-folder ../data --port 8383 start
+fedbiomed node -d my-node gui --data-folder ../data --port 8181 start
+fedbiomed node -d my-second-node gui --data-folder ../data --port 8282 start
+fedbiomed node -d my-second-node gui --data-folder ../data --port 8383 start
 ```
 
 ### Development/Debugging for GUI
@@ -586,7 +585,7 @@ easily done with the previous start command. Currently, Flask server always get 
 flag to the start command.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini gui --data-folder ../data --debug start
+fedbiomed node -d my-node gui --data-folder ../data --debug start
 ```
 **Important:** Please do not change Flask port and host while starting it for development purposes. Because React (UI) will be calling
 ``localhost:8484/api`` endpoint in development mode.
@@ -611,5 +610,5 @@ After development/debugging is done. To update changes in built GUI, you need to
 you will be able to see changes on the ``localhost:8484`` URL which serve built UI files.
 
 ```shell
-${FEDBIOMED_DIR}/scripts/fedbiomed_run data-folder ../data gui --recreate start
+fedbiomed node gui start --data-folder ../data
 ```

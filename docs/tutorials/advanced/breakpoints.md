@@ -65,7 +65,7 @@ In some cases, it is needed to indicate which breakpoint should be used to creat
 
 Fed-BioMed saves experiment results and breakpoints with the following file tree structure :
 ```
-${FEDBIOMED_DIR}/var/experiments
+<researcher-component-path>/var/experiments
 |
 \-- Experiment_0
 |
@@ -81,23 +81,23 @@ ${FEDBIOMED_DIR}/var/experiments
 \-- Experiment_3
 ```
 
-Result files and breakpoints for each experiment are saved in a distinct folder under `${FEDBIOMED_DIR}/var/experiments`. By default, each experiment is assigned a folder named `Experiment_{num}` with a unique increasing *num*. When an experiment saves breakpoint, breakpoint for round *round* is saved under `Experiment_{num}/breakpoint_{round}`.
+Result files and breakpoints for each experiment are saved in a distinct folder under `<researcher-component-path>/var/experiments`. By default, each experiment is assigned a folder named `Experiment_{num}` with a unique increasing *num*. When an experiment saves breakpoint, breakpoint for round *round* is saved under `Experiment_{num}/breakpoint_{round}`.
 
 When loading last breakpoint of last experiment, it selects the highest existing *num* experiment and then the highest *round* for this experiment. In this example, automatic selection of last breakpoint fails because last experiment (`Experiment_3`) has not saved breakpoints or could not complete its first round.
 
-To load a specific breakpoint, indicate the path for this breakpoint (absolute or relative to the current directory). For example to load breakpoint after round 1 for `Experiment_1`, with current running directory `${FEDBIOMED_DIR}/notebooks` :
+To load a specific breakpoint, indicate the path for this breakpoint (absolute or relative to the current directory). For example to load breakpoint after round 1 for `Experiment_1`:
 
 ```python
 new_exp = Experiment.load_breakpoint(
-    "${FEDBIOMED_DIR}/var/experiments/Experiment_1/breakpoint_1")
+    "<researcher-component-path>/var/experiments/Experiment_1/breakpoint_1")
 ```
 
-or
+or, if the current working directory is relative to `<researcher-component-path>` :
 
 ```python
-# works if current directory is ${FEDBIOMED_DIR}/notebooks
+# works if current directory is <researcher-component-path>
 new_exp = Experiment.load_breakpoint(
-    "../var/experiments/Experiment_1/breakpoint_1")
+    "./var/experiments/Experiment_1/breakpoint_1")
 ```
 
 Optionally check experimentation loaded from the breakpoint :
@@ -106,30 +106,11 @@ Optionally check experimentation loaded from the breakpoint :
 print(f'Experimentation path {new_exp.experimentation_path()}')
 ```
 
-If running a python script from another directory than `${FEDBIOMED_DIR}/notebooks` and using a relative path,
-then adapt the relative path accordingly.
-For example if the experiment is launched from the `${FEDBIOMED_DIR}` directory :
-```bash
-cd ${FEDBIOMED_DIR}
-python ./notebooks/my_example.py  # script from where the model is launched
-```
-
-then the current directory needs to be relative to `${FEDBIOMED_DIR}` :
-
-```python
-new_exp = Experiment.load_breakpoint(
-    "./var/experiments/Experiment_1/breakpoint_1")
-```
-
-
 
 ## Limitations
 
-!!! info
-    Breakpoints currently do not support copying to another path, as they use absolute path. 
 
-
-For example this **doesn't work** in the current version :
+Breakpoints currently do not support copying to another path, as they use absolute path. For example this **doesn't work** in the current version :
 
 ```shell
 !mv ./var/experiments/Experiment_1 ./var/experiments/mydir

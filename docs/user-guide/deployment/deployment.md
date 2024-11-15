@@ -7,7 +7,7 @@ Fed-BioMed can be deployed in different ways:
 
 Choose a scenario depending on the context and requirements:
 
-* **Single-machine without VPN/containers is the [basic simple installation scenario](../../tutorials/installation/0-basic-software-installation.md)** described in the introduction tutorials. Use cases include: newcomer testing Fed-BioMed software ; FL researcher designing and testing FL methods with (non sensitive) data on the laptop ; software developer contributing to Fed-BioMed.
+* **Single-machine without VPN/containers is the [basic simple installation scenario](../../getting-started/installation.md)** described in the introduction tutorials. Use cases include: newcomer testing Fed-BioMed software ; FL researcher designing and testing FL methods with (non sensitive) data on the laptop ; software developer contributing to Fed-BioMed.
 
 * Single-machine with VPN/containers deployment is [briefly described here](https://github.com/fedbiomed/fedbiomed/blob/master/README.md#install-and-run-in-vpndevelopment-environment). The use case is the simplified testing of the VPN/containers facility (eg for testing purpose or integration tests).
 

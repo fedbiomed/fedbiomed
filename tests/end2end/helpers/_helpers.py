@@ -2,7 +2,7 @@
 Helper methods for end2end tests
 """
 
-import platform
+import pytest
 import importlib
 import shutil
 import tempfile
@@ -18,9 +18,8 @@ import functools
 from contextlib import contextmanager
 from typing import Dict, Any, Tuple, Callable, List
 
-from fedbiomed.common.constants import VAR_FOLDER_NAME, TENSORBOARD_FOLDER_NAME, ComponentType
+from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.config import Config
-from fedbiomed.common.utils import ROOT_DIR
 
 from ._execution import (
     shell_process,
@@ -28,8 +27,6 @@ from ._execution import (
     execute_in_paralel,
 )
 from .constants import CONFIG_PREFIX, End2EndError
-
-temporary_test_directory = tempfile.TemporaryDirectory()
 
 class PytestThread(threading.Thread):
     """Extension of Thread for PyTest to be able to fail thread properly"""
@@ -61,7 +58,7 @@ def add_dataset_to_node(
     with open(d_file, "w", encoding="UTF-8") as file:
         json.dump(dataset, file)
 
-    command = ["node", "--config", config.root, "dataset", "add", "--file", d_file]
+    command = ["node", "--path", config.root, "dataset", "add", "--file", d_file]
     _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
     tempdir_.cleanup()
 
@@ -78,7 +75,7 @@ def start_nodes(
     configs: list[Config],
     interrupt_all_on_fail: bool = True,
     on_failure: Callable = default_on_failure
-) -> multiprocessing.Process:
+) -> Tuple[multiprocessing.Process, PytestThread]:
     """Starts the nodes by given list of configs
 
     Args:
@@ -91,11 +88,11 @@ def start_nodes(
         if 'fail_my_component' in c.root:
             processes.append(
                 fedbiomed_run(
-                    ['node', "--config", c.root, 'unkown-commnad'], pipe=False))
+                    ['node', "--path", c.root, 'unkown-commnad'], pipe=False))
         else:
             processes.append(
                 fedbiomed_run(
-                    ["node", "--config", c.root, "start"], pipe=False))
+                    ["node", "--path", c.root, "start"], pipe=False))
 
     t = PytestThread(
         target=execute_in_paralel,
@@ -167,34 +164,44 @@ def clear_experiment_data(exp: 'Experiment'):
     print("Will wait 10 seconds to cancel current RPC requests")
 
     # Stop GRPC server and remove request object for next experiments
-
     if not exp._reqs._grpc_server._server._loop.is_closed():
-
         future = asyncio.run_coroutine_threadsafe(
             exp._reqs._grpc_server._server.stop(10),
             exp._reqs._grpc_server._server._loop
         )
+        print("##### FBM: Waiting for server to stop, timeout after 10 seconds")
+        try:
+            future.result(10)
+        except Exception as e:
+            print(
+                "#### FBM: Exception has raised while stopping gRPC server."
+                f"Timeout: 10, Error: {e}"
+            )
+            try:
+                exp._reqs._grpc_server._server._loop.stop()
+            except Exception as e:
+                print(f"#### FBM: Error while closing loop: {e}")
 
-        future.result()
+        print("##### FBM: Researcher server has stopped")
 
     # Need to remove request
-    print("Removing request object")
+    print("##### FBM: Removing request object")
     from fedbiomed.researcher.requests import Requests
     if Requests in Requests._objects:
         del Requests._objects[Requests]
 
-    #tensorboard_folder = os.path.join(config.root, TENSORBOARD_FOLDER_NAME)
-    #tensorboard_files = os.listdir(tensorboard_folder)
-    #for file in tensorboard_files:
+    # tensorboard_folder = os.path.join(config.root, TENSORBOARD_FOLDER_NAME)
+    # tensorboard_files = os.listdir(tensorboard_folder)
+    # for file in tensorboard_files:
     #    shutil.rmtree(os.path.join(tensorboard_folder, file))
-    #print("[INFO] Removing folder content ", tensorboard_folder)
+    # print("[INFO] Removing folder content ", tensorboard_folder)
 
     # remove breakpoints folder created during experimentation from the default folder (if any)
-    #_exp_dir = os.path.join(config.root, VAR_FOLDER_NAME, "experiments")
-    #current_experimentation_folder = os.path.join(_exp_dir, exp._experimentation_folder)
+    # _exp_dir = os.path.join(config.root, VAR_FOLDER_NAME, "experiments")
+    # current_experimentation_folder = os.path.join(_exp_dir, exp._experimentation_folder)
 
-    #print("[INFO] Removing breakpoints", current_experimentation_folder)
-    #if os.path.isdir(current_experimentation_folder):
+    # print("[INFO] Removing breakpoints", current_experimentation_folder)
+    # if os.path.isdir(current_experimentation_folder):
     #    shutil.rmtree(current_experimentation_folder)
 
 
@@ -259,13 +266,13 @@ def create_researcher(
 
     researcher = create_component(
         ComponentType.RESEARCHER,
-        directory=temporary_test_directory.name,
+        directory=pytest.temporary_test_directory.name,
         component_name=f"config_researcher_{uuid.uuid4()}.ini",
         config_sections=config_sections,
     )
     os.environ['FBM_RESEARCHER_COMPONENT_ROOT'] = researcher.root
     from fedbiomed.researcher.config import config
-    config.load(path=researcher.root)
+    config.load(root=researcher.root)
 
     return researcher
 
@@ -287,12 +294,12 @@ def training_plan_operation(
         raise ValueError('The argument operation should be one of apprive or reject')
 
 
-    command = ["node", "--config", config.root, "training-plan",
+    command = ["node", "--path", config.root, "training-plan",
                operation, "--id", training_plan_id]
     _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
 
 
-def get_data_folder(path):
+def get_data_folder(path, root: str | None = None):
     """Gets path to save datasets, and creates folder if not existing
 
 
@@ -303,7 +310,9 @@ def get_data_folder(path):
     if ci_data_path:
         folder = os.path.join(ci_data_path, path)
     else:
-        folder = os.path.join(ROOT_DIR, 'data', path)
+        if not root:
+            root = pytest.temporary_test_directory.name
+        folder = os.path.join(root, 'data', path)
 
     if not os.path.isdir(folder):
         print(f"Data folder for {path} is not existing. Creating folder...")
@@ -316,7 +325,7 @@ def create_node(port, config_sections:Dict | None = None):
 
     c_com = functools.partial(create_component,
         component_type=ComponentType.NODE,
-        directory=temporary_test_directory.name,
+        directory=pytest.temporary_test_directory.name,
         component_name=f"config_e2e_{uuid.uuid4()}.ini")
 
     config_sections = config_sections or {}

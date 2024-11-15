@@ -15,15 +15,6 @@ class End2EndErrorExit(SystemExit):
     pass
 
 
-FEDBIOMED_RUN = os.path.abspath(
-    os.path.join(__file__, "..", "..", "..", "..", "scripts", "fedbiomed_run")
-)
-
-FEDBIOMED_ENVIRONMENT = os.path.abspath(
-    os.path.join(__file__, "..", "..", "..", "..", "scripts", "fedbiomed_environment")
-)
-
-
 def collect(process, on_failure: Optional[Callable] = None) -> bool:
     """Collects process results. Waits until processes finishes and
     checks returncode
@@ -55,10 +46,12 @@ def execute_in_paralel(
     interrupt_all_on_fail: bool = True
 ):
     """Execute commands in parallel"""
+
+    print(f"\n ##### Starting executing process for num: {len(processes)}")
     def error_callback(err):
         if interrupt_all_on_fail:
             kill_subprocesses(processes)
-        print(f"One of the parallel processes has faild. {err}")
+        print(f"##### Error: One of the parallel processes has faild. {err}")
 
     def collect_result(process):
         collect(process, on_failure)
@@ -79,6 +72,7 @@ def kill_subprocesses(processes):
         processes: List of subprocesses to kill
     """
     for p in processes:
+        print(f"\n ##### Killing subprocess: {p}")
         kill_process(p)
 
 def kill_process(process):
@@ -86,22 +80,21 @@ def kill_process(process):
 
     if not psutil.pid_exists(process.pid):
         cmdl = process.cmdline() if hasattr(process, 'cmdline') else process
-        print(f"Process is no longer available {cmdl}")
+        print(f"\n ###### Process is no longer available {cmdl}")
         return
 
     parent = psutil.Process(process.pid)
-    print(f'Checking child process of parent "{parent.cmdline()}"')
+    print(f'\n ##### Checking child process of parent "{parent.cmdline()}"')
     for child in parent.children(recursive=True):
-        print(f"Killing child process {child.cmdline()}")
+        print(f"\n ##### Killing child process {child.cmdline()}")
         child.kill()
 
     try:
         parent.kill()
-    except psutil.NoSuchProcess:
-        print('Parent process no longer existing after killing child procesess')
     except psutil.ZombieProcess:
-        print('Parent process has became zombie process after killing child procesess')
-
+        print('\n Parent process has became zombie process after killing child procesess')
+    except psutil.NoSuchProcess:
+        print('\n Parent process no longer existing after killing child procesess')
 
 def shell_process(
     command: list,

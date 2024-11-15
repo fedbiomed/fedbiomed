@@ -21,18 +21,19 @@ from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.secagg import SecureAggregation, SecureAggregationSchemes as SecAggSchemes
 
-dataset = {
-    "name": "MNIST",
-    "description": "MNIST DATASET",
-    "tags": "#MNIST,#dataset",
-    "data_type": "default",
-    "path": get_data_folder('MNIST-e2e-test')
-}
+
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
 def setup(port, post_session, request):
     """Setup fixture for the module"""
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+    }
 
     # Configure secure aggregation
     print("Configure secure aggregation ---------------------------------------------")
@@ -76,6 +77,14 @@ def setup(port, post_session, request):
 def extra_node_force_secagg(port):
     """Fixture to add extra node which forces secagg"""
 
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+    }
+
     node_3 = create_node(
         port=port,
         config_sections={
@@ -102,6 +111,14 @@ def extra_node_force_secagg(port):
 def extra_node_no_validation(port):
     """Fixture to add extra node which disables validation"""
 
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+    }
+
     node_3 = create_node(
         port=port,
         config_sections={
@@ -127,7 +144,16 @@ def extra_node_no_validation(port):
 @pytest.fixture
 def extra_nodes_for_lom(port):
 
-   with create_multiple_nodes(
+
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+    }
+
+    with create_multiple_nodes(
         port,
         3,
         config_sections={
@@ -152,6 +178,14 @@ def extra_nodes_for_lom(port):
 
 @pytest.fixture
 def extra_nodes_for_lom_8_nodes(port):
+
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+    }
 
     with create_multiple_nodes(
         port = port,
