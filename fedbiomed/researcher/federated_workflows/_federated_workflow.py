@@ -125,7 +125,7 @@ class FederatedWorkflow(ABC):
         experimentation_folder: Union[str, None] = None,
         secagg: Union[bool, SecureAggregation] = False,
         save_breakpoints: bool = False,
-        config_name: str | None = None
+        config_path: str | None = None
     ) -> None:
         """Constructor of the class.
 
@@ -171,8 +171,8 @@ class FederatedWorkflow(ABC):
                 file will be generated if it is not existing.
         """
 
-        if config_name:
-            config.load(name=config_name)
+        if config_path:
+            config.load(root=config_path)
 
         self.config = config
         # predefine all class variables, so no need to write try/except

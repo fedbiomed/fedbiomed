@@ -18,9 +18,6 @@ runs:
       if: ${{ runner.os != 'Windows' }}
       shell: bash -l {0}
       run: |
-
-        whoami
-
         # Function to install required packages for Linux
         install_linux_packages() {
           echo "Installing required packages for Ubuntu/Debian..."
@@ -37,7 +34,7 @@ runs:
             llvm \
             libffi-dev \
             liblzma-dev \
-            python-openssl \
+            python3-openssl \
             python3-tk
         }
 
@@ -71,12 +68,12 @@ runs:
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           fi
 
-          brew install \
-            openssl \
-            readline \
-            sqlite3 \
-            xz \
-            zlib
+          #brew install \
+          #  openssl \
+          #  readline \
+          #  sqlite3 \
+          #  xz \
+          #  zlib
         }
 
         # Check the operating system and install packages accordingly
@@ -128,6 +125,9 @@ runs:
         pyenv install -s ${{ inputs.python-version }}
         pyenv global ${{ inputs.python-version }}
 
+        # Install it for tox
+        python3 -m pip install colorama
+
         # Install tox if not already installed
         if ! command -v tox &> /dev/null; then
           echo "Installing tox..."
@@ -141,5 +141,5 @@ runs:
     - name: Validate Python installation
       shell: bash -l {0}
       run: |
-        pyenv global 3.10
+        pyenv local 3.10
         python --version

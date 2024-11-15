@@ -20,20 +20,26 @@ In this tutorial you learn how to launch Fed-BioMed components using the `fedbio
 
 ### Node
 
-First, one or more nodes shall be started and configured to provide datasets for the experiments.
+one or more nodes need to be started and configured to provide datasets for the experiments. By default, a Fed-BioMed node does not share any dataset for experiments. Adding one or more datasets to a node specifies the data that the node will make available for experiments to train future models.
 
-By default, a Fed-BioMed node does not provide any dataset to experiments. By adding one or more datasets to a node, you indicate which data a Fed-BioMed node provides to experiments for training future model.
-
-When you stop and restart a node, data sharing configuration is retained : previously added datasets remain available for next experiments.
+When you stop and restart a node, the data sharing configuration is retained: previously added datasets remain available for subsequent experiments.
 
 #### Starting a first node
 
-Launch a node with :
+Starting a node using the command below will create a default component directory if it does not already exist. All component-related configurations and files will be stored in this directory, which will be created in the location where the command is executed. The default component folder name for node is `fbm-node`.
+
 ````
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node start
+$ fedbiomed node start
 ````
 
-You should get the following output;
+
+You can specify a different directory using the `--path` or `-d` option. If a component already exists in the specified directory, the CLI will use that component; otherwise, it will create a new one in the given directory. The directory path can be either relative or absolute.
+
+```
+$ fedbiomed node --path <path-to-my-component> start
+```
+
+After executing any command to start a node, you should see the following output:
 
 ```
 2023-10-20 10:20:09,889 fedbiomed DEBUG - Reading default biprime file "biprime0.json"
@@ -48,7 +54,7 @@ You should get the following output;
 
 
 
-	- ID Your node ID: <node_id> 
+	- ID Your node ID: <node_id>
 
 2023-10-20 10:20:12,658 fedbiomed INFO - Node started as process with pid = <pid>
 To stop press Ctrl + C.
@@ -73,7 +79,10 @@ Same datasets will be automatically provided at subsequent starts of the node.
 
 Begin adding a dataset to the node with this command :
 ```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset add
+$ fedbiomed node dataset add
+
+# or explicitly specify the component directory
+# fedbiomed node --path fbm-node dataset add
 
 ```
 
@@ -113,24 +122,23 @@ MNIST   default     ['#MNIST', '#dataset']   MNIST database     [60000, 1, 28, 2
 
 You can check at any time which datasets are provided by a node with :
 ```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset list
+$ fedbiomed node dataset list
 ```
 
-When no dataset is provided by the node, the command `${FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset list` will answer `No data has been set up.` as its final output line.
+When no dataset is provided by the node, the command `fedbiomed node dataset list` will answer `No data has been set up.` as its final output line.
 
 
 #### Starting more nodes
 
-To launch and configure more than one node, specify a different (non-default) configuration file for all commands related a the subsequent node.
+To launch and configure more than one node, specify a different (non-default) configuration file for all commands related to the subsequent node. For example, to launch and add a dataset to a second node, replace <path-to-my-second-component> with a relative or absolute path to the component folder. The folder will be created if it does not already exist.
 
-For example to launch and add a dataset to a second node using the `config2.ini` configuration file :
 ```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config2.ini start
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config2.ini dataset list
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config2.ini dataset add
+$ fedbiomed node --path <path-to-my-second-component> start
+$ fedbiomed node -d <path-to-my-second-component> dataset list
+$ fedbiomed node -d <path-to-my-second-component>  dataset add
 ```
 
-**Warning : if you launch more than one node with the same configuration file, no error is detected, but the nodes are not functional**
+**Warning : if you launch more than one node with the same directory specification, no error is detected, but the nodes are not functional**
 
 
 ### Researcher
@@ -139,7 +147,7 @@ Once the nodes are ready, you can start working with the researcher.
 
 Launch the researcher jupyter notebook console with :
 ```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run researcher start
+$ fedbiomed researcher start
 ```
 
 For next tutorials, create a new notebook (`New > Notebook` and `Python3 kernel` in the top right corner of the jupyter notebook), and cut/paste the tutorial code snippets in the notebook.
@@ -151,7 +159,7 @@ Several example notebooks are also provided with Fed-BioMed.
 
 ### A word on working with environments
 
-This tutorial explained how to launch Fed-BioMed components using the `fedbiomed_run` script.
+This tutorial explained how to launch Fed-BioMed components using the `fedbiomed` command.
 Behind the hood, each Fed-BioMed component runs in its own environment (conda, variables).
 
 If at some point you want to work interactively in the same environment as a Fed-BioMed component
@@ -201,9 +209,9 @@ When you restart a node after cleaning the Fed-BioMed instance, the node doesn't
 After cleaning your Fed-BioMed environment, restart a node and the researcher to be ready for the next tutorial ... do you remember the commands ?
 
 ```
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset add
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run node start
-$ ${FEDBIOMED_DIR}/scripts/fedbiomed_run researcher start
+$ fedbiomed node dataset add
+$ fedbiomed node start
+$ fedbiomed researcher start
 ```
 
 ## What's Next?

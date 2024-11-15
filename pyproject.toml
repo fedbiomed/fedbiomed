@@ -3,35 +3,34 @@ name = "fedbiomed"
 version = "v5.3.0"
 description = "Collaborative learning"
 authors = [
+	{name = "Lucie Chambon <lucie.chambon@inria.fr>"},
+	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
+	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
    	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
-	{name = "Marc Vesion", email = "marc.vesion@infira.fr"},
-#	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
-#	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
-#	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
-#	{name = "Lucie Chambon <lucie.chambon@inria.fr>"},
-#	{name = "Riccardo Taiello <riccardo.taiello@inria.fr>"},
-#	{name = "Erwan Demairy <erwan.demairy@inria.fr>"},
-#	{name = "Thibaud Kloczko <thibaud.kloczko@inria.fr>"},
-#	{name = "Paul Andrey <paul.andrey@inria.fr>"},
-#	{name = "Jean-Luc Szpyrka <jean-juc.szpyrka@inria.fr>"},
-#	{name = "Maya Assal"},
-#	{name = "Samy-Safwan Ayed"},
-#	{name = "Irene Balelli"},
-#	{name = "Nathan Bigaud"},
-#	{name = "Tristan Cabel"},
-#	{name = "Gaurav D. Chaudary"},
-#	{name = "Nejma El Kourdachi"},
-#	{name = "Yann Fraboni"},
-#	{name = "Lena Le Quintrec"},
-#	{name = "Nathan Lapel"},
-#	{name = "Jonathan Levy"},
-#	{name = "Riham Nehmeh"},
-#	{name = "Ange Ouya"},
-#	{name = "Prapoojitha Santosha-Dasari"},
-#	{name = "Jose-Francisco Saray-Villamizar"},
-#	{name = "Andrea Senacheribbe"},
-#	{name = "Santiago-Smith Silva-Rincon"},
-#	{name = "Carlos Zubiaga"},
+	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
+	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
+	{name = "Riccardo Taiello <riccardo.taiello@inria.fr>"},
+	{name = "Erwan Demairy <erwan.demairy@inria.fr>"},
+	{name = "Thibaud Kloczko <thibaud.kloczko@inria.fr>"},
+	{name = "Paul Andrey <paul.andrey@inria.fr>"},
+	{name = "Maya Assal"},
+	{name = "Samy-Safwan Ayed"},
+	{name = "Irene Balelli"},
+	{name = "Nathan Bigaud"},
+	{name = "Tristan Cabel"},
+	{name = "Gaurav D. Chaudary"},
+	{name = "Nejma El Kourdachi"},
+	{name = "Yann Fraboni"},
+	{name = "Lena Le Quintrec"},
+	{name = "Nathan Lapel"},
+	{name = "Jonathan Levy"},
+	{name = "Riham Nehmeh"},
+	{name = "Ange Ouya"},
+	{name = "Prapoojitha Santosha-Dasari"},
+	{name = "Jose-Francisco Saray-Villamizar"},
+	{name = "Andrea Senacheribbe"},
+	{name = "Santiago-Smith Silva-Rincon"},
+	{name = "Carlos Zubiaga"},
 ]
 
 dependencies = [
@@ -40,7 +39,7 @@ dependencies = [
 	"tabulate >=0.9.0,<0.10.0",
 	"psutil ~=6.0.0",
 	"requests  ~=2.29",
-	"packaging   ~=23.1",
+	"packaging   ~=24.1",
 	"cryptography ~=40.0",
 	"pyopenssl ~=23.1.1",
 	"joblib  ~=1.2",
@@ -55,10 +54,10 @@ dependencies = [
 	"persist-queue  >=0.5.1,<0.6.0",
 	"pandas  ~=2.0.1",
 	"python-minifier  ~=2.11",
-	"declearn[torch1]  ~=2.3.2",
+	"declearn[torch1]  ~=2.6.0",
 	"gmpy2  >=2.1,< 2.2",
-	"grpcio  ~=1.60.0",
-	"grpcio-tools  ~=1.60.0",
+	"grpcio  ~=1.66",
+	"grpcio-tools  ~=1.66",
 	"unet  >=0.7.7,<0.8.0",
 	"pygments ~=2.18.0",
 	"FLamby @ git+https://github.com/owkin/FLamby@main"
@@ -73,19 +72,18 @@ researcher = [
 	"pathvalidate ~=3.0.0",
 	"matplotlib >=3.8.0,<3.8.4",
 	"tensorboard ~=2.13.0",
+	"jupyter",
+	"ipython"
 ]
 
 gui = [
 	"flask >=2.3.1,<24.0",
-	"jsonschema >=4.17.3,<4.18.0",
+	"jsonschema ~=4.18.0",
 	"Flask-JWT-Extended >=4.4.4,<4.5.0",
 	"cachelib >=0.10.2,<0.11.0",
 	"gunicorn ~=23.0.0"
 ]
 
-jupyter = [
-	"jupyter",
-]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -106,6 +104,7 @@ docs = [
 	"mkdocs-jupyter==0.24.1",
 	"mkdocs-minify-plugin==0.6.4",
 	"mkdocstrings-python==1.10.8",
+	"mkdocs-redirects==1.2.2",
 ]
 
 [project.scripts]

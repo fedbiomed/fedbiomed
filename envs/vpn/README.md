@@ -284,7 +284,7 @@ my_training_plan.txt
 ```
 - register a new training plan with :
 ```bash
-[user@node-container $] ./scripts/fedbiomed_run node training-plan register
+[user@node-container $] fedbiomed node -d fbm-node training-plan register
 ```
 - when prompted for the path of the training plan, indicate the `.txt` export of the training plan file (`/data/my_training_plan.txt` in our example)
 

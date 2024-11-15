@@ -4,6 +4,7 @@
 """
 Command line user interface for the node component
 """
+
 import argparse
 import json
 import os
@@ -11,7 +12,6 @@ import signal
 import sys
 import time
 import subprocess
-import importlib.util
 
 from multiprocessing import Process
 from typing import Union, List, Dict
@@ -20,16 +20,16 @@ from pathlib import Path
 
 
 from fedbiomed.node.node import Node
-from fedbiomed.node.config import NodeConfig
+from fedbiomed.node.config import NodeConfig, node_component
 
 
-from fedbiomed.common.constants import ErrorNumbers, ComponentType, DEFAULT_CONFIG_FILE_NAME_NODE
+from fedbiomed.common.constants import ErrorNumbers, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.cli import (
     CommonCLI,
     CLIArgumentParser,
-    ConfigNameAction,
+    ComponentDirectoryAction,
 )
 
 from fedbiomed.node.cli_utils import (
@@ -43,6 +43,7 @@ from fedbiomed.node.cli_utils import (
     view_training_plan,
     delete_training_plan
 )
+import fedbiomed
 
 # Please use following code genereate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -76,16 +77,13 @@ def _node_signal_trigger_term() -> None:
     os.kill(os.getpid(), signal.SIGTERM)
 
 
-def start_node(name, node_args):
+def start_node(config, node_args):
     """Starts the node
 
     Args:
         name: Config name for the node
         node_args: Arguments for the node
     """
-
-    config = NodeConfig(name=name, auto_generate=False)
-    config.read()
 
     _node = Node(config, node_args)
 
@@ -136,7 +134,9 @@ def start_node(name, node_args):
         else:
             logger.warning('Training plan approval for train request is not activated. ' +
                            'This might cause security problems. Please, consider to enable training plan approval.')
+
         logger.info('Starting communication channel with network')
+
         _node.start_messaging(_node_signal_trigger_term)
         logger.info('Starting node to node router')
         _node.start_protocol()
@@ -461,7 +461,7 @@ class NodeControl(CLIArgumentParser):
         p = Process(
             target=start_node,
             name=f'node-{self._node.config.get("default", "id")}',
-            args=(self._node.config.name, node_args)
+            args=(self._node.config, node_args)
         )
         p.deamon = True
         p.start()
@@ -569,8 +569,8 @@ class GUIControl(CLIArgumentParser):
 
         TODO: Implement argument GUI parseing and execution
         """
-
-        fedbiomed_root = os.path.abspath(args.config)
+        print(fedbiomed.__file__)
+        fedbiomed_root = os.path.abspath(args.directory)
 
         os.environ.update({
             "DATA_PATH": os.path.abspath(args.data_folder),
@@ -583,11 +583,23 @@ class GUIControl(CLIArgumentParser):
         else:
             certificate = []
 
+        main_path = Path(fedbiomed.__file__)
+        if 'gui' in os.listdir(main_path.parent.parent):
+            server_app = os.path.join(main_path.parent.parent, 'gui')
+        elif 'gui' in os.listdir(main_path.parent.parent):
+            server_app = os.path.join(main_path.parent.parent, 'gui')
+        else:
+            print(
+                "Error: Can not find GUI installation."
+                "Fed-BioMed inslation may be corrupted" )
+            sys.exit(1)
+
         host_port = ["--host", args.host, "--port", args.port]
         if args.development:
             command = [
                 "FLASK_ENV=development",
-                f"FLASK_APP={gui_server.__file__}",
+                f"FLASK_APP="
+                f"{os.path.join(server_app, 'server', 'wsgi.py')}",
                 "flask",
                 "run",
                 *host_port,
@@ -626,7 +638,7 @@ class NodeCLI(CommonCLI):
     def __init__(self):
         super().__init__()
 
-        self._parser.prog = "fedbiomed_run node"
+        self._parser.prog = "fedbiomed node"
         self.description = f"{__intro__} \nA CLI app for fedbiomed node component."
         # Parent parser for parameters that are common for Node CLI actions
         self.initialize()
@@ -635,7 +647,7 @@ class NodeCLI(CommonCLI):
         """Initializes node module"""
 
 
-        class ConfigNameActionNode(ConfigNameAction):
+        class ComponentDirectoryActionNode(ComponentDirectoryAction):
 
             _this = self
             _component = ComponentType.NODE
@@ -651,26 +663,33 @@ class NodeCLI(CommonCLI):
                     component_dir =  os.path.join(os.getcwd(), 'fbm-node')
                     os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
 
-                config = NodeConfig(path=component_dir)
+                config = node_component.initiate(component_dir)
                 self._this.config = config
                 node = Node(config)
 
                 # Set node object to make it accessible
-                setattr(ConfigNameActionNode._this, '_node', node)
+                setattr(ComponentDirectoryActionNode._this, '_node', node)
                 os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = \
                     config.get("default", "id")
 
                 # Set node in all subparsers
-                for _, parser in ConfigNameActionNode._this._arg_parsers.items():
+                for _, parser in ComponentDirectoryActionNode._this._arg_parsers.items():
                     setattr(parser, '_node', node)
 
         super().initialize()
 
         self._parser.add_argument(
-            "--config",
-            "-c",
+            "--path",
+            "-p",
             nargs="?",
-            action=ConfigNameActionNode,
-            default=DEFAULT_CONFIG_FILE_NAME_NODE,
-            help="Name of the config file that the CLI will be activated for."
-                 f"Default is '{DEFAULT_CONFIG_FILE_NAME_NODE}.")
+            action=ComponentDirectoryActionNode,
+            default="fbm-node",
+            help="Name of the config file that the CLI will be activated for. "
+                "Default is 'config_node.ini'."
+        )
+
+
+
+if __name__ == '__main__':
+    cli = NodeCLI()
+    cli.parse_args()
