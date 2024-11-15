@@ -38,26 +38,29 @@ RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
 
 COPY ./envs/vpn/docker/node/build_files/entrypoint*.bash /
 # Setup subset of fedbiomed code tree
-RUN mkdir -p /fedbiomed/envs /data
+RUN mkdir -p /fedbiomed/envs /data /fbm-node
+
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
 COPY envs/common /fedbiomed/envs/common
 COPY envs/common /fedbiomed/envs/common_reference
 COPY fedbiomed /fedbiomed/fedbiomed
+COPY notebooks /fedbiomed/notebooks
+COPY docs/tutorials /fedbiomed/docs/tutorials
 COPY scripts /fedbiomed/scripts
 COPY gui /fedbiomed/gui
 COPY pyproject.toml /fedbiomed/pyproject.toml
 COPY README.md /fedbiomed/README.md
-
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for
 #    a long time if you have zillion files in notebooks/data)
 #  - ensures using develop branch (good or bad)
 
+
 # Prepare for work in context of alternate account
+RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fbm-node # Fed-BioMed node directory
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
-USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Installs fedbiomed and necessary modules
 RUN /bin/pip install -I .
@@ -67,6 +70,9 @@ ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
 ENV CONTAINER_BUILD_GROUP=${CONTAINER_GROUP}
 ENV CONTAINER_BUILD_UID=${CONTAINER_UID}
 ENV CONTAINER_BUILD_GID=${CONTAINER_GID}
+
+# Changedir to main directory
+WORKDIR /
 
 # Launch as root to manage VPN
 USER root:root

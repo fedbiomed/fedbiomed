@@ -164,6 +164,7 @@ services:
         - CONTAINER_GID
         - CONTAINER_USER
         - CONTAINER_GROUP
+        - PYTHON_VERSION
     image: fedbiomed/vpn-gui
     environment:
     # enable overloading build-time id with a run-time id
@@ -242,6 +243,5 @@ services:
       - /dev/net/tun
     volumes:
       - ./researcher/run_mounts/config:/config # contains VPN configurations
-      - ./researcher/run_mounts/data:/data # results and persistent data can be saved here
       - ./researcher/run_mounts/samples:/fedbiomed/notebooks/samples # contains researcher sample notebooks
       - ./researcher/run_mounts/fbm-researcher:/fbm-researcher # contains researcher sample notebooks

@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM python:3.10-slim-bullseye
 
 # nginx + flask HTTP server for node1
 EXPOSE 8484
@@ -13,6 +13,7 @@ ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP
 ARG CONTAINER_USER
+
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
 # + make it persistent at runtime (pass this variable to container)
@@ -22,13 +23,11 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
-RUN apt-get update && apt-get install -y apt-utils wget procps systemd gettext-base \
-	libgmp3-dev libmpfr-dev libmpc-dev apt-utils wget git \
-	python-tk python${PYTHON_VERSION} python3-pip
+RUN apt-get update && apt-get install -y gcc apt-utils wget procps systemd \
+	gettext-base libgmp3-dev libmpfr-dev libmpc-dev apt-utils wget git
 
-# Create alias
-RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python && \
-    ln -sf /usr/bin/pip3 /usr/bin/pip
+
+RUN python --version
 
 # Install Nginx along with the missing dependencies
 RUN apt-get install nginx -y --fix-missing
@@ -43,18 +42,19 @@ RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
         -u $CONTAINER_UID -g $CONTAINER_GID -s /bin/bash $CONTAINER_USER || :
 
 
-
 COPY ./envs/vpn/docker/gui/build_files/entrypoint*.bash /
 
-
 # Setup subset of fedbiomed code tree
-RUN mkdir -p /fedbiomed/envs /data
+RUN mkdir -p /fedbiomed/envs /data /fbm-node
+
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
 COPY envs/common /fedbiomed/envs/common
 COPY envs/common /fedbiomed/envs/common_reference
 COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
+COPY notebooks /fedbiomed/notebooks
+COPY docs/tutorials /fedbiomed/docs/tutorials
 COPY gui /fedbiomed/gui
 COPY pyproject.toml /fedbiomed/pyproject.toml
 COPY README.md /fedbiomed/README.md
@@ -68,24 +68,18 @@ COPY README.md /fedbiomed/README.md
 COPY  ./envs/vpn/docker/gui/build_files/nginx /fedbiomed/nginx
 
 # Prepare for work in context of alternate account
+RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fbm-node # Fed-BioMed node directory
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
-USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Installs fedbiomed and necessary modules
-RUN /bin/pip install -I '.[gui]'
+RUN pip install '.[gui]'
+
+# Changedir to main directory
+WORKDIR /
 
 # Create link to access and error log
 # RUN ln -sf /dev/stdout /var/log/nginx/access.log && ln -sf /dev/stderr /var/log/nginx/error.log
-
-# Configure conda env in context of alternate account
-# another option : add tag to configure script to call "./scripts/configure_conda fedbiomed-node"
-RUN conda env update --file ./envs/vpn/conda/fedbiomed-gui.yaml && \
-	pip cache purge && conda clean -a -y
-# need clean/purge to be in the same command line to shrink image
-
-# `data-folder` and `config` are not used when doing `install-only`
-RUN ./scripts/fedbiomed_gui data-folder /data config DUMMY install-only start
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

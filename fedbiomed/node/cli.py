@@ -4,6 +4,7 @@
 """
 Command line user interface for the node component
 """
+
 import argparse
 import json
 import os
@@ -84,7 +85,7 @@ def start_node(name, node_args):
         node_args: Arguments for the node
     """
 
-    config = NodeConfig(name=name, auto_generate=False)
+    config = NodeConfig(path=name, auto_generate=False)
     config.read()
 
     _node = Node(config, node_args)
@@ -136,7 +137,9 @@ def start_node(name, node_args):
         else:
             logger.warning('Training plan approval for train request is not activated. ' +
                            'This might cause security problems. Please, consider to enable training plan approval.')
+
         logger.info('Starting communication channel with network')
+
         _node.start_messaging(_node_signal_trigger_term)
         logger.info('Starting node to node router')
         _node.start_protocol()
