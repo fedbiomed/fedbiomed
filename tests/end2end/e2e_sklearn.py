@@ -213,7 +213,9 @@ def test_03_sklean_sgdregressor():
     exp.run()
     exp_folder = exp.experimentation_path()
 
-    loaded_exp = Experiment.load_breakpoint(os.path.join(exp_folder, 'breakpoint_0002'))
+    loaded_exp = Experiment.load_breakpoint(
+        os.path.join(exp_folder, 'breakpoint_0002')
+    )
     loaded_exp.run_once(increase=True)
 
 
@@ -337,7 +339,6 @@ def test_07_sklearn_adni_regressor_with_declearn_optimizer():
                      node_selection_strategy=None)
 
     exp.run()
-
     clear_experiment_data(exp)
 
 def test_08_sklearn_adni_regressor_with_scaffold():
@@ -379,6 +380,5 @@ def test_09_seklearn_adni_regressor_with_secureaggregation():
                      node_selection_strategy=None)
 
     exp.run()
-
     clear_experiment_data(exp)
 

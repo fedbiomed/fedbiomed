@@ -143,7 +143,8 @@ def setup(post_session, port, request):
 
         # start nodes and give some time to start
         node_processes, _ = start_nodes([node_1, node_2])
-        time.sleep(10)
+        print("Waiting for nodes to start")
+        time.sleep(15)
 
 
         yield
