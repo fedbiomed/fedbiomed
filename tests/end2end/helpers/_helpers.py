@@ -2,7 +2,7 @@
 Helper methods for end2end tests
 """
 
-import platform
+import pytest
 import importlib
 import shutil
 import tempfile
@@ -18,9 +18,8 @@ import functools
 from contextlib import contextmanager
 from typing import Dict, Any, Tuple, Callable, List
 
-from fedbiomed.common.constants import VAR_FOLDER_NAME, TENSORBOARD_FOLDER_NAME, ComponentType
+from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.config import Config
-from fedbiomed.common.utils import ROOT_DIR
 
 from ._execution import (
     shell_process,
@@ -28,8 +27,6 @@ from ._execution import (
     execute_in_paralel,
 )
 from .constants import CONFIG_PREFIX, End2EndError
-
-temporary_test_directory = tempfile.TemporaryDirectory()
 
 class PytestThread(threading.Thread):
     """Extension of Thread for PyTest to be able to fail thread properly"""
@@ -259,7 +256,7 @@ def create_researcher(
 
     researcher = create_component(
         ComponentType.RESEARCHER,
-        directory=temporary_test_directory.name,
+        directory=pytest.temporary_test_directory.name,
         component_name=f"config_researcher_{uuid.uuid4()}.ini",
         config_sections=config_sections,
     )
@@ -294,7 +291,7 @@ def training_plan_operation(
     _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
 
 
-def get_data_folder(path):
+def get_data_folder(path, root: str | None = None):
     """Gets path to save datasets, and creates folder if not existing
 
 
@@ -305,7 +302,9 @@ def get_data_folder(path):
     if ci_data_path:
         folder = os.path.join(ci_data_path, path)
     else:
-        folder = os.path.join(ROOT_DIR, 'data', path)
+        if not root:
+            root = pytest.temporary_test_directory.name
+        folder = os.path.join(root, 'data', path)
 
     if not os.path.isdir(folder):
         print(f"Data folder for {path} is not existing. Creating folder...")
@@ -318,7 +317,7 @@ def create_node(port, config_sections:Dict | None = None):
 
     c_com = functools.partial(create_component,
         component_type=ComponentType.NODE,
-        directory=temporary_test_directory.name,
+        directory=pytest.temporary_test_directory.name,
         component_name=f"config_e2e_{uuid.uuid4()}.ini")
 
     config_sections = config_sections or {}

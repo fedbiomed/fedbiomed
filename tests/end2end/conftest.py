@@ -7,20 +7,16 @@ import re
 import os
 import glob
 import importlib
+import tempfile
 
 import pytest
 import psutil
-import configparser
 
 from helpers import  (
     kill_process,
     CONFIG_PREFIX,
-    clear_component_data,
-    temporary_test_directory
 )
 
-from fedbiomed.common.constants import ComponentType, ComponentType
-from fedbiomed.common.utils import CONFIG_DIR
 
 
 _PORT = 50052
@@ -33,9 +29,12 @@ def port():
     _PORT += 1
     return str(_PORT)
 
+@pytest.fixture(scope='module', autouse=True)
+def data():
+    pytest.temporary_test_directory = tempfile.TemporaryDirectory()
 
 @pytest.fixture(scope='module', autouse=True)
-def post_session(request):
+def post_session(request, data):
     """This method makes sure that the environment is clean to execute another test"""
 
     kill_e2e_test_processes()
@@ -44,8 +43,10 @@ def post_session(request):
     yield
 
     kill_e2e_test_processes()
-    temporary_test_directory.cleanup()
-    print('Module tests have finished --------------------------------------------')
+    print("\n\n ######### Cleaning temprorary directory: started -----\n\n")
+    pytest.temporary_test_directory.cleanup()
+    print("\n\n ######### Cleaning temprorary directory: finished  -----\n\n")
+    print(f'Module tests have finished {request.node}:{request.node.name} --------')
 
 
 def kill_e2e_test_processes():
