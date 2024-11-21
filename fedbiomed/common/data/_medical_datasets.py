@@ -7,6 +7,7 @@ Provides classes managing dataset for common cases of use in healthcare:
 - NIFTI: For NIFTI medical images
 """
 from os import PathLike
+import os
 from pathlib import Path
 from typing import Union, Tuple, Dict, Iterable, Optional, List, Callable
 from enum import Enum
@@ -755,15 +756,29 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         Returns:
             Subject image data as victories where keys represent each modality.
         """
+        # FIXME: improvment suggestion of this function at #1279
+
         subject_data = {}
 
         for modality in modalities:
             modality_folder = self._subject_modality_folder(subject_folder, modality)
             image_folder = subject_folder.joinpath(modality_folder)
-            nii_files = [p.resolve() for p in image_folder.glob("**/*")
-                         if ''.join(p.suffixes) in self.ALLOWED_EXTENSIONS]
+            nii_files = [p.resolve() for p in image_folder.glob("**/*")]
 
             # Load the first, we assume there is going to be a single image per modality for now.
+
+            nii_files = tuple(
+                img for img in nii_files if any(str(img).endswith(fmt) for fmt in self.ALLOWED_EXTENSIONS)
+                              )
+            if len(nii_files) < 1:
+                raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: folder {os.path.join(image_folder, modality)}"
+                                            " is empty, but should contain an niftii image. Aborting")
+
+            elif len(nii_files) > 1:
+                raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: more than one niftii file has been detected"
+                                            " {', '.join(tuple(str(f) for f in nii_files))}. "
+                                            "\nThere should be only one niftii image per modality. Aborting")
+
             img_path = nii_files[0]
             img = self._reader(img_path)
             subject_data[modality] = img
