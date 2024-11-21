@@ -4,7 +4,7 @@ version = "v5.3.0"
 description = "Collaborative learning"
 authors = [
    	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
-	{name = "Marc Vesion", email = "marc.vesion@infira.fr"},
+	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
 #	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
 #	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
 #	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
@@ -57,8 +57,8 @@ dependencies = [
 	"python-minifier  ~=2.11",
 	"declearn[torch1]  ~=2.3.2",
 	"gmpy2  >=2.1,< 2.2",
-	"grpcio  ~=1.60.0",
-	"grpcio-tools  ~=1.60.0",
+	"grpcio  ~=1.66",
+	"grpcio-tools  ~=1.66",
 	"unet  >=0.7.7,<0.8.0",
 	"pygments ~=2.18.0",
 	"FLamby @ git+https://github.com/owkin/FLamby@main"

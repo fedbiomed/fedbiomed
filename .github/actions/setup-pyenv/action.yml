@@ -18,9 +18,6 @@ runs:
       if: ${{ runner.os != 'Windows' }}
       shell: bash -l {0}
       run: |
-
-        whoami
-
         # Function to install required packages for Linux
         install_linux_packages() {
           echo "Installing required packages for Ubuntu/Debian..."
@@ -37,7 +34,7 @@ runs:
             llvm \
             libffi-dev \
             liblzma-dev \
-            python-openssl \
+            python3-openssl \
             python3-tk
         }
 
@@ -127,6 +124,9 @@ runs:
         # Install the specified Python version
         pyenv install -s ${{ inputs.python-version }}
         pyenv global ${{ inputs.python-version }}
+
+        # Install it for tox
+        python3 -m pip install colorama
 
         # Install tox if not already installed
         if ! command -v tox &> /dev/null; then

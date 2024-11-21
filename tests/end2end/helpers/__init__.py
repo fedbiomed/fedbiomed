@@ -20,7 +20,6 @@ from ._helpers import (
     create_node,
     get_data_folder,
     create_multiple_nodes,
-    temporary_test_directory
 )
 
 from ._execution import (

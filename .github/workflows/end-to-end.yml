@@ -23,6 +23,8 @@ jobs:
       fail-fast: false
       matrix:
         os:
+          - ubuntu-latest
+          - macos-latest
           - ubuntu-22-04
           - fedora38
           - macosx-m1

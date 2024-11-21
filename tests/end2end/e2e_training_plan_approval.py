@@ -19,19 +19,18 @@ from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 
-dataset = {
-    "name": "MNIST",
-    "description": "MNIST DATASET",
-    "tags": "#MNIST,#dataset",
-    "data_type": "default",
-    "path": get_data_folder('MNIST-e2e-test')
-
-}
-
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
 def setup_components(port, post_session, request):
     """Setup fixture for the module"""
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+
+    }
 
     print(f"USING PORT {port} for researcher erver")
     print("Creating§ components ---------------------------------------------")
@@ -48,7 +47,7 @@ def setup_components(port, post_session, request):
         })
 
 
-    print("Creating researcher component ---------------------------------------------")
+    print("Creating researcher component -----------------------------------------")
     researcher = create_researcher(port=port)
 
     print("Adding first dataset --------------------------------------------")
