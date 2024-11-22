@@ -363,6 +363,9 @@ In this subsection, we will take a look at some specific `Optimizers` that are b
 
 These `Optimizers` may come with a specific `Researcher` version (for `Scaffold` it is `ScaffoldServerModule`) and a `Node` version (resp. `ScaffoldClientModule`). They may work in a synchronous fashion: `Researcher` optimizer version may expect auxiliary variables from  `Node` optimizer, and the other way arround (`Node` optimizer expecting auxiliary variable input from `Reseracher` optimizer version).
 
+!!! note "Optimizers using auxiliary variables"
+    Currently only `Scaffold` (ie `ScaffoldClientModule` and `ScaffoldServerModule`) uses auxiliary variables.
+
 ### 4.2. An example using `Optimizer` with auxiliary variables: `Scaffold` with `declearn`
 
 In the last sub-section, we introduced [`Scaffold`](https://arxiv.org/abs/1910.06378). Let's see now how to use it in `Fed-BioMed` framework.
@@ -428,8 +431,8 @@ exp.run(increase=True)
     **You may have noticed that we are using `FedAverage` in the `Experiment` configuration, while using `ScaffoldServerModule` \ `ScaffoldClientModule` as an `Optimizer`. In fact, `FedAverage` `Aggregator` in `Fed-BioMed` refers to the way model weights are aggregated before optimization, and should not be confused with the [whole `FedAvg` algorithm](https://arxiv.org/abs/1602.05629), which is basically a SGD optimizer performed on `Node` side using `FedAvg` `Aggregtor`.**
 
 
-!!! warning "Security issues using auxiliary variables when using SecAgg"
-    Currently, `declearn` optimizers based on auxiliary variables (like `Scaffold`), do not have their auxiliary variables protected by [`SecAgg`](../../user-guide/secagg/introduction) secure aggregation mechanism yet. This is something that will be changed in future `Fed-BioMed` releases. 
+!!! info "Using auxiliary variables with SecAgg"
+    In latest releases of `Fed-BioMed`, `declearn` optimizers based on auxiliary variables (like `Scaffold` optimizer) now have thier auxiliary variables encrypted with [`SecAgg`](../../user-guide/secagg/introduction)! Please note that this is not the case with [native `Scaffold`](https://fedbiomed.org/latest/developer/api/researcher/aggregators/#fedbiomed.researcher.aggregators.Scaffold) algorithm. For security reason, you may choose to use `declearn` optimizers over the native ones.
 
 You can find more examples in [Advanced Optimizers tutorial](../../tutorials/optimizers/01-fedopt-and-scaffold)
 

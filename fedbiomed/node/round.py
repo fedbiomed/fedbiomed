@@ -152,6 +152,10 @@ class Round:
         Returns:
             A dictionary containing the error message if an error is triggered while parsing training and testing
             arguments, None otherwise.
+
+        !!! "Note"
+            If secure aggregation is activated, model weights will be encrypted as well as the
+            optimizer's auxiliary variables (only if the optimizer used is a `DeclearnOptimizer`).
         """
         # initialize Node State Manager
         self._node_state_manager.initialize(previous_state_id=previous_state_id,
@@ -404,7 +408,7 @@ class Round:
                 encrypted optimizer auxiliary variables, if any.
         """
         # Case when optimizer auxiliary variables are to be encrypted.
-        # TODO; find a way to encrypt safely aux var with model weights at the same time
+        # TODO; find a way to encrypt safely aux var with model weights at once. See #1250.
         if optim_aux_var:
             logger.info(
                 "Encrypting model parameters and optimizer auxiliary variables."
