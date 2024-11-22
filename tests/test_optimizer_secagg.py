@@ -357,6 +357,16 @@ class TestAuxVarSecAgg(unittest.TestCase):
                             [1, 0, 0, 1]])
         self.targets3 = torch.Tensor([[1, 1], [1, 0], [1,1], [0,0], [0,1],
                                     [1, 1], [1, 0], [1,1], [0,0], [0,1]])
+        
+        self.model = nn.Linear(4,2)
+        self.model_parameters = (torch.Tensor([[-0.3392, -0.4828, -0.1458,  0.2349],
+                                               [ 0.1231,  0.4977, -0.1024, -0.2559]]),
+                                torch.Tensor([ 0.3919, -0.2463]))
+
+        for p, l in zip(self.model.parameters(), self.model_parameters):
+            l.requires_grad = True
+            p = l
+
     
     def _aggregate_model_weights(self, model_weights, avg_weights):
         for i, (f, w) in enumerate(zip(model_weights, avg_weights)):
@@ -484,7 +494,7 @@ class TestAuxVarSecAgg(unittest.TestCase):
             for current_round in range(1, 5):
                 for use_weighted_avg in (True, False):
 
-                    torch_model = TorchModel(nn.Linear(4,2))
+                    torch_model = TorchModel(self.model)
                     optim = _get_scaffold_optimizer_node(torch_model, self.data1, self.targets1)
 
                     aux_var = optim.get_aux()
@@ -569,7 +579,7 @@ class TestAuxVarSecAgg(unittest.TestCase):
     def test_secagg_weights_auxvar_04_jls_2(self):
         for current_round in range(1, 5):
 
-            torch_model = TorchModel(nn.Linear(4,2))
+            torch_model = TorchModel(self.model)
 
             # operation on node 1
             optim = _get_scaffold_optimizer_node(torch_model, self.data1, self.targets1)
