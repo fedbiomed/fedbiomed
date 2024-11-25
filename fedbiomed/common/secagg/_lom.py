@@ -146,6 +146,7 @@ class LOM:
 
         x_u_tau = np.array(x_u_tau, dtype=self._vector_dtype)
         mask = np.zeros(len(x_u_tau), dtype=self._vector_dtype)
+
         for pair_id in node_ids:
 
             if pair_id == node_id:

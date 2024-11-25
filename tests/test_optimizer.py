@@ -14,10 +14,13 @@ import torch
 from declearn.model.api import Vector
 from declearn.optimizer import Optimizer as DeclearnOptimizer
 from declearn.optimizer.modules import OptiModule
-from fedbiomed.common.optimizers.declearn import ScaffoldServerModule, YogiModule
 from declearn.optimizer.regularizers import Regularizer
+from declearn.optimizer.schedulers import Scheduler
 
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
+from fedbiomed.common.optimizers.declearn import (
+    AuxVar, ScaffoldAuxVar, ScaffoldServerModule, YogiModule
+)
 from fedbiomed.common.optimizers.optimizer import Optimizer
 
 
@@ -78,8 +81,8 @@ class TestOptimizer(unittest.TestCase):
         Apache-2.0 license.
         """
         # Set up an optimizer with mock attributes.
-        lrate = mock.MagicMock()
-        decay = mock.MagicMock()
+        lrate = mock.MagicMock(spec=Scheduler)
+        decay = mock.MagicMock(spec=Scheduler)
         modules = [
             mock.create_autospec(OptiModule, instance=True) for _ in range(3)
         ]
@@ -95,6 +98,7 @@ class TestOptimizer(unittest.TestCase):
         # Set up mock Vector inputs. Run them through the Optimizer.
         grads = mock.create_autospec(Vector, instance=True)
         weights = mock.create_autospec(Vector, instance=True)
+
         updates = optim.step(grads, weights)
         # Check that the inputs went through the expected plug-ins pipeline.
         inputs = grads  # initial inputs
@@ -105,12 +109,13 @@ class TestOptimizer(unittest.TestCase):
             mod.run.assert_called_once_with(inputs)
             inputs = mod.run.return_value
         # Check that the learning rate was properly applied.
-        lrate.__neg__.assert_called_once()  # -1 * lrate
-        lrate.__neg__.return_value.__mul__.assert_called_once_with(inputs)
-        output = lrate.__neg__.return_value.__mul__.return_value
+
+        lrate.get_next_rate.return_value.__neg__.assert_called_once()  # -1 * lrate
+        lrate.get_next_rate.return_value.__neg__.return_value.__mul__.assert_called_once_with(inputs)
+        output = lrate.get_next_rate.return_value.__neg__.return_value.__mul__.return_value
         # Check that the weight-decay term was properly applied.
-        decay.__mul__.assert_called_once_with(weights)
-        output.__isub__.assert_called_once_with(decay.__mul__.return_value)
+        decay.get_next_rate.return_value.__mul__.assert_called_once_with(weights)
+        output.__isub__.assert_called_once_with(decay.get_next_rate.return_value.__mul__.return_value)
         # Check that the outputs match the expected ones.
         self.assertIs(updates, output.__isub__.return_value)
 
@@ -123,12 +128,12 @@ class TestOptimizer(unittest.TestCase):
     def test_optimizer_07_get_aux(self) -> None:
         """Test `Optimizer.set_aux` using a mock Module."""
         # Set up an Optimizer, and mock modules, one of which emits aux vars.
-        mockaux = mock.MagicMock()
+        mockaux = mock.create_autospec(AuxVar, instance=True)
         mod_aux = mock.create_autospec(OptiModule, instance=True)
         mod_aux.collect_aux_var.return_value = mockaux
         setattr(mod_aux, "aux_name", "mock-module-1")
         mod_nox = mock.create_autospec(OptiModule, instance=True)
-        mod_nox.collect_aux_var.return_value = {}
+        mod_nox.collect_aux_var.return_value = None
         setattr(mod_nox, "aux_name", "mock-module-2")
         optim = Optimizer(lr=0.001, modules=[mod_aux, mod_nox])
         # Call 'get_aux' and assert that the results match expectations.
@@ -251,26 +256,22 @@ class TestOptimizer(unittest.TestCase):
 
             aux_var_list = [aux_var[node_id]['delta'].coefs for node_id in ordered_aux_var_names]
             return aux_var_list
-        
+
         model = torch.nn.Linear(4,2)
         model_params = dict(model.state_dict())
-        scaffold_aux_var = {
-            'scaffold':
-                {
-                    'node_1': {'state': Vector.build({k : torch.randn(v.shape) for k,v in model_params.items()})},
-                    'node_2': {'state': Vector.build({k : torch.randn(v.shape) for k,v in model_params.items()})}
-                }
-            }
+        scaffold_aux_var = ScaffoldAuxVar(
+            delta=Vector.build({k : torch.randn(v.shape) for k,v in model_params.items()}),
+            clients={"node-1", "node-2"}
+        )
         agg_optimizer = Optimizer(lr=.12345, modules=[ScaffoldServerModule(), YogiModule()])
-
-        agg_optimizer.set_aux(scaffold_aux_var)
+        agg_optimizer.set_aux({"scaffold": scaffold_aux_var})
+        # Dump and reload the optimizer's state.
         states = agg_optimizer.get_state()
         reloaded = Optimizer.load_state(states)
-        initial_aux_var = get_scaffold_optimizer_aux_var(agg_optimizer)
-        reloaded_aux_var = get_scaffold_optimizer_aux_var(reloaded)
-        for val_node1, val_node2 in zip(initial_aux_var, reloaded_aux_var):
-            for (k1, v1), (k2, v2) in zip(val_node1.items(), val_node2.items()):
-                self.assertTrue(torch.isclose(v1, v2).all())
+        # Verify that Scaffold states are properly saved through state.
+        initial_aux_var = agg_optimizer.get_aux()
+        reloaded_aux_var = reloaded.get_aux()
+        assert initial_aux_var == reloaded_aux_var
 
     def test_optimizer_18_load_state_fails(self) -> None:
         """Test that `Optimizer.load_state` exceptions are wrapped."""

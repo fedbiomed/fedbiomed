@@ -318,7 +318,7 @@ class _SecureAggregation(ABC):
         aggregate: functools.partial,
         encryption_factors: Dict[str, Union[List[int], None]],
         num_expected_params: int | None = None,
-    ) -> bool:
+    ) -> None:
         """Validate given inputs"""
 
         if any(v is None for v in encryption_factors.values()):
@@ -334,6 +334,7 @@ class _SecureAggregation(ABC):
         encryption_factors = [f for k, f in encryption_factors.items()]
 
         validation: List[float]
+
         if num_expected_params:
             validation = aggregate(params=encryption_factors, num_expected_params=1)
         else:
@@ -378,7 +379,12 @@ class _SecureAggregation(ABC):
             "on model size."
         )
         # Aggregate parameters
-        params = [p for _, p in model_params.items()]
+        # if isinstance(model_params, dict):
+        params = list(model_params.values())  # convert dict into list of list
+        # from now forward params is of type List[List[int]]
+        # else:
+        #     params = model_params
+
         if num_expected_params:
             aggregated_params = aggregate(
                 params=params, num_expected_params=num_expected_params

@@ -5,7 +5,7 @@
 
 from typing import Dict
 
-
+from declearn.utils import set_device_policy, get_device_policy
 from declearn.optimizer.regularizers import (
     Regularizer,
     FedProxRegularizer,
@@ -14,12 +14,14 @@ from declearn.optimizer.regularizers import (
 )
 
 from declearn.optimizer.modules import (
+    AuxVar,
     OptiModule,
     AdaGradModule,
     AdamModule,
     EWMAModule,
     RMSPropModule,
     MomentumModule,
+    ScaffoldAuxVar,
     ScaffoldClientModule,
     ScaffoldServerModule,
     YogiModule,
@@ -33,13 +35,17 @@ __all__ = [
     "RidgeRegularizer",
     "AdaGradModule",
     "AdamModule",
+    "AuxVar",
     "EWMAModule",
     "RMSPropModule",
     "MomentumModule",
+    "ScaffoldAuxVar",
     "ScaffoldClientModule",
     "ScaffoldServerModule",
     "YogiModule",
-    "YogiMomentumModule"
+    "YogiMomentumModule",
+    "get_device_policy",
+    "set_device_policy"
 ]
 
 _REGULARIZERS = (
@@ -72,7 +78,7 @@ def list_optim_regularizers() -> Dict[str, Regularizer]:
 
 
 def list_optim_modules() -> Dict[str, OptiModule]:
-    """Returns a dictionary of all available OptiModules of `Declearn` compatible 
+    """Returns a dictionary of all available OptiModules of `Declearn` compatible
     with Fed-BioMed frameworks.
 
     `OptiModule` is a `declearn` class for Optimizer modules in `declearn` package.
