@@ -130,6 +130,7 @@ class SecaggCrypter:
 
         try:
             # Encrypt parameters
+
             encrypted_params: List[mpz] = self._jls.protect(
                 public_param=public_param,
                 user_key=key,

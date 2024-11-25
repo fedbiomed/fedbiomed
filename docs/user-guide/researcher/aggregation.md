@@ -45,6 +45,8 @@ using the same notation as above, with $\mu$ the regularization parameter (we ob
 To use `FedProx`, use `FedAverage` from `fedbiomed.researcher.aggregators` and specify a value for $\mu$ in the training 
 arguments `training_args` using the argument name `fedprox_mu`.
 
+!!! note "FedProx generalizes FedAveraging"
+    `FedProx` is similar to `FedAVeraging` if `fedprox_mu=0`.
 
 ### SCAFFOLD
 
@@ -77,6 +79,8 @@ Please note that:
  - `SCAFFOLD` **requires** using the `num_updates` training argument to control the number of [training iterations](./experiment.md#controlling-the-number-of-training-loop-iterations). Using only `epochs` will raise an error.
  - `SCAFFOLD` also exists as an `declearn` cross framework optimizer. Using `SCAFFOLD` implementation in `declearn` enables the use of other machine learning frameworks such as `scikit-learn`.
 
+!!! warning "Unsecure SCAFFOLD"
+    This version of SCAFFOLD should not be used in a highly secure setting, especially if the use of  [Secure Aggregation](./../secagg/introduction.md) is considered. While model parameters will be encrypted with Secure Aggregation, the SCAFFOLD correction terms won't. For more security, it is recommended to use [`declearn`'s `Scaffold` optimizers](./../advanced-optimization.md#42-an-example-using-optimizer-with-auxiliary-variables-scaffold-with-declearn) with [`FedAveraging`](./../../../developer/api/researcher/aggregators#fedbiomed.researcher.aggregators.FedAverage) instead. 
 
 ## How to Create Your Custom Aggregator
 

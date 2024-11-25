@@ -16,6 +16,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.models import Model, SkLearnModel, TorchModel
+from fedbiomed.common.optimizers.declearn import AuxVar
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 
 
@@ -128,12 +129,19 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         logger.warning("save_state method of optimizer not implemented, cannot save optimizer status")
         return None
 
+    def send_to_device(self, device: str, idx: Optional[int] = None):
+        """GPU support"""
+
+    def count_nb_auxvar(self) -> int:
+        """Counts number of auxiliary variables needed for the given optimizer"""
+        return 0
+
 
 class DeclearnOptimizer(BaseOptimizer):
     """Base Optimizer subclass to use a declearn-backed Optimizer."""
     _model_cls: Tuple[Type] = (TorchModel, SkLearnModel)
     optimizer = None
-    model = None
+    #model = None
 
 
     def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer]):
@@ -154,6 +162,10 @@ class DeclearnOptimizer(BaseOptimizer):
                 f" but got an object with type {type(optimizer)}."
             )
         super().__init__(model, optimizer)
+        #self.optimizer.init_round()
+
+    def init_training(self):
+        super().init_training()
         self.optimizer.init_round()
 
     def step(self):
@@ -169,14 +181,18 @@ class DeclearnOptimizer(BaseOptimizer):
         updates = self.optimizer.step(grad, weights)
         self._model.apply_updates(updates.coefs)
 
-    def set_aux(self, aux: Dict[str, Any]):
+    def set_aux(self, aux: Dict[str, AuxVar]):
         # FIXME: for imported tensors in PyTorch sent as auxiliary variables,
         # we should push it on the appropriate device (ie cpu/gpu)
+        # TODO-PAUL: call the proper declearn routines
         self.optimizer.set_aux(aux)
 
-    def get_aux(self) -> Optional[Dict[str, Any]]:
+    def get_aux(self) -> Optional[Dict[str, AuxVar]]:
         aux = self.optimizer.get_aux()
         return aux
+
+    def count_nb_auxvar(self) -> int:
+        return len(self.optimizer.get_aux_names())
 
     def load_state(self, optim_state: Dict[str, Any], load_from_state: bool = False) -> 'DeclearnOptimizer':
         """Reconfigures optimizer from a given state (contained in `optim_state` argument).
@@ -214,7 +230,7 @@ class DeclearnOptimizer(BaseOptimizer):
                     'velocity': {'state': 0.0}})]}
         ```
         Modules of DeclearnOptimizer will be reloaded provided that Module is the same and occupying the same index.
-        Eg if the state contains following modules: 
+        Eg if the state contains following modules:
         ```modules=[AdamModule(), AdagradModule(), MomemtumModule()]```
          And the Optimizer contained in the TrainingPlan has the following modules:
         ```modules=[AdamModule(), MomemtumModule()]```
@@ -244,7 +260,7 @@ class DeclearnOptimizer(BaseOptimizer):
         if load_from_state:
             # first get Optimizer detailed in the TrainingPlan.
 
-            init_optim_state = self.optimizer.get_state()  # we have to get states since it is the only way we can 
+            init_optim_state = self.optimizer.get_state()  # we have to get states since it is the only way we can
             # gather modules (other methods of `Optimizer are private`)
 
             optim_state_copy = copy.deepcopy(optim_state)
@@ -275,6 +291,7 @@ class DeclearnOptimizer(BaseOptimizer):
 
         reloaded_optim = FedOptimizer.load_state(optim_state)
         self.optimizer = reloaded_optim
+
         return self
 
     def _collect_common_optimodules(self,
@@ -283,7 +300,7 @@ class DeclearnOptimizer(BaseOptimizer):
                                     component_name: str,
                                     components_to_keep: List[Tuple[str, int]]):
         """Methods that checks which modules and regularizers are common from `init_state`, the current state Optimizer
-        state, and `optim_state`, the previous optimizer state. Populates in that regard the `components_to_keep` list, 
+        state, and `optim_state`, the previous optimizer state. Populates in that regard the `components_to_keep` list,
         a list containing common Modules and Regularizers, and that can be access through its reference.
 
         Args:
@@ -351,6 +368,9 @@ class DeclearnOptimizer(BaseOptimizer):
         else:
             raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value}: Method optimizer_processing should be used "
                                           f"only with SkLearnModel, but model is {self._model}")
+
+    def send_to_device(self, device: str, idx: int | None = None):
+        self.optimizer.send_to_device(device, idx)
 
 
 class NativeTorchOptimizer(BaseOptimizer):

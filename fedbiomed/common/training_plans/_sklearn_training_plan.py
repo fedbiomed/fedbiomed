@@ -224,6 +224,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Warn if GPU-use was expected (as it is not supported).
         if node_args is not None and node_args.get('gpu_only', False):
+
+            self._optimizer.send_to_device(False)  # disable GPU, avoid `declearn` triggering warning messages
             logger.warning(
                 'Node would like to force GPU usage, but sklearn training '
                 'plan does not support it. Training on CPU.'

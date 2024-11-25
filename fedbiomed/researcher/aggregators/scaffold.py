@@ -311,7 +311,7 @@ class Scaffold(Aggregator):
  
         return aggregator_dat
 
-    def check_values(self, n_updates: int, training_plan: BaseTrainingPlan) -> True:
+    def check_values(self, n_updates: int, training_plan: BaseTrainingPlan, *args, **kwargs) -> True:
         """Check if all values/parameters are correct and have been set before using aggregator.
 
         Raise an error otherwise.
@@ -343,6 +343,12 @@ class Scaffold(Aggregator):
                 "Federated Dataset not provided, but needed for Scaffold. Please use setter `set_fds()`."
             )
 
+        # raise warnings
+        if kwargs.get('secagg'):
+            logger.warning("Warning: secagg setting detected. Nodes correction states involved in Scaffold algorithm"
+                           " are not encrypted and can be read by the `Researcher`.\n"
+                           "Please consider using `declearn`'s Scaffold to encrypt both model parameters and correction"
+                           " terms")
         return True
 
     def set_nodes_learning_rate_after_training(

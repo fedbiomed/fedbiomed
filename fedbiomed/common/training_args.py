@@ -286,7 +286,7 @@ class TrainingArgs:
         | loader_args | supplemental arguments passed to the data loader |
         | epochs | the number of epochs performed during local training on each node |
         | num_updates | the number of model updates performed during local training on each node. Supersedes epochs if both are specified |
-        | use_gpu | toggle requesting the use of GPUs for local training on the node when available |
+        | use_gpu | toggle requesting the use of GPUs for local training on the node when available, propagates to `declearn's GPU |
         | dry_run | perform a single model update for testing on each node and correctly handle GPU execution |
         | batch_maxnum | prematurely break after batch_maxnum model updates for each epoch (useful for testing) |
         | test_ratio | the proportion of validation samples to total number of samples in the dataset |
