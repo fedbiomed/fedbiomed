@@ -31,7 +31,7 @@ const MedicalFolderMetadata = (props) => {
                             name={"tags"}
                             type="text"
                             placeholder="Enter tags"
-                            onChange={(e) => { setMedicalFolderDatasetMetadata('tags', e.target.value)}}
+                            onChange={(e) => { setMedicalFolderDatasetMetadata('tags', e.target.value); }}
                             tags={props.metadata.tags ? props.metadata.tags : ""}
                         />
 

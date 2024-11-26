@@ -128,9 +128,10 @@ export const CommonStandards = (props) => {
      * @param e
      */
     const onInputValueChange = (e) => {
+        let val = e.target.value;
         setNewDataset({
             ...newDataset,
-            [e.target.name] : e.target.value
+            [e.target.name] : val,
         })
     }
 
@@ -147,7 +148,7 @@ export const CommonStandards = (props) => {
         }else{
             setNewDataset({
                 ...newDataset,
-                [e.target.name] : e.target.value
+                [e.target.name] : val
             })
         }
     }
