@@ -88,7 +88,7 @@ export const Tag = (props) => {
             if ( (element.keyCode === 13 && currentTagText && /\S/.test(currentTagText)) ||
                  (element.keyCode === 32 && currentTagText && /\S/.test(currentTagText)) ||
                  (element.keyCode === 9 && currentTagText && /\S/.test(currentTagText)) ) {
-                let tags_update = [...tags, currentTagText]
+                let tags_update = [...tags, currentTagText.replace(/\s/g, '')]
                 setTags((prevTags) => {return [...prevTags, currentTagText] });
                 setCurrentTagText('');
                 
