@@ -128,14 +128,17 @@ export const CommonStandards = (props) => {
      * @param e
      */
     const onInputValueChange = (e) => {
+        let val = e.target.value;
+        val = typeof(val) === 'string'? val: val.map(x => {return x.trim()});
         setNewDataset({
             ...newDataset,
-            [e.target.name] : e.target.value
+            [e.target.name] : val,
         })
     }
 
     const onDataTypeChange = (e) => {
         let val = e.target.value
+        val = typeof(val) === 'string'? val: val.map(x => {return x.trim()});
         if(val === 'default'){
             setNewDataset({
                 ...newDataset,
@@ -147,7 +150,7 @@ export const CommonStandards = (props) => {
         }else{
             setNewDataset({
                 ...newDataset,
-                [e.target.name] : e.target.value
+                [e.target.name] : val
             })
         }
     }
