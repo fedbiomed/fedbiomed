@@ -51,7 +51,7 @@ class CLIArgumentParser:
         return None
 
 
-class ConfigNameAction(ABC, argparse.Action):
+class ComponentDirectoryAction(ABC, argparse.Action):
     """Action for the argument config
 
     This action class gets the config file name and set environ object before
@@ -75,12 +75,13 @@ class ConfigNameAction(ABC, argparse.Action):
         """When argument is called"""
 
         if not set(["--help", "-h"]).intersection(set(sys.argv)):
+            print(values)
             self.set_environ(values)
 
         setattr(namespace, self.dest, values)
 
     @abstractmethod
-    def import_environ(self, config_file: str | None = None) -> "Environ":
+    def import_environ(self, component_dir: str | None = None) -> "Environ":
         """Implements environ import
 
 
@@ -88,15 +89,15 @@ class ConfigNameAction(ABC, argparse.Action):
             Environ object
         """
 
-    def set_environ(self, config_file: str | None = None):
+    def set_environ(self, component_dir: str | None = None):
         """Sets environ
 
         Args:
           config_file: Name of the config file that is activate
         """
 
-        print(f"\n# {GRN}Using component located at:{NC} {BOLD}{config_file}{NC} #")
-        environ = self.import_environ(config_file)
+        print(f"\n# {GRN}Using component located at:{NC} {BOLD}{component_dir}{NC} #")
+        environ = self.import_environ(component_dir)
 
         os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = environ["ID"]
 
@@ -314,7 +315,7 @@ class CommonCLI:
     @staticmethod
     def config_action(this: "CommonCLI", component: ComponentType):
         """Returns CLI argument action for config file name"""
-        return ConfigNameAction
+        return ComponentDirectoryAction
 
     @staticmethod
     def error(message: str) -> None:
@@ -383,7 +384,7 @@ class CommonCLI:
             "certificate",
             help="Command to manage certificates in node and researcher components. "
             "Please see 'certificate --help' for more information.",
-            prog="fedbiomed [ node | researcher ] [--config [CONFIG_FILE]] certificate",
+            prog="fedbiomed [ node | researcher ] [--directory [COMPONENT_DIRECTORY]] certificate",
         )
 
         def print_help(args):

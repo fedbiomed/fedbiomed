@@ -21,15 +21,16 @@ from typing import Union, List, Dict
 from types import FrameType
 from pathlib import Path
 
-
 from fedbiomed.common.constants import ErrorNumbers, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.cli import (
     CommonCLI,
     CLIArgumentParser,
-    ConfigNameAction,
+    ComponentDirectoryAction,
 )
+
+import fedbiomed
 
 # Partial function to import CLI utils that frequently used in this module
 imp_cli_utils = functools.partial(importlib.import_module, "fedbiomed.node.cli_utils")
@@ -562,8 +563,8 @@ class GUIControl(CLIArgumentParser):
 
         TODO: Implement argument GUI parseing and execution
         """
-
-        fedbiomed_root = os.path.abspath(args.config)
+        print(fedbiomed.__file__)
+        fedbiomed_root = os.path.abspath(args.directory)
 
         os.environ.update({
             "DATA_PATH": os.path.abspath(args.data_folder),
@@ -576,11 +577,23 @@ class GUIControl(CLIArgumentParser):
         else:
             certificate = []
 
+        main_path = Path(fedbiomed.__file__)
+        if 'gui' in os.listdir(main_path.parent.parent):
+            server_app = os.path.join(main_path.parent.parent, 'gui')
+        elif 'gui' in os.listdir(main_path.parent.parent):
+            server_app = os.path.join(main_path.parent.parent, 'gui')
+        else:
+            print(
+                "Error: Can not find GUI installation."
+                "Fed-BioMed inslation may be corrupted" )
+            sys.exit(1)
+
         host_port = ["--host", args.host, "--port", args.port]
         if args.development:
             command = [
                 "FLASK_ENV=development",
-                f"FLASK_APP={gui_server.__file__}",
+                f"FLASK_APP="
+                f"{os.path.join(server_app, 'server', 'wsgi.py')}",
                 "flask",
                 "run",
                 *host_port,
@@ -628,30 +641,35 @@ class NodeCLI(CommonCLI):
         """Initializes node module"""
 
 
-        class ConfigNameActionNode(ConfigNameAction):
+        class ComponentDirectoryActionNode(ComponentDirectoryAction):
 
             _this = self
             _component = ComponentType.NODE
 
-            def import_environ(self, config_file: str | None = None) -> 'fedbiomed.node.environ.Environ':
+            def import_environ(
+                self,
+                component_dir: str | None = None
+            ) -> 'fedbiomed.node.environ.Environ':
                 """Imports dynamically node environ object"""
-
-                if config_file:
-                    os.environ["FBM_NODE_COMPONENT_ROOT"] = os.path.join(config_file)
+                if component_dir:
+                    os.environ["FBM_NODE_COMPONENT_ROOT"] = os.path.join(component_dir)
                 else:
-                    print("Component is not specified: Using 'fbm-researcher' in current working directory...")
+                    print("Component is not specified: Using 'fbm-node' in current working directory...")
                     os.environ["FBM_NODE_COMPONENT_ROOT"] = \
                         os.path.join(os.getcwd(), 'fbm-node')
 
                 return importlib.import_module("fedbiomed.node.environ").environ
 
         self._parser.add_argument(
+            "--directory",
             "--config",
             "-c",
+            "-d",
             nargs="?",
-            action=ConfigNameActionNode,
-            default="config_node.ini",
-            help="Name of the config file that the CLI will be activated for. Default is 'config_node.ini'.")
+            action=ComponentDirectoryActionNode,
+            default="fbm-node",
+            help="Name of the config file that the CLI will be activated for. Default is 'config_node.ini'."
+        )
 
         super().initialize()
 

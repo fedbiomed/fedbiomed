@@ -8,7 +8,11 @@ import os
 
 from typing import List, Dict
 
-from fedbiomed.common.cli import CommonCLI, CLIArgumentParser, ConfigNameAction
+from fedbiomed.common.cli import (
+    CommonCLI,
+    CLIArgumentParser,
+    ComponentDirectoryAction
+)
 from fedbiomed.common.constants import ComponentType
 
 
@@ -87,14 +91,14 @@ class ResearcherCLI(CommonCLI):
         """Initializes Researcher CLI"""
 
 
-        class ConfigNameActionResearcher(ConfigNameAction):
+        class ComponentDirectoryActionResearcher(ComponentDirectoryAction):
             _this = self
             _component = ComponentType.RESEARCHER
 
-            def import_environ(self, config_file: str | None = None) -> 'fedbiomed.researcher.environ.Environ':
+            def import_environ(self, component_dir: str | None = None) -> 'fedbiomed.researcher.environ.Environ':
                 """Import environ"""
-                if config_file:
-                    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = os.path.abspath(config_file)
+                if component_dir:
+                    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = os.path.abspath(component_dir)
                 else:
                     print("Component is not specified: Using 'fbm-researcher' in current working directory")
                     os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = \
@@ -109,9 +113,11 @@ class ResearcherCLI(CommonCLI):
         # and researcher is seperated
         self._parser.add_argument(
             "--config",
+            "--directory",
+            "-d",
             "-c",
             nargs="?",
-            action=ConfigNameActionResearcher,
+            action=ComponentDirectoryActionResearcher,
             default="config_researcher.ini",
             help="Name of the config file that the CLI will be activated for. Default is 'config_researcher.ini'.")
 
