@@ -9,8 +9,12 @@ import os
 
 from typing import List, Dict
 
-from fedbiomed.common.cli import CommonCLI, CLIArgumentParser, ConfigNameAction
-from fedbiomed.common.constants import ComponentType, DEFAULT_CONFIG_FILE_NAME_RESEARCHER
+from fedbiomed.common.cli import (
+    CommonCLI,
+    CLIArgumentParser,
+    ComponentDirectoryAction
+)
+from fedbiomed.common.constants import ComponentType
 
 
 __intro__ = """
@@ -88,19 +92,19 @@ class ResearcherCLI(CommonCLI):
         """Initializes Researcher CLI"""
 
 
-        class ConfigNameActionResearcher(ConfigNameAction):
+        class ComponentDirectoryActionResearcher(ComponentDirectoryAction):
             _this = self
             _component = ComponentType.RESEARCHER
 
-            def set_component(self, config_file: str) -> None:
+            def set_component(self, component_dir: str) -> None:
                 """Import configuration
 
                 Args:
                     config_name: Name of the config file for the component
                 """
-                if config_file:
-                    os.environ["FBM_RESEARCHER_CONFIG_FILE"] = os.path.abspath(
-                        config_file
+                if component_dir:
+                    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = os.path.abspath(
+                        component_dir
                     )
                 else:
                     print(
@@ -114,13 +118,15 @@ class ResearcherCLI(CommonCLI):
                 self._this.config = module.config
 
         self._parser.add_argument(
-            "--path",
-            "-p",
+            "--config",
+            "--directory",
+            "-d",
+            "-c",
             nargs="?",
-            action=ConfigNameActionResearcher,
-            default=DEFAULT_CONFIG_FILE_NAME_RESEARCHER,
-            help="Name of the config file that the CLI will be activated for. "
-                 f"Default is '{DEFAULT_CONFIG_FILE_NAME_RESEARCHER}'."
+            action=ComponentDirectoryActionResearcher,
+            default="config_researcher.ini",
+            help="Name of the config file that the CLI will be activated for. Default "
+                "is 'config_researcher.ini'."
         )
 
         super().initialize()

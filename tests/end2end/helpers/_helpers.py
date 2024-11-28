@@ -58,7 +58,7 @@ def add_dataset_to_node(
     with open(d_file, "w", encoding="UTF-8") as file:
         json.dump(dataset, file)
 
-    command = ["node", "--config", config.root, "dataset", "add", "--file", d_file]
+    command = ["node", "--directory", config.root, "dataset", "add", "--file", d_file]
     _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
     tempdir_.cleanup()
 
@@ -88,11 +88,11 @@ def start_nodes(
         if 'fail_my_component' in c.root:
             processes.append(
                 fedbiomed_run(
-                    ['node', "--config", c.root, 'unkown-commnad'], pipe=False))
+                    ['node', "--directory", c.root, 'unkown-commnad'], pipe=False))
         else:
             processes.append(
                 fedbiomed_run(
-                    ["node", "--config", c.root, "start"], pipe=False))
+                    ["node", "--directory", c.root, "start"], pipe=False))
 
     t = PytestThread(
         target=execute_in_paralel,
@@ -294,7 +294,7 @@ def training_plan_operation(
         raise ValueError('The argument operation should be one of apprive or reject')
 
 
-    command = ["node", "--config", config.root, "training-plan",
+    command = ["node", "--directory", config.root, "training-plan",
                operation, "--id", training_plan_id]
     _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
 

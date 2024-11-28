@@ -12,7 +12,6 @@ import signal
 import sys
 import time
 import subprocess
-import importlib.util
 
 from multiprocessing import Process
 from typing import Union, List, Dict
@@ -24,13 +23,13 @@ from fedbiomed.node.node import Node
 from fedbiomed.node.config import NodeConfig
 
 
-from fedbiomed.common.constants import ErrorNumbers, ComponentType, DEFAULT_CONFIG_FILE_NAME_NODE
+from fedbiomed.common.constants import ErrorNumbers, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.cli import (
     CommonCLI,
     CLIArgumentParser,
-    ConfigNameAction,
+    ComponentDirectoryAction,
 )
 
 from fedbiomed.node.cli_utils import (
@@ -44,6 +43,7 @@ from fedbiomed.node.cli_utils import (
     view_training_plan,
     delete_training_plan
 )
+import fedbiomed
 
 # Please use following code genereate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -572,8 +572,8 @@ class GUIControl(CLIArgumentParser):
 
         TODO: Implement argument GUI parseing and execution
         """
-
-        fedbiomed_root = os.path.abspath(args.config)
+        print(fedbiomed.__file__)
+        fedbiomed_root = os.path.abspath(args.directory)
 
         os.environ.update({
             "DATA_PATH": os.path.abspath(args.data_folder),
@@ -586,11 +586,23 @@ class GUIControl(CLIArgumentParser):
         else:
             certificate = []
 
+        main_path = Path(fedbiomed.__file__)
+        if 'gui' in os.listdir(main_path.parent.parent):
+            server_app = os.path.join(main_path.parent.parent, 'gui')
+        elif 'gui' in os.listdir(main_path.parent.parent):
+            server_app = os.path.join(main_path.parent.parent, 'gui')
+        else:
+            print(
+                "Error: Can not find GUI installation."
+                "Fed-BioMed inslation may be corrupted" )
+            sys.exit(1)
+
         host_port = ["--host", args.host, "--port", args.port]
         if args.development:
             command = [
                 "FLASK_ENV=development",
-                f"FLASK_APP={gui_server.__file__}",
+                f"FLASK_APP="
+                f"{os.path.join(server_app, 'server', 'wsgi.py')}",
                 "flask",
                 "run",
                 *host_port,
@@ -638,7 +650,7 @@ class NodeCLI(CommonCLI):
         """Initializes node module"""
 
 
-        class ConfigNameActionNode(ConfigNameAction):
+        class ComponentDirectoryActionNode(ComponentDirectoryAction):
 
             _this = self
             _component = ComponentType.NODE
@@ -659,21 +671,31 @@ class NodeCLI(CommonCLI):
                 node = Node(config)
 
                 # Set node object to make it accessible
-                setattr(ConfigNameActionNode._this, '_node', node)
+                setattr(ComponentDirectoryActionNode._this, '_node', node)
                 os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = \
                     config.get("default", "id")
 
                 # Set node in all subparsers
-                for _, parser in ConfigNameActionNode._this._arg_parsers.items():
+                for _, parser in ComponentDirectoryActionNode._this._arg_parsers.items():
                     setattr(parser, '_node', node)
 
         super().initialize()
 
         self._parser.add_argument(
+            "--directory",
             "--config",
             "-c",
+            "-d",
             nargs="?",
-            action=ConfigNameActionNode,
-            default=DEFAULT_CONFIG_FILE_NAME_NODE,
-            help="Name of the config file that the CLI will be activated for."
-                 f"Default is '{DEFAULT_CONFIG_FILE_NAME_NODE}.")
+            action=ComponentDirectoryActionNode,
+            default="fbm-node",
+            help="Name of the config file that the CLI will be activated for. Default is 'config_node.ini'."
+        )
+
+        super().initialize()
+
+
+if __name__ == '__main__':
+    cli = NodeCLI()
+    cli.parse_args()
+>>>>>>> 728716b2 (Adds '--directory' option to CLI that replaces '--config')

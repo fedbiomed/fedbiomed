@@ -63,7 +63,7 @@ class CLIArgumentParser:
         return None
 
 
-class ConfigNameAction(ABC, argparse.Action):
+class ComponentDirectoryAction(ABC, argparse.Action):
     """Action for the argument config
 
     This action class gets the config file name and set config object before
@@ -99,16 +99,13 @@ class ConfigNameAction(ABC, argparse.Action):
           config_name: Name of the config file for the component
         """
 
-    def _create_config(self, config_file: str):
+    def _create_config(self, component_dir: str):
         """Sets configuration
-
-        Args:
+       Args:
           config_file: Name of the config file that is activated
         """
-
-        print(f"\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #")
-        os.environ["CONFIG_FILE"] = config_file
-        self.set_component(config_file)
+        print(f"\n# {GRN}Using component located at:{NC} {BOLD}{component_dir}{NC} #")
+        self.set_component(component_dir)
 
         # this may be changed on command line or in the node configuration file
         logger.setLevel("DEBUG")
@@ -310,6 +307,12 @@ class CommonCLI:
 
         return self._description
 
+
+    @staticmethod
+    def config_action(this: "CommonCLI", component: ComponentType):
+        """Returns CLI argument action for config file name"""
+        return ComponentDirectoryAction
+
     @staticmethod
     def error(message: str) -> None:
         """Prints given error message
@@ -378,7 +381,7 @@ class CommonCLI:
             "certificate",
             help="Command to manage certificates in node and researcher components. "
             "Please see 'certificate --help' for more information.",
-            prog="fedbiomed [ node | researcher ] [--config [CONFIG_FILE]] certificate",
+            prog="fedbiomed [ node | researcher ] [--directory [COMPONENT_DIRECTORY]] certificate",
         )
 
         def print_help(args):
