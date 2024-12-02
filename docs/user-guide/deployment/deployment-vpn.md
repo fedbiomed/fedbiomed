@@ -85,7 +85,6 @@ It covers the initial server deployment, including build, configuration and laun
 * clean running containers, containers files, temporary files
 
     ``` bash
-    [user@server $] source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
     [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean
     ```
 
@@ -241,7 +240,7 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
     [user@node $] export FORCE_SECURE_AGGREGATION=True
     ```
 
-* do initial node configuration
+* do initial node configuration. Following command will create node component located `/fbm-node/` directory of the container. This directory will be mounted in `{FEDBIOMED_DIR}/envs/vpn/docker/node/run_mounts` directory of the host.
 
     ```bash
     [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FORCE_SECURE_AGGREGATION='${FORCE_SECURE_AGGREGATION}'&& export SECAGG_INSECURE_VALIDATION=false && export RESEARCHER_SERVER_HOST=10.222.0.2 && export RESEARCHER_SERVER_PORT=50051 && export PYTHONPATH=/fedbiomed && ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --exist-ok'
@@ -312,7 +311,7 @@ This part of the tutorial is optionally executed on some nodes, after deploying 
 
 This part is executed at least once on each node, after deploying the node side containers.
 
-Setup the node by sharing datasets and by launching the Fed-BioMed node:
+Setup the node by sharing datasets and by launching the Fed-BioMed node. The commands below will use default Fed-BioMed node directory which is located `/fbm-node` inside the container.
 
 * if node GUI is launched, it can be used to share datasets. On the node side machine, connect to `https://localhost:8443` (or `https://<host_name_and_domain>:8443` if connection from distant machine is authorized)
 
@@ -328,14 +327,14 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
     * start the Fed-BioMed node, for example in background:
 
         ```bash
-        [user@node-container $] nohup fedbiomed node start >./fedbiomed_node.out &
+        [user@node-container $] nohup fedbiomed node start >/fbm_node/fedbiomed_node.out &
         ```
 
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):
 
         ```bash
-        [user@node-container $] ./scripts/fedbiomed_run node dataset add -m /data
-        [user@node-container $] ./scripts/fedbiomed_run node dataset add
+        [user@node-container $] fedbiomed node dataset add -m /data
+        [user@node-container $] fedbiomed node dataset add
         ```
 
 Example of a few more possible commands:
@@ -508,7 +507,7 @@ By default, docker can use the images that are created for `arm64/aarch64`. But 
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
 ```
 
-After setting this variable you can execute build command through ``{FEDBIOMED_DIR}/scripts/fedbiomed_run build`
+After setting this variable you can execute build command through `{FEDBIOMED_DIR}/scripts/fedbiomed_vpn build`
 
 
 ### Not enough space on your machine due to recursive build operations

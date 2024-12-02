@@ -72,6 +72,8 @@ researcher = [
 	"pathvalidate ~=3.0.0",
 	"matplotlib >=3.8.0,<3.8.4",
 	"tensorboard ~=2.13.0",
+	"jupyter",
+	"ipython"
 ]
 
 gui = [
@@ -82,9 +84,6 @@ gui = [
 	"gunicorn ~=23.0.0"
 ]
 
-jupyter = [
-	"jupyter",
-]
 
 [tool.hatch.metadata]
 allow-direct-references = true

@@ -403,20 +403,20 @@ class TestCommonCLI(unittest.TestCase):
         self.cli.initialize_certificate_parser()
 
         args = self.cli.parser.parse_args(["certificate", "list"])
-        sys.argv = ["fedbiomed_run", "certificate", "list"]
+        sys.argv = ["fedbiomed", "certificate", "list"]
         self.cli.parse_args()
         mock_list.assert_called_once_with(verbose=True)
 
         self.cli.initialize_magic_dev_environment_parsers()
         args = self.cli.parser.parse_args(["certificate-dev-setup"])
 
-        sys.argv = ["fedbiomed_run", "certificate-dev-setup"]
+        sys.argv = ["fedbiomed", "certificate-dev-setup"]
         self.cli.parse_args()
         mock_dev_environment.assert_called_once_with(args, [])
 
         with self.assertRaises(SystemExit):
             # node argument is not known yet
-            sys.argv = ["fedbiomed_run", "node", "dataset"]
+            sys.argv = ["fedbiomed", "node", "dataset"]
             self.cli.parse_args()
 
 

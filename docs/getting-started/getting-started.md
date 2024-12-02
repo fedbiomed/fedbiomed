@@ -8,7 +8,7 @@ In Collaborative Learning, a `Node` is a component on which sensitive data are s
 
 
 ```shell
-./scripts/fedbiomed_run node start
+fedbiomed node start
 ```
 
 Your `Node` is now running. Next steps will be to add into the `Node`any datasets, each of them specified with a `Tag`, allowing any `Researcher` to search for `Node`s with specific dataset to train his/her model on.
@@ -24,7 +24,7 @@ The [`Researcher`](../user-guide/researcher/index.md) is the component used for 
 
 ```shell
 source ./scripts/fedbiomed_environment researcher
-./scripts/fedbiomed_run researcher start
+fedbiomed researcher start
 ```
 
 A jupyter-notebook will pop up, in which you can write your first Federated model.
@@ -33,22 +33,22 @@ A jupyter-notebook will pop up, in which you can write your first Federated mode
 
 ### 2. Create and train your Federated Learning model
 
-Models designed in Fed-BioMed using Pytorch are very similar to classic Pytorch models. 
+Models designed in Fed-BioMed using Pytorch are very similar to classic Pytorch models.
 
 Here we provide a code snippet in Pytorch (left) and its equivalent in Fed-BioMed (right). Basically, to define a Pytorch model in Fed-BioMed, create a class as you would do for a Pytorch model, and implement a `training_step` method for loss computation, a `training_data` method wrapping a `DataLoader` for data preprocessing. Finally select an `Aggregator` and a node selection strategy for Federated model training. `Researcher` have to specify on which dataset he/she wants to train their data using `tags`. That's all you have to know!
 
 <br>
 #### Template of a **model definition** in Pytorch (left) and in Fed-BioMed using Pytorch (right)
 
-Classical Pytorch          | Fed-BioMed  
+Classical Pytorch          | Fed-BioMed
 :-------------------------:|:-------------------------:
 ![alt text](../assets/img/getting-started/classical-pytorch-model-definition.jpg)   |  ![fed-bio-med](../assets/img/getting-started/fedbiomed-pytorch-model-definition.jpg)
 
 #### Template of a **model training loop** in Pytorch (left) and in Fed-BioMed using Pytorch (right)
 
-Classical Pytorch          | Fed-BioMed  
+Classical Pytorch          | Fed-BioMed
 :-------------------------:|:-------------------------:
-![classic-pytroch](../assets/img/getting-started/classical-pytorch-training.jpg)   |  ![fed-bio-med-pytorch](../assets/img/getting-started/fedbiomed-experiment-definition.jpg) 
+![classic-pytroch](../assets/img/getting-started/classical-pytorch-training.jpg)   |  ![fed-bio-med-pytorch](../assets/img/getting-started/fedbiomed-experiment-definition.jpg)
 
 ## Basic Full Example (for jupyter-notebook)
 
@@ -66,12 +66,12 @@ from torchvision import datasets, transforms
 from torch.utils.data import Dataset, DataLoader
 
 
-class MyLocalTrainingPlan(nn.Module): 
+class MyLocalTrainingPlan(nn.Module):
     def __init__(self):
         super(MyLocalTrainingPlan, self).__init__()
         self.in_features = 28 * 28
         self.out_features = 10
-        
+
         self.fc1 = nn.Linear(self.in_features, 50)
         self.fc2 = nn.Linear(50, self.out_features)
         # optimizer parameters
@@ -95,13 +95,13 @@ class MyLocalTrainingPlan(nn.Module):
         # Custom torch Dataloader for MNIST data
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
-        
+
         home = os.path.expanduser("~")
         path_file = os.path.join(home, 'data')
         mnist_dataset = datasets.MNIST(path_file, train=True,
                                        download=True, transform=transform)
         data_loader = torch.utils.data.DataLoader(mnist_dataset,
-                                                  batch_size=48,                       
+                                                  batch_size=48,
                                                    shuffle=True)
         return data_loader
 ```
@@ -119,17 +119,17 @@ from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.data import DataManager
 
 
-class MyRemoteTrainingPlan(TorchTrainingPlan): 
-    
+class MyRemoteTrainingPlan(TorchTrainingPlan):
+
     def init_model(self):
         return self.Net()
-    
+
     def init_optimizer(self):
         return torch.optim.SGD(self.parameters(), lr=0.01)
-        
+
     def init_dependencies(self):
         return ["from torchvision import datasets, transforms"]
-    
+
     class Net(nn.Module):
         def __init__(self, model_args: dict = {}):
             super().__init__()
@@ -137,8 +137,8 @@ class MyRemoteTrainingPlan(TorchTrainingPlan):
             self.out_features = 10
             self.fc1 = nn.Linear(self.in_features, 50)
             self.fc2 = nn.Linear(50, self.out_features)
-    
-    
+
+
         def forward(self, x):
             x = x.reshape(-1, 28*28)
             x = self.fc1(x)
@@ -146,7 +146,7 @@ class MyRemoteTrainingPlan(TorchTrainingPlan):
             x = self.fc2(x)
             output = F.log_softmax(x, dim=1)
             return output
-    
+
     def training_step(self, data, target):
         output = self.forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
@@ -192,8 +192,8 @@ training_args = {
     'loader_args': {
         'batch_size': 48,
     },
-    'epochs': 20, 
-    'dry_run': False,  
+    'epochs': 20,
+    'dry_run': False,
 }
 
 from fedbiomed.researcher.federated_workflows import Experiment
