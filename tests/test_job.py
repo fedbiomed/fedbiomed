@@ -192,13 +192,9 @@ class TestJob(unittest.TestCase):
                         })
                     self.assertDictEqual(training_replies, expected_replies)
 
-<<<<<<< HEAD
-    @patch('fedbiomed.researcher.federated_workflows._training_plan_workflow.uuid.uuid4', return_value='UUID')
-=======
 
     @patch('fedbiomed.researcher.federated_workflows.'
         '_training_plan_workflow.uuid.uuid4', return_value='UUID')
->>>>>>> 302c1a70 (Removes environ from researcher side modules)
     def test_job_03_training_job_failed(self, mock_uuid):
 
         # Initializing a training plan instance via Job must call:
@@ -522,7 +518,7 @@ class TestJob(unittest.TestCase):
             'node-1': {'dataset_id': 'node-1_data'},
             'node-2': {'dataset_id': 'node-2_data'},
         })
-        self.mock_federated_request.errors.return_value = {}
+        self.federated_request_mock.errors.return_value = {}
         # Patch train replies to mock encrypted optimizer auxiliary variables.
         reply_1 = self._get_train_reply(
             'node-1',
@@ -536,7 +532,7 @@ class TestJob(unittest.TestCase):
             optim_aux_var={"mock": "node-2"},  # mock encrypted dump
         )
         reply_2["encrypted"] = True
-        self.mock_federated_request.replies.return_value = {
+        self.federated_request_mock.replies.return_value = {
             'node-1': TrainReply(**reply_1),
             'node-2': TrainReply(**reply_2),
         }
@@ -546,6 +542,8 @@ class TestJob(unittest.TestCase):
         # Instantiate and execute a Job, mocking most operations.
         with tempfile.TemporaryDirectory() as fp:
             job = TrainingJob(
+                researcher_id='test-id',
+                requests=self.request_mock,
                 experiment_id='experiment_id',
                 round_=1,
                 training_plan=mock_tp,
