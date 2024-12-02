@@ -272,7 +272,7 @@ def create_researcher(
     )
     os.environ['FBM_RESEARCHER_COMPONENT_ROOT'] = researcher.root
     from fedbiomed.researcher.config import config
-    config.load(path=researcher.root)
+    config.load(root=researcher.root)
 
     return researcher
 

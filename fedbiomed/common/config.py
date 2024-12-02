@@ -15,7 +15,6 @@ from fedbiomed.common.constants import (
     VAR_FOLDER_NAME,
     CERTS_FOLDER_NAME,
     DB_PREFIX,
-    CONFIG_DIR,
 )
 
 from fedbiomed.common.utils import (
@@ -24,61 +23,6 @@ from fedbiomed.common.utils import (
     read_file
 )
 from fedbiomed.common.exceptions import FedbiomedConfigurationError
-
-
-def is_config_existing(path: str) -> bool:
-    """Checks if config file exists
-
-    Args:
-        path: Path to a possibly existing config file
-
-    Returns:
-        True if config file is already existing
-    """
-    return os.path.isfile(path)
-
-
-def get_config_path(root: Optional[str], name: str) -> str:
-    """Compute configuration path for a config file
-
-    Args:
-        root: Root directory path
-        name: Name of config file
-
-    Returns:
-        Configuration path
-    """
-    if root:
-        path = os.path.join(root, CONFIG_FOLDER_NAME, name)
-    else:
-        path = os.path.join(CONFIG_DIR, name)
-
-    return path
-
-
-def get_component_name(
-    name: Optional[str],
-    component_type: str,
-    default_config_file_name: str
-) -> str:
-    """Compute configuration file name
-
-    Args:
-        name: Configuration file name, if it is provided
-        component_type: Type of component
-        default_config_file_name: Default value for the configuration file name
-
-    Returns:
-        Configuration file name
-    """
-
-    # First try to get component specific config file name, then CONFIG_FILE
-    default_config = os.getenv(
-        f"FBM_{component_type}_COMPONENT_ROOT", default_config_file_name
-    )
-
-    return name if name else default_config
-
 
 class Config(metaclass=ABCMeta):
     """Base Config class
@@ -93,7 +37,6 @@ class Config(metaclass=ABCMeta):
 
     _CONFIG_FILE_NAME: str = "config.ini"
     _CONFIG_VERSION: Version
-
     COMPONENT_TYPE: str
 
     _cfg: configparser.ConfigParser
@@ -104,7 +47,7 @@ class Config(metaclass=ABCMeta):
     vars: Dict[str, Any] = {}
 
     def __init__(
-        self, path: str, auto_generate: bool = True
+        self, root: str, auto_generate: bool = True
     ) -> None:
         """Initializes configuration
 
@@ -116,11 +59,11 @@ class Config(metaclass=ABCMeta):
                 configuration file.
         """
         self._cfg = configparser.ConfigParser()
-        self.load(path, auto_generate)
+        self.load(root, auto_generate)
 
     @classmethod
     @abstractmethod
-    def _COMPONENT_TYPE(cls):  # pylint: disable=C0103
+    def COMPONENT_TYPE(cls):  # pylint: disable=C0103
         """Abstract attribute to oblige defining component type"""
 
     @classmethod
@@ -130,7 +73,7 @@ class Config(metaclass=ABCMeta):
 
     def load(
         self,
-        path: str | None = None,
+        root: str | None = None,
         auto_generate: bool = True
     ) -> None:
         """Load configuration from given name and root
@@ -144,8 +87,9 @@ class Config(metaclass=ABCMeta):
             auto_generate: Generated all component files, folder, including
                 configuration file.
         """
+        if root:
+            self.root = root
 
-        self.root = path
         self.config_path = os.path.join(self.root, 'etc', self._CONFIG_FILE_NAME)
 
         if auto_generate or self.is_config_existing():
@@ -168,7 +112,6 @@ class Config(metaclass=ABCMeta):
 
         Raises verision compatibility error
         """
-
         self._cfg.read(self.config_path)
 
         # Validate config version
@@ -240,11 +183,11 @@ class Config(metaclass=ABCMeta):
         # Check if configuration is already existing
         if not self.is_config_existing() or force:
             # Create default section
-            component_id = id if id else f"{self._COMPONENT_TYPE}_{uuid.uuid4()}"
+            component_id = id if id else f"{self.COMPONENT_TYPE}_{uuid.uuid4()}"
 
             self._cfg["default"] = {
                 "id": component_id,
-                "component": self._COMPONENT_TYPE,
+                "component": self.COMPONENT_TYPE,
                 "version": str(self._CONFIG_VERSION),
             }
 

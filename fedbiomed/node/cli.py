@@ -85,7 +85,7 @@ def start_node(name, node_args):
         node_args: Arguments for the node
     """
 
-    config = NodeConfig(path=name, auto_generate=False)
+    config = NodeConfig(root=name, auto_generate=False)
     config.read()
 
     _node = Node(config, node_args)
@@ -641,7 +641,7 @@ class NodeCLI(CommonCLI):
     def __init__(self):
         super().__init__()
 
-        self._parser.prog = "fedbiomed_run node"
+        self._parser.prog = "fedbiomed node"
         self.description = f"{__intro__} \nA CLI app for fedbiomed node component."
         # Parent parser for parameters that are common for Node CLI actions
         self.initialize()
@@ -666,7 +666,7 @@ class NodeCLI(CommonCLI):
                     component_dir =  os.path.join(os.getcwd(), 'fbm-node')
                     os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
 
-                config = NodeConfig(path=component_dir)
+                config = NodeConfig(root=component_dir)
                 self._this.config = config
                 node = Node(config)
 
@@ -683,19 +683,18 @@ class NodeCLI(CommonCLI):
 
         self._parser.add_argument(
             "--directory",
-            "--config",
-            "-c",
+            "--path",
+            "-p"
             "-d",
             nargs="?",
             action=ComponentDirectoryActionNode,
             default="fbm-node",
-            help="Name of the config file that the CLI will be activated for. Default is 'config_node.ini'."
+            help="Name of the config file that the CLI will be activated for. "
+                "Default is 'config_node.ini'."
         )
 
-        super().initialize()
 
 
 if __name__ == '__main__':
     cli = NodeCLI()
     cli.parse_args()
->>>>>>> 728716b2 (Adds '--directory' option to CLI that replaces '--config')

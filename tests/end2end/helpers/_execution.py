@@ -15,15 +15,6 @@ class End2EndErrorExit(SystemExit):
     pass
 
 
-FEDBIOMED_RUN = os.path.abspath(
-    os.path.join(__file__, "..", "..", "..", "..", "scripts", "fedbiomed_run")
-)
-
-FEDBIOMED_ENVIRONMENT = os.path.abspath(
-    os.path.join(__file__, "..", "..", "..", "..", "scripts", "fedbiomed_environment")
-)
-
-
 def collect(process, on_failure: Optional[Callable] = None) -> bool:
     """Collects process results. Waits until processes finishes and
     checks returncode
