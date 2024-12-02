@@ -1,4 +1,4 @@
-# This file is originally part of Fed-BioMed
+
 # SPDX-License-Identifier: Apache-2.0
 
 """Common CLI Modules
@@ -56,6 +56,7 @@ class ConfigNameAction(ABC, argparse.Action):
     This action class gets the config file name and set environ object before
     executing any command.
     """
+    _component: ComponentType
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -67,16 +68,16 @@ class ConfigNameAction(ABC, argparse.Action):
             and not set(["--help", "-h"]).intersection(set(sys.argv))
             and len(sys.argv) > 2
         ):
-            self.set_environ(self.default)
+            self._create_config(self.default)
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(self, parser, namespace, values: str, option_string = None) -> None:
         """When argument is called"""
 
         if not set(["--help", "-h"]).intersection(set(sys.argv)):
-            self.set_environ(values)
+            self._create_config(values)
 
     @abstractmethod
-    def import_environ(self) -> "Environ":
+    def set_component(self, config_name: str) -> None:
         """Implements environ import
 
 
@@ -84,7 +85,7 @@ class ConfigNameAction(ABC, argparse.Action):
             Environ object
         """
 
-    def set_environ(self, config_file: str):
+    def _create_config(self, config_file: str):
         """Sets environ
 
         Args:
@@ -94,13 +95,12 @@ class ConfigNameAction(ABC, argparse.Action):
         print(f"\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #")
         os.environ["CONFIG_FILE"] = config_file
 
-        environ = self.import_environ()
+        self.set_component(config_file)
 
-        os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = environ["ID"]
 
         # Sets environ for the CLI. This implementation is required for
         # the common CLI option that are present in fedbiomed.common.cli.CommonCLI
-        self._this.set_environ(environ)
+        # self._this.set_environ(environ)
 
         # this may be changed on command line or in the config_node.ini
         logger.setLevel("DEBUG")

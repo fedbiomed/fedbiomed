@@ -1,17 +1,11 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
-#############################################################
-# Import NodeTestCase before importing FedBioMed Module
-from testsupport.base_case import NodeTestCase
-#############################################################
-
-
 from fedbiomed.common.exceptions import FedbiomedMessageError
 from fedbiomed.node.history_monitor import HistoryMonitor
 
 
-class TestHistoryMonitor(NodeTestCase):
+class TestHistoryMonitor(unittest.TestCase):
     """
     Test `HistoryMonitor` class
     Args:
@@ -24,10 +18,12 @@ class TestHistoryMonitor(NodeTestCase):
         self.send = MagicMock()
 
         try:
-            self.history_monitor = HistoryMonitor(experiment_id='1234',
-                                                  researcher_id='researcher-id',
-                                                  send=self.send
-                                                  )
+            self.history_monitor = HistoryMonitor(
+                node_id='test-node-id',
+                experiment_id='1234',
+                researcher_id='researcher-id',
+                send=self.send
+            )
             self._history_monitor_ok = True
         except:
             self._history_monitor_ok = False

@@ -1,5 +1,3 @@
-from testsupport.base_case import ResearcherTestCase
-
 import copy
 from random import random, shuffle
 import unittest
@@ -14,7 +12,7 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 
 
-class TestFedaverage(ResearcherTestCase):
+class TestFedaverage(unittest.TestCase):
     '''
     Test the FedAverage class
     '''

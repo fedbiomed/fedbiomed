@@ -19,10 +19,9 @@ from fedbiomed.researcher.aggregators.scaffold import Scaffold
 import copy
 import random
 
-from testsupport.base_case import ResearcherTestCase
 
 
-class TestScaffold(ResearcherTestCase):
+class TestScaffold(unittest.TestCase):
     '''
     Tests the Scaffold class
     '''
@@ -39,7 +38,7 @@ class TestScaffold(ResearcherTestCase):
         for node_id in self.node_ids:
             self.replies.update({
                 node_id: {
-                    'node_id': node_id, 
+                    'node_id': node_id,
                     'optimizer_args': {
                         'lr' : {
                             k: .1 for k in self.model.state_dict().keys()
@@ -268,7 +267,7 @@ class TestScaffold(ResearcherTestCase):
 
         with patch("fedbiomed.common.serializer.Serializer.dump") as save_patch:
             state = scaffold.save_state_breakpoint(breakpoint_path=bkpt_path, global_model=self.model.state_dict())
-        
+
         self.assertEqual(save_patch.call_count, 2,
                         f"'Serializer.dump' should be called 2 times")
 
@@ -335,8 +334,8 @@ class TestScaffold(ResearcherTestCase):
             with self.assertRaises(FedbiomedAggregatorError):
                 scaffold.set_nodes_learning_rate_after_training(training_plan=training_plan,
                                                                 training_replies=training_replies)
-                
-                
+
+
 class TestIntegrationScaffold(unittest.TestCase):
     # For testing training_plan setter of Experiment
     class FakeModelTorch(TorchTrainingPlan):
@@ -430,7 +429,7 @@ class TestIntegrationScaffold(unittest.TestCase):
             for node_id in self.node_ids:
                 replies[0].update({
                     node_id: {
-                        'node_id': node_id, 
+                        'node_id': node_id,
                         'optimizer_args': {
                             'lr' : tp.optimizer().get_learning_rate()}
                     }
@@ -446,13 +445,13 @@ class TestIntegrationScaffold(unittest.TestCase):
                                             global_model=global_params,
                                             training_plan=tp,
                                             training_replies=replies,
-                                            node_ids=self.node_ids, 
+                                            node_ids=self.node_ids,
                                             n_updates=n_updates,
                                             n_round=0)
             for node_id in self.node_ids:
                 # checking that `nodes_lr` have been populated accordingly
                 self.assertDictEqual(scaffold.nodes_lr[node_id], tp.optimizer().get_learning_rate())
-          
+
     def test_2_bug_977_key_error(self):
         # this bug happens when training a model with scaffold: train it, then save and load it from a breakpoint,
         # and resume the training: a key error happen, complaining that node_id doesnot exist in dictionary
@@ -462,12 +461,12 @@ class TestIntegrationScaffold(unittest.TestCase):
         tp.post_init({}, training_args , {})
         n_updates = 10
         server_lr = 1
-        # step 1: do some training 
+        # step 1: do some training
         replies = {0: {}}
         for node_id in self.node_ids:
             replies[0].update({
                 node_id: {
-                    'node_id': node_id, 
+                    'node_id': node_id,
                     'optimizer_args': {
                         'lr' : tp.optimizer().get_learning_rate()}
                 }
@@ -476,14 +475,14 @@ class TestIntegrationScaffold(unittest.TestCase):
         global_params = tp.after_training_params()
         local_models = {node_id: copy.deepcopy(tp.after_training_params()) for i, node_id in enumerate(self.node_ids)}
         scaffold = Scaffold(server_lr =server_lr)
-        
+
         scaffold.set_fds(self.fds)
         agg_params = scaffold.aggregate(local_models,
                                         self.weights,
                                         global_model=global_params,
                                         training_plan=tp,
                                         training_replies=replies,
-                                        node_ids=self.node_ids, 
+                                        node_ids=self.node_ids,
                                         n_updates=n_updates,
                                         n_round=0)
 
@@ -491,43 +490,43 @@ class TestIntegrationScaffold(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_path:
             saved_state = scaffold.save_state_breakpoint(
                 tmp_path,
-                global_params, 
+                global_params,
             )
 
             del scaffold, global_params, local_models
-            
+
             # step 3: load scaffold from breakpoint
             ## re-instantiate scaffold
             loaded_scaffold = Scaffold(server_lr =.00123)
             loaded_scaffold.set_fds(self.fds)
             loaded_scaffold.load_state_breakpoint(saved_state)
 
-        # step 4: simulate the execution of another round 
+        # step 4: simulate the execution of another round
         replies[1] = {}
         for node_id in self.node_ids:
             replies.update({
                     node_id: {
-                        'node_id': node_id, 
+                        'node_id': node_id,
                         'optimizer_args': {
                             'lr' : tp.optimizer().get_learning_rate()}
                     }
                 })
-        
+
         global_params = tp.after_training_params()
         local_models = {node_id: copy.deepcopy(tp.after_training_params()) for i, node_id in enumerate(self.node_ids)}
-        
+
         agg_params_2 = loaded_scaffold.aggregate(local_models,
                                                  self.weights,
                                                  global_model=global_params,
                                                  training_plan=tp,
                                                  training_replies=replies,
-                                                 node_ids=self.node_ids, 
+                                                 node_ids=self.node_ids,
                                                  n_updates=n_updates,
                                                  n_round=1)
 
         # checks that parameters are reloaded accordingly
         for (k_g, v_g) in loaded_scaffold.global_state.items():
-            
+
             # tests that `c = 1/N sum_{i=1}^n c_i`
             self.assertTrue(torch.isclose(v_g * len(self.node_ids),
                                           torch.mean(torch.stack(

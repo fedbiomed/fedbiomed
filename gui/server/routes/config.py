@@ -1,9 +1,5 @@
-import re
-
 from utils import response
 from config import config
-from fedbiomed.node.environ import environ
-from flask_jwt_extended import jwt_required
 from . import api
 
 
@@ -42,16 +38,14 @@ def fedbiomed_environ():
             message: The message for response
     """
     res = {}
-    confs = ['ID', 'DB_PATH', 'ROOT_DIR',
-             'CONFIG_DIR', 'DEFAULT_TRAINING_PLANS_DIR', 'MESSAGES_QUEUE_DIR',
-             'TRAINING_PLAN_APPROVAL', 'ALLOW_DEFAULT_TRAINING_PLANS', 'HASHING_ALGORITHM']
+    confs = [ ('default', 'id'), ('default', 'db'),
+              ('security', 'training_plan_approval'),
+              ('security', 'allow_default_training_plans'),
+              ('security', 'hashing_algorithm')]
 
-    for key in confs:
+    for section,key in confs:
         try:
-            res[key] = environ[key]
-            matched = re.match('^' + config['NODE_FEDBIOMED_ROOT'], str(environ[key]))
-            if matched and key != 'ROOT_DIR':
-                res[key] = res[key].replace(config['NODE_FEDBIOMED_ROOT'], '$FEDBIOMED_DIR')
+            res[key] = config.node_config.get(section, key)
         except Exception as e:
             print(f'ERROR: An error occurred while calling /node-environ endpoint - {e} \n')
             pass

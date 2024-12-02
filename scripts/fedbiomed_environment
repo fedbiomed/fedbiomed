@@ -40,15 +40,15 @@ environment_info() {
     environment_printvar "Conda   env   " "${CONDA_DEFAULT_ENV}"
     environment_printvar "Python  env   " "${PYTHONPATH}"
     environment_printvar "FEDBIOMED_DIR " "${FEDBIOMED_DIR}"
-    environment_printvar "Server  host  " "${RESEARCHER_SERVER_HOST}"
-    environment_printvar "Server  port  " "${RESEARCHER_SERVER_PORT}"
+    environment_printvar "Server  host  " "${FBM_SERVER_HOST}"
+    environment_printvar "Server  port  " "${FBM_SERVER_PORT}"
 }
 
 development_env() {
     export FEDBIOMED_DIR=$basedir
     if [[ -n "$1" ]] ; then
         export IP_ADDRESS=$1
-        [[ -z "$RESEARCHER_SERVER_HOST" ]] && { export RESEARCHER_SERVER_HOST="${IP_ADDRESS}" ; }
+        [[ -z "$FBM_RESEARCHER_HOST" ]] && { export FBM_SERVER_HOST="${IP_ADDRESS}" ; }
     else
         export IP_ADDRESS=localhost
     fi
@@ -59,8 +59,8 @@ environment_reset() {
     [[ ! -z "$verbose" ]] && echo "** Deactivating all environment"
     conda deactivate
     unset PYTHONPATH
-    unset RESEARCHER_SERVER_HOST
-    unset RESEARCHER_SERVER_PORT
+    unset FBM_SERVER_HOST
+    unset FBM_SERVER_PORT
     unset IP_ADDRESS
     [[ ! -z "$verbose" ]] && environment_info
 }

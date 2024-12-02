@@ -19,10 +19,10 @@ configure_wireguard
 trap finish TERM INT QUIT
 
 ## TODO : make more general by including in the VPN configuration file and in user environment
-export RESEARCHER_SERVER_HOST=10.222.0.2
-export RESEARCHER_SERVER_PORT=50051
+export FBM_SERVER_HOST=10.222.0.2
+export FBM_SERVER_PORT=50051
 export PYTHONPATH=/fedbiomed
-export SECAGG_INSECURE_VALIDATION=False
+export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=False
 su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; conda activate fedbiomed-researcher ; \
     ./scripts/fedbiomed_run configuration create --component researcher --use-current; cd notebooks ; \
     jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' " $CONTAINER_USER &

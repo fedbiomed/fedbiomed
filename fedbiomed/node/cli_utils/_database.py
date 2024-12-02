@@ -4,6 +4,8 @@
 import os
 import tkinter.messagebox
 import warnings
+from typing import Union
+
 from importlib import import_module
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetManagerError
@@ -16,16 +18,16 @@ from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_pa
 from fedbiomed.common.data import discover_flamby_datasets
 
 
-dataset_manager = DatasetManager()
-
-
-def add_database(interactive: bool = True,
-                 path: str = None,
-                 name: str = None,
-                 tags: str = None,
-                 description: str = None,
-                 data_type: str = None,
-                 dataset_parameters: dict = None):
+def add_database(
+    dataset_manager: DatasetManager,
+    interactive: bool = True,
+    path: str = None,
+    name: str = None,
+    tags: str = None,
+    description: str = None,
+    data_type: str = None,
+    dataset_parameters: dict = None
+) -> None:
     """Adds a dataset to the node database.
 
     Also queries interactively the user on the command line (and file browser)
@@ -189,7 +191,10 @@ def add_database(interactive: bool = True,
     dataset_manager.list_my_data(verbose=True)
 
 
-def delete_database(interactive: bool = True):
+def delete_database(
+    dataset_manager: DatasetManager,
+    interactive: bool = True
+) -> None:
     """Removes one or more dataset from the node's database.
 
     Does not modify the dataset's files.
@@ -205,6 +210,9 @@ def delete_database(interactive: bool = True):
     if not my_data:
         logger.warning('No dataset to delete')
         return
+
+    msg: str = ''
+    d_id: Union[str, None] = None
 
     if interactive is True:
         options = [d['name'] for d in my_data]
@@ -236,7 +244,7 @@ def delete_database(interactive: bool = True):
             logger.error('Invalid option. Please, try again.')
 
 
-def delete_all_database():
+def delete_all_database(dataset_manager):
     """Deletes all datasets from the node's database.
 
     Does not modify the dataset's files.

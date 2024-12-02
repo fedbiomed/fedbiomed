@@ -20,7 +20,6 @@ from fedbiomed.common.synchro import EventWaitExchange
 
 from fedbiomed.transport.controller import GrpcController
 
-from fedbiomed.node.environ import environ
 from ._overlay import OverlayChannel
 
 
@@ -49,6 +48,7 @@ class NodeToNodeController:
 
     def __init__(
             self,
+            node_id: str,
             grpc_controller: GrpcController,
             overlay_channel: OverlayChannel,
             pending_requests: EventWaitExchange,
@@ -57,11 +57,14 @@ class NodeToNodeController:
         """Constructor of the class.
 
         Args:
+            node_id: ID of the node.
             grpc_controller: object managing the communication with other components
             overlay_channel: layer for managing overlay message send and receive
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for sharing data
         """
+
+        self._node_id = node_id
         self._grpc_controller = grpc_controller
         self._overlay_channel = overlay_channel
         self._pending_requests = pending_requests
@@ -161,7 +164,7 @@ class NodeToNodeController:
         # we assume the data is properly formatted
         inner_resp = ChannelSetupReply(
             request_id=inner_msg.request_id,
-            node_id=environ['NODE_ID'],
+            node_id=self._node_id,
             dest_node_id=inner_msg.node_id,
             public_key=await self._overlay_channel.get_local_public_key(inner_msg.node_id))
 
@@ -172,7 +175,7 @@ class NodeToNodeController:
         )
         overlay_resp = OverlayMessage(
             researcher_id=overlay_msg.researcher_id,
-            node_id=environ['NODE_ID'],
+            node_id=self._node_id,
             dest_node_id=inner_msg.node_id,
             overlay=overlay,
             setup=True,
@@ -224,7 +227,7 @@ class NodeToNodeController:
         # we assume the data is properly formatted
         inner_resp = KeyReply(
             request_id=inner_msg.request_id,
-            node_id=environ["NODE_ID"],
+            node_id=self._node_id,
             dest_node_id=inner_msg.node_id,
             public_key=data[0]["public_key"],
             secagg_id=inner_msg.secagg_id,
@@ -233,7 +236,7 @@ class NodeToNodeController:
         overlay, salt, nonce = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg.researcher_id)
         overlay_resp = OverlayMessage(
             researcher_id=overlay_msg.researcher_id,
-            node_id=environ["NODE_ID"],
+            node_id=self._node_id,
             dest_node_id=inner_msg.node_id,
             overlay=overlay,
             setup=False,
@@ -275,7 +278,7 @@ class NodeToNodeController:
 
         inner_resp = AdditiveSSharingReply(
             request_id=request.request_id,
-            node_id=environ["ID"],
+            node_id=self._node_id,
             dest_node_id=from_,
             secagg_id=request.secagg_id,
             share=share,
@@ -284,7 +287,7 @@ class NodeToNodeController:
         overlay, salt, nonce = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg.researcher_id)
         overlay_resp = OverlayMessage(
             researcher_id=overlay_msg.researcher_id,
-            node_id=environ["ID"],
+            node_id=self._node_id,
             dest_node_id=request.node_id,
             overlay=overlay,
             setup=False,

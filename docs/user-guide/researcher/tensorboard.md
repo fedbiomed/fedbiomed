@@ -72,8 +72,8 @@ Afterward, you will be able to start the tensorboard. It is important to pass th
 First please import the `TENSORBOARD_RESULTS_DIR` global variable in a different cell.
 
 ```python
-from fedbiomed.researcher.environ import environ
-tensorboard_dir = environ['TENSORBOARD_RESULTS_DIR']
+from fedbiomed.researcher.config import config
+tensorboard_dir = config.vars['TENSORBOARD_RESULTS_DIR']
 ```
 
 Then, you can pass `TENSORBOARD_RESULTS_DIR` to `--logdir` parameter of the `tensorboard` command. Please create a new cell and run the following command to start the tensorboard.

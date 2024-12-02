@@ -211,10 +211,10 @@ class MetricStore(dict):
 class Monitor:
     """ Monitors nodes scalar feed-backs during training"""
 
-    def __init__(self):
+    def __init__(self, results_dir: str):
         """Constructor of the class """
 
-        self._log_dir = environ['TENSORBOARD_RESULTS_DIR']
+        self._log_dir = results_dir
         self._round = 1
         self._metric_store = MetricStore()
         self._event_writers = {}
@@ -251,7 +251,7 @@ class Monitor:
         """
 
         # For now monitor can only handle add_scalar messages
-   
+
             # Save iteration value
         cumulative_iter, *_ = self._metric_store.add_iteration(
             node=msg['node_id'],
