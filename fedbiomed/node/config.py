@@ -7,7 +7,7 @@ from fedbiomed.common.constants import (
     DEFAULT_CERT_NAME,
     HashingAlgorithms,
     __node_config_version__,
-    DEFAULT_CONFIG_FILE_NAME_NODE
+    DEFAULT_NODE_NAME
 )
 from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.config import Component, Config
@@ -15,10 +15,7 @@ from fedbiomed.common.config import Component, Config
 
 class NodeConfig(Config):
 
-    _DEFAULT_CONFIG_FILE_NAME: str = DEFAULT_CONFIG_FILE_NAME_NODE
-    _COMPONENT_TYPE: str = 'NODE'
     _CONFIG_VERSION: str = __node_config_version__
-
     COMPONENT_TYPE: str = 'NODE'
 
     def add_parameters(self):

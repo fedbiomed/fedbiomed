@@ -9,7 +9,7 @@ import shutil
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from fedbiomed.node.config import NodeConfig
+from fedbiomed.node.config import NodeConfig, node_component
 
 
 def parse_args():
@@ -88,18 +88,13 @@ if __name__ == '__main__':
     center_dfs = list()
 
     for center_name in center_names:
-        cfg_folder = os.path.join(args.root_folder, 'etc')
-        os.makedirs(cfg_folder, exist_ok=True)
-        cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
+        component_folder = os.path.join(args.root_folder, f"{center_name.lower()}")
 
-        print(f'Creating node at: {cfg_file}')
-        config = NodeConfig(name=f'{center_name.lower()}.ini', auto_generate=False)
-        if config.is_config_existing() and not args.force:
-            print(f"**Warning: config file {cfg_file} already exists. To overwrite, please specify `--force` option")
+        print(f'Creating node at: {component_folder}')
+        if node_component.is_component_existing(component_folder) and not args.force:
+            print(f"**Warning: component {component_folder} already exists. To overwrite, please specify `--force` option")
         else:
-            config.generate(force=args.force)
-            config.set('default', 'id', center_name)
-            config.write()
+            node_component.create(component_folder)
 
         df = allcenters[allcenters.SITE_NAME == center_name]
         center_dfs.append(df)
@@ -137,9 +132,9 @@ if __name__ == '__main__':
     print()
     print('Please add the data to your nodes executing and using the `ixi-train` tag:')
     for center_name in center_names:
-        print(f'\t./scripts/fedbiomed_run node --config {center_name.lower()}.ini dataset add')
+        print(f'\tfedbiomed node -p {os.path.join(args.root_folder, center_name)} dataset add')
 
     print()
     print('Then start your nodes by executing:')
     for center_name in center_names:
-        print(f'\t./scripts/fedbiomed_run node --config {center_name.lower()}.ini start')
+        print(f'\tfedbiomed node -p {os.path.join(args.root_folder, center_name)} start')

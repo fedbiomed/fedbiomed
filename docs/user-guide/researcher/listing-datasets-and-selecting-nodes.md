@@ -16,7 +16,7 @@ It returns a python `dict` that includes datasets for each node.
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.config import config
 # Optional: To select specific researcher configuration
-# config.load(root=<fedbiomed-root>, name=<config-file-name>)
+# config.load(root=<fedbiomed-root>)
 req = Requests(config)
 req.list(verbose=True)
 

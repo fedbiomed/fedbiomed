@@ -2,10 +2,10 @@
 # It is not intended for manual editing.
 
 [metadata]
-groups = ["default", "docs", "gui", "jupyter", "lint", "researcher", "test"]
+groups = ["default", "docs", "gui", "lint", "researcher", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:ca566809f0a79039f0d96f0554c870fb572cf840f102fe75eef77893c9ed069a"
+content_hash = "sha256:9b8399ae4c6be28462f7768f774397a60578a427e00af913592dc56c7ae90b1e"
 
 [[metadata.targets]]
 requires_python = ">=3.10,<3.11"
@@ -26,7 +26,7 @@ name = "anyio"
 version = "4.6.2.post1"
 requires_python = ">=3.9"
 summary = "High level compatibility layer for multiple asynchronous event loop implementations"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "exceptiongroup>=1.0.2; python_version < \"3.11\"",
     "idna>=2.8",
@@ -43,7 +43,7 @@ name = "appnope"
 version = "0.1.4"
 requires_python = ">=3.6"
 summary = "Disable App Nap on macOS >= 10.9"
-groups = ["jupyter"]
+groups = ["researcher"]
 marker = "platform_system == \"Darwin\""
 files = [
     {file = "appnope-0.1.4-py2.py3-none-any.whl", hash = "sha256:502575ee11cd7a28c0205f379b525beefebab9d161b7c964670864014ed7213c"},
@@ -55,7 +55,7 @@ name = "argon2-cffi"
 version = "23.1.0"
 requires_python = ">=3.7"
 summary = "Argon2 for Python"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "argon2-cffi-bindings",
     "typing-extensions; python_version < \"3.8\"",
@@ -70,7 +70,7 @@ name = "argon2-cffi-bindings"
 version = "21.2.0"
 requires_python = ">=3.6"
 summary = "Low-level CFFI bindings for Argon2"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "cffi>=1.0.1",
 ]
@@ -103,7 +103,7 @@ name = "arrow"
 version = "1.3.0"
 requires_python = ">=3.8"
 summary = "Better dates & times for Python"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "python-dateutil>=2.7.0",
     "types-python-dateutil>=2.8.10",
@@ -117,7 +117,7 @@ files = [
 name = "asttokens"
 version = "2.4.1"
 summary = "Annotate AST trees with source code positions"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "six>=1.12.0",
     "typing; python_version < \"3.5\"",
@@ -132,7 +132,7 @@ name = "async-lru"
 version = "2.0.4"
 requires_python = ">=3.8"
 summary = "Simple LRU cache for asyncio"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "typing-extensions>=4.0.0; python_version < \"3.11\"",
 ]
@@ -146,7 +146,7 @@ name = "attrs"
 version = "24.2.0"
 requires_python = ">=3.7"
 summary = "Classes Without Boilerplate"
-groups = ["docs", "gui", "jupyter"]
+groups = ["docs", "gui", "researcher"]
 dependencies = [
     "importlib-metadata; python_version < \"3.8\"",
 ]
@@ -160,7 +160,7 @@ name = "babel"
 version = "2.16.0"
 requires_python = ">=3.8"
 summary = "Internationalization utilities"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 dependencies = [
     "pytz>=2015.7; python_version < \"3.9\"",
 ]
@@ -174,7 +174,7 @@ name = "beautifulsoup4"
 version = "4.12.3"
 requires_python = ">=3.6.0"
 summary = "Screen-scraping library"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 dependencies = [
     "soupsieve>1.2",
 ]
@@ -212,7 +212,7 @@ name = "bleach"
 version = "6.2.0"
 requires_python = ">=3.9"
 summary = "An easy safelist-based HTML-sanitizing tool."
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 dependencies = [
     "webencodings",
 ]
@@ -259,7 +259,7 @@ name = "certifi"
 version = "2024.8.30"
 requires_python = ">=3.6"
 summary = "Python package for providing Mozilla's CA Bundle."
-groups = ["default", "docs", "jupyter", "researcher"]
+groups = ["default", "docs", "researcher"]
 files = [
     {file = "certifi-2024.8.30-py3-none-any.whl", hash = "sha256:922820b53db7a7257ffbda3f597266d435245903d80737e34f8a45ff3e3230d8"},
     {file = "certifi-2024.8.30.tar.gz", hash = "sha256:bec941d2aa8195e248a60b31ff9f0558284cf01a52591ceda73ea9afffd69fd9"},
@@ -270,7 +270,7 @@ name = "cffi"
 version = "1.17.1"
 requires_python = ">=3.8"
 summary = "Foreign Function Interface for Python calling C code."
-groups = ["default", "docs", "jupyter"]
+groups = ["default", "docs", "researcher"]
 dependencies = [
     "pycparser",
 ]
@@ -317,7 +317,7 @@ name = "charset-normalizer"
 version = "3.4.0"
 requires_python = ">=3.7.0"
 summary = "The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet."
-groups = ["default", "docs", "jupyter", "researcher"]
+groups = ["default", "docs", "researcher"]
 files = [
     {file = "charset_normalizer-3.4.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:4f9fc98dad6c2eaa32fc3af1417d95b5e3d08aff968df0cd320066def971f9a6"},
     {file = "charset_normalizer-3.4.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:0de7b687289d3c1b3e8660d0741874abe7888100efe14bd0f9fd7141bcbda92b"},
@@ -358,7 +358,7 @@ name = "colorama"
 version = "0.4.6"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 summary = "Cross-platform colored terminal text."
-groups = ["default", "docs", "gui", "jupyter", "lint", "test"]
+groups = ["default", "docs", "gui", "lint", "researcher", "test"]
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
@@ -369,7 +369,7 @@ name = "comm"
 version = "0.2.2"
 requires_python = ">=3.8"
 summary = "Jupyter Python Comm implementation, for usage in ipykernel, xeus-python etc."
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "traitlets>=4",
 ]
@@ -499,7 +499,7 @@ name = "debugpy"
 version = "1.8.8"
 requires_python = ">=3.8"
 summary = "An implementation of the Debug Adapter Protocol for Python"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "debugpy-1.8.8-cp310-cp310-macosx_14_0_x86_64.whl", hash = "sha256:e59b1607c51b71545cb3496876544f7186a7a27c00b436a62f285603cc68d1c6"},
     {file = "debugpy-1.8.8-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a6531d952b565b7cb2fbd1ef5df3d333cf160b44f37547a4e7cf73666aca5d8d"},
@@ -511,38 +511,40 @@ files = [
 
 [[package]]
 name = "declearn"
-version = "2.3.2"
+version = "2.6.0.post1"
 requires_python = ">=3.8"
-summary = "Declearn - a python package for private decentralized learning."
+summary = "A modular and extensible framework for Federated Learning."
 groups = ["default"]
 dependencies = [
     "cryptography>=35.0",
-    "fire>=0.4",
-    "pandas>=1.2",
+    "fire~=0.4",
+    "gmpy2~=2.1",
+    "pandas<3.0,>=1.2",
     "requests~=2.18",
-    "scikit-learn>=1.0",
-    "tomli>=2.0; python_version < \"3.11\"",
-    "typing-extensions>=4.0",
+    "scikit-learn~=1.0",
+    "tomli~=2.0; python_version < \"3.11\"",
+    "tqdm~=4.62",
+    "typing-extensions~=4.0",
 ]
 files = [
-    {file = "declearn-2.3.2-py3-none-any.whl", hash = "sha256:399fa6775e3f5d4a155b3481ce7af7e18de4b4df2063af9ee332fb8d8feb9793"},
-    {file = "declearn-2.3.2.tar.gz", hash = "sha256:92ca1e92ea642870924164ab5f99e21db8c883ad10fcdeae4c0123f96be709a4"},
+    {file = "declearn-2.6.0.post1-py3-none-any.whl", hash = "sha256:efc71373c72543fb7a8f5bb68ada51fd9b6c6f2ac20e9ed53d24e7b420c48117"},
+    {file = "declearn-2.6.0.post1.tar.gz", hash = "sha256:cc84d669aed72ecc88e720a587b02430262424b1f402280f553b1e125887a48c"},
 ]
 
 [[package]]
 name = "declearn"
-version = "2.3.2"
+version = "2.6.0.post1"
 extras = ["torch1"]
 requires_python = ">=3.8"
-summary = "Declearn - a python package for private decentralized learning."
+summary = "A modular and extensible framework for Federated Learning."
 groups = ["default"]
 dependencies = [
-    "declearn==2.3.2",
+    "declearn==2.6.0.post1",
     "torch~=1.13.0",
 ]
 files = [
-    {file = "declearn-2.3.2-py3-none-any.whl", hash = "sha256:399fa6775e3f5d4a155b3481ce7af7e18de4b4df2063af9ee332fb8d8feb9793"},
-    {file = "declearn-2.3.2.tar.gz", hash = "sha256:92ca1e92ea642870924164ab5f99e21db8c883ad10fcdeae4c0123f96be709a4"},
+    {file = "declearn-2.6.0.post1-py3-none-any.whl", hash = "sha256:efc71373c72543fb7a8f5bb68ada51fd9b6c6f2ac20e9ed53d24e7b420c48117"},
+    {file = "declearn-2.6.0.post1.tar.gz", hash = "sha256:cc84d669aed72ecc88e720a587b02430262424b1f402280f553b1e125887a48c"},
 ]
 
 [[package]]
@@ -550,7 +552,7 @@ name = "decorator"
 version = "5.1.1"
 requires_python = ">=3.5"
 summary = "Decorators for Humans"
-groups = ["default", "jupyter"]
+groups = ["default", "researcher"]
 files = [
     {file = "decorator-5.1.1-py3-none-any.whl", hash = "sha256:b8c3f85900b9dc423225913c5aace94729fe1fa9763b38939a95226f02d37186"},
     {file = "decorator-5.1.1.tar.gz", hash = "sha256:637996211036b6385ef91435e4fae22989472f9d571faba8927ba8253acbc330"},
@@ -561,7 +563,7 @@ name = "defusedxml"
 version = "0.7.1"
 requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 summary = "XML bomb protection for Python stdlib modules"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 files = [
     {file = "defusedxml-0.7.1-py2.py3-none-any.whl", hash = "sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61"},
     {file = "defusedxml-0.7.1.tar.gz", hash = "sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69"},
@@ -582,7 +584,7 @@ name = "exceptiongroup"
 version = "1.2.2"
 requires_python = ">=3.7"
 summary = "Backport of PEP 654 (exception groups)"
-groups = ["jupyter", "test"]
+groups = ["researcher", "test"]
 marker = "python_version < \"3.11\""
 files = [
     {file = "exceptiongroup-1.2.2-py3-none-any.whl", hash = "sha256:3111b9d131c238bec2f8f516e123e14ba243563fb135d3fe885990585aa7795b"},
@@ -594,7 +596,7 @@ name = "executing"
 version = "2.1.0"
 requires_python = ">=3.8"
 summary = "Get the currently executing AST node of a frame, and other information"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "executing-2.1.0-py2.py3-none-any.whl", hash = "sha256:8d63781349375b5ebccc3142f4b30350c0cd9c79f921cde38be2be4637e98eaf"},
     {file = "executing-2.1.0.tar.gz", hash = "sha256:8ea27ddd260da8150fa5a708269c4a10e76161e2496ec3e587da9e3c0fe4b9ab"},
@@ -604,7 +606,7 @@ files = [
 name = "fastjsonschema"
 version = "2.20.0"
 summary = "Fastest Python implementation of JSON schema"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 files = [
     {file = "fastjsonschema-2.20.0-py3-none-any.whl", hash = "sha256:5875f0b0fa7a0043a91e93a9b8f793bcbbba9691e7fd83dca95c28ba26d21f0a"},
     {file = "fastjsonschema-2.20.0.tar.gz", hash = "sha256:3d48fc5300ee96f5d116f10fe6f28d938e6008f59a6a025c2649475b87f76a23"},
@@ -735,7 +737,7 @@ name = "fqdn"
 version = "1.5.1"
 requires_python = ">=2.7, !=3.0, !=3.1, !=3.2, !=3.3, !=3.4, <4"
 summary = "Validates fully-qualified domain names against RFC 1123, so that they are acceptable to modern bowsers"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "cached-property>=1.3.0; python_version < \"3.8\"",
 ]
@@ -882,7 +884,7 @@ name = "h11"
 version = "0.14.0"
 requires_python = ">=3.7"
 summary = "A pure-Python, bring-your-own-I/O implementation of HTTP/1.1"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "typing-extensions; python_version < \"3.8\"",
 ]
@@ -905,7 +907,7 @@ name = "httpcore"
 version = "1.0.6"
 requires_python = ">=3.8"
 summary = "A minimal low-level HTTP client."
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "certifi",
     "h11<0.15,>=0.13",
@@ -920,7 +922,7 @@ name = "httpx"
 version = "0.27.2"
 requires_python = ">=3.8"
 summary = "The next generation HTTP client."
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "anyio",
     "certifi",
@@ -949,7 +951,7 @@ name = "idna"
 version = "3.10"
 requires_python = ">=3.6"
 summary = "Internationalized Domain Names in Applications (IDNA)"
-groups = ["default", "docs", "jupyter", "researcher"]
+groups = ["default", "docs", "researcher"]
 files = [
     {file = "idna-3.10-py3-none-any.whl", hash = "sha256:946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3"},
     {file = "idna-3.10.tar.gz", hash = "sha256:12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9"},
@@ -971,7 +973,7 @@ name = "ipykernel"
 version = "6.29.5"
 requires_python = ">=3.8"
 summary = "IPython Kernel for Jupyter"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "appnope; platform_system == \"Darwin\"",
     "comm>=0.1.1",
@@ -997,7 +999,7 @@ name = "ipython"
 version = "8.29.0"
 requires_python = ">=3.10"
 summary = "IPython: Productive Interactive Computing"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "colorama; sys_platform == \"win32\"",
     "decorator",
@@ -1021,7 +1023,7 @@ name = "ipywidgets"
 version = "8.1.5"
 requires_python = ">=3.7"
 summary = "Jupyter interactive widgets"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "comm>=0.1.3",
     "ipython>=6.1.0",
@@ -1039,7 +1041,7 @@ name = "isoduration"
 version = "20.11.0"
 requires_python = ">=3.7"
 summary = "Operations with ISO 8601 durations"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "arrow>=0.15.0",
 ]
@@ -1202,7 +1204,7 @@ name = "jedi"
 version = "0.19.1"
 requires_python = ">=3.6"
 summary = "An autocompletion tool for Python that can be used for text editors."
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "parso<0.9.0,>=0.8.3",
 ]
@@ -1216,7 +1218,7 @@ name = "jinja2"
 version = "3.1.4"
 requires_python = ">=3.7"
 summary = "A very fast and expressive template engine."
-groups = ["docs", "gui", "jupyter"]
+groups = ["docs", "gui", "researcher"]
 dependencies = [
     "MarkupSafe>=2.0",
 ]
@@ -1250,7 +1252,7 @@ name = "json5"
 version = "0.9.25"
 requires_python = ">=3.8"
 summary = "A Python implementation of the JSON5 data format."
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "json5-0.9.25-py3-none-any.whl", hash = "sha256:34ed7d834b1341a86987ed52f3f76cd8ee184394906b6e22a1e0deb9ab294e8f"},
     {file = "json5-0.9.25.tar.gz", hash = "sha256:548e41b9be043f9426776f05df8635a00fe06104ea51ed24b67f908856e151ae"},
@@ -1261,7 +1263,7 @@ name = "jsonpointer"
 version = "3.0.0"
 requires_python = ">=3.7"
 summary = "Identify specific nodes in a JSON document (RFC 6901) "
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "jsonpointer-3.0.0-py2.py3-none-any.whl", hash = "sha256:13e088adc14fca8b6aa8177c044e12701e6ad4b28ff10e65f2267a90109c9942"},
     {file = "jsonpointer-3.0.0.tar.gz", hash = "sha256:2b2d729f2091522d61c3b31f82e11870f60b68f43fbc705cb76bf4b832af59ef"},
@@ -1272,7 +1274,7 @@ name = "jsonschema"
 version = "4.18.6"
 requires_python = ">=3.8"
 summary = "An implementation of JSON Schema validation for Python"
-groups = ["docs", "gui", "jupyter"]
+groups = ["docs", "gui", "researcher"]
 dependencies = [
     "attrs>=22.2.0",
     "importlib-resources>=1.4.0; python_version < \"3.9\"",
@@ -1291,7 +1293,7 @@ name = "jsonschema-specifications"
 version = "2024.10.1"
 requires_python = ">=3.9"
 summary = "The JSON Schema meta-schemas and vocabularies, exposed as a Registry"
-groups = ["docs", "gui", "jupyter"]
+groups = ["docs", "gui", "researcher"]
 dependencies = [
     "referencing>=0.31.0",
 ]
@@ -1306,7 +1308,7 @@ version = "4.18.6"
 extras = ["format-nongpl"]
 requires_python = ">=3.8"
 summary = "An implementation of JSON Schema validation for Python"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "fqdn",
     "idna",
@@ -1327,7 +1329,7 @@ files = [
 name = "jupyter"
 version = "1.1.1"
 summary = "Jupyter metapackage. Install all the Jupyter components in one go."
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "ipykernel",
     "ipywidgets",
@@ -1346,7 +1348,7 @@ name = "jupyter-client"
 version = "8.6.3"
 requires_python = ">=3.8"
 summary = "Jupyter protocol implementation and client libraries"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 dependencies = [
     "importlib-metadata>=4.8.3; python_version < \"3.10\"",
     "jupyter-core!=5.0.*,>=4.12",
@@ -1365,7 +1367,7 @@ name = "jupyter-console"
 version = "6.6.3"
 requires_python = ">=3.7"
 summary = "Jupyter terminal console"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "ipykernel>=6.14",
     "ipython",
@@ -1386,7 +1388,7 @@ name = "jupyter-core"
 version = "5.7.2"
 requires_python = ">=3.8"
 summary = "Jupyter core package. A base package on which Jupyter projects rely."
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 dependencies = [
     "platformdirs>=2.5",
     "pywin32>=300; sys_platform == \"win32\" and platform_python_implementation != \"PyPy\"",
@@ -1402,7 +1404,7 @@ name = "jupyter-events"
 version = "0.10.0"
 requires_python = ">=3.8"
 summary = "Jupyter Event System library"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "jsonschema[format-nongpl]>=4.18.0",
     "python-json-logger>=2.0.4",
@@ -1422,7 +1424,7 @@ name = "jupyter-lsp"
 version = "2.2.5"
 requires_python = ">=3.8"
 summary = "Multi-Language Server WebSocket proxy for Jupyter Notebook/Lab server"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "importlib-metadata>=4.8.3; python_version < \"3.10\"",
     "jupyter-server>=1.1.2",
@@ -1437,7 +1439,7 @@ name = "jupyter-server"
 version = "2.14.2"
 requires_python = ">=3.8"
 summary = "The backend—i.e. core services, APIs, and REST endpoints—to Jupyter web applications."
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "anyio>=3.1.0",
     "argon2-cffi>=21.1",
@@ -1469,7 +1471,7 @@ name = "jupyter-server-terminals"
 version = "0.5.3"
 requires_python = ">=3.8"
 summary = "A Jupyter Server Extension Providing Terminals."
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "pywinpty>=2.0.3; os_name == \"nt\"",
     "terminado>=0.8.3",
@@ -1484,7 +1486,7 @@ name = "jupyterlab"
 version = "4.2.5"
 requires_python = ">=3.8"
 summary = "JupyterLab computational environment"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "async-lru>=1.0.0",
     "httpx>=0.25.0",
@@ -1513,7 +1515,7 @@ name = "jupyterlab-pygments"
 version = "0.3.0"
 requires_python = ">=3.8"
 summary = "Pygments theme using JupyterLab CSS variables"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 files = [
     {file = "jupyterlab_pygments-0.3.0-py3-none-any.whl", hash = "sha256:841a89020971da1d8693f1a99997aefc5dc424bb1b251fd6322462a1b8842780"},
     {file = "jupyterlab_pygments-0.3.0.tar.gz", hash = "sha256:721aca4d9029252b11cfa9d185e5b5af4d54772bb8072f9b7036f4170054d35d"},
@@ -1524,7 +1526,7 @@ name = "jupyterlab-server"
 version = "2.27.3"
 requires_python = ">=3.8"
 summary = "A set of server components for JupyterLab and JupyterLab like applications."
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "babel>=2.10",
     "importlib-metadata>=4.8.3; python_version < \"3.10\"",
@@ -1545,7 +1547,7 @@ name = "jupyterlab-widgets"
 version = "3.0.13"
 requires_python = ">=3.7"
 summary = "Jupyter interactive widgets for JupyterLab"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "jupyterlab_widgets-3.0.13-py3-none-any.whl", hash = "sha256:e3cda2c233ce144192f1e29914ad522b2f4c40e77214b0cc97377ca3d323db54"},
     {file = "jupyterlab_widgets-3.0.13.tar.gz", hash = "sha256:a2966d385328c1942b683a8cd96b89b8dd82c8b8f81dda902bb2bc06d46f5bed"},
@@ -1650,7 +1652,7 @@ name = "markupsafe"
 version = "3.0.2"
 requires_python = ">=3.9"
 summary = "Safely add untrusted strings to HTML/XML markup."
-groups = ["default", "docs", "gui", "jupyter", "researcher"]
+groups = ["default", "docs", "gui", "researcher"]
 files = [
     {file = "MarkupSafe-3.0.2-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:7e94c425039cde14257288fd61dcfb01963e658efbc0ff54f5306b06054700f8"},
     {file = "MarkupSafe-3.0.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:9e2d922824181480953426608b81967de705c3cef4d1af983af849d7bd619158"},
@@ -1698,7 +1700,7 @@ name = "matplotlib-inline"
 version = "0.1.7"
 requires_python = ">=3.8"
 summary = "Inline Matplotlib backend for Jupyter"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "traitlets",
 ]
@@ -1759,7 +1761,7 @@ name = "mistune"
 version = "3.0.2"
 requires_python = ">=3.7"
 summary = "A sane and fast Markdown parser with useful plugins and renderers"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 files = [
     {file = "mistune-3.0.2-py3-none-any.whl", hash = "sha256:71481854c30fdbc938963d3605b72501f5c10a9320ecd412c121c163a1c7d205"},
     {file = "mistune-3.0.2.tar.gz", hash = "sha256:fc7f93ded930c92394ef2cb6f04a8aabab4117a91449e72dcc8dfa646a508be8"},
@@ -1880,6 +1882,20 @@ files = [
 ]
 
 [[package]]
+name = "mkdocs-redirects"
+version = "1.2.2"
+requires_python = ">=3.8"
+summary = "A MkDocs plugin for dynamic page redirects to prevent broken links"
+groups = ["docs"]
+dependencies = [
+    "mkdocs>=1.1.1",
+]
+files = [
+    {file = "mkdocs_redirects-1.2.2-py3-none-any.whl", hash = "sha256:7dbfa5647b79a3589da4401403d69494bd1f4ad03b9c15136720367e1f340ed5"},
+    {file = "mkdocs_redirects-1.2.2.tar.gz", hash = "sha256:3094981b42ffab29313c2c1b8ac3969861109f58b2dd58c45fc81cd44bfa0095"},
+]
+
+[[package]]
 name = "mkdocstrings"
 version = "0.26.2"
 requires_python = ">=3.9"
@@ -1968,7 +1984,7 @@ name = "nbclient"
 version = "0.10.0"
 requires_python = ">=3.8.0"
 summary = "A client library for executing notebooks. Formerly nbconvert's ExecutePreprocessor."
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 dependencies = [
     "jupyter-client>=6.1.12",
     "jupyter-core!=5.0.*,>=4.12",
@@ -1985,7 +2001,7 @@ name = "nbconvert"
 version = "7.16.4"
 requires_python = ">=3.8"
 summary = "Converting Jupyter Notebooks (.ipynb files) to other formats.  Output formats include asciidoc, html, latex, markdown, pdf, py, rst, script.  nbconvert can be used both as a Python library (`import nbconvert`) or as a command line tool (invoked as `jupyter nbconvert ...`)."
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 dependencies = [
     "beautifulsoup4",
     "bleach!=5.0.0",
@@ -2014,7 +2030,7 @@ name = "nbformat"
 version = "5.10.4"
 requires_python = ">=3.8"
 summary = "The Jupyter Notebook format"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 dependencies = [
     "fastjsonschema>=2.15",
     "jsonschema>=2.6",
@@ -2031,7 +2047,7 @@ name = "nest-asyncio"
 version = "1.6.0"
 requires_python = ">=3.5"
 summary = "Patch asyncio to allow nested event loops"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "nest_asyncio-1.6.0-py3-none-any.whl", hash = "sha256:87af6efd6b5e897c81050477ef65c62e2b2f35d51703cae01aff2905b1852e1c"},
     {file = "nest_asyncio-1.6.0.tar.gz", hash = "sha256:6f172d5449aca15afd6c646851f4e31e02c598d553a667e38cafa997cfec55fe"},
@@ -2053,7 +2069,7 @@ name = "notebook"
 version = "7.2.2"
 requires_python = ">=3.8"
 summary = "Jupyter Notebook - A web-based notebook environment for interactive computing"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "jupyter-server<3,>=2.4.0",
     "jupyterlab-server<3,>=2.27.1",
@@ -2071,7 +2087,7 @@ name = "notebook-shim"
 version = "0.2.4"
 requires_python = ">=3.7"
 summary = "A shim layer for notebook traits and config"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "jupyter-server<3,>=1.8",
 ]
@@ -2221,7 +2237,7 @@ name = "overrides"
 version = "7.7.0"
 requires_python = ">=3.6"
 summary = "A decorator to automatically detect mismatch when overriding a method."
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "typing; python_version < \"3.5\"",
 ]
@@ -2235,7 +2251,7 @@ name = "packaging"
 version = "24.2"
 requires_python = ">=3.8"
 summary = "Core utilities for Python packages"
-groups = ["default", "docs", "gui", "jupyter", "lint", "researcher", "test"]
+groups = ["default", "docs", "gui", "lint", "researcher", "test"]
 files = [
     {file = "packaging-24.2-py3-none-any.whl", hash = "sha256:09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759"},
     {file = "packaging-24.2.tar.gz", hash = "sha256:c228a6dc5e932d346bc5739379109d49e8853dd8223571c7c5b55260edc0b97f"},
@@ -2280,7 +2296,7 @@ name = "pandocfilters"
 version = "1.5.1"
 requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 summary = "Utilities for writing pandoc filters in python"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 files = [
     {file = "pandocfilters-1.5.1-py2.py3-none-any.whl", hash = "sha256:93be382804a9cdb0a7267585f157e5d1731bbe5545a85b268d6f5fe6232de2bc"},
     {file = "pandocfilters-1.5.1.tar.gz", hash = "sha256:002b4a555ee4ebc03f8b66307e287fa492e4a77b4ea14d3f934328297bb4939e"},
@@ -2291,7 +2307,7 @@ name = "parso"
 version = "0.8.4"
 requires_python = ">=3.6"
 summary = "A Python Parser"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "parso-0.8.4-py2.py3-none-any.whl", hash = "sha256:a418670a20291dacd2dddc80c377c5c3791378ee1e8d12bffc35420643d43f18"},
     {file = "parso-0.8.4.tar.gz", hash = "sha256:eb3a7b58240fb99099a345571deecc0f9540ea5f4dd2fe14c2a99d6b281ab92d"},
@@ -2333,7 +2349,7 @@ files = [
 name = "pexpect"
 version = "4.9.0"
 summary = "Pexpect allows easy control of interactive console applications."
-groups = ["jupyter"]
+groups = ["researcher"]
 marker = "sys_platform != \"win32\" and sys_platform != \"emscripten\""
 dependencies = [
     "ptyprocess>=0.5",
@@ -2376,7 +2392,7 @@ name = "platformdirs"
 version = "4.3.6"
 requires_python = ">=3.8"
 summary = "A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`."
-groups = ["default", "docs", "jupyter", "lint", "test"]
+groups = ["default", "docs", "lint", "researcher", "test"]
 files = [
     {file = "platformdirs-4.3.6-py3-none-any.whl", hash = "sha256:73e575e1408ab8103900836b97580d5307456908a03e92031bab39e4554cc3fb"},
     {file = "platformdirs-4.3.6.tar.gz", hash = "sha256:357fb2acbc885b0419afd3ce3ed34564c13c9b95c89360cd9563f73aa5e2b907"},
@@ -2416,7 +2432,7 @@ name = "prometheus-client"
 version = "0.21.0"
 requires_python = ">=3.8"
 summary = "Python client for the Prometheus monitoring system."
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "prometheus_client-0.21.0-py3-none-any.whl", hash = "sha256:4fa6b4dd0ac16d58bb587c04b1caae65b8c5043e85f778f42f5f632f6af2e166"},
     {file = "prometheus_client-0.21.0.tar.gz", hash = "sha256:96c83c606b71ff2b0a433c98889d275f51ffec6c5e267de37c7a2b5c9aa9233e"},
@@ -2427,7 +2443,7 @@ name = "prompt-toolkit"
 version = "3.0.48"
 requires_python = ">=3.7.0"
 summary = "Library for building powerful interactive command lines in Python"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "wcwidth",
 ]
@@ -2457,7 +2473,7 @@ name = "psutil"
 version = "6.0.0"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,>=2.7"
 summary = "Cross-platform lib for process and system monitoring in Python."
-groups = ["default", "jupyter"]
+groups = ["default", "researcher"]
 files = [
     {file = "psutil-6.0.0-cp36-abi3-macosx_10_9_x86_64.whl", hash = "sha256:c588a7e9b1173b6e866756dde596fd4cad94f9399daf99ad8c3258b3cb2b47a0"},
     {file = "psutil-6.0.0-cp36-abi3-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:6ed2440ada7ef7d0d608f20ad89a04ec47d2d3ab7190896cd62ca5fc4fe08bf0"},
@@ -2473,7 +2489,7 @@ files = [
 name = "ptyprocess"
 version = "0.7.0"
 summary = "Run a subprocess in a pseudo terminal"
-groups = ["jupyter"]
+groups = ["researcher"]
 marker = "sys_platform != \"win32\" and sys_platform != \"emscripten\" or os_name != \"nt\""
 files = [
     {file = "ptyprocess-0.7.0-py2.py3-none-any.whl", hash = "sha256:4b41f3967fce3af57cc7e94b888626c18bf37a083e3651ca8feeb66d492fef35"},
@@ -2484,7 +2500,7 @@ files = [
 name = "pure-eval"
 version = "0.2.3"
 summary = "Safely evaluate AST nodes without side effects"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "pure_eval-0.2.3-py3-none-any.whl", hash = "sha256:1db8e35b67b3d218d818ae653e27f06c3aa420901fa7b081ca98cbedc874e0d0"},
     {file = "pure_eval-0.2.3.tar.gz", hash = "sha256:5f4e983f40564c576c7c8635ae88db5956bb2229d7e9237d03b3c0b0190eaf42"},
@@ -2531,7 +2547,7 @@ name = "pycparser"
 version = "2.22"
 requires_python = ">=3.8"
 summary = "C parser in Python"
-groups = ["default", "docs", "jupyter"]
+groups = ["default", "docs", "researcher"]
 files = [
     {file = "pycparser-2.22-py3-none-any.whl", hash = "sha256:c3702b6d3dd8c7abc1afa565d7e63d53a1d0bd86cdc24edd75470f4de499cfcc"},
     {file = "pycparser-2.22.tar.gz", hash = "sha256:491c8be9c040f5390f5bf44a5b07752bd07f56edf992381b05c701439eec10f6"},
@@ -2553,7 +2569,7 @@ name = "pygments"
 version = "2.18.0"
 requires_python = ">=3.8"
 summary = "Pygments is a syntax highlighting package written in Python."
-groups = ["default", "docs", "jupyter"]
+groups = ["default", "docs", "researcher"]
 files = [
     {file = "pygments-2.18.0-py3-none-any.whl", hash = "sha256:b8e6aca0523f3ab76fee51799c488e38782ac06eafcf95e7ba832985c8e7b13a"},
     {file = "pygments-2.18.0.tar.gz", hash = "sha256:786ff802f32e91311bff3889f6e9a86e81505fe99f2735bb6d60ae0c5004f199"},
@@ -2682,7 +2698,7 @@ name = "python-dateutil"
 version = "2.9.0.post0"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 summary = "Extensions to the standard Python datetime module"
-groups = ["default", "docs", "jupyter", "researcher"]
+groups = ["default", "docs", "researcher"]
 dependencies = [
     "six>=1.5",
 ]
@@ -2696,7 +2712,7 @@ name = "python-json-logger"
 version = "2.0.7"
 requires_python = ">=3.6"
 summary = "A python library adding a json log formatter"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "python-json-logger-2.0.7.tar.gz", hash = "sha256:23e7ec02d34237c5aa1e29a070193a4ea87583bb4e7f8fd06d3de8264c4b2e1c"},
     {file = "python_json_logger-2.0.7-py3-none-any.whl", hash = "sha256:f380b826a991ebbe3de4d897aeec42760035ac760345e57b812938dc8b35e2bd"},
@@ -2727,7 +2743,7 @@ files = [
 name = "pywin32"
 version = "308"
 summary = "Python for Window Extensions"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 marker = "sys_platform == \"win32\" and platform_python_implementation != \"PyPy\""
 files = [
     {file = "pywin32-308-cp310-cp310-win32.whl", hash = "sha256:796ff4426437896550d2981b9c2ac0ffd75238ad9ea2d3bfa67a1abd546d262e"},
@@ -2740,7 +2756,7 @@ name = "pywinpty"
 version = "2.0.14"
 requires_python = ">=3.8"
 summary = "Pseudo terminal support for Windows from Python."
-groups = ["jupyter"]
+groups = ["researcher"]
 marker = "os_name == \"nt\""
 files = [
     {file = "pywinpty-2.0.14-cp310-none-win_amd64.whl", hash = "sha256:0b149c2918c7974f575ba79f5a4aad58bd859a52fa9eb1296cc22aa412aa411f"},
@@ -2752,7 +2768,7 @@ name = "pyyaml"
 version = "6.0.2"
 requires_python = ">=3.8"
 summary = "YAML parser and emitter for Python"
-groups = ["default", "docs", "jupyter"]
+groups = ["default", "docs", "researcher"]
 files = [
     {file = "PyYAML-6.0.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:0a9a2848a5b7feac301353437eb7d5957887edbf81d56e903999a75a3d743086"},
     {file = "PyYAML-6.0.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:29717114e51c84ddfba879543fb232a6ed60086602313ca38cce623c1d62cfbf"},
@@ -2785,7 +2801,7 @@ name = "pyzmq"
 version = "26.2.0"
 requires_python = ">=3.7"
 summary = "Python bindings for 0MQ"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 dependencies = [
     "cffi; implementation_name == \"pypy\"",
 ]
@@ -2815,7 +2831,7 @@ name = "referencing"
 version = "0.35.1"
 requires_python = ">=3.8"
 summary = "JSON Referencing + Python"
-groups = ["docs", "gui", "jupyter"]
+groups = ["docs", "gui", "researcher"]
 dependencies = [
     "attrs>=22.2.0",
     "rpds-py>=0.7.0",
@@ -2856,7 +2872,7 @@ name = "requests"
 version = "2.32.3"
 requires_python = ">=3.8"
 summary = "Python HTTP for Humans."
-groups = ["default", "docs", "jupyter", "researcher"]
+groups = ["default", "docs", "researcher"]
 dependencies = [
     "certifi>=2017.4.17",
     "charset-normalizer<4,>=2",
@@ -2888,7 +2904,7 @@ name = "rfc3339-validator"
 version = "0.1.4"
 requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 summary = "A pure python RFC3339 validator"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "six",
 ]
@@ -2902,7 +2918,7 @@ name = "rfc3986-validator"
 version = "0.1.1"
 requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 summary = "Pure python rfc3986 validator"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "rfc3986_validator-0.1.1-py2.py3-none-any.whl", hash = "sha256:2f235c432ef459970b4306369336b9d5dbdda31b510ca1e327636e01f528bfa9"},
     {file = "rfc3986_validator-0.1.1.tar.gz", hash = "sha256:3d44bde7921b3b9ec3ae4e3adca370438eccebc676456449b145d533b240d055"},
@@ -2913,7 +2929,7 @@ name = "rpds-py"
 version = "0.21.0"
 requires_python = ">=3.9"
 summary = "Python bindings to Rust's persistent data structures (rpds)"
-groups = ["docs", "gui", "jupyter"]
+groups = ["docs", "gui", "researcher"]
 files = [
     {file = "rpds_py-0.21.0-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:a017f813f24b9df929674d0332a374d40d7f0162b326562daae8066b502d0590"},
     {file = "rpds_py-0.21.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:20cc1ed0bcc86d8e1a7e968cce15be45178fd16e2ff656a243145e0b439bd250"},
@@ -3017,7 +3033,7 @@ name = "send2trash"
 version = "1.8.3"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,>=2.7"
 summary = "Send file to trash natively under Mac OS X, Windows and Linux"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "Send2Trash-1.8.3-py3-none-any.whl", hash = "sha256:0c31227e0bd08961c7665474a3d1ef7193929fedda4233843689baa056be46c9"},
     {file = "Send2Trash-1.8.3.tar.gz", hash = "sha256:b18e7a3966d99871aefeb00cfbcfdced55ce4871194810fc71f4aa484b953abf"},
@@ -3028,7 +3044,7 @@ name = "setuptools"
 version = "75.3.0"
 requires_python = ">=3.8"
 summary = "Easily download, build, install, upgrade, and uninstall Python packages"
-groups = ["default", "jupyter", "researcher"]
+groups = ["default", "researcher"]
 files = [
     {file = "setuptools-75.3.0-py3-none-any.whl", hash = "sha256:f2504966861356aa38616760c0f66568e535562374995367b4e69c7143cf6bcd"},
     {file = "setuptools-75.3.0.tar.gz", hash = "sha256:fba5dd4d766e97be1b1681d98712680ae8f2f26d7881245f2ce9e40714f1a686"},
@@ -3039,7 +3055,7 @@ name = "six"
 version = "1.16.0"
 requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
 summary = "Python 2 and 3 compatibility utilities"
-groups = ["default", "docs", "jupyter", "researcher"]
+groups = ["default", "docs", "researcher"]
 files = [
     {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
     {file = "six-1.16.0.tar.gz", hash = "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926"},
@@ -3050,7 +3066,7 @@ name = "sniffio"
 version = "1.3.1"
 requires_python = ">=3.7"
 summary = "Sniff out which async library your code is running under"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "sniffio-1.3.1-py3-none-any.whl", hash = "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2"},
     {file = "sniffio-1.3.1.tar.gz", hash = "sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc"},
@@ -3061,7 +3077,7 @@ name = "soupsieve"
 version = "2.6"
 requires_python = ">=3.8"
 summary = "A modern CSS selector implementation for Beautiful Soup."
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 files = [
     {file = "soupsieve-2.6-py3-none-any.whl", hash = "sha256:e72c4ff06e4fb6e4b5a9f0f55fe6e81514581fca1515028625d0f299c602ccc9"},
     {file = "soupsieve-2.6.tar.gz", hash = "sha256:e2e68417777af359ec65daac1057404a3c8a5455bb8abc36f1a9866ab1a51abb"},
@@ -3071,7 +3087,7 @@ files = [
 name = "stack-data"
 version = "0.6.3"
 summary = "Extract data from python stack frames and tracebacks for informative displays"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "asttokens>=2.1.0",
     "executing>=1.2.0",
@@ -3145,7 +3161,7 @@ name = "terminado"
 version = "0.18.1"
 requires_python = ">=3.8"
 summary = "Tornado websocket backend for the Xterm.js Javascript terminal emulator library."
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "ptyprocess; os_name != \"nt\"",
     "pywinpty>=1.1.0; os_name == \"nt\"",
@@ -3172,7 +3188,7 @@ name = "tinycss2"
 version = "1.4.0"
 requires_python = ">=3.8"
 summary = "A tiny CSS parser"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 dependencies = [
     "webencodings>=0.4",
 ]
@@ -3200,7 +3216,7 @@ name = "tomli"
 version = "2.0.2"
 requires_python = ">=3.8"
 summary = "A lil' TOML parser"
-groups = ["default", "docs", "jupyter", "lint", "test"]
+groups = ["default", "docs", "lint", "researcher", "test"]
 marker = "python_version < \"3.11\""
 files = [
     {file = "tomli-2.0.2-py3-none-any.whl", hash = "sha256:2ebe24485c53d303f690b0ec092806a085f07af5a5aa1464f3931eec36caaa38"},
@@ -3254,7 +3270,7 @@ name = "tornado"
 version = "6.4.1"
 requires_python = ">=3.8"
 summary = "Tornado is a Python web framework and asynchronous networking library, originally developed at FriendFeed."
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 files = [
     {file = "tornado-6.4.1-cp38-abi3-macosx_10_9_universal2.whl", hash = "sha256:163b0aafc8e23d8cdc3c9dfb24c5368af84a81e3364745ccb4427669bf84aec8"},
     {file = "tornado-6.4.1-cp38-abi3-macosx_10_9_x86_64.whl", hash = "sha256:6d5ce3437e18a2b66fbadb183c1d3364fb03f2be71299e7d10dbeeb69f4b2a14"},
@@ -3313,7 +3329,7 @@ name = "traitlets"
 version = "5.14.3"
 requires_python = ">=3.8"
 summary = "Traitlets Python configuration system"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 files = [
     {file = "traitlets-5.14.3-py3-none-any.whl", hash = "sha256:b74e89e397b1ed28cc831db7aea759ba6640cb3de13090ca145426688ff1ac4f"},
     {file = "traitlets-5.14.3.tar.gz", hash = "sha256:9ed0579d3502c94b4b3732ac120375cda96f923114522847de4b3bb98b96b6b7"},
@@ -3324,7 +3340,7 @@ name = "types-python-dateutil"
 version = "2.9.0.20241003"
 requires_python = ">=3.8"
 summary = "Typing stubs for python-dateutil"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "types-python-dateutil-2.9.0.20241003.tar.gz", hash = "sha256:58cb85449b2a56d6684e41aeefb4c4280631246a0da1a719bdbe6f3fb0317446"},
     {file = "types_python_dateutil-2.9.0.20241003-py3-none-any.whl", hash = "sha256:250e1d8e80e7bbc3a6c99b907762711d1a1cdd00e978ad39cb5940f6f0a87f3d"},
@@ -3335,7 +3351,7 @@ name = "typing-extensions"
 version = "4.12.2"
 requires_python = ">=3.8"
 summary = "Backported and Experimental Type Hints for Python 3.8+"
-groups = ["default", "jupyter", "lint"]
+groups = ["default", "lint", "researcher"]
 files = [
     {file = "typing_extensions-4.12.2-py3-none-any.whl", hash = "sha256:04e5ca0351e0f3f85c6853954072df659d0d13fac324d0072316b67d7794700d"},
     {file = "typing_extensions-4.12.2.tar.gz", hash = "sha256:1a7ead55c7e559dd4dee8856e3a88b41225abfe1ce8df57b7c13915fe121ffb8"},
@@ -3389,7 +3405,7 @@ name = "uri-template"
 version = "1.3.0"
 requires_python = ">=3.7"
 summary = "RFC 6570 URI Template Processor"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "uri-template-1.3.0.tar.gz", hash = "sha256:0e00f8eb65e18c7de20d595a14336e9f337ead580c70934141624b6d1ffdacc7"},
     {file = "uri_template-1.3.0-py3-none-any.whl", hash = "sha256:a44a133ea12d44a0c0f06d7d42a52d71282e77e2f937d8abd5655b8d56fc1363"},
@@ -3400,7 +3416,7 @@ name = "urllib3"
 version = "2.2.3"
 requires_python = ">=3.8"
 summary = "HTTP library with thread-safe connection pooling, file post, and more."
-groups = ["default", "docs", "jupyter", "researcher"]
+groups = ["default", "docs", "researcher"]
 files = [
     {file = "urllib3-2.2.3-py3-none-any.whl", hash = "sha256:ca899ca043dcb1bafa3e262d73aa25c465bfb49e0bd9dd5d59f1d0acba2f8fac"},
     {file = "urllib3-2.2.3.tar.gz", hash = "sha256:e7d814a81dad81e6caf2ec9fdedb284ecc9c73076b62654547cc64ccdcae26e9"},
@@ -3465,7 +3481,7 @@ files = [
 name = "wcwidth"
 version = "0.2.13"
 summary = "Measures the displayed width of unicode strings in a terminal"
-groups = ["jupyter"]
+groups = ["researcher"]
 dependencies = [
     "backports-functools-lru-cache>=1.2.1; python_version < \"3.2\"",
 ]
@@ -3479,7 +3495,7 @@ name = "webcolors"
 version = "24.8.0"
 requires_python = ">=3.8"
 summary = "A library for working with the color formats defined by HTML and CSS."
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "webcolors-24.8.0-py3-none-any.whl", hash = "sha256:fc4c3b59358ada164552084a8ebee637c221e4059267d0f8325b3b560f6c7f0a"},
     {file = "webcolors-24.8.0.tar.gz", hash = "sha256:08b07af286a01bcd30d583a7acadf629583d1f79bfef27dd2c2c5c263817277d"},
@@ -3489,7 +3505,7 @@ files = [
 name = "webencodings"
 version = "0.5.1"
 summary = "Character encoding aliases for legacy web content"
-groups = ["docs", "jupyter"]
+groups = ["docs", "researcher"]
 files = [
     {file = "webencodings-0.5.1-py2.py3-none-any.whl", hash = "sha256:a0af1213f3c2226497a97e2b3aa01a7e4bee4f403f95be16fc9acd2947514a78"},
     {file = "webencodings-0.5.1.tar.gz", hash = "sha256:b36a1c245f2d304965eb4e0a82848379241dc04b865afcc4aab16748587e1923"},
@@ -3500,7 +3516,7 @@ name = "websocket-client"
 version = "1.8.0"
 requires_python = ">=3.8"
 summary = "WebSocket client for Python with low level API options"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "websocket_client-1.8.0-py3-none-any.whl", hash = "sha256:17b44cc997f5c498e809b22cdf2d9c7a9e71c02c8cc2b6c56e7c2d1239bfa526"},
     {file = "websocket_client-1.8.0.tar.gz", hash = "sha256:3239df9f44da632f96012472805d40a23281a991027ce11d2f45a6f24ac4c3da"},
@@ -3536,7 +3552,7 @@ name = "widgetsnbextension"
 version = "4.0.13"
 requires_python = ">=3.7"
 summary = "Jupyter interactive widgets for Jupyter Notebook"
-groups = ["jupyter"]
+groups = ["researcher"]
 files = [
     {file = "widgetsnbextension-4.0.13-py3-none-any.whl", hash = "sha256:74b2692e8500525cc38c2b877236ba51d34541e6385eeed5aec15a70f88a6c71"},
     {file = "widgetsnbextension-4.0.13.tar.gz", hash = "sha256:ffcb67bc9febd10234a362795f643927f4e0c05d9342c727b65d2384f8feacb6"},

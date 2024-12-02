@@ -19,13 +19,13 @@ class TestResearcherControl(unittest.TestCase):
 
         self.control.initialize()
         self.assertTrue("start" in self.subparsers.choices)
-        self.assertTrue("--directory" in self.subparsers.choices["start"]._option_string_actions)
+        self.assertTrue("--path" in self.subparsers.choices["start"]._option_string_actions)
 
     @patch("fedbiomed.researcher.cli.subprocess.Popen")
     def test_02_researcher_control_start(self, sub_process_p_open):
 
         self.control.initialize()
-        args = self.parser.parse_args(["start", "--directory", "./"])
+        args = self.parser.parse_args(["start", "--path", "./"])
         self.control.start(args)
 
         sub_process_p_open.assert_called_once()

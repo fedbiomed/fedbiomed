@@ -102,29 +102,18 @@ class ResearcherCLI(CommonCLI):
                 Args:
                     config_name: Name of the config file for the component
                 """
-                if component_dir:
-                    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = os.path.abspath(
+                os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = os.path.abspath(
                         component_dir
-                    )
-                else:
-                    print(
-                        "Component is not specified: Using 'fbm-researcher' in "
-                        "current working directory"
-                    )
-                    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = \
-                        os.path.join(os.getcwd(), 'fbm-researcher')
-
+                )
                 module = importlib.import_module("fedbiomed.researcher.config")
                 self._this.config = module.config
 
         self._parser.add_argument(
-            "--config",
-            "--directory",
-            "-d",
-            "-c",
+            "--path",
+            "-p",
             nargs="?",
             action=ComponentDirectoryActionResearcher,
-            default="config_researcher.ini",
+            default="fbm-researcher",
             help="Name of the config file that the CLI will be activated for. Default "
                 "is 'config_researcher.ini'."
         )

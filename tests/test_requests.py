@@ -115,7 +115,7 @@ class TestRequests(unittest.TestCase):
             del Requests._objects[Requests]
 
         self.temp_dir = tempfile.TemporaryDirectory()
-        config.load(root=self.temp_dir.name, name='test.ini')
+        config.load(root=self.temp_dir.name)
         self.requests = Requests(
             config=config
         )
