@@ -29,7 +29,7 @@ Before start using Fed-BioMed or start developing on Fed-BioMed please make sure
     You can use the tool `pyenv` to be able to instal specific Python versions into your local environment
     ```
     pyenv install 3.11
-    pyend global 3.11
+    pyenv global 3.11
     ```
     To code above will install latest Python 3.11, and activate this version globally.
 
@@ -42,14 +42,9 @@ Using virtual environments will allow you to isolate your Fed-BioMed development
 
 While `conda` allows also installing a specified Python version, `virtualenv` requires that the Python, and Pip is already installed. Therefore, if `conda` is used using another tools like `pyenv` is not required to be installed and used to manage Python versions. However, if `virtualenv` is preferred, then, using tools `pyenv` to install required Python version is recommended.
 
-#### Case: virtualenv
-Once required Python version installed and activated `virtualenv` can be installed.
+#### Case: venv
 
-```
-pip install virtualenv
-```
-
-The advantage of `virtualenv` is that it keeps all project dependencies within your project folder. Please go to Fed-BioMed project root (Fed-BioMed) clone and execute following command.
+The advantage of `venv` is that it keeps all project dependencies within your project folder and is part of `python` standard library. Please go to Fed-BioMed project root (Fed-BioMed) clone and execute following command.
 
 ```
 cd <path-to-fedbiomed-clone>
