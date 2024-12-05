@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout to commit
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Checkout tools repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: fedbiomed/fedbiomed.github.io
           ssh-key: ${{ secrets.FEDBIOMED_GITHUB_IO_DEPLOY_KEY }}

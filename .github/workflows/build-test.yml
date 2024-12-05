@@ -22,7 +22,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Detect documentation changes
         uses: dorny/paths-filter@master
@@ -69,9 +69,11 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-22-04
-          - fedora38
-          - macosx-m1
+          - ubuntu-latest
+          - ubuntu-22.04
+          - macos-latest
+          - fedora-38
+          - macos-m1
         python-version:
           - '3.10'
 
@@ -79,7 +81,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to commit
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Filter module related changes
         uses: dorny/paths-filter@master
@@ -105,7 +107,7 @@ jobs:
       - name: Run tests
         if: steps.filter.outputs.module == 'true'
         run: |
-          pyenv global ${{ matrix.python-version }}
+          pyenv local ${{ matrix.python-version }}
           tox -r
 
       - name: Upload coverage reports to Codecov
@@ -133,9 +135,11 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-22-04
-          - fedora38
-          - macosx-m1
+          - ubuntu-latest
+          - ubuntu-22.04
+          - macos-latest
+          - fedora-38
+          - macos-m1
         python-version:
           - '3.10'
     runs-on: ${{ matrix.os }}

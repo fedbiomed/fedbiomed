@@ -68,12 +68,12 @@ runs:
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           fi
 
-          brew install \
-            openssl \
-            readline \
-            sqlite3 \
-            xz \
-            zlib
+          #brew install \
+          #  openssl \
+          #  readline \
+          #  sqlite3 \
+          #  xz \
+          #  zlib
         }
 
         # Check the operating system and install packages accordingly
@@ -141,5 +141,5 @@ runs:
     - name: Validate Python installation
       shell: bash -l {0}
       run: |
-        pyenv global 3.10
+        pyenv local 3.10
         python --version
