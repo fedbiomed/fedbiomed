@@ -70,6 +70,7 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
+          - windows-latest
           - ubuntu-22.04
           - macos-latest
           - fedora-38
@@ -99,16 +100,34 @@ jobs:
               - 'pyproject.toml'
               - 'poetry.lock'
 
-      - name: Install Python using Pyenv
+      - name: Install Python using Pyenv on Unix-like systems
+        if: matrix.os != 'windows-latest'
         uses: ./.github/actions/setup-pyenv
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install Python on Windows
+        if: matrix.os == 'windows-latest'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.module == 'true'
+        run: |
+          pip install tox
+
       - name: Run tests
         if: steps.filter.outputs.module == 'true'
         run: |
-          pyenv local ${{ matrix.python-version }}
-          tox -r
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            tox -r
+          else
+            pyenv local ${{ matrix.python-version }}
+            tox -r
+          fi
+        shell: bash -l {0}
 
       - name: Upload coverage reports to Codecov
         if: steps.filter.outputs.module == 'true' && matrix.os != 'macosx-m1'
@@ -172,4 +191,3 @@ jobs:
           pyenv global ${{ matrix.python-version }}
           FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
             tox -r -m e2e -- e2e_mnist_pytorch.py
-
