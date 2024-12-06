@@ -14,10 +14,12 @@ import time
 import importlib
 import functools
 import subprocess
+import importlib.util
 
 from multiprocessing import Process
 from typing import Union, List, Dict
 from types import FrameType
+from pathlib import Path
 
 from fedbiomed.common.constants import ErrorNumbers, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
@@ -25,8 +27,10 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.cli import (
     CommonCLI,
     CLIArgumentParser,
-    ConfigNameAction,
+    ComponentDirectoryAction,
 )
+
+import fedbiomed
 
 # Partial function to import CLI utils that frequently used in this module
 imp_cli_utils = functools.partial(importlib.import_module, "fedbiomed.node.cli_utils")
@@ -119,25 +123,28 @@ def start_node(node_args):
             logger.warning('Training plan approval for train request is not activated. ' +
                            'This might cause security problems. Please, consider to enable training plan approval.')
 
+
         logger.info('Starting communication channel with network')
         _node = Node(dataset_manager=dataset_manager,
                      tp_security_manager=tp_security_manager,
                      node_args=node_args)
+
+
         _node.start_messaging(_node_signal_trigger_term)
         logger.info('Starting node to node router')
         _node.start_protocol()
         logger.info('Starting task manager')
         _node.task_manager()  # handling training tasks in queue
 
-    except FedbiomedError:
-        logger.critical("Node stopped.")
+    except FedbiomedError as exp:
+        logger.critical(f"Node stopped. {exp}")
         # we may add extra information for the user depending on the error
 
     except Exception as exp:
         # must send info to the researcher (no mqqt should be handled
         # by the previous FedbiomedError)
         _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
-        logger.critical("Node stopped.")
+        logger.critical(f"Node stopped. {exp}")
 
 
 
@@ -472,75 +479,83 @@ class GUIControl(CLIArgumentParser):
 
     def initialize(self):
         """Initializes GUI commands"""
-        self._parser = self._subparser.add_parser("gui", add_help=False, help="Action to manage Node user interface")
+        self._parser = self._subparser.add_parser(
+            "gui", add_help=False, help="Action to manage Node user interface"
+        )
         self._parser.set_defaults(func=self.forward)
 
+        gui_subparsers = self._parser.add_subparsers()
+        start = gui_subparsers.add_parser('start')
 
-#        gui_subparsers = self._parser.add_subparsers()
-#        start = gui_subparsers.add_parser('start')
-#
-#
-#        # TODO: Implement argument parsing and execution in python
-#        start.add_argument(
-#            "--data-folder",
-#           "-df",
-#            type=str,
-#            nargs="?",
-#            default="data",  # data folder in root directory
-#            required=False)
-#
-#        start.add_argument(
-#            "--cert-file",
-#            "-cf",
-#            type=str,
-#            nargs="?",
-#            required=False,
-#            help="Name of the certificate to use in order to enable HTTPS. "
-#                 "If cert file doesn't exist script will raise an error.")
-#
-#        start.add_argument(
-#            "--key-file",
-#            "-kf",
-#            type=str,
-#            nargs="?",
-#            required=False,
-#            help="Name of the private key for the SSL certificate. "
-#                 "If the key file doesn't exist, the script will raise an error.")
-#
-#        start.add_argument(
-#            "--port",
-#            "-p",
-#            type=str,
-#            nargs="?",
-#            default="8484",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.add_argument(
-#            "--host",
-#            "-ho",
-#            type=str,
-#            default="localhost",
-#            nargs="?",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.add_argument(
-#            "--debug",
-#            "-dbg",
-#            action="store_true",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.add_argument(
-#            "--recreate",
-#            "-rc",
-#            action="store_true",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.set_defaults(func=self.forward)
-#
+
+        start.add_argument(
+            "--data-folder",
+           "-df",
+            type=str,
+            nargs="?",
+            default="data",  # data folder in root directory
+            required=False)
+
+        start.add_argument(
+            "--cert-file",
+            "-cf",
+            type=str,
+            nargs="?",
+            required=False,
+            help="Name of the certificate to use in order to enable HTTPS. "
+                 "If cert file doesn't exist script will raise an error.")
+
+        start.add_argument(
+            "--key-file",
+            "-kf",
+            type=str,
+            nargs="?",
+            required=False,
+            help="Name of the private key for the SSL certificate. "
+                 "If the key file doesn't exist, the script will raise an error.")
+
+        start.add_argument(
+            "--port",
+            "-p",
+            type=str,
+            nargs="?",
+            default="8484",
+            required=False,
+            help="HTTP port that GUI will be served. Default is `8484`")
+
+        start.add_argument(
+            "--host",
+            "-ho",
+            type=str,
+            default="localhost",
+            nargs="?",
+            required=False,
+            help="HTTP port that GUI will be served. Default is `8484`")
+
+        start.add_argument(
+            "--debug",
+            "-dbg",
+            action="store_true",
+            required=False,
+            help="HTTP port that GUI will be served. Default is `8484`")
+
+        start.add_argument(
+            "--recreate",
+            "-rc",
+            action="store_true",
+            required=False,
+            help="Re-creates gui build")
+
+        start.add_argument(
+            "--development",
+            "-dev",
+            action="store_true",
+            required=False,
+            help="If it is set, GUI will start in development mode."
+        )
+
+        start.set_defaults(func=self.forward)
+
 
 
     def forward(self, args, extra_args):
@@ -548,37 +563,61 @@ class GUIControl(CLIArgumentParser):
 
         TODO: Implement argument GUI parseing and execution
         """
+        print(fedbiomed.__file__)
+        fedbiomed_root = os.path.abspath(args.directory)
 
-#        commad = []
-#        command.extend(['--data-folder', args.data_folder, '--port', args.port, '--host', args.host])
+        os.environ.update({
+            "DATA_PATH": os.path.abspath(args.data_folder),
+            "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
+        })
+        current_env = os.environ.copy()
 
+        if args.key_file and args.cert_file:
+            certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file ]
+        else:
+            certificate = []
 
-#        if args.key_file:
-#            command.extend(['--key-file', args.key_file])
-#
-#        if args.cert_file:
-#            command.extend(['--cert-file', args.cert_file])
-#
-#        if args.recreate:
-#            command.append('--recreate')
-#
-#        if args.debug:
-#            command.append('--debug')
+        main_path = Path(fedbiomed.__file__)
+        if 'gui' in os.listdir(main_path.parent.parent):
+            server_app = os.path.join(main_path.parent.parent, 'gui')
+        elif 'gui' in os.listdir(main_path.parent.parent):
+            server_app = os.path.join(main_path.parent.parent, 'gui')
+        else:
+            print(
+                "Error: Can not find GUI installation."
+                "Fed-BioMed inslation may be corrupted" )
+            sys.exit(1)
 
-
-        gui_script = os.path.abspath(os.path.join(__file__, '..', '..', '..', 'scripts', 'fedbiomed_gui'))
-        command = [gui_script, *extra_args]
-        process = subprocess.Popen(command)
+        host_port = ["--host", args.host, "--port", args.port]
+        if args.development:
+            command = [
+                "FLASK_ENV=development",
+                f"FLASK_APP="
+                f"{os.path.join(server_app, 'server', 'wsgi.py')}",
+                "flask",
+                "run",
+                *host_port,
+                *certificate
+            ]
+        else:
+            command = [
+                "gunicorn",
+                "--workers",
+                "1",
+                # str(os.cpu_count()),
+                *certificate,
+                "-b",
+                f"{args.host}:{args.port}",
+                "--access-logfile",
+                "-",
+                "fedbiomed.gui.server.wsgi:app"
+            ]
 
         try:
-            process.wait()
-        except KeyboardInterrupt:
-            try:
-                process.terminate()
-            except Exception:
-                pass
-            process.wait()
-
+            with subprocess.Popen(" ".join(command), env=current_env, shell=True) as proc:
+                proc.wait()
+        except Exception as e:
+            print(e)
 
 class NodeCLI(CommonCLI):
 
@@ -593,7 +632,7 @@ class NodeCLI(CommonCLI):
     def __init__(self):
         super().__init__()
 
-        self._parser.prog = "fedbiomed_run node"
+        self._parser.prog = "fedbiomed node"
         self.description = f"{__intro__} \nA CLI app for fedbiomed node component."
         # Parent parser for parameters that are common for Node CLI actions
         self.initialize()
@@ -602,22 +641,35 @@ class NodeCLI(CommonCLI):
         """Initializes node module"""
 
 
-        class ConfigNameActionNode(ConfigNameAction):
+        class ComponentDirectoryActionNode(ComponentDirectoryAction):
 
             _this = self
             _component = ComponentType.NODE
 
-            def import_environ(self) -> 'fedbiomed.node.environ.Environ':
+            def import_environ(
+                self,
+                component_dir: str | None = None
+            ) -> 'fedbiomed.node.environ.Environ':
                 """Imports dynamically node environ object"""
+                if component_dir:
+                    os.environ["FBM_NODE_COMPONENT_ROOT"] = os.path.join(component_dir)
+                else:
+                    print("Component is not specified: Using 'fbm-node' in current working directory...")
+                    os.environ["FBM_NODE_COMPONENT_ROOT"] = \
+                        os.path.join(os.getcwd(), 'fbm-node')
+
                 return importlib.import_module("fedbiomed.node.environ").environ
 
         self._parser.add_argument(
+            "--directory",
             "--config",
-            "-cf",
+            "-c",
+            "-d",
             nargs="?",
-            action=ConfigNameActionNode,
-            default="config_node.ini",
-            help="Name of the config file that the CLI will be activated for. Default is 'config_node.ini'.")
+            action=ComponentDirectoryActionNode,
+            default="fbm-node",
+            help="Name of the config file that the CLI will be activated for. Default is 'config_node.ini'."
+        )
 
         super().initialize()
 

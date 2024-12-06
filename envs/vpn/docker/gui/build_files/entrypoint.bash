@@ -7,7 +7,7 @@
 source /entrypoint_functions.bash
 
 init_misc_environ
-change_path_owner "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
+change_path_owner "/fbm-node" "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
 
 
 # To avoid envsubst to over write default nginx variables
@@ -91,7 +91,7 @@ fi
 
 # caveat: expect `data-folder` to be mounted under same path as in `node` container
 # to avoid inconsistencies in dataset declaration
-$SETUSER ./scripts/fedbiomed_gui --host "$GUI_HOST" --port "$GUI_PORT" --production --data-folder /data config config_node.ini start &
+$SETUSER fedbiomed node -c /fbm-node gui start --host "$GUI_HOST" --port "$GUI_PORT" --production --data-folder /data &
 
 # allow to stop/restart the gui without terminating the container
 sleep infinity &

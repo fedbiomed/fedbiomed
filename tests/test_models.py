@@ -18,61 +18,6 @@ from fedbiomed.common.models._sklearn import SKLEARN_MODELS
 from fedbiomed.common.optimizers.declearn import MomentumModule
 
 
-class TestDocumentationLinks(unittest.TestCase):
-    skip_internet_test: bool
-    baselinks = (
-        'https://scikit-learn.org/',
-        'https://gitlab.inria.fr/',
-        'http://www.plantuml.com/',
-        'https://arxiv.org/',
-    )
-    links = (
-        'https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html',
-        'https://gitlab.inria.fr/magnet/declearn/declearn2/-/tree/r2.1',
-        'http://www.plantuml.com/plantuml/dsvg/xLRDJjmm4BxxAUR82fPbWOe2guYsKYyhSQ6SgghosXDYuTYMFIbjdxxE3r7MIac3UkH4i6Vy_SpCsZU1kAUgrApvOEofK1hX8BSUkIZ0syf88506riV7NnQCNGLUkXXojmcLosYpgl-0YybAACT9cGSmLc80Mn7O7BZMSDikNSTqOSkoCafmGdZGTiSrb75F0pUoYLe6XqBbIe2mtgCWPGqG-f9jTjdc_l3axEFxRBEAtmC2Hz3kdDUhkqpLg_iH4JlNzfaV8MZCwMeo3IJcog047Y3YYmvuF7RPXmoN8x3rZr6wCef0Mz5B7WXwyTmOTBg-FCcIX4HVMhlAoThanwvusqNhlgjgvpsN2Wr130OgL80T9r4qIASd5zaaiwF77lQAEwT_fTK2iZrAO7FEJJNFJbr27tl-eh4r-SwbjY1FYWgm1i4wKgNwZHu2eGFs3-27wvJv7CPjuCLUq6kAWKPsRS1pGW_RhWt28fczN9czqTF8lQc7myVTQRslKRljKYBSgDxhTbA0Ft1btkPbwjotUNcRbqY_krm-TPrA1RRNw9CA-2o6DUcNvzd_u9bUU9C7zhrpNxCPq1lCGAWj5BCuJVSh7C9iuQk3CQjXknW8eA9_koHJF50nplnWlRfTD0WVpZg4vh_FxxBR5ch_X57pGA8c7jY43MFuKoudhvYqWdL3fI-tfFbVsKYzxQkxl_XprxATLz69br_40nMQWWRqFz1_rvunjlnQA2dHV5jc340YSL54zMXa-o8U_72y58i_7NfLeg5h5iWwTXDNgrB_0G00',
-        'https://arxiv.org/abs/1711.05101',
-    )
-    skip_links = []
-
-    def setUp(self) -> None:
-        # test internet connection by reaching google website
-        google_url = 'http://www.google.com'
-        try:
-            url_res = urllib.request.urlopen(google_url)
-        except urllib.error.URLError:
-            self.skip_internet_test = True
-            return
-        if url_res.code != 200:
-            self.skip_internet_test = True
-            return
-        else:
-            self.skip_internet_test = False
-
-        for baselink in self.baselinks:
-            try:
-                url_res = urllib.request.urlopen(baselink)
-            except urllib.error.URLError:
-                skip = True
-            else:
-                if url_res.code != 200:
-                    skip = True
-                else:
-                    skip = False
-            self.skip_links.append(skip)
-
-    def tearDown(self) -> None:
-        pass
-
-    def test_testdocumentationlinks_01(self):
-        if self.skip_internet_test:
-            self.skipTest("no internet connection: skipping test_testdocumentationlinks_01")
-        for skip_links, link in zip(self.skip_links, self.links):
-            if skip_links:
-                print(f"Skipping URL test for {link} because base link of web site does not answer")
-            else:
-                url_res = urllib.request.urlopen(link)
-                self.assertEqual(url_res.code, 200, f"cannot reach url link {link} pointed in documentation")
-
 
 class TestSkLearnModelBuilder(unittest.TestCase):
     def setUp(self):

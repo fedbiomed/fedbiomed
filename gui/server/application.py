@@ -2,16 +2,18 @@ import os
 import secrets
 from datetime import timedelta
 
-from flask import Flask, render_template, send_from_directory, request, redirect, url_for
+from flask import Flask, send_from_directory
 from flask_jwt_extended import JWTManager
 
-from utils import error
-from config import config
-from db import NodeDatabase, UserDatabase
-# Import api route blueprint before importing routes and register as blueprint
-from routes import api, auth
+from fedbiomed.common.utils import ROOT_DIR
 
-build_dir = os.getenv('BUILD_DIR', '../ui/gui-build')
+from .utils import error
+from .config import config
+from .db import NodeDatabase, UserDatabase
+# Import api route blueprint before importing routes and register as blueprint
+from .routes import api, auth
+
+build_dir = os.path.join(ROOT_DIR, "gui", "ui", "ui-dist")
 
 # Create Flask Application
 app = Flask(__name__, static_folder=build_dir)
@@ -57,8 +59,6 @@ def index(path):
         return send_from_directory(app.static_folder, path)
     else:
         return send_from_directory(app.static_folder, 'index.html')
-
-    return render_template('index.html')
 
 
 @jwt.expired_token_loader

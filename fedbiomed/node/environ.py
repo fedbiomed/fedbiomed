@@ -45,18 +45,23 @@ from fedbiomed.common.constants import (
 from fedbiomed.common.environ import Environ
 from fedbiomed.common.exceptions import FedbiomedEnvironError
 from fedbiomed.common.logger import logger
-from fedbiomed.node.config import NodeConfig
+from fedbiomed.common.utils import ROOT_DIR
+from fedbiomed.node.config import Config, node_component
 
 
 class NodeEnviron(Environ):
 
     def __init__(self, root_dir: str = None, autoset: bool = True):
         """Constructs NodeEnviron object"""
-        super().__init__(root_dir=root_dir)
+        super().__init__()
 
-        self._root_dir = root_dir
+        r = os.environ.get('FBM_NODE_COMPONENT_ROOT', root_dir)
+        self._config: Config = node_component.create(r)
+        self._root_dir = self._config.root
 
-        logger.setLevel("DEBUG")
+        loglevel = os.environ.get("FBM_LOG_LEVEL", "INFO")
+        logger.setLevel(loglevel)
+
         self._values["COMPONENT_TYPE"] = ComponentType.NODE
 
         if autoset:
@@ -64,8 +69,6 @@ class NodeEnviron(Environ):
 
     def set_environment(self):
         """Initializes environment variables"""
-
-        self._config = NodeConfig(self._root_dir)
 
         # Sets common variable
         super().set_environment()
@@ -75,17 +78,17 @@ class NodeEnviron(Environ):
         self._values["NODE_ID"] = node_id
 
         self._values["MESSAGES_QUEUE_DIR"] = os.path.join(
-            self._values["VAR_DIR"], f'queue_manager_{self._values["NODE_ID"]}'
+            self._values["VAR_DIR"], 'queue_manager'
         )
 
         self._values["DEFAULT_TRAINING_PLANS_DIR"] = os.path.join(
-            self._values["ROOT_DIR"], "envs", "common", "default_training_plans"
+            ROOT_DIR, "envs", "common", "default_training_plans"
         )
 
         # default directory for saving training plans that are approved / waiting
         # for approval / rejected
         self._values["TRAINING_PLANS_DIR"] = os.path.join(
-            self._values["VAR_DIR"], f'training_plans_{self._values["NODE_ID"]}'
+            self._values["VAR_DIR"], 'training_plans'
         )
         # Catch exceptions
         if not os.path.isdir(self._values["TRAINING_PLANS_DIR"]):

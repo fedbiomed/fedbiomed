@@ -48,7 +48,7 @@ commands to manage a subset of docker container(s).
 The CONTAINER list may contain: vpnserver researcher node node2 gui gui2
 
 Be aware that (re-)building the vpnserver container when node/researcher
-container(s) are running may have unpredicatble consequences. It is strongly adviced 
+container(s) are running may have unpredicatble consequences. It is strongly adviced
 to restart from scratch in this case (clean, build, configure, start)
 
 clean          clean current configurations
@@ -73,15 +73,15 @@ status         give information on running container(s)
 
 stop           stop and remove all containers
 
-{node,node2} * start a 'fedbiomed_run node(2) *'       command
+{node,node2} * start a 'fedbiomed node(2) *'       command
                inside node(2) container (eg: ${0##*/} run node list)
 researcher *
-               start a 'fedbiomed_run researcher(2) *' command
+               start a 'fedbiomed researcher(2) *' command
                inside researcher(2) container
 
   For node(2) and researcher(2) commands, all extra arguments (*) are passed
-  to the fedbiomed_run scripts which is launched inside the container.
-  Run 'fedbiomed_run --help' for more help on valid arguments
+  to the fedbiomed command which is launched inside the container.
+  Run 'fedbiomed command --help' for more help on valid arguments
   FYI: a jupyter notebook is already started when the researcher docker
   container is started
 "
@@ -512,7 +512,7 @@ run() {
     [[ -z "$RUN_ARGS" ]] && { usage "fedbiomed run $container needs extra arguments";  }
     cd "$basedir/envs/vpn/docker"
 
-    CMD="export PYTHONPATH=/fedbiomed && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
+    CMD="export PYTHONPATH=/fedbiomed && fedbiomed $container ${RUN_ARGS}"
 
     $DOCKER_COMPOSE exec -u ${CONTAINER_UID:-$(id -u)} $container bash -c "$CMD"
 

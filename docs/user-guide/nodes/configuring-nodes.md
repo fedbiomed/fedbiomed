@@ -6,42 +6,72 @@ keywords: fedbiomed configuration,node configuration
 
 # Node Configuration
 
-Fed-BioMed framework has 2 main components: `node` and `researcher`. A `node` stores private datasets and
-performs training in response to researcher's train requests. It communicates directly with the `researcher` component using RPC protocol.
 
+The Fed-BioMed framework has two main components: `node` and `researcher`. A `node` stores private datasets and performs training in response to the `researcher's` training requests. Communication between the `node` and the `researcher` component occurs via the RPC protocol.
 
-A basic `node` component configuration contains the following settings:
+### Basic `node` Configuration
 
-- a python environment
-- a unique node id
-- security parameters such as training plan approval mode, hashing algorithms
-- connection credentials for the `researcher` component
+A basic configuration for the `node` component includes the following settings:
+
+- A Python environment
+- A unique node ID
+- Security parameters, such as training plan approval mode and hashing algorithms
+- Connection credentials for communicating with the `researcher` component
 
 !!! note "Note"
-    These basic configurations are created automatically using default values.
-    While it is possible to manually edit the configuration files, some parameters may become incompatible upon doing so; such as [server]/host and [server]/pem since the latter depends on the former.
-    It is therefore strongly advised to rely on the dedicated script for configuration creation and refresh, namely `fedbiomed_run configuration create` whose options are described above.
+    These basic configurations are generated automatically with default values. While it is possible to manually edit the configuration files, doing so may render certain parameters incompatible. For example, `[server]/host` and `[server]/pem` must remain consistent, as the latter depends on the former.
+    To avoid such issues, it is strongly recommended to use the dedicated script for creating and refreshing configurations:
+    **`fedbiomed_run configuration create`**, with options described above.
+
 
 ## Environment for Nodes
 
-A `node` requires a conda environment to be able to run.
-This environment provides the necessary python modules for both the task management part and the model training part.
-Thanks to Fed-BioMed's Node CLI, this conda environment can be created easily.
+Fed-BioMed can installed using `pip`. If can be installed into native host machine or on vertual environment using `pyenv`, `conda` or `virtualenv`.
 
-```
-$ ${FEDBIOMED_DIR}/scripts/configure_conda node
-```
-
-The command above creates the `fedbiomed-node` conda environment.
 You can find more details in [installation tutorial](../../tutorials/installation/0-basic-software-installation.md).
 
-**Note:** `FEDBIOMED_DIR` represents the path of the base Fed-BioMed project directory.
 
+## Node Component Installation
 
-## Configuration Files
+Fed-BioMed uses the default `fbm-node` directory to store all component-related files. This includes temporary files, variables, configuration files, certificates, and other essential documents.
 
-A configuration file is an `ini` file that is located in the `${FEDBIOMED_DIR}/etc` directory.
-Each configuration file is unique to one node.
+When executing a basic command, Fed-BioMed will automatically create a default `fbm-node` directory if it does not already exist. If the directory is present, the system will use the existing one. The component directory is created relative to the directory where Fed-BioMed commands are executed.
+
+For example, the following commands will create a directory named `my-workdir` in the home directory, navigate to it, and then start the Fed-BioMed node. This operation will automatically instantiate the node component within the `my-workdir` directory, creating a folder named `fbm-node`, which is the default directory for the Fed-BioMed node component.
+
+```bash
+mkdir $HOME/my-workdir
+cd $HOME/my-workdir
+fedbiomed node start
+```
+
+In another terminal, you can inspect the folder structure using the following command:
+
+```bash
+tree $HOME/my-workdir/fbm-node
+```
+
+The structure will resemble the tree below:
+
+```plaintext
+fbm-node
+├── etc
+│   ├── certs
+│   │   ├── FBM_certificate.key
+│   │   └── FBM_certificate.pem
+│   └── config.ini
+└── var
+    ├── cache
+    ├── db_NODE_992aab29-c485-463f-a84b-6ce055c17c2e.json
+    ├── tmp
+    └── training_plans
+```
+
+Please see section [Using non-default Fed-BioMed node](#using-non-default-Fed-BioMed-node) to select different node installations.
+
+### Configuration file: config.ini
+
+A configuration file is an `ini` file that is located in the `${FEDBIOMED_DIR}/etc` directory. Each configuration file is unique to one node.
 
 The configuration file is structured following the sections below:
 
@@ -92,47 +122,36 @@ port = 50051
 
 ```
 
-## Starting Nodes with Config Files
+## Using non-default Fed-BioMed node
 
-Starting nodes with specific config creates a new configuration file.
-The following command creates a specific config file with default settings and starts the node.
-
-```
-$ ./scripts/fedbiomed_run node --config config-n1.ini start
-```
-
-If you run this command, you can see a new config file created in the `etc/` directory of the Fed-BioMed.
-Each node that runs in the same host should have a different node id and configuration file. Starting
-another node that uses the same config file does not raise an error message but results in errors during training.
-Therefore, if you launch multiple nodes please make sure to use different configurations.
-
-The `--config` flag can be used with any of the `node` subcommands as in the examples below.
+The option `--directory` that comes after specification `node` in Fed-BioMed command allows to use different node component in different directories than the default one. `--directory` can be relative or absolute. As it is in default command esecution, if the givein directory for node is exsiting it will created automatically.
 
 ```
-$ ./scripts/fedbiomed_run node --config config-n1.ini dataset list
-$ ./scripts/fedbiomed_run node --config config-n1.ini dataset add
+$ fedbiomed node --directory my-node start
 ```
+The command above will create a folder called `my-node` in the directory where the command is executed, or use the one already existing to start a node.
 
-!!! info "Configurations for deployment"
-    The process described above is valid for the local development environment. Please see
-    [deployment instructions with VPN](../deployment/deployment-vpn.md) for production.
-
-## Creating advanced configuration files for `node` components
-
-The command below can be used to create, or optionally recreate (`-f`), a configuration file for a node with
-`CONFIGURATION_FILE_NAME` name.
+The `--directory` flag can be used with any of the `node` subcommands as in the examples below.
 
 ```
-${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -c NODE -n [CONFIGURATION_FILE_NAME]
+$ fedbiomed node --directory my-node dataset list
+$ fedbiomed node --directory my-node dataset add
 ```
 
-You may view and edit your new configuration file at the location `${FEDBIOMED_DIR}/etc/[CONFIGURATION_FILE_NAME]`.
+## Creating a component without doing any action
 
-!!! warning "Recreating a configuration destroys the node id"
-    Recreating (`-f`) a configuration file overrides the whole file including the node id.
-    To preserve the node id across updates of the configuration file, prefer using `${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration refresh -c NODE -n node_1.ini`.
+Action `component create` allows you to directy create/instantiate a Fed-BioMed component wihout having need to start or add dataset to node. This option is preferaable to initialize a node component and configure it afterwards such as changement in configuration file.
 
-Environment variables can be used to parametrize the various options for creating a configuration file. The fields that can be controlled, their associated environment variable, and default value are described below:
+
+```
+fedbiomed component create -c NODE -r </path/for/component>
+```
+
+Command will raise an error if there is already a component  initialized in the givien `-r` root directory. It is possible to avoid this errro using option `--exist-ok`.
+
+After component initialization configuration file located at `<path/to/component/etc/config.in>` can be edited.
+
+Environment variables can be used to parametrized the various options for creating a configuration file. The fields that can be controlled, their associated environment variable, and default value are described below:
 
 ```
 [security]:
@@ -147,17 +166,13 @@ Environment variables can be used to parametrize the various options for creatin
 - port: RESEARCHER_SERVER_PORT, 50051
 ```
 
-You may also explore them through the command's help menu
-
-```
-${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -h
-```
-
 ### Examples
 
-Create the new configuration file `${FEDBIOMED_DIR}/etc/node_1.ini` with a specified IP and port for the researcher,
-and disabling secure aggregation. Forcefully delete and recreate the file if it was already existing.
+Create the new component with a specified IP and port for the researcher, and disabling secure aggregation. Forcefully delete and recreate the file if it was already existing.
 
 ```
-$ RESEARCHER_SERVER_HOST=121.203.21.147 RESEARCHER_SERVER_PORT=8909 SECURE_AGGREGATION=0 ${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -c NODE -n node_1.ini -f
+export RESEARCHER_SERVER_HOST=121.203.21.147
+export RESEARCHER_SERVER_PORT=8909
+export SECURE_AGGREGATION=0
+fedbiomed component create -c NODE -r my-node
 ```
