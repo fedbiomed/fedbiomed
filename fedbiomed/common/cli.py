@@ -321,11 +321,6 @@ class CommonCLI:
         self._environ = environ
 
     @staticmethod
-    def config_action(this: "CommonCLI", component: ComponentType):
-        """Returns CLI argument action for config file name"""
-        return ConfigNameAction
-
-    @staticmethod
     def error(message: str) -> None:
         """Prints given error message
 
@@ -678,10 +673,3 @@ class CommonCLI:
         else:
             self._parser.print_help()
 
-
-if __name__ == "__main__":
-    cli = CommonCLI()
-    # Initialize only development magic parser
-    cli.initialize_magic_dev_environment_parsers()
-    cli.initialize_optional()
-    cli.parse_args()
