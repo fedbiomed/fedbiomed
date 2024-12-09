@@ -107,8 +107,3 @@ class ResearcherCLI(CommonCLI):
             help="Name of the config file that the CLI will be activated for. Default is 'config_researcher.ini'.")
 
         super().initialize()
-
-
-if __name__ == '__main__':
-    cli = ResearcherCLI()
-    cli.parse_args()

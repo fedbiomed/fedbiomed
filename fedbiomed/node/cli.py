@@ -612,7 +612,7 @@ class NodeCLI(CommonCLI):
         class ConfigNameActionNode(ConfigNameAction):
 
             _this = self
-            _component = ComponentType(2)
+            _component = ComponentType.NODE
 
             def set_component(self, config_name: str) -> None:
                 """Create node instance"""
@@ -639,8 +639,3 @@ class NodeCLI(CommonCLI):
                 "Default is 'config_node.ini'.")
 
         super().initialize()
-
-
-if __name__ == '__main__':
-    cli = NodeCLI()
-    cli.parse_args()
