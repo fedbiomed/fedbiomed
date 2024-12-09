@@ -8,7 +8,6 @@ This module includes common CLI methods and parser extension
 """
 
 import argparse
-import importlib
 import os
 import sys
 from abc import ABC, abstractmethod
@@ -106,153 +105,6 @@ class ConfigNameAction(ABC, argparse.Action):
         logger.setLevel("DEBUG")
 
 
-class ConfigurationParser(CLIArgumentParser):
-    """Instantiates configuration parser"""
-
-    def initialize(self):
-        """Initializes argument parser for creating configuration file."""
-
-        self._parser = self._subparser.add_parser(
-            "configuration",
-            help="The helper for generating or updating component configuration files, "
-            "see `configuration -h` for more details",
-        )
-
-        self._parser.set_defaults(func=self.default)
-
-        # Common parser to register common arguments for create and refresh
-        common_parser = argparse.ArgumentParser(add_help=False)
-        common_parser.add_argument(
-            "-r",
-            "--root",
-            metavar="ROOT_PATH_FEDBIOMED",
-            type=str,
-            nargs="?",
-            default=None,
-            help="Root directory for configuration and Fed-BioMed setup",
-        )
-
-        # Add arguments
-        common_parser.add_argument(
-            "-n",
-            "--name",
-            metavar="CONFIGURATION_FILE_NAME",
-            type=str,
-            nargs="?",
-            required=False,
-            help="Name of configuration file",
-        )
-
-        common_parser.add_argument(
-            "-c",
-            "--component",
-            metavar="COMPONENT_TYPE[ NODE|RESEARCHER ]",
-            type=str,
-            nargs="?",
-            required=True,
-            help="Component type NODE or RESEARCHER",
-        )
-
-        # Create sub parser under `configuration` command
-        configuration_sub_parsers = self._parser.add_subparsers()
-
-        create = configuration_sub_parsers.add_parser(
-            "create",
-            parents=[common_parser],
-            help="Creates configuration file for the specified component if it does not exist. "
-            "If the configuration file exists, leave it unchanged",
-        )
-
-        refresh = configuration_sub_parsers.add_parser(
-            "refresh",
-            parents=[common_parser],
-            help="Refreshes the configuration file by overwriting parameters without "
-                 "changing component ID",
-        )
-
-        create.add_argument(
-            "-uc",
-            "--use-current",
-            action="store_true",
-            help="Creates configuration only if there isn't an existing one",
-        )
-
-        create.add_argument(
-            "-f", "--force", action="store_true", help="Force configuration create"
-        )
-
-        create.set_defaults(func=self.create)
-        refresh.set_defaults(func=self.refresh)
-
-    def _create_config_instance(self, component, root, name):
-
-        # TODO: this implementation is a temporary hack as it introduces a dependency of
-        # fedbiomed.common to fedbiomed.node or fedbiomed.researcher
-        # To be suppressed when redesigning the imports
-        if component.lower() == "node":
-            NodeConfig = importlib.import_module("fedbiomed.node.config").NodeConfig
-            config = NodeConfig(root=root, name=name, auto_generate=False)
-        else:
-            # Generate config file with the proper name, not the default name
-            if name:
-                os.environ["FBM_RESEARCHER_CONFIG_FILE"] = name
-
-            ResearcherConfig = importlib.import_module(
-                "fedbiomed.researcher.config"
-            ).ResearcherConfig
-            config = ResearcherConfig(root=root, name=name, auto_generate=False)
-
-        return config
-
-    def create(self, args):
-        """CLI Handler for creating configuration file and assets for given component
-        """
-        if args.component.lower() == "node":
-            default_config = DEFAULT_CONFIG_FILE_NAME_NODE
-        elif args.component.lower() == "researcher":
-            default_config = DEFAULT_CONFIG_FILE_NAME_RESEARCHER
-        else:
-            print(f"Undefined component type {args.component}")
-            exit(101)
-
-        name = get_config_name(args.name, args.component, default_config)
-        is_config_existing_before = is_config_existing(get_config_path(args.root, name))
-
-        config = self._create_config_instance(args.component, args.root, args.name)
-
-        # Overwrite force configuration file
-        if is_config_existing_before and args.force:
-            print("Overwriting existing configuration file")
-            config.generate(force=True)
-
-        # Use existing one (do nothing)
-        elif is_config_existing_before and not args.force:
-            if not args.use_current:
-                print(
-                    f'Configuration file "{config.path}" is alreay existing for name '
-                    "{config.name}. Please use --force option to overwrite"
-                )
-                exit(101)
-            # Generate wont do anything
-            config.generate()
-        else:
-            logger.info(f'Generation new configuration file "{config.name}"')
-            config.generate()
-
-    def refresh(self, args):
-        """Refreshes configuration file"""
-
-        config = self._create_config_instance(args.component, args.root, args.name)
-        print(
-            "Refreshing configuration file using current environment variables. This operation "
-            "will overwrite existing configuration file without changing component id."
-        )
-
-        # Refresh
-        config.refresh()
-        print("Configuration has been updated!")
-
-
 class CommonCLI:
 
     _arg_parsers_classes: List[type] = []
@@ -269,9 +121,6 @@ class CommonCLI:
         self._args = None
 
         self.config = None
-
-        # Initialize configuration parser
-        self.configuration_parser = ConfigurationParser(self._subparsers)
 
     @property
     def parser(self) -> argparse.ArgumentParser:
@@ -353,8 +202,6 @@ class CommonCLI:
         inherited from CommonCLI class as long as `intialize_optional` method
         is not executed.
         """
-
-        self.configuration_parser.initialize()
         self.initialize_magic_dev_environment_parsers()
 
     def initialize(self):

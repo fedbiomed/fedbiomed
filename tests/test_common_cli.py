@@ -1,89 +1,11 @@
-import argparse
-import os
 import shutil
 import sys
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from fedbiomed.common.cli import CommonCLI, ConfigurationParser
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.cli import CommonCLI
 from fedbiomed.common.exceptions import FedbiomedError
-
-from fedbiomed.researcher.config import ResearcherConfig
-
-class TestConfigurationParser(unittest.TestCase):
-
-    def setUp(self):
-
-        self.main_parser = argparse.ArgumentParser()
-        self.parser = self.main_parser.add_subparsers()
-        self.conf_parser = ConfigurationParser(subparser=self.parser)
-        self.conf_parser.initialize()
-        pass
-
-    def tearDown(self):
-        pass
-
-    def test_01_configuration_parser_initialize(self):
-        """Tests argument initialization"""
-        self.assertTrue("configuration" in self.conf_parser._subparser.choices)
-        self.assertTrue(
-            "create"
-            in self.conf_parser._subparser.choices["configuration"]
-            ._subparsers._group_actions[0]
-            .choices
-        )
-        self.assertEqual(
-            self.conf_parser._subparser.choices["configuration"]
-            ._subparsers._group_actions[0]
-            .choices["create"]
-            ._defaults["func"]
-            .__func__.__name__,
-            "create",
-        )
-
-    @patch("builtins.print")
-    @patch("builtins.open")
-    @patch("fedbiomed.node.config.NodeConfig")
-    @patch("fedbiomed.researcher.config.ResearcherConfig")
-    def test_02_configuration_parser_create(
-        self,
-        rconfig,
-        nconfig,
-        mock_open,
-        mock_print,
-    ):
-        args = self.main_parser.parse_args(
-            ["configuration", "create", "--component", "NODE", "-uc"]
-        )
-        self.conf_parser.create(args)
-        nconfig.return_value.generate.assert_called_once()
-
-        mock_print.reset_mock()
-        args = self.main_parser.parse_args(
-            ["configuration", "create", "--component", "RESEARCHER", "-uc"]
-        )
-        self.conf_parser.create(args)
-        rconfig.return_value.generate.assert_called_once()
-
-    @patch("builtins.print")
-    @patch("builtins.open")
-    @patch("fedbiomed.node.config.NodeConfig")
-    @patch("fedbiomed.researcher.config.ResearcherConfig")
-    def test_03_configuration_parser_refresh(
-        self,
-        rconfig,
-        nconfig,
-        mock_open,
-        mock_print,
-    ):
-
-        args = self.main_parser.parse_args(
-            ["configuration", "refresh", "--component", "NODE", "-n", "config"]
-        )
-        self.conf_parser.refresh(args)
-        nconfig.return_value.refresh.assert_called()
 
 
 class TestCommonCLI(unittest.TestCase):
@@ -132,7 +54,6 @@ class TestCommonCLI(unittest.TestCase):
         self.cli.initialize_optional()
 
         self.assertTrue("certificate-dev-setup" in self.cli._subparsers.choices)
-        self.assertTrue("configuration" in self.cli._subparsers.choices)
 
     def test_04_common_cli_initialize_magic_dev_environment_parsers(self):
         self.cli.initialize_magic_dev_environment_parsers()
