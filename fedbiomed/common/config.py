@@ -20,9 +20,6 @@ from fedbiomed.common.utils import (
     CONFIG_DIR,
     ROOT_DIR,
 )
-from fedbiomed.common.certificate_manager import (
-    generate_certificate,
-)
 from fedbiomed.common.exceptions import FedbiomedError
 
 # from fedbiomed.common.secagg_manager import SecaggBiprimeManager
@@ -62,6 +59,7 @@ class Config(metaclass=ABCMeta):
             root: Root directory for the component
             name: Component configuration file name (e.g `config-n1.ini`
                 corresponds to `<root>/constants.CONFIG_FOLDER_NAME/config-n1.ini`).
+            auto_generate: create a configuration for this path if it does not exist
         """
         # First try to get component specific config file name, then CONFIG_FILE
         default_config = os.getenv(
@@ -127,7 +125,7 @@ class Config(metaclass=ABCMeta):
     def read(self) -> bool:
         """Reads configuration file that is already existing in given path
 
-        Raises verision compatibility error
+        Raises version compatibility error
         """
 
         self._cfg.read(self.path)
@@ -200,7 +198,7 @@ class Config(metaclass=ABCMeta):
 
         # Check if configuration is already existing
         if not self.is_config_existing() or force:
-                        # Create default section
+            # Create default section
             component_id = id if id else f"{self._COMPONENT_TYPE}_{uuid.uuid4()}"
 
             self._cfg["default"] = {
