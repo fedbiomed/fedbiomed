@@ -21,7 +21,7 @@ from fedbiomed.node.dataset_manager import DatasetManager
 from . import api
 
 # Initialize Fed-BioMed DatasetManager
-dataset_manager = DatasetManager()
+dataset_manager = DatasetManager(config["NODE_DB_PATH"])
 
 DATA_PATH_RW = config['DATA_PATH_RW']
 

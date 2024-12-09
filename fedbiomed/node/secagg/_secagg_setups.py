@@ -32,9 +32,8 @@ from fedbiomed.common.secagg import (
 )
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.utils import get_default_biprime
-from fedbiomed.node.environ import environ
 from fedbiomed.node.requests import send_nodes, NodeToNodeRouter
-from fedbiomed.node.secagg_manager import DHManager, SecaggManager, SKManager
+from fedbiomed.node.secagg_manager import SecaggManager
 from fedbiomed.transport.controller import GrpcController
 
 
@@ -42,13 +41,14 @@ class SecaggBaseSetup(ABC):
     """
     Sets up a Secure Aggregation context element on the node side.
     """
-
+    _element: SecaggElementTypes
     _REPLY_CLASS: Message = SecaggReply
     _min_num_parties: int = 3
-    _secagg_manager: SecaggManager = None
 
     def __init__(
         self,
+        db: str,
+        node_id: str,
         researcher_id: str,
         secagg_id: str,
         parties: List[str],
@@ -57,6 +57,8 @@ class SecaggBaseSetup(ABC):
         """Constructor of the class.
 
         Args:
+            db: Path to database file the node.
+            node_id: ID of the node.
             researcher_id: ID of the researcher that requests setup
             secagg_id: ID of secagg context element for this setup request
             parties: List of parties participating in the secagg context element setup
@@ -85,11 +87,12 @@ class SecaggBaseSetup(ABC):
             raise FedbiomedSecaggError(errmess)
 
         # assign argument values
+        self._secagg_manager = SecaggManager(db, self._element.value)()
+        self._node_id = node_id
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
         self._experiment_id = experiment_id
         self._parties = parties
-        self._element: SecaggElementTypes = None
 
     @property
     def researcher_id(self) -> str:
@@ -139,7 +142,7 @@ class SecaggBaseSetup(ABC):
         Returns:
             message to return to the researcher
         """
-        common = {"node_id": environ["ID"], "researcher_id": self._researcher_id}
+        common = {"node_id": self._node_id, "researcher_id": self._researcher_id}
         # If round is not successful log error message
         if not success:
             logger.error(message)
@@ -229,13 +232,12 @@ class SecaggServkeySetup(_SecaggNN):
     _key_bit_length: int = 2040
     _min_num_parties: int = 2
     _element = SecaggElementTypes.SERVER_KEY
-    _secagg_manager = SKManager
 
     # def __init__(self, share, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
     def _setup_specific(self) -> Message:
 
-        other_nodes = list(filter(lambda x: x != environ["ID"], self._parties))
+        other_nodes = list(filter(lambda x: x != self._node_id, self._parties))
         # Create secret user key and its shares
         seed = random.SystemRandom()
         sk = seed.getrandbits(self._key_bit_length)
@@ -250,7 +252,7 @@ class SecaggServkeySetup(_SecaggNN):
         requests = [
             AdditiveSSharingRequest(
                 request_id=REQUEST_PREFIX + str(uuid.uuid4()),
-                node_id=environ["ID"],
+                node_id=self._node_id,
                 dest_node_id=node,
                 secagg_id=self._secagg_id,
             )
@@ -264,7 +266,7 @@ class SecaggServkeySetup(_SecaggNN):
 
         logger.debug(
             f"Completed Serverkey secret sharing setup with success={all_received} "
-            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}"
+            f"node_id='{self._node_id}' secagg_id='{self._secagg_id}"
         )
 
         biprime = get_default_biprime()
@@ -275,7 +277,7 @@ class SecaggServkeySetup(_SecaggNN):
 
         logger.info(
             "Server key share successfully created for "
-            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'"
+            f"node_id='{self._node_id}' secagg_id='{self._secagg_id}'"
         )
 
         return self._create_secagg_reply(share=sum_shares.value)
@@ -286,18 +288,17 @@ class SecaggDHSetup(_SecaggNN):
     Sets up a server key Secure Aggregation context element on the node side.
     """
 
-    _secagg_manager = DHManager
     _element = SecaggElementTypes.DIFFIE_HELLMAN
     _min_num_parties: int = 2
 
     def _setup_specific(self) -> Message:
         """Service function for setting up the Diffie Hellman secagg context element."""
         # we know len(parties) >= 3 so len(other_nodes) >= 1
-        other_nodes = [e for e in self._parties if e != environ["NODE_ID"]]
+        other_nodes = [e for e in self._parties if e != self._node_id]
 
         local_keypair = DHKey()
         key_agreement = DHKeyAgreement(
-            node_u_id=environ["NODE_ID"],
+            node_u_id=self._node_id,
             node_u_dh_key=local_keypair,
             session_salt=bytes(self._secagg_id, "utf-8"),
         )
@@ -313,7 +314,7 @@ class SecaggDHSetup(_SecaggNN):
             other_nodes_messages += [
                 KeyRequest(
                     request_id=REQUEST_PREFIX + str(uuid.uuid4()),
-                    node_id=environ["NODE_ID"],
+                    node_id=self._node_id,
                     dest_node_id=node,
                     secagg_id=self._secagg_id,
                 )
@@ -339,7 +340,7 @@ class SecaggDHSetup(_SecaggNN):
 
         logger.info(
             "Diffie Hellman secagg context successfully created for "
-            f"node_id='{environ['NODE_ID']}' secagg_id='{self._secagg_id}'"
+            f"node_id='{self._node_id}' secagg_id='{self._secagg_id}'"
         )
 
         return self._create_secagg_reply()

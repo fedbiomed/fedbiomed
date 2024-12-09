@@ -9,8 +9,14 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 from gui.server.schemas import DeleteTrainingPlanRequest, ListTrainingPlanRequest, ApproveRejectTrainingPlanRequest, \
     TrainingPlanPreviewRequest
 from . import api
+from config import config
 
-TP_SECURITY_MANAGER = TrainingPlanSecurityManager()
+TP_SECURITY_MANAGER = TrainingPlanSecurityManager(
+    db=config["NODE_DB_PATH"],
+    node_id=config["ID"],
+    hashing=config.node_config.get('security', 'hashing_algorithm'),
+    tp_approval=config.node_config.getbool('security', 'training_plan_approval')
+)
 
 TIME_OF_LAST_CALL = datetime.now()
 
@@ -24,18 +30,18 @@ def list_training_plans():
     Request {application/json}:
             sort_by (str): sort result along one column in the database
             select_status (str): filter result by training plan statuses {Pending, Rejected, Approved}
-            
+
     Response {application/json}:
         400:
             success   : Boolean error status (False)
             result  : null
-            message : Message about error. 
+            message : Message about error.
 
         200:
             success : Boolean value indicates that the request is success
             result  : list of training plans, sorted or filtered depending on [`sort_by`] or [`select_status`]
                       arguments
-            message : null  
+            message : null
     """
     req = request.json
     sort_by = req.get('sort_by', None)

@@ -1,4 +1,6 @@
+import os
 import unittest
+import tempfile
 from unittest.mock import patch, MagicMock
 import copy
 
@@ -6,11 +8,6 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
-
-#############################################################
-# Import NodeTestCase before importing FedBioMed Module
-from testsupport.base_case import NodeTestCase
-#############################################################
 
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.message import Message, KeyRequest, InnerMessage, OverlayMessage
@@ -20,7 +17,7 @@ from fedbiomed.transport.controller import GrpcController
 from fedbiomed.node.requests._overlay import OverlayChannel, _ChannelKeys
 
 
-class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, NodeTestCase):
+class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
     """Test for node overlay communications module channel keys handling"""
 
     def setUp(self):
@@ -41,14 +38,23 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, NodeTestCase
             dest_node_id= 'my dest node id',
         )
 
-        self.overlay_channel = OverlayChannel(self.grpc_controller_mock)
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db = os.path.join(self.temp_dir.name, 'test.json')
+
+        self.overlay_channel = OverlayChannel(
+            db=self.db,
+            node_id="test-node-id",
+            grpc_client=self.grpc_controller_mock
+        )
+
         self.default_private_key, _ = self.overlay_channel._load_default_n2n_key()
         # needs to be 32 bytes long for ChaCha20
         self.derived_key = b'k' * 32
 
-        self.channel_keys = _ChannelKeys()
+        self.channel_keys = _ChannelKeys(db=self.db)
 
     def tearDown(self):
+        self.temp_dir.cleanup()
         self.channel_manager_patch.stop()
         self.asyncio_event_patch.stop()
         self.asyncio_waitfor_patch.stop()
@@ -117,7 +123,7 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, NodeTestCase
         self.channel_manager_mock.return_value.get.return_value = {'local_key': self.default_private_key.export_private_key()}
 
         # need to re-instantiate after mocking
-        channel_keys = _ChannelKeys()
+        channel_keys = _ChannelKeys(self.db)
 
         # action
         kn1 = await channel_keys.get_local_public_key(node1)
@@ -132,7 +138,7 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, NodeTestCase
 
 
 
-class TestNodeRequestsOverlayChannel(unittest.IsolatedAsyncioTestCase, NodeTestCase):
+class TestNodeRequestsOverlayChannel(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
     """Test for node overlay communications module"""
 
     def setUp(self):
@@ -153,7 +159,10 @@ class TestNodeRequestsOverlayChannel(unittest.IsolatedAsyncioTestCase, NodeTestC
             dest_node_id= 'my dest node id',
         )
 
-        self.overlay_channel = OverlayChannel(self.grpc_controller_mock)
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db = os.path.join(self.temp_dir.name, 'test.json')
+
+        self.overlay_channel = OverlayChannel(self.db, 'test-node-id', self.grpc_controller_mock)
         self.default_private_key, _ = self.overlay_channel._load_default_n2n_key()
 
         # needs to be 32 bytes long for ChaCha20
@@ -161,6 +170,7 @@ class TestNodeRequestsOverlayChannel(unittest.IsolatedAsyncioTestCase, NodeTestC
         self.dhkey_agreement_mock.return_value = self.derived_key
 
     def tearDown(self):
+        self.temp_dir.cleanup()
         self.channel_manager_patch.stop()
         self.asyncio_event_patch.stop()
         self.dhkey_agreement_patch.stop()
@@ -364,7 +374,7 @@ class TestNodeRequestsOverlayChannel(unittest.IsolatedAsyncioTestCase, NodeTestC
             (self.default_private_key, self.default_private_key),
         ]
         # need to re-instantiate for mock to be active
-        self.overlay_channel = OverlayChannel(self.grpc_controller_mock)
+        self.overlay_channel = OverlayChannel(self.db, 'test-node', self.grpc_controller_mock)
 
         # action
         local_key, distant_key, derived_key = await self.overlay_channel._setup_use_channel_keys(

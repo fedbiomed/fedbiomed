@@ -24,7 +24,6 @@ import fedbiomed.common.data._medical_datasets
 import fedbiomed.common.data._sklearn_data_manager
 import fedbiomed.common.data._tabular_dataset
 import fedbiomed.common.data._torch_data_manager
-import fedbiomed.common.environ
 import fedbiomed.common.exceptions
 import fedbiomed.common.logger
 import fedbiomed.common.message
@@ -66,7 +65,6 @@ import fedbiomed.node.cli_utils._io
 import fedbiomed.node.cli_utils._medical_folder_dataset
 import fedbiomed.node.cli_utils._training_plan_management
 import fedbiomed.node.dataset_manager
-import fedbiomed.node.environ
 import fedbiomed.node.history_monitor
 import fedbiomed.node.training_plan_security_manager
 import fedbiomed.node.node
@@ -85,7 +83,6 @@ import fedbiomed.researcher.aggregators.functional
 import fedbiomed.researcher.aggregators.scaffold
 import fedbiomed.researcher.cli
 import fedbiomed.researcher.datasets
-import fedbiomed.researcher.environ
 import fedbiomed.researcher.experiment
 import fedbiomed.researcher.federated_workflows.__init__
 import fedbiomed.researcher.federated_workflows.jobs.__init__

@@ -1,10 +1,8 @@
 import unittest
-from unittest.mock import patch
+import os
+import tempfile
 
-#############################################################
-# Import NodeTestCase before importing FedBioMed Module
-from testsupport.base_case import NodeTestCase
-#############################################################
+from unittest.mock import patch
 
 from fedbiomed.common.constants import _BaseEnum
 from fedbiomed.common.exceptions import FedbiomedSecaggError
@@ -12,27 +10,28 @@ from fedbiomed.common.secagg_manager import SecaggDhManager, SecaggServkeyManage
 from fedbiomed.node.secagg_manager import SecaggManager
 
 
-class TestSecaggManager(NodeTestCase):
+class TestSecaggManager(unittest.TestCase):
 
     def setUp(self) -> None:
-        pass
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db = os.path.join(self.temp_dir.name, 'test.json')
 
     def tearDown(self) -> None:
-        pass
+        self.temp_dir.cleanup()
 
     def test_secagg_manager_01_initialization(self):
 
         # Test server key manager
-        secagg_setup = SecaggManager(0)()
+        secagg_setup = SecaggManager(self.db, 0)()
         self.assertIsInstance(secagg_setup, SecaggServkeyManager)
 
         # Test DH manager
-        secagg_setup = SecaggManager(1)()
+        secagg_setup = SecaggManager(self.db, 1)()
         self.assertIsInstance(secagg_setup, SecaggDhManager)
 
         # Raise element type error
         with self.assertRaises(FedbiomedSecaggError):
-            SecaggManager(3)()
+            SecaggManager(self.db, 3)()
 
         # Raise missing component for element type error
         with patch('fedbiomed.node.secagg_manager.SecaggElementTypes') as element_types_patch:
@@ -44,7 +43,7 @@ class TestSecaggManager(NodeTestCase):
             ]
 
             with self.assertRaises(FedbiomedSecaggError):
-                SecaggManager(0)()
+                SecaggManager(self.db, 0)()
 
 if __name__ == '__main__':  # pragma: no cover
     unittest.main()

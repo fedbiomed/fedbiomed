@@ -1,16 +1,11 @@
+import os
+import tempfile
 import unittest
 from unittest.mock import patch, MagicMock, AsyncMock
 import asyncio
 import time
 
-#############################################################
-# Import NodeTestCase before importing FedBioMed Module
-from testsupport.base_case import NodeTestCase
-
-#############################################################
-
 from fedbiomed.common.message import OverlayMessage, KeyReply, InnerMessage
-from fedbiomed.node.environ import environ
 from fedbiomed.node.requests._n2n_router import NodeToNodeRouter, _NodeToNodeAsyncRouter
 
 
@@ -19,7 +14,7 @@ class DummyException(Exception):
     pass
 
 
-class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
+class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
     """Test for node2node router module, _NodeToNodeAsyncRouter class"""
 
     def setUp(self):
@@ -43,7 +38,11 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         self.pending_requests_mock = MagicMock(autospec=True)
         self.controller_data_mock = MagicMock(autospec=True)
 
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db = os.path.join(self.temp_dir.name, 'test.json')
         self.n2n_async_router = _NodeToNodeAsyncRouter(
+            'test-node-id',
+            self.db,
             self.grpc_controller_mock,
             self.pending_requests_mock,
             self.controller_data_mock,
@@ -53,6 +52,7 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         self.async_queue_patch.stop()
         self.n2n_controller_patch.stop()
         self.format_overlay_channel_patch.stop()
+        self.temp_dir.cleanup()
 
     async def test_n2n_async_router_01_remove_finished_tasks(self):
         """Remove finished tasks of a n2n async router"""
@@ -158,7 +158,7 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         overlay_message_process.return_value = asyncio.create_task(dummy_task())
 
         message = {
-            "dest_node_id": environ["NODE_ID"],
+            "dest_node_id": 'test-node-id',
             "overlay": b"dummy content",
         }
         self.async_queue_patcher.return_value.get.side_effect = [
@@ -196,7 +196,7 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         # prepare
         self.format_overlay_channel_patcher.return_value.format_incoming_overlay.return_value = KeyReply(
             request_id="request",
-            dest_node_id=environ["ID"],
+            dest_node_id='test-node-id',
             node_id="test",
             public_key=b"test",
             secagg_id="test",
@@ -207,7 +207,7 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         msg = OverlayMessage(
             **{
                 "node_id": "n1",
-                "dest_node_id": environ["NODE_ID"],
+                "dest_node_id": 'test-node-id',
                 "overlay": b"dummy content",
                 "researcher_id": "r1",
                 'setup': False,
@@ -300,7 +300,7 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         self.n2n_controller_patcher.reset_mock()
 
 
-class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
+class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
     """Test for node2node router module, NodeToNodeRouter class"""
 
     def setUp(self):
@@ -324,13 +324,20 @@ class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         self.pending_requests_mock = MagicMock(autospec=True)
         self.controller_data_mock = MagicMock(autospec=True)
 
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db = os.path.join(self.temp_dir.name, 'test.json')
+
         self.n2n_router = NodeToNodeRouter(
+            'test-node-id',
+            self.db,
             self.grpc_controller_mock,
             self.pending_requests_mock,
             self.controller_data_mock,
         )
 
     def tearDown(self):
+
+        self.temp_dir.cleanup()
 
         self.async_patch.stop()
         self.thread_patch.stop()

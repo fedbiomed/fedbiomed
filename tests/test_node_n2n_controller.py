@@ -1,11 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, AsyncMock
 
-#############################################################
-# Import NodeTestCase before importing FedBioMed Module
-from testsupport.base_case import NodeTestCase
-#############################################################
-
 from fedbiomed.common.message import (
     ChannelSetupRequest,
     ChannelSetupReply,
@@ -23,7 +18,7 @@ async def func_return_argument(message, researcher_id, setup = False):
     return b"payload payload", b'salty salty', b'noncy noncy'
 
 
-class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
+class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
     """Test for node2node controller module, NodeToNodeRouter class"""
 
     def setUp(self):
@@ -36,7 +31,12 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, NodeTestCase):
         self.controller_data_mock = MagicMock(autospec=True)
 
         self.n2n_controller = NodeToNodeController(
-            self.grpc_controller_mock, self.overlay_channel_mock, self.pending_requests_mock, self.controller_data_mock)
+            'test-node-id',
+            self.grpc_controller_mock,
+            self.overlay_channel_mock,
+            self.pending_requests_mock,
+            self.controller_data_mock
+        )
 
         self.overlay_msg = OverlayMessage(
             researcher_id='dummy researcher',

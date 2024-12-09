@@ -9,8 +9,7 @@ import shutil
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from fedbiomed.node.config import NodeConfig 
-from fedbiomed.node.environ import environ
+from fedbiomed.node.config import NodeConfig
 
 
 def parse_args():
@@ -55,7 +54,7 @@ def download_and_extract_ixi_sample(root_folder):
     if not os.path.exists(zip_filename):
         # Download if it does not exist
         download_file(url, zip_filename)
-        
+
     # Check if extracted folder exists
     if os.path.isdir(extracted_folder):
         print(f'Dataset folder already exists in {extracted_folder}')
@@ -94,7 +93,7 @@ if __name__ == '__main__':
         cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
 
         print(f'Creating node at: {cfg_file}')
-        config = NodeConfig(root=environ["ROOT_DIR"], name=f'{center_name.lower()}.ini', auto_generate=False)
+        config = NodeConfig(name=f'{center_name.lower()}.ini', auto_generate=False)
         if config.is_config_existing() and not args.force:
             print(f"**Warning: config file {cfg_file} already exists. To overwrite, please specify `--force` option")
         else:

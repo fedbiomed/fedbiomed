@@ -4,9 +4,12 @@
 """
 Core code of the node component.
 """
+
+import os
+
 from typing import Callable, Optional, Union
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, CONFIG_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
@@ -31,8 +34,9 @@ from fedbiomed.common.message import (
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.node.dataset_manager import DatasetManager
-from fedbiomed.node.environ import environ
+from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.history_monitor import HistoryMonitor
+from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.requests import NodeToNodeRouter
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
@@ -53,41 +57,69 @@ class Node:
 
     def __init__(
         self,
-        dataset_manager: DatasetManager,
-        tp_security_manager: TrainingPlanSecurityManager,
+        config: NodeConfig,
         node_args: Union[dict, None] = None,
     ):
         """Constructor of the class.
 
         Attributes:
-            dataset_manager: `DatasetManager` object for managing the node's datasets.
-            tp_security_manager: `TrainingPlanSecurityManager` object managing the node's
-                training plans.
+            config: Node configuration
             node_args: Command line arguments for node.
         """
 
+        self._config = config
+        self._node_id = self._config.get('default', 'id')
         self._tasks_queue = TasksQueue(
-            environ["MESSAGES_QUEUE_DIR"], environ["TMP_DIR"]
+            os.path.join(self._config.root, 'var', f'queue_{self._node_id}'),
+            str(os.path.join(self._config.root, 'var', 'tmp'))
         )
-        res = environ["RESEARCHERS"][0]
+
         self._grpc_client = GrpcController(
-            node_id=environ["ID"],
+            node_id=self._node_id,
             researchers=[
                 ResearcherCredentials(
-                    port=res["port"], host=res["ip"], certificate=res["certificate"]
+                    port=self._config.get('researcher', 'port'),
+                    host=self._config.get('researcher', 'ip'),
+                    certificate=self._config.get('researcher', 'certificate', fallback=None)
                 )
             ],
             on_message=self.on_message,
         )
+        self._db_path = os.path.abspath(os.path.join(
+            self._config.root, CONFIG_FOLDER_NAME, self._config.get('default', 'db'))
+        )
 
         self._pending_requests = EventWaitExchange(remove_delivered=True)
         self._controller_data = EventWaitExchange(remove_delivered=False)
-        self._n2n_router = NodeToNodeRouter(self._grpc_client, self._pending_requests, self._controller_data)
+        self._n2n_router = NodeToNodeRouter(
+            self._node_id,
+            self._db_path,
+            self._grpc_client,
+            self._pending_requests,
+            self._controller_data
+        )
 
-        self.dataset_manager = dataset_manager
-        self.tp_security_manager = tp_security_manager
+
+        self.dataset_manager = DatasetManager(db=self._db_path)
+        self.tp_security_manager = TrainingPlanSecurityManager(
+            db=self._db_path,
+            node_id=self._node_id,
+            hashing=self._config.get('security', 'hashing_algorithm'),
+            tp_approval=self._config.getbool('security', 'training_plan_approval')
+        )
 
         self.node_args = node_args
+
+    @property
+    def node_id(self):
+        """Returns id of the node"""
+        return self._node_id
+
+
+    @property
+    def config(self):
+        """Return node config"""
+        return self._config
 
     def add_task(self, task: dict):
         """Adds a task to the pending tasks queue.
@@ -157,7 +189,7 @@ class Node:
                     self._grpc_client.send(
                         SearchReply(
                             request_id=message.request_id,
-                            node_id=environ["NODE_ID"],
+                            node_id=self._node_id,
                             researcher_id=message.researcher_id,
                             databases=databases,
                             count=len(databases),
@@ -171,7 +203,7 @@ class Node:
                         ListReply(
                             success=True,
                             request_id=message.request_id,
-                            node_id=environ['NODE_ID'],
+                            node_id=self._node_id,
                             researcher_id=message.researcher_id,
                             databases=databases,
                             count=len(databases),
@@ -183,7 +215,7 @@ class Node:
                         PingReply(
                             request_id=message.request_id,
                             researcher_id=message.researcher_id,
-                            node_id=environ["ID"],
+                            node_id=self._node_id,
                         )
                     )
                 case ApprovalRequest.__name__:
@@ -217,14 +249,18 @@ class Node:
         secagg_id = msg.secagg_id
 
         reply = {
-            "node_id": environ["ID"],
+            "node_id": self._node_id,
             "researcher_id": msg.researcher_id,
             "success": True,
             "secagg_id": secagg_id,
             "request_id": msg.request_id,
         }
 
-        secagg_manager = SecaggManager(element=msg.get_param("element"))()
+        secagg_manager = SecaggManager(
+            db=self._db_path,
+            element=msg.get_param("element")
+        )()
+
         status = secagg_manager.remove(
             secagg_id=secagg_id, experiment_id=msg.get_param("experiment_id")
         )
@@ -232,7 +268,7 @@ class Node:
         if not status:
             message = (
                 f"{ErrorNumbers.FB321.value}: no such secagg context "
-                f"element in node database for node_id={environ['NODE_ID']} "
+                f"element in node database for node_id={self._node_id} "
                 f"secagg_id={secagg_id}"
             )
             return self.send_error(
@@ -257,6 +293,8 @@ class Node:
 
         # Needed when using node to node communications
         setup_arguments.update({
+            'db': self._db_path,
+            'node_id': self._node_id,
             'n2n_router': self._n2n_router,
             'grpc_client': self._grpc_client,
             'pending_requests': self._pending_requests,
@@ -288,6 +326,7 @@ class Node:
         """
         round_ = None
         hist_monitor = HistoryMonitor(
+            node_id=self._node_id,
             experiment_id=msg.experiment_id,
             researcher_id=msg.researcher_id,
             send=self._grpc_client.send,
@@ -299,7 +338,7 @@ class Node:
         if data is None:
             return self.send_error(
                 extra_msg="Did not found proper data in local datasets "
-                f'on node={environ["NODE_ID"]}',
+                f'on node={self._node_id}',
                 request_id=msg.request_id,
                 researcher_id=msg.researcher_id,
                 errnum=ErrorNumbers.FB313,
@@ -312,6 +351,9 @@ class Node:
             )
 
         round_ = Round(
+            root_dir=self._config.root,
+            db=self._db_path,
+            node_id=self._node_id,
             training_plan=msg.get_param("training_plan"),
             training_plan_class=msg.get_param("training_plan_class"),
             model_kwargs=msg.get_param("model_args") or {},
@@ -324,6 +366,7 @@ class Node:
             history_monitor=hist_monitor,
             aggregator_args=msg.get_param("aggregator_args") or None,
             node_args=self.node_args,
+            tp_security_manager=self.tp_security_manager,
             round_number=msg.get_param("round"),
             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
             aux_vars=msg.get_param('optim_aux_var'),
@@ -334,7 +377,7 @@ class Node:
         if err_msg is not None:
             self._grpc_client.send(
                 ErrorMessage(
-                    node_id=environ["ID"],
+                    node_id=self._node_id,
                     errnum=ErrorNumbers.FB300,
                     researcher_id=msg.researcher_id,
                     extra_msg="Could not initialize arguments",
@@ -348,7 +391,7 @@ class Node:
 
         while True:
 
-            item: Message = self._tasks_queue.get()
+            item: TrainRequest = self._tasks_queue.get()
             # don't want to treat again in case of failure
             self._tasks_queue.task_done()
 
@@ -365,6 +408,12 @@ class Node:
                         # once task is out of queue, initiate training rounds
                         if round_ is not None:
                             msg = round_.run_model_training(
+                                tp_approval=self._config.getbool('security', 'training_plan_approval'),
+                                secagg_insecure_validation=self._config.getbool('security',
+                                    "secagg_insecure_validation"),
+                                secagg_active=self._config.getbool("security", "secure_aggregation"),
+                                force_secagg=self._config.getbool(
+                                    "security", "force_secure_aggregation"),
                                 secagg_arguments=item.get_param("secagg_arguments"),
                             )
                             msg.request_id = item.request_id
@@ -431,7 +480,7 @@ class Node:
                 ErrorMessage(
                     request_id=request_id,
                     errnum=errnum.name,
-                    node_id=environ["NODE_ID"],
+                    node_id=self._node_id,
                     extra_msg=extra_msg,
                     researcher_id=researcher_id,
                 ),

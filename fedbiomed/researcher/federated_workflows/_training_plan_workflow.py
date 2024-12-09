@@ -446,6 +446,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
 
         job = TrainingPlanCheckJob(
+            researhcer_id=self._researcher_id,
+            requests=self._reqs,
             nodes=self.training_data().node_ids(),
             keep_files_dir=self.experimentation_path(),
             experiment_id=self._experiment_id,
@@ -475,6 +477,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             to the "approval queue" on the node side.
         """
         job = TrainingPlanApproveJob(
+            researcher_id=self._researcher_id,
+            requests=self._reqs,
             nodes=self.training_data().node_ids(),
             keep_files_dir=self.experimentation_path(),
             training_plan=self.training_plan(),
@@ -508,7 +512,11 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         })
 
         breakpoint_path, breakpoint_file_name = \
-            choose_bkpt_file(self._experimentation_folder, bkpt_number - 1)
+            choose_bkpt_file(
+                self.config.vars["EXPERIMENTS_DIR"],
+                self._experimentation_folder,
+                bkpt_number - 1
+            )
 
         # rewrite paths in breakpoint : use the links in breakpoint directory
         state['training_plan_path'] = create_unique_link(

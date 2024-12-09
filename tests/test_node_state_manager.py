@@ -7,7 +7,6 @@ from fedbiomed.common.constants import NODE_STATE_PREFIX, __node_state_version__
 from fedbiomed.common.exceptions import FedbiomedNodeStateManagerError
 from fedbiomed.node.node_state_manager import NodeStateManager, NodeStateFileName
 from testsupport.fake_uuid import FakeUuid
-import testsupport.fake_researcher_environ  ## noqa (remove flake8 false warning)
 
 
 class TestNodeStateManager(unittest.TestCase):
@@ -16,9 +15,15 @@ class TestNodeStateManager(unittest.TestCase):
         self.query_patcher = patch('fedbiomed.node.node_state_manager.Query')
         self.table_patcher = patch('fedbiomed.node.node_state_manager.TinyDB')
 
+        self.temp_dir = tempfile.TemporaryDirectory()
+
         self.query_mock = self.query_patcher.start()
         self.table_mock = self.table_patcher.start()
-        self.test_nsm = NodeStateManager("path/to/db")
+        self.test_nsm = NodeStateManager(
+            dir=self.temp_dir.name,
+            node_id='test-node-id',
+            db_path="path/to/db"
+        )
 
         self.fake_declearn_optimizer_state = {'config': {'lrate': 0.2, 'w_decay': 0.0, 'regularizers': [], 'modules': [
             ('adam', {'beta_1': 0.9, 'beta_2': 0.99, 'amsgrad': False, 'eps': 1e-07})]
@@ -28,6 +33,7 @@ class TestNodeStateManager(unittest.TestCase):
     def tearDown(self) -> None:
         self.query_patcher.stop()
         self.table_patcher.stop()
+        self.temp_dir.cleanup()
 
     def test_node_state_manager_1_fail_to_build(self):
         query_patcher = patch('fedbiomed.node.node_state_manager.Query')
@@ -40,7 +46,11 @@ class TestNodeStateManager(unittest.TestCase):
         db_patcher.start()
 
         with self.assertRaises(FedbiomedNodeStateManagerError):
-            nsm = NodeStateManager('path/to/db')
+            nsm = NodeStateManager(
+                self.temp_dir.name,
+                'test-node-id',
+                'path/to/db'
+            )
 
         query_patcher.stop()
         table_patcher.stop()
@@ -112,7 +122,7 @@ class TestNodeStateManager(unittest.TestCase):
             expected_state, True
         )
 
-    @patch('uuid.uuid4', autospec=True)  
+    @patch('uuid.uuid4', autospec=True)
     def test_node_state_manager_5_add_saving_failure(self, uuid_patch):
         # test case where private `_save_state` method fails
         uuid_patch.return_value = FakeUuid()
@@ -126,15 +136,13 @@ class TestNodeStateManager(unittest.TestCase):
 
     def test_node_state_manager_6_initialize_node_state_manager(self):
 
-        fake_var_dir, fake_node_id = 'fake/var/dir', 'fake_node_id_xxx'
-        side_effect_env = lambda x: {"VAR_DIR": fake_var_dir, "NODE_ID": fake_node_id}.get(x)
         previous_state_id = 'previous_state_id'
-        with (patch('os.makedirs') as os_mkdirs_mock,
-              patch('fedbiomed.node.node_state_manager.environ') as node_environ_patch):
-            node_environ_patch.__getitem__.side_effect = side_effect_env
+        with patch('os.makedirs') as os_mkdirs_mock:
             self.test_nsm.initialize(previous_state_id=previous_state_id)
 
-            expected_path = os.path.join(fake_var_dir, "node_state_%s" % fake_node_id)
+            expected_path = os.path.join(
+                self.temp_dir.name, 'var', "node_state_%s" % 'test-node-id'
+            )
             os_mkdirs_mock.assert_called_once_with(expected_path,
                                                    exist_ok=True)
 
@@ -147,45 +155,49 @@ class TestNodeStateManager(unittest.TestCase):
             with self.assertRaises(FedbiomedNodeStateManagerError):
                 self.test_nsm.initialize()
 
-    @patch('uuid.uuid4', autospec=True)  
+    @patch('uuid.uuid4', autospec=True)
     def test_node_state_manager_8_generate_folder_and_create_file_name(self, uuid_patch):
-        # testing values for initializing NodeStateManager folder structure
-        fake_var_dir, fake_node_id = 'fake/var/dir', 'fake_node_id_xxx'
-        side_effect_env = lambda x: {"VAR_DIR": fake_var_dir, "NODE_ID": fake_node_id}.get(x)
 
         # testing values for initializing folders for a given experiment and round
         file_name = "file_name_for_elem_%s_%s"
-        experiment_id, round_nb, opt_file_name = 'experiment_id', 4321, MagicMock(spec=NodeStateFileName, 
-                                                                    value=file_name)
+        experiment_id, round_nb, opt_file_name = 'experiment_id', 4321, \
+            MagicMock(spec=NodeStateFileName, value=file_name)
+
         uuid_patch.return_value = FakeUuid()
         state_id = FakeUuid.VALUE
-        with (patch('os.makedirs') as os_mkdirs_mock,
-              patch('fedbiomed.node.node_state_manager.environ') as node_environ_patch):
-            node_environ_patch.__getitem__.side_effect = side_effect_env
+        with patch('os.makedirs') as os_mkdirs_mock:
             self.test_nsm.initialize()
-
             os_mkdirs_mock.reset_mock()
-
-            res = self.test_nsm.generate_folder_and_create_file_name(experiment_id, round_nb, opt_file_name)
+            res = self.test_nsm.generate_folder_and_create_file_name(
+                experiment_id, round_nb, opt_file_name
+            )
 
             # checks
             os_mkdirs_mock.assert_called_once_with(
-                os.path.join(self.test_nsm.get_node_state_base_dir(),
-                             'experiment_id_%s' % experiment_id),
+                os.path.join(
+                    self.test_nsm.get_node_state_base_dir(),
+                    'experiment_id_%s' % experiment_id
+                ),
                 exist_ok=True
                 )
 
-        self.assertEqual(res, os.path.join(fake_var_dir, 'node_state_fake_node_id_xxx', 'experiment_id_%s' % experiment_id,
-                                           file_name % (str(round_nb), "node_state_%s" % state_id)))
+        self.assertEqual(
+            res,
+            os.path.join(self.temp_dir.name, 'var', 'node_state_test-node-id',
+                'experiment_id_%s' % experiment_id,
+                file_name % (str(round_nb), "node_state_%s" % state_id)
+            )
+        )
 
-        # FIXME; should state_id be private?
+    @patch('uuid.uuid4', autospec=True)
+    def test_node_state_manager_9_generate_folder_and_create_file_name_failures(
+        self,
+        uuid_patch
+    ) -> None:
 
-    @patch('uuid.uuid4', autospec=True)  
-    def test_node_state_manager_9_generate_folder_and_create_file_name_failures(self, uuid_patch):
         file_name = "file_name_for_elem_%s_%s"
-        experiment_id, round_nb, opt_file_name = 'experiment_id', 4321, MagicMock(spec=NodeStateFileName, 
+        experiment_id, round_nb, opt_file_name = 'experiment_id', 4321, MagicMock(spec=NodeStateFileName,
                                                                     value=file_name)
-
         # raise first exception: case where `node_state_base_dir` has not been found
         with self.assertRaises(FedbiomedNodeStateManagerError):
             self.test_nsm.generate_folder_and_create_file_name(experiment_id,
@@ -193,16 +205,9 @@ class TestNodeStateManager(unittest.TestCase):
                                                                opt_file_name)
 
         uuid_patch.return_value = FakeUuid()
-
-        fake_var_dir, fake_node_id = 'fake/var/dir', 'fake_node_id_xxx'
-        side_effect_env = lambda x: {"VAR_DIR": fake_var_dir, "NODE_ID": fake_node_id}.get(x)
-        with (patch('os.makedirs') as os_mkdirs_mock,
-              patch('fedbiomed.node.node_state_manager.environ') as node_environ_patch):
-            node_environ_patch.__getitem__.side_effect = side_effect_env
+        with patch('os.makedirs') as os_mkdirs_mock:
             self.test_nsm.initialize()
-
             os_mkdirs_mock.reset_mock()
-
             os_mkdirs_mock.side_effect = PermissionError("error raised for the sake of testing")
 
             with self.assertRaises(FedbiomedNodeStateManagerError):
@@ -220,7 +225,7 @@ class TestNodeStateFileName(unittest.TestCase):
                 entry_value % ('string_1', 'string_2')
             except TypeError as te:
                 self.assertTrue(False, f"error in NodeStateFileName, entry {entry_value} doesnot respect formatting convention"
-                                f" details : {te}") 
+                                f" details : {te}")
 
 
 if __name__ == '__main__':  # pragma: no cover

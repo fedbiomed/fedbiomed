@@ -136,15 +136,15 @@ Environment variables can be used to parametrize the various options for creatin
 
 ```
 [security]:
-- allow_default_training_plans: ALLOW_DEFAULT_TRAINING_PLANS, True
-- training_plan_approval: ENABLE_TRAINING_PLAN_APPROVAL, False
-- secure_aggregation: SECURE_AGGREGATION, True
-- force_secure_aggregation: FORCE_SECURE_AGGREGATION, False
-- secagg_insecure_validation: SECAGG_INSECURE_VALIDATION, True
+- allow_default_training_plans: FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS, True
+- training_plan_approval: FBM_SECURITY_TRAINING_PLAN_APPROVAL, False
+- secure_aggregation: FBM_SECURITY_SECURE_AGGREGATION, True
+- force_secure_aggregation: FBM_SECURITY_FORCE_SECURE_AGGREGATION, False
+- secagg_insecure_validation: FBM_SECURITY_SECAGG_INSECURE_VALIDATION, True
 
 [researcher]:
-- ip: RESEARCHER_SERVER_HOST, ${IP_ADDRESS}, if not set: localhost
-- port: RESEARCHER_SERVER_PORT, 50051
+- ip: FBM_RESEARCHER_IP, ${IP_ADDRESS}, if not set: localhost
+- port: FBM_RESEARCHER_PORT, 50051
 ```
 
 You may also explore them through the command's help menu
@@ -153,11 +153,15 @@ You may also explore them through the command's help menu
 ${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -h
 ```
 
+!!! note "Overwriting configuration files using environment variables"
+    All configuration parameters specified in the config file can be overwritten through environment variables. The equivalent environment variable name is `FBM_<UPPER_CASE_SECTION_NAME>_<UPPER-CASE-PARAMETER-NAME>` (e.g., for force_secure_aggregation, use FBM_SECURITY_FORCE_SECURE_AGGREGATION).
+
+
 ### Examples
 
 Create the new configuration file `${FEDBIOMED_DIR}/etc/node_1.ini` with a specified IP and port for the researcher,
 and disabling secure aggregation. Forcefully delete and recreate the file if it was already existing.
 
 ```
-$ RESEARCHER_SERVER_HOST=121.203.21.147 RESEARCHER_SERVER_PORT=8909 SECURE_AGGREGATION=0 ${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -c NODE -n node_1.ini -f
+$ FBM_RESEARCHER_IP=121.203.21.147 FBM_RESEARCHER_PORT=8909 FBM_SECURITY_SECURE_AGGREGATION=0 ${FEDBIOMED_DIR}/scripts/fedbiomed_run configuration create -c NODE -n node_1.ini -f
 ```
