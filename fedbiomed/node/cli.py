@@ -616,7 +616,6 @@ class NodeCLI(CommonCLI):
 
             def set_component(self, config_name: str) -> None:
                 """Create node instance"""
-                print("NAME:", config_name)
                 config = NodeConfig(name=config_name)
                 node = Node(config)
 
@@ -629,6 +628,8 @@ class NodeCLI(CommonCLI):
                 for _, parser in ConfigNameActionNode._this._arg_parsers.items():
                     setattr(parser, '_node', node)
 
+        super().initialize()
+
         self._parser.add_argument(
             "--config",
             "-cf",
@@ -638,4 +639,3 @@ class NodeCLI(CommonCLI):
             help="Name of the config file that the CLI will be activated for."
                 "Default is 'config_node.ini'.")
 
-        super().initialize()
