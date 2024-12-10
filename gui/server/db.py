@@ -6,8 +6,8 @@ from fedbiomed.common.constants import UserRoleType
 from tinydb import TinyDB, Query
 from tinydb.table import Table
 
-from config import config
-from utils import set_password_hash
+from .config import config
+from .utils import set_password_hash
 
 
 # WARNING: this Database class should not exist, all accesses to TinyDB should occur

@@ -121,7 +121,7 @@ Requirement : conda installed in Ubuntu and configured for your user account
 
 ## Step 5: Fed-BioMed
 
-Follow Fed-BioMed Linux installation tutorial [from the *git clone* command](../../tutorials/installation/0-basic-software-installation.md#install-fedbiomed-software)
+Follow Fed-BioMed Linux installation tutorial [from the *git clone* command](../../getting-started/installation.md)
 
 When running for the first time, a Windows defender pop up may appear (triggered by docker), choose *"authorize only on private network"*.
 
@@ -188,7 +188,7 @@ Error --> fatal: could not set 'core.filemode' to 'false'
 3. Open the file (nano /etc/wsl.conf) and add the below lines:
     [automount]
     options = "metadata"
-    
+
 4. Save the file and shoutdown WSL
 
 5. Relaunch Ubuntu WSL

@@ -9,7 +9,7 @@ import shutil
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from fedbiomed.node.config import NodeConfig 
+from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.environ import environ
 
 
@@ -55,7 +55,7 @@ def download_and_extract_ixi_sample(root_folder):
     if not os.path.exists(zip_filename):
         # Download if it does not exist
         download_file(url, zip_filename)
-        
+
     # Check if extracted folder exists
     if os.path.isdir(extracted_folder):
         print(f'Dataset folder already exists in {extracted_folder}')
@@ -138,9 +138,9 @@ if __name__ == '__main__':
     print()
     print('Please add the data to your nodes executing and using the `ixi-train` tag:')
     for center_name in center_names:
-        print(f'\t./scripts/fedbiomed_run node --config {center_name.lower()}.ini dataset add')
+        print(f'\tfedbiomed node --directory {center_name.lower()} dataset add')
 
     print()
     print('Then start your nodes by executing:')
     for center_name in center_names:
-        print(f'\t./scripts/fedbiomed_run node --config {center_name.lower()}.ini start')
+        print(f'\tfedbiomed node --directory {center_name.lower()} start')
