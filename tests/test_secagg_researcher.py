@@ -1,9 +1,9 @@
 import copy
 import unittest
+import tempfile
 from typing import Tuple
-from unittest.mock import ANY, MagicMock, PropertyMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
-from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestModule
 
 #############################################################
@@ -12,24 +12,18 @@ from fedbiomed.common.constants import SecaggElementTypes, __secagg_element_vers
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecaggError
 from fedbiomed.common.message import (
     AdditiveSSSetupReply,
-    SecaggDeleteReply,
     SecaggReply,
 )
-
-#############################################################
-# Import ResearcherTestCase before importing any FedBioMed Module
-from fedbiomed.common.secagg_manager import BaseSecaggManager
-from fedbiomed.researcher.environ import environ
-from fedbiomed.researcher.requests import FederatedRequest
 from fedbiomed.researcher.secagg import (
     SecaggContext,
     SecaggDHContext,
     SecaggServkeyContext,
 )
 
+test_id = 'researcher-test-id'
 
 class BaseTestCaseSecaggContext(
-    ResearcherTestCase, MockRequestModule
+    unittest.TestCase, MockRequestModule
 ):  # pylint: disable=missing-docstring
 
     def setUp(self) -> None:
@@ -39,15 +33,16 @@ class BaseTestCaseSecaggContext(
         )
 
         # self.patch_requests = patch("fedbiomed.researcher.secagg._secagg_context.Requests")
-        self.patch_skmanager = patch.object(
-            fedbiomed.researcher.secagg._secagg_context, "_SKManager"
+        self.patch_skmanager = patch(
+            'fedbiomed.researcher.secagg._secagg_context.SecaggServkeyManager'
         )
+        self.patch_skmanager_s = self.patch_skmanager.start()
+        self.mock_skmanager = MagicMock()
+        self.patch_skmanager_s.return_value = self.mock_skmanager
 
-        # self.m_requests = self.patch_requests.start()
-        self.mock_skmanager = self.patch_skmanager.start()
-
+        temp_dir = tempfile.TemporaryDirectory()
         unittest.mock.MagicMock.tmp_dir = unittest.mock.PropertyMock(
-            return_value=environ["TMP_DIR"]
+            return_value=temp_dir
         )
 
     def tearDown(self) -> None:
@@ -70,9 +65,9 @@ class TestBaseSecaggContext(
             SecaggContext, __abstractmethods__=set()
         )
         self.abstract_methods_patcher.start()
-        self.parties = [environ["ID"], "party2", "party3"]
+        self.parties = [test_id, "party2", "party3"]
         self.secagg_context = SecaggContext(
-            parties=self.parties, experiment_id="experiment-id"
+            researcher_id=test_id, parties=self.parties, experiment_id="experiment-id"
         )
 
     def tearDown(self) -> None:
@@ -95,26 +90,30 @@ class TestBaseSecaggContext(
         # Succeeded with various secagg_id
         for secagg_id in (None, "one secagg id string", "x"):
             context = SecaggContext(
-                parties=[environ["ID"], "party2", "party3"],
+                researcher_id=test_id,
+                parties=[test_id, "party2", "party3"],
                 experiment_id="experiment-id",
                 secagg_id=secagg_id,
-            )
+            )  # type: ignore
         self.assertEqual(context.secagg_id, secagg_id)
 
         # Invalid type parties
         with self.assertRaises(FedbiomedSecaggError):
             SecaggContext(
-                parties=[environ["ID"], 12, 12], experiment_id="experiment-id"
-            )
+                researcher_id=test_id,
+                parties=[test_id, 12, 12],
+                experiment_id="experiment-id"
+            )  # type: ignore
 
         # Failed with bad secagg_id
         for secagg_id in ("", 3, ["not a string"]):
             with self.assertRaises(FedbiomedSecaggError):
                 SecaggContext(
-                    parties=[environ["ID"], "party2", "party3"],
+                    researcher_id=test_id,
+                    parties=[test_id, "party2", "party3"],
                     experiment_id="a experiment id",
                     secagg_id=secagg_id,
-                )
+                )  # type: ignore
 
     def test_secagg_context_02_getters_setters(self):
         """Tests setters and getters"""
@@ -134,9 +133,9 @@ class TestBaseSecaggContext(
                 "secagg_id": self.secagg_context.secagg_id,
                 "experiment_id": self.secagg_context.experiment_id,
                 "parties": self.secagg_context.parties,
+                "researcher_id": test_id,
             },
             "attributes": {
-                "_researcher_id": self.env["RESEARCHER_ID"],
                 "_status": self.secagg_context.status,
                 "_context": self.secagg_context.context,
             },
@@ -151,11 +150,11 @@ class TestBaseSecaggContext(
             "module": "fedbiomed.researcher.secagg",
             "arguments": {
                 "secagg_id": "my_secagg_id",
-                "parties": [environ["ID"], "TWO_PARTIES", "THREE_PARTIES"],
+                "parties": [test_id, "TWO_PARTIES", "THREE_PARTIES"],
                 "experiment_id": "my_experiment_id",
+                "researcher_id": test_id
             },
             "attributes": {
-                "_researcher_id": environ["ID"],
                 "_status": False,
                 "_context": "MY CONTEXT",
             },
@@ -180,11 +179,12 @@ class TestSecaggServkeyContext(
     def setUp(self) -> None:
 
         super().setUp()
-        self.parties = [environ["ID"], "party2", "party3"]
+        self.parties = [test_id, "party2", "party3"]
 
         self.mock_skmanager.get.return_value = None
 
         self._secagg_key_context = SecaggServkeyContext(
+            researcher_id=test_id,
             parties=self.parties[1:],
             experiment_id="experiment-id",
             secagg_id="secagg_id",
@@ -199,13 +199,14 @@ class TestSecaggServkeyContext(
         }
 
     def test_01_init(self):
-        secagg_key_context_ok = SecaggServkeyContext(
+        _ = SecaggServkeyContext(
+            test_id,
             self.parties,
             experiment_id="experiment-id",
         )
 
         with self.assertRaises(FedbiomedSecaggError):
-            SecaggServkeyContext(parties=[], experiment_id="experiment_id")
+            SecaggServkeyContext(test_id, parties=[], experiment_id="experiment_id")
 
     def test_02_secagg_round(self):
         """Test secagg round"""
@@ -267,7 +268,6 @@ class TestSecaggServkeyContext(
             {
                 "_status": False,
                 "_context": None,
-                "_researcher_id": self.env["RESEARCHER_ID"],
             },
             state["attributes"],
         )
@@ -318,13 +318,15 @@ class TestSecaggDHContext(
     def setUp(self) -> None:
         super().setUp()
 
-        self.dhmanager_p = patch.object(
-            fedbiomed.researcher.secagg._secagg_context, "_DHManager"
+        self.dhmanager_p = patch(
+            'fedbiomed.researcher.secagg._secagg_context.SecaggDhManager'
         )
-        self.dhmanager = self.dhmanager_p.start()
+        self.dhmanager_p_s = self.dhmanager_p.start()
+        self.dhmanager = MagicMock()
+        self.dhmanager_p_s.return_value = self.dhmanager
 
         self.secagg_dhcontext = SecaggDHContext(
-            parties=["party2", "party3"], experiment_id="", secagg_id="secagg_id"
+            researcher_id=test_id, parties=["party2", "party3"], experiment_id="", secagg_id="secagg_id"
         )
 
     def tearDown(self) -> None:
@@ -335,7 +337,8 @@ class TestSecaggDHContext(
 
         with self.assertRaises(FedbiomedError):
             SecaggDHContext(
-                parties=["party2"], experiment_id="exp_id", secagg_id="secagg_id"
+                researcher_id=test_id, parties=["party2"],
+                experiment_id="exp_id", secagg_id="secagg_id"
             )
 
     def test_03_dh_context_secagg_setup(self):

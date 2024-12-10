@@ -1,23 +1,20 @@
 import unittest
-from unittest.mock import MagicMock
-
-#############################################################
-# Import NodeTestCase before importing FedBioMed Module
-from testsupport.base_case import NodeTestCase
-#############################################################
+from unittest.mock import MagicMock, PropertyMock
 
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.message import InnerMessage, InnerRequestReply
 from fedbiomed.node.requests._send_nodes import send_nodes
 
 
-class TestNodeRequestsSendNodes(NodeTestCase):
+class TestNodeRequestsSendNodes(unittest.TestCase):
     """Test for node overlay send_nodes utilility"""
 
     def setUp(self):
         self.n2n_router_mock = MagicMock(autospec=True)
         self.grpc_controller_mock = MagicMock(autospec=True)
         self.pending_requests_mock = MagicMock(autospec=True)
+
+        type(self.n2n_router_mock).node_id = PropertyMock(return_value='test-node-id')
 
     def tearDown(self):
         pass
@@ -134,7 +131,7 @@ class TestNodeRequestsSendNodes(NodeTestCase):
                 nodes,
                 messages,
                 raise_if_not_all_received=True,
-            )   
+            )
 
 
 

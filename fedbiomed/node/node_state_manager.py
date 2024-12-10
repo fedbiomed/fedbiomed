@@ -10,12 +10,15 @@ from tinydb.table import Table
 from fedbiomed.common.db import DBTable
 
 from fedbiomed.common.utils import raise_for_version_compatibility
-from fedbiomed.common.constants import (_BaseEnum, ErrorNumbers, NODE_STATE_PREFIX,
-                                        __node_state_version__)
+from fedbiomed.common.constants import (
+    VAR_FOLDER_NAME,
+    _BaseEnum,
+    ErrorNumbers,
+    NODE_STATE_PREFIX,
+    __node_state_version__)
 from fedbiomed.common.exceptions import FedbiomedNodeStateManagerError
 from fedbiomed.common.logger import logger
 
-from fedbiomed.node.environ import environ
 
 NODE_STATE_TABLE_NAME = "Node_states"
 
@@ -45,7 +48,7 @@ class NodeStateManager:
         - state_entries: content of each entry that cmposes a Node State
     """
 
-    def __init__(self, db_path: str):
+    def __init__(self, dir: str, node_id: str, db_path: str):
         """Constructor of the class.
 
         Args:
@@ -56,6 +59,8 @@ class NodeStateManager:
 
     """
         # NOTA: constructor has been designed wrt other object handling DataBase
+        self._dir = dir
+        self._node_id = node_id
         self._query: Query = Query()
         # node state base directory, where all node state related files are saved
         self._node_state_base_dir: Optional[str] = None
@@ -195,7 +200,9 @@ class NodeStateManager:
         if not testing:
             self._generate_new_state_id()
 
-            self._node_state_base_dir = os.path.join(environ["VAR_DIR"], "node_state_%s" % environ["NODE_ID"])
+            self._node_state_base_dir = os.path.join(
+                self._dir, VAR_FOLDER_NAME, "node_state_%s" % self._node_id
+            )
             # Always create the base folder for saving states for this node
             try:
                 os.makedirs(self._node_state_base_dir, exist_ok=True)

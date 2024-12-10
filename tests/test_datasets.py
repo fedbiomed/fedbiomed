@@ -3,15 +3,11 @@ import unittest
 from fedbiomed.common.validator import ValidatorError
 from fedbiomed.common.exceptions import FedbiomedFederatedDataSetError
 
-#############################################################
-# Import ResearcherTestCase before importing any FedBioMed Module
-from testsupport.base_case import ResearcherTestCase
-#############################################################
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 
-class TestFederatedDataset(ResearcherTestCase):
+class TestFederatedDataset(unittest.TestCase):
     """
     Test `FederatedDataset` class
     Args:
@@ -24,7 +20,7 @@ class TestFederatedDataset(ResearcherTestCase):
             'node-1': [{'dataset_id': 'dataset-id-1',
                         'shape': [100, 100]}],
             'node-2': [{'dataset_id': 'dataset-id-2',
-                        'shape': [120, 120], 
+                        'shape': [120, 120],
                         'test_ratio': .0}],
         }
 

@@ -1,24 +1,18 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from itertools import product
 
-#############################################################
-# Import ResearcherTestCase before importing any FedBioMed Module
-from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_researcher_secagg import FakeSecAgg
-#############################################################
 
 import fedbiomed
 from fedbiomed.common.constants import __breakpoints_version__, SecureAggregationSchemes
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.federated_workflows import FederatedWorkflow
-from fedbiomed.researcher.secagg import SecureAggregation, SecaggContext, JoyeLibertSecureAggregation
+from fedbiomed.researcher.secagg import SecureAggregation
 
 
-class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
+class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
     def setUp(self):
         MockRequestModule.setUp(self, module="fedbiomed.researcher.federated_workflows._federated_workflow.Requests")
@@ -173,12 +167,16 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
         with patch('fedbiomed.researcher.federated_workflows'
                     '._federated_workflow.create_exp_folder') as mock_exp_folder_creat:
             exp.set_experimentation_folder()
-            mock_exp_folder_creat.assert_called_once_with()
+            mock_exp_folder_creat.assert_called_once_with(
+                exp.config.vars["EXPERIMENTS_DIR"]
+            )
             self.assertIsNotNone(exp.experimentation_folder())
             old_folder = exp.experimentation_folder()
             mock_exp_folder_creat.reset_mock()
             exp.set_experimentation_folder('new-name')
-            mock_exp_folder_creat.assert_called_once_with('new-name')
+            mock_exp_folder_creat.assert_called_once_with(
+                exp.config.vars["EXPERIMENTS_DIR"], 'new-name'
+            )
 
             mock_exp_folder_creat.side_effect = lambda x: x
             # Invalid argument type
@@ -249,8 +247,12 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
 
             secagg_args = exp.secagg_setup(['sampled-node-1', 'sampled-node-2'])
 
-            _secagg.setup.assert_called_once_with(parties=['sampled-node-1', 'sampled-node-2'],
-                                                  experiment_id=exp.id)
+            _secagg.setup.assert_called_once_with(
+                parties=['sampled-node-1', 'sampled-node-2'],
+                experiment_id=exp.id,
+                researcher_id=exp.researcher_id,
+                insecure_validation=True,
+            )
             self.assertDictEqual(secagg_args, {'secagg': 'arguments'})
 
             # call with empty nodes list ...
@@ -270,8 +272,12 @@ class TestFederatedWorkflow(ResearcherTestCase, MockRequestModule):
 
             secagg_args = exp.secagg_setup([])
 
-            _secagg.setup.assert_called_once_with(parties=[],
-                                                  experiment_id=exp.id)
+            _secagg.setup.assert_called_once_with(
+                parties=[],
+                experiment_id=exp.id,
+                researcher_id=exp.researcher_id,
+                insecure_validation=True,
+            )
 
             self.assertDictEqual(secagg_args, {'secagg': 'arguments'})
 

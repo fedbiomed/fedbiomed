@@ -8,30 +8,25 @@ from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 
-from fedbiomed.node.environ import environ
 from fedbiomed.common.secagg_manager import (
     SecaggServkeyManager,
     SecaggDhManager,
     BaseSecaggManager,
 )
 
-# Instantiate one manager for each secagg element type
-SKManager = SecaggServkeyManager(environ['DB_PATH'])
-DHManager = SecaggDhManager(environ['DB_PATH'])
-
-
 class SecaggManager:
     """Wrapper class for returning any type of node secagg element database manager
     """
 
     element2class = {
-        SecaggElementTypes.SERVER_KEY.name: SKManager,
-        SecaggElementTypes.DIFFIE_HELLMAN.name: DHManager,
+        SecaggElementTypes.SERVER_KEY.name: SecaggServkeyManager,  # SKManager,
+        SecaggElementTypes.DIFFIE_HELLMAN.name: SecaggDhManager  # DHManager,
     }
 
-    def __init__(self, element: int):
+    def __init__(self, db: str, element: int):
         """Constructor of the class
         """
+        self._db = db
         self._element = element
 
     def __call__(self) -> BaseSecaggManager:
@@ -50,7 +45,7 @@ class SecaggManager:
             raise FedbiomedSecaggError(error_msg)
 
         try:
-            return SecaggManager.element2class[element.name]
+            return SecaggManager.element2class[element.name](self._db)
         except Exception as e:
             raise FedbiomedSecaggError(
                 f'{ErrorNumbers.FB318.value}: Missing secure aggregation component for this element type: Error{e}'

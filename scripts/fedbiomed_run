@@ -239,10 +239,10 @@ case $1 in
                 ;;
                 ip_address)
                     deprecation_warning "The option ${BLD}ip_address${NC} is deprecated and will be removed in future releases\
-                        please use/set environment variable ${BLD}'export RESEARCHER_SERVER_HOST'${NC} or \
-                        ${BLD}'export RESEARCHER_SERVER_PORT'${NC}\
+                        please use/set environment variable ${BLD}'export FBM_SERVER_HOST'${NC} or \
+                        ${BLD}'export FBM_SERVER_PORT'${NC}\
                         before executing command.\n\
-                        ${BLD}WARNING:${NC} 'export RESEARCHER_SERVER_PORT' is only valid when generating a new \
+                        ${BLD}WARNING:${NC} 'export FBM_SERVER_PORT' is only valid when generating a new \
                         configuration file (will not be interpreted otherwise)."
 
                     if [ $# -lt 3 ] ; then
@@ -256,35 +256,35 @@ case $1 in
                 enable-training-plan-approval|--enable-training-plan-approval|-tmp)
                     deprecation_warning "The option ${BLD}enable-training-plan-approval${NC} is deprecated\
                         and will be removed in future releases. Please use/set environment variable\
-                        ${BLD}'ENABLE_TRAINING_PLAN_APPROVAL=True'${NC} or update configuration file to\
+                        ${BLD}'FBM_SECURITY_TRAINING_PLAN_APPROVAL=True'${NC} or update configuration file to\
                         enable training plan approval."
 
-                    export ENABLE_TRAINING_PLAN_APPROVAL=True
+                    export FBM_SECURITY_TRAINING_PLAN_APPROVAL=True
                     shift
                 ;;
                 disable-training-plan-approval|--disable-training-plans-approval|-dtpa)
                     deprecation_warning "The option ${BLD}disable-training-plan-approval${NC} is deprecated\
                         and will be removed in the future releases. Please use/set environment variable\
-                        ${BLD}'ENABLE_TRAINING_PLAN_APPROVAL=False'${NC} or update configuration file to\
+                        ${BLD}'FBM_SECURITY_TRAINING_PLAN_APPROVAL=False'${NC} or update configuration file to\
                         disable training plan approval."
 
-                    export ENABLE_TRAINING_PLAN_APPROVAL=False
+                    export FBM_SECURITY_TRAINING_PLAN_APPROVAL=False
                     shift
                 ;;
                 allow-default-training-plans|--allow-default-training-plans|-adtps )
                     deprecation_warning "The option ${BLD}allow-default-training-plans${NC} is deprecated\
                         and will be removed in future releases. Please use/set environment variable\
-                        ${BLD}'ALLOW_DEFAULT_TRAINING_PLANS=True'${NC} or update the configuration file."
+                        ${BLD}'FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True'${NC} or update the configuration file."
 
-                    export ALLOW_DEFAULT_TRAINING_PLANS=True
+                    export FBM_ALLOW_DEFAULT_TRAINING_PLANS=True
                     shift
                 ;;
                 disable-default-training-plans|--disable-default-training-plans|-ddtps )
                     deprecation_warning "The option ${BLD}disable-default-training-plans${NC} is deprecated\
                         and will be removed in future releases. Please use/set environment variable\
-                        ${BLD}'ALLOW_DEFAULT_TRAINING_PLANS=False'${NC} or update the configuration file."
+                        ${BLD}'FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=False'${NC} or update the configuration file."
 
-                    export ALLOW_DEFAULT_TRAINING_PLANS=False
+                    export FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=False
                     shift
                 ;;
                 *)
@@ -336,7 +336,7 @@ case $1 in
                         This command will be removed in the future releases. \
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] dataset delete --mnist${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" dataset delete --mnist
-                exit 0    
+                exit 0
                 ;;
             add|--add|-a)
                 deprecation_warning "fedbiomed_run node add | --add | -a is deprecated.\
@@ -398,7 +398,7 @@ case $1 in
                         Please use ${BLD}fedbiomed_run node --config [CONFIG_FILE] training-plan list${NC}"
                 $basedir/scripts/fedbiomed node --config "$CONFIG_FILE" training-plan list
                 exit 0
-                ;; 
+                ;;
             delete-training-plan|--delete-training-plan|-dtp)
                 deprecation_warning "fedbiomed_run node delete-training-plan is deprecated.\
                         This command will be removed in the future releases. \
@@ -428,7 +428,7 @@ case $1 in
         else
             export PARAMS=
         fi
-        
+
         # All unkown arguments goes to node cli
         EXTRA_PARAMS=${@:2}
         $basedir/scripts/fedbiomed node $EXTRA_PARAMS
@@ -440,10 +440,10 @@ case $1 in
             case $2 in
                 ip_address)
                     deprecation_warning "The option ${BLD}ip_address${NC} is deprecated and will be removed in future releases\
-                        please use/set environment variable ${BLD}'export RESEARCHER_SERVER_HOST'${NC} or \
-                        ${BLD}'export RESEARCHER_SERVER_PORT'${NC}\
+                        please use/set environment variable ${BLD}'export FBM_SERVER_HOST'${NC} or \
+                        ${BLD}'export FBM_SERVER_PORT'${NC}\
                         before executing command.\
-                        \n${BLD}WARNING:${NC} ${BLD}ip_address${NC} and ${BLD}'export RESEARCHER_SERVER_HOST'${NC} \
+                        \n${BLD}WARNING:${NC} ${BLD}ip_address${NC} and ${BLD}'export FBM_SERVER_HOST'${NC} \
                         are only valid when generating a \
                         new researcher configuration because is is included in the generated certificate \
                         used as server CN (will not be overwritten afterwards)."

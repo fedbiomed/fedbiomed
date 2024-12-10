@@ -1,19 +1,10 @@
-import copy
-import os
-import tempfile
 import unittest
-from json import decoder
-from typing import Any, Dict
-from unittest.mock import ANY, MagicMock, patch
+import configparser
+from unittest.mock import MagicMock, patch, ANY
+import tempfile
+import os
 
-import torch
-from testsupport import fake_training_plan
-#############################################################
-# Import NodeTestCase before importing FedBioMed Module
-from testsupport.base_case import NodeTestCase
 from testsupport.fake_secagg_manager import FakeSecaggServkeyManager
-# import dummy classes
-from testsupport.fake_uuid import FakeUuid
 
 from fedbiomed.common.constants import (ErrorNumbers, SecaggElementTypes,
                                         TrainingPlans,
@@ -25,24 +16,15 @@ from fedbiomed.common.message import (ApprovalRequest, ErrorMessage,
                                       SecaggDeleteReply, SecaggDeleteRequest,
                                       SecaggReply, SecaggRequest,
                                       TrainingPlanStatusRequest, TrainRequest)
-from fedbiomed.common.models import TorchModel
-from fedbiomed.common.optimizers.declearn import (RidgeRegularizer,
-                                                  ScaffoldClientModule,
-                                                  YogiModule)
-from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
-from fedbiomed.common.optimizers.optimizer import Optimizer
-from fedbiomed.common.serializer import Serializer
 from fedbiomed.node.dataset_manager import DatasetManager
-from fedbiomed.node.environ import environ
-from fedbiomed.node.history_monitor import HistoryMonitor
 
-from fedbiomed.node.node import Node
+from fedbiomed.node.node import Node, NodeConfig
 from fedbiomed.node.round import Round
 
 #############################################################
 
 
-class TestNode(NodeTestCase):
+class TestNode(unittest.TestCase):
 
     train_request = TrainRequest(
         researcher_id="researcher-id",
@@ -157,21 +139,55 @@ class TestNode(NodeTestCase):
         )
         self.n2n_router_patcher = self.n2n_router_patch.start()
 
+
+        self.dataset_manager_patch = patch(
+            "fedbiomed.node.node.DatasetManager", autospec=True
+        )
+        self.tp_security_manager_patch = patch(
+            "fedbiomed.node.node.TrainingPlanSecurityManager", autospec=True
+        )
+
+        self.mock_dataset_manager = self.dataset_manager_patch.start()
+
+        self.model_manager_mock = MagicMock()
+        model_manager_mock = self.tp_security_manager_patch.start()
+        model_manager_mock.return_value = self.model_manager_mock
+
         # mocks
-        mock_dataset_manager = DatasetManager()
-        mock_dataset_manager.search_by_tags = MagicMock(return_value=self.database_val)
-        mock_dataset_manager.list_my_data = MagicMock(return_value=self.database_list)
-        mock_model_manager = MagicMock()
-        mock_dataset_manager.reply_training_plan_status_request = MagicMock(
+        self.mock_dataset_manager.return_value.search_by_tags = MagicMock(return_value=self.database_val)
+        self.mock_dataset_manager.return_value.list_my_data = MagicMock(return_value=self.database_list)
+        self.mock_dataset_manager.return_value.reply_training_plan_status_request = MagicMock(
             return_value=None
         )
-        mock_dataset_manager.get_by_id = MagicMock(return_value=self.database_id)
+        self.mock_dataset_manager.return_value.obfuscate_private_information.side_effect = \
+            lambda x: x
+        self.mock_dataset_manager.return_value.get_by_id = MagicMock(return_value=self.database_id)
 
-        self.model_manager_mock = mock_model_manager
 
+
+        self.temp_dir = tempfile.TemporaryDirectory()
+        # use temp_dir, and when done:
+        self.db = os.path.join(self.temp_dir.name, 'test-db.json')
         # creating Node objects
-        self.n1 = Node(mock_dataset_manager, mock_model_manager)
-        self.n2 = Node(mock_dataset_manager, mock_model_manager)
+        self.node_config = NodeConfig(auto_generate=False)
+        self.config = configparser.ConfigParser()
+        self.config["default"] = {
+            "id": "test-id",
+            "db": self.db
+        }
+        self.config["researcher"] = {
+            "ip": "test",
+            "port": "5151"
+        }
+        self.config["security"] = {
+            "hashing_algorithm": "SHA256",
+            "training_plan_approval": "True"
+        }
+
+
+        self.node_config._cfg = self.config
+        self.n1 = Node(self.node_config)
+        self.n2 = Node(self.node_config)
 
     def tearDown(self) -> None:
         # stopping patches
@@ -180,6 +196,10 @@ class TestNode(NodeTestCase):
         self.grpc_controller_patch.stop()
         self.exchange_patch.stop()
         self.n2n_router_patch.stop()
+        self.dataset_manager_patch.stop()
+        self.tp_security_manager_patch.stop()
+
+        self.temp_dir.cleanup()
 
     @patch("fedbiomed.common.tasks_queue.TasksQueue.add")
     def test_node_01_add_task_normal_case_scenario(self, task_queue_add_patcher):
@@ -349,8 +369,13 @@ class TestNode(NodeTestCase):
 
         # checks
         round_patch.assert_called_once_with(
-            model_kwargs=dict_msg_1_dataset['model_args'],
-            training_kwargs=dict_msg_1_dataset['training_args'],
+            root_dir=self.node_config.root,
+            db=self.node_config.get('default', 'db'),
+            node_id=self.node_config.get('default', 'id'),
+            training_plan=dict_msg_1_dataset["training_plan"],
+            training_plan_class=dict_msg_1_dataset["training_plan_class"],
+            model_kwargs=dict_msg_1_dataset["model_args"],
+            training_kwargs=dict_msg_1_dataset["training_args"],
             training=True,
             dataset=self.database_id,
             params=dict_msg_1_dataset['params'],
@@ -359,8 +384,7 @@ class TestNode(NodeTestCase):
             history_monitor=unittest.mock.ANY,
             aggregator_args=None,
             node_args=None,
-            training_plan=dict_msg_1_dataset['training_plan'],
-            training_plan_class=dict_msg_1_dataset['training_plan_class'],
+            tp_security_manager=ANY,
             round_number=1,
             dlp_and_loading_block_metadata=None,
             aux_vars=dict_msg_1_dataset['optim_aux_var']
@@ -406,10 +430,14 @@ class TestNode(NodeTestCase):
 
         # checks
         round_patch.assert_called_once_with(
+            root_dir=self.node_config.root,
+            db=self.node_config.get('default', 'db'),
+            node_id=self.node_config.get('default', 'id'),
             training_plan=dict_msg_1_dataset['training_plan'],
             training_plan_class=dict_msg_1_dataset['training_plan_class'],
-            model_kwargs=dict_msg_1_dataset['model_args'],
-            training_kwargs=dict_msg_1_dataset['training_args'],
+            model_kwargs=dict_msg_1_dataset["model_args"],
+            training_kwargs=dict_msg_1_dataset["training_args"],
+            tp_security_manager=ANY,
             training=True,
             dataset=self.database_id,
             params=dict_msg_1_dataset['params'],
@@ -438,7 +466,6 @@ class TestNode(NodeTestCase):
             # checks if `SystemError` is caught (triggered by patched `tasks_queue.get`)
             self.n1.task_manager()
 
-    @patch("fedbiomed.node.secagg._secagg_setups.SKManager")
     @patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
     @patch("fedbiomed.node.node.Node._task_secagg")
     @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
@@ -447,7 +474,6 @@ class TestNode(NodeTestCase):
         tasks_queue_get_patch,
         task_secagg_patch,
         tasks_queue_task_done_patch,
-        patch_servkey_manager,
     ):
         """Tests if an Exception (SystemExit) is triggered when calling
         `TasksQueue.task_done` method for secagg message"""
@@ -466,8 +492,6 @@ class TestNode(NodeTestCase):
         tasks_queue_task_done_patch.side_effect = SystemExit(
             "Mimicking an exception happening in" + "`TasksQueue.task_done` method"
         )  # noqa
-
-        patch_servkey_manager.return_value = FakeSecaggServkeyManager()
 
         # action
         with self.assertRaises(SystemExit):
@@ -501,30 +525,6 @@ class TestNode(NodeTestCase):
 
         # checks
         self.grpc_send_mock.assert_called_once()
-
-    def test_node_22_on_message_search_privacy_obfuscation(self):
-        """Tests that privacy-sensitive information is not revealed (here path files)"""
-
-        databases = [
-            dict(
-                data_type="medical-folder",
-                dataset_parameters={
-                    "tabular_file": "path/to/tabular/file",
-                    "index_col": 0,
-                },
-                **self.database_val[0],
-            )
-        ]
-
-        dataset_manager = DatasetManager()
-        dataset_manager.search_by_tags = MagicMock(return_value=databases)
-        n3 = Node(dataset_manager, self.model_manager_mock)
-        n3.on_message(self.search_request.to_dict())
-
-        # check privacy-sensitive info a case-by-case basis
-        database_info = self.grpc_send_mock.call_args[0][1].get_param("databases")[0]
-        self.assertNotIn("path", database_info)
-        self.assertNotIn("tabular_file", database_info["dataset_parameters"])
 
     @patch("fedbiomed.node.node.SecaggSetup")
     def test_node_23_task_secagg(self, secagg_setup):
