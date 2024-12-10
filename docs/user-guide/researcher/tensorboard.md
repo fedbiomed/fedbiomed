@@ -67,7 +67,7 @@ First, please run the following command in another cell of your notebook to load
 %load_ext tensorboard
 ```
 
-Afterward, you will be able to start the tensorboard. It is important to pass the correct path to the `runs` directory. You can use `ROOT_DIR` from the`fedbiomed.researcher.environ` to set the correct logs directory. This is the base directory of the Fed-BioMed that `runs` directory is located.
+Afterward, you will be able to start the tensorboard. It is important to pass the correct path to the `runs` directory. You can use `ROOT_DIR` to set the correct logs directory. This is the base directory of the Fed-BioMed that `runs` directory is located.
 
 First please import the `TENSORBOARD_RESULTS_DIR` global variable in a different cell.
 
