@@ -81,7 +81,7 @@ class Config(metaclass=ABCMeta):
     @classmethod
     @abstractmethod
     def _CONFIG_VERSION(cls):  # pylint: disable=C0103
-        """Abstract attribute to oblige defining component type"""
+        """Abstract attribute to oblige defining configuration version"""
 
     def load(
         self,
