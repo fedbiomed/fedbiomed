@@ -68,14 +68,14 @@ class ComponentDirectoryAction(ABC, argparse.Action):
             and not set(["--help", "-h"]).intersection(set(sys.argv))
             and len(sys.argv) > 2
         ):
-            self.set_environ()
+            self.set_environ(self.default)
+
         super().__init__(*args, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
         """When argument is called"""
 
         if not set(["--help", "-h"]).intersection(set(sys.argv)):
-            print(values)
             self.set_environ(values)
 
         setattr(namespace, self.dest, values)
@@ -89,16 +89,30 @@ class ComponentDirectoryAction(ABC, argparse.Action):
             Environ object
         """
 
-    def set_environ(self, component_dir: str | None = None):
+    def set_environ(self, component_dir: str):
         """Sets environ
 
         Args:
           config_file: Name of the config file that is activate
         """
 
+        cdir = os.path.abspath(component_dir)
+
+        if not os.path.isdir(cdir) and not '-y' in sys.argv:
+            print(
+                f"{BOLD}Action Needed{NC}: Action execution for a component not existing. "
+                f"The component directory is not existing in the path {cdir}. \n"
+                "Do you want to create this component to continue: (y/N)"
+                )
+            x = input()
+
+            if not x.lower() == "y":
+                 sys.exit("Operation is called.")
+            else:
+                print(f"{GRN}Creating component directory:{NC}{cdir}")
+
         print(f"\n# {GRN}Using component located at:{NC} {BOLD}{component_dir}{NC} #")
         environ = self.import_environ(component_dir)
-
         os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = environ["ID"]
 
         # Sets environ for the CLI. This implementation is required for
@@ -355,6 +369,11 @@ class CommonCLI:
 
         This parser classes will be added by child classes.
         """
+
+        self._parser.add_argument(
+            "-y",
+            action="store_true"
+        )
 
         for arg_parser in self._arg_parsers_classes:
             p = arg_parser(self._subparsers, self._parser)

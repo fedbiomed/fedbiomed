@@ -28,7 +28,7 @@ A basic configuration for the `node` component includes the following settings:
 
 Fed-BioMed can installed using `pip`. If can be installed into native host machine or on vertual environment using `pyenv`, `conda` or `virtualenv`.
 
-You can find more details in [installation tutorial](../../tutorials/installation/0-basic-software-installation.md).
+You can find more details in [installation tutorial](../../getting-started/installation.md).
 
 
 ## Node Component Installation

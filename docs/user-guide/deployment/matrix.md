@@ -8,7 +8,7 @@ This page describes the network communications:
 
 Communications between the components depend on the [deployment scenario](./deployment.md): with or without VPN/containers.
 
-Network communications for the setup of host machines and the installation of [software requirements](../../tutorials/installation/0-basic-software-installation.md#software-packages) are out of the scope of this document. Network communications necessary for the host machines to run (access to DNS, LDAP, etc.) regardless of Fed-BioMed are also out of the scope of this document. They are specific to system configuration and installation processes.
+Network communications for the setup of host machines and the installation of [software requirements](../../getting-started/installation.md) are out of the scope of this document. Network communications necessary for the host machines to run (access to DNS, LDAP, etc.) regardless of Fed-BioMed are also out of the scope of this document. They are specific to system configuration and installation processes.
 
 
 ## Introduction
@@ -23,7 +23,7 @@ By default, these GUI components are not secured (no HTTPS and/or no certificate
 
 ## Software installation
 
-Network communications for software installation cover the Fed-BioMed [software installation](../../tutorials/installation/0-basic-software-installation.md#fed-biomed-software) and setup until the software is ready to be used.
+Network communications for software installation cover the Fed-BioMed [software installation](../../getting-started/installation.md) and setup until the software is ready to be used.
 
 They cover all [deployment scenarios](./deployment.md). If multiple machines are used, each machine needs to authorize these communications.
 

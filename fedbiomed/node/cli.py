@@ -660,6 +660,8 @@ class NodeCLI(CommonCLI):
 
                 return importlib.import_module("fedbiomed.node.environ").environ
 
+        super().initialize()
+
         self._parser.add_argument(
             "--directory",
             "--config",
@@ -671,7 +673,6 @@ class NodeCLI(CommonCLI):
             help="Name of the config file that the CLI will be activated for. Default is 'config_node.ini'."
         )
 
-        super().initialize()
 
 
 if __name__ == '__main__':
