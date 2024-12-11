@@ -14,7 +14,6 @@ from typing import Dict, Union, Any
 from torch.utils.tensorboard import SummaryWriter
 
 from fedbiomed.common.logger import logger
-from fedbiomed.researcher.environ import environ
 
 
 class MetricStore(dict):

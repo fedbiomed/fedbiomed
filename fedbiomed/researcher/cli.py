@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Researcher CLI """
+import os
 import subprocess
 import importlib
 
@@ -89,9 +90,13 @@ class ResearcherCLI(CommonCLI):
             _this = self
             _component = ComponentType.RESEARCHER
 
-            def set_component(self, config_name: str) -> 'fedbiomed.researcher.environ.Environ':
-                """Import environ"""
-                return importlib.import_module("fedbiomed.researcher.environ").environ
+            def set_component(self, config_name: str) -> None:
+                """Import config"""
+                config_file = os.environ.get("CONFIG_FILE")
+                if config_file:
+                    os.environ["FBM_RESEARCHER_CONFIG_FILE"] = config_file
+
+                importlib.import_module("fedbiomed.researcher.config")
 
 
         # Config parameter is not necessary. Python client (user in jupyter notebook)
