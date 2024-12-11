@@ -10,7 +10,6 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from fedbiomed.node.config import NodeConfig
-from fedbiomed.node.config import config
 
 
 def parse_args():
@@ -94,7 +93,11 @@ if __name__ == '__main__':
         cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
 
         print(f'Creating node at: {cfg_file}')
-        config = NodeConfig(root=config.root, name=f'{center_name.lower()}.ini', auto_generate=False)
+        config = NodeConfig(
+            root=root_folder,
+            name=f'{center_name.lower()}.ini',
+            auto_generate=False
+        )
         if config.is_config_existing() and not args.force:
             print(f"**Warning: config file {cfg_file} already exists. To overwrite, please specify `--force` option")
         else:
