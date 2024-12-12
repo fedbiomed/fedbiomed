@@ -1,7 +1,6 @@
 import os
 import sys
 import configparser
-from utils import get_node_id
 
 from fedbiomed.common.constants import CONFIG_FOLDER_NAME, DEFAULT_CONFIG_FILE_NAME_NODE
 

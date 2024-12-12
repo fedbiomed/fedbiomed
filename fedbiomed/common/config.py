@@ -20,10 +20,7 @@ from fedbiomed.common.utils import (
     CONFIG_DIR,
     ROOT_DIR,
 )
-from fedbiomed.common.certificate_manager import (
-    generate_certificate,
-)
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedConfigurationError
 
 # from fedbiomed.common.secagg_manager import SecaggBiprimeManager
 
@@ -182,8 +179,8 @@ class Config(metaclass=ABCMeta):
             with open(self.path, "w", encoding="UTF-8") as f:
                 self._cfg.write(f)
         except configparser.Error as exp:
-            raise IOError(
-                ErrorNumbers.FB600.value + ": cannot save config file: " + self.path
+            raise FedbiomedConfigurationError(
+                f"{ErrorNumbers.FB600.value}: cannot save config file: " + self.path
             ) from exp
 
     def generate(
@@ -248,7 +245,9 @@ class Config(metaclass=ABCMeta):
         """
 
         if not self.is_config_existing():
-            raise FedbiomedError("Can not refresh config file that is not existing")
+            raise FedbiomedConfigurationError(
+                f"{ErrorNumbers.FB600.value}: Can not refresh config file that is not existing"
+            )
 
         # Read the config
         self._cfg.read(self.path)

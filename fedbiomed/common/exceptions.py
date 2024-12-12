@@ -38,6 +38,13 @@ class FedbiomedCommunicationError(FedbiomedError):
     pass
 
 
+class FedbiomedConfigurationError(FedbiomedError):
+    """
+    Exception specific to the Config classes.
+    """
+    pass
+
+
 class FedbiomedDataLoadingPlanError(FedbiomedError):
     """
     Exceptions specific for the class fedbiomed.common.data.DataLoadingPlan.
@@ -83,13 +90,6 @@ class FedbiomedDatasetManagerError(FedbiomedError):
 class FedbiomedDPControllerError(FedbiomedError):
     """
     Exceptions specific for the class DPController
-    """
-    pass
-
-
-class FedbiomedEnvironError(FedbiomedError):
-    """
-    Exception specific to the Environ class.
     """
     pass
 

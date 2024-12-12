@@ -97,11 +97,6 @@ class ConfigNameAction(ABC, argparse.Action):
 
         self.set_component(config_file)
 
-
-        # Sets environ for the CLI. This implementation is required for
-        # the common CLI option that are present in fedbiomed.common.cli.CommonCLI
-        # self._this.set_environ(environ)
-
         # this may be changed on command line or in the node configuration file
         logger.setLevel("DEBUG")
 
@@ -315,10 +310,6 @@ class CommonCLI:
         self._parser.description = value
 
         return self._description
-
-    def set_environ(self, environ):
-        """Sets environ object"""
-        self._environ = environ
 
     @staticmethod
     def error(message: str) -> None:
