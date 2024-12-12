@@ -223,7 +223,7 @@ class TestRequests(unittest.TestCase):
         """ Testing send message method of Request """
 
         sr = SearchRequest(
-            researcher_id="researhcer-id",
+            researcher_id="researcher-id",
             tags=["x"]
         )
 

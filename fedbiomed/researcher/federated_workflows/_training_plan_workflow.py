@@ -446,7 +446,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
 
         job = TrainingPlanCheckJob(
-            researhcer_id=self._researcher_id,
+            researcher_id=self._researcher_id,
             requests=self._reqs,
             nodes=self.training_data().node_ids(),
             keep_files_dir=self.experimentation_path(),
