@@ -22,6 +22,7 @@ def create_exp_folder(experiments_dir, experimentation_folder: str = None) -> st
     subdirectory of config.vars[EXPERIMENTS_DIR]
 
     Args:
+        experiments_dir: Base directory for storing experiments files
         experimentation_folder (str, optional): optionaly provide an experimentation
             folder name. This should just contain the name of the folder not a path.
             default; if no folder name is given, generate a `Experiment_x` name where `x-1`
@@ -66,6 +67,7 @@ def choose_bkpt_file(
     It creates a breakpoint folder and chooses a breakpoint file name for each round.
 
     Args:
+        experiments_dir: Base directory for storing experiments files
         experimentation_folder (str): indicates the experimentation folder name.
             This should just contain the name of the folder not a full path.
         round_: the current number of already run rounds minus one.
@@ -244,6 +246,7 @@ def find_breakpoint_path(experiment_dir: str, breakpoint_folder_path: str | None
     latest breakpoint).
 
     Args:
+        experiments_dir: Base directory for storing experiments files
         breakpoint_folder_path: path towards breakpoint. If None, (default), consider the
             latest breakpoint saved on default path (provided at least one breakpoint
             exists). Defaults to None.

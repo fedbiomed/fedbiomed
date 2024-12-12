@@ -59,6 +59,8 @@ class Config(metaclass=ABCMeta):
             root: Root directory for the component
             name: Component configuration file name (e.g `config-n1.ini`
                 corresponds to `<root>/constants.CONFIG_FOLDER_NAME/config-n1.ini`).
+            auto_generate: Generated all component files, folder, including
+                configuration file.
         """
         # First try to get component specific config file name, then CONFIG_FILE
         default_config = os.getenv(
@@ -197,7 +199,7 @@ class Config(metaclass=ABCMeta):
 
         # Check if configuration is already existing
         if not self.is_config_existing() or force:
-                        # Create default section
+            # Create default section
             component_id = id if id else f"{self._COMPONENT_TYPE}_{uuid.uuid4()}"
 
             self._cfg["default"] = {

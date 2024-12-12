@@ -101,6 +101,8 @@ class _JLSRound(_SecaggSchemeRound):
         """Constructor of the class
 
         Args:
+            db: Path to database file.
+            node_id: ID of the active node.
             secagg_arguments:  secure aggregation arguments from train request
             experiment_id: unique ID of experiment
 
@@ -163,6 +165,8 @@ class _LomRound(_SecaggSchemeRound):
         """Constructor of the class
 
         Args:
+            db: Path to database file.
+            node_id: ID of the active node.
             secagg_arguments:  secure aggregation arguments from train request
             experiment_id: unique ID of experiment
 

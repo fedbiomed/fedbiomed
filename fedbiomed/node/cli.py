@@ -57,6 +57,7 @@ __intro__ = """
 
 """
 
+
 def intro():
     """Prints intro for the CLI"""
 
@@ -101,7 +102,12 @@ def _node_signal_trigger_term() -> None:
 
 
 def start_node(name, node_args):
-    """Starts the node"""
+    """Starts the node
+
+    Args:
+        name: Config name for the node
+        node_args: Arguments for the node
+    """
 
     config = NodeConfig(name=name, auto_generate=False)
     config.read()
@@ -137,7 +143,6 @@ def start_node(name, node_args):
     except Exception as exp:
         # must send info to the researcher (no mqqt should be handled
         # by the previous FedbiomedError)
-        print(f"There is exception {exp}")
         _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
         logger.critical("Node stopped.")
 

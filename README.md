@@ -422,7 +422,7 @@ tensorboard --logdir "$tensorboard_dir"`
 
 ## Model Hashing and Enabling Model Approve
 
-Fed-BioMed offers optional training plan approval feature to approve the training plans requested by the researcher. This training plan approval process is done by hashing/checksum operation by the `ModelManager` of node instance. When the `TRAINING_PLAN_APPROVAL` mode is enabled, node should register/approve training plan files before performing the training. For testing and easy development, there are already presented default training plans by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default training plans to perform training.
+Fed-BioMed offers optional training plan approval feature to approve the training plans requested by the researcher. This training plan approval process is done by hashing/checksum operation by the `ModelManager` of node instance. When the `FBM_SECURITY_TRAINING_PLAN_APPROVAL` mode is enabled, node should register/approve training plan files before performing the training. For testing and easy development, there are already presented default training plans by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default training plans to perform training.
 
 #### Config file for security parameters
 

@@ -59,6 +59,12 @@ class TrainingPlanSecurityManager:
 
         Creates a DB object for the table named as `Training plans` and builds a query object to query
         the database.
+
+        Args:
+            db: Path to database file.
+            node_id: ID of the active node.
+            hashing: Hashing algorithm
+            tp_approval: True if training plan approval is requested
         """
 
         self._node_id = node_id
@@ -533,7 +539,7 @@ class TrainingPlanSecurityManager:
             return ApprovalReply(**reply)
 
         if not is_existant:
-            # move training plan into corresponding directory (from TMP_DIR to TRAINING_PLANS_DIR)
+            # move training plan into corresponding directory
             try:
                 training_plan_hash, hash_algo, _ = self._create_hash(
                     training_plan, from_string=True

@@ -211,7 +211,11 @@ class Monitor:
     """ Monitors nodes scalar feed-backs during training"""
 
     def __init__(self, results_dir: str):
-        """Constructor of the class """
+        """Constructor of the class.
+
+        Args:
+            results_dir: Directory for storing monitoring information.
+        """
 
         self._log_dir = results_dir
         self._round = 1

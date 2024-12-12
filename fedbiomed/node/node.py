@@ -36,7 +36,6 @@ from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.requests import NodeToNodeRouter
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup

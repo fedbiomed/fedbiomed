@@ -52,6 +52,8 @@ class NodeStateManager:
         """Constructor of the class.
 
         Args:
+            dir: Root directory of the component
+            node_id: Unique ID of the node
             db_path: path to the node state database
 
         Raises:

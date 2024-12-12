@@ -223,6 +223,8 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
         """Class constructor.
 
         Args:
+            node_id: ID of the active node.
+            db: Path to database file.
             grpc_controller: object managing the communication with other components
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for sharing data with the controller

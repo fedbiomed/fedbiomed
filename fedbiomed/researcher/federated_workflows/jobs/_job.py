@@ -39,6 +39,8 @@ class Job(ABC):
         """Constructor of the class
 
         Args:
+            researcher_id: Unique ID of the researcher
+            requests: Object for handling communications
             nodes: A dict of node_id containing the nodes used for training
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
                 of the job.

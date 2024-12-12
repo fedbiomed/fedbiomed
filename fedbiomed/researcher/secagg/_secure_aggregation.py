@@ -251,7 +251,10 @@ class _SecureAggregation(ABC):
         Args:
             parties: Parties that participates secure aggregation
             experiment_id: The id of the experiment
+            researcher_id: ID of the researcher that context will be created for.
             force: Forces secagg setup even context is already existing
+            insecure_validation: True if the insecure mechanism for validation secagg data
+                coherence is enabled
 
         Raises
             FedbiomedSecureAggregationError: Invalid argument type
@@ -530,7 +533,10 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         Args:
             parties: Parties that participates secure aggregation
             experiment_id: The id of the experiment
+            researcher_id: ID of the researcher that context will be created for.
             force: Forces secagg setup even context is already existing
+            insecure_validation: True if the insecure mechanism for validation secagg data
+                coherence is enabled
 
         Returns:
             Status of setup
@@ -746,6 +752,8 @@ class LomSecureAggregation(_SecureAggregation):
             experiment_id: The id of the experiment
             researcher_id: ID of the researcher that executes secagg setup.
             force: Forces secagg setup even if context is already existing
+            insecure_validation: True if the insecure mechanism for validation secagg data
+                coherence is enabled
 
         Returns:
             Status of setup
