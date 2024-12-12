@@ -22,6 +22,7 @@ class HistoryMonitor:
         """Simple constructor for the class.
 
         Args:
+            nod_id: Unique ID of this node
             experiment_id: TODO
             researcher_id: TODO
             client: TODO

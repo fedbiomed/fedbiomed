@@ -91,7 +91,11 @@ class ResearcherCLI(CommonCLI):
             _component = ComponentType.RESEARCHER
 
             def set_component(self, config_name: str) -> None:
-                """Import config"""
+                """Import configuration
+
+                Args:
+                    config_name: Name of the config file for the component
+                """
                 config_file = os.environ.get("CONFIG_FILE")
                 if config_file:
                     os.environ["FBM_RESEARCHER_CONFIG_FILE"] = config_file

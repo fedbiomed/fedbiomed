@@ -34,6 +34,7 @@ def add_database(
     for dataset parameters if needed.
 
     Args:
+        dataset_manager: Object for managing the dataset
         interactive: Whether to query interactively for dataset parameters
             even if they are all passed as arguments. Defaults to `True`.
         path: Path to the dataset.
@@ -41,6 +42,7 @@ def add_database(
         tags: Comma separated list of tags for the dataset.
         description: Human readable description of the dataset.
         data_type: Keyword for the data type of the dataset.
+        dataset_parameters: Parameters for the dataset manager
     """
 
     dataset_parameters = dataset_parameters or None
@@ -248,6 +250,9 @@ def delete_all_database(dataset_manager):
     """Deletes all datasets from the node's database.
 
     Does not modify the dataset's files.
+
+    Args:
+        dataset_manager: Object for managing the dataset
     """
     my_data = dataset_manager.list_my_data(verbose=False)
 

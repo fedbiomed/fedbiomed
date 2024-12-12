@@ -267,10 +267,7 @@ class Requests(metaclass=SingletonMeta):
         """Constructor of the class
 
         Args:
-            server_host: Host ip address for researcher server.
-            server_port: Host port for researcher server.
-            cert_priv: Private key path for SSL.
-            cert_pub: Public key path for SSL.
+            config: Object for handling the component configuration
         """
         self._monitor_message_callback = None
 

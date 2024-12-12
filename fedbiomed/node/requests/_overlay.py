@@ -191,6 +191,8 @@ class OverlayChannel:
         """Class constructor
 
         Args:
+            node_id: ID of the active node.
+            db: Path to database file.
             grpc_client: object managing the communication with other components
         """
         self._node_id = node_id

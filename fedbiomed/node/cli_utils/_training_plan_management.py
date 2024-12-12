@@ -27,6 +27,9 @@ def register_training_plan(
     """Registers an authorized training plan in the database interactively through the CLI.
 
     Does not modify training plan file.
+
+    Args:
+        tp_security_manager: Object for managing the training plan approval
     """
 
     print('Welcome to the Fed-BioMed CLI data manager')
@@ -62,6 +65,9 @@ def update_training_plan(
 
     User can either choose different training plan file (different path)
     to update training plan or same training plan file.
+
+    Args:
+        tp_security_manager: Object for managing the training plan approval
     """
     training_plans = tp_security_manager.list_training_plans(verbose=False)
 
@@ -113,8 +119,9 @@ def approve_training_plan(
     """Approves a given training plan that has either Pending or Rejected status
 
     Args:
-        sort_by_date: whether to sort by last modification date. Defaults to True.
+        tp_security_manager: Object for managing the training plan approval
         id: unique if of the training plan to be approved. Providing an id will trigger non-interactive approval.
+        sort_by_date: whether to sort by last modification date. Defaults to True.
     """
 
     def approve(training_plan_id):
@@ -165,6 +172,11 @@ def reject_training_plan(
     notes: Optional[str] = None
 ) -> None:
     """Rejects a given training plan that has either Pending or Approved status
+
+    Args:
+        tp_security_manager: Object for managing the training plan approval
+        id: Training plan ID
+        notes: Comment about rejection reason
     """
 
     def reject(training_plan_id, notes):
@@ -219,7 +231,8 @@ def delete_training_plan(
     should be removed directly from the file system.
 
     Args:
-        name: Name of the training plan that will be removed.
+        tp_security_manager: Object for managing the training plan approval
+        id: ID of the training plan that will be removed.
     """
 
     def delete(training_plan_id):
@@ -264,6 +277,9 @@ def view_training_plan(tp_security_manager: TrainingPlanSecurityManager) -> None
     """Views source code for a training plan in the database
 
     If training plan cannot be displayed to the logger, then abort.
+
+    Args:
+        tp_security_manager: Object for managing the training plan approval
     """
     training_plans = tp_security_manager.list_training_plans(verbose=False)
     if not training_plans:

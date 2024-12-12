@@ -71,7 +71,6 @@ class Round:
             root_dir: Root fedbiomed directory where node instance files will be stored.
             db: Path to node database file.
             node_id: Node id
-            tp_security_manager: Training plan security manager instance.
             training_plan: code of the training plan for this round
             training_plan_class: class name of the training plan
             model_kwargs: contains model args. Defaults to None.
@@ -91,6 +90,7 @@ class Round:
                     GPU device if this GPU device is available.
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU.
+            tp_security_manager: Training plan security manager instance.
             dlp_and_loading_block_metadata: Data loading plan to apply, or None if no DLP for this round.
             round_number: number of the iteration for this experiment
             aux_vars: Optional optimizer auxiliary variables.

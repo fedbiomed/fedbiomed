@@ -8,7 +8,7 @@ Interfaces with the node component database.
 
 import csv
 import os.path
-from typing import Iterable, Union, List, Any, Optional, Tuple
+from typing import Iterable, Union, List, Optional, Tuple
 import uuid
 
 from urllib.request import urlretrieve
@@ -39,6 +39,9 @@ class DatasetManager:
     """
     def __init__(self, db: str):
         """Constructor of the class.
+
+        Args:
+            db: Path to the database file
         """
         self._db = TinyDB(db)
         self._database = Query()

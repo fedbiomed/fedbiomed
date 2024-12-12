@@ -62,7 +62,6 @@ class SecaggContext(ABC):
         """Constructor of the class.
 
         Args:
-            db: Path to researcher database file.
             researcher_id: ID of the researcher that context will be created for.
             parties: list of parties participating in the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
@@ -407,6 +406,7 @@ class SecaggDHContext(SecaggContext):
         """Constructor of the class.
 
         Args:
+            researcher_id: ID of the researcher that context will be created for.
             parties: list of parties participating in the secagg context element setup, named
                 by their unique id (`node_id`, `researcher_id`).
                 There must be at least 3 parties, and the first party is this researcher

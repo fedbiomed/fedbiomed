@@ -12,11 +12,10 @@ import importlib
 import os
 import sys
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.config import Config
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, DB_FOLDER_NAME, ComponentType
+from fedbiomed.common.constants import DB_FOLDER_NAME, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import (
@@ -78,18 +77,17 @@ class ConfigNameAction(ABC, argparse.Action):
 
     @abstractmethod
     def set_component(self, config_name: str) -> None:
-        """Implements environ import
+        """Implements configuration import
 
-
-        Returns:
-            Environ object
+        Args:
+          config_name: Name of the config file for the component
         """
 
     def _create_config(self, config_file: str):
-        """Sets environ
+        """Sets configuration
 
         Args:
-          config_file: Name of the config file that is activate
+          config_file: Name of the config file that is activated
         """
 
         print(f"\n# {GRN}Using configuration file:{NC} {BOLD}{config_file}{NC} #")
