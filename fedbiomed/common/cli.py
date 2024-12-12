@@ -102,7 +102,7 @@ class ConfigNameAction(ABC, argparse.Action):
         # the common CLI option that are present in fedbiomed.common.cli.CommonCLI
         # self._this.set_environ(environ)
 
-        # this may be changed on command line or in the config_node.ini
+        # this may be changed on command line or in the node configuration file
         logger.setLevel("DEBUG")
 
 

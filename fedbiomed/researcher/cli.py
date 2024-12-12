@@ -10,7 +10,7 @@ import importlib
 from typing import List, Dict
 
 from fedbiomed.common.cli import CommonCLI, CLIArgumentParser, ConfigNameAction
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.constants import ComponentType, DEFAULT_CONFIG_FILE_NAME_RESEARCHER
 
 
 __intro__ = """
@@ -108,7 +108,9 @@ class ResearcherCLI(CommonCLI):
             "-cf",
             nargs="?",
             action=ConfigNameActionResearcher,
-            default="config_researcher.ini",
-            help="Name of the config file that the CLI will be activated for. Default is 'config_researcher.ini'.")
+            default=DEFAULT_CONFIG_FILE_NAME_RESEARCHER,
+            help="Name of the config file that the CLI will be activated for. "
+                 f"Default is '{DEFAULT_CONFIG_FILE_NAME_RESEARCHER}'."
+        )
 
         super().initialize()

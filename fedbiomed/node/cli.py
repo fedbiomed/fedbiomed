@@ -11,13 +11,9 @@ import os
 import signal
 import sys
 import time
-import importlib
-import functools
 import subprocess
-import copy
 
 from multiprocessing import Process
-from threading import Thread
 from typing import Union, List, Dict
 from types import FrameType
 
@@ -25,7 +21,7 @@ from fedbiomed.node.node import Node
 from fedbiomed.node.config import NodeConfig
 
 
-from fedbiomed.common.constants import ErrorNumbers, ComponentType
+from fedbiomed.common.constants import ErrorNumbers, ComponentType, DEFAULT_CONFIG_FILE_NAME_NODE
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.cli import (
@@ -633,7 +629,6 @@ class NodeCLI(CommonCLI):
             "-cf",
             nargs="?",
             action=ConfigNameActionNode,
-            default="config_node.ini",
+            default=DEFAULT_CONFIG_FILE_NAME_NODE,
             help="Name of the config file that the CLI will be activated for."
-                "Default is 'config_node.ini'.")
-
+                 f"Default is '{DEFAULT_CONFIG_FILE_NAME_NODE}.")

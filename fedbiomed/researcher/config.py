@@ -8,7 +8,8 @@ from fedbiomed.common.constants import (
     __researcher_config_version__,
     CONFIG_FOLDER_NAME,
     VAR_FOLDER_NAME,
-    TENSORBOARD_FOLDER_NAME
+    TENSORBOARD_FOLDER_NAME,
+    DEFAULT_CONFIG_FILE_NAME_RESEARCHER
 )
 
 from fedbiomed.common.certificate_manager import generate_certificate
@@ -17,7 +18,7 @@ from fedbiomed.common.config import Config
 
 class ResearcherConfig(Config):
 
-    _DEFAULT_CONFIG_FILE_NAME: str = 'config_researcher.ini'
+    _DEFAULT_CONFIG_FILE_NAME: str = DEFAULT_CONFIG_FILE_NAME_RESEARCHER
     _COMPONENT_TYPE: str = 'RESEARCHER'
     _CONFIG_VERSION: str = __researcher_config_version__
 
@@ -64,5 +65,5 @@ class ResearcherConfig(Config):
         os.makedirs(self.vars['TENSORBOARD_RESULTS_DIR'], exist_ok=True)
 
 
-config_name = os.environ.get("FBM_RESEARCHER_CONFIG_FILE", 'config_researcher.ini')
+config_name = os.environ.get("FBM_RESEARCHER_CONFIG_FILE", DEFAULT_CONFIG_FILE_NAME_RESEARCHER)
 config = ResearcherConfig(name=config_name)
