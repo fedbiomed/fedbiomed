@@ -3,7 +3,7 @@ import sys
 import configparser
 from utils import get_node_id
 
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME, DEFAULT_CONFIG_FILE_NAME_NODE
 
 from fedbiomed.node.config import NodeConfig
 
@@ -45,9 +45,9 @@ class Config(dict):
 
         # Configuration of Flask APP to be able to access Fed-BioMed node information
         self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv('FEDBIOMED_DIR', '/fedbiomed')
-       # Get name of the config file default is "config_node.ini"
+        # Get name of the config file or default value
         self.configuration['NODE_CONFIG_FILE'] = os.getenv('NODE_CONFIG_FILE',
-                                                           "config_node.ini")
+                                                           DEFAULT_CONFIG_FILE_NAME_NODE)
 
         # Config file that is located in ${FEDBIOMED_DIR}/gui directory
         cfg.read(os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], 'gui', 'config_gui.ini'))
