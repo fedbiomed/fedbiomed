@@ -65,34 +65,7 @@ def intro():
     print('\t- 🆔 Your node ID:', os.environ['FEDBIOMED_ACTIVE_NODE_ID'], '\n')
 
 
-def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
-    """Signal handler that terminates the process.
 
-    Args:
-        signum: Signal number received.
-        frame: Frame object received. Currently unused
-
-    Raises:
-       SystemExit: Always raised.
-    """
-
-    # get the (running) Node object
-
-    try:
-        if _node and _node.is_connected():
-            _node.send_error(ErrorNumbers.FB312,
-                             extra_msg = "Node is stopped",
-                             broadcast=True)
-            time.sleep(2)
-            logger.critical("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
-        else:
-            # take care of logger level used because message cannot be sent to node
-            logger.info("Cannot send error message to researcher (node not initialized yet)")
-            logger.info("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
-    finally:
-        # give some time to send messages to the researcher
-        time.sleep(0.5)
-        sys.exit(signum)
 
 
 def _node_signal_trigger_term() -> None:
@@ -111,12 +84,44 @@ def start_node(name, node_args):
 
     config = NodeConfig(name=name, auto_generate=False)
     config.read()
+
     _node = Node(config, node_args)
 
+
+    def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
+        """Signal handler that terminates the process.
+
+        Args:
+            signum: Signal number received.
+            frame: Frame object received. Currently unused
+
+        Raises:
+           SystemExit: Always raised.
+        """
+
+        # get the (running) Node object
+
+        try:
+            if _node and _node.is_connected():
+                _node.send_error(ErrorNumbers.FB312,
+                                 extra_msg = "Node is stopped",
+                                 broadcast=True)
+                time.sleep(2)
+                logger.critical("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
+            else:
+                # take care of logger level used because message cannot be sent to node
+                logger.info("Cannot send error message to researcher (node not initialized yet)")
+                logger.info("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
+        finally:
+            # give some time to send messages to the researcher
+            time.sleep(0.5)
+            sys.exit(signum)
+
     logger.setLevel("INFO")
+
+
     try:
         signal.signal(signal.SIGTERM, _node_signal_handler)
-
         logger.info('Launching node...')
 
         # Register default training plans and update hashes
