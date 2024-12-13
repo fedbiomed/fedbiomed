@@ -12,6 +12,7 @@ from fedbiomed.common.constants import (
     ErrorNumbers,
     CONFIG_FOLDER_NAME,
     VAR_FOLDER_NAME,
+    CERTS_FOLDER_NAME,
     DB_PREFIX,
 )
 from fedbiomed.common.utils import (
@@ -232,7 +233,8 @@ class Config(metaclass=ABCMeta):
 
         self.vars.update({
             'MESSAGES_QUEUE_DIR': os.path.join(self.root, 'queue_messages'),
-            'TMP_DIR': os.path.join(self.root, VAR_FOLDER_NAME, 'tmp')
+            'TMP_DIR': os.path.join(self.root, VAR_FOLDER_NAME, 'tmp'),
+            'CERT_DIR': os.path.join(self.root, CERTS_FOLDER_NAME)
         })
 
         os.makedirs(self.vars['TMP_DIR'], exist_ok=True)

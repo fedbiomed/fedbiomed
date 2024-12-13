@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import DB_FOLDER_NAME, ComponentType
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME, DB_FOLDER_NAME, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import (
@@ -52,7 +52,7 @@ class CLIArgumentParser:
 class ConfigNameAction(ABC, argparse.Action):
     """Action for the argument config
 
-    This action class gets the config file name and set environ object before
+    This action class gets the config file name and set config object before
     executing any command.
     """
     _component: ComponentType
@@ -60,7 +60,7 @@ class ConfigNameAction(ABC, argparse.Action):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Sets environ by default if option string for config is not present.
+        # Sets config by default if option string for config is not present.
         # The default is defined by the argument parser.
         if (
             not set(self.option_strings).intersection(set(sys.argv))
@@ -197,11 +197,6 @@ class ConfigurationParser(CLIArgumentParser):
 
     def create(self, args):
         """CLI Handler for creating configuration file and assets for given component
-
-        TODO: This method doesn't yet concentrate all actions for creating configuration file for
-            given component. Since, `environ` will be imported through component CLI, configuration
-            file will be automatically created. In future, it might be useful to generate configuration
-            files.
         """
 
         config = self._create_config_instance(args.component, args.root, args.name)
@@ -251,9 +246,10 @@ class CommonCLI:
 
         self._subparsers = self._parser.add_subparsers()
         self._certificate_manager: CertificateManager = CertificateManager()
-        self._environ = None
         self._description: str = ""
         self._args = None
+
+        self.config = None
 
         # Initialize configuration parser
         self.configuration_parser = ConfigurationParser(self._subparsers)
@@ -523,7 +519,7 @@ class CommonCLI:
             )
 
         path = (
-            os.path.join(self._environ["CERT_DIR"], f"cert_{self._environ['ID']}")
+            os.path.join(self.config.vars["CERT_DIR"], f"cert_{self.config.get('default', 'id')}")
             if not args.path
             else args.path
         )
@@ -532,7 +528,7 @@ class CommonCLI:
             CertificateManager.generate_self_signed_ssl_certificate(
                 certificate_folder=path,
                 certificate_name="FBM_certificate",
-                component_id=self._environ["ID"],
+                component_id=self.config.get('default', 'id'),
             )
         except FedbiomedError as e:
             CommonCLI.error(f"Can not generate certificate. Please see: {e}")
@@ -545,8 +541,8 @@ class CommonCLI:
             f"Please make sure in {os.getenv('CONFIG_FILE', 'component')}, the section "
             "`public_key` and `private_key` has new generated certificate files : \n\n"
             f"{BOLD}Certificates are saved in {NC}\n"
-            f"{path}/certificate.key \n"
-            f"{path}/certificate.pem \n\n"
+            f"{path}/FBM_certificate.key \n"
+            f"{path}/FBM_certificate.pem \n\n"
             f"{YLW}IMPORTANT:{NC}\n"
             f"{BOLD}Since the certificate is renewed please ask other parties "
             f"to register your new certificate.{NC}\n"
@@ -558,7 +554,9 @@ class CommonCLI:
         Args:
             args: Parser arguments
         """
-        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
+        self._certificate_manager.set_db(
+            db_path=os.path.join(self.config.root, 'etc', self.config.get('default', 'db'))
+        )
 
         try:
             self._certificate_manager.register_certificate(
@@ -579,12 +577,16 @@ class CommonCLI:
         """Lists saved certificates"""
         print(f"{GRN}Listing registered certificates...{NC}")
 
-        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
+        self._certificate_manager.set_db(
+            db_path=os.path.join(self.config.root, 'etc', self.config.get('default', 'db'))
+        )
         self._certificate_manager.list(verbose=True)
 
     def _delete_certificate(self, args: argparse.Namespace):
 
-        self._certificate_manager.set_db(db_path=self._environ["DB_PATH"])
+        self._certificate_manager.set_db(
+            db_path=os.path.join(self.config.root, self.config.get('default, db'))
+        )
         certificates = self._certificate_manager.list(verbose=False)
         options = [d["party_id"] for d in certificates]
         msg = "Select the certificate to delete:\n"
@@ -609,8 +611,8 @@ class CommonCLI:
         """Prints instruction to registration of the certificate by the other parties"""
 
         certificate = read_file(
-            self._environ.get("FEDBIOMED_CERTIFICATE_PEM", self._environ.get("SERVER_SSL_CERT")
-        ))
+            os.path.join(self.config.root, CONFIG_FOLDER_NAME, self.config.get("certificate", "private_key"))
+        )
 
         print("Hi There! \n\n")
         print("Please find following certificate to register \n")
@@ -624,16 +626,16 @@ class CommonCLI:
         print(" 2- Change your directory to 'fedbiomed' root")
         print(
             f" 3- Run: scripts/fedbiomed_run [node | researcher] certificate register"
-            f"-pk [PATH WHERE CERTIFICATE IS SAVED] -pi {self._environ['ID']}"
+            f"-pk [PATH WHERE CERTIFICATE IS SAVED] -pi {self.config.get('default', 'id')}"
         )
         print("    Examples commands to use for VPN/docker mode:")
         print(
             "      ./scripts/fedbiomed_run node certificate register -pk ./etc/cert-secagg "
-            f"-pi {self._environ['ID']}"
+            f"-pi {self.config.get('default', 'id')}"
         )
         print(
             "      ./scripts/fedbiomed_run researcher certificate register "
-            f"-pk ./etc/cert-secagg -pi {self._environ['ID']}"
+            f"-pk ./etc/cert-secagg -pi {self.config.get('default', 'id')}"
         )
 
     def parse_args(self, args_=None):

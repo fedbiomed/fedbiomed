@@ -100,7 +100,8 @@ class ResearcherCLI(CommonCLI):
                 if config_file:
                     os.environ["FBM_RESEARCHER_CONFIG_FILE"] = config_file
 
-                importlib.import_module("fedbiomed.researcher.config")
+                module = importlib.import_module("fedbiomed.researcher.config")
+                self._this.config = module.config
 
 
         # Config parameter is not necessary. Python client (user in jupyter notebook)
