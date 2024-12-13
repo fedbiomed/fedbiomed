@@ -109,7 +109,7 @@ class Config(metaclass=ABCMeta):
             self.path = os.path.join(CONFIG_DIR, self.name)
             self.root = ROOT_DIR
 
-        if auto_generate:
+        if auto_generate or self.is_config_existing():
             self.generate()
 
         # Creates setup folders if not existing
