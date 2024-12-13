@@ -15,7 +15,14 @@ from abc import ABC, abstractmethod
 from typing import Dict, List
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, DB_FOLDER_NAME, ComponentType
+from fedbiomed.common.config import is_config_existing, get_config_path, get_config_name
+from fedbiomed.common.constants import (
+    CONFIG_FOLDER_NAME,
+    DB_FOLDER_NAME,
+    ComponentType,
+    DEFAULT_CONFIG_FILE_NAME_NODE,
+    DEFAULT_CONFIG_FILE_NAME_RESEARCHER,
+)
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import (
@@ -185,30 +192,41 @@ class ConfigurationParser(CLIArgumentParser):
         if component.lower() == "node":
             NodeConfig = importlib.import_module("fedbiomed.node.config").NodeConfig
             config = NodeConfig(root=root, name=name, auto_generate=False)
-        elif component.lower() == "researcher":
+        else:
+            # Generate config file with the proper name, not the default name
+            if name:
+                os.environ["FBM_RESEARCHER_CONFIG_FILE"] = name
+
             ResearcherConfig = importlib.import_module(
                 "fedbiomed.researcher.config"
             ).ResearcherConfig
             config = ResearcherConfig(root=root, name=name, auto_generate=False)
-        else:
-            print(f"Undefined component type {component}")
-            exit(101)
 
         return config
 
     def create(self, args):
         """CLI Handler for creating configuration file and assets for given component
         """
+        if args.component.lower() == "node":
+            default_config = DEFAULT_CONFIG_FILE_NAME_NODE
+        elif args.component.lower() == "researcher":
+            default_config = DEFAULT_CONFIG_FILE_NAME_RESEARCHER
+        else:
+            print(f"Undefined component type {args.component}")
+            exit(101)
+
+        name = get_config_name(args.name, args.component, default_config)
+        is_config_existing_before = is_config_existing(get_config_path(args.root, name))
 
         config = self._create_config_instance(args.component, args.root, args.name)
 
         # Overwrite force configuration file
-        if config.is_config_existing() and args.force:
+        if is_config_existing_before and args.force:
             print("Overwriting existing configuration file")
             config.generate(force=True)
 
-        # Use exisintg one (do nothing)
-        elif config.is_config_existing() and not args.force:
+        # Use existing one (do nothing)
+        elif is_config_existing_before and not args.force:
             if not args.use_current:
                 print(
                     f'Configuration file "{config.path}" is alreay existing for name '

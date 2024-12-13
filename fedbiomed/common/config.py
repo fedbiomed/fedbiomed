@@ -23,7 +23,56 @@ from fedbiomed.common.utils import (
 )
 from fedbiomed.common.exceptions import FedbiomedConfigurationError
 
-# from fedbiomed.common.secagg_manager import SecaggBiprimeManager
+
+def is_config_existing(path: str) -> bool:
+    """Checks if config file exists
+
+    Args:
+        path: Path to a possibly existing config file
+
+    Returns:
+        True if config file is already existing
+    """
+    return os.path.isfile(path)
+
+
+def get_config_path(root: Optional[str], name: str) -> str:
+    """Compute configuration path for a config file
+
+    Args:
+        root: Root directory path
+        name: Name of config file
+
+    Returns:
+        Configuration path
+    """
+    if root:
+        path = os.path.join(root, CONFIG_FOLDER_NAME, name)
+    else:
+        path = os.path.join(CONFIG_DIR, name)
+
+    return path
+
+
+def get_config_name(name: Optional[str], component_type: str, default_config_file_name: str) -> str:
+    """Compute configuration file name
+
+    Args:
+        name: Configuration file name, if it is provided
+        component_type: Type of component
+        default_config_file_name: Default value for the configuration file name
+
+    Returns:
+        Configuration file name
+    """
+
+    # First try to get component specific config file name, then CONFIG_FILE
+    default_config = os.getenv(
+        f"{component_type}_CONFIG_FILE",
+        os.getenv("CONFIG_FILE", default_config_file_name),
+    )
+
+    return name if name else default_config
 
 
 class Config(metaclass=ABCMeta):
@@ -63,14 +112,9 @@ class Config(metaclass=ABCMeta):
             auto_generate: Generated all component files, folder, including
                 configuration file.
         """
-        # First try to get component specific config file name, then CONFIG_FILE
-        default_config = os.getenv(
-            f"{self._COMPONENT_TYPE}_CONFIG_FILE",
-            os.getenv("CONFIG_FILE", self._DEFAULT_CONFIG_FILE_NAME),
-        )
+        self.name = get_config_name(name, self._COMPONENT_TYPE, self._DEFAULT_CONFIG_FILE_NAME)
 
         self._cfg = configparser.ConfigParser()
-        self.name = name if name else default_config
         self.load(self.name, root, auto_generate)
 
     @classmethod
@@ -102,11 +146,10 @@ class Config(metaclass=ABCMeta):
         """
         self.name = name
 
+        self.path = get_config_path(root, self.name)
         if root:
-            self.path = os.path.join(root, CONFIG_FOLDER_NAME, self.name)
             self.root = root
         else:
-            self.path = os.path.join(CONFIG_DIR, self.name)
             self.root = ROOT_DIR
 
         if auto_generate or self.is_config_existing():
@@ -122,7 +165,7 @@ class Config(metaclass=ABCMeta):
             True if config file is already existing
         """
 
-        return os.path.isfile(self.path)
+        return is_config_existing(self.path)
 
     def read(self) -> bool:
         """Reads configuration file that is already existing in given path
