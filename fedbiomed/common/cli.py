@@ -63,9 +63,9 @@ class ConfigNameAction(ABC, argparse.Action):
         # Sets config by default if option string for config is not present.
         # The default is defined by the argument parser.
         if (
-            not set(self.option_strings).intersection(set(sys.argv))
-            and not set(["--help", "-h"]).intersection(set(sys.argv))
-            and len(sys.argv) > 2
+            not set(self.option_strings).intersection(set(sys.argv)) and
+            not set(["--help", "-h"]).intersection(set(sys.argv)) and
+            len(sys.argv) > 2
         ):
             self._create_config(self.default)
 
@@ -107,8 +107,8 @@ class ConfigurationParser(CLIArgumentParser):
 
         self._parser = self._subparser.add_parser(
             "configuration",
-            help="The helper for generating or updating component configuration files, see `configuration -h`"
-            " for more details",
+            help="The helper for generating or updating component configuration files, "
+            "see `configuration -h` for more details",
         )
 
         self._parser.set_defaults(func=self.default)
@@ -159,7 +159,8 @@ class ConfigurationParser(CLIArgumentParser):
         refresh = configuration_sub_parsers.add_parser(
             "refresh",
             parents=[common_parser],
-            help="Refreshes the configuration file by overwriting parameters without changing component ID",
+            help="Refreshes the configuration file by overwriting parameters without "
+                 "changing component ID",
         )
 
         create.add_argument(
@@ -210,8 +211,8 @@ class ConfigurationParser(CLIArgumentParser):
         elif config.is_config_existing() and not args.force:
             if not args.use_current:
                 print(
-                    f'Configuration file "{config.path}" is alreay existing for name "{config.name}". '
-                    "Please use --force option to overwrite"
+                    f'Configuration file "{config.path}" is alreay existing for name '
+                    "{config.name}. Please use --force option to overwrite"
                 )
                 exit(101)
             # Generate wont do anything
@@ -225,8 +226,8 @@ class ConfigurationParser(CLIArgumentParser):
 
         config = self._create_config_instance(args.component, args.root, args.name)
         print(
-            "Refreshing configuration file using current environment variables. This operation will overwrite"
-            "existing configuration file without changing component id."
+            "Refreshing configuration file using current environment variables. This operation "
+            "will overwrite existing configuration file without changing component id."
         )
 
         # Refresh
@@ -339,7 +340,7 @@ class CommonCLI:
         self.initialize_magic_dev_environment_parsers()
 
     def initialize(self):
-        """Initializes parser classes and common parser for child clisses.
+        """Initializes parser classes and common parser for child classes.
 
         This parser classes will be added by child classes.
         """
@@ -355,12 +356,13 @@ class CommonCLI:
         """Initializes argument parser for the option to create development environment."""
         magic = self._subparsers.add_parser(
             "certificate-dev-setup",
-            description="Prepares development environment by registering certificates"
-                "of each component created in a single clone of Fed-BioMed. Parses configuration "
-                "files ends with '.ini' that are created in 'etc' directory. This setup requires "
-                "to have one 'researcher' and at least 2 nodes.",
+            description="Prepares development environment by registering certificates "
+                        "of each component created in a single clone of Fed-BioMed. Parses "
+                        "configuration files ends with '.ini' that are created in 'etc' "
+                        "directory. This setup requires to have one 'researcher' and "
+                        "at least 2 nodes.",
             help="Prepares development environment by registering certificates of each "
-                "component created in a single clone of Fed-BioMed.",
+                 "component created in a single clone of Fed-BioMed.",
         )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
@@ -389,7 +391,7 @@ class CommonCLI:
         register_parser = certificate_sub_parsers.add_parser(
             "register",
             help="Register certificate of specified party. Please run 'fedbiomed_run "
-                "[COMPONENT SPECIFICATION] certificate register --help'",
+                 "[COMPONENT SPECIFICATION] certificate register --help'",
         )  # command register
 
         list_parser = certificate_sub_parsers.add_parser(
@@ -411,7 +413,7 @@ class CommonCLI:
         prepare = certificate_sub_parsers.add_parser(
             "registration-instructions",
             help="Prepares certificate of current component to send other FL participant"
-                "through trusted channel.",
+                 "through trusted channel.",
         )
 
         register_parser.set_defaults(func=self._register_certificate)
@@ -452,8 +454,8 @@ class CommonCLI:
             type=str,
             nargs="?",
             required=False,
-            help="The path where certificates will be saved. By default it will overwrite"
-                "existing certificate.",
+            help="The path where certificates will be saved. By default it will overwrite "
+                 "existing certificate.",
         )
 
         generate.add_argument(
@@ -509,8 +511,8 @@ class CommonCLI:
         """
 
         if not args.force and (
-            os.path.isfile(f"{args.path}/certificate.key")
-            or os.path.isfile(f"{args.path}/certificate.pem")
+            os.path.isfile(f"{args.path}/certificate.key") or
+            os.path.isfile(f"{args.path}/certificate.pem")
         ):
 
             CommonCLI.error(
@@ -663,4 +665,3 @@ class CommonCLI:
                 args.func()
         else:
             self._parser.print_help()
-
