@@ -616,6 +616,7 @@ class NodeCLI(CommonCLI):
             def set_component(self, config_name: str) -> None:
                 """Create node instance"""
                 config = NodeConfig(name=config_name)
+                self._this.config = config
                 node = Node(config)
 
                 # Set node object to make it accessible

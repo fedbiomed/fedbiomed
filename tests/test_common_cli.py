@@ -10,6 +10,7 @@ from fedbiomed.common.cli import CommonCLI, ConfigurationParser
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 
+from fedbiomed.researcher.config import ResearcherConfig
 
 class TestConfigurationParser(unittest.TestCase):
 
@@ -96,7 +97,10 @@ class TestCommonCLI(unittest.TestCase):
 
         self.mock_certificate_manager = self.patch_certificate_manager.start()
         self.mock_set_db = self.patch_set_db.start()
+        self.config = MagicMock()
         self.cli = CommonCLI()
+        self.cli.config = self.config
+
 
     def tearDown(self) -> None:
         self.patch_certificate_manager.stop()
