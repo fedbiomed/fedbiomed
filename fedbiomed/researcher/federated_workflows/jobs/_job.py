@@ -7,7 +7,6 @@ from abc import ABC, abstractmethod
 import time
 from typing import Any, Dict, List
 
-from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.requests import RequestPolicy, Requests
 
 
@@ -32,20 +31,24 @@ class Job(ABC):
     def __init__(
         self,
         *,
+        researcher_id: str,
+        requests: Requests,
         nodes: List[str] | None,
         keep_files_dir: str
     ):
         """Constructor of the class
 
         Args:
+            researcher_id: Unique ID of the researcher
+            requests: Object for handling communications
             nodes: A dict of node_id containing the nodes used for training
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
                 of the job.
 
         """
 
-        self._researcher_id = environ['RESEARCHER_ID']
-        self._reqs = Requests()
+        self._researcher_id = researcher_id
+        self._reqs = requests
         self._nodes: List[str] = nodes or []  # List of node ids participating in this task
         self._keep_files_dir = keep_files_dir
         self._policies: List[RequestPolicy] | None = None

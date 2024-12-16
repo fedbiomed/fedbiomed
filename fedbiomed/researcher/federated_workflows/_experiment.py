@@ -147,7 +147,7 @@ class Experiment(TrainingPlanWorkflow):
         self.set_round_limit(round_limit)
 
         # always create a monitoring process
-        self._monitor = Monitor()
+        self._monitor = Monitor(self.config.vars["TENSORBOARD_RESULTS_DIR"])
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
 
@@ -759,20 +759,23 @@ class Experiment(TrainingPlanWorkflow):
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
         # if fds is updated, aggregator should be updated too
-        job = TrainingJob(nodes=training_nodes,
-                          keep_files_dir=self.experimentation_path(),
-                          experiment_id=self._experiment_id,
-                          round_=self._round_current,
-                          training_plan=self.training_plan(),
-                          training_args=self._training_args,
-                          model_args=self.model_args(),
-                          data=self._fds,
-                          nodes_state_ids=nodes_state_ids,
-                          aggregator_args=aggregator_args,
-                          do_training=True,
-                          secagg_arguments=secagg_arguments,
-                          optim_aux_var=optim_aux_var,
-                          )
+        job = TrainingJob(
+            researcher_id= self._researcher_id,
+            requests=self._reqs,
+            nodes=training_nodes,
+            keep_files_dir=self.experimentation_path(),
+            experiment_id=self._experiment_id,
+            round_=self._round_current,
+            training_plan=self.training_plan(),
+            training_args=self._training_args,
+            model_args=self.model_args(),
+            data=self._fds,
+            nodes_state_ids=nodes_state_ids,
+            aggregator_args=aggregator_args,
+            do_training=True,
+            secagg_arguments=secagg_arguments,
+            optim_aux_var=optim_aux_var
+        )
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
@@ -849,18 +852,21 @@ class Experiment(TrainingPlanWorkflow):
             aggr_args = self._aggregator.create_aggregator_args(self.training_plan().after_training_params(),
                                                                 training_nodes)
 
-            job = TrainingJob(nodes=training_nodes,
-                              keep_files_dir=self.experimentation_path(),
-                              experiment_id=self._experiment_id,
-                              round_=self._round_current,
-                              training_plan=self.training_plan(),
-                              training_args=self._training_args,
-                              model_args=self.model_args(),
-                              data=self._fds,
-                              nodes_state_ids=nodes_state_ids,
-                              aggregator_args=aggr_args,
-                              do_training=False
-                              )
+            job = TrainingJob(
+                researcher_id=self._researcher_id,
+                requests=self._reqs,
+                nodes=training_nodes,
+                keep_files_dir=self.experimentation_path(),
+                experiment_id=self._experiment_id,
+                round_=self._round_current,
+                training_plan=self.training_plan(),
+                training_args=self._training_args,
+                model_args=self.model_args(),
+                data=self._fds,
+                nodes_state_ids=nodes_state_ids,
+                aggregator_args=aggr_args,
+                do_training=False
+            )
             job.execute()
 
 
@@ -1172,7 +1178,11 @@ class Experiment(TrainingPlanWorkflow):
 
         # conditions are met, save breakpoint
         breakpoint_path, breakpoint_file_name = \
-            choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
+            choose_bkpt_file(
+                self.config.vars["EXPERIMENTS_DIR"],
+                self._experimentation_folder,
+                self._round_current - 1
+            )
 
         # predefine several breakpoint states
         agg_bkpt = None
@@ -1180,8 +1190,10 @@ class Experiment(TrainingPlanWorkflow):
         strategy_bkpt = None
         training_replies_bkpt  = None
         if self._aggregator is not None:
-            agg_bkpt = self._aggregator.save_state_breakpoint(breakpoint_path,
-                                                              global_model=self.training_plan().after_training_params())
+            agg_bkpt = self._aggregator.save_state_breakpoint(
+                breakpoint_path,
+                global_model=self.training_plan().after_training_params()
+            )
         if self._agg_optimizer is not None:
             # FIXME: harmonize naming of save_object
             agg_optim_bkpt = self.save_optimizer(breakpoint_path)

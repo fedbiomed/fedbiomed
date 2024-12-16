@@ -21,13 +21,15 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus, TrainingPlanS
 from fedbiomed.node.cli_utils._io import validated_path_input
 
 
-tp_security_manager = TrainingPlanSecurityManager()
-
-
-def register_training_plan():
+def register_training_plan(
+    tp_security_manager: TrainingPlanSecurityManager
+):
     """Registers an authorized training plan in the database interactively through the CLI.
 
     Does not modify training plan file.
+
+    Args:
+        tp_security_manager: Object for managing the training plan approval
     """
 
     print('Welcome to the Fed-BioMed CLI data manager')
@@ -54,13 +56,18 @@ def register_training_plan():
     tp_security_manager.list_training_plans(verbose=True)
 
 
-def update_training_plan():
+def update_training_plan(
+    tp_security_manager: TrainingPlanSecurityManager
+):
     """Updates an authorized training plan in the database interactively through the CLI.
 
     Does not modify training plan file.
 
     User can either choose different training plan file (different path)
     to update training plan or same training plan file.
+
+    Args:
+        tp_security_manager: Object for managing the training plan approval
     """
     training_plans = tp_security_manager.list_training_plans(verbose=False)
 
@@ -103,12 +110,18 @@ def update_training_plan():
             logger.error('Invalid option. Please, try again.')
 
 
-def approve_training_plan(id: Optional[str] = None, *, sort_by_date: bool = True):
+def approve_training_plan(
+    tp_security_manager: TrainingPlanSecurityManager,
+    id: Optional[str] = None,
+    *,
+    sort_by_date: bool = True
+) -> None:
     """Approves a given training plan that has either Pending or Rejected status
 
     Args:
-        sort_by_date: whether to sort by last modification date. Defaults to True.
+        tp_security_manager: Object for managing the training plan approval
         id: unique if of the training plan to be approved. Providing an id will trigger non-interactive approval.
+        sort_by_date: whether to sort by last modification date. Defaults to True.
     """
 
     def approve(training_plan_id):
@@ -153,8 +166,17 @@ def approve_training_plan(id: Optional[str] = None, *, sort_by_date: bool = True
             logger.error('Invalid option. Please, try again.')
 
 
-def reject_training_plan(id: Optional[str] = None, notes: Optional[str] = None):
+def reject_training_plan(
+    tp_security_manager: TrainingPlanSecurityManager,
+    id: Optional[str] = None,
+    notes: Optional[str] = None
+) -> None:
     """Rejects a given training plan that has either Pending or Approved status
+
+    Args:
+        tp_security_manager: Object for managing the training plan approval
+        id: Training plan ID
+        notes: Comment about rejection reason
     """
 
     def reject(training_plan_id, notes):
@@ -197,7 +219,10 @@ def reject_training_plan(id: Optional[str] = None, notes: Optional[str] = None):
             logger.error('Invalid option. Please, try again.')
 
 
-def delete_training_plan(id: Optional[str] = None):
+def delete_training_plan(
+    tp_security_manager: TrainingPlanSecurityManager,
+    id: Optional[str] = None
+) -> None:
     """Deletes an authorized training plan in the database interactively from the CLI.
 
     Does not modify or delete training plan file.
@@ -206,7 +231,8 @@ def delete_training_plan(id: Optional[str] = None):
     should be removed directly from the file system.
 
     Args:
-        name: Name of the training plan that will be removed.
+        tp_security_manager: Object for managing the training plan approval
+        id: ID of the training plan that will be removed.
     """
 
     def delete(training_plan_id):
@@ -247,15 +273,13 @@ def delete_training_plan(id: Optional[str] = None):
             logger.error('Invalid option. Please, try again.')
 
 
-def view_training_plan():
+def view_training_plan(tp_security_manager: TrainingPlanSecurityManager) -> None:
     """Views source code for a training plan in the database
 
-    If `environ[EDITOR]` is set then use this editor to view a copy of the training plan source code, so that
-    any modification are not saved to the training plan,
-
-    If `environ[EDITOR]` is unset or cannot be used to view the training plan, then print the training plan to the logger.
-
     If training plan cannot be displayed to the logger, then abort.
+
+    Args:
+        tp_security_manager: Object for managing the training plan approval
     """
     training_plans = tp_security_manager.list_training_plans(verbose=False)
     if not training_plans:

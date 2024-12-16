@@ -56,6 +56,8 @@ if __name__ == "__main__":
     # Forward arguments to Node or Researcher CLI
     if hasattr(args, "func") and args.func in [node, researcher]:
         args.func(extra)
+    elif extra:
+        cli.parse_args(['--help'])
     elif hasattr(args, "func"):
         args.func(args)
     # If there is no command provided

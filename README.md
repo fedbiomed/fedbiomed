@@ -136,8 +136,8 @@ $ ./scripts/fedbiomed_run node --config another_config.ini start
 * if you want to change the default IP address used to join the fedbiomed researcher component (localhost), you can provide it at launch time:
 
 ```
-$ RESEARCHER_SERVER_HOST=192.168.0.100 ./scripts/fedbiomed_run node start
-$ RESEARCHER_SERVER_HOST=192.168.0.100./scripts/fedbiomed_run researcher start
+$ FBM_RESEARCHER_IP=192.168.0.100 ./scripts/fedbiomed_run node start
+$ FBM_SERVER_HOST=192.168.0.100./scripts/fedbiomed_run researcher start
 ```
 
 (adjust the 192.168.0.100 IP address to your configuration)
@@ -387,8 +387,8 @@ During training, the scalar values (loss) will be writen in the `runs` directory
 First you should import `TENSORBOARD_RESULTS_DIR` from researcher environment in another cell
 
 ```python
-from fedbiomed.researcher.environ import environ
-tensorboard_dir = environ['TENSORBOARD_RESULTS_DIR']
+from fedbiomed.researcher.config import config
+tensorboard_dir = config.vars['TENSORBOARD_RESULTS_DIR']
 ```
 
 Load tensorboard extension in a different code block.
@@ -422,7 +422,7 @@ tensorboard --logdir "$tensorboard_dir"`
 
 ## Model Hashing and Enabling Model Approve
 
-Fed-BioMed offers optional training plan approval feature to approve the training plans requested by the researcher. This training plan approval process is done by hashing/checksum operation by the `ModelManager` of node instance. When the `TRAINING_PLAN_APPROVAL` mode is enabled, node should register/approve training plan files before performing the training. For testing and easy development, there are already presented default training plans by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default training plans to perform training.
+Fed-BioMed offers optional training plan approval feature to approve the training plans requested by the researcher. This training plan approval process is done by hashing/checksum operation by the `ModelManager` of node instance. When the `FBM_SECURITY_TRAINING_PLAN_APPROVAL` mode is enabled, node should register/approve training plan files before performing the training. For testing and easy development, there are already presented default training plans by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default training plans to perform training.
 
 #### Config file for security parameters
 
@@ -456,7 +456,7 @@ Provided hashing algorithms are `SHA256`, `SHA384`, `SHA512`, `SHA3_256`, `SHA3_
 To enable `training_plan_approval` mode and `allow_default_training_plans` node, start the following command.
 
 ```shell
-ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node --config config-n1.ini start
+FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run node --config config-n1.ini start
 ```
 
 This command will start the node with training plan approval activated mode even the config file has been set as `training_plan_aproval = False`. However it doesn't change the config file. If there is no config file named `config-n1.ini` it creates a config file for the node with enabled training plan approval mode.
@@ -471,7 +471,7 @@ training_plan_approval = True
 For starting node with disabled training plan approval and default training plans;
 
 ```shell
-ENABLE_TRAINING_PLAN_APPROVAL=False ALLOW_DEFAULT_TRAINING_PLANS=False ./scripts/fedbiomed_run node --config config-n1.ini start
+FBM_SECURITY_TRAINING_PLAN_APPROVAL=False FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=False ./scripts/fedbiomed_run node --config config-n1.ini start
 ```
 
 #### Default TrainingPlans

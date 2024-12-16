@@ -10,6 +10,7 @@ from fedbiomed.common.cli import CommonCLI, ConfigurationParser
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 
+from fedbiomed.researcher.config import ResearcherConfig
 
 class TestConfigurationParser(unittest.TestCase):
 
@@ -96,7 +97,10 @@ class TestCommonCLI(unittest.TestCase):
 
         self.mock_certificate_manager = self.patch_certificate_manager.start()
         self.mock_set_db = self.patch_set_db.start()
+        self.config = MagicMock()
         self.cli = CommonCLI()
+        self.cli.config = self.config
+
 
     def tearDown(self) -> None:
         self.patch_certificate_manager.stop()
@@ -108,8 +112,6 @@ class TestCommonCLI(unittest.TestCase):
         self.assertEqual(self.cli.description, "My CLI")
         self.assertEqual(self.cli.parser, self.cli._parser)
 
-        self.cli.set_environ({"test": "test"})
-        self.assertEqual(self.cli._environ, {"test": "test"})
         self.assertEqual(self.cli.arguments, None)
 
         self.assertTrue(self.cli.subparsers)
@@ -144,13 +146,6 @@ class TestCommonCLI(unittest.TestCase):
         )
 
     def test_06_common_cli_initialize_certificate_parser(self):
-        self.cli.set_environ(
-            {
-                "DB_PATH": "/dummy/path/to/db",
-                "CERT_DIR": "/dummy/path/to/cert",
-                "ID": "dummy-id",
-            }
-        )
         self.cli.initialize_certificate_parser()
         self.assertTrue("certificate" in self.cli._subparsers.choices)
 
@@ -268,9 +263,6 @@ class TestCommonCLI(unittest.TestCase):
     ):
         mock_is_file.return_value = True
         tmp_dir = tempfile.mkdtemp()
-        self.cli.set_environ(
-            {"ID": "node-id", "CERT_DIR": tmp_dir, "DB_PATH": "dummy/db/path"}
-        )
         self.cli.initialize_certificate_parser()
         args = self.cli.parser.parse_args(
             ["certificate", "generate", "--path", "dummy/path/" "-f"]
@@ -286,9 +278,6 @@ class TestCommonCLI(unittest.TestCase):
         # Remove tmp directory
         shutil.rmtree(tmp_dir)
 
-        self.cli.set_environ(
-            {"ID": "node-id", "CERT_DIR": "/non/valid/path", "DB_PATH": "dummy/db/path"}
-        )
         with self.assertRaises(SystemExit):
             self.cli._generate_certificate(args)
 
@@ -305,9 +294,6 @@ class TestCommonCLI(unittest.TestCase):
     def test_08_common_cli_register_certificate(
         self, mock_print, mock_open, mock_register_certificate
     ):
-        self.cli.set_environ(
-            {"ID": "node-id", "CERT_DIR": "dummy/cert/dir", "DB_PATH": "dummy/db/path"}
-        )
         self.cli.initialize_certificate_parser()
         args = self.cli.parser.parse_args(
             [
@@ -337,9 +323,6 @@ class TestCommonCLI(unittest.TestCase):
     @patch("fedbiomed.common.cli.CertificateManager.list")
     @patch("builtins.open")
     def test_09_common_cli_list_certificates(self, mock_open, mock_cm_list):
-        self.cli.set_environ(
-            {"ID": "node-id", "CERT_DIR": "dummy/cert/dir", "DB_PATH": "dummy/db/path"}
-        )
         self.cli.initialize_certificate_parser()
         args = self.cli.parser.parse_args(["certificate", "list"])
 
@@ -363,9 +346,6 @@ class TestCommonCLI(unittest.TestCase):
         mock_delete,
         mock_list,
     ):
-        self.cli.set_environ(
-            {"ID": "node-id", "CERT_DIR": "dummy/cert/dir", "DB_PATH": "dummy/db/path"}
-        )
         self.cli.initialize_certificate_parser()
         args = self.cli.parser.parse_args(["certificate", "delete"])
 
@@ -384,14 +364,6 @@ class TestCommonCLI(unittest.TestCase):
     def test_11_common_cli_prepare_certificate_for_registration(
         self , mock_print, mock_open
     ):
-        self.cli.set_environ(
-            {
-                "ID": "node-id",
-                "CERT_DIR": "dummy/cert/dir",
-                "DB_PATH": "dummy/db/path",
-                "CERTIFICATE_PEM": "dummy/path",
-            }
-        )
 
         self.cli.initialize_certificate_parser()
         args = self.cli.parser.parse_args(["certificate", "registration-instructions"])
@@ -407,9 +379,6 @@ class TestCommonCLI(unittest.TestCase):
     @patch("fedbiomed.common.cli.CommonCLI._create_magic_dev_environment")
     def test_12_common_cli_parse_args(self, mock_dev_environment, mock_list):
 
-        self.cli.set_environ(
-            {"ID": "node-id", "CERT_DIR": "dummy/cert/dir", "DB_PATH": "dummy/db/path"}
-        )
         self.cli.initialize_certificate_parser()
 
         args = self.cli.parser.parse_args(["certificate", "list"])

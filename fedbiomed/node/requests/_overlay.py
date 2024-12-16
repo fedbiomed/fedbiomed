@@ -26,8 +26,6 @@ from fedbiomed.common.utils import ROOT_DIR
 
 from fedbiomed.transport.controller import GrpcController
 
-from fedbiomed.node.environ import environ
-
 _DEFAULT_KEY_DIR = os.path.join(ROOT_DIR, "envs", "common", "default_keys")
 _DEFAULT_N2N_KEY_FILE = "default_n2n_key.pem"
 
@@ -48,11 +46,15 @@ class _ChannelKeys:
         _channel_keys: (Dict[str, _N2nKeysEntry]) key status for node to node channels
         _channel_keys_lock: (asyncio.Lock) lock to ensure exclusive access to _channel_keys
     """
-    def __init__(self):
-        """Class constructor"""
+    def __init__(self, db: str):
+        """Class constructor
+
+        Args:
+            db: Path to database file of the node.
+        """
         self._channel_keys = {}
         self._channel_keys_lock = asyncio.Lock()
-        self._channel_manager = ChannelManager(environ['DB_PATH'])
+        self._channel_manager = ChannelManager(db)
 
         for distant_node_id in self._channel_manager.list():
             channel = self._channel_manager.get(distant_node_id)
@@ -180,15 +182,23 @@ class OverlayChannel:
     This class is not thread safe, all calls must be done within the same thread (except constructor).
     """
 
-    def __init__(self, grpc_client: GrpcController):
+    def __init__(
+        self,
+        node_id: str,
+        db: str,
+        grpc_client: GrpcController
+    ) -> None:
         """Class constructor
 
         Args:
+            node_id: ID of the active node.
+            db: Path to database file.
             grpc_client: object managing the communication with other components
         """
+        self._node_id = node_id
         self._grpc_client = grpc_client
 
-        self._channel_keys = _ChannelKeys()
+        self._channel_keys = _ChannelKeys(db)
 
         # Issue #1142 in "Crypto material management" will optionally replace current default key published with the
         # library and used for each node for setup by a keypair generated securely for each node.
@@ -326,7 +336,7 @@ class OverlayChannel:
                 # but more simple implementation, plus acceptable because executed only once for channel setup)
                 distant_node_message = ChannelSetupRequest(
                     request_id=REQUEST_PREFIX + str(uuid.uuid4()),
-                    node_id=environ['NODE_ID'],
+                    node_id=self._node_id,
                     dest_node_id=distant_node_id,
                 )
 
@@ -340,7 +350,7 @@ class OverlayChannel:
                     distant_node_message,
                 )
                 logger.debug(f"Completed node to node channel setup with success={received} "
-                             f"node_id='{environ['NODE_ID']}' distant_node_id='{distant_node_id}")
+                             f"node_id='{self._node_id}' distant_node_id='{distant_node_id}")
                 if not received:
                     raise FedbiomedNodeToNodeError(
                         f"{ErrorNumbers.FB324.value}: A node did not answer during channel setup: {distant_node_id}."
@@ -349,7 +359,7 @@ class OverlayChannel:
                 local_key, distant_key = await self._channel_keys.get_keys(distant_node_id)
 
         derived_key = DHKeyAgreement(
-            node_u_id=environ['NODE_ID'],
+            node_u_id=self._node_id,
             node_u_dh_key=local_key,
             session_salt=salt,
         ).agree(
@@ -510,7 +520,7 @@ class OverlayChannel:
         overlay, salt, nonce = await self.format_outgoing_overlay(message, researcher_id, True)
         message_overlay = OverlayMessage(
             researcher_id=researcher_id,
-            node_id=environ['NODE_ID'],
+            node_id=self._node_id,
             dest_node_id=node,
             overlay=overlay,
             setup=True,

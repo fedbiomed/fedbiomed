@@ -9,7 +9,7 @@ from fedbiomed.common.constants import DatasetTypes
 from fedbiomed.node.dataset_manager import DatasetManager
 
 mf_controller = MedicalFolderController()
-dataset_manager = DatasetManager()
+dataset_manager = DatasetManager(config["NODE_DB_PATH"])
 DATA_PATH_RW = config['DATA_PATH_RW']
 
 

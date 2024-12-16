@@ -43,6 +43,12 @@ EXPERIMENT_PREFIX = 'exper_'
 REQUEST_PREFIX = 'request_'
 """Prefix for request ID"""
 
+DEFAULT_CONFIG_FILE_NAME_NODE = 'config_node.ini'
+"""Default node configuration file name"""
+
+DEFAULT_CONFIG_FILE_NAME_RESEARCHER = 'config_researcher.ini'
+"""Default researcher configuration file name"""
+
 CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 """FOLDER name for Certs directory"""
 
@@ -322,7 +328,7 @@ class ErrorNumbers(_BaseEnum):
 
     # general application errors (common to node/researcher/..)
 
-    FB600 = "FB600: environ error"
+    FB600 = "FB600: configuration error"
     FB601 = "FB601: message error"
     FB603 = "FB603: task queue error"
     FB605 = "FB605: training plan error"

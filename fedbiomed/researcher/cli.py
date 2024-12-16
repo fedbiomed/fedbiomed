@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Researcher CLI """
+import os
 import subprocess
 import importlib
 
@@ -9,20 +10,20 @@ import importlib
 from typing import List, Dict
 
 from fedbiomed.common.cli import CommonCLI, CLIArgumentParser, ConfigNameAction
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.constants import ComponentType, DEFAULT_CONFIG_FILE_NAME_RESEARCHER
 
 
 __intro__ = """
-   __         _ _     _                          _ 
+   __         _ _     _                          _
   / _|       | | |   (_)                        | |
  | |_ ___  __| | |__  _  ___  _ __ ___   ___  __| |
  |  _/ _ \/ _` | '_ \| |/ _ \| '_ ` _ \ / _ \/ _` |
- | ||  __/ (_| | |_) | | (_) | | | | | |  __/ (_| |    _ 
- |_| \___|\__,_|_.__/|_|\___/|_| |_| |_|\___|\__,_|   | |              
-                     _ __ ___  ___  ___  __ _ _ __ ___| |__   ___ _ __ 
+ | ||  __/ (_| | |_) | | (_) | | | | | |  __/ (_| |    _
+ |_| \___|\__,_|_.__/|_|\___/|_| |_| |_|\___|\__,_|   | |
+                     _ __ ___  ___  ___  __ _ _ __ ___| |__   ___ _ __
                     | '__/ _ \/ __|/ _ \/ _` | '__/ __| '_ \ / _ \ '__|
-                    | | |  __/\__ \  __/ (_| | | | (__| | | |  __/ |   
-                    |_|  \___||___/\___|\__,_|_|  \___|_| |_|\___|_|   
+                    | | |  __/\__ \  __/ (_| | | | (__| | | |  __/ |
+                    |_|  \___||___/\___|\__,_|_|  \___|_| |_|\___|_|
 """
 
 
@@ -89,9 +90,18 @@ class ResearcherCLI(CommonCLI):
             _this = self
             _component = ComponentType.RESEARCHER
 
-            def import_environ(self) -> 'fedbiomed.researcher.environ.Environ':
-                """Import environ"""
-                return importlib.import_module("fedbiomed.researcher.environ").environ
+            def set_component(self, config_name: str) -> None:
+                """Import configuration
+
+                Args:
+                    config_name: Name of the config file for the component
+                """
+                config_file = os.environ.get("CONFIG_FILE")
+                if config_file:
+                    os.environ["FBM_RESEARCHER_CONFIG_FILE"] = config_file
+
+                module = importlib.import_module("fedbiomed.researcher.config")
+                self._this.config = module.config
 
 
         # Config parameter is not necessary. Python client (user in jupyter notebook)
@@ -103,12 +113,9 @@ class ResearcherCLI(CommonCLI):
             "-cf",
             nargs="?",
             action=ConfigNameActionResearcher,
-            default="config_researcher.ini",
-            help="Name of the config file that the CLI will be activated for. Default is 'config_researcher.ini'.")
+            default=DEFAULT_CONFIG_FILE_NAME_RESEARCHER,
+            help="Name of the config file that the CLI will be activated for. "
+                 f"Default is '{DEFAULT_CONFIG_FILE_NAME_RESEARCHER}'."
+        )
 
         super().initialize()
-
-
-if __name__ == '__main__':
-    cli = ResearcherCLI()
-    cli.parse_args()

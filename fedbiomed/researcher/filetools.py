@@ -12,15 +12,17 @@ import shutil
 from typing import Tuple, List
 
 from fedbiomed.common.logger import logger
-from fedbiomed.researcher.environ import environ
 
 
-def create_exp_folder(experimentation_folder: str = None) -> str:
-    """ Creates a folder for the current experiment (ie the current run of the model). Experiment files to keep
-    are stored here: model file, all versions of node parameters, all versions of aggregated parameters, breakpoints.
-    The created folder is a subdirectory of environ[EXPERIMENTS_DIR]
+def create_exp_folder(experiments_dir, experimentation_folder: str = None) -> str:
+    """Creates a folder for the current experiment (ie the current run of the model).
+
+    Experiment files to keep are stored here: model file, all versions of node parameters,
+    all versions of aggregated parameters, breakpoints. The created folder is a
+    subdirectory of config.vars[EXPERIMENTS_DIR]
 
     Args:
+        experiments_dir: Base directory for storing experiments files
         experimentation_folder (str, optional): optionaly provide an experimentation
             folder name. This should just contain the name of the folder not a path.
             default; if no folder name is given, generate a `Experiment_x` name where `x-1`
@@ -34,18 +36,10 @@ def create_exp_folder(experimentation_folder: str = None) -> str:
         OSError: cannot create experimentation folder
         ValueError: bad `experimentation_folder` argument
     """
-    if not os.path.isdir(environ['EXPERIMENTS_DIR']):
-        try:
-            os.makedirs(environ['EXPERIMENTS_DIR'], exist_ok=True)
-        except (PermissionError, OSError) as err:
-            logger.error("Can not save experiment files because " +
-                         f"{environ['EXPERIMENTS_DIR']} folder could not be created due to {err}")
-            raise
-    # if no name is given for the experiment folder we choose one
     if not experimentation_folder:
         # FIXME: improve method robustness (here nb of exp equals nb of files
         # in directory)
-        all_files = os.listdir(environ['EXPERIMENTS_DIR'])
+        all_files = os.listdir(experiments_dir)
         experimentation_folder = "Experiment_" + str("{:04d}".format(len(all_files)))
     else:
         if os.path.basename(experimentation_folder) != experimentation_folder:
@@ -53,25 +47,31 @@ def create_exp_folder(experimentation_folder: str = None) -> str:
             raise ValueError(f"Bad experimentation folder {experimentation_folder} - " +
                              "it cannot be a path")
     try:
-        os.makedirs(os.path.join(environ['EXPERIMENTS_DIR'], experimentation_folder),
+        os.makedirs(os.path.join(experiments_dir, experimentation_folder),
                     exist_ok=True)
     except (PermissionError, OSError) as err:
         logger.error("Can not save experiment files because " +
-                     f"{environ['EXPERIMENTS_DIR']}/{experimentation_folder} " +
+                     f"{experiments_dir}/{experimentation_folder} " +
                      f"folder could not be created due to {err}")
         raise
 
     return experimentation_folder
 
 
-def choose_bkpt_file(experimentation_folder: str, round_: int = 0) -> Tuple[str, str]:
+def choose_bkpt_file(
+    experiments_dir,
+    experimentation_folder: str,
+    round_: int = 0
+) -> Tuple[str, str]:
     """
     It creates a breakpoint folder and chooses a breakpoint file name for each round.
 
     Args:
-        experimentation_folder (str): indicates the experimentation folder name. This should just contain the name
-            of the folder not a full path.
-        round_: the current number of already run rounds minus one. Starts from 0. Defaults to 0.
+        experiments_dir: Base directory for storing experiments files
+        experimentation_folder (str): indicates the experimentation folder name.
+            This should just contain the name of the folder not a full path.
+        round_: the current number of already run rounds minus one.
+            Starts from 0. Defaults to 0.
 
     Raises:
         PermissionError: cannot create experimentation folder
@@ -79,12 +79,13 @@ def choose_bkpt_file(experimentation_folder: str, round_: int = 0) -> Tuple[str,
 
     Returns:
         A tuple that contains following instacens
-            breakpoint_folder_path: name of the created folder that will contain all data for the current round
+            breakpoint_folder_path: name of the created folder that will contain all data
+            for the current round
             breakpoint_file: name of the file that will contain the state of an experiment.
     """
 
     breakpoint_folder = "breakpoint_" + str("{:04d}".format(round_))
-    breakpoint_folder_path = os.path.join(environ['EXPERIMENTS_DIR'],
+    breakpoint_folder_path = os.path.join(experiments_dir,
                                           experimentation_folder,
                                           breakpoint_folder)
 
@@ -239,13 +240,16 @@ def _get_latest_file(pathfile: str,
     return latest_folder
 
 
-def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
-    """ Finds breakpoint folder path and file, depending on if user specifies a specific breakpoint path (unchanged in
-    this case) or not (try to guess the latest breakpoint).
+def find_breakpoint_path(experiment_dir: str, breakpoint_folder_path: str | None = None) -> Tuple[str, str]:
+    """ Finds breakpoint folder path and file, depending on if user specifies a
+    specific breakpoint path (unchanged in this case) or not (try to guess the
+    latest breakpoint).
 
     Args:
-        breakpoint_folder_path: path towards breakpoint. If None, (default), consider the latest breakpoint saved on
-            default path (provided at least one breakpoint exists). Defaults to None.
+        experiments_dir: Base directory for storing experiments files
+        breakpoint_folder_path: path towards breakpoint. If None, (default), consider the
+            latest breakpoint saved on default path (provided at least one breakpoint
+            exists). Defaults to None.
 
     Returns:
         With length of two that represents respectively:
@@ -263,17 +267,17 @@ def find_breakpoint_path(breakpoint_folder_path: str = None) -> Tuple[str, str]:
             # retrieve latest experiment
 
             # for error message
-            latest_exp_folder = environ['EXPERIMENTS_DIR'] + "/NO_FOLDER_FOUND"
+            latest_exp_folder = experiment_dir + "/NO_FOLDER_FOUND"
 
             # content of breakpoint folder
-            experiment_folders = os.listdir(environ['EXPERIMENTS_DIR'])
+            experiment_folders = os.listdir(experiment_dir)
 
             latest_exp_folder = _get_latest_file(
-                environ['EXPERIMENTS_DIR'],
+                experiment_dir,
                 experiment_folders,
                 only_folder=True)
 
-            latest_exp_folder = os.path.join(environ['EXPERIMENTS_DIR'],
+            latest_exp_folder = os.path.join(experiment_dir,
                                              latest_exp_folder)
 
             bkpt_folders = os.listdir(latest_exp_folder)

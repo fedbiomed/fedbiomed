@@ -1,12 +1,10 @@
-from testsupport.base_case import ResearcherTestCase
-
 import unittest
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 
-class TestAggregator(ResearcherTestCase):
+class TestAggregator(unittest.TestCase):
     '''
     Test the Aggregator class
     '''

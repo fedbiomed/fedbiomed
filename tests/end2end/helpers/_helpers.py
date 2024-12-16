@@ -387,6 +387,8 @@ def create_researcher(
     )
 
     os.environ['RESEARCHER_CONFIG_FILE'] = researcher.name
+    from fedbiomed.researcher.config import config
+    config.load(name=researcher.name)
 
     return researcher
 

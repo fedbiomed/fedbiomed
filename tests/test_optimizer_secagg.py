@@ -10,17 +10,12 @@ import unittest
 import secrets
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from unittest.mock import MagicMock, patch
-#############################################################
-# Import NodeTestCase before importing FedBioMed Module
-from fedbiomed.common.constants import SecureAggregationSchemes
+
 from fedbiomed.common.models import TorchModel
 from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.secagg._secagg_crypter import SecaggLomCrypter
-from fedbiomed.researcher.requests._requests import FederatedRequest
-from fedbiomed.researcher.secagg._secure_aggregation import SecureAggregation
-from testsupport.base_case import NodeTestCase
-#############################################################
+
 import declearn
 import declearn.model.torch
 from fedbiomed.node.secagg._secagg_round import SecaggRound
@@ -736,8 +731,8 @@ class TestAuxVarSecAgg(unittest.TestCase):
 
     
 # idea: test encrypted value if array is full of zeros: check how works encryption in this case
-class TestAuxVarSecAggLOM(NodeTestCase):
-    @patch('fedbiomed.node.secagg._secagg_round.DHManager')
+class TestAuxVarSecAggLOM(unittest.TestCase):
+    @patch('fedbiomed.node.secagg._secagg_round.SecaggDhManager')
     def test_secagg_01_scaffold_and_weights_lom_encryption(self, dhmanager_patch):
         for num_nodes in (2, 3, 5, 10, 20, 23):
 
@@ -757,9 +752,7 @@ class TestAuxVarSecAggLOM(NodeTestCase):
 
             party_a = list(cleartext_a[0]['clients'])[0]
 
-            self.env._values["ID"] = party_a
             # simulate correct encryption on Node side (model_weights+ )
-            self.env._values["SECURE_AGGREGATION"] = True
             exp_id = 'experiment_id_1234'
             c_round = 1
             sample_size = len(targets)
@@ -770,7 +763,7 @@ class TestAuxVarSecAggLOM(NodeTestCase):
                         'parties': [party_a]*num_nodes,
                         'secagg_dh_id': 'secagg_id_xxxx'}
             
-            dhmanager_patch.get.return_value = {'parties': secagg_args['parties'],
+            dhmanager_patch.return_value.get.return_value = {'parties': secagg_args['parties'],
                                                 'context': {party_a: b"\xba\xb2\xf2'\xa3\xa7\xb6\xee\x15uM\xf6j\x0f\xa9\xf8B}/ \x81]3\xa9p\x8b\xee\x9e:\xa8i("}
             }
 
@@ -778,7 +771,14 @@ class TestAuxVarSecAggLOM(NodeTestCase):
             # process with party_a
             ## encrypt only aux var for party a
             for n in range(num_nodes):
-                lom_secagg_party_a = SecaggRound(secagg_args, experiment_id=exp_id)
+                lom_secagg_party_a = SecaggRound(
+                    db='dummy',
+                    node_id=party_a,
+                    secagg_arguments=secagg_args,
+                    secagg_active=True,
+                    force_secagg=False,
+                    experiment_id=exp_id
+                )
                 encrypted_aux_var_a = lom_secagg_party_a.scheme.encrypt(flat_a, c_round, weight=sample_size)
                 encrypted_aux_var_a = EncryptedAuxVar([encrypted_aux_var_a], enc_specs_a, cleartext_a, clear_cls_a)
                 encrypted_aux_vars.append(encrypted_aux_var_a)
@@ -842,73 +842,3 @@ def _get_scaffold_optimizer_researcher(model, lr=.7):
     for p in researcher_optim._model.model.parameters():
         p.data.fill_(0)
     return researcher_optim
-    # @patch('fedbiomed.researcher.secagg._secagg_context.Requests')
-    # @patch('fedbiomed.researcher.secagg._secagg_context.SecaggDHContext')
-    # @patch('fedbiomed.common.secagg_manager.SecaggDhManager')
-    # @patch('fedbiomed.node.secagg._secagg_round.DHManager')
-    # def test_secagg_xx_wrapper_lom_aux_var(self, dhmanager_patch,  secaggdhmanager_patch, server_start_patch,request_patch):
-    #     #dhmanager_patch.get.return_value = {'parties';[]}
-
-    #     # TODO: test with 2 clients, and with more clients
-
-    #     request_patch.return_value.send = MagicMock(spec=FederatedRequest)
-    #     request_patch.return_value.send.return_value.__enter__.return_value.policy.has_stopped_any = MagicMock(return_value=False)
-    #     request_patch.return_value.send.return_value.__enter__.return_value.errors = MagicMock(return_value=False)
-    #     # modifying environment
-    #     self.env._values["SECURE_AGGREGATION"] = True
-
-    #     aux_a = generate_scaffold_aux_var()
-    #     aux_b = generate_scaffold_aux_var()
-
-    #     expect = {key: val_a + aux_b[key] for key, val_a in aux_a.items()}
-    #     # Flatten, encrypt and wrap up auxiliary variables.
-    #     flat_a, enc_specs_a, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(aux_a)
-    #     flat_b, enc_specs_b, cleartext_b, clear_cls_b = flatten_auxvar_for_secagg(aux_b)
-    #     print(flat_a, "/n", enc_specs_a, "/n",cleartext_a, "/n", clear_cls_a, "/n" ,expect)
-        
-    #     #  `sample_size`=1
-    #     print()
-    #     print(cleartext_a[0])
-    #     c_round = 1
-    #     sample_size = 1
-    #     exp_id = 'experiment_id_1234'
-    #     party_a, party_b = list(cleartext_a[0]['clients'])[0], list(cleartext_b[0]['clients'])[0]
-    #     self.env._values["ID"] = party_a
-    #     secagg_args = {'secagg_scheme': 2,
-    #                    #'secagg_random': .123,
-    #                    'secagg_clipping_range':None,
-    #                    'parties': [party_a, party_b],
-    #                    'secagg_dh_id': 'secagg_id_xxxx'}
-    #     dhmanager_patch.get.return_value = {'parties': secagg_args['parties'],
-    #                                         'context': {party_b: b"\xba\xb2\xf2'\xa3\xa7\xb6\xee\x15uM\xf6j\x0f\xa9\xf8B}/ \x81]3\xa9p\x8b\xee\x9e:\xa8i("}
-    #     }
-    #     lom_secagg = SecaggRound(secagg_args, experiment_id=exp_id)
-
-    #     encrypted_a = lom_secagg.scheme.encrypt(flat_a, current_round=c_round, weight=sample_size)
-
-    #     dhmanager_patch.get.return_value = {'parties': secagg_args['parties'],
-    #                                         'context': {party_a: b"\xba\xb2\xf2'\xa3\xa7\xb6\xee\x15uM\xf6j\x0f\xa9\xf8B}/ \x81]3\xa9p\x8b\xee\x9e:\xa8i("}
-    #     }
-    #     encrypted_b = lom_secagg.scheme.encrypt(flat_b, current_round=c_round, weight=sample_size)
-
-    #     encrypted_a = EncryptedAuxVar(encrypted_a, enc_specs_a, cleartext_a, clear_cls_a)
-    #     encrypted_b = EncryptedAuxVar(encrypted_b, enc_specs_b, cleartext_b, clear_cls_b)
-    #     print(flat_a, encrypted_a)
-
-    #     print("expecting", enc_specs_a)
-    #     # mimicks `_preaggregate_encrypted_optim_auxvar` method
-        
-    #     # aggregation
-    #     secagg = SecureAggregation(scheme=SecureAggregationSchemes.LOM)
-
-    #     self.assertEqual(encrypted_a.get_num_expected_params(), encrypted_b.get_num_expected_params())
-    #     #n_samples = sum([encrypted_a.get_num_expected_params(), encrypted_b.get_num_expected_params()])
-    #     n_samples = encrypted_a.get_num_expected_params()
-    #     encrypted_model_weights = {p: enc for p, enc in zip([party_a, party_b], (encrypted_a, encrypted_b,))}
-    #     import pdb; pdb.set_trace()
-    #     secagg.setup(parties=[party_a, party_b], experiment_id=exp_id)
-        
-    #     flatten = secagg.aggregate(
-    #                                total_sample_size=n_samples,
-    #                                model_params=encrypted_model_weights,
-    #                                clipping_range=None)

@@ -12,9 +12,8 @@ from fedbiomed.common.utils import (
     matching_parties_servkey,
     matching_parties_dh
 )
-from fedbiomed.node.environ import environ
 from fedbiomed.common.secagg import SecaggCrypter, SecaggLomCrypter
-from fedbiomed.node.secagg_manager import SKManager, DHManager
+from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggDhManager
 
 
 class _SecaggSchemeRound(ABC):
@@ -26,12 +25,14 @@ class _SecaggSchemeRound(ABC):
 
     def __init__(
         self,
+        node_id: str,
         secagg_arguments: Dict,
         experiment_id: str
     ) -> None:
         """Constructor of the class
 
         Args:
+            node_id: Id of the active node.
             secagg_arguments:  secure aggregation arguments from train request
             experiment_id: Experiment identifier that secure aggregation round
                 will be performed for.
@@ -44,6 +45,8 @@ class _SecaggSchemeRound(ABC):
                 f"{ErrorNumbers.FB318.value}: Bad secagg clipping range type in train "
                 f"request: {type(secagg_clipping_range)}"
             )
+
+        self._node_id = node_id
         self._secagg_clipping_range = secagg_clipping_range
         self._parties = secagg_arguments.get('parties', [])
         self._secagg_arguments = secagg_arguments
@@ -90,23 +93,28 @@ class _JLSRound(_SecaggSchemeRound):
 
     def __init__(
         self,
+        db: str,
+        node_id: str,
         secagg_arguments: Dict,
         experiment_id: str
     ) -> None:
         """Constructor of the class
 
         Args:
+            db: Path to database file.
+            node_id: ID of the active node.
             secagg_arguments:  secure aggregation arguments from train request
             experiment_id: unique ID of experiment
 
         Raises:
             FedbiomedSecureAggregationError: Invalid secure aggregation setup
         """
-        super().__init__(secagg_arguments, experiment_id)
+        super().__init__(node_id, secagg_arguments, experiment_id)
 
         # setup
         secagg_servkey_id = secagg_arguments.get('secagg_servkey_id')
-        self._secagg_servkey = SKManager.get(
+        self._secagg_manager = SecaggServkeyManager(db)
+        self._secagg_servkey = self._secagg_manager.get(
             secagg_id=secagg_servkey_id, experiment_id=self._experiment_id)
 
         if self._secagg_servkey is None:
@@ -153,10 +161,12 @@ class _LomRound(_SecaggSchemeRound):
     """
     _min_num_parties: int = 2
 
-    def __init__(self, secagg_arguments: Dict, experiment_id: str):
+    def __init__(self, db, node_id, secagg_arguments: Dict, experiment_id: str):
         """Constructor of the class
 
         Args:
+            db: Path to database file.
+            node_id: ID of the active node.
             secagg_arguments:  secure aggregation arguments from train request
             experiment_id: unique ID of experiment
 
@@ -164,12 +174,12 @@ class _LomRound(_SecaggSchemeRound):
             FedbiomedSecureAggregationError: no matching secagg context for this ID
             FedbiomedSecureAggregationError: parties in secagg context don't match experiment
         """
-        super().__init__(secagg_arguments, experiment_id)
+        super().__init__(node_id, secagg_arguments, experiment_id)
 
         secagg_dh_id = secagg_arguments.get('secagg_dh_id')
-
+        self._secagg_manager = SecaggDhManager(db)
         self._secagg_id = secagg_dh_id
-        self._secagg_dh = DHManager.get(secagg_id=secagg_dh_id, experiment_id=experiment_id)
+        self._secagg_dh = self._secagg_manager.get(secagg_id=secagg_dh_id, experiment_id=experiment_id)
 
         if self._secagg_dh is None:
             raise FedbiomedSecureAggregationError(
@@ -204,7 +214,7 @@ class _LomRound(_SecaggSchemeRound):
         """
         return self.crypter.encrypt(
             node_ids=self._secagg_dh["parties"],  # -1: don't count researcher
-            node_id=environ["ID"],
+            node_id=self._node_id,
             current_round=current_round,
             params=params,
             pairwise_secrets=self._secagg_dh['context'],
@@ -228,21 +238,29 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
 
     def __init__(
         self,
-        secagg_arguments: Dict[str, Any],
+        db: str,
+        node_id: str,
+        secagg_arguments: Dict[str, Any] | None,
+        secagg_active: bool,
+        force_secagg: bool,
         experiment_id: str
     ) -> None:
         """Constructor of the class"""
 
+        self._node_id = node_id
+        self._secagg_active = secagg_active
+        self._force_secagg = force_secagg
+
         self.use_secagg: bool = False
         self.scheme: _SecaggSchemeRound | None = None
 
-        if not secagg_arguments and environ["FORCE_SECURE_AGGREGATION"]:
+        if not secagg_arguments and self._force_secagg:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB318.value}: Node requires to apply secure aggregation but "
                 f"training request does not define it.")
 
         if secagg_arguments:
-            if not environ["SECURE_AGGREGATION"]:
+            if not self._secagg_active:
                 raise FedbiomedSecureAggregationError(
                     f"{ErrorNumbers.FB318.value} Requesting secure aggregation while "
                     "it's not activated on the node."
@@ -262,5 +280,7 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
                     f"{ErrorNumbers.FB318.value}: Bad secagg scheme value in train request: {sn}"
                 ) from e
 
-            self.scheme = SecaggRound.element2class[_scheme.value](secagg_arguments, experiment_id)
+            self.scheme = SecaggRound.element2class[_scheme.value](
+                db, node_id, secagg_arguments, experiment_id
+            )
             self.use_secagg = True
