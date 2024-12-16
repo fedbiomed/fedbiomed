@@ -117,7 +117,7 @@ def start_node(name, node_args):
             time.sleep(0.5)
             sys.exit(signum)
 
-    logger.setLevel("INFO")
+    logger.setLevel("DEBUG")
 
 
     try:
