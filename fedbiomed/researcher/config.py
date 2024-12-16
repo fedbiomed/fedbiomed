@@ -14,6 +14,7 @@ from fedbiomed.common.constants import (
 
 from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.config import Config
+from fedbiomed.common.logger import logger
 
 
 class ResearcherConfig(Config):
@@ -64,6 +65,8 @@ class ResearcherConfig(Config):
         os.makedirs(self.vars['EXPERIMENTS_DIR'], exist_ok=True)
         os.makedirs(self.vars['TENSORBOARD_RESULTS_DIR'], exist_ok=True)
 
+
+logger.setLevel("DEBUG")
 
 config_name = os.environ.get("FBM_RESEARCHER_CONFIG_FILE", DEFAULT_CONFIG_FILE_NAME_RESEARCHER)
 config = ResearcherConfig(name=config_name)
