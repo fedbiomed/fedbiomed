@@ -1,3 +1,4 @@
+import os
 import importlib.machinery
 import importlib.util
 import argparse
@@ -6,7 +7,8 @@ from unittest.mock import patch
 
 
 # Load `scripts/fedbiomed` as a module
-scripts_fedbiomed_loader = importlib.machinery.SourceFileLoader('scripts_fedbiomed', '../scripts/fedbiomed')
+path_to_fedbiomed = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', 'scripts', 'fedbiomed'))
+scripts_fedbiomed_loader = importlib.machinery.SourceFileLoader('scripts_fedbiomed', path_to_fedbiomed)
 scripts_fedbiomed_spec = importlib.util.spec_from_loader(scripts_fedbiomed_loader.name, scripts_fedbiomed_loader)
 scripts_fedbiomed = importlib.util.module_from_spec(scripts_fedbiomed_spec)
 scripts_fedbiomed_loader.exec_module(scripts_fedbiomed)
