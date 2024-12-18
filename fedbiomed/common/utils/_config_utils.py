@@ -25,8 +25,11 @@ def _get_fedbiomed_root() -> str:
         Absolute path of Fed-BioMed root directory
     """
 
-    return os.path.abspath(os.path.join(__file__, '..', "..", "..", ".."))
+    root =  os.path.abspath(os.path.join(__file__, '..', "..", ".."))
+    if "envs" in os.listdir(root):
+        return root
 
+    return os.path.abspath(os.path.join(root, '..'))
 
 # Main directories definition
 ROOT_DIR = _get_fedbiomed_root()
@@ -158,3 +161,5 @@ def create_fedbiomed_setup_folders(root: str):
     for dir_ in [etc_config_dir, var_dir, cache_dir, tmp_dir]:
         if not os.path.isdir(dir_):
             os.makedirs(dir_)
+
+    return etc_config_dir, var_dir, cache_dir, tmp_dir

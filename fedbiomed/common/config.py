@@ -7,6 +7,7 @@ import uuid
 
 from abc import ABCMeta, abstractmethod
 from typing import Any, Optional, Dict
+from packaging.version import Version
 
 from fedbiomed.common.constants import (
     ErrorNumbers,
@@ -15,65 +16,13 @@ from fedbiomed.common.constants import (
     CERTS_FOLDER_NAME,
     DB_PREFIX,
 )
+
 from fedbiomed.common.utils import (
     create_fedbiomed_setup_folders,
     raise_for_version_compatibility,
-    CONFIG_DIR,
-    ROOT_DIR,
+    read_file
 )
 from fedbiomed.common.exceptions import FedbiomedConfigurationError
-
-
-def is_config_existing(path: str) -> bool:
-    """Checks if config file exists
-
-    Args:
-        path: Path to a possibly existing config file
-
-    Returns:
-        True if config file is already existing
-    """
-    return os.path.isfile(path)
-
-
-def get_config_path(root: Optional[str], name: str) -> str:
-    """Compute configuration path for a config file
-
-    Args:
-        root: Root directory path
-        name: Name of config file
-
-    Returns:
-        Configuration path
-    """
-    if root:
-        path = os.path.join(root, CONFIG_FOLDER_NAME, name)
-    else:
-        path = os.path.join(CONFIG_DIR, name)
-
-    return path
-
-
-def get_config_name(name: Optional[str], component_type: str, default_config_file_name: str) -> str:
-    """Compute configuration file name
-
-    Args:
-        name: Configuration file name, if it is provided
-        component_type: Type of component
-        default_config_file_name: Default value for the configuration file name
-
-    Returns:
-        Configuration file name
-    """
-
-    # First try to get component specific config file name, then CONFIG_FILE
-    default_config = os.getenv(
-        f"{component_type}_CONFIG_FILE",
-        os.getenv("CONFIG_FILE", default_config_file_name),
-    )
-
-    return name if name else default_config
-
 
 class Config(metaclass=ABCMeta):
     """Base Config class
@@ -86,9 +35,9 @@ class Config(metaclass=ABCMeta):
             as dynamic paths that relies of component root etc.
     """
 
-    _DEFAULT_CONFIG_FILE_NAME: str = "config"
-    _COMPONENT_TYPE: str
-    _CONFIG_VERSION: str
+    _CONFIG_FILE_NAME: str = "config.ini"
+    _CONFIG_VERSION: Version
+    COMPONENT_TYPE: str
 
     _cfg: configparser.ConfigParser
     root: str
@@ -98,10 +47,7 @@ class Config(metaclass=ABCMeta):
     vars: Dict[str, Any] = {}
 
     def __init__(
-        self,
-        root: str | None = None,
-        name: Optional[str] = None,
-        auto_generate: bool = True
+        self, root: str, auto_generate: bool = True
     ) -> None:
         """Initializes configuration
 
@@ -112,14 +58,12 @@ class Config(metaclass=ABCMeta):
             auto_generate: Generated all component files, folder, including
                 configuration file.
         """
-        self.name = get_config_name(name, self._COMPONENT_TYPE, self._DEFAULT_CONFIG_FILE_NAME)
-
         self._cfg = configparser.ConfigParser()
-        self.load(self.name, root, auto_generate)
+        self.load(root, auto_generate)
 
     @classmethod
     @abstractmethod
-    def _COMPONENT_TYPE(cls):  # pylint: disable=C0103
+    def COMPONENT_TYPE(cls):  # pylint: disable=C0103
         """Abstract attribute to oblige defining component type"""
 
     @classmethod
@@ -129,7 +73,6 @@ class Config(metaclass=ABCMeta):
 
     def load(
         self,
-        name: str,
         root: str | None = None,
         auto_generate: bool = True
     ) -> None:
@@ -144,13 +87,10 @@ class Config(metaclass=ABCMeta):
             auto_generate: Generated all component files, folder, including
                 configuration file.
         """
-        self.name = name
-
-        self.path = get_config_path(root, self.name)
         if root:
             self.root = root
-        else:
-            self.root = ROOT_DIR
+
+        self.config_path = os.path.join(self.root, 'etc', self._CONFIG_FILE_NAME)
 
         if auto_generate or self.is_config_existing():
             self.generate()
@@ -165,21 +105,20 @@ class Config(metaclass=ABCMeta):
             True if config file is already existing
         """
 
-        return is_config_existing(self.path)
+        return os.path.isfile(self.config_path)
 
     def read(self) -> bool:
         """Reads configuration file that is already existing in given path
 
         Raises verision compatibility error
         """
-
-        self._cfg.read(self.path)
+        self._cfg.read(self.config_path)
 
         # Validate config version
         raise_for_version_compatibility(
             self._cfg["default"]["version"],
             self._CONFIG_VERSION,
-            f"Configuration file {self.path}: found version %s expected version %s",
+            f"Configuration file {self.config_path}: found version %s expected version %s",
         )
 
         return True
@@ -222,11 +161,11 @@ class Config(metaclass=ABCMeta):
         """Writes config file"""
 
         try:
-            with open(self.path, "w", encoding="UTF-8") as f:
+            with open(self.config_path, "w", encoding="UTF-8") as f:
                 self._cfg.write(f)
         except configparser.Error as exp:
             raise FedbiomedConfigurationError(
-                f"{ErrorNumbers.FB600.value}: cannot save config file: " + self.path
+                f"{ErrorNumbers.FB600.value}: cannot save config file:  {self.path}"
             ) from exp
 
     def generate(
@@ -244,11 +183,11 @@ class Config(metaclass=ABCMeta):
         # Check if configuration is already existing
         if not self.is_config_existing() or force:
             # Create default section
-            component_id = id if id else f"{self._COMPONENT_TYPE}_{uuid.uuid4()}"
+            component_id = id if id else f"{self.COMPONENT_TYPE}_{uuid.uuid4()}"
 
             self._cfg["default"] = {
                 "id": component_id,
-                "component": self._COMPONENT_TYPE,
+                "component": self.COMPONENT_TYPE,
                 "version": str(self._CONFIG_VERSION),
             }
 
@@ -258,7 +197,6 @@ class Config(metaclass=ABCMeta):
             self._cfg["default"]["db"] = os.path.relpath(
                 db_path, os.path.join(self.root, CONFIG_FOLDER_NAME)
             )
-
 
             # Calls child class add_parameterss
             self.add_parameters()
@@ -297,8 +235,78 @@ class Config(metaclass=ABCMeta):
             )
 
         # Read the config
-        self._cfg.read(self.path)
+        self._cfg.read(self.config_path)
         id = self._cfg["default"]["id"]
 
         # Generate by keeping the component ID
         self.generate(force=True, id=id)
+
+
+class Component:
+
+    config_cls: type
+    _config: Config
+    _default_component_name: str
+
+    def __init__(self):
+        """Test"""
+        self._reference = '.fedbiomed'
+
+    def create(self, root: str | None = None) -> Config:
+        """Create component"""
+
+        if not root:
+            root = os.path.join(os.getcwd(), self._default_component_name)
+
+        reference = self.validate(root)
+        config = self.config_cls(root, auto_generate=False)
+
+        if not os.path.isfile(reference):
+            create_fedbiomed_setup_folders(root)
+            with open(os.path.join(root, '.fedbiomed'), 'w', encoding='UTF-8') as file_:
+                file_.write(self.config_cls.COMPONENT_TYPE)
+            config.generate()
+            config.write()
+        else:
+            config.read()
+
+        return config
+
+
+    def is_component_existing(self, component_dir: str) -> bool:
+        """Checks if component existing in the given root directory
+
+        Returns:
+            True if any component is instantiated in the given directory
+        """
+        ref = os.path.join(component_dir, self._reference)
+        if os.path.isdir(component_dir):
+            if os.listdir(component_dir) and not os.path.isfile(ref):
+                raise ValueError(
+                    f'Path {component_dir} is not empty for Fed-BioMed component initialization.'
+                )
+        return os.path.isfile(ref)
+
+    def validate(self, root) -> str:
+        """Validates given root folder is a component can be instantiated
+
+        Args:
+            root: Root directory that Fed-BioMed component will be instantiated.
+
+        Returns:
+            Full path to reference file
+        """
+
+        iscomp = self.is_component_existing(root)
+        ref = os.path.join(root, self._reference)
+
+        if iscomp:
+            comp_type = read_file(ref)
+            if comp_type != self.config_cls.COMPONENT_TYPE:
+                raise ValueError(
+                    f'Component directory has already been initilazed for component type {comp_type}'
+                    ' can not overwrite or reuse it for component type '
+                    f'{self.config_cls.COMPONENT_TYPE}')
+
+        return ref
+

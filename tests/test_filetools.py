@@ -13,7 +13,7 @@ class TestFiletools(unittest.TestCase):
     def setUp(self):
 
         self.temp_dir = tempfile.TemporaryDirectory()
-        config.load(root=self.temp_dir.name, name='test-config.ini')
+        config.load(root=self.temp_dir.name)
         self.testdir = config.vars["EXPERIMENTS_DIR"]
 
     def tearDown(self) -> None:
