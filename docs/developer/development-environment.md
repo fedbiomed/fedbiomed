@@ -38,9 +38,9 @@ Before start using Fed-BioMed or start developing on Fed-BioMed please make sure
 
 ### Use a virtual environments to manage dependencies
 
-Using virtual environments will allow you to isolate your Fed-BioMed development environment from your other projects. There, you have of course several options. You can use `virtualenv` or `conda` or any other compatible Python virtual environment tools.
+Using virtual environments will allow you to isolate your Fed-BioMed development environment from your other projects. There, you have of course several options. You can use build-in python `venv` or `conda` or any other compatible Python virtual environment tools.
 
-While `conda` allows also installing a specified Python version, `virtualenv` requires that the Python, and Pip is already installed. Therefore, if `conda` is used using another tools like `pyenv` is not required to be installed and used to manage Python versions. However, if `virtualenv` is preferred, then, using tools `pyenv` to install required Python version is recommended.
+While `conda` allows also installing a specified Python version, `venv` requires that the Python, and Pip is already installed. Therefore, if `conda` is used using another tools like `pyenv` is not required to be installed and used to manage Python versions. However, if `venv` is preferred, then, using tools `pyenv` to install required Python version is recommended.
 
 #### Case: venv
 
@@ -48,7 +48,7 @@ The advantage of `venv` is that it keeps all project dependencies within your pr
 
 ```
 cd <path-to-fedbiomed-clone>
-python -m venv dev-env
+python -m venv ./dev-env
 ```
 
 The command above will generate `dev-env` folder in the project folder where all the project dependencies are kept.
@@ -66,7 +66,7 @@ You can also use default naming convention `.venv` for virtual environment name.
 `conda` can install Python version directly in the environment that is created. The command below will create a virtual environment and install the specified Python version.
 
 ```
-conda env creaate --name fedbiomed-dev python=3.11
+conda creaate --name fedbiomed-dev python=3.10
 conda activate fedbiomed-dev
 ```
 
@@ -123,8 +123,10 @@ To verify your installation please run `pytest tests` to make sure there is no m
 
 ## Trouble shooting
 
+You may encounter some common issues during installation or after the installation due to some missing packages. Please visit [troubleshooting](../support/troubleshooting.md) dedicated page for common issues.
+
 ### Error on MacOS: `_lzma` module not found
 
-If you are using MacOS and installing Python versions through `pyenv` you may have some missing packages in your environment. `ModuleNotFoundError: No module named '_lzma'` is one of them. If you faced this error please install `brew install xz`, and reinstall python version `pyenv insntall <version>`.
+If you are using MacOS and installing Python versions through `pyenv` you may have some missing packages in your environment. `ModuleNotFoundError: No module named '_lzma'` is one of them. If you faced this error please install `brew install xz`, and reinstall python version `pyenv install <version>`.
 
 
