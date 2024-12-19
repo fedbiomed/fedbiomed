@@ -1,8 +1,9 @@
 from flask import request
-from utils import error
-from config import config
 
 from fedbiomed.node.dataset_manager import DatasetManager
+
+from ..utils import error
+from ..config import config
 
 # Initialize Fed-BioMed DatasetManager
 dataset_manager = DatasetManager(config["NODE_DB_PATH"])

@@ -11,6 +11,7 @@ from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
 
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.config import NodeConfig
+from fedbiomed.node.config import NodeComponent
 from torchvision import transforms, datasets
 
 
@@ -18,7 +19,7 @@ from torchvision import transforms, datasets
 def parse_args():
     """Argument Parser"""
     parser = argparse.ArgumentParser(description='MEDNIST sampler. Creates configuration files with sub-sets of the MedNIST dataset')
-    parser.add_argument('-f', '--root_folder', required=False, type=str, default=ROOT_DIR,
+    parser.add_argument('-f', '--root_folder', required=False, type=str, default=os.getcwd(),
                         help='')
     parser.add_argument('-F', '--force', action=argparse.BooleanOptionalAction, required=False, type=bool, default=False,
                         help='forces overwriting a config file')
@@ -27,29 +28,20 @@ def parse_args():
     return parser.parse_args()
 
 
-def manage_config_file(args: argparse.ArgumentParser,
-                       mednist_center_name: str = "mednist",
-                       config_files: Optional[List[str]] = None):
+def manage_config_file(
+    mednist_center_name: str = "mednist",
+):
     """Creates config file for subsampled datasets
 
     Args:
         args (argparse.ArgumentParser): args parser
         mednist_center_name (str, optional): name for the node id, as well as the config file and the databse json.
             Defaults to "mednist".
-        config_files (Optional[List[str]], optional): list of config names. Calling method will append the name of the config file to the list.
-        Defaults to None.
     """
-    mednist_center_name = "config_" + mednist_center_name
-    config = NodeConfig(root=ROOT_DIR, name=f"{mednist_center_name}.ini".lower(), auto_generate=False)
-    if config.is_config_existing() and not args.force:
-        print(f"**Warning: config file for {mednist_center_name.lower()} already exists. To overwrite, please specify `--force` option")
-    else:
-        config.generate(force=args.force)
-
-    config.generate()
-
-    if config_files is not None:
-        config_files.append(mednist_center_name.lower())
+    mednist_center_name = "node_" + mednist_center_name
+    component = NodeComponent()
+    center_folder = os.path.join(os.getcwd(), mednist_center_name)
+    config = component.create(root=center_folder)
 
     return config
 
@@ -106,8 +98,10 @@ class MedNISTDataset(DatasetManager):
     def load_mednist_database(self, path: str, as_dataset: bool = False) -> Tuple[List[int] | Any]:
         # little hack that download MedNIST dataset if it is not located in directory and save in the database
         # the sampled values
-        val, download_path = super().load_mednist_database(Path(path).parent, as_dataset)
 
+        val, download_path = super().load_mednist_database(
+            Path(path).parent, as_dataset
+        )
 
         dataset = datasets.ImageFolder(path,
                                        transform=transforms.ToTensor())
@@ -203,7 +197,8 @@ if __name__ == '__main__':
     args = parse_args()
     root_folder = os.path.abspath(os.path.expanduser(args.root_folder))
     assert os.path.isdir(root_folder), f'Folder does not exist: {root_folder}'
-    data_folder = os.path.join(root_folder, 'notebooks', 'data')
+    data_folder = os.path.join(root_folder, 'data')
+    os.makedirs(data_folder, exist_ok=True)
 
     n_nodes = args.number_nodes
 
@@ -213,11 +208,12 @@ if __name__ == '__main__':
         print("Now creating Node: ", f"MedNIST_{n+1}")
         n_sample: Union[str, int] = ask_nb_sample_for_mednist_dataset()
 
-        if n_sample != '':  # this means user has pressed `enter` -> load the whole MedNIST dataset
+        if n_sample != '':
             config =  manage_config_file(args, _name, config_files)
-            dataset = MedNISTDataset(os.path.join(ROOT_DIR, 'etc', config.get('default', 'db')),
-                                    os.path.join(data_folder, 'MedNIST'),
-                                     args.random_seed)
+            dataset = MedNISTDataset(
+                os.path.join(config.root, 'etc', config.get('default', 'db')),
+                os.path.join(data_folder, 'MedNIST'),
+                args.random_seed)
             d_path = dataset.sample_image_dataset(
                                                   int(n_sample),
                                                   n_classes=6,
@@ -226,7 +222,8 @@ if __name__ == '__main__':
             _name = f"MedNIST_{n+1}"
             config = manage_config_file(args, _name, config_files)
             d_path = os.path.join(data_folder, 'MedNIST')
-            dataset = MedNISTDataset(os.path.join(ROOT_DIR, 'etc', config.get('default', 'db')), d_path)
+            dataset = MedNISTDataset(
+                os.path.join(config.root, 'etc', config.get('default', 'db')), d_path)
 
         try:
             dataset.add_database(_name,
@@ -237,14 +234,14 @@ if __name__ == '__main__':
                                  )
         except FedbiomedDatasetManagerError as e:
             print("Cannot generate dataset because a dataset has been peviously created.")
-            print(f"please run ./scripts/fedbiomed_run node config {config_files[n]}.ini --delete and remove the dataset tagged as {_name}")
+            print(f"please run fedbiomed node config {config_files[n]} --delete and remove the dataset tagged as {_name}")
             raise e
     print("Done ! please find below your config files:")
     for entry in config_files:
-        print("config file: ", entry + '.ini\n')
+        print("config file: ", entry + '\n')
 
     print("to launch the node, please run in distinct terminal:")
     for entry in config_files:
-        print(f"./scripts/fedbiomed_run node --config {entry}.ini start")
+        print(f"fedbiomed node --path {entry} start")
 
 print("\nHINT: to start form fresh with new datasets, please run  source ./scripts/fedbiomed_environment clean")

@@ -34,7 +34,7 @@ class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
         super().setUp(module="fedbiomed.researcher.secagg._secagg_context.Requests")
 
         self.temp_dir = tempfile.TemporaryDirectory()
-        config.load(root=self.temp_dir.name, name='test.ini')
+        config.load(root=self.temp_dir.name)
 
         self.p1 = patch(
             "fedbiomed.researcher.secagg._secure_aggregation.SecaggServkeyContext.setup",
@@ -281,7 +281,7 @@ class TestSecureAggregationWrapper(unittest.TestCase):
 
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        config.load(root=self.temp_dir.name, name='test.ini')
+        config.load(root=self.temp_dir.name)
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -333,7 +333,7 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
         super().setUp(module="fedbiomed.researcher.secagg._secagg_context.Requests")
 
         self.temp_dir = tempfile.TemporaryDirectory()
-        config.load(root=self.temp_dir.name, name='test.ini')
+        config.load(root=self.temp_dir.name)
         self.clipping_range = 10**3
         self.args = {"active": True, "clipping_range": self.clipping_range}
         self.lom = LomSecureAggregation(**self.args)

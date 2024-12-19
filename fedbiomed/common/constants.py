@@ -43,11 +43,11 @@ EXPERIMENT_PREFIX = 'exper_'
 REQUEST_PREFIX = 'request_'
 """Prefix for request ID"""
 
-DEFAULT_CONFIG_FILE_NAME_NODE = 'config_node.ini'
-"""Default node configuration file name"""
+DEFAULT_NODE_NAME = 'fbm-node'
+"""Default node component folder name"""
 
-DEFAULT_CONFIG_FILE_NAME_RESEARCHER = 'config_researcher.ini'
-"""Default researcher configuration file name"""
+DEFAULT_RESEARCHER_NAME = 'fbm-researcher'
+"""Default researcher component folder name"""
 
 CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
 """FOLDER name for Certs directory"""

@@ -9,19 +9,18 @@ from fedbiomed.common.constants import (
     CONFIG_FOLDER_NAME,
     VAR_FOLDER_NAME,
     TENSORBOARD_FOLDER_NAME,
-    DEFAULT_CONFIG_FILE_NAME_RESEARCHER
+    DEFAULT_RESEARCHER_NAME
 )
 
 from fedbiomed.common.certificate_manager import generate_certificate
-from fedbiomed.common.config import Config
 from fedbiomed.common.logger import logger
+from fedbiomed.common.config import Component, Config
 
 
 class ResearcherConfig(Config):
 
-    _DEFAULT_CONFIG_FILE_NAME: str = DEFAULT_CONFIG_FILE_NAME_RESEARCHER
-    _COMPONENT_TYPE: str = 'RESEARCHER'
     _CONFIG_VERSION: str = __researcher_config_version__
+    COMPONENT_TYPE: str = 'RESEARCHER'
 
     def add_parameters(self):
         """Generate researcher config"""
@@ -68,5 +67,20 @@ class ResearcherConfig(Config):
 
 logger.setLevel("DEBUG")
 
-config_name = os.environ.get("FBM_RESEARCHER_CONFIG_FILE", DEFAULT_CONFIG_FILE_NAME_RESEARCHER)
-config = ResearcherConfig(name=config_name)
+component_root = os.environ.get(
+    "FBM_RESEARCHER_COMPONENT_ROOT", None
+)
+
+
+class ResearcherComponent(Component):
+    """Fed-BioMed Node Component Class
+
+    This class is used for creating and validating components
+    by given component root directory
+    """
+    config_cls = ResearcherConfig
+    _default_component_name = DEFAULT_RESEARCHER_NAME
+
+print(component_root)
+researcher_component = ResearcherComponent()
+config = researcher_component.create(root=component_root)
