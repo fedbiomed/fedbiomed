@@ -1,14 +1,13 @@
 # Configuring Development Environment
 
-This article is written to guide developers to create development environment for developers. This guide can also be used to build Fed-BioMed software from its source.
-
+This article is written to guide developers to create development environment. This guide can also be used to build Fed-BioMed software from its source.
 
 This article will guide you to:
 
-- clone Fed-BioMed source repository.
-- setup a recommended tool to manage different Python versions.
-- setup some optional tools to manage isolated python environments such as `conda` and `virtualenv`.
-- setup pdm to manage dependencies and build operations, and it usage.
+- Clone Fed-BioMed source repository.
+- Setup a recommended tool to manage different Python versions.
+- Setup some optional tools to manage isolated python environments such as `conda` and `virtualenv`.
+- Setup pdm to manage dependencies and build operations, and it usage.
 
 
 ## Clone the repository
@@ -40,7 +39,9 @@ Before start using Fed-BioMed or start developing on Fed-BioMed please make sure
 
 Using virtual environments will allow you to isolate your Fed-BioMed development environment from your other projects. There, you have of course several options. You can use build-in python `venv` or `conda` or any other compatible Python virtual environment tools.
 
-While `conda` allows also installing a specified Python version, `venv` requires that the Python, and Pip is already installed. Therefore, if `conda` is used using another tools like `pyenv` is not required to be installed and used to manage Python versions. However, if `venv` is preferred, then, using tools `pyenv` to install required Python version is recommended.
+
+While `conda` also allows installing a specified Python version, `venv` requires that Python and Pip are already installed. Therefore, if `conda` is used, additional tools like `pyenv` are not necessary for managing Python versions. However, if `venv` is preferred, using tools like `pyenv` to install the required Python version is recommended.
+
 
 #### Case: venv
 
@@ -79,7 +80,7 @@ Once virtual environments are set `PDM` package manager can be installed via `Py
 pip install pdm
 ```
 
-The command above will install Poetry in the active `conda` environment or in active `pyenv` if it is used for managing Python versions.
+The command above will install PDM in the active `conda` environment or in active `pyenv` if it is used for managing Python versions.
 
 
 ## Using PDM
@@ -101,7 +102,7 @@ If there is no virtual environment created pdm will create a default virtual env
 
 ### What about instant changes in source code?
 
-Poetry automatically add package source to your environment that makes `fedbiomed` module accessible from Python interpreter. It also handles instant changes in the source code. If a new module is added or a module is edited poetry will automatically make changes available within the environment currently used. It means there is no need to install or rebuild `fedbiomed` package.
+PDM automatically adds package source to your environment that makes `fedbiomed` module accessible from Python interpreter. It also handles instant changes in the source code. If a new module is added or a module is edited poetry will automatically make changes available within the environment currently used. It means there is no need to install or rebuild `fedbiomed` package.
 
 !!! warning "Important"
     You should never install `fedbiomed` from `pip` in your development environment. This my interrupt to access current source code changes in your development environment.

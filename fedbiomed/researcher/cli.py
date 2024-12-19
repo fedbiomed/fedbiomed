@@ -108,6 +108,8 @@ class ResearcherCLI(CommonCLI):
                 module = importlib.import_module("fedbiomed.researcher.config")
                 self._this.config = module.config
 
+        super().initialize()
+
         self._parser.add_argument(
             "--path",
             "-p",
@@ -118,4 +120,3 @@ class ResearcherCLI(CommonCLI):
                 "is 'config_researcher.ini'."
         )
 
-        super().initialize()

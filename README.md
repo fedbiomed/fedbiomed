@@ -137,7 +137,7 @@ $ fedbiomed node --path ./my-second-node start
 
 ```
 $ FBM_RESEARCHER_IP=192.168.0.100 fedbiomed node start
-$ FBM_SERVER_HOST=192.168.0.100fedbiomed researcher start
+$ FBM_SERVER_HOST=192.168.0.100 fedbiomed researcher start
 ```
 
 (adjust the 192.168.0.100 IP address to your configuration)
