@@ -217,7 +217,7 @@ class ComponentParser(CLIArgumentParser):
         if args.component.lower() == "researcher":
             if DEFAULT_RESEARCHER_NAME in component_path  and \
                 os.path.isdir(component_path):
-                if not args.exis_ok:
+                if not args.exist_ok:
                     CommonCLI.error(
                         f"Default component is already existing. In the directry {component_path}"
                         "please remove existing one to reinisiate"
