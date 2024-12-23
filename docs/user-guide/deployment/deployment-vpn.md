@@ -156,7 +156,6 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 * clean running containers, containers files, temporary files (skip that step if node and server run on the same machine)
 
     ``` bash
-    [user@node $] source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
     [user@node $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean
     ```
 
@@ -426,7 +425,6 @@ Some possible management commands after initial deployment include:
 
     ``` bash
     [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver researcher
-    [user@server $] source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
     [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean
     ```
 
@@ -462,7 +460,6 @@ Some possible management commands after initial deployment include:
 
     ``` bash
     [user@node $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop node gui
-    [user@node $] source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
     [user@node $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean
     ```
 

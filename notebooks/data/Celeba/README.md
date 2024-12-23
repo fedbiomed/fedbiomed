@@ -32,7 +32,7 @@ Celeba
 Preprocess the Celeba data :
 ```
 # from $FEDBIOMED_DIR base directory
-source ./scripts/fedbiomed_environment researcher
+# use the python environment for [development](../docs/developer/development-environment.md)
 cd notebooks/data/Celeba
 python create_node_data.py
 ```

@@ -243,5 +243,3 @@ if __name__ == '__main__':
     print("to launch the node, please run in distinct terminal:")
     for entry in config_files:
         print(f"fedbiomed node --path {entry} start")
-
-print("\nHINT: to start form fresh with new datasets, please run  source ./scripts/fedbiomed_environment clean")

@@ -21,7 +21,7 @@ A basic configuration for the `node` component includes the following settings:
 !!! note "Note"
     These basic configurations are generated automatically with default values. While it is possible to manually edit the configuration files, doing so may render certain parameters incompatible. For example, `[server]/host` and `[server]/pem` must remain consistent, as the latter depends on the former.
     To avoid such issues, it is strongly recommended to use the dedicated script for creating and refreshing configurations:
-    **`fedbiomed_run configuration create`**, with options described above.
+    **`fedbiomed component create`**, with options described above.
 
 
 ## Environment for Nodes

@@ -20,7 +20,7 @@ Fed-BioMed supports accelerator hardware with the following requirements and lim
 ## Node side
 
 To control GPU usage by Fed-BioMed training from the node side, use these options of the
-`fedbiomed_run node` command :
+`fedbiomed node start` command :
 
 * `--gpu` : Node offers to use a GPU for training, if a GPU is available on the node and if the researcher requests use of a GPU. If no GPU is available, or the training plan is not supported for GPU (scikit-learn), or the researcher does not request use of a GPU, then training occurs in CPU.
 * `--gpu-num GPU_NUM` : Node chooses the device with number *GPU_NUM* in CUDA instead of the default device. If this device does not exist, node fallbacks to default CUDA device. This option also implicitely sets `--gpu`.

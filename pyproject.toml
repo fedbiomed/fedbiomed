@@ -68,6 +68,8 @@ readme = "README.md"
 license = {text = "Apache 2.0"}
 
 [project.optional-dependencies]  # This is optional dependencies
+node = [
+]
 researcher = [
 	"pathvalidate ~=3.0.0",
 	"matplotlib >=3.8.0,<3.8.4",

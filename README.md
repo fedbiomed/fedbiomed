@@ -10,20 +10,20 @@
 
 ## Introduction
 
-Fed-BioMed is an open source project focused on empowering biomedical research using non-centralized approaches for statistical analysis and machine learning.
+Fed-BioMed is an open source project focused on empowering healthcare using non-centralized approaches for statistical analysis and machine learning.
 
 The project is currently based on Python, PyTorch and Scikit-learn, and enables developing and deploying collaborative learning analysis in real-world machine learning applications, including federated learning and federated analytics.
 
 The code is regularly released and available on the **master** branch of this repository. The documentation of the releases can be found at https://fedbiomed.org
 
 Curious users may also be interested by the current developments, occurring in the **develop** branch (https://github.com/fedbiomed/fedbiomed/tree/develop)
-According to our coding rules, the develop branch is usable, tests and tutorials will run, but the documentation may be not fully available or desynchronizing with the code. We only provide support for the last release aka the master branch.
+Develop branch is WIP branch for next release. It may not be fully usable, tested and documented. Support is provided only for releases.
 
 
 ## Install and run in development environment
 
-Fed-BioMed is developped under Linux Fedora & Ubuntu, should be easily ported to other Linux distributions.
-It runs also smoothly on macOSX, and in Windows WSL2.
+Fed-BioMed is developped under Linux Ubuntu & Fedora (should be easily ported to other Linux distributions) and MacOS X.
+It is also ported on Windows WSL2.
 
 This README.md file provide a quick start/installation guide for Linux.
 
@@ -31,83 +31,45 @@ Full installation instruction are also available at: https://fedbiomed.org/lates
 
 An installation guide is also provided for Windows11, which relies on WSL2: https://fedbiomed.org/latest/user-guide/installation/windows-installation/
 
+### prerequisites
 
-### Prerequisites :
+* `git`
+* `python` compatible version (currently 3.10)
 
-To ensure fedbiomed will work fine, you need to install before :
+A recommended practice is to use install `python` in a local environment for example using `pyenv`
 
-* conda
-* git
+```
+pyenv install 3.10
+mkdir clone_dir ; cd clone_dir
+pyenv local 3.10
+```
 
-### clone repo
+A recommended practice is to use a virtual environment for managing dependencies. 
+For example, if using `venv`:
+
+```
+python -m venv fb_env
+source fb_env/bin/activate
+```
+
+
+### quick install
 
 Clone the Fed-BioMed repository for running the software :
 
 ```
 git clone -b master https://github.com/fedbiomed/fedbiomed.git
+cd fedbiomed
 ```
 
-Fed-BioMed developers clone of the repository :
-
 ```
-git clone git@github.com:fedbiomed/fedbiomed.git
+pdm install
 ```
 
-### setup conda environments
+This is later refered as "the environment where Fed-BioMed is installed".
 
-* to create or update the environments, you can use the **configure_conda** script:
+More details in the [developer environment installation documentation](https://fedbiomed.org/latest/developer/development-environment.md/)
 
-```
-$ ./scripts/configure_conda
-```
-
-* this script will create/update the conda environments
-
-* there is one specific environment for each component:
-
-  * fedbiomed-node.yaml       : environment for the node part
-  * fedbiomed-researcher.yaml : environment for the researcher part
-  * fedbiomed-gui.yaml        : environment for the data management gui on the node
-
-**Remark**:
-
-* this script can also be used to update only some of the environments
-* for some components, we provide different versions of yaml files depending of the operating system of your host
-* in case of (conda or python) errors, we advice to remove all environments and restart from fresh (use the **-c** flag of configure_conda)
-* general usage for this script is:
-
-```
-Usage: configure_conda [-n] [-c] [-t] [ENV ENV ..]
-
-Install/update conda environments for fedbiomed. If several ENV
-are provided, only these components will be updated. If no ENV is
-provided, all components will be updated.
-
-ENV can be node, researcher, gui (or a combination of them)
-
- -h, --help            this help
- -n, --dry-run         do nothing, just print what the script would do
- -c, --clean           remove environment before reinstallating it
- -t, --test            test the environment at the end of installation
-                       (this only tests the researcher environment for now)
-```
-
-
-### activate the environments
-
-In a terminal, you can configure environments to work interactively inside a specific repository, with the right conda environment and the right PYTHONPATH environment.
-
-**WARNING**: this script only work for **bash**, **ksh** and **zsh**. It is not compliant with c variant of shell (csh/tcsh/etcsh/...)
-
-```
-source ./scripts/fedbiomed_environment ENV
-```
-
-where ENV chosen from:
-
-* node
-* researcher
-* gui
 
 ### run the software
 
@@ -152,18 +114,14 @@ If this option is given at the first launch or after a clean, it is saved in the
 $ fedbiomed researcher start
 ```
 
-* this will launch a new jupyter notebook working in the **notebooks** repository. Some notebooks are available:
+* this will launch a new jupyter notebook working in the **notebooks** repository. First try:
 
   - `101_getting-started.ipynb` : training a simplenet + federated average on MNIST data
-  - `pytorch-local-training.ipynb` : comparing the simplenet + federated average on MNIST data with its local training equivalent
 
 
 #### run a researcher script
 
-1. in a new terminal:
-```bash
-$ source ./scripts/fedbiomed_environment researcher
-```
+1. in a new terminal: activate the environment where Fed-BioMed is installed
 2. convert the notebook to a python script
 ```bash
 jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb
@@ -174,348 +132,22 @@ jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getti
 $ python ./notebooks/101_getting-started.py
 ```
 
-### change IP address for researcher in the current bash
-
-By default, fedbiomed-node contacts fedbiomed-researcher on `localhost`.
-To configure your current shell to use another IP address for joining fedbiomed-researcher (e.g. 192.168.0.100):
-
-```bash
-source ./scripts/fedbiomed_environment node 192.168.0.100
-source ./scripts/fedbiomed_environment researcher 192.168.0.100
-```
-
-Then launch the components with usual commands while you are in the current shell.
-
-Warning: this option does not modify the existing configuration file (.ini file).
-
-
 ### clean state (restore environments back to new)
 
-De-configure environments, remove all configuration files and caches
+To clean your Fed-BioMed instance :
+
+* stop the researcher : shutdown the notebook kernel (`Quit` in on the notebook interface or `ctrl-C` on the console)
+* stop the nodes : interrupt (`ctrl-C`) on the nodes console
+* remove all configuration files, dataset sharing configuration, temporary files, caches for all Fed-BioMed components with :
 
 ```
-source ./scripts/fedbiomed_environment clean
+$ rm -rf COMPONENT_DIR
 ```
 
-## Install and run in vpn+development environment
+Where `COMPONENT_DIR` is:
+* for a node, the parameter provided as `fedbiomed node -p COMPONENT_DIR` or by default `fbm-node` if no parameter was given
+* for a researcher, the parameter provided as `fedbiomed researcher -p COMPONENT_DIR` or by default `fbm-researcher` if no parameter was given
 
-### Prerequisites
-
-To use the docker + VPN mode you need to install:
-
-* docker
-* docker compose v2 (aka docker compose plugin)
-
-### Files
-
-The **envs/vpn** directory contains all material for VPN support.
-A full technical description is provided in **envs/vpn/README.md**
-
-The **./scripts/fedbiomed_vpn** script is provided to ease the deployment of
-a set of docker container(s) with VPN support. The provided containers are:
-
-- fedbiomed/vpn-vpnserver: WireGuard server
-- fedbiomed/vpn-researcher: a researcher jupyter notebooks
-- fedbiomed/vpn-node: a node component
-- fedbiomed/vpn-gui: a GUI for managing node component data
-
-All these containers are communicating through the Wireguard VPN server.
-
-### Setup and run all the docker containers
-
-To setup **all** these components, you should:
-
-- clean all containers and files
-
-```
-./scripts/fedbiomed_vpn clean
-```
-
-- build all the docker containers
-
-```
-./scripts/fedbiomed_vpn build
-```
-
-- configure the wireguard encryption keys of all containers
-
-```
-./scripts/fedbiomed_vpn configure
-```
-
-- start the containers
-
-```
-./scripts/fedbiomed_vpn start
-```
-
-- check the containers status (presence and Wireguard configuration)
-
-```
-./scripts/fedbiomed_vpn status
-```
-
-- run a **fedbiomed** command inside the node component. Eg:
-
-```
-./scripts/fedbiomed_vpn node dataset add --mnist /data
-./scripts/fedbiomed_vpn node list
-./scripts/fedbiomed_vpn node start
-```
-
-- connect to the researcher jupyter at http://127.0.0.1:8888
-(Remark: the *researcher** docker automatically starts a jupyter notebook inside the container)
-
-- manage data inside the node with the node GUI at http://127.0.0.1:8484
-
-- stop the containers:
-
-```
-./scripts/fedbiomed_vpn stop
-```
-
-### managing individual containers
-
-You can manage individually the containers for the build/stop/start phases,
-by passing the name of the container(s) on the command line.
-
-For example, to build only the node, you can use:
-
-```
-./scripts/fedbiomed_vpn build node
-```
-
-You can build/configure/stop/start/check more than one component at a time. Example:
-```
-./scripts/fedbiomed_vpn build gui node
-```
-
-This will stop and build the node container.
-
-The list of the container names is:
-
-- vpnserver
-- researcher
-- node
-- gui
-
-**Remarks**:
-- the configuration files are keeped then rebuilding individual containers
-- to remove the old config files, you should do a **clean**
-- restarting only vpnserver when others are running
-  may lead to unpredictable behavior. In this case, it is adviced to restart from scratch
-(clean/build/configure/start)
-
-
-## Misc developer tools to help debugging
-
-### scripts/lqueue
-
-list the content of a message queue (as used in fedbiomed.node and fedbiomed.researcher)
-
-usage:  lqueue directory
-   or
-        lqueue dir1 dir2 dir3 ...
-
-
-### scripts/run\_end\_to\_end\_test
-
-Run a full (end to end) test by launching:
-
-- a researcher (running a python script or a notebook script)
-- several nodes, providing data
-
-Usefully for continuous integration tests and notebook debugging.
-Full documentation in tests/README.md file.
-
-### Documentation
-
-Required python modules should be installed to be able to `build` or `serve` the documentation page. These packages can be installed using conda environment to `serve` or `build` the documentation (recommended).
-
-```
-conda env update -f envs/build/conda/fedbiomed-doc.yaml
-conda activate fedbiomed-doc
-```
-
-They can also be installed using `pip` (required python version 3.11), as in the real build process (if you know what you're doing).
-- Warning: if not using a `conda` or `pip` virtual environment, your global settings are modified.
-
-```
-pip install -r envs/build/docs-requirements.txt
-```
-
-Please use following command to serve documentation page. This will allow you to test/verify changes in `docs` and also in doc-strings.
-
-```shell
-cd ${FEDBIOMED_DIR}
-./scripts/docs/fedbiomed_doc.sh serve
-```
-
-Please see usage for additional options.
-
-```
-cd ${FEDBIOMED_DIR}
-./scripts/docs/fedbiomed_doc.sh --help
-```
-
-
-## Using Tensorboard
-
-To enable tensorboard during training routine to see loss values, you need to set `tensorboard` parameter to `True` while initializing Experiment class.
-
-```
-exp = Experiment(tags=tags,
-                 #nodes=None,
-                 model_args=model_args,
-                 training_plan_class=MyTrainingPlan,
-                 training_args=training_args,
-                 round_limit=round_limit,
-                 aggregator=FedAverage(),
-                 node_selection_strategy=None,
-                 tensorboard=True
-                )
-```
-Or after initialization :
-```
-exp.set_tensorboard(True)
-```
-
-During training, the scalar values (loss) will be writen in the `runs` directory. You can either start tensorboard from jupyter notebook or terminal window.
-
-**Start tensorboard from notebook**
-
-First you should import `TENSORBOARD_RESULTS_DIR` from researcher environment in another cell
-
-```python
-from fedbiomed.researcher.config import config
-tensorboard_dir = config.vars['TENSORBOARD_RESULTS_DIR']
-```
-
-Load tensorboard extension in a different code block.
-
-```python
-%load_ext tensorboard
-```
-
-Run following command to start tensorboard
-
-```python
-tensorboard --logdir "$tensorboard_dir"
-```
-
-**Start tensorboard from terminal command line**
-
-Open new terminal and change directory to Fed-BioMed base directory (`${FEDBIOMED_DIR}`)
-
-Make sure that already activated fedbiomed researcher conda environment :
-
-```bash
-source ./scripts/fedbiomed_environment researcher
-```
-
-Launch tensorboard with the following command :
-
-```bash
-tensorboard --logdir "$tensorboard_dir"`
-```
-
-
-## Model Hashing and Enabling Model Approve
-
-Fed-BioMed offers optional training plan approval feature to approve the training plans requested by the researcher. This training plan approval process is done by hashing/checksum operation by the `ModelManager` of node instance. When the `FBM_SECURITY_TRAINING_PLAN_APPROVAL` mode is enabled, node should register/approve training plan files before performing the training. For testing and easy development, there are already presented default training plans by Fed-BioMed for the tutorials that we provide in the `notebooks` directory. However, node can also enable or disable the mode for allowing default training plans to perform training.
-
-#### Config file for security parameters
-
-Enabling training plan approval mode, allowing default Fed-BioMed training plans and the hashing algorithm that will be performed for the checksum operation can be configurred from the config file of the node. The following code snippet represents an example security section of config file with default values.
-
-```
-[default]
-# ....
-
-[security]
-hashing_algorithm = SHA256
-allow_default_training_plans = True
-training_plan_approval = False
-
-```
-
-By default, when node is launched for the first time without additional security parameters, `training_plan_approval` mode comes as disabled. If `training_plan_approval` is disabled the status of `allow_defaults_training_plans` will have no effect. To enable `training_plan_approval` you should set `training_plan_approval` to `True` and if it is desired `allow_default_training_plans` can be set to `False` for not accepting training plans of default Fed-BioMed examples.
-
-The default hashing algorithm is `SHA256` and it can also be changed to other hashing algorithms that are provided by Fed-BioMed. You can see the list of Hashing algorithms in the following section.
-
-
-#### Hashing Algorithms
-
-`ModelManager` provides different hashing algorithms, and the algorithm can be changed through the config file of the node. The name of the algorithms should be typed with capital letters. However, after changing hashing algorithm node should be restarted because it checks/updates hashing algorithms of the register/default training plans during the starting process.
-
-Provided hashing algorithms are `SHA256`, `SHA384`, `SHA512`, `SHA3_256`, `SHA3_384`, `SHA3_512`, `BLAKE2B` and `BLAKE2S`. These are the algorithms that has been guaranteed by `hashlib` library of Python.
-
-
-#### Starting nodes with different modes
-
-To enable `training_plan_approval` mode and `allow_default_training_plans` node, start the following command.
-
-```shell
-FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed node -p my-node start
-```
-
-This command will start the node with training plan approval activated mode even the config file has been set as `training_plan_aproval = False`. However it doesn't change the config file. If there is no config file named `config-n1.ini` it creates a config file for the node with enabled training plan approval mode.
-
-```
-[security]
-hashing_algorithm = SHA256
-allow_default_training_plans = True
-training_plan_approval = True
-
-
-For starting node with disabled training plan approval and default training plans;
-
-```shell
-FBM_SECURITY_TRAINING_PLAN_APPROVAL=False FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=False fedbiomed node -d my-node start
-```
-
-#### Default TrainingPlans
-
-Default training plans are located in the `envs/common/default_training_plans/` directory as `txt` files. Each time  the node starts with the `training_plan_approval = True` and `allow_default_training_plan = True` modes, hashing of the training plan files are checked to detect if the file is modified, the hashing algorithm has changed or is there any new training plan file added. If training plan files are modified `ModelManager` updates hashes for these training plans in the database. If the hashing algorithm of the training plan is different from the active hashing algorithm, hashes also get updated. This process only occurs when both `training_plan_approval` and `allow_default_training_plan` modes are activated. To add new default training plan for the examples or for testing, training plan files should be saved as `txt` and copied into the `envs/common/default_training_plans` directory. After the copy/save operation node should be restarted.
-
-
-#### Registering New TrainingPlans
-
-New training plans can be registered using `fedbiomed_run` scripts with `training-plan register` option.
-
-```shell
-fedbiomed node -d my-node training-plan register
-```
-
-The CLI asks for the name of the training plan, description and the path where training plan file is stored. **Model files should be saved as txt in the file system for registration**. This is because these files are for only hashing purposes not for loading modules.
-
-#### Deleting Registered TrainingPlans
-
-Following command is used for deleting registered training plans.
-
-```
-fedbiomed node -d my-node training-plan delete
-```
-
-Output of this command will list registered training plans with their name and id. It will ask to select training plan file you would like to remove. For example, in the follwing example, typing `1`  will remove the `MyModel` from registered/approved list of training plans.
-
-```
-Select the training plan to delete:
-1) MyModel	 Model ID training_plan_98a1e68d-7938-4889-bc46-357e4ce8b6b5
-Select:
-```
-
-Default training plans can not be removed using fedbiomed CLI. They should be removed from the `envs/common/default_training_plans` directory. After restarting the node, deleted training plan files will be also removed from the `TrainingPlans` table of the node DB.
-
-
-#### Updating Registered training plan
-
-Following command is used for updating registered training plans. It updates chosen training plan with provided new training plan file. User also
-can provide same training plan file to update its content.
-
-```
-fedbiomed node -d my-node training-plan update
-```
 
 ## Fed-BioMed Node GUI
 
@@ -594,7 +226,7 @@ The command above will serve ``var/gui-build`` directory as well as API services
 see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``npm start``.
 
 ```shell
-source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment gui
+# use the python environment for [development](../docs/developer/development-environment.md)
 cd ${FEDBIOMED_DIR}/gui/ui
 npm start
 ```
@@ -612,3 +244,4 @@ you will be able to see changes on the ``localhost:8484`` URL which serve built 
 ```shell
 fedbiomed node gui start --data-folder ../data
 ```
+

@@ -141,7 +141,7 @@ def fedbiomed_run(
     pipe: bool = True,
     on_failure: Callable | None = None
 ) -> subprocess.Popen:
-    """Executes given command using fedbiomed_run
+    """Executes given command using `fedbiomed`
 
     Args:
         command: List of command
