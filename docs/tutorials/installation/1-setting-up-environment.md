@@ -13,7 +13,7 @@ A Fed-BioMed instance includes 2 types of components :
 * one or more `nodes`, each one provides datasets for experiments and locally trains the models on these datasets
 * the `researcher` which defines and orchestrates a federated learning experiment. The experiment looks for nodes providing expected datasets, selects nodes, sends nodes a model and initial parameters, requests nodes to locally train the model on datasets, collects local training output, federates the output to update aggregated parameters.
 
-In this tutorial you learn how to launch Fed-BioMed components using the `fedbiomed_run` script.
+In this tutorial you learn how to launch Fed-BioMed components using the `fedbiomed` command.
 
 
 ## Launching Fed-BioMed components
@@ -133,9 +133,9 @@ When no dataset is provided by the node, the command `fedbiomed node dataset lis
 To launch and configure more than one node, specify a different (non-default) configuration file for all commands related to the subsequent node. For example, to launch and add a dataset to a second node, replace <path-to-my-second-component> with a relative or absolute path to the component folder. The folder will be created if it does not already exist.
 
 ```
-$ fedbiomed node --path <path-to-my-second-component> start
-$ fedbiomed node -d <path-to-my-second-component> dataset list
-$ fedbiomed node -d <path-to-my-second-component>  dataset add
+$ fedbiomed node -p <path-to-my-second-component> start
+$ fedbiomed node -p <path-to-my-second-component> dataset list
+$ fedbiomed node -p <path-to-my-second-component>  dataset add
 ```
 
 **Warning : if you launch more than one node with the same directory specification, no error is detected, but the nodes are not functional**
@@ -155,40 +155,10 @@ For next tutorials, create a new notebook (`New > Notebook` and `Python3 kernel`
 Several example notebooks are also provided with Fed-BioMed.
 
 
-## Clean and restart Fed-BioMed components
-
-### A word on working with environments
-
-This tutorial explained how to launch Fed-BioMed components using the `fedbiomed` command.
-Behind the hood, each Fed-BioMed component runs in its own environment (conda, variables).
-
-If at some point you want to work interactively in the same environment as a Fed-BioMed component
-(eg. for debugging), you can activate this environment from a console.
-
-**Warning :** this feature only works with **bash**, **ksh** and **zsh** shells (other shells like csh/tcsh are not yet suppported)
-
-To activate the **node** environment:
-
-```
-$ source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment node
-```
-
-To activate the **researcher** environment:
-
-```
-$ source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment researcher
-```
-
-You can also, reset the environment with:
-
-```
-$ source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment reset
-```
-
-## Clean
+## Cleaning
 
 A Fed-BioMed instance can handle successive operations like adding and then removing nodes or datasets, conducting sequential experiments.
-But after testing and tweeking, thing may get wrong. At this point, we provide you a script to clean all things.
+But after testing and tweeking, thing may get wrong. At this point, you may want to clean all things.
 Afterwards, you will need to restart from scratch (add datasets to nodes, start nodes, etc...)
 
 To clean your Fed-BioMed instance :
@@ -198,8 +168,12 @@ To clean your Fed-BioMed instance :
 * remove all configuration files, dataset sharing configuration, temporary files, caches for all Fed-BioMed components with :
 
 ```
-$ source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
+$ rm -rf COMPONENT_DIR
 ```
+
+Where `COMPONENT_DIR` is:
+* for a node, the parameter provided as `fedbiomed node -p COMPONENT_DIR` or by default `fbm-node` if no parameter was given
+* for a researcher, the parameter provided as `fedbiomed researcher -p COMPONENT_DIR` or by default `fbm-researcher` if no parameter was given
 
 When you restart a node after cleaning the Fed-BioMed instance, the node doesn't provides any dataset, as the dataset sharing configuration was reset in the cleaning process. Of course, Fed-BioMed did not delete any data, it just stopped sharing them.
 

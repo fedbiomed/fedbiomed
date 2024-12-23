@@ -100,9 +100,6 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
-# poetry
-#poetry.lock
-
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
 
@@ -112,6 +109,9 @@ celerybeat.pid
 
 # SageMath parsed files
 *.sage.py
+
+# pdm
+.pdm-python
 
 # Environments
 # .env
@@ -124,6 +124,9 @@ env.bak/
 venv.bak/
 pythonenv*
 .venv*
+
+# FB environments
+fbm-researcher/
 
 # Spyder project settings
 .spyderproject
@@ -332,8 +335,6 @@ fabric.properties
 #   However, in case of collaboration, if having platform-specific dependencies or dependencies
 #   having no cross-platform support, pipenv may install dependencies that don't work, or not
 #   install all needed dependencies.
-
-# poetry
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 

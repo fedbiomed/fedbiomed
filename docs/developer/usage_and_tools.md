@@ -83,6 +83,22 @@ There are two events that trigger documentation publishing:
 - Changes are committed and pushed to `fedbiomed/fedbiomed.github.io`.
 - The push event triggers the deployment job in the `fedbiomed/fedbiomed.github.io` repository.
 
+#### Manual build for testing
+
+Use the following command to build and serve documentation page on `http::/localhost:8000`. This allows you to test/verify changes in `docs` and also in doc-strings.
+
+```shell
+# use the [development environment](./development-environment.md)
+cd ${FEDBIOMED_DIR}
+./scripts/docs/fedbiomed_doc.sh serve
+```
+
+Please see usage for additional options.
+
+```
+cd ${FEDBIOMED_DIR}
+./scripts/docs/fedbiomed_doc.sh --help
+```
 
 ## Roles and accesses
 
