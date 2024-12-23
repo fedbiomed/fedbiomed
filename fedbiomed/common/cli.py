@@ -654,16 +654,16 @@ class CommonCLI:
         print(" 1- Copy certificate content into a file e.g 'Hospital1.pem'")
         print(" 2- Change your directory to 'fedbiomed' root")
         print(
-            f" 3- Run: scripts/fedbiomed_run [node | researcher] certificate register"
+            f" 3- Run: scripts/fedbiomed [node | researcher] certificate register"
             f"-pk [PATH WHERE CERTIFICATE IS SAVED] -pi {self.config.get('default', 'id')}"
         )
         print("    Examples commands to use for VPN/docker mode:")
         print(
-            "      ./scripts/fedbiomed_run node certificate register -pk ./etc/cert-secagg "
+            "      ./scripts/fedbiomed node certificate register -pk ./etc/cert-secagg "
             f"-pi {self.config.get('default', 'id')}"
         )
         print(
-            "      ./scripts/fedbiomed_run researcher certificate register "
+            "      ./scripts/fedbiomed researcher certificate register "
             f"-pk ./etc/cert-secagg -pi {self.config.get('default', 'id')}"
         )
 

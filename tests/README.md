@@ -9,11 +9,8 @@ We use pytest for these additional features:
 
 ### how to run the tests
 
-* setup the python environment
 
-```
-source ../scripts/fedbiomed_environment researcher
-```
+* use the python environment for [development](../docs/developer/development-environment.md)
 
 * run all tests
 

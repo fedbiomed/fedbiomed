@@ -31,12 +31,12 @@ To install the dependencies:
 * check in FLamby's [setup.py](https://github.com/owkin/FLamby/blob/main/setup.py) the dependencies `<PACKAGES>` for the dataset you wish to use. For example, dataset `tcga` needs `lifelines`.
 * install the dependencies by executing on the researcher (where `${FEDBIOMED_DIR}` is Fed-BioMed's base directory)
 ```bash
-source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment researcher
+# use the python environment for [development](../docs/developer/development-environment.md)
 pip install <PACKAGES>
 ```
 * install dependencies by executing on each node
 ```bash
-source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment node
+# use the python environment for [development](../docs/developer/development-environment.md)
 pip install <PACKAGES>
 ```
 
@@ -44,7 +44,7 @@ To download the dataset named `<DATASET>` (eg `fed_ixi` for IXI):
 
 * download the dataset by executing on each node
 ```bash
-source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment node
+# use the python environment for [development](../docs/developer/development-environment.md)
 python $(find $CONDA_PREFIX -path */<DATASET>/dataset_creation_scripts/download.py) -o ${FEDBIOMED_DIR}/data
 ```
 

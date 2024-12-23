@@ -3,7 +3,7 @@
 
 ### Pyenv and python version installation
 
-Workflows use `setup-pyenb/action.yml` to install `pyenv`. `pyenv` allows to install requires python versions.
+Workflows use `setup-pyenv/action.yml` to install `pyenv`. `pyenv` allows to install requires python versions.
 
 This action installs `pyenv` in Linux and MacOs systems. However, there may be some missing packages in the ci slaves. Therefore, please carefully check `pyenv` installation and python version installation steps to make sure all required packages are installed in the system.
 

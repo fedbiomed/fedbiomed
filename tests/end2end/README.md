@@ -2,7 +2,7 @@
 
 ## Introduction: what are end-to-end tests?
 
-In opposition to **unit-tests**, which are basically made for testing  small components or functionalities of the code, **End-to-end tests** are tests that test the whole functionality of the software, as if an end-user was using the software. It therefore may include secure aggregation facility configuration, loading datasets, loading certificates, and every other upcoming or existing functionalities.
+In opposition to **unit tests**, which are basically made for testing  small components or functionalities of the code, **End-to-end tests** are tests that test the whole functionality of the software, as if an end-user was using the software. It therefore may include secure aggregation facility configuration, loading datasets, loading certificates, and every other upcoming or existing functionalities.
 
 Hence an **end-to-end** testing facility won't require fakes or Mocks, but the real components. For **end-to-end tests**, you can just make sure the usage of the software won't fail and that the final results are correct, you don't need to do assertions for each test.
 
@@ -12,12 +12,8 @@ End-to-end tests are run with [pytest](https://docs.pytest.org/) as test framewo
 
 ## How to run tests
 
-* setup the python environment
+* use the python environment for [development](../docs/developer/development-environment.md)
 
-```
-source ../scripts/fedbiomed_environment researcher
-```
-***
 * run all tests
 
 ```
