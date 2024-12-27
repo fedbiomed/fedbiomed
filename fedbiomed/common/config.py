@@ -265,7 +265,9 @@ class Component:
         if os.path.isdir(component_dir):
             if os.listdir(component_dir) and not os.path.isfile(ref):
                 raise ValueError(
-                    f'Path {component_dir} is not empty for Fed-BioMed component initialization.'
+                    f"Cannot create component. Path {component_dir} "
+                    "is not empty for Fed-BioMed component initialization. Please "
+                    "remove folder {component_dir} or specify another path"
                 )
         return os.path.isfile(ref)
 

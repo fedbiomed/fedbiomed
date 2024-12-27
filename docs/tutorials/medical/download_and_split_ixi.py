@@ -93,11 +93,11 @@ if __name__ == '__main__':
         cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
 
         print(f'Creating node at: {cfg_file}')
-        node_component.create()
+        node_component.initiate()
         if node_component.is_component_existing(root_folder):
             print(f"**Warning: component {root_folder} already exists")
         else:
-            node_component.create(root_folder)
+            node_component.initiate(root_folder)
 
         df = allcenters[allcenters.SITE_NAME == center_name]
         center_dfs.append(df)

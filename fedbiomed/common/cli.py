@@ -15,14 +15,15 @@ from abc import ABC, abstractmethod
 from typing import Dict, List
 
 from fedbiomed.common.certificate_manager import CertificateManager
+from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
     CONFIG_FOLDER_NAME,
     DB_FOLDER_NAME,
     ComponentType,
     DEFAULT_NODE_NAME,
     DEFAULT_RESEARCHER_NAME,
+    __version__,
 )
-from fedbiomed.common.constants import DB_FOLDER_NAME, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import (
@@ -76,6 +77,7 @@ class ComponentDirectoryAction(ABC, argparse.Action):
             not set(["--help", "-h"]).intersection(set(sys.argv)) and
             len(sys.argv) > 2
         ):
+            print("It is here")
             self._create_config(self.default)
 
         super().__init__(*args, **kwargs)
@@ -177,10 +179,6 @@ class ComponentParser(CLIArgumentParser):
             help="Creates configuration only if there isn't an existing one",
         )
 
-        create.add_argument(
-            "-f", "--force", action="store_true", help="Force configuration create"
-        )
-
         create.set_defaults(func=self.create)
 
     def _get_component_instance(self, path: str, component: str):
@@ -219,8 +217,8 @@ class ComponentParser(CLIArgumentParser):
                 os.path.isdir(component_path):
                 if not args.exist_ok:
                     CommonCLI.error(
-                        f"Default component is already existing. In the directry {component_path}"
-                        "please remove existing one to reinisiate"
+                        f"Default component is already existing. In the directory {component_path}"
+                        "please remove existing one to re-initiate"
                     )
                     sys.exit(1)
                 else:
@@ -256,6 +254,8 @@ class CommonCLI:
     _arg_parsers_classes: List[type] = []
     _arg_parsers: Dict[str, CLIArgumentParser] = {}
 
+    config: Config
+
     def __init__(self) -> None:
         self._parser: argparse.ArgumentParser = argparse.ArgumentParser(
             prog="fedbiomed", formatter_class=argparse.RawTextHelpFormatter
@@ -265,8 +265,6 @@ class CommonCLI:
         self._certificate_manager: CertificateManager = CertificateManager()
         self._description: str = ""
         self._args = None
-
-        self.config = None
 
         # Initialize configuration parser
         self.configuration_parser = ComponentParser(self._subparsers)
@@ -360,6 +358,7 @@ class CommonCLI:
 
         self.configuration_parser.initialize()
         self.initialize_magic_dev_environment_parsers()
+        self.initialize_version()
 
     def initialize(self):
         """Initializes parser classes and common parser for child classes.
@@ -378,6 +377,16 @@ class CommonCLI:
             self._arg_parsers.update({arg_parser.__name__: p})
 
         self.initialize_certificate_parser()
+
+    def initialize_version(self):
+        """Initializes argument parser for common options."""
+        self._parser.add_argument(
+            "--version",
+            "-v",
+            action='version',
+            version=str(__version__),
+            help="Print software version",
+        )
 
     def initialize_magic_dev_environment_parsers(self) -> None:
         """Initializes argument parser for the option to create development environment."""
@@ -548,30 +557,31 @@ class CommonCLI:
             )
 
         path = (
-            os.path.join(self.config.vars["CERT_DIR"], f"cert_{self.config.get('default', 'id')}")
+            self.config.vars["CERT_DIR"]
             if not args.path
             else args.path
         )
 
         try:
-            CertificateManager.generate_self_signed_ssl_certificate(
+            key, pem = CertificateManager.generate_self_signed_ssl_certificate(
                 certificate_folder=path,
                 certificate_name="FBM_certificate",
                 component_id=self.config.get('default', 'id'),
             )
         except FedbiomedError as e:
             CommonCLI.error(f"Can not generate certificate. Please see: {e}")
+            sys.exit(1)
 
         CommonCLI.success(
-            f"Certificate has been successfully generated in : {args.path} \n"
+            f"Certificate has been successfully generated in : {path} \n"
         )
 
         print(
             f"Please make sure in {os.getenv('CONFIG_FILE', 'component')}, the section "
             "`public_key` and `private_key` has new generated certificate files : \n\n"
             f"{BOLD}Certificates are saved in {NC}\n"
-            f"{path}/FBM_certificate.key \n"
-            f"{path}/FBM_certificate.pem \n\n"
+            f"{key} \n"
+            f"{pem} \n\n"
             f"{YLW}IMPORTANT:{NC}\n"
             f"{BOLD}Since the certificate is renewed please ask other parties "
             f"to register your new certificate.{NC}\n"
@@ -614,7 +624,7 @@ class CommonCLI:
     def _delete_certificate(self, args: argparse.Namespace):
 
         self._certificate_manager.set_db(
-            db_path=os.path.join(self.config.root, self.config.get('default, db'))
+            db_path=os.path.join(self.config.root, 'etc', self.config.get('default', 'db'))
         )
         certificates = self._certificate_manager.list(verbose=False)
         options = [d["party_id"] for d in certificates]
@@ -654,16 +664,16 @@ class CommonCLI:
         print(" 1- Copy certificate content into a file e.g 'Hospital1.pem'")
         print(" 2- Change your directory to 'fedbiomed' root")
         print(
-            f" 3- Run: scripts/fedbiomed [node | researcher] certificate register"
+            f" 3- Run: fedbiomed [node | researcher] certificate register"
             f"-pk [PATH WHERE CERTIFICATE IS SAVED] -pi {self.config.get('default', 'id')}"
         )
         print("    Examples commands to use for VPN/docker mode:")
         print(
-            "      ./scripts/fedbiomed node certificate register -pk ./etc/cert-secagg "
+            "      fedbiomed node certificate register -pk ./etc/cert-secagg "
             f"-pi {self.config.get('default', 'id')}"
         )
         print(
-            "      ./scripts/fedbiomed researcher certificate register "
+            "      fedbiomed researcher certificate register "
             f"-pk ./etc/cert-secagg -pi {self.config.get('default', 'id')}"
         )
 

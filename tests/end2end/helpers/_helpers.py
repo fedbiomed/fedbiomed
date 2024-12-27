@@ -231,7 +231,7 @@ def create_component(
 
     component_name = f"{CONFIG_PREFIX}{component_name}" if use_prefix else component_name
     root = os.path.join(directory, component_name)
-    config = comp.create(root=root)
+    config = comp.initiate(root=root)
 
     # Need to remove secagg table singleton
     # because it was created when we import from researcher modules

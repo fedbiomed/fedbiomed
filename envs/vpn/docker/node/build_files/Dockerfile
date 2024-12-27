@@ -26,6 +26,12 @@ RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python && \
 
 RUN apt-get -y install rsync
 
+# Install nodejs -----------------------------------------------------------------
+RUN wget -qO- https://deb.nodesource.com/setup_23.x | bash -
+RUN apt-get install -y nodejs
+RUN npm install --global yarn@1.22
+
+
 # read config.env in interactive shells & setup for reading it in entrypoint
 COPY ./envs/vpn/docker/node/build_files/bashrc_append /tmp
 RUN cat /tmp/bashrc_append | tee -a /root/.bashrc /root/bashrc_entrypoint \
@@ -48,9 +54,11 @@ COPY fedbiomed /fedbiomed/fedbiomed
 COPY notebooks /fedbiomed/notebooks
 COPY docs/tutorials /fedbiomed/docs/tutorials
 COPY scripts /fedbiomed/scripts
-COPY gui /fedbiomed/gui
+COPY fedbiomed_gui /fedbiomed/fedbiomed_gui
 COPY pyproject.toml /fedbiomed/pyproject.toml
 COPY README.md /fedbiomed/README.md
+COPY hatch_build.py /fedbiomed/hatch_build.py
+
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for
 #    a long time if you have zillion files in notebooks/data)

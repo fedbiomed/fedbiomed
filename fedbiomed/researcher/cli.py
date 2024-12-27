@@ -5,7 +5,7 @@
 import os
 import subprocess
 import importlib
-import os
+from pathlib import Path
 
 from typing import List, Dict
 
@@ -51,12 +51,16 @@ class ResearcherControl(CLIArgumentParser):
 
     def start(self, args):
         """Starts jupyter notebook"""
-
+        fb_install_dir = Path(__file__).parent.parent.parent
 
         options = ['--NotebookApp.use_redirect_file=false']
 
         if args.directory:
-            options.append(f"--notebook-dir={args.directory}")
+            nb_start_dir = args.directory
+        else:
+            nb_start_dir = os.path.join(fb_install_dir, 'notebooks')
+
+        options.append(f"--notebook-dir={nb_start_dir}")
 
         current_env = os.environ.copy()
         #comp_root = os.environ.get("FBM_RESEARCHER_COMPONENT_ROOT", None)

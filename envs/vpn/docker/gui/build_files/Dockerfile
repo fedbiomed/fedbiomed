@@ -29,6 +29,12 @@ RUN apt-get update && apt-get install -y gcc apt-utils wget procps systemd \
 
 RUN python --version
 
+
+# Install nodejs -----------------------------------------------------------------
+RUN wget -qO- https://deb.nodesource.com/setup_23.x | bash -
+RUN apt-get install -y nodejs
+RUN npm install --global yarn@1.22
+
 # Install Nginx along with the missing dependencies
 RUN apt-get install nginx -y --fix-missing
 
@@ -55,9 +61,10 @@ COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
 COPY notebooks /fedbiomed/notebooks
 COPY docs/tutorials /fedbiomed/docs/tutorials
-COPY gui /fedbiomed/gui
+COPY fedbiomed_gui /fedbiomed/fedbiomed_gui
 COPY pyproject.toml /fedbiomed/pyproject.toml
 COPY README.md /fedbiomed/README.md
+COPY hatch_build.py /fedbiomed/hatch_build.py
 
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for
