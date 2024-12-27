@@ -17,7 +17,7 @@ jobs:
     name: e2e tests
     defaults:
       run:
-        shell:  bash -l {0}
+        shell: bash -il {0}
 
     strategy:
       fail-fast: false
@@ -48,4 +48,4 @@ jobs:
         run: |
           pyenv global ${{ matrix.python-version }}
           FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed tox -r -m e2e
-        shell: bash -l {0}
+        shell: bash -il {0}

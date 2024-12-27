@@ -30,12 +30,12 @@ Please open a separate terminal window and start your nodes by running the appro
 
 1. For `fbm-node`, run:
    ```shell
-   fedbiomed node start --path ./fbm-node
+   fedbiomed node --path ./fbm-node start
    ```
 
 2. For `fbm-second-node`, run:
    ```shell
-   fedbiomed node start --path ./fbm-second-node
+   fedbiomed node --path ./fbm-second-node start
    ```
 
 Ensure each node is started in its own terminal window so that both can run concurrently.

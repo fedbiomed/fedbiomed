@@ -69,7 +69,7 @@ Please see section [Using non-default Fed-BioMed node](#using-non-default-Fed-Bi
 
 ### Configuration file: config.ini
 
-A configuration file is an `ini` file that is located in the `${FEDBIOMED_DIR}/etc` directory. Each configuration file is unique to one node.
+A configuration file is an `ini` file that is located in the component directory. Each configuration file is unique to one node.
 
 The configuration file is structured following the sections below:
 

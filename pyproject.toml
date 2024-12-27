@@ -90,10 +90,23 @@ gui = [
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build]
+skip-excluded-dirs = true
+
+# Custom build hook for building node app
+[tool.hatch.build.targets.wheel.hooks.custom]
+
+[tool.hatch.build.targets.wheel]
+packages = ["fedbiomed", "fedbiomed_gui"]
+artifacts = [
+  "fedbiomed_gui/ui/build"
+]
+
+
 [tool.hatch.build.targets.wheel.force-include]
-"gui" = "fedbiomed/gui"
 "envs" = "fedbiomed/envs"
 "notebooks" = "fedbiomed/notebooks"
+
 
 [tool.pdm]
 distribution = true
@@ -109,12 +122,12 @@ docs = [
 	"mkdocs-redirects==1.2.2",
 ]
 
+[build-system]
+requires = ["hatchling", "hatch-build-scripts"]
+build-backend = "hatchling.build"
+
 [project.scripts]
 fedbiomed = "fedbiomed.cli:run"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 pythonpath = ["tests", "tests/end2end"]

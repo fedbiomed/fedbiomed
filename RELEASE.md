@@ -29,6 +29,7 @@ git checkout -b release/$RELEASE_TAG
 - in the `release/$RELEASE_TAG` branch, do the release time updates:
   * `CHANGELOG.md`
   * `fedbiomed/common/constants.py` : change `__version__`
+  * `pyproject.toml` : change `version` and re-generate `pdm.lock` using `pdm install -G :all` (see [developer environment installation instructions](./docs/developer/development-environment.md) for more details)
 - in the `release` branch, commit the release time updates
 ```bash
 git commit -a

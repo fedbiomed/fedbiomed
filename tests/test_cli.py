@@ -203,11 +203,12 @@ class TestNodeControl(unittest.TestCase):
             'id': 'test-id'
         }
 
+        mock_node.return_value.tp_security_manager = MagicMock()
+
         with tempfile.TemporaryDirectory() as temp_:
             config = NodeConfig(temp_)
             config._cfg = cfg
             with patch('fedbiomed.node.cli.NodeConfig', autospec=True) as mock_config:
-                print(config)
                 mock_config.return_value = config
                 args= {"gpu": False}
                 start_node('config.ini', args)
@@ -231,16 +232,18 @@ class TestNodeControl(unittest.TestCase):
 
 
 
-
 class TestNodeCLI(unittest.TestCase):
     """Tests main NodeCLI"""
 
-    def test_01_node_cli_init(self):
+    @patch("builtins.input")
+    def test_01_node_cli_init(self, input_patch):
         """Tests intialization"""
-
+        input_patch.return_value = "y"
+        #import sys
+        #sys.argv.append('-y')
         self.node_cli = NodeCLI()
-        self.node_cli.parse_args(["-y", "--path", "fbm-node", 'dataset', 'list'])
-
+        self.node_cli.parse_args(["--path", "fbm-node", 'dataset', 'list'])
+        #sys.argv.remove('-y')
 
 class TestCli(unittest.TestCase):
     @staticmethod

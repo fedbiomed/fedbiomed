@@ -12,6 +12,7 @@ import signal
 import sys
 import time
 import subprocess
+import importlib
 
 from multiprocessing import Process
 from typing import Union, List, Dict
@@ -87,6 +88,7 @@ def start_node(config, node_args):
 
     _node = Node(config, node_args)
 
+    print(_node)
 
     def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
         """Signal handler that terminates the process.
@@ -125,10 +127,10 @@ def start_node(config, node_args):
         logger.info('Launching node...')
 
         # Register default training plans and update hashes
-        if _node.config.get('security', 'training_plan_approval').lower() in ('true', '1'):
+        if _node.config.getbool('security', 'training_plan_approval'):
             # This methods updates hashes if hashing algorithm has changed
             _node.tp_security_manager.check_hashes_for_registered_training_plans()
-            if _node.config.get('security', 'allow_default_training_plans').lower() in ('true', '1'):
+            if _node.config.getbool('security', 'allow_default_training_plans'):
                 logger.info('Loading default training plans')
                 _node.tp_security_manager.register_update_default_training_plans()
         else:
@@ -565,12 +567,9 @@ class GUIControl(CLIArgumentParser):
 
 
     def forward(self, args, extra_args):
-        """Forwards gui commands to ./script/fedbiomed_gui Extra arguments
+        """Launches Fed-BioMed Node GUI"""
 
-        TODO: Implement argument GUI parseing and execution
-        """
-        print(fedbiomed.__file__)
-        fedbiomed_root = os.path.abspath(args.directory)
+        fedbiomed_root = os.path.abspath(args.path)
 
         os.environ.update({
             "DATA_PATH": os.path.abspath(args.data_folder),
@@ -583,16 +582,10 @@ class GUIControl(CLIArgumentParser):
         else:
             certificate = []
 
-        main_path = Path(fedbiomed.__file__)
-        if 'gui' in os.listdir(main_path.parent.parent):
-            server_app = os.path.join(main_path.parent.parent, 'gui')
-        elif 'gui' in os.listdir(main_path.parent.parent):
-            server_app = os.path.join(main_path.parent.parent, 'gui')
-        else:
-            print(
-                "Error: Can not find GUI installation."
-                "Fed-BioMed inslation may be corrupted" )
-            sys.exit(1)
+
+        fedbiomed_gui = importlib.import_module("fedbiomed_gui")
+        server_app = Path(fedbiomed_gui.__file__).parent
+        print(server_app)
 
         host_port = ["--host", args.host, "--port", args.port]
         if args.development:
@@ -616,7 +609,7 @@ class GUIControl(CLIArgumentParser):
                 f"{args.host}:{args.port}",
                 "--access-logfile",
                 "-",
-                "fedbiomed.gui.server.wsgi:app"
+                "fedbiomed_gui.server.wsgi:app"
             ]
 
         try:
@@ -645,7 +638,6 @@ class NodeCLI(CommonCLI):
 
     def initialize(self):
         """Initializes node module"""
-
 
         class ComponentDirectoryActionNode(ComponentDirectoryAction):
 
@@ -684,8 +676,8 @@ class NodeCLI(CommonCLI):
             nargs="?",
             action=ComponentDirectoryActionNode,
             default="fbm-node",
-            help="Name of the config file that the CLI will be activated for. "
-                "Default is 'config_node.ini'."
+            help="The path were component is located. It can be absolute or "
+                "realtive to the path where CLI is executed."
         )
 
 

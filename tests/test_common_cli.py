@@ -1,5 +1,4 @@
 import argparse
-import os
 import shutil
 import sys
 import tempfile
@@ -7,10 +6,8 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from fedbiomed.common.cli import CommonCLI, ComponentParser
-from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 
-from fedbiomed.researcher.config import ResearcherConfig
 
 class TestComponentParser(unittest.TestCase):
 
@@ -54,6 +51,8 @@ class TestComponentParser(unittest.TestCase):
             ["component", "create", "--path", self.tem.name, "--component", "NODE", "-eo"]
         )
         self.conf_parser.create(args)
+        self.tem.cleanup()
+
 
         args = self.main_parser.parse_args(
             ["component", "create", "--path", self.tem.name, "--component", "RESEARCHER", "-eo"]
@@ -242,13 +241,10 @@ class TestCommonCLI(unittest.TestCase):
         args = self.cli.parser.parse_args(
             ["certificate", "generate", "--path", "dummy/path/" "-f"]
         )
+        self.config.get.return_value = 'test'
 
-        mock_cli_error = patch(
-            "fedbiomed.common.cli.CommonCLI.error", MagicMock(return_value=None)
-        )
-        mock_cli_error.start()
-        self.cli._generate_certificate(args)
-        mock_cli_error.stop()
+        with self.assertRaises(SystemExit):
+            self.cli._generate_certificate(args)
 
         # Remove tmp directory
         shutil.rmtree(tmp_dir)
@@ -260,6 +256,9 @@ class TestCommonCLI(unittest.TestCase):
         args = self.cli.parser.parse_args(
             ["certificate", "generate", "--path", "dummy/path/"]
         )
+
+
+
         with self.assertRaises(SystemExit):
             self.cli._generate_certificate(args)
 

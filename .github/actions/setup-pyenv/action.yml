@@ -14,6 +14,9 @@ runs:
   using: 'composite'
   steps:
     # Set up Pyenv on Linux and macOS permanently
+    - name: Set up Node.js
+      uses: ./.github/actions/setup-node-env
+
     - name: Install Pyenv (Linux/macOS)
       if: ${{ runner.os != 'Windows' }}
       shell: bash -l {0}

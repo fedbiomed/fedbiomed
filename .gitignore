@@ -407,6 +407,7 @@ trained_model
 # Docs
 build
 public
+!fedbiomed_gui/ui/public
 build-tmp
 !envs/build
 report.tap
