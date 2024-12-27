@@ -30,6 +30,11 @@ RUN apt-get update && apt-get install -y libgmp3-dev openssl \
 RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python && \
     ln -sf /usr/bin/pip3 /usr/bin/pip
 
+# Install nodejs -----------------------------------------------------------------
+RUN wget -qO- https://deb.nodesource.com/setup_23.x | bash -
+RUN apt-get install -y nodejs
+RUN npm install --global yarn@1.22
+
 
 # read config.env in interactive shells & setup for reading it in entrypoint
 COPY ./envs/vpn/docker/researcher/build_files/bashrc_append /tmp
@@ -53,9 +58,10 @@ COPY fedbiomed /fedbiomed/fedbiomed
 COPY scripts /fedbiomed/scripts
 COPY notebooks /fedbiomed/notebooks
 COPY docs/tutorials /fedbiomed/docs/tutorials
-COPY gui /fedbiomed/gui
+COPY fedbiomed_gui /fedbiomed/fedbiomed_gui
 COPY pyproject.toml /fedbiomed/pyproject.toml
 COPY README.md /fedbiomed/README.md
+COPY hatch_build.py /fedbiomed/hatch_build.py
 
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for

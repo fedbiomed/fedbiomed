@@ -1,9 +1,11 @@
+import os
+import tempfile
 import copy
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedCertificateError
 
 
 class TestCertificateManager(unittest.TestCase):
@@ -225,8 +227,8 @@ class TestCertificateManager(unittest.TestCase):
     def test_10_certificate_generate_self_signed_ssl_certificate(self, mock_abspath):
         """Tests method to generate self-signed ssl certificate"""
 
-        certificate_folder = "/dummy/folder"
 
+        certificate_folder = 'test-dir'
         with patch("builtins.open") as mock_open:
 
             self.mock_isdir.return_value = True
@@ -236,11 +238,10 @@ class TestCertificateManager(unittest.TestCase):
                 component_id="component-id",
             )
             self.assertEqual(
-                mock_open.call_args_list[0][0], ("/dummy/folder/certificate.key", "wb")
+                mock_open.call_args_list[0][0], (os.path.join(certificate_folder, "certificate.key") , "wb")
             )
             self.assertEqual(
-                mock_open.call_args_list[1][0], ("/dummy/folder/certificate.pem", "wb")
-            )
+                mock_open.call_args_list[1][0], (os.path.join(certificate_folder, "certificate.pem") , "wb")                )
 
             self.assertEqual(
                 mock_open.return_value.__enter__.return_value.write.call_count, 2
@@ -280,7 +281,7 @@ class TestCertificateManager(unittest.TestCase):
             self.mock_isdir.return_value = False
             with self.assertRaises(FedbiomedCertificateError):
                 self.cm.generate_self_signed_ssl_certificate(
-                    certificate_folder=certificate_folder,
+                    certificate_folder=os.path.join(certificate_folder, "no-exisintg"),
                     certificate_name="certificate",
                     component_id="component-id",
                 )

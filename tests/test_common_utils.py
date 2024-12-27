@@ -28,11 +28,6 @@ class TestCommonConfigUtils(unittest.TestCase):
             f"a required path does not exist. Offending value = {root}"
         )
 
-        # Make sure that root placed good.
-        self.assertTrue(
-            os.path.exists(os.path.join(root, 'gui'))
-        )
-
     @patch("fedbiomed.common.utils._config_utils.configparser")
     def test_02_common_config_utils_get_component_config(self,
                                                          mock_configparser):

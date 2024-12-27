@@ -53,6 +53,8 @@ class Node:
     etiher treating them instantly or queuing them,
     executing tasks requested by researcher stored in the queue.
     """
+    tp_security_manager: TrainingPlanSecurityManager
+    dataset_manager: DatasetManager
 
     def __init__(
         self,

@@ -94,7 +94,7 @@ if __name__ == '__main__':
         if node_component.is_component_existing(component_folder) and not args.force:
             print(f"**Warning: component {component_folder} already exists. To overwrite, please specify `--force` option")
         else:
-            node_component.create(component_folder)
+            node_component.initiate(component_folder)
 
         df = allcenters[allcenters.SITE_NAME == center_name]
         center_dfs.append(df)

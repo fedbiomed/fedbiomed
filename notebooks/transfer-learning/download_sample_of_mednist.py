@@ -20,7 +20,7 @@ def parse_args():
     """Argument Parser"""
     parser = argparse.ArgumentParser(description='MEDNIST sampler. Creates configuration files with sub-sets of the MedNIST dataset')
     parser.add_argument('-f', '--root_folder', required=False, type=str, default=os.getcwd(),
-                        help='')
+                        help='Folder where to save dataset')
     parser.add_argument('-F', '--force', action=argparse.BooleanOptionalAction, required=False, type=bool, default=False,
                         help='forces overwriting a config file')
     parser.add_argument('-n', '--number_nodes', required=False, type=int, default=1, help="number of nodes to create")
@@ -29,7 +29,7 @@ def parse_args():
 
 
 def manage_config_file(
-    mednist_center_name: str = "mednist",
+    mednist_center_name: str = "mednist", **kwargs
 ):
     """Creates config file for subsampled datasets
 
@@ -41,7 +41,7 @@ def manage_config_file(
     mednist_center_name = "node_" + mednist_center_name
     component = NodeComponent()
     center_folder = os.path.join(os.getcwd(), mednist_center_name)
-    config = component.create(root=center_folder)
+    config = component.initiate(root=center_folder)
 
     return config
 
@@ -61,7 +61,7 @@ def ask_nb_sample_for_mednist_dataset() -> str:
             ask_user = False
 
         else:
-            print(f"Number of samples exceed size of dataset (asked {val}!)")
+            print(f"Number of samples exceed size of dataset or below minimum (6 samples at least) (asked {val}!)")
 
     return val
 
@@ -203,13 +203,14 @@ if __name__ == '__main__':
     n_nodes = args.number_nodes
 
     config_files = []
+    errors_coll = []
     for n in range(abs(n_nodes)):
         _name = f"MedNIST_{n+1}_sampled"
         print("Now creating Node: ", f"MedNIST_{n+1}")
         n_sample: Union[str, int] = ask_nb_sample_for_mednist_dataset()
 
         if n_sample != '':
-            config =  manage_config_file(args, _name, config_files)
+            config =  manage_config_file(_name)#_name, config_files)
             dataset = MedNISTDataset(
                 os.path.join(config.root, 'etc', config.get('default', 'db')),
                 os.path.join(data_folder, 'MedNIST'),
@@ -220,7 +221,7 @@ if __name__ == '__main__':
                                                   new_sampled_dataset_name=_name)
         else:
             _name = f"MedNIST_{n+1}"
-            config = manage_config_file(args, _name, config_files)
+            config = manage_config_file(_name)
             d_path = os.path.join(data_folder, 'MedNIST')
             dataset = MedNISTDataset(
                 os.path.join(config.root, 'etc', config.get('default', 'db')), d_path)
@@ -233,13 +234,20 @@ if __name__ == '__main__':
                                  path=d_path,
                                  )
         except FedbiomedDatasetManagerError as e:
-            print("Cannot generate dataset because a dataset has been peviously created.")
-            print(f"please run fedbiomed node config {config_files[n]} --delete and remove the dataset tagged as {_name}")
-            raise e
+            errors_coll.append((_name, e))
+        config_files.append(config)
+    if errors_coll:
+        print("Cannot generate dataset because a dataset has been peviously created.")
+        for wrong_conf, e in errors_coll:
+
+            print(f"please run:\n fedbiomed node --path=./node_{wrong_conf} dataset delete\nand remove the dataset tagged as {wrong_conf}")
+        print("\n\n\n")
+        raise e
     print("Done ! please find below your config files:")
+
     for entry in config_files:
-        print("config file: ", entry + '\n')
+        print("config file: ", os.path.basename(entry.root) + '\n')
 
     print("to launch the node, please run in distinct terminal:")
     for entry in config_files:
-        print(f"fedbiomed node --path {entry} start")
+        print(f"fedbiomed node --path {os.path.basename(entry.root)} start")

@@ -83,6 +83,12 @@ pip install pdm
 The command above will install PDM in the active `conda` environment or in active `pyenv` if it is used for managing Python versions.
 
 
+### NodeJS and yarn
+
+Fed-BioMed Node GUI uses the ReactJS library for web development. The ReactJS application for the Fed-BioMed Node GUI requires `Node.js` and `Yarn` to be installed, both for development and to enable automatic building during the creation of the Fed-BioMed package.
+
+Therefore, it is essential to have Node.js and Yarn installed on your system. Please follow the installation instructions for your operating system to install [Node.js](https://nodejs.org/en/download) and [Yarn](https://classic.yarnpkg.com/en/).
+
 ## Using PDM
 
 PDM is a tool to manage dependencies of a Python project, and build the python package:
@@ -143,7 +149,7 @@ Please visit `pdm` documentation for more information and usage details.
 
 ## Post actions
 
-To verify your installation please run `pytest tests` to make sure there is no missing module in your environment.
+To verify your installation please run `pytest tests` and `tox -r` to make sure there is no missing module in your environment.
 
 
 ## Troubleshooting

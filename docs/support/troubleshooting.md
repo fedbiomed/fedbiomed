@@ -6,7 +6,7 @@ This page contains some frequently encountered problems, and their solutions.
 
 ## Missing Python interpreter in Jupyter notebook
 
-If Fed-BioMed is installed in a virtual environment such as `virtualenv` or `conda`, executing `fedbiomed researcher -c <component-dir>` may not use the correct Python interpreter. This issue can be resolved by installing the necessary packages for the virtual environment tool, either automatically or by manually registering a Python kernel.
+If Fed-BioMed is installed in a virtual environment such as `virtualenv` or `conda`, executing `fedbiomed researcher -p <component-dir>` may not use the correct Python interpreter. This issue can be resolved by installing the necessary packages for the virtual environment tool, either automatically or by manually registering a Python kernel.
 
 For Conda users, installing `nb_conda_kernels` will automatically detect the Python interpreters from created virtual environments and allow you to select them.
 
@@ -21,11 +21,11 @@ Another option is to add the Python path to the PATH variable:
 export PATH=<path/to/python3>:$PATH
 ```
 
-## Tkinter Error on macOS or Missing `python-itk` Package
+## Tkinter Error on macOS or Missing `python-tk` Package
 
-Fed-BioMed uses the `itk` module in its CLI to launch a file explorer for selecting files and folders. However, some systems or Python environment managers may not include `python-itk`, which can cause failures—for example, when adding datasets into nodes via the Fed-BioMed CLI. If you're using tools like `pyenv` to install different Python versions without `python-itk` being present on your system, this will result in a Python installation without the correct `itk` module.
+Fed-BioMed uses the `itk` module in its CLI to launch a file explorer for selecting files and folders. However, some systems or Python environment managers may not include `python-tk`, which can cause failures—for example, when adding datasets into nodes via the Fed-BioMed CLI. If you're using tools like `pyenv` to install different Python versions without `python-tk` being present on your system, this will result in a Python installation without the correct `tk` module.
 
-You can verify if `itk` or `python-itk` is correctly installed by running the following test code:
+You can verify if `itk` or `python-tk` is correctly installed by running the following test code:
 
 ```python
 import tkinter
@@ -38,14 +38,14 @@ If the necessary modules are not installed, you may encounter an exit error on m
 macOS 14 (1407) or later required, have instead 14 (1406)!
 ```
 
-If this occurs, you can install `python-itk` by running `brew install python-itk`
+If this occurs, you can install `python-tk` by running `brew install python-tk`
 
 After installing, reinstall the Python version using `pyenv` to ensure the correct setup.
 
-This issue may also occur if you're using a `conda` virtual environment. To ensure `itk` is correctly installed in `conda`, run:
+This issue may also occur if you're using a `conda` virtual environment. To ensure `tk` is correctly installed in `conda`, run:
 
 ```bash
-conda install -c conda-forge itk
+conda install -c conda-forge tk
 ```
 ---
 
