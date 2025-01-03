@@ -50,6 +50,10 @@ For `researcher` only installation:
 pip install "fedbiomed[researcher] @ git+https://github.com/fedbiomed/fedbiomed.git"
 ```
 
+For installing optional node GUI:
+```
+pip install "fedbiomed[gui] @ git+https://github.com/fedbiomed/fedbiomed.git"
+```
 
 Fed-BioMed is provided under [Apache 2.0 License](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md).
 

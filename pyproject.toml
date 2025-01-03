@@ -1,22 +1,34 @@
 [project]
 name = "fedbiomed"
-version = "v5.3.0"
-description = "Collaborative learning"
-authors = [
-	{name = "Lucie Chambon <lucie.chambon@inria.fr>"},
+version = "5.4.0.post0"
+description = "Collaborative learning for healthcare"
+
+maintainers = [
+	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
+	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
+	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
 	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
 	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
+]
+
+authors = [
+	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
    	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
 	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
-	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
-	{name = "Riccardo Taiello <riccardo.taiello@inria.fr>"},
+	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
+	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
+	{name = "Paul Andrey <paul.andrey@inria.fr>"},
+	{name = "Lucie Chambon <lucie.chambon@inria.fr>"},
 	{name = "Erwan Demairy <erwan.demairy@inria.fr>"},
 	{name = "Thibaud Kloczko <thibaud.kloczko@inria.fr>"},
-	{name = "Paul Andrey <paul.andrey@inria.fr>"},
+	{name = "Côme Le Breton <come.le-breton@inria.fr>"},
+	{name = "Jean-Luc Szpyrka <jean-luc@szpyrka.fr>"},
+	{name = "Riccardo Taiello <riccardo.taiello@inria.fr>"},
 	{name = "Maya Assal"},
 	{name = "Samy-Safwan Ayed"},
 	{name = "Irene Balelli"},
 	{name = "Nathan Bigaud"},
+	{name = "Eleonore Birgy"},
 	{name = "Tristan Cabel"},
 	{name = "Gaurav D. Chaudary"},
 	{name = "Nejma El Kourdachi"},
@@ -31,6 +43,30 @@ authors = [
 	{name = "Andrea Senacheribbe"},
 	{name = "Santiago-Smith Silva-Rincon"},
 	{name = "Carlos Zubiaga"},
+]
+
+keywords = [
+	"learning",
+	"ai",
+	"analytics",
+	"clinical",
+	"collaborative",
+	"federated",
+	"biomedical",
+	"healthcare",
+	"multicentric",
+]
+
+classifiers = [
+	"Development Status :: 5 - Production/Stable",
+	"Intended Audience :: Science/Research",
+	"Intended Audience :: Healthcare Industry",
+	"License :: OSI Approved :: Apache Software License",
+	"Natural Language :: English",
+	"Operating System :: Unix",
+	"Operating System :: MacOS",
+	"Programming Language :: Python :: 3",
+	"Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 dependencies = [
@@ -66,9 +102,15 @@ requires-python = "<3.11,>=3.10"
 readme = "README.md"
 license = {text = "Apache 2.0"}
 
+[project.urls]
+Homepage = "https://fedbiomed.org"
+Documentation = "https://fedbiomed.org"
+Repository = "https://github.com/fedbiomed/fedbiomed"
+
 [project.optional-dependencies]  # This is optional dependencies
 node = [
 ]
+
 researcher = [
 	"pathvalidate ~=3.0.0",
 	"matplotlib >=3.8.0,<3.8.4",
@@ -84,7 +126,6 @@ gui = [
 	"cachelib >=0.10.2,<0.11.0",
 	"gunicorn ~=23.0.0"
 ]
-
 
 [tool.hatch.metadata]
 allow-direct-references = true
