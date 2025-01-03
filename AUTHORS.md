@@ -16,6 +16,7 @@ Each author can mention his/her name only or give more information in the follow
 - Samy-Safwan Ayed
 - Irene Balelli
 - Nathan Bigaud
+- Eleonore Birgy
 - Yannick Bouillard
 - Tristan Cabel
 - Sergen Cansiz
@@ -27,6 +28,7 @@ Each author can mention his/her name only or give more information in the follow
 - Thibaud Kloczko
 - Lena Le Quintrec
 - Nathan Lapel
+- Côme Le Breton
 - Jonathan Levy
 - Marco Lorenzi
 - Riham Nehmeh
