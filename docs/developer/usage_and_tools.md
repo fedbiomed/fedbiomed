@@ -121,7 +121,6 @@ Current list of Core Developers listed by alphabetical order:
 - Sergen Cansiz
 - Francesco Cremonesi
 - Marco Lorenzi
-- Riccardo Taiello
 - Marc Vesin
 
 
@@ -337,6 +336,7 @@ All sprint backlog issues have one status label. Other issues only have a status
 These are optional label that give additional information on an issue.
 
 - **bug** : this issue is about reporting and resolving a suspected bug
+- **new feature** : this issue proposes to introduce a new functionality. This probably should not be set in the same issue as a *bug* or *user support*
 - **documentation** : documentation related issue
 - **good first issue** : nice to pick for a new contributor
 
