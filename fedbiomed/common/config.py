@@ -207,23 +207,6 @@ class Config(metaclass=ABCMeta):
     def add_parameters(self):
         """ "Component specific argument creation"""
 
-    def refresh(self):
-        """Refreshes config file by recreating all the fields without
-        chaning component ID.
-        """
-
-        if not self.is_config_existing():
-            raise FedbiomedConfigurationError(
-                f"{ErrorNumbers.FB600.value}: Can not refresh config file that is not existing"
-            )
-
-        # Read the config
-        self._cfg.read(self.config_path)
-        id = self._cfg["default"]["id"]
-
-        # Generate by keeping the component ID
-        self.generate(force=True, id=id)
-
 
 class Component:
 
