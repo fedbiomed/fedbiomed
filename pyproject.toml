@@ -73,7 +73,7 @@ node = [
 researcher = [
 	"pathvalidate ~=3.0.0",
 	"matplotlib >=3.8.0,<3.8.4",
-	"tensorboard ~=2.13.0",
+	"tensorboard ~=2.18.0",
 	"jupyter",
 	"ipython"
 ]
