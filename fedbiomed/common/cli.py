@@ -441,15 +441,17 @@ class CommonCLI:
         generate = certificate_sub_parsers.add_parser(
             "generate",
             help="Generates certificate for given component/party if files don't exist yet. "
-            "Overwrites existing certificate file if '--force' option is given. "
-            "Uses an alternate directory if '--path DIRECTORY' is given",
+            "Uses an alternate directory if '--path DIRECTORY' is given."
+            " If files already exist, overwrite existing certificate.\n"
+            "Certificate are here refering to the public certificate and its associated private key "
+            "(the latter should remain secret and not shared to other parties)."
         )
 
         # Command `certificate generate`
         prepare = certificate_sub_parsers.add_parser(
             "registration-instructions",
             help="Prepares certificate of current component to send other FL participant"
-                 "through trusted channel.",
+                 " through trusted channel.",
         )
 
         register_parser.set_defaults(func=self._register_certificate)
@@ -490,15 +492,8 @@ class CommonCLI:
             type=str,
             nargs="?",
             required=False,
-            help="The path where certificates will be saved. By default it will overwrite "
-                 "existing certificate.",
-        )
-
-        generate.add_argument(
-            "-f",
-            "--force",
-            action="store_true",
-            help="Forces to overwrite certificate files",
+            help="The path to the RESEARCHER|NODE component, in which certificate will be saved."
+            " By default it will overwrite existing certificate.",
         )
 
     def _create_magic_dev_environment(self, dummy: None):
@@ -545,16 +540,15 @@ class CommonCLI:
         Args:
             args: Arguments that are passed after `certificate generate` command
         """
+        # if (
+        #     os.path.isfile(f"{args.path}/certificate.key") or
+        #     os.path.isfile(f"{args.path}/certificate.pem")
+        # ):
 
-        if not args.force and (
-            os.path.isfile(f"{args.path}/certificate.key") or
-            os.path.isfile(f"{args.path}/certificate.pem")
-        ):
-
-            CommonCLI.error(
-                "Certificate is already existing in. \n "
-                "Please use -f | --force option to overwrite existing certificate."
-            )
+        #     CommonCLI.error(
+        #         f"Certificate is already existing in {args.path}. \n "
+        #         "Please use -f | --force option to overwrite existing certificate."
+        #     )
 
         path = (
             self.config.vars["CERT_DIR"]
@@ -650,7 +644,7 @@ class CommonCLI:
         """Prints instruction to registration of the certificate by the other parties"""
 
         certificate = read_file(
-            os.path.join(self.config.root, CONFIG_FOLDER_NAME, self.config.get("certificate", "private_key"))
+            os.path.join(self.config.root, CONFIG_FOLDER_NAME, self.config.get("certificate", "public_key"))
         )
 
         print("Hi There! \n\n")
