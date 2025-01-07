@@ -12,8 +12,7 @@ from fedbiomed.common.constants import (
     VAR_FOLDER_NAME,
     CACHE_FOLDER_NAME,
     CONFIG_FOLDER_NAME,
-    TMP_FOLDER_NAME,
-    ComponentType
+    TMP_FOLDER_NAME
 )
 from ._utils import read_file
 

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+from typing import Optional
 
 from fedbiomed.common.constants import (
     SERVER_certificate_prefix,
@@ -9,7 +10,8 @@ from fedbiomed.common.constants import (
     CONFIG_FOLDER_NAME,
     VAR_FOLDER_NAME,
     TENSORBOARD_FOLDER_NAME,
-    DEFAULT_RESEARCHER_NAME
+    DEFAULT_RESEARCHER_NAME,
+    NOTEBOOKS_FOLDER_NAME,
 )
 
 from fedbiomed.common.certificate_manager import generate_certificate
@@ -80,6 +82,15 @@ class ResearcherComponent(Component):
     """
     config_cls = ResearcherConfig
     _default_component_name = DEFAULT_RESEARCHER_NAME
+
+    def initiate(self, root: Optional[str] = None) -> ResearcherConfig:
+        """Creates or initiates existing component"""
+        config = super().initiate(root)
+
+        os.makedirs(os.path.join(root, NOTEBOOKS_FOLDER_NAME), exist_ok=True)
+
+        return config
+
 
 researcher_component = ResearcherComponent()
 config = researcher_component.initiate(root=component_root)
