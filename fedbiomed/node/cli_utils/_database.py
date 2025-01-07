@@ -10,12 +10,10 @@ from importlib import import_module
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetManagerError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.data import DataLoadingPlan, FlambyDatasetMetadataBlock, \
-    FlambyLoadingBlockTypes
+from fedbiomed.common.data import DataLoadingPlan
 from fedbiomed.node.cli_utils._medical_folder_dataset import add_medical_folder_dataset_from_cli
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
-from fedbiomed.common.data import discover_flamby_datasets
 
 
 def add_database(
@@ -96,8 +94,8 @@ def add_database(
                                                                                                   dataset_parameters,
                                                                                                   data_loading_plan)
             elif data_type == 'flamby':
-                path = None  # flamby datasets are not identified by their path
-
+                from fedbiomed.common.data.flamby_dataset import discover_flamby_datasets, FlambyDatasetMetadataBlock, \
+                    FlambyLoadingBlockTypes
                 # Select the type of dataset (fed_ixi, fed_heart, etc...)
                 available_flamby_datasets = discover_flamby_datasets()
                 msg = "Please select the FLamby dataset that you're configuring:\n"
@@ -115,7 +113,7 @@ def add_database(
                             warnings.warn(f"Please pick a number in the range {list(available_flamby_datasets.keys())}")
                     except ValueError:
                         warnings.warn('Please input a numeric value (integer)')
-
+                path = available_flamby_datasets[flamby_dataset_index]  # flamby datasets not identified by their path
                 # Select the center id
                 module = import_module(f".{available_flamby_datasets[flamby_dataset_index]}", package='flamby.datasets')
                 n_centers = module.NUM_CLIENTS
