@@ -33,10 +33,6 @@ def _get_fedbiomed_root() -> str:
 
 # Main directories definition
 ROOT_DIR = _get_fedbiomed_root()
-CONFIG_DIR = os.path.join(ROOT_DIR, CONFIG_FOLDER_NAME)
-VAR_DIR = os.path.join(ROOT_DIR, VAR_FOLDER_NAME)
-CACHE_DIR = os.path.join(VAR_DIR, CACHE_FOLDER_NAME)
-TMP_DIR = os.path.join(VAR_DIR, TMP_FOLDER_NAME)
 
 
 def get_component_config(
