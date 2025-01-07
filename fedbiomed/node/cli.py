@@ -488,23 +488,30 @@ class GUIControl(CLIArgumentParser):
     def initialize(self):
         """Initializes GUI commands"""
         self._parser = self._subparser.add_parser(
-            "gui", add_help=False, help="Action to manage Node user interface"
+            "gui", #add_help=False,
+             help="Action to manage Node user interface"
         )
         self._parser.set_defaults(func=self.forward)
+        # gui_subparsers = self._parser.add_subparsers(title='start GUI')
+        # start = gui_subparsers.add_parser('start',
+        #                                   help='launch the server (defaults on localhost:8484)')
 
-        gui_subparsers = self._parser.add_subparsers()
-        start = gui_subparsers.add_parser('start')
+        # start.set_defaults(func=self.start)
+        # self._add_args(start)
 
-
-        start.add_argument(
+    # def _add_args(self, parser: argparse.ArgumentParser):
+    #     """Configures arguments for gui CLI"""
+        # parser.add_argument('start',
+        #                     )
+        self._parser.add_argument(
             "--data-folder",
-           "-df",
+            "-df",
             type=str,
             nargs="?",
             default="data",  # data folder in root directory
             required=False)
 
-        start.add_argument(
+        self._parser.add_argument(
             "--cert-file",
             "-cf",
             type=str,
@@ -513,7 +520,7 @@ class GUIControl(CLIArgumentParser):
             help="Name of the certificate to use in order to enable HTTPS. "
                  "If cert file doesn't exist script will raise an error.")
 
-        start.add_argument(
+        self._parser.add_argument(
             "--key-file",
             "-kf",
             type=str,
@@ -522,7 +529,7 @@ class GUIControl(CLIArgumentParser):
             help="Name of the private key for the SSL certificate. "
                  "If the key file doesn't exist, the script will raise an error.")
 
-        start.add_argument(
+        self._parser.add_argument(
             "--port",
             "-p",
             type=str,
@@ -531,30 +538,30 @@ class GUIControl(CLIArgumentParser):
             required=False,
             help="HTTP port that GUI will be served. Default is `8484`")
 
-        start.add_argument(
+        self._parser.add_argument(
             "--host",
             "-ho",
             type=str,
             default="localhost",
             nargs="?",
             required=False,
-            help="HTTP port that GUI will be served. Default is `8484`")
+            help="HTTP port that GUI will be served. Default is `127.0.0.1` (localhost)")
 
-        start.add_argument(
+        self._parser.add_argument(
             "--debug",
             "-dbg",
             action="store_true",
             required=False,
             help="HTTP port that GUI will be served. Default is `8484`")
 
-        start.add_argument(
+        self._parser.add_argument(
             "--recreate",
             "-rc",
             action="store_true",
             required=False,
             help="Re-creates gui build")
 
-        start.add_argument(
+        self._parser.add_argument(
             "--development",
             "-dev",
             action="store_true",
@@ -562,17 +569,26 @@ class GUIControl(CLIArgumentParser):
             help="If it is set, GUI will start in development mode."
         )
 
-        start.set_defaults(func=self.forward)
+        self._parser.add_argument(
+            'start',
+            help="Start the server (Defaults to localhost:127.0.0.1)"
+        )
 
+    def forward(self, args: argparse.Namespace, extra_args):
+        """Launches Fed-BioMed Node GUI
 
-
-    def forward(self, args, extra_args):
-        """Launches Fed-BioMed Node GUI"""
+        Args:
+            args: parser argument's namespace
+        """
 
         fedbiomed_root = os.path.abspath(args.path)
-
+        #import pdb; pdb.set_trace()
+        #data_folder: str = args.data_folder if hasattr(args, 'data_folder') else fedbiomed_root
+        data_folder = os.path.abspath(args.data_folder)
+        if not os.path.isdir(data_folder):
+            raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")
         os.environ.update({
-            "DATA_PATH": os.path.abspath(args.data_folder),
+            "DATA_PATH": data_folder,
             "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
         })
         current_env = os.environ.copy()
@@ -585,7 +601,7 @@ class GUIControl(CLIArgumentParser):
 
         fedbiomed_gui = importlib.import_module("fedbiomed_gui")
         server_app = Path(fedbiomed_gui.__file__).parent
-        print(server_app)
+        print("path to server", server_app)
 
         host_port = ["--host", args.host, "--port", args.port]
         if args.development:
