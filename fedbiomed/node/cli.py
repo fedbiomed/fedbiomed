@@ -499,11 +499,13 @@ class GUIControl(CLIArgumentParser):
         # start.set_defaults(func=self.start)
         # self._add_args(start)
 
-    # def _add_args(self, parser: argparse.ArgumentParser):
-    #     """Configures arguments for gui CLI"""
-        # parser.add_argument('start',
-        #                     )
-        self._parser.add_argument(
+
+        # self._add_args(self._parser)
+
+        # start.set_defaults(func=self.forward)
+        # self._add_args(start)
+
+       self._parser.add_argument(
             "--data-folder",
             "-df",
             type=str,
@@ -567,11 +569,6 @@ class GUIControl(CLIArgumentParser):
             action="store_true",
             required=False,
             help="If it is set, GUI will start in development mode."
-        )
-
-        self._parser.add_argument(
-            'start',
-            help="Start the server (Defaults to localhost:127.0.0.1)"
         )
 
     def forward(self, args: argparse.Namespace, extra_args):
