@@ -1,6 +1,15 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+try:
+    import flamby
+except ModuleNotFoundError as e:
+    from fedbiomed.common.constants import ErrorNumbers
+    m = (f"{ErrorNumbers.FB617.value}. Flamby module missing. "
+         f"Install it manually with `pip install git+https://github.com/owkin/FLamby@main`.")
+    raise ModuleNotFoundError(m) from e
+
+
 from importlib import import_module
 from enum import Enum
 from typing import List, Dict, Union
@@ -10,7 +19,6 @@ from torch.utils.data import Dataset
 import flamby.datasets as flamby_datasets_module
 from torchvision.transforms import Compose as TorchCompose
 from monai.transforms import Compose as MonaiCompose
-
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError, FedbiomedDatasetValueError

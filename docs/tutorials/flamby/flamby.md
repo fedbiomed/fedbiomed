@@ -19,9 +19,13 @@ dataset in a federated experiment.
 
 ## Installing FLamby and downloading the datasets
 
-Fed-BioMed comes with the FLamby library pre-installed.
+If you wish to use Flamby, you need to install the package with
 
-However, your manual intervention is still required to:
+```bash
+pip install  git+https://github.com/owkin/FLamby@main
+```
+
+Additionally, you will need to manually:
 
 - install any dependencies required by the FLamby datasets that you wish to use.
 - download those datasets.
