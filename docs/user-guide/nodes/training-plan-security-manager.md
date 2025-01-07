@@ -254,8 +254,7 @@ The command lists registered training plans with their names and ids and asks yo
 
 Default training plans are training plans that are pre-authorized by Fed-BioMed, by default.
 
-Unlike the registered training plans, the Fed-BioMed GUI and CLI tools don't provide an option for adding new default training plans. Default training plans are already
-stored in the `envs/common/default_training_plans` directory. They are automatically registered when the node is started with training plan type as `default` and status as `Approved`.
+Unlike the registered training plans, the Fed-BioMed GUI and CLI tools don't provide an option for adding new default training plans. Default training plans are already stored in the system shared directory  `shared/fedbiomed/envs/common/default_training_plans` directory. They are automatically registered when the node is started with training plan type as `default` and status as `Approved`.
 
 If the default training plans already exists in the database at node start, training plan manager checks whether there is any modification. If any default training plan file is deleted from the filesystem, training plan manager also deletes it from the database. If the training plan file is modified, or the hashing algorithm is changed, training plan manager updates the hashes in the database. This checking/controlling operation is done while starting the node.
 

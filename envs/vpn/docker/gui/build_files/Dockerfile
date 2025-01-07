@@ -13,6 +13,7 @@ ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP
 ARG CONTAINER_USER
+ARG PYTHON_VERSION="3.10"
 
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
@@ -24,7 +25,8 @@ ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 RUN apt-get update && apt-get install -y gcc apt-utils wget procps systemd \
-	gettext-base libgmp3-dev libmpfr-dev libmpc-dev apt-utils wget git
+	gettext-base libgmp3-dev libmpfr-dev libmpc-dev apt-utils wget git \
+	python-tk python${PYTHON_VERSION} python3-pip
 
 
 RUN python --version

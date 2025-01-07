@@ -32,9 +32,6 @@ nav:
       - 'Basic Example': './getting-started/basic-example.md'
       - 'Configuration': './getting-started/configuration.md'
     - Tutorials:
-      - Installation:
-        - 'Software Installation' : './tutorials/installation/0-basic-software-installation.md'
-        - 'Setting Up Environment' : './tutorials/installation/1-setting-up-environment.md'
       - PyTorch:
         - 'MNIST Basic Example': './tutorials/pytorch/01_PyTorch_MNIST_Single_Node_Tutorial.ipynb'
         - 'Create Your Custom Training Plan': './tutorials/pytorch/02_Create_Your_Custom_Training_Plan.ipynb'

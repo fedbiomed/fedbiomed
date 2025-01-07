@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 import glob
 import os
+import sys
+import sysconfig
 import configparser
 
 from typing import List, Dict
@@ -30,8 +32,10 @@ def _get_fedbiomed_root() -> str:
 
     return os.path.abspath(os.path.join(root, '..'))
 
+
 # Main directories definition
 ROOT_DIR = _get_fedbiomed_root()
+SHARE_DIR = os.path.join(sysconfig.get_path("data"), 'share', 'fedbiomed')
 
 
 def get_component_config(

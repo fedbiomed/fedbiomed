@@ -22,11 +22,11 @@ from fedbiomed.common.message import Message, InnerMessage, \
     OverlayMessage, ChannelSetupRequest
 from fedbiomed.common.secagg import DHKey, DHKeyAgreement
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.utils import ROOT_DIR
+from fedbiomed.common.utils import SHARE_DIR
 
 from fedbiomed.transport.controller import GrpcController
 
-_DEFAULT_KEY_DIR = os.path.join(ROOT_DIR, "envs", "common", "default_keys")
+_DEFAULT_KEY_DIR = os.path.join(SHARE_DIR, "envs", "common", "default_keys")
 _DEFAULT_N2N_KEY_FILE = "default_n2n_key.pem"
 
 

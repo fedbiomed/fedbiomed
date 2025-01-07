@@ -15,6 +15,10 @@ This tutorial details a deployment scenario where:
 
 ## Requirements
 
+!!! note "Important"
+Fed-BioMed docker images aren't distributed in any platform, and it requires to be rebuilt from source code. This article will guide you building docker images and containers from Fed-BioMed source.
+
+
 !!! info "Supported operating systems and software requirements"
     Supported operating systems for containers/VPN deployment include **Fedora 38**, **Ubuntu 22.04 LTS**. Should also work for most recent Linux, **MacOS X 12.6.6, 13 and 14**, **Windows 11** with WSL2 using Ubuntu-22.04 distribution. Also requires
     **docker** and **docker compose >= 2.0**.
@@ -325,7 +329,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node. The com
     * start the Fed-BioMed node, for example in background:
 
         ```bash
-        [user@node-container $] nohup fedbiomed node start >/fbm_node/fedbiomed_node.out &
+        [user@node-container $] nohup fedbiomed node start >/fbm-node/fedbiomed_node.out &
         ```
 
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):

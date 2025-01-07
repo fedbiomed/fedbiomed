@@ -6,10 +6,10 @@ keywords: fedbiomed configuration,node configuration
 
 # Node Configuration
 
-
-The Fed-BioMed framework has two main components: `node` and `researcher`. A `node` stores private datasets and performs training in response to the `researcher's` training requests. Communication between the `node` and the `researcher` component occurs via the RPC protocol.
+The Fed-BioMed framework consists of two main components: `node` and `researcher`. The `node` stores private datasets and performs training in response to the `researcher's` training requests. Communication between the `node` and the `researcher` component is facilitated through the RPC (Remote Procedure Call) protocol.
 
 ### Basic `node` Configuration
+
 
 A basic configuration for the `node` component includes the following settings:
 
@@ -20,8 +20,7 @@ A basic configuration for the `node` component includes the following settings:
 
 !!! note "Note"
     These basic configurations are generated automatically with default values. While it is possible to manually edit the configuration files, doing so may render certain parameters incompatible. For example, `[server]/host` and `[server]/pem` must remain consistent, as the latter depends on the former.
-    To avoid such issues, it is strongly recommended to use the dedicated script for creating and refreshing configurations:
-    **`fedbiomed component create`**, with options described above.
+    To avoid such issues, it is strongly recommended to use the dedicated script for creating configurations: **`fedbiomed component create`**, with options described above.
 
 
 ## Environment for Nodes

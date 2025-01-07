@@ -19,7 +19,6 @@ import fedbiomed.common.constants
 import fedbiomed.common.data.__init__
 import fedbiomed.common.data._data_loading_plan
 import fedbiomed.common.data._data_manager
-import fedbiomed.common.data._flamby_dataset
 import fedbiomed.common.data._medical_datasets
 import fedbiomed.common.data._sklearn_data_manager
 import fedbiomed.common.data._tabular_dataset

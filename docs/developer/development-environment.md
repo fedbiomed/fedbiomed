@@ -157,8 +157,18 @@ To verify your installation please run `pytest tests` and `tox -r` to make sure 
 You may encounter some common issues during installation or after the installation due to some missing packages. Please visit [troubleshooting](../support/troubleshooting.md) dedicated page for common issues.
 
 
-### Error on MacOS: `_lzma` module not found
+### Error on MacOS/Ubuntu regarding `pyenv` usage: 
 
-If you are using MacOS and installing Python versions through `pyenv` you may have some missing packages in your environment. `ModuleNotFoundError: No module named '_lzma'` is one of them. If you faced this error please install `brew install xz`, and reinstall python version `pyenv install <version>`.
+- **`_lzma` module not found**
+    - If you are using **MacOS** and installing Python versions through `pyenv` you may have some missing packages in your environment. `ModuleNotFoundError: No module named '_lzma'` is one of them. If you faced this error please install `brew install xz`, and reinstall python version `pyenv install <version>`.
 
 
+    - If you are using **Ubuntu** or **Debian based OS**, and install python through `pyenv`, and get `ModuleNotFoundError: No module named '_lzma'`
+        This could be fixed by using
+        ```bash
+        sudo apt install liblzma-dev
+        ```
+- **Other issues**
+    - For other issues, `pyenv` comes with an utility [`pyenv-doctor`](https://github.com/pyenv/pyenv-doctor), made for checking `pyenv` installation and dependedncies, and can be run with: `pyenv doctor`. It will try to find the issue with your installation and proposes appropriate solutions to your issue.
+
+    More troubleshooting for `pyenv` can be found [here](https://github.com/pyenv/pyenv/wiki#suggested-build-environment).

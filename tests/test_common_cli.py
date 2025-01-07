@@ -160,7 +160,6 @@ class TestCommonCLI(unittest.TestCase):
 
         generate_options = choices["generate"]._positionals._option_string_actions
         self.assertTrue("--path" in generate_options)
-        self.assertTrue("--force" in generate_options)
 
     @patch("fedbiomed.common.cli.get_existing_component_db_names")
     @patch("fedbiomed.common.cli.get_all_existing_certificates")

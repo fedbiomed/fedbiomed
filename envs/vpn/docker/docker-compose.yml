@@ -183,7 +183,7 @@ services:
       # caution: /data /etc /var directory must be shared with node
       - ./gui/run_mounts/certs:/certs
       - ./node/run_mounts/data:/data # datasets can be added here
-      - ./node/run_mounts/fbm-node:/fbm-node # contains fedbiomed default training plans...
+      - ./node/run_mounts/fbm-node:/fbm-node
 
   # node gui component
   gui2:
@@ -211,7 +211,7 @@ services:
       # caution: /data /etc /var directory must be shared with node
       - ./gui2/run_mounts/certs:/certs
       - ./node2/run_mounts/data:/data # datasets can be added here
-      - ./node2/run_mounts/fbm-node:/fbm-node # datasets can be added here
+      - ./node2/run_mounts/fbm-node:/fbm-node
 #
   # researcher component
   researcher:

@@ -1,6 +1,6 @@
 upstream fedbiomed_gunicorn {
        # Use default Gunicorn port
-       server ${GUI_HOST}:${GUI_PORT};
+       server ${FBM_GUI_HOST}:${FBM_GUI_PORT};
 }
 
 server {

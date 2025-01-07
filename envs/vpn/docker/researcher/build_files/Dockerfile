@@ -23,7 +23,7 @@ ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 RUN apt-get update && apt-get install -y libgmp3-dev openssl \
 	libreadline-dev xz-utils libncurses-dev libffi-dev \
-	libmpfr-dev libmpc-dev apt-utils wget git \
+	libmpfr-dev libmpc-dev apt-utils wget socat git \
 	python-tk python${PYTHON_VERSION} python3-pip
 
 # Create alias
@@ -75,7 +75,6 @@ WORKDIR /fedbiomed
 
 # Install fedbiomed and its requirements
 RUN pip install '.[researcher]'
-RUN pip install jupyter
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

@@ -6,16 +6,13 @@ keywords: fedbiomed configuration,node configuration,deployin datasets
 
 # Deploying Datasets in Nodes
 
-Deploying datasets on nodes makes them ready for federated training with Fed-BioMed [experiments](../researcher/experiment.md). Dataset deployment in Fed-BioMed involves providing metadata for each dataset. A single node can deploy multiple datasets. Once deployed, the dataset's metadata is saved in the node's database, ensuring persistent storage even after the node is stopped and restarted.
+Deploying datasets on the nodes prepares them for federated training within Fed-BioMed [experiments](../researcher/experiment.md). This process involves providing metadata for each dataset, enabling the system to understand its characteristics. A single node can host multiple datasets. Once deployed, the dataset's metadata is securely stored in the node's database, ensuring persistence even after restarts or shutdowns.
 
-Each dataset must have at least the following attributes:
+Each dataset must include at least the following attributes:
 
-- **Database Name:** A short, user-readable name for the dataset, used for display purposes.
-- **Description:** A detailed explanation providing more information about the dataset's specifics.
-- **Tags:** A unique identifier used by the federated training process to distinguish each dataset.
-
-
-## Requirements
+- **Database Name:**  A concise, user-friendly name for the dataset used for display purposes.
+- **Description:** A detailed explanation providing further context and information about the dataset's content and origin.
+- **Tags:** Unique identifiers used by the federated training process to distinguish datasets accurately.
 
 Fed-BioMed does not support downloading datasets from remote sources, except for the default `MNIST` and `MedNIST` datasets. Therefore, before adding a dataset into a node, please make sure that you already prepared your dataset and saved it on the file system.
 
@@ -41,10 +38,12 @@ Please select the data type that you're configuring:
 select:
 ```
 
-
 The interface prompts you to select the type of dataset you would like to add. The `default` and `mednist` options are preconfigured to automatically download and add the MNIST and MedNIST datasets. To deploy your own data, you can select one of the following options: `csv`, `image`, `medical-folder`, or `flamby`, based on your requirements. After selecting an option, you will be prompted to provide additional details, covering both common and option-specific attributes.
 
 For example, suppose you want to add a CSV dataset. To do this, type `1` and press Enter. The interface will then ask you to provide the common attributes: dataset name, tags, and description.
+
+!!! note "Falmby"
+    To enable option 6 in Fed-BioMed, you'll need to install FLamby as an external dependency. After installing Fed-BioMed, use the following command: `pip install git+https://github.com/owkin/FLamby@main`."
 
 ```
 Name of the database: My Dataset

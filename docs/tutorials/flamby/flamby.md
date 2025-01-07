@@ -47,10 +47,17 @@ pip install <PACKAGES>
 To download the dataset named `<DATASET>` (eg `fed_ixi` for IXI):
 
 * download the dataset by executing on each node
-```bash
-# use the python environment for [development](../docs/developer/development-environment.md)
-python $(find $CONDA_PREFIX -path */<DATASET>/dataset_creation_scripts/download.py) -o ${FEDBIOMED_DIR}/data
-```
+    - 1. if you are using a **conda virtual environment**:
+    ```bash
+    # use the python environment for [development](../docs/developer/development-environment.md)
+    python $(find $CONDA_PREFIX -path */<DATASET>/dataset_creation_scripts/download.py) -o ${FEDBIOMED_DIR}/data
+    ```
+
+    - 2. if you are using a **venv virtual environment**:
+    ```bash
+    # use the python environment for [development](../docs/developer/development-environment.md)
+    python $(find $VIRTUAL_ENV -path */<DATASET>/dataset_creation_scripts/download.py) -o ${FEDBIOMED_DIR}/data
+    ```
 
 ## Defining the Training Plan
 

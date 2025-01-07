@@ -184,8 +184,8 @@ class ComponentParser(CLIArgumentParser):
     def _get_component_instance(self, path: str, component: str):
         """Gets component"""
         if component.lower() == "node":
-           config_node = importlib.import_module("fedbiomed.node.config")
-           _component = config_node.node_component
+            config_node = importlib.import_module("fedbiomed.node.config")
+            _component = config_node.node_component
         elif component.lower() == "researcher":
             os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = path
             config_researcher = importlib.import_module(
@@ -212,6 +212,8 @@ class ComponentParser(CLIArgumentParser):
 
         # Researcher specific case ----------------------------------------------------
         # This is a special case since researcher import
+        if args.component is None:
+            CommonCLI.error("Error: bad command line syntax")
         if args.component.lower() == "researcher":
             if DEFAULT_RESEARCHER_NAME in component_path  and \
                 os.path.isdir(component_path):
@@ -540,15 +542,14 @@ class CommonCLI:
         Args:
             args: Arguments that are passed after `certificate generate` command
         """
-        # if (
-        #     os.path.isfile(f"{args.path}/certificate.key") or
-        #     os.path.isfile(f"{args.path}/certificate.pem")
-        # ):
+        if (
+            os.path.isfile(f"{args.path}/FBM_certificate.key") or
+            os.path.isfile(f"{args.path}/FBM_certificate.pem")
+        ):
 
-        #     CommonCLI.error(
-        #         f"Certificate is already existing in {args.path}. \n "
-        #         "Please use -f | --force option to overwrite existing certificate."
-        #     )
+            CommonCLI.error(
+                f"Certificate is already existing in {args.path}. \n "
+            )
 
         path = (
             self.config.vars["CERT_DIR"]
