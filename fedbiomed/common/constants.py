@@ -19,6 +19,10 @@ CACHE_FOLDER_NAME = "cache"
 TMP_FOLDER_NAME = "tmp"
 """Directory/folder name where temporary files are saved"""
 
+NOTEBOOKS_FOLDER_NAME = "notebooks"
+"""Directory/folder name used by default for notebooks"""
+
+
 TENSORBOARD_FOLDER_NAME = "runs"
 """Directory/folder name where tensorboard logs are saved"""
 

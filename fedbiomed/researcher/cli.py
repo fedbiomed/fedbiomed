@@ -5,10 +5,10 @@
 import os
 import subprocess
 import importlib
-from pathlib import Path
 
 from typing import List, Dict
 
+from fedbiomed.common.constants import NOTEBOOKS_FOLDER_NAME
 from fedbiomed.common.cli import (
     CommonCLI,
     CLIArgumentParser,
@@ -51,14 +51,14 @@ class ResearcherControl(CLIArgumentParser):
 
     def start(self, args):
         """Starts jupyter notebook"""
-        fb_install_dir = Path(__file__).parent.parent.parent
 
         options = ['--NotebookApp.use_redirect_file=false']
 
+        component_path = os.path.join(os.getcwd(), args.path)
         if args.directory:
             nb_start_dir = args.directory
         else:
-            nb_start_dir = os.path.join(fb_install_dir, 'notebooks')
+            nb_start_dir = os.path.join(component_path, NOTEBOOKS_FOLDER_NAME)
 
         options.append(f"--notebook-dir={nb_start_dir}")
 
