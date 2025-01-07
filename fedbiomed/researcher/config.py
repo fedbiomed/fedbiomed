@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import sys
+import shutil
 from typing import Optional
 
 from fedbiomed.common.constants import (
@@ -12,8 +14,10 @@ from fedbiomed.common.constants import (
     TENSORBOARD_FOLDER_NAME,
     DEFAULT_RESEARCHER_NAME,
     NOTEBOOKS_FOLDER_NAME,
+    TUTORIALS_FOLDER_NAME,
+    DOCS_FOLDER_NAME,
 )
-
+from fedbiomed.common.utils import SHARE_DIR
 from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.logger import logger
 from fedbiomed.common.config import Component, Config
@@ -87,7 +91,16 @@ class ResearcherComponent(Component):
         """Creates or initiates existing component"""
         config = super().initiate(root)
 
-        os.makedirs(os.path.join(root, NOTEBOOKS_FOLDER_NAME), exist_ok=True)
+        notebooks_path = os.path.join(config.root, NOTEBOOKS_FOLDER_NAME)
+        notebooks_share_path = os.path.join(SHARE_DIR, NOTEBOOKS_FOLDER_NAME)
+        docs_share_path = os.path.join(SHARE_DIR, DOCS_FOLDER_NAME)
+        if not os.path.isdir(notebooks_path):
+            shutil.copytree(notebooks_share_path, notebooks_path, symlinks=True)
+            shutil.copytree(
+                os.path.join(docs_share_path, TUTORIALS_FOLDER_NAME),
+                os.path.join(notebooks_path, TUTORIALS_FOLDER_NAME),
+                symlinks=True
+            )
 
         return config
 

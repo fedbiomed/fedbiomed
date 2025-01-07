@@ -12,7 +12,7 @@ from fedbiomed.common.constants import ErrorNumbers, SAParameters
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.logger import logger
 
-from ._config_utils import ROOT_DIR as FEDBIOMED_SOURCE_ROOT
+from ._config_utils import SHARE_DIR
 
 
 def matching_parties_dh(context: dict, parties: list) -> bool:
@@ -216,7 +216,7 @@ def _check_clipping_range(
 def get_default_biprime():
     """Gets default biprime"""
     biprime = os.path.join(
-        FEDBIOMED_SOURCE_ROOT, "envs", "common", "default_biprimes", "biprime0.json")
+        SHARE_DIR, "envs", "common", "default_biprimes", "biprime0.json")
     with open(biprime, '+r', encoding="UTF-8") as json_file:
         biprime = json.load(json_file)
 

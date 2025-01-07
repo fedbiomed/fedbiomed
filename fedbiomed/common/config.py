@@ -227,7 +227,7 @@ class Component:
         reference = self.validate(root)
         config = self.config_cls(root)
 
-        if not os.path.isfile(reference):
+        if not os.path.isfile(reference) or (os.path.isfile(reference) and not read_file(reference)):
             create_fedbiomed_setup_folders(root)
             with open(os.path.join(root, '.fedbiomed'), 'w', encoding='UTF-8') as file_:
                 file_.write(self.config_cls.COMPONENT_TYPE)
@@ -252,6 +252,12 @@ class Component:
                     "is not empty for Fed-BioMed component initialization. Please "
                     "remove folder {component_dir} or specify another path"
                 )
+
+        # Special case for docker container mounted folders
+        # empty .fedbiomed is required to keep it
+        if os.path.isfile(ref) and not read_file(ref):
+            return False
+
         return os.path.isfile(ref)
 
     def validate(self, root) -> str:

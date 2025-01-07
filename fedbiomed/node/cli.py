@@ -24,7 +24,7 @@ from fedbiomed.node.node import Node
 from fedbiomed.node.config import NodeConfig, node_component
 
 
-from fedbiomed.common.constants import ErrorNumbers, ComponentType
+from fedbiomed.common.constants import NODE_DATA_FOLDER, ErrorNumbers, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.cli import (
@@ -161,6 +161,7 @@ class DatasetArgumentParser(CLIArgumentParser):
     """Initializes CLI options for dataset actions"""
 
     _node: Node
+    _mnist_path = None
 
     def initialize(self):
         """Initializes dataset options for the node CLI"""
@@ -171,6 +172,7 @@ class DatasetArgumentParser(CLIArgumentParser):
         )
         self._parser.set_defaults(func=self.default)
 
+
         # Creates subparser of dataset option
         dataset_subparsers = self._parser.add_subparsers()
 
@@ -180,6 +182,7 @@ class DatasetArgumentParser(CLIArgumentParser):
             "add",
             help="Adds dataset"
         )
+        add.set_defaults(func=self.add)
 
         # List option
         list_ = dataset_subparsers.add_parser(
@@ -197,16 +200,20 @@ class DatasetArgumentParser(CLIArgumentParser):
             "-m",
             metavar="MNIST_DATA_PATH",
             help="Deploys MNIST dataset by downloading form default source to given path.",
-            required=False
+            nargs='?',
+            type=str,
+            required=False,
+            default="@"
         )
+        self._mnist_path = add
 
         add.add_argument(
             "--file",
             "-fl",
             required=False,
             metavar="File that describes the dataset",
-            help="File path the dataset file desciptro. This option adds dataset by given file which is has"
-                 "cutom format that describes the dataset.")
+            help="File path the dataset file description. This option adds dataset by given file which has"
+                 "custom format that describes the dataset.")
 
         delete.add_argument(
             "--all",
@@ -222,19 +229,22 @@ class DatasetArgumentParser(CLIArgumentParser):
             action="store_true",
             help="Removes MNIST dataset.")
 
-        add.set_defaults(func=self.add)
+
         list_.set_defaults(func=self.list)
         delete.set_defaults(func=self.delete)
 
     def add(self, args):
         """Adds datasets"""
 
-
-        if args.mnist:
+        if args.mnist != "@":
+            if args.mnist is None:
+                mnist_path = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
+            else:
+                mnist_path = args.mnist
             return add_database(
                 self._node.dataset_manager,
                 interactive=False,
-                path=args.mnist
+                path=mnist_path
             )
 
         if args.file:
@@ -510,7 +520,7 @@ class GUIControl(CLIArgumentParser):
             "-df",
             type=str,
             nargs="?",
-            default="data",  # data folder in root directory
+            default=NODE_DATA_FOLDER,  # data folder in root directory
             required=False)
 
         self._parser.add_argument(
@@ -571,6 +581,11 @@ class GUIControl(CLIArgumentParser):
             help="If it is set, GUI will start in development mode."
         )
 
+        self._parser.add_argument(
+            'start',
+            help="Starts the server (Defaults to localhost:127.0.0.1)."
+        )
+
     def forward(self, args: argparse.Namespace, extra_args):
         """Launches Fed-BioMed Node GUI
 
@@ -579,8 +594,7 @@ class GUIControl(CLIArgumentParser):
         """
 
         fedbiomed_root = os.path.abspath(args.path)
-        #import pdb; pdb.set_trace()
-        #data_folder: str = args.data_folder if hasattr(args, 'data_folder') else fedbiomed_root
+
         data_folder = os.path.abspath(args.data_folder)
         if not os.path.isdir(data_folder):
             raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")

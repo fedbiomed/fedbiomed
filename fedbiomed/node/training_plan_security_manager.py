@@ -9,7 +9,6 @@ import hashlib
 import os
 import re
 from python_minifier import minify
-import shutil
 from tabulate import tabulate
 from tinydb import TinyDB, Query
 from typing import Any, Dict, List, Tuple, Union
@@ -30,7 +29,7 @@ from fedbiomed.common.message import (
     TrainingPlanStatusRequest,
     TrainingPlanStatusReply,
 )
-from fedbiomed.common.utils import ROOT_DIR
+from fedbiomed.common.utils import SHARE_DIR
 
 # Collect provided hashing function into a dict
 HASH_FUNCTIONS = {
@@ -69,7 +68,7 @@ class TrainingPlanSecurityManager:
 
         self._node_id = node_id
         self._tp_approval = tp_approval
-        self._default_tps = os.path.join(ROOT_DIR, 'envs', 'common', 'default_training_plans')
+        self._default_tps = os.path.join(SHARE_DIR, 'envs', 'common', 'default_training_plans')
         self._tinydb = TinyDB(db)
         self._tinydb.table_class = DBTable
         # dont use DB read cache for coherence when updating from multiple sources (eg: GUI and CLI)

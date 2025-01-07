@@ -14,8 +14,8 @@ change_path_owner "/fbm-node" "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
 export DOLLAR='$'
 
 # Set Gunicorn PORT and HOST
-export GUI_PORT=8000
-export GUI_HOST=localhost
+export FBM_GUI_PORT=8000
+export FBM_GUI_HOST=localhost
 
 # Set variable for nginx handling with/without specific domain
 if [ -z "$GUI_SERVER_NAME" ] ; then
@@ -88,10 +88,11 @@ if ! service nginx restart; then
 fi
 
 
+cd /fbm-node
 
 # caveat: expect `data-folder` to be mounted under same path as in `node` container
 # to avoid inconsistencies in dataset declaration
-$SETUSER fedbiomed node -c /fbm-node gui start --host "$GUI_HOST" --port "$GUI_PORT" --production --data-folder /data &
+$SETUSER fedbiomed node --path . gui start --host "$FBM_GUI_HOST" --port "$FBM_GUI_PORT" --production --data-folder /data &
 
 # allow to stop/restart the gui without terminating the container
 sleep infinity &

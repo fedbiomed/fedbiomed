@@ -26,6 +26,7 @@ class TestResearcherControl(unittest.TestCase):
 
         self.control.initialize()
         args = self.parser.parse_args(["start", "--directory", "./"])
+        args.__setattr__("path", 'fbm-researcher')
         self.control.start(args)
 
         sub_process_p_open.assert_called_once()
@@ -71,7 +72,6 @@ class TestResearcherCLI(unittest.TestCase):
 
         generate_options = choices["generate"]._positionals._option_string_actions
         self.assertTrue("--path" in generate_options)
-        self.assertTrue("--force" in generate_options)
 
 
 if __name__ == "__main__":

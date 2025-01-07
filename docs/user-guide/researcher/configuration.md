@@ -13,9 +13,9 @@ To begin, create a Researcher component in your working directory. The following
 fedbiomed component create -c researcher
 ```
 
-This command creates a folder named `fbm-researcher` in your current working directory. This folder contains all the necessary assets for the Researcher component, including configuration files and logs.
+This command creates a folder named `fbm-researcher` in your current working directory. This folder contains all the necessary assets for the Researcher component, including configuration files, experiment assets and logs.
 
-If you wish to create the Researcher component in a custom directory, use the `--path` option:
+It is also possible to create the Researcher component in a custom directory using the `--path` option:
 
 ```shell
 fedbiomed component create -c researcher --path /path/to/custom-directory
@@ -25,19 +25,19 @@ fedbiomed component create -c researcher --path /path/to/custom-directory
 
 ##  Starting the Researcher Component
 
-To start the Researcher component, execute the following command:
+Executing the following command will start the Researcher component.
 
 ```shell
 fedbiomed researcher start
 ```
 
-This command launches a Jupyter Notebook server preconfigured to use the Researcher component created in your working directory. If the Researcher component is located in a different directory, specify the path using the `--path` option:
+This command launches a Jupyter Notebook server preconfigured to use the Researcher component created in your working directory. If the Researcher component is located in a different directory, the path should be specified using the `--path` option:
 
 ```shell
 fedbiomed researcher --path /path/to/fbm-researcher start
 ```
 
-Once the Jupyter Notebook is launched, you can use it to define [training plans]() and [experiments]().
+After the Jupyter Notebook is launched, it serves as an interface for defining [training plans](./training-plan.md) and [experiments](./experiment.md). Preconfigured notebooks are available in the [tutorials](../../tutorials/pytorch/index.md) to assist with these tasks.
 
 ---
 
@@ -69,7 +69,7 @@ public_key = certs/server_certificate.pem
 secagg_insecure_validation = True
 ```
 
-This file contains includes settings for connecting to a server, managing security certificates, and configuring the database. Here's a breakdown of each section:
+This file contains settings for connecting to a server, managing security certificates, and configuring the database. Here's a breakdown of each section:
 
 ### `[default]`
 - **id**: This is a unique identifier for the researcher.
@@ -87,13 +87,8 @@ This file contains includes settings for connecting to a server, managing securi
 ### `[security]`
 - **secagg_insecure_validation**: Set to `True`, this indicates that the system is using insecure validation for secure aggregation. This is used for development purposes, but should be switched to `False` for production to ensure proper security.
 
-To modify the configuration, open the file in a text editor and make the necessary changes. Ensure that the component is restarted after editing the configuration file to apply the changes:
+To modify the configuration, open the file in a text editor and make the necessary changes. Ensure that the component is restarted after editing the configuration file to apply the changes. This restart can be done by relaunching researcher component, restarting Jupyter Notebook or re-executing a python script that defines an experiment.
 
-
-
-```shell
-fedbiomed researcher restart
-```
 
 ---
 
@@ -128,7 +123,7 @@ FBM_RESEARCHER_COMPONENT_ROOT=/path/to/fbm-researcher python my_script.py
 
 ##  Managing Multiple Researcher Configurations
 
-While the default Researcher component is named `fbm-researcher`, you can create multiple Researcher components for different configurations. To switch between configurations, specify the path to the desired Researcher component when starting or using it:
+While the default Researcher component is named `fbm-researcher`, it is always possible to create multiple Researcher components for different configurations. To switch between configurations, specify the path to the desired Researcher component when starting or using it:
 
 ```shell
 fedbiomed researcher --path /path/to/another-researcher start
@@ -138,7 +133,7 @@ fedbiomed researcher --path /path/to/another-researcher start
 
 ## Troubleshooting
 
-1. **Component Not Found or Duplicated:** Ensure that the `FBM_RESEARCHER_COMPONENT_ROOT` environment variable or the `--path` option points to the correct directory.
+1. **Component Not Found or Duplicated:** Ensure that the `FBM_RESEARCHER_COMPONENT_ROOT` environment variable or the `--path` option points to the correct directory. If researcher environment is going to be initialized for the for time the component directory should be empty.
 2. **Communication Errors:** Verify the IP address, port, and certificates in the configuration file.
 3. **Permission Denied:** Check that you have write permissions for the working directory.
 

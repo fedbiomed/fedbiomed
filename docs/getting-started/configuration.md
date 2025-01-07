@@ -139,6 +139,9 @@ If the `fedbiomed` command is executed from a directory other than `/path/to/fbm
 fedbiomed node dataset list --path /path/to/fbm-node
 ```
 
+!!! note "More about configuring nodes"
+Please visit node user guide to find out more about [configuring nodes](../user-guide/node/configuring-nodes.md) and [deploying dataset](../user-guide/node/deploying-datasets.md).
+
 
 ### Managing researcher component
 
@@ -215,3 +218,22 @@ Alternatively, you can set the environment variable inline:
 FBM_RESEARCHER_COMPONENT_ROOT=/path/to/fbm-researcher python my-experiment.py
 ```
 
+## Cleaning
+
+A Fed-BioMed instance can handle successive operations like adding and then removing nodes or datasets, conducting sequential experiments. But after testing, thing may get wrong. At this point, you may want to clean all things. Afterwards, you will need to restart from scratch (add datasets to nodes, start nodes, etc...)
+
+To clean your Fed-BioMed instance :
+
+* stop the researcher : shutdown the notebook kernel (`Quit` in on the notebook interface or `ctrl-C` on the console)
+* stop the nodes : interrupt (`ctrl-C`) on the nodes console
+* remove all configuration files, dataset sharing configuration, temporary files, caches for all Fed-BioMed components with :
+
+```
+$ rm -rf COMPONENT_DIR
+```
+
+Where `COMPONENT_DIR` is:
+* for a node, the parameter provided as `fedbiomed node -p COMPONENT_DIR` or by default `fbm-node` if no parameter was given
+* for a researcher, the parameter provided as `fedbiomed researcher -p COMPONENT_DIR` or by default `fbm-researcher` if no parameter was given
+
+When you restart a node after cleaning the Fed-BioMed instance, the node doesn't provides any dataset, as the dataset sharing configuration was reset in the cleaning process. Of course, Fed-BioMed did not delete any data, it just stopped sharing them.

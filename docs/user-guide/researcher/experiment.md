@@ -191,7 +191,7 @@ exp.set_model_args(model_args=model_args)
     exp.set_model_args(model_args, keep_weights=False)
     ```
 
-Modela arguments can then be used within a `TrainingPlan` as in the example below,
+Model arguments can then be used within a `TrainingPlan` as in the example below,
 
 ```python
 class MyTrainingPlan(TorchTrainingPlan):

@@ -253,28 +253,24 @@ containers_clean() {
     done
 
     # specific to vpnserver
-    /bin/rm -fr ./vpnserver/run_mounts/config/config_peers 2> /dev/null
-    /bin/rm -fr ./vpnserver/run_mounts/config/ip_assign    2> /dev/null
+    /bin/rm -fr ./gui/run_mounts/certs/*                    2> /dev/null
+
+    /bin/rm -fr ./gui2/run_mounts/certs/*                   2> /dev/null
+
+    # specific to gui
+    /bin/rm -rf ./node/run_mounts/data/*                    2> /dev/null
+    /bin/rm -rf ./node/run_mounts/fbm-node/*                2> /dev/null
 
     # specific to node
-    /bin/rm -rf ./node/run_mounts/data/*            2> /dev/null
-    /bin/rm -rf ./node/run_mounts/envs/!\(common\)  2> /dev/null
-    /bin/rm -rf ./node/run_mounts/envs/common/*     2> /dev/null
-    /bin/rm -rf ./node/run_mounts/etc/*             2> /dev/null
-    /bin/rm -rf ./node/run_mounts/var/*             2> /dev/null
+    /bin/rm -rf ./node/run_mounts/data/*                    2> /dev/null
+    /bin/rm -rf ./node/run_mounts/fbm-node/*                2> /dev/null
 
-    /bin/rm -rf ./node2/run_mounts/data/*           2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/envs/!\(common\) 2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/envs/common/*    2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/etc/*            2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/var/*            2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/data/*                   2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/fbm-node/*               2> /dev/null
 
     # specific to researcher
-    /bin/rm -rf ./researcher/run_mounts/data/*      2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/etc/*       2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/samples/*   2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/runs/*      2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/var/*       2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/fbm-researcher/*    2> /dev/null
+    /bin/rm -rf ./researcher/run_mounts/samples/*           2> /dev/null
 
     #
     # level3 : remove container images

@@ -6,13 +6,7 @@ keywords: training data,training plan,fedbiomed
 
 # The Training Plan
 
-A training plan is a class that defines the four main components of federated model training: the data, the model, the loss and the optimizer.
-It is responsible for providing custom methods allowing every node to perform the training. 
-In Fed-BioMed, you will be required to define a training plan class before submitting a federated training experiment. 
-You will do so by sub-classing one of the base training plan classes provided by the library, 
-and overriding certain methods to suit your needs as explained below.
-The code of the whole training plan class is shipped to the nodes, meaning that
-you may define custom classes and functions inside it, and re-use them within the training routine. 
+A training plan is a class that defines the four main components of federated model training: the data, the model, the loss and the optimizer. It is responsible for providing custom methods allowing every node to perform the training.  In Fed-BioMed, you will be required to define a training plan class before submitting a federated training experiment.  You will do so by sub-classing one of the base training plan classes provided by the library, and overriding certain methods to suit your needs as explained below. The code of the whole training plan class is shipped to the nodes, meaning that you may define custom classes and functions inside it, and re-use them within the training routine.
 
 !!! abstract "Training Plans"
     A Training Plan contains the recipe for executing the training loop on the nodes. It defines: the data, the model,
@@ -21,9 +15,9 @@ you may define custom classes and functions inside it, and re-use them within th
 
 ## The `TrainingPlan` class
 
-Fed-BioMed provides a base training plan class for two commonly-used ML frameworks: PyTorch (`fedbiomed.common.training_plans.TorchTrainingPlan`) 
+Fed-BioMed provides a base training plan class for two commonly-used ML frameworks: PyTorch (`fedbiomed.common.training_plans.TorchTrainingPlan`)
 and scikit-learn (`fedbiomed.common.training_plans.SKLearnTrainingPlan`). Therefore, the first step of the definition of your
-federated training experiment will be to define a new training plan class that inherits from one of these. 
+federated training experiment will be to define a new training plan class that inherits from one of these.
 
 ### Pytorch Training Plan
 The interfaces for the two frameworks differ quite a bit, so let's start by taking the example of PyTorch:
@@ -65,11 +59,11 @@ class MyTrainingPlan(TorchTrainingPlan):
     def training_data(self):
         # returns a Fed-BioMed DataManager object
         pass
-    
+
     def training_step(self, data, target):
         # returns the loss
         pass
-``` 
+```
 
 ### Scikit-learn Training Plan
 
@@ -95,7 +89,7 @@ class MyTrainingPlan(FedSGDClassifier):
         pass
 ```
 
-### 
+###
 
 !!! warning "Definition of `__init__` is discouraged for all training plans"
     As you may have noticed, none of the examples defined an `__init__` function for the training plan. This is on
@@ -108,7 +102,7 @@ class MyTrainingPlan(FedSGDClassifier):
 
 Fed-BioMed provides the following getter functions to access Training Plan attributes:
 
-| attribute           | function           | TorchTrainingPlan  | SKLearnTrainingPlan | notes | 
+| attribute           | function           | TorchTrainingPlan  | SKLearnTrainingPlan | notes |
 |---------------------|--------------------|--------------------|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | model               | `model()`          | :heavy_check_mark: | :heavy_check_mark:  | you may not dynamically reassign a model. The instance of the model is created at initialization by storing the output of the `init_model` function.              |
 | optimizer           | `optimizer()`      | :heavy_check_mark: | :heavy_check_mark:  | you may not dynamically reassign an optimizer. The instance of the optimizer is created at initialization by storing the output of the `init_optimizer` function. |
@@ -119,7 +113,7 @@ Fed-BioMed provides the following getter functions to access Training Plan attri
 ####
 
 !!! warning "Lifecycle of Training Plan Attributes"
-    The attributes in the table above will not be available during the `init_model`, `init_optimizer` and 
+    The attributes in the table above will not be available during the `init_model`, `init_optimizer` and
     `init_dependencies` functions, as they are set just after initialization. You may however use them in the definition
     of `training_data`, `training_step` or `training_routine`.
 
@@ -150,22 +144,15 @@ In Pytorch training plans, you must also define a `init_model` function with the
 def init_model(self, model_args: Dict[str, Any]) -> torch.nn.Module:
 ```
 
-The purpose of `init_model` is to return an instance of a trainable PyTorch model. Since the definition of such models 
-can be quite large, a common pattern is to define the neural network class inside the training plan namespace, 
-and simply instantiate it within `init_model`. This also allows to minimize the amount of adjustments needed to go
-from local PyTorch code to its federated version. Remember that only the code defined inside the training plan
-namespace will be shipped to the nodes for execution, so you may not use classes that are defined outside of it.
+The purpose of `init_model` is to return an instance of a trainable PyTorch model. Since the definition of such models can be quite large, a common pattern is to define the neural network class inside the training plan namespace, and simply instantiate it within `init_model`. This also allows to minimize the amount of adjustments needed to go from local PyTorch code to its federated version. Remember that only the code defined inside the training plan namespace will be shipped to the nodes for execution, so you may not use classes that are defined outside of it.
 
 The Pytorch neural network class that you define must satisfy the following constraints:
 1. it should inherit from `torch.nn.Module`
-2. it should implement a `forward` method that takes a `torch.Tensor` as input and returns a `torch.Tensor` 
+2. it should implement a `forward` method that takes a `torch.Tensor` as input and returns a `torch.Tensor`
 Note that inheriting from `torch.nn.Sequential` and using the default `forward` method would also respect the
-conditions above. 
+conditions above.
 
-The `model_args` argument is a dictionary of model arguments that you may provide to the `Experiment` class and that
-will be automatically passed to the `init_model` function internally. If you followed the suggested pattern of defining
-the model class within the training plan namespace, you can easily adapt the model's constructor to make use of any
-model arguments that you wish to define.
+The `model_args` argument is a dictionary of model arguments that you may provide to the `Experiment` class and that will be automatically passed to the `init_model` function internally. If you followed the suggested pattern of defining the model class within the training plan namespace, you can easily adapt the model's constructor to make use of any model arguments that you wish to define.
 
 The example below, adapted from our getting started notebook, shows the suggested pattern, the use of `init_model`, and
 the use of `model_args`.
@@ -176,20 +163,20 @@ from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.data import DataManager
 
 
-# Here we define the model to be used. 
+# Here we define the model to be used.
 # You can use any class name (here 'Net')
 class MyTrainingPlan(TorchTrainingPlan):
-    
-    # Defines and return model 
+
+    # Defines and return model
     def init_model(self, model_args):
         return self.Net(model_args = model_args)
-    
+
     class Net(nn.Module):
         def __init__(self, model_args):
             super().__init__()
-            
+
             fc_hidden_layer_size = model_args.get('fc_hidden_size', 128)
-            
+
             self.conv1 = nn.Conv2d(1, 32, 3, 1)
             self.conv2 = nn.Conv2d(32, 64, 3, 1)
             self.dropout1 = nn.Dropout(0.25)
@@ -214,11 +201,11 @@ class MyTrainingPlan(TorchTrainingPlan):
             return output
 
     def training_data(self):
-        pass    
-    
+        pass
+
     def training_step(self, data, target):
         pass
-    
+
     def init_optimizer(self, optimizer_args):
         pass
 
@@ -230,14 +217,14 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 ### Optimizer in PyTorch Training Plans
 
-In Pytorch training plans, you must also define a `init_optimizer` function with the following signature:
+For Pytorch training plans, you must also define a `init_optimizer` function with the following signature:
 
 ```python
 def init_optimizer(self, optimizer_args: Dict[str, Any]) -> Union[torch.optim.Optimizer, fedbiomed.common.optimizer.Optimizer]:
 ```
 
-The purpose of `init_optimizer` is to return an instance of a PyTorch optimizer or a `Fed-BioMed` optimizer powered with `declearn` optimizzation modules. You may instantiate a "vanilla" optimizer directly from `torch.optim`, or follow a similar pattern to `init_model` by defining a custom optimizer class 
-within the training plan namespace. 
+The purpose of `init_optimizer` is to return an instance of a PyTorch optimizer or a `Fed-BioMed` optimizer powered with `declearn` optimizzation modules. You may instantiate a "vanilla" optimizer directly from `torch.optim`, or follow a similar pattern to `init_model` by defining a custom optimizer class
+within the training plan namespace.
 
 ####
 
@@ -248,8 +235,7 @@ within the training plan namespace.
 !!! note "About declearn"
     `declearn` provides a cross framework optimizers that can be used regardless of the machine learning framework. It also provides well known federated learning algorithms such as `Scaffold`. For further details on `declearn`'s `Optimizer`, [please visit the following webpage](./../../advanced-optimization).
 
-Similarly, the `optimizer_args` follow the same pattern as `model_args` described above. 
-Note that the learning rate will always be included in the optimizer arguments with the key `lr`.
+Similarly, the `optimizer_args` follow the same pattern as `model_args` described above. Note that the learning rate will always be included in the optimizer arguments with the key `lr`.
 
 A pretty straightforward example can be again found in the getting started notebook
 
@@ -268,17 +254,13 @@ def init_optimizer(self, optimizer_args: Dict[str, Any]) -> fedbiomed.common.opt
 
 ## Defining the loss function
 
-The PyTorch training plan requires you to define the loss function via the `training_step` method, with the following
-signature:
+The PyTorch training plan requires you to define the loss function via the `training_step` method, with the following signature:
 
 ```python
 def training_step(self, data, target) -> float:
 ```
 
-The `training_step` method of the training class defines how the cost is computed by forwarding input values through the 
-network and using the loss function. It should return the loss value. By default, it is not defined in the parent 
-`TrainingPlan` class: it should be defined by the researcher in his/her model class, same as the `forward` method.  
-An example of training step for PyTorch is shown below.
+The `training_step` method of the training class defines how the cost is computed by forwarding input values through the network and using the loss function. It should return the loss value. By default, it is not defined in the parent `TrainingPlan` class: it should be defined by the researcher in his/her model class, same as the `forward` method. An example of training step for PyTorch is shown below.
 
 ```python
     def training_step(self, data, target):
@@ -289,11 +271,9 @@ An example of training step for PyTorch is shown below.
 
 ### Type of `data` and `target`
 
-The `training_step` function takes as input two arguments, `data` and `target`, which are obtained by cycling through
-the dataset defined in the `training_data` function. There is some flexibility concerning what type of variables they
-might be. 
+The `training_step` function takes as input two arguments, `data` and `target`, which are obtained by cycling through the dataset defined in the `training_data` function. There is some flexibility concerning what type of variables they might be.
 
-In a Pytorch training plan, the following data types are supported: 
+In a Pytorch training plan, the following data types are supported:
 
 - a `torch.Tensor`
 - a collection (a `dict`, `tuple` or `list`) of `torch.Tensor`
@@ -307,24 +287,24 @@ In a Pytorch training plan, the following data types are supported:
 ## Adding Dependencies
 
 By dependencies we mean here the python modules that are necessary to build all the various elements of your training
-plan on the node side.  
-The method `init_dependencies` allows you to indicate modules that are needed by your model class, with the following 
+plan on the node side.
+The method `init_dependencies` allows you to indicate modules that are needed by your model class, with the following
 signature:
 
 ```python
 def init_dependencies(self) -> List[str]:
 ```
 
-Each dependency should be defined as valid import statement in a string, for example `from torch.optim import Adam` or 
-`import torch`, or `from declearn.optimizer.modules import AdamModule` (for its `declearn` alternative). You must specify dependencies for any python module that you wish to use, regardless of whether it 
+Each dependency should be defined as valid import statement in a string, for example `from torch.optim import Adam` or
+`import torch`, or `from declearn.optimizer.modules import AdamModule` (for its `declearn` alternative). You must specify dependencies for any python module that you wish to use, regardless of whether it
 is for the data, optimizer, model, etc...
 
-## `training_routine` 
+## `training_routine`
 
-The training routine is the heart of the training plan. This method performs the model training loop, based on given 
+The training routine is the heart of the training plan. This method performs the model training loop, based on given
 [model and training](../../researcher/experiment) arguments. For example, if the
-model is a neural network based on the PyTorch framework, the training routine is in charge of performing the training 
-part over looping epochs and batches. If the model is a Scikit-Learn model, it fits the model by the given ML method 
+model is a neural network based on the PyTorch framework, the training routine is in charge of performing the training
+part over looping epochs and batches. If the model is a Scikit-Learn model, it fits the model by the given ML method
 and Scikit-Learn does the rest. The training routine is executed by the nodes after they have received a train request
 from the researcher and downloaded the training plan file.
 
@@ -333,8 +313,8 @@ from the researcher and downloaded the training plan file.
     `training_step` provided by you to compute the loss function (only in the PyTorch case). Overriding this default
     routine is strongly discouraged, and you may do so only at your own risk.
 
-As you can see from the following code snippet, the training routine requires some training arguments such 
-as `epochs`, `lr`, `batch_size` etc. Since the `training_routine` is already defined by Fed-BioMed, you are only allowed 
+As you can see from the following code snippet, the training routine requires some training arguments such
+as `epochs`, `lr`, `batch_size` etc. Since the `training_routine` is already defined by Fed-BioMed, you are only allowed
 to control the training process by changing these arguments. Modifying the training routine from the training plan class might raise unexpected errors.
 
 ```python
@@ -353,7 +333,7 @@ to control the training process by changing these arguments. Modifying the train
         for epoch in range(1, epochs + 1):
             training_data = self.training_data()
             for batch_idx, (data, target) in enumerate(training_data):
-                self.train() 
+                self.train()
                 data, target = data.to(self.device), target.to(self.device)
                 self.optimizer.zero_grad()
                 res = self.training_step(data, target)

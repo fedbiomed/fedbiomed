@@ -16,7 +16,7 @@ from fedbiomed.common.constants import (
 )
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
 from fedbiomed.common.message import ApprovalRequest, TrainingPlanStatusRequest
-from fedbiomed.common.utils import ROOT_DIR
+from fedbiomed.common.utils import SHARE_DIR
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
@@ -75,7 +75,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         """Testing whether created hash for training plan files are okay
         or not. It also tests every default with each provided hashing algorithm
         """
-        dtp = os.path.join(ROOT_DIR, "envs", "common", "default_training_plans")
+        dtp = os.path.join(SHARE_DIR, "envs", "common", "default_training_plans")
         default_training_plans = os.listdir(dtp)
         for training_plan in default_training_plans:
 

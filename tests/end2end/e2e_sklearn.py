@@ -39,7 +39,7 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers.optimizer import Optimizer
 from fedbiomed.common.optimizers.declearn import YogiModule as FedYogi, ScaffoldServerModule
-from fedbiomed.common.utils import ROOT_DIR
+from fedbiomed.common.utils import SHARE_DIR
 
 from sklearn import datasets
 import numpy as np
@@ -87,7 +87,7 @@ def setup(port, post_session, request):
         add_dataset_to_node(node_3, dataset)
 
 
-        data_path = os.path.join(ROOT_DIR, 'notebooks', 'data', 'CSV', 'pseudo_adni_mod.csv')
+        data_path = os.path.join(SHARE_DIR, 'notebooks', 'data', 'CSV', 'pseudo_adni_mod.csv')
         dataset = {
             "name": "Adni dataset",
             "description": "Adni DATASET",

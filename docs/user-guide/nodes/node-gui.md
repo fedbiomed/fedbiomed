@@ -7,7 +7,7 @@ Fed-BioMed offers a node user interface that allows users to manage datasets and
 Node GUI dependencies are not installed by default with the standard Fed-BioMed installation. They are provided as an extra module in the Fed-BioMed package. To install them, use `pip` with the `gui` option specified, as shown below:
 
 ```
-pip install "fedbiomed[gui] @ git+https://github.com/fedbiomed/fedbiomed.git"
+pip install fedbiomed[gui]
 ```
 
 

@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+from typing import Optional
 
 from fedbiomed.common.constants import (
     DEFAULT_CERT_NAME,
     HashingAlgorithms,
     __node_config_version__,
-    DEFAULT_NODE_NAME
+    DEFAULT_NODE_NAME,
+    NODE_DATA_FOLDER
 )
 from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.config import Component, Config
@@ -46,6 +48,12 @@ class NodeConfig(Config):
             'port': os.getenv('FBM_RESEARCHER_PORT', '50051')
         }
 
+
+component_root = os.environ.get(
+    "FBM_NODE_COMPONENT_ROOT", None
+)
+
+
 class NodeComponent(Component):
     """Fed-BioMed Node Component Class
 
@@ -53,6 +61,14 @@ class NodeComponent(Component):
     by given component root directory
     """
     config_cls = NodeConfig
-    _default_component_name = 'fbm-node'
+    _default_component_name = DEFAULT_NODE_NAME
+
+    def initiate(self, root: Optional[str] = None) -> NodeConfig:
+        config = super().initiate(root)
+        node_data_path = os.path.join(config.root, NODE_DATA_FOLDER)
+        os.makedirs(node_data_path, exist_ok=True)
+        return config 
+
 
 node_component = NodeComponent()
+config = node_component.initiate(root=component_root)

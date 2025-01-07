@@ -55,6 +55,7 @@ class ResearcherControl(CLIArgumentParser):
         options = ['--NotebookApp.use_redirect_file=false']
 
         component_path = os.path.join(os.getcwd(), args.path)
+
         if args.directory:
             nb_start_dir = args.directory
         else:
@@ -121,6 +122,5 @@ class ResearcherCLI(CommonCLI):
             action=ComponentDirectoryActionResearcher,
             default="fbm-researcher",
             help="Name of the config file that the CLI will be activated for. Default "
-                "is 'config_researcher.ini'."
+                 "is 'config_researcher.ini'."
         )
-

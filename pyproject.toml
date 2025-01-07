@@ -101,11 +101,13 @@ artifacts = [
   "fedbiomed_gui/ui/build"
 ]
 
+[tool.hatch.build.targets.wheel.shared-data]
+"docs" = "share/fedbiomed/docs"
+"envs/common" = "share/fedbiomed/envs/common"
+"notebooks" = "share/fedbiomed/notebooks"
 
 [tool.hatch.build.targets.wheel.force-include]
-"envs" = "fedbiomed/envs"
-"notebooks" = "fedbiomed/notebooks"
-
+"envs/vpn" = "fedbiomed/envs/vpn"
 
 [tool.pdm]
 distribution = true

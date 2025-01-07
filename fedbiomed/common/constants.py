@@ -22,6 +22,14 @@ TMP_FOLDER_NAME = "tmp"
 NOTEBOOKS_FOLDER_NAME = "notebooks"
 """Directory/folder name used by default for notebooks"""
 
+NODE_DATA_FOLDER = "data"
+"""Directory/folder name used by Nodes to save their specific dataset"""
+
+TUTORIALS_FOLDER_NAME = "tutorials"
+"""Directory/folder name used by default for tutorials"""
+
+DOCS_FOLDER_NAME = "docs"
+"""Directory/folder name used by default for documentation"""
 
 TENSORBOARD_FOLDER_NAME = "runs"
 """Directory/folder name where tensorboard logs are saved"""
