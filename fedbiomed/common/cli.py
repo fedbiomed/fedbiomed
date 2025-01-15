@@ -15,7 +15,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List
 
 from fedbiomed.common.certificate_manager import CertificateManager
-from fedbiomed.common.config import Config
+from fedbiomed.common.config import Config, docker_special_case
 from fedbiomed.common.constants import (
     CONFIG_FOLDER_NAME,
     DB_FOLDER_NAME,
@@ -77,7 +77,6 @@ class ComponentDirectoryAction(ABC, argparse.Action):
             not set(["--help", "-h"]).intersection(set(sys.argv)) and
             len(sys.argv) > 2
         ):
-            print("It is here")
             self._create_config(self.default)
 
         super().__init__(*args, **kwargs)
@@ -215,17 +214,18 @@ class ComponentParser(CLIArgumentParser):
         if args.component is None:
             CommonCLI.error("Error: bad command line syntax")
         if args.component.lower() == "researcher":
-            if DEFAULT_RESEARCHER_NAME in component_path  and \
-                os.path.isdir(component_path):
+            if DEFAULT_RESEARCHER_NAME in component_path and \
+                os.path.isdir(component_path) and \
+                not docker_special_case(component_path):
                 if not args.exist_ok:
                     CommonCLI.error(
-                        f"Default component is already existing. In the directory {component_path}"
+                        f"Default component is already existing. In the directory {component_path} "
                         "please remove existing one to re-initiate"
                     )
                     sys.exit(1)
                 else:
                     CommonCLI.success(
-                        "Component is already exsiting. Using existing component."
+                        "Component is already existing. Using existing component."
                     )
                     sys.exit(0)
             else:
