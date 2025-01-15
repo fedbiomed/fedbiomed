@@ -323,7 +323,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node. The com
 
         ```bash
         [user@node $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-        [user@node $] docker compose exec -u $(id -u) node bash'
+        [user@node $] docker compose exec -u $(id -u) node bash
         ```
 
     * start the Fed-BioMed node, for example in background:

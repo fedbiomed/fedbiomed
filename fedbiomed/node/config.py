@@ -67,8 +67,7 @@ class NodeComponent(Component):
         config = super().initiate(root)
         node_data_path = os.path.join(config.root, NODE_DATA_FOLDER)
         os.makedirs(node_data_path, exist_ok=True)
-        return config 
+        return config
 
 
 node_component = NodeComponent()
-config = node_component.initiate(root=component_root)
