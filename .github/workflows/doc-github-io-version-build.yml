@@ -4,8 +4,6 @@ on:
     # Pattern matched against refs/tags
     tags:
       - '*'
-  release:
-    types: [published]
 
 jobs:
   build-doc:
@@ -44,7 +42,9 @@ jobs:
         run: pdm install -G docs
 
       - name: Build documentation
-        run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-current-as "${{ env.RELEASE_VERSION }}"
+        run: |
+          source .venv/bin/activate
+          scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-current-as "${{ env.RELEASE_VERSION }}"
 
       - name: Publish new version - Pushes new version to fedbiomed/fedbiomed.github.io
         run: |
