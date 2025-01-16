@@ -41,7 +41,9 @@ jobs:
         run: pdm install -G docs
 
       - name: Build documentation
-        run: scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-main
+        run: |
+          source .venv/bin/activate
+          scripts/docs/fedbiomed_doc.sh --build-dir build-repo --build-main
 
       - name: Publishing by pushing to repo fedbiomed/fedbiomed.github.io
         run: |

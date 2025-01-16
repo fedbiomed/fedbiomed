@@ -5,8 +5,10 @@
 import sys
 import os
 
+
 from packaging.version import Version as FBM_Component_Version
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed import __version__
 from enum import Enum
 
 
@@ -80,7 +82,7 @@ SERVER_certificate_prefix = "server_certificate"
 # 2. bump the version below: if your change breaks backward compatibility you must increase the
 # major version, else the minor version. Micro versions are supported but their use is currently discouraged.
 
-__version__ = FBM_Component_Version('5.4.1')  # Fed-BioMed software version
+__version__ = FBM_Component_Version(__version__)  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version('3')  # researcher config file version
 __node_config_version__ = FBM_Component_Version('2')  # node config file version
 __node_state_version__ = FBM_Component_Version('2')  # node state version

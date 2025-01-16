@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Define the changelog file and the output file
+CHANGELOG_FILE="CHANGELOG.md"
+OUTPUT_FILE="latest_version_changes.txt"
+
+# Check if the changelog file exists
+if [[ ! -f "$CHANGELOG_FILE" ]]; then
+  echo "Changelog file not found: $CHANGELOG_FILE"
+  exit 1
+fi
+
+# Extract the latest version header and its changes using awk
+awk '
+/^## / {
+  if (version_found) exit; # Stop processing after the first version
+  version_found = 1;
+  print "# " substr($0, 4);
+  next;
+}
+version_found && /^- / {
+  print;
+}
+' "$CHANGELOG_FILE" > "$OUTPUT_FILE"
+
+# Check if the output file was created and has content
+if [[ -s "$OUTPUT_FILE" ]]; then
+  echo "Latest version changes have been written to: $OUTPUT_FILE"
+else
+  echo "Failed to extract the latest version changes."
+  exit 1
+fi

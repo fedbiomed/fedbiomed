@@ -1,1 +1,1 @@
-from fedbiomed.common.constants import __version__
+__version__ = "v5.4.1.dev6"
