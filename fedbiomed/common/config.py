@@ -269,7 +269,7 @@ class Component:
                 raise ValueError(
                     f"Cannot create component. Path {component_dir} "
                     "is not empty for Fed-BioMed component initialization. Please "
-                    "remove folder {component_dir} or specify another path"
+                    f"remove folder {component_dir} or specify another path"
                 )
 
         # Special case for docker container mounted folders

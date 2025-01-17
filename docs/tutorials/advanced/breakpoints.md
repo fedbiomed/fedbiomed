@@ -24,7 +24,7 @@ A Fed-BioMed breakpoint is a researcher side function that saves an intermediate
     Don't forget to specify the data under `#dummy_tag` tag.
 
 
-By default, a Fed-BioMed experiment does not save breakpoints. To create an experiment that save breakpoints after each training round completes, use the `save_breakpoints=True` tag :
+By default, a Fed-BioMed experiment does not save breakpoints. To create an experiment that save breakpoints after each training round completes, use the `save_breakpoints=True` option :
 
 
 ```python
@@ -32,6 +32,11 @@ exp = Experiment(tags=[ '#dummy_tag' ],
                 training_plan_class=MyTrainingPlan,
                 round_limit=2,
                 save_breakpoints=True)
+```
+
+or use the `set_breakpoint()` setter
+```python
+exp.set_save_breakpoints(True)
 ```
 
 If the experiment crashes or is stopped during training, and at least one round was completed, one can later continue from the last experiment breakpoint.

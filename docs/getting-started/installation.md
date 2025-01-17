@@ -9,7 +9,7 @@ keywords: Fed-BioMed, Installation, Federated Learning
 This tutorial gives steps for installing Fed-BioMed components (node, researcher).
 
 !!! note "Deployment"
-    [Deployment documentation](../../user-guide/deployment/deployment.md) explains other available setups.
+    [Deployment documentation](../user-guide/deployment/deployment.md) explains other available setups.
 
 
 ## System requirements
@@ -25,7 +25,7 @@ Fed-BioMed does not support a wide range of Python versions. Currently, the requ
 
 
 !!! info "Docker"
-    Docker is only needed for [advanced usage scenarios](../../user-guide/deployment/deployment.md) with additional VPN protection of Fed-BioMed communications.
+    Docker is only needed for [advanced usage scenarios](../user-guide/deployment/deployment.md) with additional VPN protection of Fed-BioMed communications.
 
 
 ## Install Fed-BioMed
@@ -33,7 +33,7 @@ Fed-BioMed does not support a wide range of Python versions. Currently, the requ
 The command below will perform a complete installation of Fed-BioMed. This installation allows you to test all Fed-BioMed functionalities.
 
 ```
-pip install "fedbiomed[node, researcher] @ git+https://github.com/fedbiomed/fedbiomed.git"
+pip install fedbiomed[node, researcher]
 ```
 
 Fed-BioMed consists of different components, each requiring specific dependencies. These components are `node` and `researcher`. In the context of Federated Learning, these components are typically used in different locations and environments. To avoid installing unnecessary packages that may not be used, the dependencies for these components have been made optional in the pip package.
@@ -42,17 +42,17 @@ If you only need to install the `node` or the `researcher` component, you can us
 
 For `node` only installation:
 ```
-pip install "fedbiomed[node] @ git+https://github.com/fedbiomed/fedbiomed.git"
+pip install fedbiomed[node]
 ```
 
 For `researcher` only installation:
 ```
-pip install "fedbiomed[researcher] @ git+https://github.com/fedbiomed/fedbiomed.git"
+pip install fedbiomed[researcher]
 ```
 
 For installing optional node GUI:
 ```
-pip install "fedbiomed[gui] @ git+https://github.com/fedbiomed/fedbiomed.git"
+pip install fedbiomed[gui]
 ```
 
 Fed-BioMed is provided under [Apache 2.0 License](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md).

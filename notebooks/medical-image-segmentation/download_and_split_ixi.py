@@ -88,7 +88,7 @@ if __name__ == '__main__':
     center_dfs = list()
 
     for center_name in center_names:
-        component_folder = os.path.join(args.root_folder, f"{center_name.lower()}")
+        component_folder = os.path.join(os.getcwd(), center_name.lower())
 
         print(f'Creating node at: {component_folder}')
         if node_component.is_component_existing(component_folder) and not args.force:
@@ -101,8 +101,9 @@ if __name__ == '__main__':
 
         train, test = train_test_split(df, test_size=0.1, random_state=21)
 
-        train_folder = os.path.join(federated_data_folder, center_name, 'train')
-        holdout_folder = os.path.join(federated_data_folder, center_name, 'holdout')
+        train_folder = os.path.join(os.getcwd(), center_name.lower(), 'data', 'train')
+        holdout_folder = os.path.join(os.getcwd(), center_name.lower(), 'data', 'holdout')
+
         if not os.path.exists(train_folder):
             os.makedirs(train_folder)
         if not os.path.exists(holdout_folder):
@@ -130,11 +131,10 @@ if __name__ == '__main__':
     print(f'Federated dataset located at: {federated_data_folder}')
 
     print()
-    print('Please add the data to your nodes executing and using the `ixi-train` tag:')
+    print('Please add the data to your nodes executing and using the `ixi-train` tag (selecting option medical folder dataset):')
     for center_name in center_names:
-        print(f'\tfedbiomed node -p {os.path.join(args.root_folder, center_name)} dataset add')
+        print(f'\tfedbiomed node -p { center_name.lower()} dataset add')
 
-    print()
     print('Then start your nodes by executing:')
     for center_name in center_names:
-        print(f'\tfedbiomed node -p {os.path.join(args.root_folder, center_name)} start')
+        print(f'\tfedbiomed node -p { center_name.lower()} start')

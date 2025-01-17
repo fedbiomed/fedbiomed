@@ -1,0 +1,91 @@
+---
+name: 'Setup Fed-BioMed Test Environment'
+description: |
+  This action composes different actions to create
+  FBM test environment.
+
+inputs:
+  python-version:
+    description: 'Python version to install'
+    required: true
+    default: '3.10'
+
+runs:
+  using: 'composite'
+  steps:
+        # Set up Pyenv on Linux and macOS permanently
+    - name: Set up Node.js
+      uses: ./.github/actions/setup-node-env
+
+    - name: Is Fedora
+      id: is-fedora
+      shell: bash -l {0}
+      run: |
+        OSINFO=$(cat /etc/os-release | grep ID | cut -d'=' -f2)
+        if [[ $OSINFO = *"fedora"* ||  $OSINFO = *"Fedora"*  ]]; then
+            IS_FEDORA=true
+        else
+            IS_FEDORA=false
+        fi
+        echo "is_fedora=$IS_FEDORA" >> $GITHUB_OUTPUT
+
+    - name: Brew install
+      id: is-brew
+      shell: bash -l {0}
+      run: |
+        brew_install=false
+        if [[ "${{ inputs.python-version }}" == "3.10" && \
+              "${{ runner.environment }}" == "self-hosted" && \
+              "${{ runner.os }}" == "macOS" ]]; then
+          brew_install=true
+        fi
+        echo "brew_install=$brew_install" >> $GITHUB_OUTPUT
+
+    - name: Install python
+      if: |
+        steps.is-fedora.outputs.is_fedora == 'false' &&
+        steps.is-brew.outputs.brew_install == 'false'
+      uses: actions/setup-python@v5
+      with:
+          python-version: ${{ inputs.python-version }}
+
+    - name: Install python Fedora
+      shell: bash -l {0}
+      if: steps.is-fedora.outputs.is_fedora == 'true'
+      run: |
+        sudo dnf install python${{ inputs.python-version }}
+        sudo ln -sf /usr/bin/python3.12 /usr/bin/python
+
+    - name: Install python Mac Brew
+      shell: bash -l {0}
+      if: steps.is-brew.outputs.brew_install == 'true'
+      run: |
+          V=${{ inputs.python-version }}
+          brew install python@$V
+          sudo ln -sf $(brew --prefix)/opt/python@$V/bin/python$V /usr/local/bin/python
+
+          if ! command -v pip &> /dev/null; then
+            echo "Installing pip..."
+            curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+            python get-pip.py
+            rm get-pip.py
+            echo "Pip has been installed."
+          else
+            echo "Pip is already installed."
+          fi
+          echo "PATH=$PATH:/usr/local/bin" >> $GITHUB_ENV
+
+    - name: Validate Python installation
+      shell: bash -l {0}
+      run: |
+        python --version
+
+    - name: Install tox
+      shell: bash -l {0}
+      run: pip install tox
+
+    - name: Check tox
+      shell: bash -l {0}
+      run: tox --version
+
+

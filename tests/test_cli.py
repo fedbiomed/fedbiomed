@@ -1,3 +1,4 @@
+import shutil
 import unittest
 import argparse
 import tempfile
@@ -241,8 +242,11 @@ class TestNodeCLI(unittest.TestCase):
         input_patch.return_value = "y"
         #import sys
         #sys.argv.append('-y')
-        self.node_cli = NodeCLI()
-        self.node_cli.parse_args(["--path", "fbm-node", 'dataset', 'list'])
+        # remove any `fbm-node` folder already existing
+        shutil.rmtree('fbm-node', ignore_errors=True)
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            self.node_cli = NodeCLI()
+            self.node_cli.parse_args(["--path", os.path.join(str(tmpdirname), 'fbm-node'), 'dataset', 'list'])
         #sys.argv.remove('-y')
 
 class TestCli(unittest.TestCase):

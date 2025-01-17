@@ -37,6 +37,11 @@ Install `docker compose`:
 $ sudo dnf install -y docker-compose-plugin
 ```
 
+To make sure you have a docker compose v2, you can run the following:
+```
+$ docker compose version
+```
+
 #### MacOS
 
 Install `docker` and `docker compose` choosing one of the available options for example :

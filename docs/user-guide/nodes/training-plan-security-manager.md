@@ -49,7 +49,7 @@ Default training plans are a subset of the training plan files that are created 
 
 
 !!! note
-        The hashes of the default training plans aren't updated while starting the node if the node is configured not to allow default training plans. However, default training plans might be already saved into database previously. Even if there are default training plans in the database, the node does not approve requests for the default training plans as long as this option is disabled.
+    The hashes of the default training plans aren't updated while starting the node if the node is configured not to allow default training plans. However, default training plans might be already saved into database previously. Even if there are default training plans in the database, the node does not approve requests for the default training plans as long as this option is disabled.
 
 ### Config Files
 
@@ -76,8 +76,8 @@ training_plan_approval = False
 As you can see, by default, training plan control (`training_plan_approval`) is disabled. For enabling or disabling this feature, you can change its value to `True` or `False`. Any values different from `True` or `False` will be counted as `False`. The node should be restarted to apply changes after updating the config file.
 
 !!! info "Attention"
-        When the training plan control is `False`, `allow_default_training_plans` has no effect because there is no
-        training plan control operation for train requests.
+    When the training plan control is `False`, `allow_default_training_plans` has no effect because there is no
+    training plan control operation for train requests.
 
 
 #### Changing Hashing Algorithm
@@ -114,7 +114,7 @@ $ FBM_SECURITY_TRAINING_PLAN_APPROVAL=True ENABLE_TRAINING_PLAN_APPROVAL=False f
 ```
 
 !!! note
-        Hashing algorithm should be changed directly from the configuration file.
+    Hashing algorithm should be changed directly from the configuration file.
 
 ## Training Plan Registration and Approval
 
@@ -245,8 +245,8 @@ $ fedbiomed node --path ./my-node training-plan update
 The command lists registered training plans with their names and ids and asks you to select a training plan you would like to update. Afterward, it asks to select a training plan file from file system. You can either select a different or the same training plan file. It computes a hash for the specified training plan file and updates the database.
 
 !!! note
-        You can update hashes only by providing a training plan file. This API does not allow you to update saved
-        hashes directly.
+    You can update hashes only by providing a training plan file. This API does not allow you to update saved
+    hashes directly.
 
 
 
@@ -261,7 +261,7 @@ If the default training plans already exists in the database at node start, trai
 As for requested training plans, default training plans can later be viewed (`training-plan view`) or changed status (`training-plan approve` or `training-plan reject`).
 
 !!! note
-        Default training plans cannot be removed using Fed-BioMed CLI. They should be removed from the
-        `envs/common/default_training_plans` directory. After restarting the node, deleted training plan files are
-        also removed from the TrainingPlans table of the node database.
+    Default training plans cannot be removed using Fed-BioMed CLI. They should be removed from the
+    `envs/common/default_training_plans` directory. After restarting the node, deleted training plan files are
+    also removed from the TrainingPlans table of the node database.
 

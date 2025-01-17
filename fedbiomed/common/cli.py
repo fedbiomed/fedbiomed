@@ -41,6 +41,15 @@ NC = "\033[0m"  # no color
 BOLD = "\033[1m"
 
 
+class UniqueStore(argparse.Action):
+    """Argparse action for avoiding having several time the same optional
+      argument"""
+    def __call__(self, parser, namespace, values, option_string):
+        if getattr(namespace, self.dest, self.default) is not self.default:
+            parser.error(option_string + " appears several times.")
+        setattr(namespace, self.dest, values)
+
+
 class CLIArgumentParser:
 
     def __init__(self, subparser: argparse.ArgumentParser, parser = None):
@@ -144,6 +153,7 @@ class ComponentParser(CLIArgumentParser):
         common_parser.add_argument(
             "-p",
             "--path",
+            action=UniqueStore,
             metavar="COMPONENT_PATH",
             type=str,
             nargs="?",
@@ -167,8 +177,8 @@ class ComponentParser(CLIArgumentParser):
         create = component_sub_parsers.add_parser(
             "create",
             parents=[common_parser],
-            help="Creates configuration file for the specified component if it does not exist. "
-            "If the configuration file exists, leave it unchanged",
+            help="Creates component folder for the specified component if it does not exist. "
+            "If the component folder exists, leave it unchanged",
         )
 
         create.add_argument(
@@ -194,13 +204,12 @@ class ComponentParser(CLIArgumentParser):
         else:
             print(f"Undefined component type {component}")
             sys.exit(101)
-
+        
         return _component
 
     def create(self, args):
         """CLI Handler for creating configuration file and assets for given component
         """
-
         if not args.path:
             if args.component.lower() == "researcher":
                 component_path = os.path.join(os.getcwd(), DEFAULT_RESEARCHER_NAME)

@@ -140,7 +140,7 @@ fedbiomed node dataset list --path /path/to/fbm-node
 ```
 
 !!! note "More about configuring nodes"
-Please visit node user guide to find out more about [configuring nodes](../user-guide/node/configuring-nodes.md) and [deploying dataset](../user-guide/node/deploying-datasets.md).
+    Please visit node user guide to find out more about [configuring nodes](../user-guide/node/configuring-nodes.md) and [deploying dataset](../user-guide/node/deploying-datasets.md).
 
 
 ### Managing researcher component

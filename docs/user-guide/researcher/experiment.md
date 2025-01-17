@@ -452,8 +452,8 @@ exp.set_save_breakpoints(True)
 ```
 
 !!! info
-        Setting `save_breakpoints` to `True` after the experiment has performed several rounds of
-        training will only save the breakpoints for remaining rounds.
+    Setting `save_breakpoints` to `True` after the experiment has performed several rounds of
+    training will only save the breakpoints for remaining rounds.
 
 
 Please visit the tutorial ["Breakpoints (experiment saving facility)"](../../tutorials/advanced/breakpoints.md) to find out more about breakpoints.
