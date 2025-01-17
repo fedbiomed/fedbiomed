@@ -31,114 +31,106 @@ Full installation instruction are also available at: https://fedbiomed.org/lates
 
 An installation guide is also provided for Windows11, which relies on WSL2: https://fedbiomed.org/latest/user-guide/installation/windows-installation/
 
-### prerequisites
+### Prerequisites
 
-* `git`
-* `python` compatible version (currently 3.10)
-
-A recommended practice is to use install `python` in a local environment for example using `pyenv`
+- **Python:** Compatible version (currently 3.10)
+- It is recommended to install Python in a local environment, for example, using `pyenv`.
 
 ```
 pyenv install 3.10
-mkdir clone_dir ; cd clone_dir
 pyenv local 3.10
 ```
 
-A recommended practice is to use a virtual environment for managing dependencies. 
-For example, if using `venv`:
+A recommended practice is to use a virtual environment for managing dependencies. For example, if using `venv`:
 
 ```
 python -m venv fb_env
 source fb_env/bin/activate
 ```
 
+### Install
 
-### quick install
+Fed-BioMed can be installed using `pip` with the following command:
 
-Clone the Fed-BioMed repository for running the software :
-
-```
-git clone -b master https://github.com/fedbiomed/fedbiomed.git
-cd fedbiomed
+```bash
+pip install fedbiomed[node, gui, researcher]
 ```
 
-```
-pdm install
-```
+If you prefer to use Fed-BioMed in development mode, please refer to the [Developer Environment Installation Documentation](https://fedbiomed.org/latest/developer/development-environment.md).
 
-This is later refered as "the environment where Fed-BioMed is installed".
-
-More details in the [developer environment installation documentation](https://fedbiomed.org/latest/developer/development-environment.md/)
+### Quick Start: Running Fed-BioMed
 
 
-### run the software
+#### Starting a Basic Node
 
-#### run the node part
+To start a basic Fed-BioMed node, open a new terminal and execute the following command:
 
-* in a new terminal:
-
-```
+```bash
 $ fedbiomed node start
 ```
 
-* this will launch a new node
+#### Uploading New Data to the Node
+To upload new data to this node, run:
 
-* you may also upload new data on this node with:
-
-```
+```bash
 $ fedbiomed node dataset add
 ```
 
-* you may also specify a new config file for the node (usefull then running multiple test nodes on the same host)
+#### Specifying a Component Directory
+If you need to run multiple test nodes on the same host, you can specify a different component directory:
 
-```
+```bash
 $ fedbiomed node --path ./my-second-node start
 ```
 
-* if you want to change the default IP address used to join the fedbiomed researcher component (localhost), you can provide it at launch time:
+#### Changing the Default IP Address
+To specify a different IP address for connecting to the Fed-BioMed researcher component (default: `localhost`), provide it at launch time:
 
-```
+```bash
 $ FBM_RESEARCHER_IP=192.168.0.100 fedbiomed node start
 $ FBM_SERVER_HOST=192.168.0.100 fedbiomed researcher start
 ```
 
-(adjust the 192.168.0.100 IP address to your configuration)
-
-If this option is given at the first launch or after a clean, it is saved in the configuration file and becomes the default for subsequent launches. If this option is given at a subsequent launch, it only affects this launch.
-
-#### run a researcher notebook
-
-* in a new terminal:
-
-```
-$ fedbiomed researcher start
-```
-
-* this will launch a new jupyter notebook working in the **notebooks** repository. First try:
-
-  - `101_getting-started.ipynb` : training a simplenet + federated average on MNIST data
+##### Configuration Persistence
+- If this option is provided at the first launch or after a clean configuration, it is saved in the configuration file and becomes the default for future launches.
+- If given during a subsequent launch, it only applies to that launch without altering the saved configuration.
 
 
-#### run a researcher script
+#### Run a Researcher Notebook
 
-1. in a new terminal: activate the environment where Fed-BioMed is installed
-2. convert the notebook to a python script
-```bash
-jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb
-```
-3. then you can use any researcher script
+1. Open a new terminal and start the researcher component:
 
-```bash
-$ python ./notebooks/101_getting-started.py
-```
+   ```bash
+   $ fedbiomed researcher start
+   ```
 
-### clean state (restore environments back to new)
+2. This will launch a new Jupyter Notebook environment within the **notebooks** repository. A good starting point is:
 
-To clean your Fed-BioMed instance :
+   - `101_getting-started.ipynb`: Train a SimpleNet model with federated averaging on the MNIST dataset.
 
-* stop the researcher : shutdown the notebook kernel (`Quit` in on the notebook interface or `ctrl-C` on the console)
-* stop the nodes : interrupt (`ctrl-C`) on the nodes console
-* remove all configuration files, dataset sharing configuration, temporary files, caches for all Fed-BioMed components with :
+
+#### Run a Researcher Script
+
+1. Open a new terminal and activate the environment where Fed-BioMed is installed.
+
+2. Convert the notebook to a Python script:
+
+   ```bash
+   jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb
+   ```
+3. Execute the researcher script using:
+
+   ```bash
+   $ python ./notebooks/101_getting-started.py
+   ```### Clean State (restore environments back to new)
+
+### Cleaning/Removing Fed-BioMed Components
+
+To clean your Fed-BioMed instance:
+
+* Stop the researcher : shutdown the notebook kernel (`Quit` in on the notebook interface or `ctrl-C` on the console)
+* Stop the nodes : interrupt (`ctrl-C`) on the nodes console
+* Remove all configuration files, dataset sharing configuration, temporary files, caches for all Fed-BioMed components with :
 
 ```
 $ rm -rf COMPONENT_DIR
@@ -151,97 +143,40 @@ Where `COMPONENT_DIR` is:
 
 ## Fed-BioMed Node GUI
 
-Node GUI provides an interface for Node to manage datasets and deploy new ones. GUI consists of two components, Server and UI. Server is developed on Flask framework and UI is developed using ReactJS. Flask provides API
-services that use Fed-BioMed's DataManager for deploying and managing dataset. All the source files for GUI has been
-located on the `${FEDBIOMED_DIR}/gui` directory.
+Node GUI provides an interface for Node to manage datasets and deploy new ones. GUI consists of two components, Server and UI. Server is developed on Flask framework and UI is developed using ReactJS. Flask provides API services that use Fed-BioMed's DataManager for deploying and managing dataset. All the source files for GUI has been located on the `${FEDBIOMED_DIR}/gui` directory.
 
 ### Starting GUI
 
 Node GUI can be started using Fed-BioMed CLI.
 
 ```shell
-fedbiomed node [--path [COMPONENT_DIRECTORY]] gui --data-folder '<path-for-data-folder>' start
+fedbiomed node [--path [COMPONENT_DIRECTORY]] gui start --data-folder <path-for-data-folder>
 ```
 
-Arguments:
+Please see possible argument using `fedbiomed node gui start --help`.
 
-- ``data-folder``: Data folder represents the folder path where datasets have been stored. It can be absolute or relative path. If it is relative path, Fed-BioMed base directory is going to be used as reference. **If `datafolder` is not provided. Script will look for
-`data` folder in the Fed-BioMed root directory and if it doesn't exist it will raise an error.**
-- ``--path``: Component directory  whose GUI will be launched which is going to be used for GUI. If it is not
-provided, default will be `fbm-node` that is created in directory where the command is executed. If component directory is not existing a default node component will instantiated in the given directory if the parent directory is existing.
 
-It is also possible to start GUI on specific host and port, By default it is started `localhost` as host and `8484` as port.  To change
-it you can modify following command.
-
-The GUI is based on HTTPS and by default, it will generate a self-signed certificate for you. Butyou can also start GUI specifying the certificate and the private key
-names you want to use for HTTPS support. **Please note that they must be in `${FEDBIOMED_DIR}/etc` folder.**
+It is also possible to start the GUI on a specific host and port. By default, it starts on `localhost` as the host and `8484` as the port. To change these settings, you can modify the following command. The GUI is based on HTTPS and will, by default, generate a self-signed certificate. However, you can also start the GUI by specifying the certificate and private key names you want to use for HTTPS support.
 
 ```shell
-fedbiomed node --path <path/to/component/directory> gui --data-folder '<path-for-data-folder>' ' cert '<name-of-certificate>' key '<name-of-private-key>' start
+fedbiomed node --path <path/to/component/directory> gui start--data-folder <path-for-data-folder> --cert-file <path-to-certificate> --key-file <path-to-private-key>
 ```
 
 **IMPORTANT:** Please always consider providing `data-folder` argument while starting the GUI.
 
 ```shell
-fedbiomed node -d my-node gui data-folder ../data  --port 80 --host 0.0.0.0 start
-
+fedbiomed node -p </path/to/my-node> gui --data-folder ../data  --port 80 --host 0.0.0.0
 ```
-
-### Details of Start Process
-
-When the Node GUI is started, it installs `npm` modules and builds ReactJS application in ``${FEDBIOMED_DIR}/var/gui-build``. If the GUI
-is already built (means that `gui/ui/node_modules` and `var/gui-build` folders exist), it does not reinstall and rebuild ReactJS. If you want to
-reinstall and rebuild, please add `--recreate` flag in the command same as below,
-
-```shell
-fedbiomed node gui data-folder ../data --recreate start
-```
-
 
 ### Launching Multiple Node GUI
 
-It is possible to start multiple Node GUIs for different nodes as long as the http ports are different. The
-commands below starts three Node GUI for the nodes; config-n1.ini, config-n2.ini and config-n3.ini on the ports respectively, `8181`, `8282` and `8383`.
+It is possible to start multiple Node GUIs for different nodes as long as the http ports are different.
 
 ```shell
-fedbiomed node -d my-node gui --data-folder ../data --port 8181 start
-fedbiomed node -d my-second-node gui --data-folder ../data --port 8282 start
-fedbiomed node -d my-second-node gui --data-folder ../data --port 8383 start
+fedbiomed node -p my-node gui start --data-folder ../data --port 8181
+fedbiomed node -p my-second-node gui start --data-folder ../data --port 8282
+fedbiomed node -p my-second-node gui start --data-folder ../data --port 8383
 ```
 
-### Development/Debugging for GUI
-
-If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI
-after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
-easily done with the previous start command. Currently, Flask server always get started on development mode.  To enable debug mode you should add `--debug`
-flag to the start command.
-
-```shell
-fedbiomed node -d my-node gui --data-folder ../data --debug start
-```
-**Important:** Please do not change Flask port and host while starting it for development purposes. Because React (UI) will be calling
-``localhost:8484/api`` endpoint in development mode.
-
-The command above will serve ``var/gui-build`` directory as well as API services. It means that on the URL `localhost:8484` you will be able to
-see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``npm start``.
-
-```shell
-# use the python environment for [development](../docs/developer/development-environment.md)
-cd ${FEDBIOMED_DIR}/gui/ui
-npm start
-```
-
-After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
-in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
-
-Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in
-`${FEDBIOMED_DIR}/gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why
-first you should start Flask server first.
-
-After development/debugging is done. To update changes in built GUI, you need to start GUI with ``--recreate`` command. Afterward,
-you will be able to see changes on the ``localhost:8484`` URL which serve built UI files.
-
-```shell
-fedbiomed node gui start --data-folder ../data
-```
+Please see `docs/developer/development-environment.md` to find out how to debug and lunch UI for development purposes.
 

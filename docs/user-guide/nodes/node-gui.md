@@ -16,7 +16,7 @@ pip install fedbiomed[gui]
 The option `gui` of `fedbiomed` command is configured for starting Node GUI.
 
 !!! info "Attention!"
-    By default `fedbiomed node gui [OPTIONS]` starts Flask server accepting access only from
+    By default `fedbiomed node gui start [OPTIONS]` starts Flask server accepting access only from
     `localhost`. It is not safe to open access from remote host machine since it is not a secured
     web server yet. We highly recommend to use `localhost` through SSH Tunnel for remote access.
 
@@ -60,17 +60,17 @@ $ fedbiomed node gui start --data-folder <path/to/data/folder>
 
 It is possible to specify the node that the user interface will be used for through the option `--path` or `-p`.
 
-````
-$ fedbiomed node gui --path <path/to/component/directory> start
+```
+$ fedbiomed node --path <path/to/component/directory> gui start
 ````
 
 Thanks to this option it is possible to start multiple GUI for multiple nodes on the same machine as long as the ports are different.
 
 
 ```shell
-$ fedbiomed node gui start --port 5001 --path ./my-first-node start
-$ fedbiomed node gui start --port 5002 --path ./my-second-node start
-$ fedbiomed node gui --port 5003 --path ./my-third-node start
+$ fedbiomed node --path ./my-first-node gui start --port 5001
+$ fedbiomed node --path ./my-second-node gui start --port 5002
+$ fedbiomed node --path ./my-third-node gui start --port 5003
 ```
 
 If it is desired they can share the same data folder.
@@ -142,7 +142,7 @@ $ fedbiomed node gui start --development
 certificate for the application server.
 
 ```shell
-$ GUI_PRODUCTION=1 fedbiomed node gui --key-file <path-to-key-file> --cert-file <path-to-cert-file> start
+$ fedbiomed node gui start --key-file <path-to-key-file> --cert-file <path-to-cert-file>
 ```
 
 SSL certificate can also be set through proxy server (e.g. [Nginx](https://www.nginx.com/)) instead of application server.

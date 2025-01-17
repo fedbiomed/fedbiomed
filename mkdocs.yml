@@ -155,6 +155,7 @@ nav:
         - 'Testing in Fed-BioMed': './developer/testing-in-fedbiomed.md'
         - 'RPC Protocol and Messages': './developer/messaging.md'
   #    - 'API Reference': ./developer/api/ # Uncomment this if auto generate is active
+    - 'FAQ & Troubleshooting': './support/troubleshooting.md'
   - Footer:
     - 'News' : './news/index.md'
     - 'Contributors': './pages/contributors.md'

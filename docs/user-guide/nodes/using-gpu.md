@@ -74,9 +74,9 @@ exp = Experiment(
 Fed-BioMed offers a simplified interface for training with GPU, as described above. This hides from the researcher the complexity of the specific resources and requirements of each node's.
 
 !!! warning "Warning"
-        **Fed-BioMed models and training plans should never try to directly access the CUDA resources on the node.**
-        For example don't use the `pytorch.cuda.is_available()`, `tensor.to()`, `tensor.cuda()` etc. methods. This is not
-        the supported way of using GPUs in Fed-BioMed.
+    **Fed-BioMed models and training plans should never try to directly access the CUDA resources on the node.**
+    For example don't use the `pytorch.cuda.is_available()`, `tensor.to()`, `tensor.cuda()` etc. methods. This is not
+    the supported way of using GPUs in Fed-BioMed.
 
 ### Option 1 : enable GPU on node and researcher
 
@@ -144,7 +144,7 @@ $ fedbiomed node start --gpu-num 1
 ### Security
 
 !!! warning "warning"
-        Warning: from a security perspective, a malicious researcher can write a training plan that directly accesses
-        the node's GPU (eg: with `tensor.to()`) even if not offered by the node. This should be addressed
-        by using training plan approval and conducting proper training plan review.
+    Warning: from a security perspective, a malicious researcher can write a training plan that directly accesses
+    the node's GPU (eg: with `tensor.to()`) even if not offered by the node. This should be addressed
+    by using training plan approval and conducting proper training plan review.
 

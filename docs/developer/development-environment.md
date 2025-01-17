@@ -30,6 +30,7 @@ Before you start using Fed-BioMed or developing on Fed-BioMed please make sure t
     pyenv install 3.10
     pyenv global 3.10
     ```
+
     The code above will install latest Python 3.10, and activate this version globally for your machine.
 
 
@@ -152,12 +153,46 @@ Please visit `pdm` documentation for more information and usage details.
 To verify your installation please run `pytest tests` and `tox -r` to make sure there is no missing module in your environment.
 
 
+## Development/Debugging for GUI
+
+If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI
+after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
+easily done with the previous start command. Currently, Flask server always get started on development mode.  To enable debug mode you should add `--debug`
+flag to the start command.
+
+```shell
+fedbiomed node -p /path/to/my-node gui start --data-folder /path/to/my-node/data --debug
+```
+**Important:** Please do not change Flask port and host while starting it for development purposes. Because React (UI) will be calling
+``localhost:8484/api`` endpoint in development mode.
+
+The command above will serve the web application and the API services. It means that on the URL `localhost:8484` you will be able to see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``yarn start``.
+
+```shell
+# use the python environment for [development](../docs/developer/development-environment.md)
+cd ${FEDBIOMED_DIR}/gui/ui
+yarn start
+```
+
+After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
+in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
+
+Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
+
+After development/debugging is done. To update changes in built GUI, you need rebuild the React app. Afterwards,
+you will be able to see changes on the ``localhost:8484`` URL which serve built UI files.
+
+```shell
+yarn build
+fedbiomed node gui start --data-folder ../data
+```
+
 ## Troubleshooting
 
 You may encounter some common issues during installation or after the installation due to some missing packages. Please visit [troubleshooting](../support/troubleshooting.md) dedicated page for common issues.
 
 
-### Error on MacOS/Ubuntu regarding `pyenv` usage: 
+### Error on MacOS/Ubuntu regarding `pyenv` usage:
 
 - **`_lzma` module not found**
     - If you are using **MacOS** and installing Python versions through `pyenv` you may have some missing packages in your environment. `ModuleNotFoundError: No module named '_lzma'` is one of them. If you faced this error please install `brew install xz`, and reinstall python version `pyenv install <version>`.
@@ -169,6 +204,14 @@ You may encounter some common issues during installation or after the installati
         sudo apt install liblzma-dev
         ```
 - **Other issues**
-    - For other issues, `pyenv` comes with an utility [`pyenv-doctor`](https://github.com/pyenv/pyenv-doctor), made for checking `pyenv` installation and dependedncies, and can be run with: `pyenv doctor`. It will try to find the issue with your installation and proposes appropriate solutions to your issue.
+    - For other issues, `pyenv` comes with an utility [`pyenv-doctor`](https://github.com/pyenv/pyenv-doctor), made for checking `pyenv` installation and dependencies, and can be run with: `pyenv doctor`. It will try to find the issue with your installation and proposes appropriate solutions to your issue.
 
     More troubleshooting for `pyenv` can be found [here](https://github.com/pyenv/pyenv/wiki#suggested-build-environment).
+
+
+### Building Fed-BioMed Takes too Long
+
+Some static files located in the root Fed-BioMed source directory (e.g., notebooks, tests, etc.) are also included in the final distribution. Therefore, having large data files or artifacts left from operations for testing and development purposes can increase the loading time. Please ensure that such data files are cleared before building the Fed-BioMed package to reduce build time.
+
+
+

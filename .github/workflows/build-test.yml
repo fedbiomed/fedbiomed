@@ -92,16 +92,15 @@ jobs:
               - 'fedbiomed/**'
               - 'scripts/**'
               - 'tests/**'
-              - 'envs/development/conda/**'
               - 'envs/build/**'
               - 'modules/**'
               - '.github/**'
               - 'pyproject.toml'
               - 'pdm.lock'
 
-      - name: Install Python using Pyenv on Unix-like systems
+      - name: Setup Fed-BioMed Test Environment
         if: matrix.os != 'windows-latest'
-        uses: ./.github/actions/setup-pyenv
+        uses: ./.github/actions/setup-fbm-env
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -120,12 +119,7 @@ jobs:
       - name: Run tests
         if: steps.filter.outputs.module == 'true'
         run: |
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
             tox -r
-          else
-            pyenv local ${{ matrix.python-version }}
-            tox -r
-          fi
         shell: bash -l {0}
 
       - name: Upload coverage reports to Codecov
@@ -180,13 +174,13 @@ jobs:
               - '.github/**'
 
       - name: Install Python using Pyenv
-        uses: ./.github/actions/setup-pyenv
+        uses: ./.github/actions/setup-fbm-env
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Run tests
         if: steps.filter.outputs.module == 'true'
         run: |
-          pyenv global ${{ matrix.python-version }}
           FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
             tox -r -m e2e -- e2e_mnist_pytorch.py
+        shell: bash -il {0}

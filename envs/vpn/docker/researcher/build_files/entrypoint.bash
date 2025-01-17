@@ -24,7 +24,7 @@ export FBM_SERVER_PORT=50051
 export PYTHONPATH=/fedbiomed
 export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=False
 su -c "export FBM_RESEARCHER_COMPONENT_ROOT=/fbm-researcher ; \
-      fedbiomed configuration create --path /fbm-researcher --component researcher --exist-ok; \
+      fedbiomed component create -c researcher --path /fbm-researcher  --exist-ok; \
 	  cd fedbiomed/notebooks ; \
       jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' " $CONTAINER_USER &
 

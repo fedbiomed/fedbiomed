@@ -154,6 +154,7 @@ Once the component is initialized, you can edit its configuration file located a
 
 Environment variables can be used to parameterize various options for creating the configuration file. The fields that can be controlled, along with their associated environment variables and default values, are described below:
 
+```
 [security]:
 - allow_default_training_plans: FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS, True
 - training_plan_approval: FBM_SECURITY_TRAINING_PLAN_APPROVAL, False

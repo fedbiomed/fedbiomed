@@ -48,8 +48,9 @@ jobs:
 
       - name: Publish package distributions to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        #with:
-        #  repository-url: https://test.pypi.org/legacy/
+        # Uncomment for testing
+        # with:
+        #   repository-url: https://test.pypi.org/legacy/
 
   release:
     name: Release pushed tag

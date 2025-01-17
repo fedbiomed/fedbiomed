@@ -295,6 +295,7 @@ configure_wireguard() {
     check_wg_interface
 
     # add address and route
+    echo add address "$VPN_IP/$VPN_SUBNET_PREFIX" 
     ip -4 address add "$VPN_IP/$VPN_SUBNET_PREFIX" dev wg0
     if [ "$?" -ne 0 ]
     then 

@@ -203,7 +203,7 @@ class DatasetArgumentParser(CLIArgumentParser):
             nargs='?',
             type=str,
             required=False,
-            default="@"
+            default=""
         )
         self._mnist_path = add
 
@@ -236,7 +236,7 @@ class DatasetArgumentParser(CLIArgumentParser):
     def add(self, args):
         """Adds datasets"""
 
-        if args.mnist != "@":
+        if args.mnist != "":
             if args.mnist is None:
                 mnist_path = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
             else:
@@ -494,36 +494,31 @@ class NodeControl(CLIArgumentParser):
 
 class GUIControl(CLIArgumentParser):
 
-
+    _node: Node
     def initialize(self):
         """Initializes GUI commands"""
         self._parser = self._subparser.add_parser(
             "gui", #add_help=False,
              help="Action to manage Node user interface"
         )
-        self._parser.set_defaults(func=self.forward)
-        # gui_subparsers = self._parser.add_subparsers(title='start GUI')
-        # start = gui_subparsers.add_parser('start',
-        #                                   help='launch the server (defaults on localhost:8484)')
 
-        # start.set_defaults(func=self.start)
-        # self._add_args(start)
+        gui_subparsers = self._parser.add_subparsers(title='start GUI')
+        start = gui_subparsers.add_parser(
+            'start',
+            help='Launch the server (defaults on localhost:8484)')
+
+        start.set_defaults(func=self.forward)
 
 
-        # self._add_args(self._parser)
-
-        # start.set_defaults(func=self.forward)
-        # self._add_args(start)
-
-       self._parser.add_argument(
+        start.add_argument(
             "--data-folder",
             "-df",
             type=str,
             nargs="?",
-            default=NODE_DATA_FOLDER,  # data folder in root directory
+            default="",  # data folder in root directory
             required=False)
 
-        self._parser.add_argument(
+        start.add_argument(
             "--cert-file",
             "-cf",
             type=str,
@@ -532,7 +527,7 @@ class GUIControl(CLIArgumentParser):
             help="Name of the certificate to use in order to enable HTTPS. "
                  "If cert file doesn't exist script will raise an error.")
 
-        self._parser.add_argument(
+        start.add_argument(
             "--key-file",
             "-kf",
             type=str,
@@ -541,7 +536,7 @@ class GUIControl(CLIArgumentParser):
             help="Name of the private key for the SSL certificate. "
                  "If the key file doesn't exist, the script will raise an error.")
 
-        self._parser.add_argument(
+        start.add_argument(
             "--port",
             "-p",
             type=str,
@@ -550,7 +545,7 @@ class GUIControl(CLIArgumentParser):
             required=False,
             help="HTTP port that GUI will be served. Default is `8484`")
 
-        self._parser.add_argument(
+        start.add_argument(
             "--host",
             "-ho",
             type=str,
@@ -559,21 +554,21 @@ class GUIControl(CLIArgumentParser):
             required=False,
             help="HTTP port that GUI will be served. Default is `127.0.0.1` (localhost)")
 
-        self._parser.add_argument(
+        start.add_argument(
             "--debug",
             "-dbg",
             action="store_true",
             required=False,
             help="HTTP port that GUI will be served. Default is `8484`")
 
-        self._parser.add_argument(
+        start.add_argument(
             "--recreate",
             "-rc",
             action="store_true",
             required=False,
             help="Re-creates gui build")
 
-        self._parser.add_argument(
+        start.add_argument(
             "--development",
             "-dev",
             action="store_true",
@@ -581,10 +576,6 @@ class GUIControl(CLIArgumentParser):
             help="If it is set, GUI will start in development mode."
         )
 
-        self._parser.add_argument(
-            'start',
-            help="Starts the server (Defaults to localhost:127.0.0.1)."
-        )
 
     def forward(self, args: argparse.Namespace, extra_args):
         """Launches Fed-BioMed Node GUI
@@ -595,7 +586,10 @@ class GUIControl(CLIArgumentParser):
 
         fedbiomed_root = os.path.abspath(args.path)
 
-        data_folder = os.path.abspath(args.data_folder)
+        if args.data_folder == '':
+            data_folder = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
+        else:
+            data_folder = os.path.abspath(args.data_folder)
         if not os.path.isdir(data_folder):
             raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")
         os.environ.update({
@@ -644,6 +638,7 @@ class GUIControl(CLIArgumentParser):
                 proc.wait()
         except Exception as e:
             print(e)
+
 
 class NodeCLI(CommonCLI):
 

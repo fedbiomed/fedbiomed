@@ -27,7 +27,7 @@
                     {% include "home.html" %}
                 {%- endblock %}
             <!-- Doc pages-->
-            {% elif URLSlug[1] == "tutorials" or URLSlug[1] == "user-guide" or URLSlug[1] == "getting-started" or URLSlug[1] == "developer" %}
+            {% elif URLSlug[1] == "tutorials" or URLSlug[1] == "user-guide" or URLSlug[1] == "getting-started" or URLSlug[1] == "developer" or URLSlug[1] == "support" %}
                 {%- block docs %}
                     {% include "docs.html" %}
                 {%- endblock %}
@@ -39,7 +39,7 @@
                     {%- block newsPage %}
                         {% include "news-single.html" %}
                     {%- endblock %}
-                {% endif%} 
+                {% endif%}
 
             <!-- Every other pages -->
             {% else %}

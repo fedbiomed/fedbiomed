@@ -74,7 +74,7 @@ status         give information on running container(s)
 stop           stop and remove all containers
 
 {node,node2} * start a 'fedbiomed node(2) *'       command
-               inside node(2) container (eg: ${0##*/} run node list)
+               inside node(2) container (eg: ${0##*/} run node dataset list)
 researcher *
                start a 'fedbiomed researcher(2) *' command
                inside researcher(2) container
@@ -252,9 +252,14 @@ containers_clean() {
         /bin/rm -rf ./$i/run_mounts/config/config.env 2> /dev/null
     done
 
-    # specific to vpnserver
-    /bin/rm -fr ./gui/run_mounts/certs/*                    2> /dev/null
+	#
+	/bin/rm -fr ./vpnserver/run_mounts/config/config.env 	2> /dev/null
+	/bin/rm -fr ./vpnserver/run_mounts/config/config_peers 	2> /dev/null
+	/bin/rm -fr ./vpnserver/run_mounts/config/ip_assign 	2> /dev/null
+	/bin/rm -fr ./vpnserver/run_mounts/config/wireguard 	2> /dev/null
 
+	# specific to vpnserver
+    /bin/rm -fr ./gui/run_mounts/certs/*                    2> /dev/null
     /bin/rm -fr ./gui2/run_mounts/certs/*                   2> /dev/null
 
     # specific to gui
@@ -264,13 +269,16 @@ containers_clean() {
     # specific to node
     /bin/rm -rf ./node/run_mounts/data/*                    2> /dev/null
     /bin/rm -rf ./node/run_mounts/fbm-node/*                2> /dev/null
+	/bin/rm -rf ./node/run_mounts/fbm-node/.fedbiomed       2> /dev/null
 
     /bin/rm -rf ./node2/run_mounts/data/*                   2> /dev/null
     /bin/rm -rf ./node2/run_mounts/fbm-node/*               2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/fbm-node/.fedbiomed      2> /dev/null
 
-    # specific to researcher
-    /bin/rm -rf ./researcher/run_mounts/fbm-researcher/*    2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/samples/*           2> /dev/null
+	# specific to researcher
+    /bin/rm -rf ./researcher/run_mounts/fbm-researcher/*    		2> /dev/null
+	/bin/rm -rf ./researcher/run_mounts/fbm-researcher/.fedbiomed 	2>/dev/null
+    /bin/rm -rf ./researcher/run_mounts/samples/*           		2> /dev/null
 
     #
     # level3 : remove container images
@@ -287,7 +295,17 @@ containers_clean() {
     done
 
     docker image prune -f
+    #
+    # level4 : remove docker cache
+    #
 
+    if [[ $CLEAN -lt 4 ]]; then
+        return
+    fi
+
+    echo "**Removing docker cache**"
+
+    docker builder prune -f
 }
 
 containers_status() {
@@ -325,6 +343,7 @@ containers_status() {
     if [ $ERROR -eq 1 ]; then
         echo "** ERROR: cannot ping using VPN addresses inside some docker container(s)"
         echo "          You must check what is going on."
+		exit 1
     fi
 }
 
@@ -383,6 +402,9 @@ single_container_configure() {
     IP=$(find_my_ip)
 
     /bin/rm -fr ./vpnserver/run_mounts/config/config_peers/${category}/${container}
+    CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+        CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+        CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
     $DOCKER_COMPOSE exec vpnserver bash -c -i "python ./vpn/bin/configure_peer.py genconf ${category} ${container}"
     sleep 1
 
@@ -487,7 +509,11 @@ containers_start() {
                 $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py add node NODETAG $pubkey
                 ;;
             node2)
+                echo CHECK
+                $DOCKER_COMPOSE up -d node2
                 pubkey=$($DOCKER_COMPOSE exec node2 wg show wg0 public-key | tr -d '\r')
+                echo here the public key
+                echo $pubkey
                 # Remove key to avoid protocol error if keys are same
                 $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py remove node NODE2TAG
                 $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py add node NODE2TAG $pubkey
@@ -569,6 +595,7 @@ while (($# > 0)); do
                     container) CLEAN=1 ;;
                     configuration) CLEAN=2 ;;
                     image) CLEAN=3 ;;
+                    cache) CLEAN=4 ;;
                     -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac
