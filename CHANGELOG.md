@@ -1,5 +1,9 @@
 # Fed-BioMed changelog
 
+## 2025-01-24 version 5.4.1
+
+- Patch for missing list request handler on the node side.
+
 ## 2024-11-04 version 5.4.0
 
 - introduce in-application implementation of Shamir Additive Secret Sharing (ASS) for Joye-Libert secure aggregation
@@ -44,7 +48,7 @@
 ## 2024-01-26 version 5.0.2
 
 - fix crash happening when the tkinter file selector is used in non-interactive mode
- 
+
 ## 2024-01-18 version 5.0.1
 
 - fix `fedbiomed_vpn` failure due to time race under certain circumstance
@@ -52,7 +56,7 @@
 ## 2023-12-21 version 5.0.0
 
 - introduce new communication architecture based on gRPC
-- introduce communication TLS encryption for automatic protection from passive MITM 
+- introduce communication TLS encryption for automatic protection from passive MITM
 - redesign researcher side's `Requests` for better performance and robustness
 - add support for weighted average with secure aggregation
 - fix secure aggregation bug when using more than 2 nodes
@@ -80,7 +84,7 @@
 
 ## 2023-07-27 version 4.4.2
 
-- update software dependencies and implement more strict package version checks 
+- update software dependencies and implement more strict package version checks
 - fix docker containers build failures due to outdated package dependencies
 
 ## 2023-06-23 version 4.4.1
@@ -92,13 +96,13 @@
 - add HTTPS secure access to Fed-BioMed Node GUI
 - introduce GitHub workflow/actions for CI build tests and testing/publishing documentation.
 - introduce versioning for component config files, MQTT messages and breakpoints
-- migrate to GitHub 
+- migrate to GitHub
 - migrate `docs` source into main repository and point to https://fedbiomed.org
 - fix robustness of handling secure aggregation training errors.
 - fix warnings in `TorchModel.set_weights` and BatchNorm layers' handling
 - fix incorrect calculation of SkLearn model weights
-- fix incorrect compatibility of FedProx feature with `Model` class 
-- fix ordering of weights and node replies after training. 
+- fix incorrect compatibility of FedProx feature with `Model` class
+- fix ordering of weights and node replies after training.
 
 ## 2023-04-26 version 4.3
 
