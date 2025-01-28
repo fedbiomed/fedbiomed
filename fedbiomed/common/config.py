@@ -109,8 +109,7 @@ class Config(metaclass=ABCMeta):
             root: Root directory for the component
             name: Component configuration file name (e.g `config-n1.ini`
                 corresponds to `<root>/constants.CONFIG_FOLDER_NAME/config-n1.ini`).
-            auto_generate: Generated all component files, folder, including
-                configuration file.
+            auto_generate: create a configuration for this path if it does not exist
         """
         self.name = get_config_name(name, self._COMPONENT_TYPE, self._DEFAULT_CONFIG_FILE_NAME)
 
@@ -170,7 +169,7 @@ class Config(metaclass=ABCMeta):
     def read(self) -> bool:
         """Reads configuration file that is already existing in given path
 
-        Raises verision compatibility error
+        Raises version compatibility error
         """
 
         self._cfg.read(self.path)
