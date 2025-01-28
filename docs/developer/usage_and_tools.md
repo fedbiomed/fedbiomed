@@ -166,7 +166,7 @@ The *Assignee* assesses:
 
 The *Assignee* merges the PR if it meets these requirements and it is *Approved*. If the merging needs to be delayed for some reason, the *Assignee* gives the final approval for merging with its condition/timeline as a comment of the PR.
 
-Once a branch is merged (or stalled , abandoned) it is usually deleted. 
+Once a branch is merged (or stalled , abandoned) it is usually deleted.
 If there is some reason to keep it, it should then be renamed to something starting with `attic/` (eg `attic/short-description-of-branch`).
 
 
@@ -194,7 +194,7 @@ composed of the product goal and product backlog entries. Each product backlog e
 The current product goal content is:
 
 1. **priority 1** : translating Collaborative Learning to real world healthcare applications
-2. **priority 2** : as an open source software initiative, developing of the community, welcoming other contributions 
+2. **priority 2** : as an open source software initiative, developing of the community, welcoming other contributions
 3. **priority 3** : supporting initiatives that use Fed-BioMed
 4. **priority 4** : experimenting new research and technologies
 
@@ -283,7 +283,7 @@ An open issue has exactly one type amongst:
 
 * *needs-triage* for new user issues
 * *user support*
-* a *candidate* 
+* a *candidate*
 * a *product backlog* entry
 * a *sprint backlog* entry
 
@@ -307,38 +307,39 @@ It then loses its open issue type label (*needs-triage*, *candidate*, *product b
 
 ### Labels
 
-Zero or more labels are associated to an issue. 
+Zero or more labels are associated to an issue.
 We sort labels in several categories:
 
 #### *type* labels:
 
-  - **needs-triage** : a user submits a work request to the team (extension proposal, bug, other request)
-  - **user support** : a developer validates a user-submitted issue to be a request for support or for information (if it is a bug report or a work request, then it should rather be a labelled as *candidate*)
-  - **candidate** : an individual developer submits a work request to the team (extension proposal, bug, other request) or validates a user-submitted issue
-  - **product backlog** : the product owner adds an entry to the product backlog
-  - **sprint backlog** : the development team adds an entry to the sprint backlog
-  - **attic** : the entry is not completed, but is now considered obsolete and closed
-  - **done**: the entry is completed, closed, and not anymore in the *sprint backlog*
+  - **needs-triage** : A user submits a work request to the team (extension proposal, bug, other request)
+  - **user support** : A developer validates a user-submitted issue to be a request for support or for information (if it is a bug report or a work request, then it should rather be a labelled as *candidate*)
+  - **candidate** : An individual developer submits a work request to the team (extension proposal, bug, other request) or validates a user-submitted issue
+  - **product backlog** : The product owner adds an entry to the product backlog
+  - **sprint backlog** : The development team adds an entry to the sprint backlog
+  - **attic** : The entry is not completed, but is now considered obsolete and closed
+  - **done**: The entry is completed, closed, and not anymore in the *sprint backlog*
 
 
 #### *status* labels:
 
 All sprint backlog issues have one status label. Other issues only have a status label when they are active (eg: a developer not participating to a sprint, a developer working during intersprint).
 
-  - **todo** : issue not started yet (but intention to start soon)
-  - **doing** : issue implementation in progress
-  - **in review** : issue implementation is finished, a pull request open and is ready for review (or under review)
-  - **done** : issue is completed, it meets the DoD and **was merged to the next release integration branch**, but it still belongs to the *sprint backlog*
-  
+  - **todo** : Issue not started yet (but intention to start soon)
+  - **doing** : Issue implementation in progress
+  - **in review** : Issue implementation is finished, a pull request open and is ready for review (or under review)
+  - **done** : Issue is completed, it meets the DoD and **was merged to the next release integration branch**, but it still belongs to the *sprint backlog*
+
 
 #### *misc* labels
 
 These are optional label that give additional information on an issue.
 
-- **bug** : this issue is about reporting and resolving a suspected bug
-- **new feature** : this issue proposes to introduce a new functionality. This probably should not be set in the same issue as a *bug* or *user support*
-- **documentation** : documentation related issue
-- **good first issue** : nice to pick for a new contributor
+- **bug** : This issue is about reporting and resolving a suspected bug
+- **improvement** : This label indicates that the created issue relates to the improvement of an existing feature.
+- **new feature** : This issue proposes to introduce a new functionality. This probably should not be set in the same issue as a *bug* or *user support*
+- **documentation** : Documentation related issue
+- **good first issue** : Nice to pick for a new contributor
 
 Note: some previously existing tags are now removed - *postponed*, *feature*, *improvement*, *intersprint*
 
