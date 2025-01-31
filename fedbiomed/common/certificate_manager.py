@@ -14,13 +14,12 @@ from tinydb.table import Table
 
 from fedbiomed.common.constants import (
     CERTS_FOLDER_NAME,
-    CONFIG_FOLDER_NAME,
     NODE_PREFIX,
     ComponentType,
     ErrorNumbers,
 )
 from fedbiomed.common.db import DBTable
-from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.utils import read_file
 
 
@@ -266,6 +265,7 @@ class CertificateManager:
         try:
             if ipaddress.ip_address(cn):
                 extensions.append(
+                    # TODO: X509Extension is deprecated, update with newer version
                     crypto.X509Extension(
                         type_name=b"subjectAltName",
                         critical=False,
@@ -330,7 +330,7 @@ def generate_certificate(
             `certificate.pem` or `certificate.key` files generated.
     """
 
-    certificate_path = os.path.join(root, CERTS_FOLDER_NAME, f"cert_{component_id}")
+    certificate_path = os.path.join(root, CERTS_FOLDER_NAME)
 
     if os.path.isdir(certificate_path) and (
         os.path.isfile(os.path.join(certificate_path, "certificate.key"))

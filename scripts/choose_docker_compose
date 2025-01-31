@@ -1,13 +1,13 @@
 
 #
 # Temporary utility function for smoothing `docker-compose` to `docker compose` migration
-# 
+#
 
 docker_compose() {
 
-    if $(docker compose version >/dev/null 2>&1) ; then
+    if docker compose >/dev/null 2>&1 ; then
        DOCKER_COMPOSE='docker compose'
-    elif $(docker-compose version >/dev/null 2>&1) ; then
+    elif docker-compose >/dev/null 2>&1 ; then
       echo "[WARNING] docker-compose v1 is obsolete, please upgrade to docker-compose-plugin v2 !" >&2
       DOCKER_COMPOSE='docker-compose'
     else

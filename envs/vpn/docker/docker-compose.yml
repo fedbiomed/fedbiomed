@@ -28,10 +28,7 @@ x-node:
   volumes:
     - ./node/run_mounts/config:/config # contains VPN configurations
     - ./node/run_mounts/data:/data # datasets can be added here
-    - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
-    - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
-    - ./node/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans...
-
+    - ./node/run_mounts/fbm-node:/fbm-node # contains fedbiomed default training plans...
 #
 # optionally launch a second node instance on the same machine
 x-node2:
@@ -57,9 +54,7 @@ x-node2:
   volumes:
     - ./node2/run_mounts/config:/config # contains VPN configurations
     - ./node2/run_mounts/data:/data # datasets can be added here
-    - ./node2/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
-    - ./node2/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
-    - ./node2/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans...
+    - ./node2/run_mounts/fbm-node:/fbm-node
 
 services:
   #
@@ -75,7 +70,7 @@ services:
     # profiles:
     #  - debug
   #
-  # intermediate step : base image for building node container 
+  # intermediate step : base image for building node container
   # 2 options : without or without nvidia gpu support
   # we usually dont want to launch this service (used for building other services)
   basenode-no-gpu:
@@ -86,7 +81,7 @@ services:
     image: fedbiomed/vpn-basenode
     entrypoint: /bin/true
     # profiles:
-    #  - debug 
+    #  - debug
   basenode:
     container_name: fedbiomed-vpn-base-node
     hostname: fedbiomed-vpn-base-node
@@ -169,6 +164,7 @@ services:
         - CONTAINER_GID
         - CONTAINER_USER
         - CONTAINER_GROUP
+        - PYTHON_VERSION
     image: fedbiomed/vpn-gui
     environment:
     # enable overloading build-time id with a run-time id
@@ -187,10 +183,8 @@ services:
       # caution: /data /etc /var directory must be shared with node
       - ./gui/run_mounts/certs:/certs
       - ./node/run_mounts/data:/data # datasets can be added here
-      - ./node/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
-      - ./node/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
-      - ./node/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans...
-  #
+      - ./node/run_mounts/fbm-node:/fbm-node
+
   # node gui component
   gui2:
     container_name: fedbiomed-vpn-gui2
@@ -217,10 +211,8 @@ services:
       # caution: /data /etc /var directory must be shared with node
       - ./gui2/run_mounts/certs:/certs
       - ./node2/run_mounts/data:/data # datasets can be added here
-      - ./node2/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
-      - ./node2/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
-      - ./node2/run_mounts/envs/common:/fedbiomed/envs/common # contains fedbiomed default training plans...
-  #
+      - ./node2/run_mounts/fbm-node:/fbm-node
+#
   # researcher component
   researcher:
     container_name: fedbiomed-vpn-researcher
@@ -251,8 +243,5 @@ services:
       - /dev/net/tun
     volumes:
       - ./researcher/run_mounts/config:/config # contains VPN configurations
-      - ./researcher/run_mounts/data:/data # results and persistent data can be saved here
-      - ./researcher/run_mounts/etc:/fedbiomed/etc # contains fedbiomed config files
       - ./researcher/run_mounts/samples:/fedbiomed/notebooks/samples # contains researcher sample notebooks
-      - ./researcher/run_mounts/runs:/fedbiomed/runs # contains fedbiomed tensorboard results
-      - ./researcher/run_mounts/var:/fedbiomed/var # contains fedbiomed db, exp results ...
+      - ./researcher/run_mounts/fbm-researcher:/fbm-researcher # contains researcher sample notebooks

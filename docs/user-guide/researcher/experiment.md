@@ -191,7 +191,7 @@ exp.set_model_args(model_args=model_args)
     exp.set_model_args(model_args, keep_weights=False)
     ```
 
-Modela arguments can then be used within a `TrainingPlan` as in the example below,
+Model arguments can then be used within a `TrainingPlan` as in the example below,
 
 ```python
 class MyTrainingPlan(TorchTrainingPlan):
@@ -452,8 +452,8 @@ exp.set_save_breakpoints(True)
 ```
 
 !!! info
-        Setting `save_breakpoints` to `True` after the experiment has performed several rounds of
-        training will only save the breakpoints for remaining rounds.
+    Setting `save_breakpoints` to `True` after the experiment has performed several rounds of
+    training will only save the breakpoints for remaining rounds.
 
 
 Please visit the tutorial ["Breakpoints (experiment saving facility)"](../../tutorials/advanced/breakpoints.md) to find out more about breakpoints.

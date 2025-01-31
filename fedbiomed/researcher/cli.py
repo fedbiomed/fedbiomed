@@ -6,11 +6,15 @@ import os
 import subprocess
 import importlib
 
-
 from typing import List, Dict
 
-from fedbiomed.common.cli import CommonCLI, CLIArgumentParser, ConfigNameAction
-from fedbiomed.common.constants import ComponentType, DEFAULT_CONFIG_FILE_NAME_RESEARCHER
+from fedbiomed.common.constants import NOTEBOOKS_FOLDER_NAME
+from fedbiomed.common.cli import (
+    CommonCLI,
+    CLIArgumentParser,
+    ComponentDirectoryAction
+)
+from fedbiomed.common.constants import ComponentType
 
 
 __intro__ = """
@@ -48,15 +52,22 @@ class ResearcherControl(CLIArgumentParser):
     def start(self, args):
         """Starts jupyter notebook"""
 
-
         options = ['--NotebookApp.use_redirect_file=false']
 
-        if args.directory:
-            options.append(f"--notebook-dir={args.directory}")
+        component_path = os.path.join(os.getcwd(), args.path)
 
+        if args.directory:
+            nb_start_dir = args.directory
+        else:
+            nb_start_dir = os.path.join(component_path, NOTEBOOKS_FOLDER_NAME)
+
+        options.append(f"--notebook-dir={nb_start_dir}")
+
+        current_env = os.environ.copy()
+        #comp_root = os.environ.get("FBM_RESEARCHER_COMPONENT_ROOT", None)
         command = ["jupyter", "notebook"]
         command = [*command, *options]
-        process = subprocess.Popen(command)
+        process = subprocess.Popen(command, env=current_env)
 
         try:
             process.wait()
@@ -86,36 +97,30 @@ class ResearcherCLI(CommonCLI):
         """Initializes Researcher CLI"""
 
 
-        class ConfigNameActionResearcher(ConfigNameAction):
+        class ComponentDirectoryActionResearcher(ComponentDirectoryAction):
             _this = self
             _component = ComponentType.RESEARCHER
 
-            def set_component(self, config_name: str) -> None:
+            def set_component(self, component_dir: str) -> None:
                 """Import configuration
 
                 Args:
                     config_name: Name of the config file for the component
                 """
-                config_file = os.environ.get("CONFIG_FILE")
-                if config_file:
-                    os.environ["FBM_RESEARCHER_CONFIG_FILE"] = config_file
-
+                os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = os.path.abspath(
+                        component_dir
+                )
                 module = importlib.import_module("fedbiomed.researcher.config")
                 self._this.config = module.config
 
-
-        # Config parameter is not necessary. Python client (user in jupyter notebook)
-        # will always use default config file which is `researcher_config`
-        # However, this argument will play important role once researcher back-end (orhestrator)
-        # and researcher is seperated
-        self._parser.add_argument(
-            "--config",
-            "-cf",
-            nargs="?",
-            action=ConfigNameActionResearcher,
-            default=DEFAULT_CONFIG_FILE_NAME_RESEARCHER,
-            help="Name of the config file that the CLI will be activated for. "
-                 f"Default is '{DEFAULT_CONFIG_FILE_NAME_RESEARCHER}'."
-        )
-
         super().initialize()
+
+        self._parser.add_argument(
+            "--path",
+            "-p",
+            nargs="?",
+            action=ComponentDirectoryActionResearcher,
+            default="fbm-researcher",
+            help="Name of the config file that the CLI will be activated for. Default "
+                 "is 'config_researcher.ini'."
+        )

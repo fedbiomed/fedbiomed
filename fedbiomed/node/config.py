@@ -2,22 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+from typing import Optional
 
 from fedbiomed.common.constants import (
     DEFAULT_CERT_NAME,
     HashingAlgorithms,
     __node_config_version__,
-    DEFAULT_CONFIG_FILE_NAME_NODE
+    DEFAULT_NODE_NAME,
+    NODE_DATA_FOLDER
 )
 from fedbiomed.common.certificate_manager import generate_certificate
-from fedbiomed.common.config import Config
+from fedbiomed.common.config import Component, Config
 
 
 class NodeConfig(Config):
 
-    _DEFAULT_CONFIG_FILE_NAME: str = DEFAULT_CONFIG_FILE_NAME_NODE
-    _COMPONENT_TYPE: str = 'NODE'
     _CONFIG_VERSION: str = __node_config_version__
+    COMPONENT_TYPE: str = 'NODE'
 
     def add_parameters(self):
         """Generate `Node` config"""
@@ -46,3 +47,27 @@ class NodeConfig(Config):
             'ip': os.getenv('FBM_RESEARCHER_IP', 'localhost'),
             'port': os.getenv('FBM_RESEARCHER_PORT', '50051')
         }
+
+
+component_root = os.environ.get(
+    "FBM_NODE_COMPONENT_ROOT", None
+)
+
+
+class NodeComponent(Component):
+    """Fed-BioMed Node Component Class
+
+    This class is used for creating and validating components
+    by given component root directory
+    """
+    config_cls = NodeConfig
+    _default_component_name = DEFAULT_NODE_NAME
+
+    def initiate(self, root: Optional[str] = None) -> NodeConfig:
+        config = super().initiate(root)
+        node_data_path = os.path.join(config.root, NODE_DATA_FOLDER)
+        os.makedirs(node_data_path, exist_ok=True)
+        return config
+
+
+node_component = NodeComponent()

@@ -28,7 +28,8 @@ git checkout -b release/$RELEASE_TAG
 
 - in the `release/$RELEASE_TAG` branch, do the release time updates:
   * `CHANGELOG.md`
-  * `fedbiomed/common/constants.py` : change `__version__`
+  * `fedbiomed/__init__.py` : change `__version__`
+
 - in the `release` branch, commit the release time updates
 ```bash
 git commit -a
@@ -221,12 +222,12 @@ The changes in website that do not affect `User documentation` part are also con
 
 * Adding news or updating their content
 * Adding new items to front page (button, boxes, description, new section)
-* Adding new pages (These are pages NOT related to user documentation such as `About Us`, `Roadmap` etc.) 
+* Adding new pages (These are pages NOT related to user documentation such as `About Us`, `Roadmap` etc.)
 * Adding new items for footer area
 * Changing contents of static pages About us, Contributors etc.
 * Front-End issues broken layout etc.
 
-However, since these modifications don't contain any changes in the Fed-BioMed source code, it is not considered as code patch. It means after applying the changes new version tag **SHOULD NOT BE** pushed. The process flow is the same as `hotfix` except that one doesn't push a new tag. 
+However, since these modifications don't contain any changes in the Fed-BioMed source code, it is not considered as code patch. It means after applying the changes new version tag **SHOULD NOT BE** pushed. The process flow is the same as `hotfix` except that one doesn't push a new tag.
 
 Also, for publishing a news or a doc fix, a review by a third party is not mandatory.
 

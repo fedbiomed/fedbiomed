@@ -18,7 +18,7 @@ from helpers import (
     start_nodes,
     kill_subprocesses,
     clear_experiment_data,
-    clear_researcher_data,
+    clear_component_data,
     create_researcher,
     get_data_folder,
     create_multiple_nodes,
@@ -39,6 +39,7 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers.optimizer import Optimizer
 from fedbiomed.common.optimizers.declearn import YogiModule as FedYogi, ScaffoldServerModule
+from fedbiomed.common.utils import SHARE_DIR
 
 from sklearn import datasets
 import numpy as np
@@ -86,7 +87,7 @@ def setup(port, post_session, request):
         add_dataset_to_node(node_3, dataset)
 
 
-        data_path = os.path.join('notebooks', 'data', 'CSV', 'pseudo_adni_mod.csv')
+        data_path = os.path.join(SHARE_DIR, 'notebooks', 'data', 'CSV', 'pseudo_adni_mod.csv')
         dataset = {
             "name": "Adni dataset",
             "description": "Adni DATASET",
@@ -112,7 +113,7 @@ def setup(port, post_session, request):
         thread.join()
 
         print("Clearing researcher data")
-        clear_researcher_data(researcher)
+        clear_component_data(researcher)
 
 
 
@@ -212,7 +213,9 @@ def test_03_sklean_sgdregressor():
     exp.run()
     exp_folder = exp.experimentation_path()
 
-    loaded_exp = Experiment.load_breakpoint(os.path.join(exp_folder, 'breakpoint_0002'))
+    loaded_exp = Experiment.load_breakpoint(
+        os.path.join(exp_folder, 'breakpoint_0002')
+    )
     loaded_exp.run_once(increase=True)
 
 
@@ -336,7 +339,6 @@ def test_07_sklearn_adni_regressor_with_declearn_optimizer():
                      node_selection_strategy=None)
 
     exp.run()
-
     clear_experiment_data(exp)
 
 def test_08_sklearn_adni_regressor_with_scaffold():
@@ -378,6 +380,5 @@ def test_09_seklearn_adni_regressor_with_secureaggregation():
                      node_selection_strategy=None)
 
     exp.run()
-
     clear_experiment_data(exp)
 

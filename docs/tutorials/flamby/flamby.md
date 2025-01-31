@@ -19,9 +19,13 @@ dataset in a federated experiment.
 
 ## Installing FLamby and downloading the datasets
 
-Fed-BioMed comes with the FLamby library pre-installed.
+If you wish to use Flamby, you need to install the package with
 
-However, your manual intervention is still required to:
+```bash
+pip install  git+https://github.com/owkin/FLamby@main
+```
+
+Additionally, you will need to manually:
 
 - install any dependencies required by the FLamby datasets that you wish to use.
 - download those datasets.
@@ -31,22 +35,29 @@ To install the dependencies:
 * check in FLamby's [setup.py](https://github.com/owkin/FLamby/blob/main/setup.py) the dependencies `<PACKAGES>` for the dataset you wish to use. For example, dataset `tcga` needs `lifelines`.
 * install the dependencies by executing on the researcher (where `${FEDBIOMED_DIR}` is Fed-BioMed's base directory)
 ```bash
-source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment researcher
+# use the python environment for [development](../docs/developer/development-environment.md)
 pip install <PACKAGES>
 ```
 * install dependencies by executing on each node
 ```bash
-source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment node
+# use the python environment for [development](../docs/developer/development-environment.md)
 pip install <PACKAGES>
 ```
 
 To download the dataset named `<DATASET>` (eg `fed_ixi` for IXI):
 
 * download the dataset by executing on each node
-```bash
-source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment node
-python $(find $CONDA_PREFIX -path */<DATASET>/dataset_creation_scripts/download.py) -o ${FEDBIOMED_DIR}/data
-```
+    - 1. if you are using a **conda virtual environment**:
+    ```bash
+    # use the python environment for [development](../docs/developer/development-environment.md)
+    python $(find $CONDA_PREFIX -path */<DATASET>/dataset_creation_scripts/download.py) -o ${FEDBIOMED_DIR}/data
+    ```
+
+    - 2. if you are using a **venv virtual environment**:
+    ```bash
+    # use the python environment for [development](../docs/developer/development-environment.md)
+    python $(find $VIRTUAL_ENV -path */<DATASET>/dataset_creation_scripts/download.py) -o ${FEDBIOMED_DIR}/data
+    ```
 
 ## Defining the Training Plan
 

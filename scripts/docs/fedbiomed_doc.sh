@@ -14,29 +14,29 @@ cat <<EOF
 
 Fed-BioMed Documentation Serve and Build Scripts
 
-fedbiomed_doc.sh [ [ --serve ] | 
-                   [ --build-dir [BUILD_DIR] 
+fedbiomed_doc.sh [ [ --serve ] |
+                   [ --build-dir [BUILD_DIR]
                      --build-main --use-up-to-date-js-and-css
                      [--build-latest-version | --build-version [VERSION] | --build-current-as [VERSION] ]]
                  ]
 
 
 
-Arguments: 
+Arguments:
 
   --build-dir [DIR]             : The directory where documentation will be built (optional default is 'build').
   --build-current-as [VERSION]  : Build current active branch as given version.
   --build-version [VERSION]     : Build given verison tag by chekcing out to it. It writes build content in {BUILD_DIR}/{VERSION}
 
 Positonal Arguments:
-  --serve                       : It serves documentation. 
-  --build-main                  : Build main documentation. Home page, pages, new etc. It redirect documentation 
+  --serve                       : It serves documentation.
+  --build-main                  : Build main documentation. Home page, pages, new etc. It redirect documentation
                                   related pages to "/latest/*". This option can be used with other positional arguments.
                                   Note: It does not check out master. It build current local/branch into {BUILD_DIR}
   --build-latest-version        : Lists tags, chekcouts to latest one and build into {BUILD_DIR}/{LATEST_VERSION}.
                                   Can not be used with "--build-current-as" or "build-version"
 
-  --use-up-to-date-js-and-css   : This option makes sense only if --build-version or --build-latest-version is used. 
+  --use-up-to-date-js-and-css   : This option makes sense only if --build-version or --build-latest-version is used.
                                   It uses up-to-date JS and CSS files into repository.
   --
 EOF
@@ -46,7 +46,7 @@ EOF
 
 cleaning() {
     if [ -d $BASEDIR/v$LATEST_TO_BUILD ]; then
-        git worktree remove --force v$LATEST_TO_BUILD 
+        git worktree remove --force v$LATEST_TO_BUILD
     fi
 
     if [ -d $BASEDIR/build-tmp ]; then
@@ -69,13 +69,13 @@ cleaning_trap() {
 trap cleaning_trap INT TERM
 
 # Converts string to an integer
-int () { 
-    printf '%d' ${1:-} 2> /dev/null || : 
+int () {
+    printf '%d' ${1:-} 2> /dev/null || :
 }
 
 # Gets base versions
 get_base_versions () {
-    
+
     T=$(python - << EOF
 import re
 y="$1".split(' ');
@@ -97,7 +97,7 @@ sort_versions () {
 python - << EOF
 import re
 versions="$1".split(' ');
-versions=[i.replace('v', '') for i in versions]
+versions=[i.replace('v', '') for i in versions if not 'dev' in i ]
 
 versions.sort(key=lambda s: [int(u) for u in s.split('.')], reverse=True)
 print(' '.join(versions))
@@ -132,7 +132,7 @@ redirect_to_latest () {
 
     # Redirect base URL to latest for documentation related URI path
   FILES_TO_REDIRECT='getting-started tutorials user-guide developer'
-  for r in ${FILES_TO_REDIRECT}; do 
+  for r in ${FILES_TO_REDIRECT}; do
       echo "Creating redirection for $r"
       ./scripts/docs/redirect.py --source $BUILD_DIR_TMP/$r --base $BUILD_DIR_TMP -buri "/latest" || { cleaning; exit 1; }
   done
@@ -150,7 +150,7 @@ redirect_to_main () {
 
     # Redirect version base files
   FILES_TO_REDIRECT='index.html pages support news'
-  for r in ${FILES_TO_REDIRECT}; do 
+  for r in ${FILES_TO_REDIRECT}; do
       echo "Creating redirection for $r"
       ./scripts/docs/redirect.py --source $BUILD_DIR_TMP/"$VERSION_FOR_REDIRECTION"/$r --base $BUILD_DIR_TMP -buri "../" || { cleaning; exit 1; }
   done
@@ -175,17 +175,17 @@ copy_to_build_dir () {
 
 set_build_environmnet () {
 
-  if [ ! -d "$BUILD_DIR" ]; then 
+  if [ ! -d "$BUILD_DIR" ]; then
     mkdir $BUILD_DIR
-  fi 
+  fi
 
 }
 
 remove_previous_patch(){
 
   R_P=$1
-  echo "Removing previous version: base of $2.x | except latest $3" 
-    for v in ${R_P[@]}; do 
+  echo "Removing previous version: base of $2.x | except latest $3"
+    for v in ${R_P[@]}; do
       if [ "$v" != "$3" ]; then
           rm -rf $BUILD_DIR/$v
       fi
@@ -203,7 +203,7 @@ create_version_json () {
     LAST="${E_VERSIONS[${#E_VERSIONS[@]} - 1]}"
     VERSIONS_JSON='{"versions":{'
     for index in ${!E_VERSIONS[@]}
-    do  
+    do
         if [ "${index}" -eq "0" ]; then
             VERSIONS_JSON+='"latest":"'"v${E_VERSIONS[index]}"'"'
         else
@@ -223,7 +223,7 @@ create_version_json () {
 build_current_as () {
 
   VERSION=$1
-  if [ -z "$VERSION" ]; then 
+  if [ -z "$VERSION" ]; then
     echo "Please give version name to build."
     exit 1
   fi
@@ -241,7 +241,7 @@ build_current_as () {
 
   if [ -n "$ALREADY_CREATED" ]; then
     remove_previous_patch "$ALREADY_CREATED" "$BASE" "$VERSION"
-  fi 
+  fi
 
   create_version_json
 }
@@ -258,7 +258,7 @@ build_given_version () {
   LINK_TO_LATEST=$2
 
   if [ ! `git describe --exact-match --tags "$VERSION"` ]; then
-    echo "Version: $VERSION is not existing in local! Please fetch all the tags" 
+    echo "Version: $VERSION is not existing in local! Please fetch all the tags"
     exit 1
   fi
 
@@ -268,13 +268,13 @@ build_given_version () {
 
 
   set_build_environmnet
-  
-  if [ x$(echo "${VERISONS_NOT_ALLOWED_TO_BUILD[*]}" | grep -o "$VERSION") != x  ]; then 
+
+  if [ x$(echo "${VERISONS_NOT_ALLOWED_TO_BUILD[*]}" | grep -o "$VERSION") != x  ]; then
     echo "$VERSION is not allowed to build"
     exit 1
   fi
 
-  # Build latest version 
+  # Build latest version
   # Create a new work tree to build latest version
   echo "Building version $VERSION"
   git worktree add "$VERSION"  "$VERSION" || { cleaning; exit 1; }
@@ -296,7 +296,7 @@ build_given_version () {
   # Redirect base URL to latest for documentation related URI path
   redirect_to_main $VERSION
 
-  if [ "$LINK_TO_LATEST" == "True" ]; then 
+  if [ "$LINK_TO_LATEST" == "True" ]; then
     copy_to_build_dir "$VERSION"
   else
     copy_to_build_dir
@@ -305,11 +305,11 @@ build_given_version () {
 
   if [ -n "$ALREADY_CREATED" ]; then
     remove_previous_patch "$ALREADY_CREATED" "$BASE" "$VERSION"
-  fi 
+  fi
 
   create_version_json
 
-} 
+}
 
 
 
@@ -341,13 +341,13 @@ build_main () {
 
   set_build_environmnet
 
-  # Build master documentation 
+  # Build master documentation
   # This is for main pages
   mkdocs build -d "$BUILD_DIR_TMP" || { cleaning; exit 1; }
 
   # Redirect base URL to latest for documentation related URI path
-  redirect_to_latest 
-  copy_to_build_dir 
+  redirect_to_latest
+  copy_to_build_dir
 
 }
 
@@ -366,7 +366,7 @@ while :
       --build-dir )
 
         BUILD_DIR=$(realpath $2) || exit 1
-        shift 
+        shift
         shift
         ;;
       --build-main )
@@ -376,7 +376,7 @@ while :
       --build-version )
         # Checksout to given version and builds it into {BUILD_DIR}/{GIVEN_VERSION}
         VERSION_TO_BUILD=$2
-        shift 
+        shift
         shift
         ;;
       --build-latest-version )
@@ -384,7 +384,7 @@ while :
         shift 1
         ;;
 
-      --build-current-as ) 
+      --build-current-as )
         VERSION_TO_BUILD_AS=$2
         shift
         shift
@@ -418,7 +418,7 @@ if [ ! -d $BUILD_DIR ]; then
 fi
 
 
-if [ -n "$BUILD_MAIN" ]; then 
+if [ -n "$BUILD_MAIN" ]; then
   echo "Building main ----------------------------"
   build_main
 fi
@@ -433,7 +433,7 @@ elif [ -n "$VERSION_TO_BUILD_AS" ]; then
   echo "Building current local as version $VERSION_TO_BUILD_AS"
   build_current_as "$VERSION_TO_BUILD_AS"
 
-else 
+else
   if [ -n "$BUILD_LATEST_VERSION" ]; then
     build_latest_version
   else

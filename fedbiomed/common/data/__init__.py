@@ -12,8 +12,6 @@ from ._sklearn_data_manager import SkLearnDataManager, NPDataLoader
 from ._tabular_dataset import TabularDataset
 from ._medical_datasets import NIFTIFolderDataset, MedicalFolderDataset, MedicalFolderBase, MedicalFolderController, \
     MedicalFolderLoadingBlockTypes
-from ._flamby_dataset import FlambyDatasetMetadataBlock, FlambyLoadingBlockTypes, \
-    FlambyDataset, discover_flamby_datasets
 from ._data_loading_plan import (DataLoadingBlock,
                                  MapperBlock,
                                  DataLoadingPlan,
@@ -37,8 +35,4 @@ __all__ = [
     "DataLoadingPlan",
     "DataLoadingPlanMixin",
     "SerializationValidation",
-    "FlambyDatasetMetadataBlock",
-    "FlambyLoadingBlockTypes",
-    "FlambyDataset",
-    "discover_flamby_datasets"
 ]

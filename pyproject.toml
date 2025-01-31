@@ -1,0 +1,192 @@
+[project]
+name = "fedbiomed"
+dynamic = ["version"]
+description = "Collaborative learning for healthcare"
+
+maintainers = [
+	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
+	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
+	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
+	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
+	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
+]
+
+authors = [
+	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
+   	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
+	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
+	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
+	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
+	{name = "Paul Andrey <paul.andrey@inria.fr>"},
+	{name = "Lucie Chambon <lucie.chambon@inria.fr>"},
+	{name = "Erwan Demairy <erwan.demairy@inria.fr>"},
+	{name = "Thibaud Kloczko <thibaud.kloczko@inria.fr>"},
+	{name = "Côme Le Breton <come.le-breton@inria.fr>"},
+	{name = "Jean-Luc Szpyrka <jean-luc@szpyrka.fr>"},
+	{name = "Riccardo Taiello <riccardo.taiello@inria.fr>"},
+	{name = "Maya Assal"},
+	{name = "Samy-Safwan Ayed"},
+	{name = "Irene Balelli"},
+	{name = "Nathan Bigaud"},
+	{name = "Eleonore Birgy"},
+	{name = "Tristan Cabel"},
+	{name = "Gaurav D. Chaudary"},
+	{name = "Nejma El Kourdachi"},
+	{name = "Yann Fraboni"},
+	{name = "Lena Le Quintrec"},
+	{name = "Nathan Lapel"},
+	{name = "Jonathan Levy"},
+	{name = "Riham Nehmeh"},
+	{name = "Ange Ouya"},
+	{name = "Prapoojitha Santosha-Dasari"},
+	{name = "Jose-Francisco Saray-Villamizar"},
+	{name = "Andrea Senacheribbe"},
+	{name = "Santiago-Smith Silva-Rincon"},
+	{name = "Carlos Zubiaga"},
+]
+
+keywords = [
+	"learning",
+	"ai",
+	"analytics",
+	"clinical",
+	"collaborative",
+	"federated",
+	"biomedical",
+	"healthcare",
+	"multicentric",
+]
+
+classifiers = [
+	"Development Status :: 5 - Production/Stable",
+	"Intended Audience :: Science/Research",
+	"Intended Audience :: Healthcare Industry",
+	"License :: OSI Approved :: Apache Software License",
+	"Natural Language :: English",
+	"Operating System :: Unix",
+	"Operating System :: MacOS",
+	"Programming Language :: Python :: 3",
+	"Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+	"tinydb ~=4.7.1",
+	"validators >=0.20.0,<0.21.0",
+	"tabulate >=0.9.0,<0.10.0",
+	"psutil ~=6.0.0",
+	"requests  ~=2.29",
+	"packaging   ~=24.1",
+	"cryptography ~=40.0",
+	"pyopenssl ~=23.1.1",
+	"joblib  ~=1.2",
+	"itk  ~=5.3",
+	"scipy  >=1.10.0,<1.11.0",
+	"scikit-learn  >=1.2.0,<1.3.0",
+	"torch  ~=1.13.0",
+	"torchvision  >=0.14.0,<0.15.0",
+	"opacus  >=1.4.0,<1.4.1",
+	"monai  >=1.1.0,<1.2.0",
+	"msgpack  ~=1.0",
+	"persist-queue  >=0.5.1,<0.6.0",
+	"pandas  ~=2.0.1",
+	"python-minifier  ~=2.11",
+	"declearn[torch1]  ~=2.6.0",
+	"gmpy2  >=2.1,< 2.2",
+	"grpcio  ~=1.66",
+	"grpcio-tools  ~=1.66",
+	"unet  >=0.7.7,<0.8.0",
+	"pygments ~=2.18.0",
+]
+
+requires-python = "<3.11,>=3.10"
+readme = "README.md"
+license = {text = "Apache 2.0"}
+
+[project.urls]
+Homepage = "https://fedbiomed.org"
+Documentation = "https://fedbiomed.org"
+Repository = "https://github.com/fedbiomed/fedbiomed"
+
+[tool.hatch.version]
+path = "fedbiomed/__init__.py"
+
+[project.optional-dependencies]  # This is optional dependencies
+node = [
+]
+
+researcher = [
+	"pathvalidate ~=3.0.0",
+	"matplotlib >=3.8.0,<3.8.4",
+	"tensorboard ~=2.18.0",
+	"jupyter",
+	"ipython"
+]
+
+gui = [
+	"flask >=2.3.1,<24.0",
+	"jsonschema ~=4.18.0",
+	"Flask-JWT-Extended >=4.4.4,<4.5.0",
+	"cachelib >=0.10.2,<0.11.0",
+	"gunicorn ~=23.0.0"
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.sdist]
+include = [
+	"docs/tutorials",
+	"fedbiomed",
+	"fedbiomed_gui",
+	"notebooks",
+	"envs",
+	"docs/tutorials"
+]
+exclude = [
+  "tests",
+  "envs/vpn"
+]
+
+# Custom build hook for building node app
+[tool.hatch.build.hooks.custom]
+
+[tool.hatch.build.targets.wheel]
+packages = ["fedbiomed", "fedbiomed_gui"]
+artifacts = [
+  "fedbiomed_gui/ui/build"
+]
+skip-excluded-dirs = true
+
+
+[tool.hatch.build.targets.wheel.shared-data]
+"docs/tutorials" = "share/fedbiomed/docs/tutorials"
+"envs/common" = "share/fedbiomed/envs/common"
+"notebooks" = "share/fedbiomed/notebooks"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.dev-dependencies]
+test = ["pytest", "pytest-cov", "tox"]
+lint = ["flake8", "black"]
+docs = [
+	"mkdocs-material==9.5.18",
+	"mkdocs-jupyter==0.24.1",
+	"mkdocs-minify-plugin==0.6.4",
+	"mkdocstrings-python==1.10.8",
+	"mkdocs-redirects==1.2.2",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-build-scripts"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+fedbiomed = "fedbiomed.cli:run"
+
+[tool.pytest.ini_options]
+pythonpath = ["tests", "tests/end2end"]
+testpaths = ["tests"]
+addopts = [
+    "--import-mode=importlib",
+]

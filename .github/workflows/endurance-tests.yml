@@ -1,9 +1,10 @@
+---
 name: Endurance Tests
 run-name: endurance-tests
 
 on:
   schedule:
-    - cron: "0 1 * * 6" # Run everyweekend at 1 am
+    - cron: "0 1 * * 6"  # Run everyweekend at 1 am
   workflow_dispatch:
   push:
     branches:
@@ -12,40 +13,34 @@ on:
 
 jobs:
   endurance-test:
+    defaults:
+      run:
+        shell:  bash -l {0}
     name: Endurance Tests
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22-04, fedora38, macosx-m1]
+        os:
+          - ubuntu-latest
+          - ubuntu-22.04
+          - macos-latest
+          - fedora-38
+          - macos-m1
+        python-version:
+          - '3.10'
     runs-on: ${{matrix.os}}
     steps:
       - name: Checkout
         id: endurance-checkout
         uses: actions/checkout@v4
 
-      - name: Clear environment and re-install
-        id: env-reinstall
-        run: |
-          source ~/.bashrc
-          conda env update -f ./envs/development/conda/fedbiomed-researcher.yaml
-          conda env update -f ./envs/development/conda/fedbiomed-node.yaml
-        shell: bash -l {0}
+      - name: Install Python using Pyenv
+        uses: ./.github/actions/setup-fbm-env
+        with:
+          python-version: ${{ matrix.python-version }}
 
-      - name: Run end-to-end tests
+      - name: Run end-to-end endurance tests
         id: e2e-tests-with-pytest
         run: |
-          echo "Launching end-to-end tests" # to check from time to time
-          source ~/.bashrc
-          source ./scripts/fedbiomed_environment researcher
-          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed pytest -rfp -s -v tests/end2end/endurance_e2e_*.py
+          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed tox -r -m endurance
         shell: bash -l {0}
-
-      - name: Archive Test Results
-        if: always()
-        continue-on-error: true
-        run: |
-          source ./scripts/fedbiomed_environment clean
-        shell: bash -l {0}
-
-
-

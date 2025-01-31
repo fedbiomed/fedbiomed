@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import sys
+import shutil
+from typing import Optional
 
 from fedbiomed.common.constants import (
     SERVER_certificate_prefix,
@@ -9,19 +12,21 @@ from fedbiomed.common.constants import (
     CONFIG_FOLDER_NAME,
     VAR_FOLDER_NAME,
     TENSORBOARD_FOLDER_NAME,
-    DEFAULT_CONFIG_FILE_NAME_RESEARCHER
+    DEFAULT_RESEARCHER_NAME,
+    NOTEBOOKS_FOLDER_NAME,
+    TUTORIALS_FOLDER_NAME,
+    DOCS_FOLDER_NAME,
 )
-
+from fedbiomed.common.utils import SHARE_DIR
 from fedbiomed.common.certificate_manager import generate_certificate
-from fedbiomed.common.config import Config
 from fedbiomed.common.logger import logger
+from fedbiomed.common.config import Component, Config
 
 
 class ResearcherConfig(Config):
 
-    _DEFAULT_CONFIG_FILE_NAME: str = DEFAULT_CONFIG_FILE_NAME_RESEARCHER
-    _COMPONENT_TYPE: str = 'RESEARCHER'
     _CONFIG_VERSION: str = __researcher_config_version__
+    COMPONENT_TYPE: str = 'RESEARCHER'
 
     def add_parameters(self):
         """Generate researcher config"""
@@ -68,5 +73,37 @@ class ResearcherConfig(Config):
 
 logger.setLevel("DEBUG")
 
-config_name = os.environ.get("FBM_RESEARCHER_CONFIG_FILE", DEFAULT_CONFIG_FILE_NAME_RESEARCHER)
-config = ResearcherConfig(name=config_name)
+component_root = os.environ.get(
+    "FBM_RESEARCHER_COMPONENT_ROOT", None
+)
+
+
+class ResearcherComponent(Component):
+    """Fed-BioMed Node Component Class
+
+    This class is used for creating and validating components
+    by given component root directory
+    """
+    config_cls = ResearcherConfig
+    _default_component_name = DEFAULT_RESEARCHER_NAME
+
+    def initiate(self, root: Optional[str] = None) -> ResearcherConfig:
+        """Creates or initiates existing component"""
+        config = super().initiate(root)
+
+        notebooks_path = os.path.join(config.root, NOTEBOOKS_FOLDER_NAME)
+        notebooks_share_path = os.path.join(SHARE_DIR, NOTEBOOKS_FOLDER_NAME)
+        docs_share_path = os.path.join(SHARE_DIR, DOCS_FOLDER_NAME)
+        if not os.path.isdir(notebooks_path):
+            shutil.copytree(notebooks_share_path, notebooks_path, symlinks=True)
+            shutil.copytree(
+                os.path.join(docs_share_path, TUTORIALS_FOLDER_NAME),
+                os.path.join(notebooks_path, TUTORIALS_FOLDER_NAME),
+                symlinks=True
+            )
+
+        return config
+
+
+researcher_component = ResearcherComponent()
+config = researcher_component.initiate(root=component_root)

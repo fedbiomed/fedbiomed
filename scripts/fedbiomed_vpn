@@ -48,7 +48,7 @@ commands to manage a subset of docker container(s).
 The CONTAINER list may contain: vpnserver researcher node node2 gui gui2
 
 Be aware that (re-)building the vpnserver container when node/researcher
-container(s) are running may have unpredicatble consequences. It is strongly adviced 
+container(s) are running may have unpredicatble consequences. It is strongly adviced
 to restart from scratch in this case (clean, build, configure, start)
 
 clean          clean current configurations
@@ -73,15 +73,15 @@ status         give information on running container(s)
 
 stop           stop and remove all containers
 
-{node,node2} * start a 'fedbiomed_run node(2) *'       command
-               inside node(2) container (eg: ${0##*/} run node list)
+{node,node2} * start a 'fedbiomed node(2) *'       command
+               inside node(2) container (eg: ${0##*/} run node dataset list)
 researcher *
-               start a 'fedbiomed_run researcher(2) *' command
+               start a 'fedbiomed researcher(2) *' command
                inside researcher(2) container
 
   For node(2) and researcher(2) commands, all extra arguments (*) are passed
-  to the fedbiomed_run scripts which is launched inside the container.
-  Run 'fedbiomed_run --help' for more help on valid arguments
+  to the fedbiomed command which is launched inside the container.
+  Run 'fedbiomed command --help' for more help on valid arguments
   FYI: a jupyter notebook is already started when the researcher docker
   container is started
 "
@@ -252,29 +252,33 @@ containers_clean() {
         /bin/rm -rf ./$i/run_mounts/config/config.env 2> /dev/null
     done
 
-    # specific to vpnserver
-    /bin/rm -fr ./vpnserver/run_mounts/config/config_peers 2> /dev/null
-    /bin/rm -fr ./vpnserver/run_mounts/config/ip_assign    2> /dev/null
+	#
+	/bin/rm -fr ./vpnserver/run_mounts/config/config.env 	2> /dev/null
+	/bin/rm -fr ./vpnserver/run_mounts/config/config_peers 	2> /dev/null
+	/bin/rm -fr ./vpnserver/run_mounts/config/ip_assign 	2> /dev/null
+	/bin/rm -fr ./vpnserver/run_mounts/config/wireguard 	2> /dev/null
+
+	# specific to vpnserver
+    /bin/rm -fr ./gui/run_mounts/certs/*                    2> /dev/null
+    /bin/rm -fr ./gui2/run_mounts/certs/*                   2> /dev/null
+
+    # specific to gui
+    /bin/rm -rf ./node/run_mounts/data/*                    2> /dev/null
+    /bin/rm -rf ./node/run_mounts/fbm-node/*                2> /dev/null
 
     # specific to node
-    /bin/rm -rf ./node/run_mounts/data/*            2> /dev/null
-    /bin/rm -rf ./node/run_mounts/envs/!\(common\)  2> /dev/null
-    /bin/rm -rf ./node/run_mounts/envs/common/*     2> /dev/null
-    /bin/rm -rf ./node/run_mounts/etc/*             2> /dev/null
-    /bin/rm -rf ./node/run_mounts/var/*             2> /dev/null
+    /bin/rm -rf ./node/run_mounts/data/*                    2> /dev/null
+    /bin/rm -rf ./node/run_mounts/fbm-node/*                2> /dev/null
+	/bin/rm -rf ./node/run_mounts/fbm-node/.fedbiomed       2> /dev/null
 
-    /bin/rm -rf ./node2/run_mounts/data/*           2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/envs/!\(common\) 2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/envs/common/*    2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/etc/*            2> /dev/null
-    /bin/rm -rf ./node2/run_mounts/var/*            2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/data/*                   2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/fbm-node/*               2> /dev/null
+    /bin/rm -rf ./node2/run_mounts/fbm-node/.fedbiomed      2> /dev/null
 
-    # specific to researcher
-    /bin/rm -rf ./researcher/run_mounts/data/*      2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/etc/*       2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/samples/*   2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/runs/*      2> /dev/null
-    /bin/rm -rf ./researcher/run_mounts/var/*       2> /dev/null
+	# specific to researcher
+    /bin/rm -rf ./researcher/run_mounts/fbm-researcher/*    		2> /dev/null
+	/bin/rm -rf ./researcher/run_mounts/fbm-researcher/.fedbiomed 	2>/dev/null
+    /bin/rm -rf ./researcher/run_mounts/samples/*           		2> /dev/null
 
     #
     # level3 : remove container images
@@ -291,7 +295,17 @@ containers_clean() {
     done
 
     docker image prune -f
+    #
+    # level4 : remove docker cache
+    #
 
+    if [[ $CLEAN -lt 4 ]]; then
+        return
+    fi
+
+    echo "**Removing docker cache**"
+
+    docker builder prune -f
 }
 
 containers_status() {
@@ -329,6 +343,7 @@ containers_status() {
     if [ $ERROR -eq 1 ]; then
         echo "** ERROR: cannot ping using VPN addresses inside some docker container(s)"
         echo "          You must check what is going on."
+		exit 1
     fi
 }
 
@@ -387,6 +402,9 @@ single_container_configure() {
     IP=$(find_my_ip)
 
     /bin/rm -fr ./vpnserver/run_mounts/config/config_peers/${category}/${container}
+    CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+        CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
+        CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
     $DOCKER_COMPOSE exec vpnserver bash -c -i "python ./vpn/bin/configure_peer.py genconf ${category} ${container}"
     sleep 1
 
@@ -491,7 +509,11 @@ containers_start() {
                 $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py add node NODETAG $pubkey
                 ;;
             node2)
+                echo CHECK
+                $DOCKER_COMPOSE up -d node2
                 pubkey=$($DOCKER_COMPOSE exec node2 wg show wg0 public-key | tr -d '\r')
+                echo here the public key
+                echo $pubkey
                 # Remove key to avoid protocol error if keys are same
                 $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py remove node NODE2TAG
                 $DOCKER_COMPOSE exec vpnserver python ./vpn/bin/configure_peer.py add node NODE2TAG $pubkey
@@ -512,7 +534,7 @@ run() {
     [[ -z "$RUN_ARGS" ]] && { usage "fedbiomed run $container needs extra arguments";  }
     cd "$basedir/envs/vpn/docker"
 
-    CMD="export PYTHONPATH=/fedbiomed && ./scripts/fedbiomed_run $container ${RUN_ARGS}"
+    CMD="export PYTHONPATH=/fedbiomed && fedbiomed $container ${RUN_ARGS}"
 
     $DOCKER_COMPOSE exec -u ${CONTAINER_UID:-$(id -u)} $container bash -c "$CMD"
 
@@ -573,6 +595,7 @@ while (($# > 0)); do
                     container) CLEAN=1 ;;
                     configuration) CLEAN=2 ;;
                     image) CLEAN=3 ;;
+                    cache) CLEAN=4 ;;
                     -h|--help|help) usage ;;
                     *) usage "unknown or incompatible arguments" ;;
                 esac

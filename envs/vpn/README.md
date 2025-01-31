@@ -45,12 +45,6 @@ generateResolvConf = false
 Tip: build images from a clean file tree (avoid copying modified/config/temporary files to images) :
 - method 1 : use a fresh `git clone -b master https://github.com/fedbiomed/fedbiomed.git` tree
 - method 2 : clean your existing file tree
-  * general cleaning
-
-  ``` bash
-  [user@laptop $] source ./scripts/fedbiomed_environment clean
-  ```
-
   * specific [cleaning](#cleaning) for containers
 
 
@@ -284,7 +278,7 @@ my_training_plan.txt
 ```
 - register a new training plan with :
 ```bash
-[user@node-container $] ./scripts/fedbiomed_run node training-plan register
+[user@node-container $] fedbiomed node -d fbm-node training-plan register
 ```
 - when prompted for the path of the training plan, indicate the `.txt` export of the training plan file (`/data/my_training_plan.txt` in our example)
 

@@ -8,27 +8,27 @@ Examples in the main directory use different dataset types. While some datasets 
 
 ### Loading MNIST Dataset
 
-1. `{FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset add`
+1. `fedbiomed node dataset add`
   * Select option 2 (default) to add MNIST to the node.
   * Confirm default tags by hitting "y" and ENTER.
   * Pick the folder where MNIST is downloaded.
   * The dataset should now be added (if you get a warning saying that data must be unique is because it's been already added)
 
-2. Check that your data has been added by executing `{FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset list`
-3. Run the node using `{FEDBIOMED_DIR}/scripts/fedbiomed_run node start`. Wait until you see the output `Starting task manager`: it means the node is active and ready to execute commands.
+2. Check that your data has been added by executing `fedbiomed node dataset list`
+3. Run the node using `fedbiomed node start`. Wait until you see the output `Starting task manager`: it means the node is active and ready to execute commands.
 4. Following the same procedure, you can create a second node for client 2.
 
 
 ### Loading Pseudo Adni Dataset
 
-1. `{FEDBIOMED_DIR}/scripts/fedbiomed_run node dataset add`
+1. `fedbiomed node dataset add`
   * Select option 1 to add a csv file to the node
   * Choose the name, tags and description of the dataset
     * use `#test_data` for the tags
   * Pick the .csv file from your PC, located under `fedbiomed/notebooks/data/CSV` folder (here: [pseudo_adni_mod.csv](./data/CSV/pseudo_adni_mod.csv))
   * The dataset should now be added
-2. Check that your data has been added by executing `{FEDBIOMED}/scripts/fedbiomed_run node dataset list`
-3. Run the node using `{FEDBIOMED_DIR}/scripts/fedbiomed_run node start`. Wait until you see the output `Starting task manager`: it means the node is active and ready to execute commands.
+2. Check that your data has been added by executing `fedbiomed node dataset list`
+3. Run the node using `fedbiomed node start`. Wait until you see the output `Starting task manager`: it means the node is active and ready to execute commands.
 
 Note: Notebooks/examples may use different tags. Please use the tags that are relevant to the example you are running.
 
@@ -49,7 +49,7 @@ and the target variable is:
 ['MMSE.bl']
 
 
-1 - Execute `{FEDBIOMED_DIR}/scripts/fedbiomed_run node --config config-n1.ini dataset add` and select CSV data type
+1 - Execute `fedbiomed node -d fbm-node dataset add` and select CSV data type
 2 - Give a dataset name, and tags: `adni`
 3 - Select the CSV file
 
@@ -61,7 +61,7 @@ Please apply same operation for other nodes.
 The nodes can be started before or after the dataset is added. Please run the following command to start a node.
 
 ```
-{FEDBIOMED_DIR}/scripts/fedbioden_rum node --config <config-file-name> start
+fedbioden node --d <component-directory> start
 ```
 
 If no `config` option provided it will start a default node.

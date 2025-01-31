@@ -1,3 +1,4 @@
+import shutil
 import unittest
 import argparse
 import tempfile
@@ -203,11 +204,12 @@ class TestNodeControl(unittest.TestCase):
             'id': 'test-id'
         }
 
+        mock_node.return_value.tp_security_manager = MagicMock()
+
         with tempfile.TemporaryDirectory() as temp_:
-            config = NodeConfig(temp_, name='test.ini')
+            config = NodeConfig(temp_)
             config._cfg = cfg
             with patch('fedbiomed.node.cli.NodeConfig', autospec=True) as mock_config:
-                print(config)
                 mock_config.return_value = config
                 args= {"gpu": False}
                 start_node('config.ini', args)
@@ -231,17 +233,21 @@ class TestNodeControl(unittest.TestCase):
 
 
 
-
 class TestNodeCLI(unittest.TestCase):
     """Tests main NodeCLI"""
 
-    def test_01_node_cli_init(self):
+    @patch("builtins.input")
+    def test_01_node_cli_init(self, input_patch):
         """Tests intialization"""
-        self.node_cli = NodeCLI()
-        self.node_cli.parse_args(["--config", "config_n1.ini", 'dataset', 'list'])
-
-
-
+        input_patch.return_value = "y"
+        #import sys
+        #sys.argv.append('-y')
+        # remove any `fbm-node` folder already existing
+        shutil.rmtree('fbm-node', ignore_errors=True)
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            self.node_cli = NodeCLI()
+            self.node_cli.parse_args(["--path", os.path.join(str(tmpdirname), 'fbm-node'), 'dataset', 'list'])
+        #sys.argv.remove('-y')
 
 class TestCli(unittest.TestCase):
     @staticmethod

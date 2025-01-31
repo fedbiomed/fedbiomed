@@ -1,7 +1,7 @@
 upstream fedbiomed_gunicorn {
        # Use default Gunicorn port this port is exported as 8000 by default
        # in entrypoint.sh
-       server localhost:${GUI_PORT};
+       server localhost:${FBM_GUI_PORT};
 }
 
 server {

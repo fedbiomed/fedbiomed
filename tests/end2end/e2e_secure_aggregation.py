@@ -6,12 +6,12 @@ from helpers import (
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
-    clear_node_data,
-    clear_researcher_data,
+    clear_component_data,
     clear_experiment_data,
     create_multiple_nodes,
     create_node,
-    create_researcher
+    create_researcher,
+    get_data_folder,
 )
 
 from experiments.training_plans.mnist_pytorch_training_plan import MnistModelScaffoldDeclearn, MyTrainingPlan
@@ -21,18 +21,19 @@ from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.secagg import SecureAggregation, SecureAggregationSchemes as SecAggSchemes
 
-dataset = {
-    "name": "MNIST",
-    "description": "MNIST DATASET",
-    "tags": "#MNIST,#dataset",
-    "data_type": "default",
-    "path": "./data/"
-}
+
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
 def setup(port, post_session, request):
     """Setup fixture for the module"""
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+    }
 
     # Configure secure aggregation
     print("Configure secure aggregation ---------------------------------------------")
@@ -69,12 +70,20 @@ def setup(port, post_session, request):
         thread.join()
 
         print("Clearing researcher data")
-        clear_researcher_data(researcher)
+        clear_component_data(researcher)
 
 
 @pytest.fixture
 def extra_node_force_secagg(port):
     """Fixture to add extra node which forces secagg"""
+
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+    }
 
     node_3 = create_node(
         port=port,
@@ -96,11 +105,19 @@ def extra_node_force_secagg(port):
 
     kill_subprocesses(node_processes)
     thread.join()
-    clear_node_data(node_3)
+    clear_component_data(node_3)
 
 @pytest.fixture
 def extra_node_no_validation(port):
     """Fixture to add extra node which disables validation"""
+
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+    }
 
     node_3 = create_node(
         port=port,
@@ -122,12 +139,21 @@ def extra_node_no_validation(port):
 
     kill_subprocesses(node_processes)
     thread.join()
-    clear_node_data(node_3)
+    clear_component_data(node_3)
 
 @pytest.fixture
 def extra_nodes_for_lom(port):
 
-   with create_multiple_nodes(
+
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+    }
+
+    with create_multiple_nodes(
         port,
         3,
         config_sections={
@@ -152,6 +178,14 @@ def extra_nodes_for_lom(port):
 
 @pytest.fixture
 def extra_nodes_for_lom_8_nodes(port):
+
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+    }
 
     with create_multiple_nodes(
         port = port,
@@ -210,7 +244,7 @@ def test_01_secagg_joye_libert_pytorch_experiment_basic():
     exp.run()
     clear_experiment_data(exp)
 
-def test_02_secagg_joye_libert_pytorch_breakpoint():
+def test_02_secagg_joye_libert_pytorch_breakpoint(setup):
     """Tests running experiment with breakpoint and loading it while secagg active"""
 
     exp = Experiment(

@@ -9,7 +9,7 @@ import shutil
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from fedbiomed.node.config import NodeConfig
+from fedbiomed.node.config import node_component
 
 
 def parse_args():
@@ -88,22 +88,16 @@ if __name__ == '__main__':
     center_dfs = list()
 
     for center_name in center_names:
-        cfg_folder = os.path.join(args.root_folder, 'etc')
+        cfg_folder = os.path.join(args.root_folder, f"{center_name}")
         os.makedirs(cfg_folder, exist_ok=True)
         cfg_file = os.path.join(cfg_folder, f'{center_name.lower()}.ini')
 
         print(f'Creating node at: {cfg_file}')
-        config = NodeConfig(
-            root=root_folder,
-            name=f'{center_name.lower()}.ini',
-            auto_generate=False
-        )
-        if config.is_config_existing() and not args.force:
-            print(f"**Warning: config file {cfg_file} already exists. To overwrite, please specify `--force` option")
+        node_component.initiate()
+        if node_component.is_component_existing(root_folder):
+            print(f"**Warning: component {root_folder} already exists")
         else:
-            config.generate(force=args.force)
-            config.set('default', 'id', center_name)
-            config.write()
+            node_component.initiate(root_folder)
 
         df = allcenters[allcenters.SITE_NAME == center_name]
         center_dfs.append(df)
@@ -141,9 +135,9 @@ if __name__ == '__main__':
     print()
     print('Please add the data to your nodes executing and using the `ixi-train` tag:')
     for center_name in center_names:
-        print(f'\t./scripts/fedbiomed_run node --config {center_name.lower()}.ini dataset add')
+        print(f'\tfedbiomed node --path ./{center_name.lower()} dataset add')
 
     print()
     print('Then start your nodes by executing:')
     for center_name in center_names:
-        print(f'\t./scripts/fedbiomed_run node --config {center_name.lower()}.ini start')
+        print(f'\tfedbiomed node --path ./{center_name.lower()} start')

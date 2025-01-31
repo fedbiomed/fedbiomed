@@ -2,15 +2,15 @@ import time
 import pytest
 
 from helpers import (
+    clear_component_data,
     add_dataset_to_node,
     start_nodes,
     kill_subprocesses,
-    clear_node_data,
     clear_experiment_data,
-    clear_researcher_data,
     training_plan_operation,
     create_node,
-    create_researcher
+    create_researcher,
+    get_data_folder
 )
 
 from experiments.training_plans.mnist_model_approval import TrainingPlanApprovalTP
@@ -19,18 +19,18 @@ from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 
 
-dataset = {
-    "name": "MNIST",
-    "description": "MNIST DATASET",
-    "tags": "#MNIST,#dataset",
-    "data_type": "default",
-    "path": "./data/"
-}
-
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
 def setup_components(port, post_session, request):
     """Setup fixture for the module"""
+    dataset = {
+        "name": "MNIST",
+        "description": "MNIST DATASET",
+        "tags": "#MNIST,#dataset",
+        "data_type": "default",
+        "path": get_data_folder('MNIST-e2e-test')
+
+    }
 
     print(f"USING PORT {port} for researcher erver")
     print("Creating§ components ---------------------------------------------")
@@ -47,7 +47,7 @@ def setup_components(port, post_session, request):
         })
 
 
-    print("Creating researcher component ---------------------------------------------")
+    print("Creating researcher component -----------------------------------------")
     researcher = create_researcher(port=port)
 
     print("Adding first dataset --------------------------------------------")
@@ -68,10 +68,10 @@ def setup_components(port, post_session, request):
         thread.join()
 
         print("Clearing component data")
-        clear_node_data(node_1)
-        clear_node_data(node_2)
+        clear_component_data(node_1)
+        clear_component_data(node_2)
 
-        clear_researcher_data(researcher)
+        clear_component_data(researcher)
 
     request.addfinalizer(clear)
 

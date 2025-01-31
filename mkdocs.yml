@@ -26,13 +26,12 @@ nav:
   - Docs:
     - 'Getting Started':
       - "What's Fed-BioMed": './getting-started/what-is-fedbiomed.md'
-      - 'Basic Example': './getting-started/getting-started.md'
       - 'Fedbiomed Architecture': './getting-started/fedbiomed-architecture.md'
       - 'Fedbiomed Workflow': './getting-started/fedbiomed-workflow.md'
+      - 'Installation': './getting-started/installation.md'
+      - 'Basic Example': './getting-started/basic-example.md'
+      - 'Configuration': './getting-started/configuration.md'
     - Tutorials:
-      - Installation:
-        - 'Software Installation' : './tutorials/installation/0-basic-software-installation.md'
-        - 'Setting Up Environment' : './tutorials/installation/1-setting-up-environment.md'
       - PyTorch:
         - 'MNIST Basic Example': './tutorials/pytorch/01_PyTorch_MNIST_Single_Node_Tutorial.ipynb'
         - 'Create Your Custom Training Plan': './tutorials/pytorch/02_Create_Your_Custom_Training_Plan.ipynb'
@@ -152,9 +151,11 @@ nav:
         - 'Usage and Tools': './developer/usage_and_tools.md'
         - 'Continuous Integration': './developer/ci.md'
         - 'Definition of Done': './developer/definition-of-done.md'
+        - 'Development Environment': './developer/development-environment.md'
         - 'Testing in Fed-BioMed': './developer/testing-in-fedbiomed.md'
         - 'RPC Protocol and Messages': './developer/messaging.md'
   #    - 'API Reference': ./developer/api/ # Uncomment this if auto generate is active
+    - 'FAQ & Troubleshooting': './support/troubleshooting.md'
   - Footer:
     - 'News' : './news/index.md'
     - 'Contributors': './pages/contributors.md'
@@ -328,6 +329,11 @@ plugins:
   - minify:
       minify_html: true
 
+  - redirects:
+      redirect_maps:
+        './getting-started/getting-started.md': './getting-started/basic-example.md'
+        './tutorials/0-basic-software-installation.md': './getting-started/installation.md'
+        # 'old/file.md': 'new/file.md'
 
 extra_javascript:
   - https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/tablesort.min.js

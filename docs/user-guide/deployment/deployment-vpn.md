@@ -15,6 +15,10 @@ This tutorial details a deployment scenario where:
 
 ## Requirements
 
+!!! note "Important"
+Fed-BioMed docker images aren't distributed in any platform, and it requires to be rebuilt from source code. This article will guide you building docker images and containers from Fed-BioMed source.
+
+
 !!! info "Supported operating systems and software requirements"
     Supported operating systems for containers/VPN deployment include **Fedora 38**, **Ubuntu 22.04 LTS**. Should also work for most recent Linux, **MacOS X 12.6.6, 13 and 14**, **Windows 11** with WSL2 using Ubuntu-22.04 distribution. Also requires
     **docker** and **docker compose >= 2.0**.
@@ -85,7 +89,6 @@ It covers the initial server deployment, including build, configuration and laun
 * clean running containers, containers files, temporary files
 
     ``` bash
-    [user@server $] source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
     [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean
     ```
 
@@ -157,7 +160,6 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 * clean running containers, containers files, temporary files (skip that step if node and server run on the same machine)
 
     ``` bash
-    [user@node $] source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
     [user@node $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean
     ```
 
@@ -241,12 +243,11 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
     [user@node $] export FBM_SECURITY_FORCE_SECURE_AGGREGATION=True
     ```
 
-* do initial node configuration
+* do initial node configuration. Following command will create node component located `/fbm-node/` directory of the container. This directory will be mounted in `{FEDBIOMED_DIR}/envs/vpn/docker/node/run_mounts` directory of the host.
 
     ```bash
-    [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FBM_SECURITY_FORCE_SECURE_AGGREGATION='${FBM_SECURITY_FORCE_SECURE_AGGREGATION}'&& export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=false && export FBM_RESEARCHER_IP=10.222.0.2 && export FBM_RESEARCHER_PORT=50051 && export PYTHONPATH=/fedbiomed && FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True ./scripts/fedbiomed_run environ-node configuration create --component NODE --use-current'
+    [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FBM_SECURITY_FORCE_SECURE_AGGREGATION='${FBM_SECURITY_FORCE_SECURE_AGGREGATION}'&& export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=false && export FBM_RESEARCHER_IP=10.222.0.2 && export FBM_RESEARCHER_PORT=50051 && export PYTHONPATH=/fedbiomed && FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --exist-ok'
     ```
-
 
 Optionally launch the node GUI :
 
@@ -312,7 +313,7 @@ This part of the tutorial is optionally executed on some nodes, after deploying 
 
 This part is executed at least once on each node, after deploying the node side containers.
 
-Setup the node by sharing datasets and by launching the Fed-BioMed node:
+Setup the node by sharing datasets and by launching the Fed-BioMed node. The commands below will use default Fed-BioMed node directory which is located `/fbm-node` inside the container.
 
 * if node GUI is launched, it can be used to share datasets. On the node side machine, connect to `https://localhost:8443` (or `https://<host_name_and_domain>:8443` if connection from distant machine is authorized)
 
@@ -322,20 +323,20 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
         ```bash
         [user@node $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-        [user@node $] docker compose exec -u $(id -u) node bash -ci 'export PYTHONPATH=/fedbiomed && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
+        [user@node $] docker compose exec -u $(id -u) node bash
         ```
 
     * start the Fed-BioMed node, for example in background:
 
         ```bash
-        [user@node-container $] nohup ./scripts/fedbiomed_run node start >./fedbiomed_node.out &
+        [user@node-container $] nohup fedbiomed node start >/fbm-node/fedbiomed_node.out &
         ```
 
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):
 
         ```bash
-        [user@node-container $] ./scripts/fedbiomed_run node dataset add -m /data
-        [user@node-container $] ./scripts/fedbiomed_run node dataset add
+        [user@node-container $] fedbiomed node dataset add -m /data
+        [user@node-container $] fedbiomed node dataset add
         ```
 
 Example of a few more possible commands:
@@ -343,13 +344,13 @@ Example of a few more possible commands:
 * optionally list shared datasets:
 
     ```bash
-    [user@node-container $] ./scripts/fedbiomed_run node dataset list
+    [user@node-container $] fedbiomed node dataset list
     ```
 
 * optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node/run_mounts/data/my_training_plan.txt`
 
     ```bash
-    [user@node-container $] ./scripts/fedbiomed_run node training-plan register
+    [user@node-container $] fedbiomed node training-plan register
     ```
     Indicate `/data/my_training_plan.txt` as path of the training plan file.
 
@@ -384,14 +385,14 @@ Optionally use the researcher container's command line instead of the Jupyter no
 
     ```bash
     [user@server $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-    [user@server $] docker compose exec -u $(id -u) researcher bash -ci 'export PYTHONPATH=/fedbiomed && eval "$(conda shell.bash hook)" && conda activate fedbiomed-researcher && bash'
+    [user@server $] docker compose exec -u $(id -u) researcher bash
     ```
 
 * launch a script, for example a training:
 
     ```bash
-    [user@server-container $] jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb
-    [user@server-container $] python ./notebooks/101_getting-started.py
+    [user@server-container $] jupyter nbconvert /fbm-researcher/notebooks/101_getting-started.ipynb --output=101_getting-started --to script
+    [user@server-container $] python /fbm-researcher/notebooks/101_getting-started.py
     ```
 Note: the .py script can be created from the notebooks by a command such as `jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb`.
 
@@ -428,7 +429,6 @@ Some possible management commands after initial deployment include:
 
     ``` bash
     [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver researcher
-    [user@server $] source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
     [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean
     ```
 
@@ -464,7 +464,6 @@ Some possible management commands after initial deployment include:
 
     ``` bash
     [user@node $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop node gui
-    [user@node $] source ${FEDBIOMED_DIR}/scripts/fedbiomed_environment clean
     [user@node $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean
     ```
 
@@ -502,10 +501,19 @@ Prefix used by Fed-BioMed's communication inside the VPN (`10.220.0.0/14`) shall
 
 Build may fail on Mac M1/M2/M3 processors for `fedbiomed/vpn-base` or `fedbiomed/vpn-basenode` due to arm64 system.
 
-By default, docker can use the images that are created for `arm64/aarch64`. But docker build files of the Fed-BioMed images and the libraries that are installed within are compatible with `amd64` type of platforms. Therefore, you may get some error while `fedbiomed_vpn` script builds images. Those errors can be during the miniconda installation, secure aggregation setup or while installing some of required pip dependencies for Fed-BioMed environment. You can fix this problem by setting environment variable that declares default default docker platform to force docker to use linux/amd64.
+By default, docker can use the images that are created for `arm64/aarch64`. But docker build files of the Fed-BioMed images and the libraries that are installed within are compatible with `amd64` type of platforms. Therefore, you may get some error while `fedbiomed_vpn` script builds images. Those errors can be during secure aggregation setup or while installing some of required pip dependencies for Fed-BioMed environment. You can fix this problem by setting environment variable that declares default default docker platform to force docker to use linux/amd64.
 
 ```
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
 ```
 
-After setting this variable you can execute build command through ``{FEDBIOMED_DIR}/scripts/fedbiomed_run build`
+After setting this variable you can execute build command through `{FEDBIOMED_DIR}/scripts/fedbiomed_vpn build`
+
+
+### Not enough space on your machine due to recursive build operations
+
+If you have done too many builds, it may fill up the disk space reserved for Docker containers. In that case, please clear your Docker build cache to free up some space.
+
+```
+docker builder prune -a
+```
