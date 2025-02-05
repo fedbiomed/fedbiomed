@@ -1,5 +1,18 @@
 # Fed-BioMed changelog
 
+## 2025-02-05 version 6.0.0.rc1
+
+- Implementation of packaging for the library/framework to publish on the PyPI repository.
+- CI/CD: configuration for continues deployment.
+- Creation of the `fedbiomed` executable, installed alongside the Fed-BioMed installation.
+- Documentation updates following related changes.
+- Introduction of the PDM package manager for development.
+- Updates to Docker containers to eliminate the use of `miniconda`.
+- Introduction of VPN Docker container tests.
+- Removal of the `environ` class in favor of the improved `Config` class.
+- Secure aggregation implementation for advanced federated optimization functionalities.
+- Fixes: 'colab' shell recognition issue #1274
+
 ## 2024-11-04 version 5.4.0
 
 - introduce in-application implementation of Shamir Additive Secret Sharing (ASS) for Joye-Libert secure aggregation
