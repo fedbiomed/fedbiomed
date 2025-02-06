@@ -1,5 +1,12 @@
 # Fed-BioMed changelog
 
+
+## 2025-02-06 version 6.0.0
+
+- In addition to the release candidate (details below), fix issue #1248, spaces where wrongly added when adding multiple tags in the GUI
+- Fix issue #1105 about incorrect parsing of `niftii` image file's name.
+
+
 ## 2025-02-05 version 6.0.0.rc1
 
 - Implementation of packaging for the library/framework to publish on the PyPI repository.
