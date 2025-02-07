@@ -18,6 +18,10 @@
 - Secure aggregation implementation for advanced federated optimization functionalities.
 - Fixes: 'colab' shell recognition issue #1274
 
+## 2025-01-24 version 5.4.1
+
+- Patch for missing list request handler on the node side.
+
 ## 2024-11-04 version 5.4.0
 
 - introduce in-application implementation of Shamir Additive Secret Sharing (ASS) for Joye-Libert secure aggregation
