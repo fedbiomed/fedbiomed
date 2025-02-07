@@ -25,7 +25,7 @@ In `researcher.proto`, the message `TaskResponse` and `TaskResult` is a general 
 4. send `TaskResponse` to the node. 
 
 
-However, in `researhcer.proto` some messages are typed and defined explicitly. For example, the message `TrainRequest` is the input value for the service `GetTaskUnary` that is executed by the nodes. `TrainRequest` ptoobuf has also corresponding message type defined in `fedbiomed.common.message` as `TaskRequest`. Please see the implemented dataclass for `TaskRequest` in `message.py` module. 
+However, in `researcher.proto` some messages are typed and defined explicitly. For example, the message `TrainRequest` is the input value for the service `GetTaskUnary` that is executed by the nodes. `TrainRequest` ptoobuf has also corresponding message type defined in `fedbiomed.common.message` as `TaskRequest`. Please see the implemented dataclass for `TaskRequest` in `message.py` module.
 
 ```
 @dataclass

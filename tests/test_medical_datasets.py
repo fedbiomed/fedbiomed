@@ -251,7 +251,30 @@ class TestNIFTIFolderDataset(unittest.TestCase):
                 self.sample_class.append(self.class_names.index(class_name))
 
 
-def _create_synthetic_dataset(root: str, n_samples: int, tabular_file: str, index_col: str):
+def _generate_image_names(add_dots_in_title, n_dots: int = 3, extension: str = '.nii.gz'):
+    # see issue 1105
+    if add_dots_in_title:
+        img_name = str(uuid4())
+        _possible_idx = list(range(len(img_name)))
+        for i in range(n_dots):
+            rand_idx = random.choice(_possible_idx)
+            img_name = img_name[:rand_idx] + '.' + img_name[rand_idx + 1:]
+            _possible_idx.remove(rand_idx)
+
+        return f'{img_name}{extension}'
+        #return '1.4.9.12.34.1.8527.4108713574735248556281156520855496517752_t1_se_tra_20180424000000_4.nii'
+    else:
+        return f'image_{uuid4()}{extension}'
+
+
+def _create_synthetic_dataset(
+        root: str,
+        n_samples: int,
+        tabular_file: str,
+        index_col: str,
+        add_dots_in_title: bool = False,
+        extension: str = '.nii.gz',
+        ):
     """Creates synthetic dataset for test purposes
 
     Args:
@@ -280,7 +303,10 @@ def _create_synthetic_dataset(root: str, n_samples: int, tabular_file: str, inde
         for modality in modalities:
             modality_folder = os.path.join(subject_folder, modality)
             os.mkdir(modality_folder)
-            img_path = os.path.join(modality_folder, f'image_{uuid4()}.nii.gz')
+            img_path = os.path.join(
+                    modality_folder,
+                    _generate_image_names(add_dots_in_title, n_dots=6, extension=extension)
+                )
             itk.imwrite(img, img_path)
 
         # Add demographics information
@@ -792,6 +818,36 @@ class TestMedicalFolderDataset(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             medical_folder_controller.load_MedicalFolder()
         mfd_patcher.stop()
+
+    def test_medical_folder_dataset_16_(self):
+        # test for bug #1105: failure when loading image which title contains dots
+        for extension in ('.nii', '.nii.gz'):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                self.root2 = temp_dir
+                self.tabular_file = os.path.join(self.root2, 'participants.csv')
+                self.index_col = 'FOLDER_NAME'
+
+                self.transform = {'T1': Lambda(lambda x: torch.flatten(x))}
+                self.target_transform = {'label': GaussianSmooth()}
+
+                self.n_samples = 10
+                self.batch_size = 3
+
+                print(f'Dataset folder located in: {self.root2}')
+                _create_synthetic_dataset(
+                    self.root2,
+                    self.n_samples,
+                    self.tabular_file,
+                    self.index_col,
+                    add_dots_in_title=True,
+                    extension=extension
+                    )
+                dataset = MedicalFolderDataset(self.root, tabular_file=self.tabular_file, index_col=self.index_col,)
+
+                for _subj in os.listdir(self.root2):
+                    if os.path.isdir(os.path.join(self.root2, _subj)): 
+                        data = dataset.load_images(Path(self.root2).joinpath(_subj), ['T1', 'T2'])
+                        self.assertListEqual(['T1', 'T2'], list(data.keys()))
 
 
 class TestMedicalFolderBase(unittest.TestCase):

@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, create_autospec, mock_open, patch
 import numpy as np
 import torch
 from declearn.optimizer import Optimizer
-from fedbiomed.common.optimizers.declearn import MomentumModule
 from declearn.model.sklearn import NumpyVector
 from declearn.model.torch import TorchVector
 from sklearn.base import BaseEstimator
@@ -16,62 +15,8 @@ from sklearn.linear_model import SGDClassifier, SGDRegressor
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.models import SkLearnModel, TorchModel
 from fedbiomed.common.models._sklearn import SKLEARN_MODELS
+from fedbiomed.common.optimizers.declearn import MomentumModule
 
-
-class TestDocumentationLinks(unittest.TestCase):
-    skip_internet_test: bool
-    baselinks = (
-        'https://scikit-learn.org/',
-        'https://gitlab.inria.fr/',
-        'http://www.plantuml.com/',
-        'https://arxiv.org/',
-    )
-    links = (
-        'https://scikit-learn.org/stable/modules/generated/sklearn.base.BaseEstimator.html',
-        'https://gitlab.inria.fr/magnet/declearn/declearn2/-/tree/r2.1',
-        'http://www.plantuml.com/plantuml/dsvg/xLRDJjmm4BxxAUR82fPbWOe2guYsKYyhSQ6SgghosXDYuTYMFIbjdxxE3r7MIac3UkH4i6Vy_SpCsZU1kAUgrApvOEofK1hX8BSUkIZ0syf88506riV7NnQCNGLUkXXojmcLosYpgl-0YybAACT9cGSmLc80Mn7O7BZMSDikNSTqOSkoCafmGdZGTiSrb75F0pUoYLe6XqBbIe2mtgCWPGqG-f9jTjdc_l3axEFxRBEAtmC2Hz3kdDUhkqpLg_iH4JlNzfaV8MZCwMeo3IJcog047Y3YYmvuF7RPXmoN8x3rZr6wCef0Mz5B7WXwyTmOTBg-FCcIX4HVMhlAoThanwvusqNhlgjgvpsN2Wr130OgL80T9r4qIASd5zaaiwF77lQAEwT_fTK2iZrAO7FEJJNFJbr27tl-eh4r-SwbjY1FYWgm1i4wKgNwZHu2eGFs3-27wvJv7CPjuCLUq6kAWKPsRS1pGW_RhWt28fczN9czqTF8lQc7myVTQRslKRljKYBSgDxhTbA0Ft1btkPbwjotUNcRbqY_krm-TPrA1RRNw9CA-2o6DUcNvzd_u9bUU9C7zhrpNxCPq1lCGAWj5BCuJVSh7C9iuQk3CQjXknW8eA9_koHJF50nplnWlRfTD0WVpZg4vh_FxxBR5ch_X57pGA8c7jY43MFuKoudhvYqWdL3fI-tfFbVsKYzxQkxl_XprxATLz69br_40nMQWWRqFz1_rvunjlnQA2dHV5jc340YSL54zMXa-o8U_72y58i_7NfLeg5h5iWwTXDNgrB_0G00',
-        'https://arxiv.org/abs/1711.05101',
-    )
-    skip_links = []
-
-    def setUp(self) -> None:
-        # test internet connection by reaching google website
-        google_url = 'http://www.google.com'
-        try:
-            url_res = urllib.request.urlopen(google_url)
-        except urllib.error.URLError:
-            self.skip_internet_test = True
-            return
-        if url_res.code != 200:
-            self.skip_internet_test = True
-            return
-        else:
-            self.skip_internet_test = False
-
-        for baselink in self.baselinks:
-            try:
-                url_res = urllib.request.urlopen(baselink)
-            except urllib.error.URLError:
-                skip = True
-            else:
-                if url_res.code != 200:
-                    skip = True
-                else:
-                    skip = False
-            self.skip_links.append(skip)
-
-    def tearDown(self) -> None:
-        pass
-
-    def test_testdocumentationlinks_01(self):
-        if self.skip_internet_test:
-            self.skipTest("no internet connection: skipping test_testdocumentationlinks_01")
-        for skip_links, link in zip(self.skip_links, self.links):
-            if skip_links:
-                print(f"Skipping URL test for {link} because base link of web site does not answer")
-            else:
-                url_res = urllib.request.urlopen(link)
-                self.assertEqual(url_res.code, 200, f"cannot reach url link {link} pointed in documentation")
 
 
 class TestSkLearnModelBuilder(unittest.TestCase):
@@ -115,15 +60,15 @@ class TestSkLearnModelBuilder(unittest.TestCase):
             for attribute, copied_attribute in zip(model._instance.__dict__, copied_model._instance.__dict__):
                 self.assertNotEqual(id(getattr(model._instance,attribute)), id(getattr(copied_model._instance, copied_attribute)),
                                     f"deep copy failed, attribute {attribute} {copied_attribute} have shared refrences!")
-            
+
 
             # check that model parameters are not the same
             model.set_init_params({'n_classes': 2, 'n_features': 4})
             copied_model.set_init_params({'n_classes': 2, 'n_features': 4})
             for layer_name in model.param_list:
-                
+
                 self.assertNotEqual(id(getattr(model.model, layer_name)), id(getattr(copied_model.model, layer_name)))
-            
+
             new_weights = {layer: np.random.normal(size=getattr(model.model, layer).shape) for layer in model.param_list}
             model.set_weights(new_weights)
             for layer_name in model.param_list:
@@ -138,7 +83,7 @@ class TestSkLearnModel(unittest.TestCase):
         self.models = (SGDClassifier, SGDRegressor)
 
         self.declearn_optim = Optimizer(lrate=.01, modules=[MomentumModule(.1)])
-        
+
         # create dummy data
         data_2d = np.array([[1, 2, 3, 1, 2, 3],
                             [1, 2, 0, 1, 2, 3],
@@ -155,7 +100,7 @@ class TestSkLearnModel(unittest.TestCase):
         self.data_collection = (data_1d, data_2d)
         self.targets = np.array([[1], [2], [0], [1], [0], [1], [1], [2], [0], [1], [0]])
         self._n_classes = 3  # number of classes in the data_collection
-        
+
     def tearDown(self) -> None:
         logging.disable(logging.NOTSET)
 
@@ -228,7 +173,7 @@ class TestSkLearnModel(unittest.TestCase):
     def test_sklearnmodel_06_sklearn_training_01_plain_sklearn(self):
         # FIXME: this is an more an integration test, but I feel it is quite useful
         # to test the correct execution of the whole training process
-        # Goal fo the test: checking that plain sklearn model has been updated when trained 
+        # Goal fo the test: checking that plain sklearn model has been updated when trained
         # using `Model` interface
         _n_classes = 3
 
@@ -270,7 +215,7 @@ class TestSkLearnModel(unittest.TestCase):
                          [1, 0,0, 1],
                          [1, 1, 1, 1],
                          [1, 1, 1, 0]])
-        
+
         targets = np.array([[1], [0], [1], [1]])
         random_seed = 1234
         learning_rate = .1234
@@ -293,12 +238,12 @@ class TestSkLearnModel(unittest.TestCase):
             for layer in model.param_list:
                 self.assertTrue(np.all(np.isclose(getattr(model.model, layer),
                                            getattr(init_model.model, layer) + grads[layer])))
-        
+
 
     def test_sklearnmodel_06_sklearn_training_03_declearn_optimizer(self):
 
         n_iter = 10 # number of iterations
-        
+
         for data in self.data_collection:
             for model in self.models:
                 model = SkLearnModel(model)

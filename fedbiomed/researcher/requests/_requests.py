@@ -15,7 +15,11 @@ from typing import Any, Dict, Callable, Union, List, Optional
 import tabulate
 from python_minifier import minify
 
-from fedbiomed.common.constants import MessageType, REQUEST_PREFIX
+from fedbiomed.common.constants import (
+    MessageType,
+    CONFIG_FOLDER_NAME,
+    REQUEST_PREFIX
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     PingRequest,
@@ -32,10 +36,11 @@ from fedbiomed.common.utils import import_class_object_from_file
 from fedbiomed.transport.server import GrpcServer, SSLCredentials
 from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
 
-from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.config import ResearcherConfig
 
 from ._policies import RequestPolicy, PolicyController, DiscardOnTimeout
 from ._status import RequestStatus, PolicyStatus
+
 
 # timeout in seconds for checking disconnection and node status changes
 REQUEST_STATUS_CHECK_TIMEOUT = 0.5
@@ -255,19 +260,35 @@ class Requests(metaclass=SingletonMeta):
     Manages communication between researcher and nodes.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        config: ResearcherConfig,
+    ):
         """Constructor of the class
+
+        Args:
+            config: Object for handling the component configuration
         """
         self._monitor_message_callback = None
 
+        server_host=config.get('server', 'host')
+        server_port=config.get('server', 'port')
+        cert_priv=os.path.join(
+                config.root, CONFIG_FOLDER_NAME, config.get('certificate', 'private_key')
+        )
+        cert_pub=os.path.join(
+                config.root, CONFIG_FOLDER_NAME, config.get('certificate', 'public_key')
+        )
+
         # Creates grpc server and starts it
+        self._researcher_id = config.get("default", "id")
         self._grpc_server = GrpcServer(
-            host=environ["SERVER_HOST"],
-            port=environ["SERVER_PORT"],
+            host=server_host,
+            port=server_port,
             on_message=self.on_message,
             ssl=SSLCredentials(
-                key=environ['FBM_CERTIFICATE_KEY'],
-                cert=environ['FBM_CERTIFICATE_PEM'])
+                key=cert_priv,
+                cert=cert_pub)
 
         )
         self.start_messaging()
@@ -332,7 +353,7 @@ class Requests(metaclass=SingletonMeta):
         Returns:
             List of ID of up and running nodes
         """
-        ping = PingRequest(researcher_id=environ["ID"])
+        ping = PingRequest(researcher_id=self._researcher_id)
         with self.send(ping, policies=[DiscardOnTimeout(5)]) as federated_req:
             nodes_online = [node_id for node_id, reply in federated_req.replies().items()]
 
@@ -374,7 +395,7 @@ class Requests(metaclass=SingletonMeta):
             A dict with node_id as keys, and list of dicts describing available data as values
         """
         message = SearchRequest(
-            researcher_id=environ['RESEARCHER_ID'],
+            researcher_id=self._researcher_id,
             tags=tags,
         )
 
@@ -407,7 +428,7 @@ class Requests(metaclass=SingletonMeta):
             A dict with node_id as keys, and list of dicts describing available data as values
         """
 
-        message = ListRequest(researcher_id=environ['RESEARCHER_ID'])
+        message = ListRequest(researcher_id=self._researcher_id)
 
         data_found = {}
         with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
@@ -454,7 +475,7 @@ class Requests(metaclass=SingletonMeta):
 
         training_plan_instance = training_plan
         training_plan_module = 'model_' + str(uuid.uuid4())
-        with tempfile.TemporaryDirectory(dir=environ['TMP_DIR']) as tmp_dir:
+        with tempfile.TemporaryDirectory() as tmp_dir:
             training_plan_file = os.path.join(tmp_dir, training_plan_module + '.py')
             try:
                 training_plan_instance.save_code(training_plan_file)
@@ -485,7 +506,7 @@ class Requests(metaclass=SingletonMeta):
         print(tp_source)
         # send message to node(s)
         message = ApprovalRequest(
-            researcher_id=environ['RESEARCHER_ID'],
+            researcher_id=self._researcher_id,
             description=str(description),
             training_plan=tp_source)
 

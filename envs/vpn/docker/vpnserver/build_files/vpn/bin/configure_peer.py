@@ -18,12 +18,13 @@ import tabulate
 #
 
 # paths templates for config files
+# TODO: name global variables in upper case
 template_file = os.path.join(os.sep, 'fedbiomed', 'vpn', 'config_templates', 'config_%s.env')
 assign_config_file = os.path.join(os.sep, 'config', 'ip_assign', 'last_ip_assign_%s')
 peer_config_folder = os.path.join(os.sep, 'config', 'config_peers')
 wg_config_file = os.path.join(os.sep, 'config', 'wireguard', 'wg0.conf')
 config_file = 'config.env'
-peer_types = ["researcher", "node", "management"]
+peer_types = ["researcher", "node", "management"]  # use tuple instead?
 
 # UID and GID to use when dropping privileges
 init_uid = os.geteuid()

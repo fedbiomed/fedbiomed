@@ -27,7 +27,7 @@ from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.config import config
 from fedbiomed.researcher.filetools import create_exp_folder, find_breakpoint_path, choose_bkpt_file
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.requests import Requests
@@ -125,6 +125,7 @@ class FederatedWorkflow(ABC):
         experimentation_folder: Union[str, None] = None,
         secagg: Union[bool, SecureAggregation] = False,
         save_breakpoints: bool = False,
+        config_path: str | None = None
     ) -> None:
         """Constructor of the class.
 
@@ -155,7 +156,7 @@ class FederatedWorkflow(ABC):
             experimentation_folder: choose a specific name for the folder
                 where experimentation result files and breakpoints are stored. This
                 should just contain the name for the folder not a path. The name is used
-                as a subdirectory of `environ[EXPERIMENTS_DIR])`. Defaults to None
+                as a subdirectory of `config.vars[EXPERIMENTS_DIR])`. Defaults to None
                 (auto-choose a folder name)
                 - Caveat : if using a specific name this experimentation will not be
                     automatically detected as the last experimentation by `load_breakpoint`
@@ -164,19 +165,27 @@ class FederatedWorkflow(ABC):
                     detection heuristic by `load_breakpoint`.
             secagg: whether to setup a secure aggregation context for this experiment, and
                 use it to send encrypted updates from nodes to researcher.
-                Defaults to `False`
+                Defaults to `False`,
+            config_name: Allows to use specific configuration for reseracher instead of default
+                one. Confiuration file are kept in `{FEDBIOMED_DIR}/etc`, and a new configuration
+                file will be generated if it is not existing.
         """
+
+        if config_path:
+            config.load(root=config_path)
+
+        self.config = config
         # predefine all class variables, so no need to write try/except
         # block each time we use it
         self._fds: Optional[FederatedDataSet] = None  # dataset metadata from the full federation
-        self._reqs: Requests = Requests()
+        self._reqs: Requests = Requests(config=self.config)
         self._nodes_filter: Optional[List[str]] = None  # researcher-defined nodes filter
         self._tags: Optional[List[str]] = None
         self._experimentation_folder: Optional[str] = None
         self._secagg: Union[SecureAggregation, bool] = False
         self._save_breakpoints: Optional[bool] = None
         self._node_state_agent: Optional[NodeStateAgent] = None
-        self._researcher_id: str = environ['RESEARCHER_ID']
+        self._researcher_id: str = config.get('default', 'id')
         self._experiment_id: str = EXPERIMENT_PREFIX + str(uuid.uuid4())  # creating a unique experiment id
 
         # set internal members from constructor arguments
@@ -203,6 +212,16 @@ class FederatedWorkflow(ABC):
         self.set_experimentation_folder(experimentation_folder)
         self._node_state_agent = NodeStateAgent(list(self._fds.data().keys())
                                                 if self._fds and self._fds.data() else [])
+
+    @property
+    def requests(self) -> Requests:
+        """Returns requests object"""
+        return self._reqs
+
+    @property
+    def researcher_id(self) -> str:
+        """Returns researcher id"""
+        return self._researcher_id
 
     @property
     def secagg(self) -> SecureAggregation:
@@ -295,7 +314,7 @@ class FederatedWorkflow(ABC):
             Experiment directory where all experiment related files are saved
         """
 
-        return os.path.join(environ['EXPERIMENTS_DIR'], self._experimentation_folder)
+        return os.path.join(config.vars['EXPERIMENTS_DIR'], self._experimentation_folder)
 
     @property
     def id(self):
@@ -592,10 +611,14 @@ class FederatedWorkflow(ABC):
             FedbiomedExperimentError : bad `experimentation_folder` type
         """
         if experimentation_folder is None:
-            self._experimentation_folder = create_exp_folder()
+            self._experimentation_folder = create_exp_folder(
+                self.config.vars["EXPERIMENTS_DIR"]
+            )
         elif isinstance(experimentation_folder, str):
             sanitized_folder = sanitize_filename(experimentation_folder, platform='auto')
-            self._experimentation_folder = create_exp_folder(sanitized_folder)
+            self._experimentation_folder = create_exp_folder(
+                self.config.vars["EXPERIMENTS_DIR"], sanitized_folder
+            )
             if sanitized_folder != experimentation_folder:
                 logger.warning(f'`experimentation_folder` was sanitized from '
                                f'{experimentation_folder} to {sanitized_folder}')
@@ -641,7 +664,9 @@ class FederatedWorkflow(ABC):
                 "`SecureAggregationSchemes`, but got {type(scheme)}")
 
         if isinstance(secagg, bool):
-            self._secagg = SecureAggregation(scheme=scheme, active=secagg)
+            self._secagg = SecureAggregation(
+                scheme=scheme, active=secagg
+            )
         elif isinstance(secagg, SecureAggregation):
             self._secagg = secagg
         else:
@@ -679,16 +704,18 @@ class FederatedWorkflow(ABC):
     def secagg_setup(self, sampled_nodes: List[str]) -> Dict:
         """Retrieves the secagg arguments for setup."""
         secagg_arguments = {}
-        if self._secagg.active:
-            if not self._secagg.setup(
+        if self._secagg.active:  # type: ignore
+            if not self._secagg.setup(  # type: ignore
                 parties=sampled_nodes,
                 experiment_id=self._experiment_id,
+                researcher_id=self._researcher_id,
+                insecure_validation=self.config.getbool('security', 'secagg_insecure_validation')
             ):
                 raise FedbiomedSecureAggregationError(
                     f"{ErrorNumbers.FB417.value}: Could not setup secure aggregation crypto "
                     "context."
                 )
-            secagg_arguments = self._secagg.train_arguments()
+            secagg_arguments = self._secagg.train_arguments()  # type: ignore
         return secagg_arguments
 
     @exp_exceptions
@@ -723,8 +750,11 @@ class FederatedWorkflow(ABC):
         })
 
         # save state into a json file
-        breakpoint_path, breakpoint_file_name = \
-            choose_bkpt_file(self._experimentation_folder, bkpt_number - 1)
+        breakpoint_path, breakpoint_file_name = choose_bkpt_file(
+            self.config.vars["EXPERIMENTS_DIR"],
+            self._experimentation_folder,
+            bkpt_number - 1
+        )
         breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
         try:
             with open(breakpoint_file_path, 'w', encoding="UTF-8") as bkpt:
@@ -770,7 +800,10 @@ class FederatedWorkflow(ABC):
             raise FedbiomedExperimentError(msg)
 
         # get breakpoint folder path (if it is None) and state file
-        breakpoint_folder_path, state_file = find_breakpoint_path(breakpoint_folder_path)
+        breakpoint_folder_path, state_file = find_breakpoint_path(
+            config.vars['EXPERIMENTS_DIR'],
+            breakpoint_folder_path
+        )
         breakpoint_folder_path = os.path.abspath(breakpoint_folder_path)
 
         try:

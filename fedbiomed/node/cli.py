@@ -11,26 +11,40 @@ import os
 import signal
 import sys
 import time
-import importlib
-import functools
 import subprocess
+import importlib
 
 from multiprocessing import Process
 from typing import Union, List, Dict
 from types import FrameType
+from pathlib import Path
 
-from fedbiomed.common.constants import ErrorNumbers, ComponentType
+
+from fedbiomed.node.node import Node
+from fedbiomed.node.config import NodeConfig, node_component
+
+
+from fedbiomed.common.constants import NODE_DATA_FOLDER, ErrorNumbers, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.cli import (
     CommonCLI,
     CLIArgumentParser,
-    ConfigNameAction,
+    ComponentDirectoryAction,
 )
 
-# Partial function to import CLI utils that frequently used in this module
-imp_cli_utils = functools.partial(importlib.import_module, "fedbiomed.node.cli_utils")
-
+from fedbiomed.node.cli_utils import (
+    delete_database,
+    delete_all_database,
+    add_database,
+    register_training_plan,
+    reject_training_plan,
+    update_training_plan,
+    approve_training_plan,
+    view_training_plan,
+    delete_training_plan
+)
+import fedbiomed
 
 # Please use following code genereate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -55,35 +69,7 @@ def intro():
     print('\t- 🆔 Your node ID:', os.environ['FEDBIOMED_ACTIVE_NODE_ID'], '\n')
 
 
-def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
-    """Signal handler that terminates the process.
 
-    Args:
-        signum: Signal number received.
-        frame: Frame object received. Currently unused
-
-    Raises:
-       SystemExit: Always raised.
-    """
-
-    # get the (running) Node object
-    global _node
-
-    try:
-        if _node and _node.is_connected():
-            _node.send_error(ErrorNumbers.FB312,
-                             extra_msg = "Node is stopped",
-                             broadcast=True)
-            time.sleep(2)
-            logger.critical("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
-        else:
-            # take care of logger level used because message cannot be sent to node
-            logger.info("Cannot send error message to researcher (node not initialized yet)")
-            logger.info("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
-    finally:
-        # give some time to send messages to the researcher
-        time.sleep(0.5)
-        sys.exit(signum)
 
 
 def _node_signal_trigger_term() -> None:
@@ -92,57 +78,90 @@ def _node_signal_trigger_term() -> None:
     os.kill(os.getpid(), signal.SIGTERM)
 
 
+def start_node(config, node_args):
+    """Starts the node
 
-def start_node(node_args):
-    """Starts the node"""
+    Args:
+        name: Config name for the node
+        node_args: Arguments for the node
+    """
 
-    cli_utils = imp_cli_utils()
+    _node = Node(config, node_args)
 
-    tp_security_manager = cli_utils.tp_security_manager
-    dataset_manager = cli_utils.dataset_manager
-    Node = importlib.import_module("fedbiomed.node.node").Node
-    environ = importlib.import_module("fedbiomed.node.environ").environ
+    print(_node)
+
+    def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
+        """Signal handler that terminates the process.
+
+        Args:
+            signum: Signal number received.
+            frame: Frame object received. Currently unused
+
+        Raises:
+           SystemExit: Always raised.
+        """
+
+        # get the (running) Node object
+
+        try:
+            if _node and _node.is_connected():
+                _node.send_error(ErrorNumbers.FB312,
+                                 extra_msg = "Node is stopped",
+                                 broadcast=True)
+                time.sleep(2)
+                logger.critical("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
+            else:
+                # take care of logger level used because message cannot be sent to node
+                logger.info("Cannot send error message to researcher (node not initialized yet)")
+                logger.info("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
+        finally:
+            # give some time to send messages to the researcher
+            time.sleep(0.5)
+            sys.exit(signum)
+
+    logger.setLevel("DEBUG")
+
 
     try:
         signal.signal(signal.SIGTERM, _node_signal_handler)
-
         logger.info('Launching node...')
 
         # Register default training plans and update hashes
-        if environ["TRAINING_PLAN_APPROVAL"]:
+        if _node.config.getbool('security', 'training_plan_approval'):
             # This methods updates hashes if hashing algorithm has changed
-            tp_security_manager.check_hashes_for_registered_training_plans()
-            if environ["ALLOW_DEFAULT_TRAINING_PLANS"]:
+            _node.tp_security_manager.check_hashes_for_registered_training_plans()
+            if _node.config.getbool('security', 'allow_default_training_plans'):
                 logger.info('Loading default training plans')
-                tp_security_manager.register_update_default_training_plans()
+                _node.tp_security_manager.register_update_default_training_plans()
         else:
             logger.warning('Training plan approval for train request is not activated. ' +
                            'This might cause security problems. Please, consider to enable training plan approval.')
 
         logger.info('Starting communication channel with network')
-        _node = Node(dataset_manager=dataset_manager,
-                     tp_security_manager=tp_security_manager,
-                     node_args=node_args)
+
         _node.start_messaging(_node_signal_trigger_term)
         logger.info('Starting node to node router')
         _node.start_protocol()
         logger.info('Starting task manager')
         _node.task_manager()  # handling training tasks in queue
 
-    except FedbiomedError:
-        logger.critical("Node stopped.")
+    except FedbiomedError as exp:
+        logger.critical(f"Node stopped. {exp}")
         # we may add extra information for the user depending on the error
 
     except Exception as exp:
         # must send info to the researcher (no mqqt should be handled
         # by the previous FedbiomedError)
         _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
-        logger.critical("Node stopped.")
+        logger.critical(f"Node stopped. {exp}")
 
 
 
 class DatasetArgumentParser(CLIArgumentParser):
     """Initializes CLI options for dataset actions"""
+
+    _node: Node
+    _mnist_path = None
 
     def initialize(self):
         """Initializes dataset options for the node CLI"""
@@ -153,6 +172,7 @@ class DatasetArgumentParser(CLIArgumentParser):
         )
         self._parser.set_defaults(func=self.default)
 
+
         # Creates subparser of dataset option
         dataset_subparsers = self._parser.add_subparsers()
 
@@ -162,6 +182,7 @@ class DatasetArgumentParser(CLIArgumentParser):
             "add",
             help="Adds dataset"
         )
+        add.set_defaults(func=self.add)
 
         # List option
         list_ = dataset_subparsers.add_parser(
@@ -179,16 +200,20 @@ class DatasetArgumentParser(CLIArgumentParser):
             "-m",
             metavar="MNIST_DATA_PATH",
             help="Deploys MNIST dataset by downloading form default source to given path.",
-            required=False
+            nargs='?',
+            type=str,
+            required=False,
+            default=""
         )
+        self._mnist_path = add
 
         add.add_argument(
             "--file",
             "-fl",
             required=False,
             metavar="File that describes the dataset",
-            help="File path the dataset file desciptro. This option adds dataset by given file which is has"
-                 "cutom format that describes the dataset.")
+            help="File path the dataset file description. This option adds dataset by given file which has"
+                 "custom format that describes the dataset.")
 
         delete.add_argument(
             "--all",
@@ -204,25 +229,29 @@ class DatasetArgumentParser(CLIArgumentParser):
             action="store_true",
             help="Removes MNIST dataset.")
 
-        add.set_defaults(func=self.add)
+
         list_.set_defaults(func=self.list)
         delete.set_defaults(func=self.delete)
 
     def add(self, args):
         """Adds datasets"""
 
-        global add_database
-
-        add_database = imp_cli_utils().add_database
-
-        if args.mnist:
-            return add_database(interactive=False, path=args.mnist)
+        if args.mnist != "":
+            if args.mnist is None:
+                mnist_path = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
+            else:
+                mnist_path = args.mnist
+            return add_database(
+                self._node.dataset_manager,
+                interactive=False,
+                path=mnist_path
+            )
 
         if args.file:
             return self._add_dataset_from_file(path=args.file)
 
         # All operation is handled by CLI utils add_database
-        return add_database()
+        return add_database(self._node.dataset_manager)
 
     def list(self, unused_args):
         """List datasets
@@ -230,25 +259,21 @@ class DatasetArgumentParser(CLIArgumentParser):
         Args:
           unused_args: Empty arguments since `list` command no positional args.
         """
-        dataset_manager = imp_cli_utils().dataset_manager
-
         print('Listing your data available')
-        data = dataset_manager.list_my_data(verbose=True)
+        data = self._node.dataset_manager.list_my_data(verbose=True)
         if len(data) == 0:
             print('No data has been set up.')
 
     def delete(self, args):
         """Deletes datasets"""
 
-        cli_utils = imp_cli_utils()
-
         if args.all:
-            return cli_utils.delete_all_database()
+            return delete_all_database(self._node.dataset_manager)
 
         if args.mnist:
-            return cli_utils.delete_database(interactive=False)
+            return delete_database(self._node.dataset_manager, interactive=False)
 
-        return cli_utils.delete_database()
+        return delete_database(self._node.dataset_manager)
 
     def _add_dataset_from_file(self, path):
 
@@ -283,24 +308,28 @@ class DatasetArgumentParser(CLIArgumentParser):
         elif elements[0]:
             # p is relative (does not start with /)
             # prepend with topdir
-            environ = importlib.import_module("fedbiomed.node.environ").environ
-            elements = [environ["ROOT_DIR"]] + elements
+            elements = [self._node.config.root] + elements
 
         # rebuild the path with these (eventually) new elements
         data["path"] = os.path.join(os.path.sep, *elements)
 
         # add the dataset to local database (not interactive)
-        add_database(interactive=False,
-                     path=data["path"],
-                     data_type=data["data_type"],
-                     description=data["description"],
-                     tags=data["tags"],
-                     name=data["name"],
-                     dataset_parameters=data.get("dataset_parameters"))
+        add_database(
+            self._node.dataset_manager,
+            interactive=False,
+            path=data["path"],
+            data_type=data["data_type"],
+            description=data["description"],
+            tags=data["tags"],
+            name=data["name"],
+            dataset_parameters=data.get("dataset_parameters")
+        )
 
 
 class TrainingPlanArgumentParser(CLIArgumentParser):
     """Argument parser for training-plan operations"""
+
+    _node: Node
 
     def initialize(self):
 
@@ -370,42 +399,37 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
 
     def delete(self, args):
         """Deletes training plan"""
-        delete_training_plan = imp_cli_utils().delete_training_plan
-        delete_training_plan(id=args.id)
+        delete_training_plan(self._node.tp_security_manager, id=args.id)
 
     def register(self):
         """Registers training plan"""
-        register_training_plan = imp_cli_utils().register_training_plan
-        register_training_plan()
+        register_training_plan(self._node.tp_security_manager)
 
     def list(self):
         """Lists training plans"""
-        tp_security_manager = imp_cli_utils().tp_security_manager
-        tp_security_manager.list_training_plans(verbose=True)
+        self._node.tp_security_manager.list_training_plans(verbose=True)
 
     def view(self):
         """Views training plan"""
-        view_training_plan = imp_cli_utils().view_training_plan
-        view_training_plan()
+        view_training_plan(self._node.tp_security_manager)
 
     def approve(self, args):
         """Approves training plan"""
-        approve_training_plan = imp_cli_utils().approve_training_plan
-        approve_training_plan(id=args.id)
+        approve_training_plan(self._node.tp_security_manager, id=args.id)
 
     def reject(self, args):
         """Approves training plan"""
-        reject_training_plan = imp_cli_utils().reject_training_plan
-        reject_training_plan(id=args.id, notes=args.notes)
+        reject_training_plan(self._node.tp_security_manager, id=args.id, notes=args.notes)
 
     def update(self):
         """Updates training plan"""
-        update_training_plan = imp_cli_utils().update_training_plan
-        update_training_plan()
+        update_training_plan(self._node.tp_security_manager)
 
 
 class NodeControl(CLIArgumentParser):
     """CLI argument parser for starting the node"""
+
+    _node: Node
 
     def initialize(self):
         """Initializes missinon control argument parser"""
@@ -436,12 +460,7 @@ class NodeControl(CLIArgumentParser):
 
     def start(self, args):
         """Starts the node"""
-
-        global start_node
-
         intro()
-        environ = importlib.import_module("fedbiomed.node.environ").environ
-
 
         # Define arguments
         node_args = {
@@ -449,7 +468,13 @@ class NodeControl(CLIArgumentParser):
             "gpu_num": args.gpu_num,
             "gpu_only": True if args.gpu_only else False}
 
-        p = Process(target=start_node, name='node-' + environ['NODE_ID'], args=(node_args,))
+        # Node instance has to be re-instantiated in start_node
+        # It is because Process can only pickle pure python objects
+        p = Process(
+            target=start_node,
+            name=f'node-{self._node.config.get("default", "id")}',
+            args=(self._node.config, node_args)
+        )
         p.deamon = True
         p.start()
 
@@ -469,115 +494,150 @@ class NodeControl(CLIArgumentParser):
 
 class GUIControl(CLIArgumentParser):
 
-
+    _node: Node
     def initialize(self):
         """Initializes GUI commands"""
-        self._parser = self._subparser.add_parser("gui", add_help=False, help="Action to manage Node user interface")
-        self._parser.set_defaults(func=self.forward)
+        self._parser = self._subparser.add_parser(
+            "gui", #add_help=False,
+             help="Action to manage Node user interface"
+        )
+
+        gui_subparsers = self._parser.add_subparsers(title='start GUI')
+        start = gui_subparsers.add_parser(
+            'start',
+            help='Launch the server (defaults on localhost:8484)')
+
+        start.set_defaults(func=self.forward)
 
 
-#        gui_subparsers = self._parser.add_subparsers()
-#        start = gui_subparsers.add_parser('start')
-#
-#
-#        # TODO: Implement argument parsing and execution in python
-#        start.add_argument(
-#            "--data-folder",
-#           "-df",
-#            type=str,
-#            nargs="?",
-#            default="data",  # data folder in root directory
-#            required=False)
-#
-#        start.add_argument(
-#            "--cert-file",
-#            "-cf",
-#            type=str,
-#            nargs="?",
-#            required=False,
-#            help="Name of the certificate to use in order to enable HTTPS. "
-#                 "If cert file doesn't exist script will raise an error.")
-#
-#        start.add_argument(
-#            "--key-file",
-#            "-kf",
-#            type=str,
-#            nargs="?",
-#            required=False,
-#            help="Name of the private key for the SSL certificate. "
-#                 "If the key file doesn't exist, the script will raise an error.")
-#
-#        start.add_argument(
-#            "--port",
-#            "-p",
-#            type=str,
-#            nargs="?",
-#            default="8484",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.add_argument(
-#            "--host",
-#            "-ho",
-#            type=str,
-#            default="localhost",
-#            nargs="?",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.add_argument(
-#            "--debug",
-#            "-dbg",
-#            action="store_true",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.add_argument(
-#            "--recreate",
-#            "-rc",
-#            action="store_true",
-#            required=False,
-#            help="HTTP port that GUI will be served. Default is `8484`")
-#
-#        start.set_defaults(func=self.forward)
-#
+        start.add_argument(
+            "--data-folder",
+            "-df",
+            type=str,
+            nargs="?",
+            default="",  # data folder in root directory
+            required=False)
+
+        start.add_argument(
+            "--cert-file",
+            "-cf",
+            type=str,
+            nargs="?",
+            required=False,
+            help="Name of the certificate to use in order to enable HTTPS. "
+                 "If cert file doesn't exist script will raise an error.")
+
+        start.add_argument(
+            "--key-file",
+            "-kf",
+            type=str,
+            nargs="?",
+            required=False,
+            help="Name of the private key for the SSL certificate. "
+                 "If the key file doesn't exist, the script will raise an error.")
+
+        start.add_argument(
+            "--port",
+            "-p",
+            type=str,
+            nargs="?",
+            default="8484",
+            required=False,
+            help="HTTP port that GUI will be served. Default is `8484`")
+
+        start.add_argument(
+            "--host",
+            "-ho",
+            type=str,
+            default="localhost",
+            nargs="?",
+            required=False,
+            help="HTTP port that GUI will be served. Default is `127.0.0.1` (localhost)")
+
+        start.add_argument(
+            "--debug",
+            "-dbg",
+            action="store_true",
+            required=False,
+            help="HTTP port that GUI will be served. Default is `8484`")
+
+        start.add_argument(
+            "--recreate",
+            "-rc",
+            action="store_true",
+            required=False,
+            help="Re-creates gui build")
+
+        start.add_argument(
+            "--development",
+            "-dev",
+            action="store_true",
+            required=False,
+            help="If it is set, GUI will start in development mode."
+        )
 
 
-    def forward(self, args, extra_args):
-        """Forwards gui commands to ./script/fedbiomed_gui Extra arguments
+    def forward(self, args: argparse.Namespace, extra_args):
+        """Launches Fed-BioMed Node GUI
 
-        TODO: Implement argument GUI parseing and execution
+        Args:
+            args: parser argument's namespace
         """
 
-#        commad = []
-#        command.extend(['--data-folder', args.data_folder, '--port', args.port, '--host', args.host])
+        fedbiomed_root = os.path.abspath(args.path)
+
+        if args.data_folder == '':
+            data_folder = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
+        else:
+            data_folder = os.path.abspath(args.data_folder)
+        if not os.path.isdir(data_folder):
+            raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")
+        os.environ.update({
+            "DATA_PATH": data_folder,
+            "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
+        })
+        current_env = os.environ.copy()
+
+        if args.key_file and args.cert_file:
+            certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file ]
+        else:
+            certificate = []
 
 
-#        if args.key_file:
-#            command.extend(['--key-file', args.key_file])
-#
-#        if args.cert_file:
-#            command.extend(['--cert-file', args.cert_file])
-#
-#        if args.recreate:
-#            command.append('--recreate')
-#
-#        if args.debug:
-#            command.append('--debug')
+        fedbiomed_gui = importlib.import_module("fedbiomed_gui")
+        server_app = Path(fedbiomed_gui.__file__).parent
+        print("path to server", server_app)
 
-
-        gui_script = os.path.abspath(os.path.join(__file__, '..', '..', '..', 'scripts', 'fedbiomed_gui'))
-        command = [gui_script, *extra_args]
-        process = subprocess.Popen(command)
+        host_port = ["--host", args.host, "--port", args.port]
+        if args.development:
+            command = [
+                "FLASK_ENV=development",
+                f"FLASK_APP="
+                f"{os.path.join(server_app, 'server', 'wsgi.py')}",
+                "flask",
+                "run",
+                *host_port,
+                *certificate
+            ]
+        else:
+            command = [
+                "gunicorn",
+                "--workers",
+                "1",
+                # str(os.cpu_count()),
+                *certificate,
+                "-b",
+                f"{args.host}:{args.port}",
+                "--access-logfile",
+                "-",
+                "fedbiomed_gui.server.wsgi:app"
+            ]
 
         try:
-            process.wait()
-        except KeyboardInterrupt:
-            try:
-                process.terminate()
-            except Exception:
-                pass
-            process.wait()
+            with subprocess.Popen(" ".join(command), env=current_env, shell=True) as proc:
+                proc.wait()
+        except Exception as e:
+            print(e)
 
 
 class NodeCLI(CommonCLI):
@@ -593,7 +653,7 @@ class NodeCLI(CommonCLI):
     def __init__(self):
         super().__init__()
 
-        self._parser.prog = "fedbiomed_run node"
+        self._parser.prog = "fedbiomed node"
         self.description = f"{__intro__} \nA CLI app for fedbiomed node component."
         # Parent parser for parameters that are common for Node CLI actions
         self.initialize()
@@ -601,25 +661,47 @@ class NodeCLI(CommonCLI):
     def initialize(self):
         """Initializes node module"""
 
-
-        class ConfigNameActionNode(ConfigNameAction):
+        class ComponentDirectoryActionNode(ComponentDirectoryAction):
 
             _this = self
             _component = ComponentType.NODE
 
-            def import_environ(self) -> 'fedbiomed.node.environ.Environ':
-                """Imports dynamically node environ object"""
-                return importlib.import_module("fedbiomed.node.environ").environ
+            def set_component(self, component_dir: str | None = None) -> None:
+                """Create node instance"""
 
-        self._parser.add_argument(
-            "--config",
-            "-cf",
-            nargs="?",
-            action=ConfigNameActionNode,
-            default="config_node.ini",
-            help="Name of the config file that the CLI will be activated for. Default is 'config_node.ini'.")
+                if component_dir:
+                    component_dir = os.path.abspath(component_dir)
+                    os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
+                else:
+                    print("Component is not specified: Using 'fbm-researcher' in current working directory...")
+                    component_dir =  os.path.join(os.getcwd(), 'fbm-node')
+                    os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
+
+                config = node_component.initiate(component_dir)
+                self._this.config = config
+                node = Node(config)
+
+                # Set node object to make it accessible
+                setattr(ComponentDirectoryActionNode._this, '_node', node)
+                os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = \
+                    config.get("default", "id")
+
+                # Set node in all subparsers
+                for _, parser in ComponentDirectoryActionNode._this._arg_parsers.items():
+                    setattr(parser, '_node', node)
 
         super().initialize()
+
+        self._parser.add_argument(
+            "--path",
+            "-p",
+            nargs="?",
+            action=ComponentDirectoryActionNode,
+            default="fbm-node",
+            help="The path were component is located. It can be absolute or "
+                "realtive to the path where CLI is executed."
+        )
+
 
 
 if __name__ == '__main__':

@@ -17,7 +17,7 @@ class TestVersions(unittest.TestCase):
 
     def test_versions_01_version_numbers(self):
         """Test runtime version numbers hardcoded in constants"""
-        self.assertTrue(fedbiomed.__version__ >= Version('4.3'))
+        self.assertTrue(Version(fedbiomed.__version__) >= Version('4.3'))
         self.assertEqual(fedbiomed.common.utils.__default_version__, Version('0'))
 
     def test_versions_02_check_version_compatibility(self):
@@ -130,7 +130,7 @@ class TestVersions(unittest.TestCase):
             "three params %s %s %s"
         ]
         for bad_pattern in bad_patterns:
-            message = _create_msg_for_version_check(bad_pattern, Version('2.2'), Version('2.2')) 
+            message = _create_msg_for_version_check(bad_pattern, Version('2.2'), Version('2.2'))
             self.assertEqual(
                 message,
                 bad_pattern + " -> See https://fedbiomed.org/latest/user-guide/deployment/versions for more information")

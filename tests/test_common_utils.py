@@ -23,10 +23,10 @@ class TestCommonConfigUtils(unittest.TestCase):
     def test_01_common_config_utils_get_fedbiomed_root(self):
         """Test fedbiomed get root """
         root = _get_fedbiomed_root()
-        dirpaths_to_check = [root, os.path.join(root,"fedbiomed"), os.path.join(root, "fedbiomed/common"), os.path.join(root, "fedbiomed/node"), os.path.join(root, "fedbiomed/researcher") ]
-        for dirpath in dirpaths_to_check:
-          self.assertTrue( os.path.exists(dirpath), f"a required path does not exist. Offending value = {dirpath}" )
-          self.assertTrue( os.path.isdir(dirpath), f"a required path is not a directory. Offending value = {dirpath}" )
+        self.assertTrue(
+            os.path.exists(root),
+            f"a required path does not exist. Offending value = {root}"
+        )
 
     @patch("fedbiomed.common.utils._config_utils.configparser")
     def test_02_common_config_utils_get_component_config(self,

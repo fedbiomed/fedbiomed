@@ -2,45 +2,22 @@ import unittest
 from unittest.mock import patch
 import os
 import shutil
+import tempfile
 
-#############################################################
-# Import ResearcherTestCase before importing any FedBioMed Module
-from testsupport.base_case import ResearcherTestCase
-#############################################################
-
-from fedbiomed.researcher.environ import environ
+from fedbiomed.researcher.config import config
 from fedbiomed.researcher import filetools
 
 
-class TestFiletools(ResearcherTestCase):
+class TestFiletools(unittest.TestCase):
 
     def setUp(self):
 
-        self.testdir = environ['EXPERIMENTS_DIR']
-
-        # delete and re-create empty the test directory
-        try:
-            shutil.rmtree(self.testdir)
-        except FileNotFoundError:
-            pass
-        os.makedirs(self.testdir)
-
-        self.patchers = [
-            # empty now
-        ]
-
-        for patcher in self.patchers:
-            patcher.start()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        config.load(root=self.temp_dir.name)
+        self.testdir = config.vars["EXPERIMENTS_DIR"]
 
     def tearDown(self) -> None:
-
-        for patcher in self.patchers:
-            patcher.stop()
-
-        try:
-            shutil.rmtree(self.testdir)
-        except FileNotFoundError:
-            pass
+        self.temp_dir.cleanup()
 
     def test_filetools_01_create_exp_folder(self):
         """
@@ -49,17 +26,22 @@ class TestFiletools(ResearcherTestCase):
 
         # OK giving a folder name
         exp_folder = 'my_exp_folder'
-        self.assertEqual(exp_folder, filetools.create_exp_folder(exp_folder))
+        self.assertEqual(
+            exp_folder, filetools.create_exp_folder(config.vars["EXPERIMENTS_DIR"], exp_folder)
+        )
         self.assertTrue(os.path.isdir(os.path.join(self.testdir, exp_folder)))
 
         # KO folder cannot be created
         os.chmod(self.testdir, 0o500)
         exp_folder = 'bad_luck_for_you'
-        self.assertRaises(PermissionError, filetools.create_exp_folder, exp_folder)
+        self.assertRaises(
+            PermissionError, filetools.create_exp_folder,
+            config.vars["EXPERIMENTS_DIR"], exp_folder
+        )
         os.chmod(self.testdir, 0o700)
 
         # OK not choosing folder name, receiving default
-        return_folder = filetools.create_exp_folder()
+        return_folder = filetools.create_exp_folder(config.vars["EXPERIMENTS_DIR"])
         self.assertEqual(return_folder, 'Experiment_0001')
         self.assertTrue(os.path.isdir(os.path.join(self.testdir, return_folder)))
 
@@ -71,15 +53,24 @@ class TestFiletools(ResearcherTestCase):
             self.testdir
         ]
         for testpath in exp_folders:
-            self.assertRaises(ValueError, filetools.create_exp_folder, testpath)
+            self.assertRaises(
+                ValueError, filetools.create_exp_folder,
+                config.vars["EXPERIMENTS_DIR"], testpath
+            )
 
         # KO cannot create EXPERIMENTS_DIR
-        saved_expdir = environ['EXPERIMENTS_DIR']
-        environ['EXPERIMENTS_DIR'] = os.path.join(self.testdir, 'subdir')
+        saved_expdir = config.vars["EXPERIMENTS_DIR"]
+        config.vars['EXPERIMENTS_DIR'] = os.path.join(self.testdir, 'subdir')
         os.chmod(self.testdir, 0o500)
-        self.assertRaises(PermissionError, filetools.create_exp_folder, 'a_good_folder')
+        self.assertRaises(
+            PermissionError,
+            filetools.create_exp_folder,
+            config.vars['EXPERIMENTS_DIR'],
+            'a_good_folder'
+        )
+
         os.chmod(self.testdir, 0o700)
-        environ['EXPERIMENTS_DIR'] = saved_expdir
+        config.vars['EXPERIMENTS_DIR'] = saved_expdir
 
     def test_filetools_02_choose_bkpt_file(self):
         """
@@ -89,7 +80,9 @@ class TestFiletools(ResearcherTestCase):
 
         breakpoint_folder_name = "breakpoint_"
 
-        bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round_=0)
+        bkpt_folder, bkpt_file = filetools.choose_bkpt_file(
+            config.vars["EXPERIMENTS_DIR"], self.testdir, round_=0
+        )
 
         self.assertEqual(os.path.basename(bkpt_folder),
                          breakpoint_folder_name + str("{:04d}".format(0)))
@@ -97,7 +90,9 @@ class TestFiletools(ResearcherTestCase):
                          breakpoint_folder_name + str("{:04d}".format(0)) + ".json")
         self.assertTrue(os.path.isdir(bkpt_folder))
 
-        bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round_=2)
+        bkpt_folder, bkpt_file = filetools.choose_bkpt_file(
+            config.vars["EXPERIMENTS_DIR"], self.testdir, round_=2
+        )
 
         self.assertEqual(os.path.basename(bkpt_folder),
                          breakpoint_folder_name + str("{:04d}".format(2)))
@@ -112,10 +107,12 @@ class TestFiletools(ResearcherTestCase):
         mock_mkdir.side_effect = [PermissionError, OSError]
 
         with self.assertRaises(PermissionError):
-            bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round_=0)
+            bkpt_folder, bkpt_file = filetools.choose_bkpt_file(
+            config.vars["EXPERIMENTS_DIR"], self.testdir, round_=0)
 
         with self.assertRaises(OSError):
-            bkpt_folder, bkpt_file = filetools.choose_bkpt_file(self.testdir, round_=0)
+            bkpt_folder, bkpt_file = filetools.choose_bkpt_file(
+                config.vars["EXPERIMENTS_DIR"], self.testdir, round_=0)
 
     def test_filetools_04_create_unique_link(self):
         """
@@ -315,7 +312,7 @@ class TestFiletools(ResearcherTestCase):
                                          "another_file"]
         patch_os_path_isdir.return_value = True
 
-        bkpt_folder_out, state_file = filetools.find_breakpoint_path(bkpt_folder)
+        bkpt_folder_out, state_file = filetools.find_breakpoint_path(self.testdir, bkpt_folder)
         self.assertEqual(bkpt_folder, bkpt_folder_out)
         self.assertEqual(state_file, 'breakpoint_1234.json')
 
@@ -333,11 +330,13 @@ class TestFiletools(ResearcherTestCase):
                                          "another_file"]
         patch_os_path_isdir.return_value = True
         patch_get_latest_file.return_value = "breakpoint"
-        latest_bkpt_folder = os.path.join(environ['EXPERIMENTS_DIR'],
+        latest_bkpt_folder = os.path.join(config.vars['EXPERIMENTS_DIR'],
                                           'breakpoint',
                                           'breakpoint')
 
-        bkpt_folder_out, state_file = filetools.find_breakpoint_path(None)
+        bkpt_folder_out, state_file = filetools.find_breakpoint_path(
+            config.vars['EXPERIMENTS_DIR'], None
+        )
         self.assertEqual(state_file, 'breakpoint_1234.json')
         self.assertEqual(bkpt_folder_out, latest_bkpt_folder)
 
@@ -354,7 +353,8 @@ class TestFiletools(ResearcherTestCase):
         patch_os_path_isdir.return_value = False
         self.assertRaises(FileNotFoundError,
                           filetools.find_breakpoint_path,
-                          bkpt_folder)
+                          config.vars["EXPERIMENTS_DIR"], bkpt_folder)
+
 
     @patch('os.path.isfile')
     @patch('os.path.isdir')
@@ -370,13 +370,14 @@ class TestFiletools(ResearcherTestCase):
         patch_os_path_isdir.return_value = True
         patch_os_path_isfile.return_value = True
         self.assertRaises(FileNotFoundError,
-                          filetools.find_breakpoint_path)
+                          filetools.find_breakpoint_path, config.vars["EXPERIMENTS_DIR"])
 
     def test_filetools_11_private_find_breakpoint_raise_err_3(self):
         # test 5 : triggers error FileNotFoundError, cannot guess a folder
         # when none exist.
         self.assertRaises(FileNotFoundError,
                           filetools.find_breakpoint_path,
+                          config.vars["EXPERIMENTS_DIR"],
                           None)
 
     @patch('os.path.isdir')
@@ -391,7 +392,7 @@ class TestFiletools(ResearcherTestCase):
         patch_os_path_isdir.return_value = True
         self.assertRaises(FileNotFoundError,
                           filetools.find_breakpoint_path,
-                          bkpt_folder)
+                          bkpt_folder, config.vars["EXPERIMENTS_DIR"])
 
     @patch('os.path.isdir')
     @patch('os.listdir')
@@ -407,6 +408,7 @@ class TestFiletools(ResearcherTestCase):
 
         self.assertRaises(FileNotFoundError,
                           filetools.find_breakpoint_path,
+                          config.vars["EXPERIMENTS_DIR"],
                           bkpt_folder)
 
 

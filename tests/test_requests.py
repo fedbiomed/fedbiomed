@@ -1,22 +1,24 @@
 import inspect
 import os.path
-import string
-import random
 import unittest
 import time
+import tempfile
 
-from typing import Any, Dict
 from unittest.mock import patch,PropertyMock, MagicMock, ANY
 from threading import Semaphore
-#############################################################
-# Import ResearcherTestCase before importing any FedBioMed Module
-from testsupport.base_case import ResearcherTestCase
-#############################################################
 
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.constants import MessageType
-from fedbiomed.common.message import Log, Scalar, SearchReply, SearchRequest, ErrorMessage, ApprovalReply
+from fedbiomed.common.message import (
+    Log,
+    Scalar,
+    SearchReply,
+    SearchRequest,
+    ErrorMessage,
+    ApprovalReply
+)
 
+from fedbiomed.researcher.config import config
 from fedbiomed.researcher.requests import (
     Requests,
     FederatedRequest,
@@ -57,7 +59,7 @@ class TrainingPlanCannotSave(BaseFakeTrainingPlan):
          raise OSError
 
 
-class TestRequests(ResearcherTestCase):
+class TestRequests(unittest.TestCase):
     """ Test class for Request class """
 
     @classmethod
@@ -112,7 +114,11 @@ class TestRequests(ResearcherTestCase):
         if Requests in Requests._objects:
             del Requests._objects[Requests]
 
-        self.requests = Requests()
+        self.temp_dir = tempfile.TemporaryDirectory()
+        config.load(root=self.temp_dir.name)
+        self.requests = Requests(
+            config=config
+        )
 
     def tearDown(self):
 
@@ -126,6 +132,7 @@ class TestRequests(ResearcherTestCase):
         self.grpc_server_patcher6.stop()
         self.fed_req_enter_patcher1.stop()
         self.req_patcher4.stop()
+        self.temp_dir.cleanup()
 
         pass
 
@@ -137,7 +144,7 @@ class TestRequests(ResearcherTestCase):
             del Requests._objects[Requests]
 
 
-        req_1 = Requests()
+        req_1 = Requests(config)
         self.assertEqual(None, req_1._monitor_message_callback, "Request is not properly initialized")
 
         # Remove previous singleton instance
@@ -145,7 +152,7 @@ class TestRequests(ResearcherTestCase):
             del Requests._objects[Requests]
 
         # Build new fresh requests
-        req_2 = Requests()
+        req_2 = Requests(config)
         self.assertEqual(None, req_2._monitor_message_callback, "Request is not properly initialized")
 
     @patch('fedbiomed.researcher.requests.Requests.print_node_log_message')
@@ -216,7 +223,7 @@ class TestRequests(ResearcherTestCase):
         """ Testing send message method of Request """
 
         sr = SearchRequest(
-            researcher_id="researhcer-id",
+            researcher_id="researcher-id",
             tags=["x"]
         )
 
@@ -326,7 +333,7 @@ class TestRequests(ResearcherTestCase):
         """ Test adding monitor message callbacks """
         mock_monitor_init.return_value = None
         mock_monitor_message_handler.return_value = None
-        monitor = Monitor()
+        monitor = Monitor(results_dir=self.temp_dir.name)
 
         # Test adding monitor callback
         self.requests.add_monitor_callback(monitor.on_message_handler)
@@ -342,7 +349,7 @@ class TestRequests(ResearcherTestCase):
 
         mock_monitor_init.return_value = None
         mock_monitor_message_handler.return_value = None
-        monitor = Monitor()
+        monitor = Monitor(results_dir=self.temp_dir.name)
 
         self.requests.add_monitor_callback(monitor.on_message_handler)
         self.requests.remove_monitor_callback()

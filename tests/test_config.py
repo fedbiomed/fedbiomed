@@ -1,11 +1,12 @@
 import unittest
+import os
 
 from unittest.mock import patch
 
 from fedbiomed.common.config import Config
 from fedbiomed.researcher.config import ResearcherConfig
 from fedbiomed.node.config import NodeConfig
-from fedbiomed.common.exceptions import FedbiomedVersionError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedVersionError
 
 
 class BaseConfigTest(unittest.TestCase):
@@ -41,7 +42,7 @@ class TestConfig(BaseConfigTest):
     @patch('fedbiomed.common.config.configparser.ConfigParser')
     def test_01_read(self, config_parser):
 
-        config = Config(auto_generate=False)
+        config = Config(root="dummy-root")
         config._CONFIG_VERSION = '0.99'
 
         with self.assertRaises(FedbiomedVersionError):
@@ -51,41 +52,15 @@ class TestConfig(BaseConfigTest):
 
         # With autogenereate
         with patch('fedbiomed.common.config.Config.generate') as gen:
-            config = Config(auto_generate=True)
+            config = Config(root="dummy-root")
             gen.assert_called_once()
-
-
-    def test_02_init_with_root(self):
-
-        Config(auto_generate=False, root='test')
-        # Should called wth root
-        self.create_fed_folders_mock.assert_called_once_with('test')
 
 
     def test_03_is_config_existing(self):
 
-        config = Config(auto_generate=False, root='test')
+        config = Config(root='test')
         r = config.is_config_existing()
         self.assertFalse(r)
-
-
-    @patch('fedbiomed.common.config.Config.generate')
-    @patch('fedbiomed.common.config.Config.is_config_existing')
-    @patch('fedbiomed.common.config.configparser.ConfigParser.read')
-    def test_04_refresh(self, read_, is_existing, generate):
-
-        is_existing.return_value = False
-        config = Config(auto_generate=False, root='test', name='test')
-        with self.assertRaises(FedbiomedError):
-            config.refresh()
-
-        def set_(path):
-            config._cfg = {"default" : {"id": "test"}}
-
-        read_.side_effect = set_
-        is_existing.return_value = True
-        config.refresh()
-        generate.assert_called_once()
 
 
 class TestNodeConfig(BaseConfigTest):
@@ -140,8 +115,11 @@ class TestResearcherConfig(BaseConfigTest):
     def test_02_researcher_config_sections(self):
 
         config = ResearcherConfig(root='test')
-
         sections = config.sections()
 
         self.assertTrue('server' in sections)
         self.assertTrue('default' in sections)
+
+
+if __name__ == '__main__':
+    unittest.main()

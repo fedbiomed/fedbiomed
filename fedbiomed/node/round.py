@@ -21,12 +21,17 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
-from fedbiomed.common.optimizers import BaseOptimizer, Optimizer
+from fedbiomed.common.optimizers import (
+    AuxVar,
+    BaseOptimizer,
+    EncryptedAuxVar,
+    Optimizer,
+    flatten_auxvar_for_secagg,
+)
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common import utils
 
-from fedbiomed.node.environ import environ
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node_state_manager import NodeStateManager, NodeStateFileName
 from fedbiomed.node.secagg import SecaggRound
@@ -40,6 +45,9 @@ class Round:
 
     def __init__(
         self,
+        root_dir: str,
+        db: str,
+        node_id: str,
         training_plan: str,
         training_plan_class: str,
         model_kwargs: dict,
@@ -52,13 +60,17 @@ class Round:
         history_monitor: HistoryMonitor,
         aggregator_args: Dict[str, Any],
         node_args: Dict,
+        tp_security_manager: TrainingPlanSecurityManager,
         round_number: int = 0,
         dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None,
-        aux_vars: Optional[List[str]] = None,
+        aux_vars: Optional[Dict[str, AuxVar]] = None,
     ) -> None:
         """Constructor of the class
 
         Args:
+            root_dir: Root fedbiomed directory where node instance files will be stored.
+            db: Path to node database file.
+            node_id: Node id
             training_plan: code of the training plan for this round
             training_plan_class: class name of the training plan
             model_kwargs: contains model args. Defaults to None.
@@ -78,10 +90,14 @@ class Round:
                     GPU device if this GPU device is available.
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU.
+            tp_security_manager: Training plan security manager instance.
             dlp_and_loading_block_metadata: Data loading plan to apply, or None if no DLP for this round.
             round_number: number of the iteration for this experiment
-            aux_var: auxiliary variables of the model.
+            aux_vars: Optional optimizer auxiliary variables.
         """
+        self._node_id = node_id
+        self._db = db
+        self._dir = root_dir
 
         self.dataset = dataset
         self.training_plan_source = training_plan
@@ -91,7 +107,7 @@ class Round:
         self.researcher_id = researcher_id
         self.history_monitor = history_monitor
         self.aggregator_args = aggregator_args
-        self.aux_vars = aux_vars or []
+        self.aux_vars = aux_vars or {}
         self.node_args = node_args
         self.training = training
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
@@ -99,21 +115,23 @@ class Round:
         self.model_arguments = model_kwargs
 
         # Class attributes
-        self.tp_security_manager = TrainingPlanSecurityManager()
+        self.tp_security_manager = tp_security_manager
         self.training_plan = None
         self.testing_arguments = None
         self.loader_arguments = None
         self.training_arguments = None
         self._secure_aggregation = None
         self._round = round_number
-        self._node_state_manager: NodeStateManager = NodeStateManager(environ['DB_PATH'])
-
-        self._keep_files_dir = tempfile.mkdtemp(prefix=environ['TMP_DIR'])
+        self._node_state_manager: NodeStateManager = NodeStateManager(
+            self._dir, self._node_id, self._db
+        )
+        self._temp_dir = tempfile.TemporaryDirectory()
+        self._keep_files_dir = self._temp_dir.name
 
     def __del__(self):
         """Class destructor"""
         # remove temporary files directory
-        shutil.rmtree(self._keep_files_dir)
+        self._temp_dir.cleanup()
 
     def _initialize_validate_training_arguments(self) -> Optional[Dict[str, Any]]:
         """Initialize and validate requested experiment/training arguments.
@@ -146,6 +164,10 @@ class Round:
         Returns:
             A dictionary containing the error message if an error is triggered while parsing training and testing
             arguments, None otherwise.
+
+        !!! "Note"
+            If secure aggregation is activated, model weights will be encrypted as well as the
+            optimizer's auxiliary variables (only if the optimizer used is a `DeclearnOptimizer`).
         """
         # initialize Node State Manager
         self._node_state_manager.initialize(previous_state_id=previous_state_id,
@@ -153,12 +175,20 @@ class Round:
         return self._initialize_validate_training_arguments()
 
     def run_model_training(
-            self,
-            secagg_arguments: Union[Dict, None] = None,
-    ) -> Optional[Dict[str, Any]]:
+        self,
+        tp_approval: bool,
+        secagg_insecure_validation: bool,
+        secagg_active: bool,
+        force_secagg: bool,
+        secagg_arguments: Union[Dict[str, Any], None] = None,
+    ) -> TrainReply:
         """Runs one round of model training
 
         Args:
+            tp_approval: True if training plan approval by node is requested
+            secagg_insecure_validation: True if (potentially insecure) consistency check is enabled
+            secagg_active: True if secure aggregation is enabled on node
+            force_secagg: True is secure aggregation is mandatory on node
             secagg_arguments: arguments for secure aggregation, some are specific to the scheme
 
         Returns:
@@ -166,8 +196,16 @@ class Round:
         """
         # Validate secagg status. Raises error if the training request is not compatible with
         # secure aggregation settings
+
         try:
-            self._secure_aggregation = SecaggRound(secagg_arguments, self.experiment_id)
+            self._secure_aggregation = SecaggRound(
+                db=self._db,
+                node_id=self._node_id,
+                secagg_arguments=secagg_arguments,
+                secagg_active=secagg_active,
+                force_secagg=force_secagg,
+                experiment_id=self.experiment_id
+            )
         except FedbiomedSecureAggregationError as e:
             logger.error(str(e))
             return self._send_round_reply(
@@ -175,7 +213,7 @@ class Round:
                 message='Could not configure secure aggregation on node')
 
         # Validate and load training plan
-        if environ["TRAINING_PLAN_APPROVAL"]:
+        if tp_approval:
             approved, training_plan_ = self.tp_security_manager.\
                 check_training_plan_status(
                     self.training_plan_source,
@@ -184,7 +222,7 @@ class Round:
             if not approved:
                 return self._send_round_reply(
                     False,
-                    f'Requested training plan is not approved by the node: {environ["NODE_ID"]}')
+                    f'Requested training plan is not approved by the node: {self._node_id}')
             else:
                 logger.info(f'Training plan has been approved by the node {training_plan_["name"]}',
                             researcher_id=self.researcher_id)
@@ -287,7 +325,7 @@ class Round:
 
         # If training is activated.
         if self.training:
-            results = {}
+            results = {}  # type: Dict[str, Any]
 
             # Perform the training round.
             if self.training_plan.training_data_loader is not None:
@@ -303,6 +341,7 @@ class Round:
                     return self._send_round_reply(success=False, message=error_message)
 
             # Collect Optimizer auxiliary variables, if any.
+
             try:
                 results['optim_aux_var'] = self.collect_optim_aux_var()
             except (FedbiomedOptimizerError, FedbiomedRoundError) as exc:
@@ -339,25 +378,16 @@ class Round:
             model_weights = self.training_plan.after_training_params(flatten=self._secure_aggregation.use_secagg)
 
             if self._secure_aggregation.use_secagg:
-
-                logger.info("Encrypting model parameters. This process can take some time depending on model size.",
-                            researcher_id=self.researcher_id)
-
-                model_weights = self._secure_aggregation.scheme.encrypt(
-                    params=model_weights,
-                    current_round=self._round,
-                    weight=results['sample_size'],
+                model_weights, enc_factor, aux_var = self._encrypt_weights_and_auxvar(
+                    model_weights=model_weights,
+                    optim_aux_var=results["optim_aux_var"],
+                    sample_size=results["sample_size"],
+                    secagg_insecure_validation=secagg_insecure_validation,
                 )
-
                 results["encrypted"] = True
-                results["encryption_factor"] = None
-                if self._secure_aggregation.scheme.secagg_random is not None and environ['SECAGG_INSECURE_VALIDATION']:
-                    results["encryption_factor"] = self._secure_aggregation.scheme.encrypt(
-                        params=[self._secure_aggregation.scheme.secagg_random],
-                        current_round=self._round,
-                        weight=results['sample_size'])
-                logger.info("Encryption is completed!",
-                            researcher_id=self.researcher_id)
+                results["encryption_factor"] = enc_factor
+                if aux_var is not None:
+                    results["optim_aux_var"] = aux_var.to_dict()
             results['params'] = model_weights
             results['optimizer_args'] = self.training_plan.optimizer_args()
             results['state_id'] = self._node_state_manager.state_id
@@ -383,14 +413,94 @@ class Round:
             # Only for validation
             return self._send_round_reply(success=True)
 
+    def _encrypt_weights_and_auxvar(
+        self,
+        model_weights: List[float],
+        optim_aux_var: Dict[str, AuxVar],
+        sample_size: int,
+        secagg_insecure_validation: bool,
+    ) -> Tuple[List[int], List[int], Optional[EncryptedAuxVar]]:
+        """Encrypt model weights and (opt.) optimizer auxiliary variables.
+
+        Args:
+            model_weights: Flattened model parameters to encrypt.
+            optim_aux_var: Optional optimizer auxiliary variables to encrypt.
+            sample_size: Number of training samples (used to weight model
+                parameters).
+            secagg_insecure_validation: True if (potentially insecure) consistency check is enabled
+
+        Returns:
+            encrypted_weights: Encrypted model parameters, as a list of int.
+            encryption_factor: Encryptiong factor (based on a secagg argument).
+            encrypted_aux_var: Optional `EncryptedAuxVar` instance storing
+                encrypted optimizer auxiliary variables, if any.
+        """
+        # Case when optimizer auxiliary variables are to be encrypted.
+        # TODO; find a way to encrypt safely aux var with model weights at once. See #1250.
+        if optim_aux_var:
+            logger.info(
+                "Encrypting model parameters and optimizer auxiliary variables."
+                "This process can take some time depending on model size.",
+                researcher_id=self.researcher_id,
+            )
+            # Flatten optimizer auxiliary variables and divide them by scaling weights.
+            cryptable, enc_specs, cleartext, clear_cls = (
+                flatten_auxvar_for_secagg(optim_aux_var)
+            )
+            #cryptable = [x / sample_size for x in cryptable] # ?? already done while encrypting
+            # Encrypt both model parameters and optimizer aux var at once. -> NO
+            encrypted_aux = self._secure_aggregation.scheme.encrypt(
+                            params=cryptable,
+                            current_round=self._round,
+                            weight=sample_size,
+            )
+            encrypted_aux = EncryptedAuxVar(
+                encrypted=[encrypted_aux],
+                enc_specs=enc_specs,
+                cleartext=cleartext,
+                clear_cls=clear_cls,
+            )
+
+        # Case when there are only model parameters to encrypt.
+        else:
+            logger.info(
+                "Encrypting model parameters."
+                "This process can take some time depending on model size.",
+                researcher_id=self.researcher_id,
+            )
+            # encrypted_wgt = self._secure_aggregation.scheme.encrypt(
+            #         params=model_weights,
+            #         current_round=self._round,
+            #         weight=sample_size,
+            # )
+            encrypted_aux = None
+
+        encrypted_wgt = self._secure_aggregation.scheme.encrypt(
+                            params=model_weights,
+                            current_round=self._round,
+                            weight=sample_size,
+                    )
+
+        encrypted_rng = None
+        # At any rate, produce encryption factors.
+        if self._secure_aggregation.scheme.secagg_random is not None and \
+                secagg_insecure_validation:
+            encrypted_rng = self._secure_aggregation.scheme.encrypt(
+                        params=[self._secure_aggregation.scheme.secagg_random],
+                        current_round=self._round,
+                        weight=sample_size)
+
+        logger.info("Encryption was completed!", researcher_id=self.researcher_id)
+
+        return encrypted_wgt, encrypted_rng, encrypted_aux
 
     def _send_round_reply(
-            self,
-            success: bool = False,
-            message: str = '',
-            extend_with: Optional[Dict] = None,
-            timing: dict = {},
-    ) -> None:
+        self,
+        success: bool = False,
+        message: str = '',
+        extend_with: Optional[Dict] = None,
+        timing: dict = {},
+    ) -> TrainReply:
         """Sends reply to researcher after training/validation.
 
         Message content changes based on success status.
@@ -407,7 +517,7 @@ class Round:
 
         # If round is not successful log error message
         return TrainReply(**{
-            'node_id': environ['NODE_ID'],
+            'node_id': self._node_id,
             'experiment_id': self.experiment_id,
             'state_id': self._node_state_manager.state_id,
             'researcher_id': self.researcher_id,
@@ -427,19 +537,12 @@ class Round:
         """
         # Early-exit if there are no auxiliary variables to process.
         if not any(self.aux_vars):
-            return
-
-
-        aux_vars = {}
-        aux_vars.update(self.aux_vars[0])
-        aux_vars.update(self.aux_vars[1])
-
+            return None
         # Fetch the training plan's BaseOptimizer.
         try:
             optimizer = self._get_base_optimizer()
         except FedbiomedRoundError as exc:
             return str(exc)
-
         # Verify that the BaseOptimizer wraps an Optimizer.
         if not isinstance(optimizer.optimizer, Optimizer):
             return (
@@ -448,14 +551,20 @@ class Round:
             )
         # Pass auxiliary variables to the Optimizer.
         try:
-            optimizer.optimizer.set_aux(aux_vars)
+            optimizer.optimizer.set_aux(self.aux_vars)
         except FedbiomedOptimizerError as exc:
             return (
                 "TrainingPlan Optimizer failed to ingest the provided "
                 f"auxiliary variables: {repr(exc)}"
             )
-
-        return
+        # early stop if secagg is activated and optimizer has more than one module that accepts
+        # auxiliary variable
+        if optimizer.count_nb_auxvar() > 1 and self._secure_aggregation.use_secagg:
+            return (
+                "Can not parse more than one `declearn` module requiring auxiliary variables while"
+                " Secure Aggregation activated. Aborting..."
+            )
+        return None
 
     def _load_round_state(self, state_id: str) -> None:
         """Loads optimizer state of previous `Round`, given a `state_id`.
@@ -554,7 +663,9 @@ class Round:
 
         return state
 
-    def collect_optim_aux_var(self) -> Dict[str, Any]:
+    def collect_optim_aux_var(
+        self,
+    ) -> Dict[str, AuxVar]:
         """Collect auxiliary variables from the wrapped Optimizer, if any.
 
         If the TrainingPlan does not use a Fed-BioMed Optimizer, return an
@@ -562,21 +673,11 @@ class Round:
         FedbiomedRoundError.
 
         Returns:
-            Auxiliary variables
+            Auxiliary variables, as a `{module_name: module_auxvar}` dict.
         """
         optimizer = self._get_base_optimizer()
         if isinstance(optimizer.optimizer, Optimizer):
-            aux_var = optimizer.optimizer.get_aux()
-
-            if aux_var and (self._secure_aggregation is None or self._secure_aggregation.use_secagg):
-                # TODO: remove the following warning when secagg compatibility has been fixed
-                # if secagg is used, raise a warning that encryption is not working with auxiliary variable
-                logger.warning(f'Node {environ["NODE_ID"]} optimizer is sending auxiliary variables to the '
-                               'Researcher, but those are not encrypted with SecAgg.'
-                               'Auxiliary Variables may contain sensitive information about the Nodes.'
-                               'This issue will be fixed in a future version of Fed-BioMed',
-                               researcher_id=self.researcher_id)
-            return aux_var
+            return optimizer.optimizer.get_aux()
         return {}
 
     def _get_base_optimizer(self) -> BaseOptimizer:
@@ -649,10 +750,11 @@ class Round:
                                    `fedbiomed.common.data.DataManager`.
                                  - If `load` method of DataManager returns an error
         """
-        training_plan_type = self.training_plan.type()
+        training_plan_type = self.training_plan.type()  # FIXME: type is not part of the BaseTrainingPlan API
         try:
             data_manager = self.training_plan.training_data()
         except TypeError as e:
+            # FIXME; TypeError could occur whithin the training_data method.
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                                       f"{str(training_plan_type)} should not take any arguments."
                                       f"Instead, the following error occurred: {repr(e)}")

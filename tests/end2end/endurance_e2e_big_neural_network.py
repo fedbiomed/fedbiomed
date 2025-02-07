@@ -8,7 +8,7 @@ from helpers import (
     start_nodes,
     kill_subprocesses,
     clear_experiment_data,
-    clear_researcher_data,
+    clear_component_data,
     get_data_folder,
     create_researcher,
     create_multiple_nodes
@@ -47,7 +47,7 @@ def setup(port, post_session, request):
         kill_subprocesses(node_processes)
         thread.join()
         print("Clearing component data")
-        clear_researcher_data(researcher)
+        clear_component_data(researcher)
 
 #############################################
 ### Start writing tests
@@ -85,3 +85,31 @@ def test_01_mnist_pytorch_big_model_training_dry_run():
 
     clear_experiment_data(exp)
 
+def test_02_mnist_pytorch_big_model_training_dry_run_native_scaffold():
+    """Tests running training mnist with basic configuration"""
+    model_args = {}
+    tags = ['#MNIST', '#dataset']
+    rounds = 30
+    training_args = {
+        'loader_args': { 'batch_size': 48, },
+        'optimizer_args': {
+            "lr" : 1e-3
+        },
+        'num_updates': 100,
+        'dry_run': True,
+
+    }
+
+    exp = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=BigModelMyTrainingPlan,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=Scaffold(),
+        node_selection_strategy=None,
+        retain_full_history=False)
+
+    exp.run()
+
+    clear_experiment_data(exp)

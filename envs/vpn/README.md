@@ -45,12 +45,6 @@ generateResolvConf = false
 Tip: build images from a clean file tree (avoid copying modified/config/temporary files to images) :
 - method 1 : use a fresh `git clone -b master https://github.com/fedbiomed/fedbiomed.git` tree
 - method 2 : clean your existing file tree
-  * general cleaning
-
-  ``` bash
-  [user@laptop $] source ./scripts/fedbiomed_environment clean
-  ```
-
   * specific [cleaning](#cleaning) for containers
 
 
@@ -243,17 +237,17 @@ Run this for all launches of the container :
 # TODO : make more general by including it in the VPN configuration and user environment ?
 # TODO : create scripts in VPN environment
 # need proper parameters at first launch to create configuration file
-[user@node-container $] export RESEARCHER_SERVER_HOST=10.222.0.2
-[user@node-container $] export RESEARCHER_SERVER_PORT=50051
+[user@node-container $] export FBM_RESEARCHER_IP=10.222.0.2
+[user@node-container $] export FBM_RESEARCHER_PORT=50051
 [user@node-container $] export PYTHONPATH=/fedbiomed
 [user@node-container $] eval "$(conda shell.bash hook)"
 [user@node-container $] conda activate fedbiomed-node
 # example : add MNIST dataset using persistent (mounted) /data
-[user@node-container $] ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli dataset add --mnist /data
+[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli dataset add --mnist /data
 # start the node
 # - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
 # - start with training plan approval enabled and default training plans allowed
-[user@node-container $] ENABLE_TRAINING_PLAN_APPROVAL=True ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli start  --gpu
+[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli start  --gpu
 # alternative: start the node in background
 # [user@node-container $] nohup python -m fedbiomed.node.cli  start >./fedbiomed_node.out &
 ```
@@ -284,7 +278,7 @@ my_training_plan.txt
 ```
 - register a new training plan with :
 ```bash
-[user@node-container $] ./scripts/fedbiomed_run node training-plan register
+[user@node-container $] fedbiomed node -d fbm-node training-plan register
 ```
 - when prompted for the path of the training plan, indicate the `.txt` export of the training plan file (`/data/my_training_plan.txt` in our example)
 
@@ -422,8 +416,8 @@ Run this for all launches of the container :
 # TODO : make more general by including it in the VPN configuration and user environment ?
 # TODO : create scripts in VPN environment
 # need proper parameters at first launch to create configuration file
-[user@researcher-container $] export RESEARCHER_SERVER_HOST=10.222.0.2
-[user@researcher-container $] export RESEARCHER_SERVER_PORT=50051
+[user@researcher-container $] export FBM_SERVER_HOST=10.222.0.2
+[user@researcher-container $] export FBM_SERVER_PORT=50051
 [user@researcher-container $] export PYTHONPATH=/fedbiomed
 [user@researcher-container $] eval "$(conda shell.bash hook)"
 [user@researcher-container $] conda activate fedbiomed-researcher
@@ -440,8 +434,8 @@ Use notebooks from outside the researcher container :
 Use tensorboard from outside the researcher container :
 * connect to `http://localhost:8888` from your browser and use embedded tensorboard in your notebook as in the `./notebooks/general-tensorboard.ipynb` example :
 ```python
-from fedbiomed.researcher.environ import environ
-tensorboard_dir = environ['TENSORBOARD_RESULTS_DIR']
+from fedbiomed.researcher.config import config
+tensorboard_dir = config.vars['TENSORBOARD_RESULTS_DIR']
 ```
 ```python
 %load_ext tensorboard

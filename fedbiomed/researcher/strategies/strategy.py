@@ -6,7 +6,7 @@ Top class for strategy implementation
 """
 
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
@@ -49,7 +49,14 @@ class Strategy:
         logger.critical(msg)
         raise FedbiomedStrategyError(msg)
 
-    def refine(self, training_replies: Dict, round_i: int) -> Tuple[list, list]:
+    def refine(
+            self,
+            training_replies: Dict,
+            round_i: int
+               ) -> Tuple[Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
+                          Dict[str, float],
+                          int,
+                          Dict[str, List[int]]]:
         """
         Abstract method that must be implemented by child class
 

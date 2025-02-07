@@ -6,13 +6,12 @@ import importlib
 import math
 import random
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Literal, Callable, Dict, List, Optional, Union, cast
 
 from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.secagg import SecaggCrypter, SecaggLomCrypter
-from fedbiomed.researcher.environ import environ
 
 from ._secagg_context import SecaggDHContext, SecaggServkeyContext
 
@@ -163,7 +162,7 @@ class _SecureAggregation(ABC):
         self._experiment_id: Optional[str] = None
         self._secagg_random: Optional[float] = None
         self._secagg_crypter: Union[SecaggCrypter, SecaggLomCrypter, None] = None
-        self._scheme: Optional[SecureAggregationSchemes] = None
+        self._scheme: SecureAggregationSchemes.LOM | Secure
 
     @property
     def parties(self) -> Union[List[str], None]:
@@ -193,7 +192,7 @@ class _SecureAggregation(ABC):
         return self._active
 
     @property
-    def scheme(self) -> SecureAggregationSchemes:
+    def scheme(self) -> SecureAggregationSchemes | None:
         """Gets secagg scheme used
 
         Returns:
@@ -233,7 +232,15 @@ class _SecureAggregation(ABC):
         }
 
     @abstractmethod
-    def setup(self, parties: List[str], experiment_id: str, force: bool = False):
+    def setup(
+        self,
+        parties: List[str],
+        experiment_id: str,
+        researcher_id: str,
+        force: bool = False,
+        insecure_validation: bool = True
+    ) -> bool:
+
         """Setup secure aggregation instruments.
 
         Requires setting `parties` and `experiment_id` if they are not set in previous secagg
@@ -244,7 +251,10 @@ class _SecureAggregation(ABC):
         Args:
             parties: Parties that participates secure aggregation
             experiment_id: The id of the experiment
+            researcher_id: ID of the researcher that context will be created for.
             force: Forces secagg setup even context is already existing
+            insecure_validation: True if the insecure mechanism for validation secagg data
+                coherence is enabled
 
         Raises
             FedbiomedSecureAggregationError: Invalid argument type
@@ -262,10 +272,10 @@ class _SecureAggregation(ABC):
                 f"string but got {type(parties)}"
             )
 
-        self._configure_round(parties, experiment_id)
+        self._configure_round(researcher_id, parties, experiment_id, insecure_validation)
 
     @abstractmethod
-    def _set_secagg_contexts(self, parties: List[str], experiment_id: str) -> None:
+    def _set_secagg_contexts(self, researcher_id:str, parties: List[str], experiment_id: str) -> None:
         """Creates secure aggregation context classes.
 
         This function should be called after `experiment_id` and `parties` are set
@@ -280,7 +290,13 @@ class _SecureAggregation(ABC):
         # Updates experiment id if it is provided
         self._experiment_id = experiment_id
 
-    def _configure_round(self, parties: List[str], experiment_id: str) -> None:
+    def _configure_round(
+        self,
+        researcher_id: str,
+        parties: List[str],
+        experiment_id: str,
+        insecure_validation: bool = True
+    ) -> None:
         """Configures secure aggregation for each round.
 
         This method checks the round state and creates secagg context element if
@@ -293,19 +309,19 @@ class _SecureAggregation(ABC):
         """
 
         self._secagg_random = None
-        if environ["SECAGG_INSECURE_VALIDATION"] is True:
+        if insecure_validation is True:
             # For each round it generates new secagg random float
             self._secagg_random = round(random.uniform(0, 1), 3)
 
         if self._parties is None or self._experiment_id != experiment_id:
-            self._set_secagg_contexts(parties, experiment_id)
+            self._set_secagg_contexts(researcher_id, parties, experiment_id)
 
         elif set(self._parties) != set(parties):
             logger.info(
                 f"Parties of the experiment has changed. Re-creating secure "
                 f"aggregation context creation for the experiment {self._experiment_id}"
             )
-            self._set_secagg_contexts(parties, experiment_id)
+            self._set_secagg_contexts(researcher_id, parties, experiment_id)
 
     @abstractmethod
     def aggregate(
@@ -315,17 +331,17 @@ class _SecureAggregation(ABC):
 
     def _validate(
         self,
-        aggregate: functools.partial,
+        aggregate: functools.partial[List[int]],
         encryption_factors: Dict[str, Union[List[int], None]],
         num_expected_params: int | None = None,
-    ) -> bool:
+    ) -> None:
         """Validate given inputs"""
 
         if any(v is None for v in encryption_factors.values()):
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Secure aggregation consistency insecure "
                 "validation has been set on the researcher but the encryption factors "
-                "are not provided. Some nodes may use `SECAGG_INSECURE_VALIDATION` to "
+                "are not provided. Some nodes may use `FBM_SECURIRY_SECAGG_INSECURE_VALIDATION` to "
                 "`False` for security reason. Please use consistent setup "
                 "between researcher and nodes."
             )
@@ -334,6 +350,7 @@ class _SecureAggregation(ABC):
         encryption_factors = [f for k, f in encryption_factors.items()]
 
         validation: List[float]
+
         if num_expected_params:
             validation = aggregate(params=encryption_factors, num_expected_params=1)
         else:
@@ -350,7 +367,7 @@ class _SecureAggregation(ABC):
         self,
         model_params: Dict[str, List[int]],
         encryption_factors: Dict[str, Union[List[int], None]],
-        aggregate: Callable,
+        aggregate: functools.partial[List[int]],
         num_expected_params: int | None = None,
     ) -> List[float]:
         """Aggregates given model parameters
@@ -378,7 +395,12 @@ class _SecureAggregation(ABC):
             "on model size."
         )
         # Aggregate parameters
-        params = [p for _, p in model_params.items()]
+        # if isinstance(model_params, dict):
+        params = list(model_params.values())  # convert dict into list of list
+        # from now forward params is of type List[List[int]]
+        # else:
+        #     params = model_params
+
         if num_expected_params:
             aggregated_params = aggregate(
                 params=params, num_expected_params=num_expected_params
@@ -464,7 +486,7 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         """
         super().__init__(active, clipping_range)
 
-        self._servkey: Optional[SecaggServkeyContext] = None
+        self._servkey: SecaggServkeyContext | None = None
         self._secagg_crypter: SecaggCrypter = SecaggCrypter()
         self._scheme = SecureAggregationSchemes.JOYE_LIBERT
 
@@ -493,7 +515,14 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         )
         return arguments
 
-    def setup(self, parties: List[str], experiment_id: str, force: bool = False):
+    def setup(
+        self,
+        parties: List[str],
+        experiment_id: str,
+        researcher_id: str,
+        force: bool = False,
+        insecure_validation: bool = True
+    ) -> bool:
         """Setup secure aggregation instruments.
 
         Requires setting `parties` and `experiment_id` if they are not set in previous secagg
@@ -504,7 +533,10 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         Args:
             parties: Parties that participates secure aggregation
             experiment_id: The id of the experiment
+            researcher_id: ID of the researcher that context will be created for.
             force: Forces secagg setup even context is already existing
+            insecure_validation: True if the insecure mechanism for validation secagg data
+                coherence is enabled
 
         Returns:
             Status of setup
@@ -512,14 +544,20 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         Raises
             FedbiomedSecureAggregationError: Invalid argument type
         """
-        super().setup(parties, experiment_id, force)
+        super().setup(parties, experiment_id, researcher_id, force, insecure_validation)
 
+        self._servkey = cast(SecaggServkeyContext, self._servkey)
         if not self._servkey.status or force:
             self._servkey.setup()
 
         return True
 
-    def _set_secagg_contexts(self, parties: List[str], experiment_id: str) -> None:
+    def _set_secagg_contexts(
+        self,
+        researcher_id: str,
+        parties: List[str],
+        experiment_id: str
+    ) -> None:
         """Creates secure aggregation context classes.
 
         This function should be called after `experiment_id` and `parties` are set
@@ -528,10 +566,10 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
             parties: Parties that participates secure aggregation
             experiment_id: The id of the experiment
         """
-        super()._set_secagg_contexts(parties, experiment_id)
+        super()._set_secagg_contexts(researcher_id, parties, experiment_id)
 
         self._servkey = SecaggServkeyContext(
-            parties=self._parties, experiment_id=self._experiment_id
+            researcher_id=researcher_id, parties=self._parties, experiment_id=self._experiment_id
         )
 
     def aggregate(
@@ -666,9 +704,10 @@ class LomSecureAggregation(_SecureAggregation):
         """
         super().__init__(active, clipping_range)
 
-        self._dh: Optional[SecaggDHContext] = None
-        self._secagg_crypter: SecaggLomCrypter = SecaggLomCrypter()
+        self._dh: SecaggDHContext | None = None
+        self._secagg_crypter = SecaggLomCrypter()
         self._scheme = SecureAggregationSchemes.LOM
+
 
     @property
     def dh(self) -> Union[None, SecaggDHContext]:
@@ -694,7 +733,12 @@ class LomSecureAggregation(_SecureAggregation):
         return arguments
 
     def setup(
-        self, parties: List[str], experiment_id: str, force: bool = False
+        self,
+        parties: List[str],
+        experiment_id: str,
+        researcher_id: str,
+        force: bool = False,
+        insecure_validation: bool = True
     ) -> bool:
         """Setup secure aggregation instruments.
 
@@ -706,7 +750,10 @@ class LomSecureAggregation(_SecureAggregation):
         Args:
             parties: Parties that participates secure aggregation
             experiment_id: The id of the experiment
+            researcher_id: ID of the researcher that executes secagg setup.
             force: Forces secagg setup even if context is already existing
+            insecure_validation: True if the insecure mechanism for validation secagg data
+                coherence is enabled
 
         Returns:
             Status of setup
@@ -715,16 +762,24 @@ class LomSecureAggregation(_SecureAggregation):
             FedbiomedSecureAggregationError: Invalid argument type
         """
 
-        parties = list(filter(lambda x: x != environ["ID"], parties))
+        parties = list(filter(lambda x: x != researcher_id, parties))
 
-        super().setup(parties, experiment_id, force)
+        super().setup(parties, experiment_id, researcher_id, force, insecure_validation)
+
+        self._dh = cast(SecaggDHContext, self._dh)
 
         if not self._dh.status or force:
             self._dh.setup()
 
         return self._dh.status
 
-    def _set_secagg_contexts(self, parties: List[str], experiment_id: str) -> None:
+
+    def _set_secagg_contexts(
+        self,
+        researcher_id: str,
+        parties: List[str],
+        experiment_id: str
+    ) -> None:
         """Creates secure aggregation context classes.
 
         This function should be called after `experiment_id` and `parties` are set
@@ -733,10 +788,10 @@ class LomSecureAggregation(_SecureAggregation):
             parties: Parties that participates secure aggregation
             experiment_id: The id of the experiment
         """
-        super()._set_secagg_contexts(parties, experiment_id)
+        super()._set_secagg_contexts(researcher_id, parties, experiment_id)
 
         self._dh = SecaggDHContext(
-            parties=self._parties, experiment_id=self._experiment_id
+            researcher_id=researcher_id, parties=self._parties, experiment_id=self._experiment_id
         )
 
     def aggregate(

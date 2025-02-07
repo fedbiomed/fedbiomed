@@ -1,14 +1,26 @@
-import unittest
-from unittest.mock import patch, MagicMock, create_autospec
 import os
+import unittest
+from unittest.mock import MagicMock, create_autospec, patch
 
+from testsupport.testing_data_loading_block import (
+    LoadingBlockForTesting,
+    LoadingBlockTypesForTesting,
+)
 from torchvision.transforms import Compose as TorchCompose
 
-from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetValueError, \
-    FedbiomedLoadingBlockValueError, FedbiomedLoadingBlockError
-from fedbiomed.common.data import FlambyDataset, FlambyLoadingBlockTypes, FlambyDatasetMetadataBlock, \
-    DataLoadingPlan, discover_flamby_datasets
-from testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting
+from fedbiomed.common.data import DataLoadingPlan
+from fedbiomed.common.data.flamby_dataset import (
+    FlambyDataset,
+    FlambyDatasetMetadataBlock,
+    FlambyLoadingBlockTypes,
+    discover_flamby_datasets,
+)
+from fedbiomed.common.exceptions import (
+    FedbiomedDatasetError,
+    FedbiomedDatasetValueError,
+    FedbiomedLoadingBlockError,
+    FedbiomedLoadingBlockValueError,
+)
 
 
 class TestFlamby(unittest.TestCase):
@@ -16,42 +28,48 @@ class TestFlamby(unittest.TestCase):
     Unit Tests for FLamby integration.
     """
 
-    @patch("fedbiomed.common.data._flamby_dataset.discover_flamby_datasets",
-           return_value={100: 'fed_flamby_test', **discover_flamby_datasets()})
+    @patch(
+        "fedbiomed.common.data.flamby_dataset.discover_flamby_datasets",
+        return_value={100: "fed_flamby_test", **discover_flamby_datasets()},
+    )
     def test_flamby_01_loading_blocks(self, patched_discover):
         """Test that the custom DataLoadingBlocks for FlambyDataset work as expected."""
         # Base case for FlambyDatasetSelectorLoadingBlock when there are no errors
         dlb = FlambyDatasetMetadataBlock()
-        dlb.metadata['flamby_dataset_name'] = 'fed_flamby_test'
-        dlb.metadata['flamby_center_id'] = 42
+        dlb.metadata["flamby_dataset_name"] = "fed_flamby_test"
+        dlb.metadata["flamby_center_id"] = 42
 
         serialized_dataset_type = dlb.serialize()
-        self.assertIn('flamby_dataset_name', serialized_dataset_type)
-        self.assertIn('flamby_center_id', serialized_dataset_type)
-        self.assertEqual(serialized_dataset_type['flamby_dataset_name'], 'fed_flamby_test')
-        self.assertEqual(serialized_dataset_type['flamby_center_id'], 42)
-        self.assertIn('loading_block_class', serialized_dataset_type)
-        self.assertIn('loading_block_module', serialized_dataset_type)
-        self.assertIn('dlb_id', serialized_dataset_type)
-        _ = FlambyDatasetMetadataBlock().deserialize(serialized_dataset_type)  # assert no errors raised
+        self.assertIn("flamby_dataset_name", serialized_dataset_type)
+        self.assertIn("flamby_center_id", serialized_dataset_type)
+        self.assertEqual(
+            serialized_dataset_type["flamby_dataset_name"], "fed_flamby_test"
+        )
+        self.assertEqual(serialized_dataset_type["flamby_center_id"], 42)
+        self.assertIn("loading_block_class", serialized_dataset_type)
+        self.assertIn("loading_block_module", serialized_dataset_type)
+        self.assertIn("dlb_id", serialized_dataset_type)
+        _ = FlambyDatasetMetadataBlock().deserialize(
+            serialized_dataset_type
+        )  # assert no errors raised
 
         # Assert raises when dataset name is of wrong type
-        serialized_dataset_type['flamby_dataset_name'] = 0
+        serialized_dataset_type["flamby_dataset_name"] = 0
         with self.assertRaises(FedbiomedLoadingBlockValueError):
             _ = FlambyDatasetMetadataBlock().deserialize(serialized_dataset_type)
         # Assert raises when center id is of wrong type
-        serialized_dataset_type['flamby_center_id'] = 'a string'
+        serialized_dataset_type["flamby_center_id"] = "a string"
         with self.assertRaises(FedbiomedLoadingBlockValueError):
             _ = FlambyDatasetMetadataBlock().deserialize(serialized_dataset_type)
         # Assert raises when dataset name is not one of the flamby datasets
-        serialized_dataset_type['flamby_dataset_name'] = 'non-existing name'
+        serialized_dataset_type["flamby_dataset_name"] = "non-existing name"
         with self.assertRaises(FedbiomedLoadingBlockValueError):
             _ = FlambyDatasetMetadataBlock().deserialize(serialized_dataset_type)
         # Assert calling apply gives correct result
-        self.assertDictEqual(dlb.apply(),
-                             {'flamby_dataset_name': 'fed_flamby_test',
-                              'flamby_center_id': 42
-                              })
+        self.assertDictEqual(
+            dlb.apply(),
+            {"flamby_dataset_name": "fed_flamby_test", "flamby_center_id": 42},
+        )
         # Assert exception raised when calling apply on uninitialized loading block
         with self.assertRaises(FedbiomedLoadingBlockError):
             FlambyDatasetMetadataBlock().apply()
@@ -71,21 +89,27 @@ class TestFlamby(unittest.TestCase):
 
         # define dlp
         dlb = FlambyDatasetMetadataBlock()
-        dlb.metadata = {'flamby_dataset_name': 'fed_flamby_test',
-                        'flamby_center_id': 0}
+        dlb.metadata = {"flamby_dataset_name": "fed_flamby_test", "flamby_center_id": 0}
         dlp = DataLoadingPlan({FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA: dlb})
 
         # Assert base case where everything works as expected
         mocked_module = MagicMock()
         mocked_module.FedClass = MagicMock()
-        with patch("fedbiomed.common.data._flamby_dataset.import_module", return_value=mocked_module):
+        with patch(
+            "fedbiomed.common.data.flamby_dataset.import_module",
+            return_value=mocked_module,
+        ):
             dataset.set_dlp(dlp)
-            mocked_module.FedClass.assert_called_once_with(center=0, train=True, pooled=False)
+            mocked_module.FedClass.assert_called_once_with(
+                center=0, train=True, pooled=False
+            )
 
-        metadata = dataset.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA)  # assert no errors
+        metadata = dataset.apply_dlb(
+            None, FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA
+        )  # assert no errors
         # Assert the returned metadata are correct
-        self.assertEqual(metadata['flamby_dataset_name'], 'fed_flamby_test')
-        self.assertEqual(metadata['flamby_center_id'], 0)
+        self.assertEqual(metadata["flamby_dataset_name"], "fed_flamby_test")
+        self.assertEqual(metadata["flamby_center_id"], 0)
         self.assertEqual(dataset.get_center_id(), 0)
 
         # Assert raises when init is called twice
@@ -103,11 +127,19 @@ class TestFlamby(unittest.TestCase):
         with self.assertRaises(FedbiomedDatasetError):
             dataset.set_dlp(DataLoadingPlan())
         with self.assertRaises(FedbiomedDatasetError):
-            dataset.set_dlp(DataLoadingPlan({
-                LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING: LoadingBlockForTesting()}))
+            dataset.set_dlp(
+                DataLoadingPlan(
+                    {
+                        LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING: LoadingBlockForTesting()
+                    }
+                )
+            )
 
         # Test ModuleNotFoundError correctly converted to FedbiomedDatasetError
-        with patch("fedbiomed.common.data._flamby_dataset.import_module", side_effect=ModuleNotFoundError):
+        with patch(
+            "fedbiomed.common.data.flamby_dataset.import_module",
+            side_effect=ModuleNotFoundError,
+        ):
             with self.assertRaises(FedbiomedDatasetError):
                 dataset.set_dlp(dlp)
             # Make sure that the FlambyDataset remained clean
@@ -118,8 +150,13 @@ class TestFlamby(unittest.TestCase):
         # Assert FedbiomedDatasetError raised when something goes wrong while instantiating FedClass
         mocked_module = MagicMock()
         mocked_module.FedClass = MagicMock()
-        mocked_module.FedClass.side_effect = FileNotFoundError  # random error that could realistically be raised
-        with patch("fedbiomed.common.data._flamby_dataset.import_module", return_value=mocked_module):
+        mocked_module.FedClass.side_effect = (
+            FileNotFoundError  # random error that could realistically be raised
+        )
+        with patch(
+            "fedbiomed.common.data.flamby_dataset.import_module",
+            return_value=mocked_module,
+        ):
             with self.assertRaises(FedbiomedDatasetError):
                 dataset.set_dlp(dlp)
             # Make sure that the FlambyDataset remained clean
@@ -131,14 +168,15 @@ class TestFlamby(unittest.TestCase):
         dataset = FlambyDataset()
 
         # Assert raises when argument is of incorrect type
-        with patch("fedbiomed.common.data._flamby_dataset.isinstance", return_value=False):
+        with patch(
+            "fedbiomed.common.data.flamby_dataset.isinstance", return_value=False
+        ):
             with self.assertRaises(FedbiomedDatasetValueError):
-                dataset.init_transform('Wrong type')
+                dataset.init_transform("Wrong type")
 
         # define dlp
         dlb = FlambyDatasetMetadataBlock()
-        dlb.metadata = {'flamby_dataset_name': 'fed_flamby_test',
-                        'flamby_center_id': 0}
+        dlb.metadata = {"flamby_dataset_name": "fed_flamby_test", "flamby_center_id": 0}
         dlp = DataLoadingPlan({FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA: dlb})
 
         transform = MagicMock(spec=TorchCompose)
@@ -151,11 +189,17 @@ class TestFlamby(unittest.TestCase):
         class MockedFlambyModule:
             def __init__(self):
                 self.FedClass = create_autospec(mock_init)
+
         mocked_module = MockedFlambyModule()
 
-        with patch("fedbiomed.common.data._flamby_dataset.import_module", return_value=mocked_module):
+        with patch(
+            "fedbiomed.common.data.flamby_dataset.import_module",
+            return_value=mocked_module,
+        ):
             dataset.set_dlp(dlp)
-            mocked_module.FedClass.assert_called_once_with(transform=transform, center=0, train=True, pooled=False)
+            mocked_module.FedClass.assert_called_once_with(
+                transform=transform, center=0, train=True, pooled=False
+            )
 
         self.assertEqual(transform, dataset.get_transform())
 
@@ -167,8 +211,10 @@ class TestFlamby(unittest.TestCase):
         dataset.clear_dlp()
         self.assertIsNone(dataset.get_transform())
 
-    @unittest.skipUnless(bool(os.environ.get('DISCOVER_FLAMBY', False)),
-                                        'Skipped because this requires manual download of the flamby datasets')
+    @unittest.skipUnless(
+        bool(os.environ.get("DISCOVER_FLAMBY", False)),
+        "Skipped because this requires manual download of the flamby datasets",
+    )
     def test_flamby_99_discover_flamby_datasets(self):
         """Test that all discovered datasets can be instantiated
 
@@ -188,9 +234,13 @@ class TestFlamby(unittest.TestCase):
         for flamby_dataset_name in datasets.values():
             # define dlp
             dlb = FlambyDatasetMetadataBlock()
-            dlb.metadata = {'flamby_dataset_name': flamby_dataset_name,
-                            'flamby_center_id': 0}
-            dlp = DataLoadingPlan({FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA: dlb})
+            dlb.metadata = {
+                "flamby_dataset_name": flamby_dataset_name,
+                "flamby_center_id": 0,
+            }
+            dlp = DataLoadingPlan(
+                {FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA: dlb}
+            )
 
             with patch("builtins.input", return_value="n"):
                 try:

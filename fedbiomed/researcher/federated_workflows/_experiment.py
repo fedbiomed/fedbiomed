@@ -17,13 +17,17 @@ from declearn.model.api import Vector
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError,
-    FedbiomedNodeStateAgentError,
     FedbiomedTypeError,
     FedbiomedValueError
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.optimizers import Optimizer
+from fedbiomed.common.optimizers import (
+    AuxVar,
+    EncryptedAuxVar,
+    Optimizer,
+    unflatten_auxvar_after_secagg,
+)
 from fedbiomed.common.serializer import Serializer
 
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
@@ -143,7 +147,7 @@ class Experiment(TrainingPlanWorkflow):
         self.set_round_limit(round_limit)
 
         # always create a monitoring process
-        self._monitor = Monitor()
+        self._monitor = Monitor(self.config.vars["TENSORBOARD_RESULTS_DIR"])
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
 
@@ -740,7 +744,8 @@ class Experiment(TrainingPlanWorkflow):
         # Setup aggregator
         self._aggregator.set_training_plan_type(self.training_plan().type())
         self._aggregator.check_values(n_updates=self._training_args.get('num_updates'),
-                                      training_plan=self.training_plan())
+                                      training_plan=self.training_plan(),
+                                      secagg=self.secagg.active)
         model_params_before_round = self.training_plan().after_training_params()
         aggregator_args = self._aggregator.create_aggregator_args(model_params_before_round,
                                                                   training_nodes)
@@ -754,62 +759,80 @@ class Experiment(TrainingPlanWorkflow):
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
         # if fds is updated, aggregator should be updated too
-        job = TrainingJob(nodes=training_nodes,
-                          keep_files_dir=self.experimentation_path(),
-                          experiment_id=self._experiment_id,
-                          round_=self._round_current,
-                          training_plan=self.training_plan(),
-                          training_args=self._training_args,
-                          model_args=self.model_args(),
-                          data=self._fds,
-                          nodes_state_ids=nodes_state_ids,
-                          aggregator_args=aggregator_args,
-                          do_training=True,
-                          secagg_arguments=secagg_arguments,
-                          optim_aux_var=optim_aux_var
-                          )
+        job = TrainingJob(
+            researcher_id= self._researcher_id,
+            requests=self._reqs,
+            nodes=training_nodes,
+            keep_files_dir=self.experimentation_path(),
+            experiment_id=self._experiment_id,
+            round_=self._round_current,
+            training_plan=self.training_plan(),
+            training_args=self._training_args,
+            model_args=self.model_args(),
+            data=self._fds,
+            nodes_state_ids=nodes_state_ids,
+            aggregator_args=aggregator_args,
+            do_training=True,
+            secagg_arguments=secagg_arguments,
+            optim_aux_var=optim_aux_var
+        )
 
         logger.info('Sampled nodes in round ' + str(self._round_current) + ' ' + str(job.nodes))
 
-        training_replies, aux_vars = job.execute()
+        # Collect training replies and (opt.) optimizer auxiliary variables.
+        training_replies, nodes_aux_var = job.execute()
 
-        # update node states with node answers + when used node list has changed during the round
+        # Update node states with node answers + when used node list has changed during the round.
         self._update_nodes_states_agent(before_training=False, training_replies=training_replies)
 
-        # refining/normalizing model weights received from nodes
-        model_params, weights, total_sample_size, encryption_factors = self._node_selection_strategy.refine(
-            training_replies, self._round_current)
+        # If no Optimizer is used but auxiliary variables were received, raise.
+        if (self._agg_optimizer is None) and nodes_aux_var:
+            raise FedbiomedExperimentError(
+                "Received auxiliary variables from 1+ node Optimizer, but "
+                "no `agg_optimizer` was set for this Experiment to process "
+                "them.\nThese variables come from the following plug-in "
+                f"modules: {set(key for aux in nodes_aux_var for key in aux)}."
+            )
 
+        # Collect and refine/normalize model weights received from nodes.
+        model_params, weights, total_sample_size, encryption_factors = (
+            self._node_selection_strategy.refine(
+                training_replies, self._round_current
+            )
+        )
+
+        # (Secure-)Aggregate model parameters and optimizer auxiliary variables.
         if self._secagg.active:
-            flatten_params = self._secagg.aggregate(
-                round_=self._round_current,
-                encryption_factors=encryption_factors,
-                total_sample_size=total_sample_size,
-                model_params=model_params,
-                num_expected_params=len(self.training_plan().get_model_wrapper_class().flatten(
-                    exclude_buffers = not self.training_args()['share_persistent_buffers']))
+            aggregated_params, aggregated_auxvar = (
+                self._aggregate_encrypted_model_params_and_optim_auxvar(
+                    model_params, nodes_aux_var, encryption_factors, total_sample_size
+                )
             )
-            # FIXME: Access TorchModel through non-private getter once it is implemented
-            aggregated_params: Dict[str, Union[torch.tensor, np.ndarray]] = (
-                self.training_plan().get_model_wrapper_class().unflatten(
-                    flatten_params, exclude_buffers = not self.training_args()['share_persistent_buffers'])
+        else:
+            aggregated_params = self._aggregator.aggregate(
+                model_params,
+                weights,
+                global_model=model_params_before_round,
+                training_plan=self.training_plan(),
+                training_replies=training_replies,
+                node_ids=job.nodes,
+                n_updates=self._training_args.get('num_updates'),
+                n_round=self._round_current,
+            )
+            aggregated_auxvar = (
+                self._aggregate_cleartext_optim_auxvar(nodes_aux_var)
+                if nodes_aux_var else None
             )
 
-        else:
-            # aggregate models from nodes to a global model
-            aggregated_params = self._aggregator.aggregate(model_params,
-                                                           weights,
-                                                           global_model=model_params_before_round,
-                                                           training_plan=self.training_plan(),
-                                                           training_replies=training_replies,
-                                                           node_ids=job.nodes,
-                                                           n_updates=self._training_args.get('num_updates'),
-                                                           n_round=self._round_current)
+        # Process optimizer auxiliary variables if any.
+        
+        if aggregated_auxvar:
+            self._agg_optimizer.set_aux(aggregated_auxvar)
 
         # Optionally refine the aggregated updates using an Optimizer.
-        self._process_optim_aux_var(aux_vars)
-        aggregated_params = self._run_agg_optimizer(self.training_plan(),
-                                                    aggregated_params)
+        aggregated_params = self._run_agg_optimizer(
+            self.training_plan(), aggregated_params
+        )
 
         # Update the training plan with the aggregated parameters
         self.training_plan().set_model_params(aggregated_params)
@@ -829,54 +852,150 @@ class Experiment(TrainingPlanWorkflow):
             aggr_args = self._aggregator.create_aggregator_args(self.training_plan().after_training_params(),
                                                                 training_nodes)
 
-            job = TrainingJob(nodes=training_nodes,
-                              keep_files_dir=self.experimentation_path(),
-                              experiment_id=self._experiment_id,
-                              round_=self._round_current,
-                              training_plan=self.training_plan(),
-                              training_args=self._training_args,
-                              model_args=self.model_args(),
-                              data=self._fds,
-                              nodes_state_ids=nodes_state_ids,
-                              aggregator_args=aggr_args,
-                              do_training=False
-                              )
+            job = TrainingJob(
+                researcher_id=self._researcher_id,
+                requests=self._reqs,
+                nodes=training_nodes,
+                keep_files_dir=self.experimentation_path(),
+                experiment_id=self._experiment_id,
+                round_=self._round_current,
+                training_plan=self.training_plan(),
+                training_args=self._training_args,
+                model_args=self.model_args(),
+                data=self._fds,
+                nodes_state_ids=nodes_state_ids,
+                aggregator_args=aggr_args,
+                do_training=False
+            )
             job.execute()
 
 
         return 1
 
     def _collect_optim_aux_var(
-            self,
-    ) -> Optional[Dict[str, Dict[str, Any]]]:
+        self,
+    ) -> Optional[Dict[str, AuxVar]]:
         """Collect auxiliary variables of the held Optimizer, if any."""
         if self._agg_optimizer is None:
             return None
         return self._agg_optimizer.get_aux()
 
-    def _process_optim_aux_var(
+    def _aggregate_cleartext_optim_auxvar(
         self,
-        aux_var: Dict[str, Dict[str, Dict[str, Any]]]
-    ) -> None:
-        """Process Optimizer auxiliary variables received during last round.
+        nodes_auxvar: Dict[str, Dict[str, AuxVar]],
+    ) -> Dict[str, AuxVar]:
+        """Aggregate clear-text node-wise optimizer auxiliary variables.
+
+        Args:
+            nodes_auxvar: Dict of node-wise optimizer auxiliary variables,
+                with format `{node_name: {module_name: module_auxvar}}`.
+
+        Returns:
+            Aggregated optimizer auxiliary variables, with format
+            `{module_name: module_auxvar}`.
 
         Raises:
-            FedbiomedExperimentError: if auxiliary variables were received,
-                but `agg_optimizer` is None and thus cannot process them.
-            FedbiomedOptimizerError: if the received auxiliary variables do
-                not match the expectations of the `agg_optimizer` (Aggregation) Optimizer.
+            FedbiomedExperimentError: If any node sent unproper-type data.
         """
-        # If an Optimizer is used, pass it the auxiliary variables (if any).
-        if self._agg_optimizer is not None:
-            self._agg_optimizer.set_aux(aux_var)
-        # If no Optimizer is used but auxiliary variables were received, raise.
-        elif aux_var:
+        failed = []  # type: List[str]
+        auxvar = {}  # type: Dict[str, AuxVar]
+        for node_name, node_dict in nodes_auxvar.items():
+            if not isinstance(node_dict, dict):
+                failed.append(node_name)
+            elif not failed:
+                for mod_name, mod_auxv in node_dict.items():
+                    auxvar[mod_name] = auxvar.get(mod_name, 0) + mod_auxv
+        if failed:
             raise FedbiomedExperimentError(
-                "Received auxiliary variables from 1+ node Optimizer, but "
-                "no `agg_optimizer` was set for this Experiment to process "
-                "them.\nThese variables come from the following plug-in "
-                f"modules: {set(aux_var)}."
+                "Received unproper-type optimizer auxiliary variables from "
+                "1+ nodes.\nNodes that sent invalid data are the following: "
+                f"{failed}."
             )
+        return auxvar
+
+    def _aggregate_encrypted_model_params_and_optim_auxvar(
+        self,
+        model_params: Dict[str, List[int]],
+        optim_auxvar: Dict[str, EncryptedAuxVar],
+        encryption_factors: Optional[Dict[str, List[int]]],
+        total_sample_size: int,
+    ) -> Tuple[
+        Dict[str, Union[np.ndarray, torch.Tensor]],
+        Optional[Dict[str, AuxVar]],
+    ]:
+        """Secure-aggregate nodes' model parameters and (opt.) optimizer auxiliary variables.
+
+        Args:
+            model_params: Dict of node-wise flattened encrypted model parameters.
+            optim_auxvar: Dict of node-wise encrypted optimizer auxiliary variables.
+                May be empty.
+            encryption_factors: Optional dict of node-wise encryption factors, used
+                to verify that SecAgg was properly conducted.
+            total_sample_size: Total number of training samples used by nodes.
+
+        Returns:
+            aggregated_params: Aggregated model parameters, unflattened into a dict
+                mapping parameters' names to their values.
+            aggregated_auxvar: Optional aggregated optimizer auxiliary variables,
+                unflattened into a dict mapping modules' names to `AuxVar` objects
+                they are meant to receive and process.
+        """
+        # Gather parameters that need aggregate-decryption.
+        encrypted = model_params
+        encrypted_auxvar = None  # type: Optional[EncryptedAuxVar]
+        aggregated_auxvar = None  # type: Optional[Dict[str, AuxVar]]
+        n_aux_var = 0
+
+        if optim_auxvar:
+            # Ensure auxiliary variables have the same node-order as model
+            # parameters, type-check and pre-aggregate them.
+
+            # Concatenate model parameters and optimizer auxiliary variables.
+            encrypted_auxvar = EncryptedAuxVar.concatenate_from_dict(optim_auxvar)
+
+            n_aux_var = encrypted_auxvar.get_num_expected_params()
+        # Perform secure aggregation of all encrypted parameters.
+        exclude_buffers = not self.training_args()['share_persistent_buffers']
+        num_expected_params = len(
+            self.training_plan().get_model_wrapper_class().flatten(
+                exclude_buffers=exclude_buffers
+            )
+        )
+
+        flattened_model_weights = self._secagg.aggregate(
+            round_=self._round_current,
+            encryption_factors=encryption_factors,
+            total_sample_size=total_sample_size,
+            model_params=encrypted,
+            num_expected_params=num_expected_params,
+        )
+        # Split out aggregated auxiliary variables (if any) and unflatten them.
+        if encrypted_auxvar:
+            # Separate auxiliary variables from model parameters.
+            # Undo normalization by total number of samples.
+            flattened_aux_var = self._secagg.aggregate(
+                round_=self._round_current,
+                encryption_factors=encryption_factors,
+                total_sample_size=total_sample_size,
+                model_params=encrypted_auxvar.get_mapping_encrypted_aux_var(),
+                num_expected_params=n_aux_var,
+            )
+
+            # Recover cleartext AuxVar instances from values and specs.
+            aggregated_auxvar = unflatten_auxvar_after_secagg(
+                decrypted=flattened_aux_var,
+                enc_specs=encrypted_auxvar.enc_specs,
+                cleartext=encrypted_auxvar.cleartext,
+                clear_cls=encrypted_auxvar.clear_cls,
+            )
+        # Unflatten aggregated model parameters.
+        aggregated_params: Dict[str, Union[torch.Tensor, np.ndarray]] = (
+            self.training_plan().get_model_wrapper_class().unflatten(
+                flattened_model_weights, exclude_buffers=exclude_buffers
+            )
+        )
+        # Return aggregated model parameters and optimizer auxiliary variables.
+        return aggregated_params, aggregated_auxvar
 
     def _run_agg_optimizer(
         self,
@@ -898,6 +1017,9 @@ class Experiment(TrainingPlanWorkflow):
         # If no Optimizer is used, return the inputs.
         if self._agg_optimizer is None:
             return aggregated_params
+
+        # disable GPU on Researcher
+        self._agg_optimizer.send_to_device(False)
         # Run any start-of-round routine.
         self._agg_optimizer.init_round()
         # Recover the aggregated model updates, wrapped as a Vector.
@@ -1056,7 +1178,11 @@ class Experiment(TrainingPlanWorkflow):
 
         # conditions are met, save breakpoint
         breakpoint_path, breakpoint_file_name = \
-            choose_bkpt_file(self._experimentation_folder, self._round_current - 1)
+            choose_bkpt_file(
+                self.config.vars["EXPERIMENTS_DIR"],
+                self._experimentation_folder,
+                self._round_current - 1
+            )
 
         # predefine several breakpoint states
         agg_bkpt = None
@@ -1064,8 +1190,10 @@ class Experiment(TrainingPlanWorkflow):
         strategy_bkpt = None
         training_replies_bkpt  = None
         if self._aggregator is not None:
-            agg_bkpt = self._aggregator.save_state_breakpoint(breakpoint_path,
-                                                              global_model=self.training_plan().after_training_params())
+            agg_bkpt = self._aggregator.save_state_breakpoint(
+                breakpoint_path,
+                global_model=self.training_plan().after_training_params()
+            )
         if self._agg_optimizer is not None:
             # FIXME: harmonize naming of save_object
             agg_optim_bkpt = self.save_optimizer(breakpoint_path)
@@ -1129,7 +1257,9 @@ class Experiment(TrainingPlanWorkflow):
         loaded_exp.set_aggregator(bkpt_aggregator)
         # load training replies
         loaded_exp.load_training_replies(saved_state.get("training_replies"))
-        logger.info(f"Experimentation reload from {breakpoint_folder_path} successful!")
+        logger.info(
+            f"Experimentation reload from {breakpoint_folder_path if breakpoint_folder_path else 'last save'} successful!"
+            )
 
         return loaded_exp
 
@@ -1377,6 +1507,7 @@ class Experiment(TrainingPlanWorkflow):
             # we want to strip some fields for the breakpoint
             for reply in training_reply.values():
                 reply.pop('params', None)
+                reply.pop('optim_aux_var', None)
         return converted_training_replies
 
     def load_training_replies(

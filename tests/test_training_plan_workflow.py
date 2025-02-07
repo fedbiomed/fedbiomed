@@ -1,19 +1,16 @@
-import os, unittest
+import os
+import unittest
+import tempfile
+
 from unittest.mock import MagicMock, patch
-from itertools import product
 
 
-#############################################################
-# Import ResearcherTestCase before importing any FedBioMed Module
-from testsupport.base_case import ResearcherTestCase
 from testsupport.base_mocks import MockRequestModule
-#############################################################
 
 import fedbiomed
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan, TorchTrainingPlan, SKLearnTrainingPlan
-from fedbiomed.researcher.environ import environ
 from fedbiomed.researcher.federated_workflows import TrainingPlanWorkflow
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob, TrainingPlanApproveJob, TrainingPlanCheckJob
 from testsupport.fake_training_plan import (
@@ -23,10 +20,15 @@ from testsupport.fake_training_plan import (
 
 from unittest.mock import ANY
 
-class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
+from fedbiomed.researcher.config import config
+
+
+class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
 
     def setUp(self):
-        MockRequestModule.setUp(self, module="fedbiomed.researcher.federated_workflows._federated_workflow.Requests")
+        MockRequestModule.setUp(
+            self, module="fedbiomed.researcher.federated_workflows._federated_workflow.Requests")
+
         super().setUp()
         self.abstract_methods_patcher = patch.multiple(TrainingPlanWorkflow, __abstractmethods__=set())
         self.abstract_methods_patcher.start()
@@ -40,8 +42,13 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         self.mock_import_class_object  = self.patch_import_class_object.start()
         self.mock_import_class_object.return_value = None, self.mock_tp
 
+        self.temp_dir = tempfile.TemporaryDirectory()
+        config.load(root=self.temp_dir.name)
+
+
     def tearDown(self):
         super().tearDown()
+        self.temp_dir.cleanup()
         self.abstract_methods_patcher.stop()
         self.patch_import_class_object.stop()
 
@@ -234,7 +241,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
         )
         exp.breakpoint(state={}, bkpt_number=1)
         # Test if the Serializer.dump is called once with the good arguments
-        params_path = os.path.join(environ['EXPERIMENTS_DIR'],
+        params_path = os.path.join(exp.config.vars['EXPERIMENTS_DIR'],
                                    exp.experimentation_folder(),
                                    'breakpoint_0000',
                                    f'model_params_{mock_uuid.return_value}.mpk'
@@ -248,7 +255,7 @@ class TestTrainingPlanWorkflow(ResearcherTestCase, MockRequestModule):
             {
                 'model_args': {'breakpoint-model': 'args'},
                 'training_plan_class_name': 'FakeTorchTrainingPlan',
-                'training_plan_path': os.path.join(environ['EXPERIMENTS_DIR'],
+                'training_plan_path': os.path.join(exp.config.vars['EXPERIMENTS_DIR'],
                                                    exp.experimentation_folder(),
                                                    'breakpoint_0000',
                                                    'model_0000.py'

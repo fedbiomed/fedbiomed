@@ -9,7 +9,6 @@ import hashlib
 import os
 import re
 from python_minifier import minify
-import shutil
 from tabulate import tabulate
 from tinydb import TinyDB, Query
 from typing import Any, Dict, List, Tuple, Union
@@ -30,8 +29,7 @@ from fedbiomed.common.message import (
     TrainingPlanStatusRequest,
     TrainingPlanStatusReply,
 )
-from fedbiomed.node.environ import environ
-
+from fedbiomed.common.utils import SHARE_DIR
 
 # Collect provided hashing function into a dict
 HASH_FUNCTIONS = {
@@ -49,23 +47,38 @@ HASH_FUNCTIONS = {
 class TrainingPlanSecurityManager:
     """Manages training plan approval for a node."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        db: str,
+        node_id: str,
+        hashing: str,
+        tp_approval: bool = False
+    ) -> None:
         """Class constructor for TrainingPlanSecurityManager.
 
         Creates a DB object for the table named as `Training plans` and builds a query object to query
         the database.
+
+        Args:
+            db: Path to database file.
+            node_id: ID of the active node.
+            hashing: Hashing algorithm
+            tp_approval: True if training plan approval is requested
         """
 
-        self._tinydb = TinyDB(environ["DB_PATH"])
+        self._node_id = node_id
+        self._tp_approval = tp_approval
+        self._default_tps = os.path.join(SHARE_DIR, 'envs', 'common', 'default_training_plans')
+        self._tinydb = TinyDB(db)
         self._tinydb.table_class = DBTable
         # dont use DB read cache for coherence when updating from multiple sources (eg: GUI and CLI)
         self._db = self._tinydb.table(name="TrainingPlans", cache_size=0)
         self._database = Query()
 
+        self._hashing = hashing
         self._tags_to_remove = ["hash", "date_modified", "date_created"]
 
-    @staticmethod
-    def _create_hash(source: str, from_string: str = False):
+    def _create_hash(self, source: str, from_string: str = False):
         """Creates hash with given training plan
 
         Args:
@@ -78,7 +91,7 @@ class TrainingPlanSecurityManager:
             FedbiomedTrainingPlanSecurityManagerError: Hashing algorithm does not exist in HASH_FUNCTION table
         """
 
-        hash_algo = environ["HASHING_ALGORITHM"]
+        hash_algo = self._hashing
 
         if not isinstance(source, str):
             raise FedbiomedTrainingPlanSecurityManagerError(
@@ -130,8 +143,8 @@ class TrainingPlanSecurityManager:
             hashing = HASH_FUNCTIONS[hash_algo]()
         else:
             raise FedbiomedTrainingPlanSecurityManagerError(
-                f"{ErrorNumbers.FB606.value}: unknown hashing algorithm in the `environ`"
-                f" {environ['HASHING_ALGORITHM']}"
+                f"{ErrorNumbers.FB606.value}: unknown hashing algorithm in the 'config'"
+                f"{self._hashing}"
             )
 
         # Create hash from training plan minified training plan content and encoded as `utf-8`
@@ -308,7 +321,7 @@ class TrainingPlanSecurityManager:
         else:
             for training_plan, doc in zip(training_plans, docs):
                 # If training plan file is exists
-                if training_plan["algorithm"] != environ["HASHING_ALGORITHM"]:
+                if training_plan["algorithm"] != self._hashing:
                     logger.info(
                         f'Recreating hashing for : {training_plan["name"]} \t {training_plan["training_plan_id"]}'
                     )
@@ -499,7 +512,7 @@ class TrainingPlanSecurityManager:
         reply = {
             "researcher_id": request.researcher_id,
             "request_id": request.request_id,
-            "node_id": environ["NODE_ID"],
+            "node_id": self._node_id,
             "message": "",
             "status": 0,  # HTTP status (set by default to 0, non-existing HTTP status code)
         }
@@ -525,7 +538,7 @@ class TrainingPlanSecurityManager:
             return ApprovalReply(**reply)
 
         if not is_existant:
-            # move training plan into corresponding directory (from TMP_DIR to TRAINING_PLANS_DIR)
+            # move training plan into corresponding directory
             try:
                 training_plan_hash, hash_algo, _ = self._create_hash(
                     training_plan, from_string=True
@@ -612,7 +625,7 @@ class TrainingPlanSecurityManager:
         reply = {
             "researcher_id": request.researcher_id,
             "request_id": request.request_id,
-            "node_id": environ["NODE_ID"],
+            "node_id": self._node_id,
             "experiment_id": request.experiment_id,
             "approval_obligation": True,
             "training_plan": request.training_plan,
@@ -632,7 +645,7 @@ class TrainingPlanSecurityManager:
                 training_plan_status = "Not Registered"
 
             reply.update({"success": True, "status": training_plan_status})
-            if environ["TRAINING_PLAN_APPROVAL"]:
+            if self._tp_approval:
                 if training_plan_status == TrainingPlanApprovalStatus.APPROVED.value:
                     msg = "Training plan has been approved by the node, training can start"
                 elif training_plan_status == TrainingPlanApprovalStatus.PENDING.value:
@@ -668,7 +681,7 @@ class TrainingPlanSecurityManager:
     def register_update_default_training_plans(self):
         """Registers or updates default training plans.
 
-        Launched when the node is started through CLI, if environ['ALLOW_DEFAULT_TRAINING_PLANS'] is enabled.
+        Launched when the node is started through CLI, if `allow_default_training_plans` is enabled.
         Checks the files saved into `default_training_plans` directory and update/register them based on following
         conditions:
 
@@ -680,7 +693,7 @@ class TrainingPlanSecurityManager:
         """
 
         # Get training plan files saved in the directory
-        training_plans_file = os.listdir(environ["DEFAULT_TRAINING_PLANS_DIR"])
+        training_plans_file = os.listdir(self._default_tps)
 
         # Get only default training plans from DB
         try:
@@ -716,7 +729,7 @@ class TrainingPlanSecurityManager:
             self.register_training_plan(
                 name=training_plan,
                 description="Default training plan",
-                path=os.path.join(environ["DEFAULT_TRAINING_PLANS_DIR"], training_plan),
+                path=os.path.join(self._default_tps, training_plan),
                 training_plan_type="default",
             )
 
@@ -739,7 +752,7 @@ class TrainingPlanSecurityManager:
                 )
         # Update training plans
         for training_plan in training_plans_exists:
-            path = os.path.join(environ["DEFAULT_TRAINING_PLANS_DIR"], training_plan)
+            path = os.path.join(self._default_tps, training_plan)
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
             try:
                 training_plan_info = self._db.get(self._database.name == training_plan)
@@ -753,10 +766,10 @@ class TrainingPlanSecurityManager:
             # Check if hashing algorithm has changed
             try:
                 hash, algorithm, _ = self._create_hash(
-                    os.path.join(environ["DEFAULT_TRAINING_PLANS_DIR"], training_plan)
+                    os.path.join(self._default_tps, training_plan)
                 )
 
-                if training_plan_info["algorithm"] != environ["HASHING_ALGORITHM"]:
+                if training_plan_info["algorithm"] != self._hashing:
                     # Verify no such training plan already exists in DB
                     self._check_training_plan_not_existing(None, hash, algorithm)
                     logger.info(

@@ -146,7 +146,7 @@ class VES:
         for v in V:
             e.append(v)
             bs -= 1
-            if bs == 0:
+            if bs == 0:  # rather use `if bs < 1`
                 E.append(self._batch(e, element_size))
                 e = []
                 bs = comp_ratio
@@ -498,7 +498,6 @@ class BaseKey:
         Returns:
             list of tau values
         """
-
         taus = (np.arange(0, len_, dtype=mpz) << self._public_param.bits // 2) | tau
 
         return [self._public_param.hashing_function(t) for t in taus]

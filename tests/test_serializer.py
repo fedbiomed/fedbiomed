@@ -15,8 +15,8 @@ from declearn.model.sklearn import NumpyVector
 from declearn.model.torch import TorchVector
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
-from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
+from fedbiomed.common.optimizers.declearn import ScaffoldAuxVar
 
 
 class TestSerializer(unittest.TestCase):
@@ -152,6 +152,38 @@ class TestSerializer(unittest.TestCase):
             }
         }
         self.assert_serializable(obj)
+
+    def test_serializer_11_set(self) -> None:
+        """Test that 'Serializer' operates well on 'set' instances."""
+        self.assert_serializable({"a", "b", "c"})
+        self.assert_serializable({1, 2, 3})
+
+    def test_serializer_12_vector_spec_numpy(self) -> None:
+        """Test that 'Serializer' operates well on 'VectorSpec' from numpy."""
+        vector = NumpyVector({
+            "a": np.random.normal(size=(32, 128)),
+            "b": np.random.normal(size=(32,)),
+        })
+        specs = vector.get_vector_specs()
+        self.assert_serializable(specs)
+
+    def test_serializer_13_vector_spec_torch(self) -> None:
+        """Test that 'Serializer' operates well on 'VectorSpec' from torch."""
+        vector = TorchVector({
+            "a": torch.randn(size=(32, 128)),
+            "b": torch.randn(size=(32,)),
+        })
+        specs = vector.get_vector_specs()
+        self.assert_serializable(specs)
+
+    def test_serializer_14_optimizer_auxvar(self) -> None:
+        """Test that 'Serializer' operates well on 'AuxVar' instances."""
+        vector = TorchVector({
+            "a": torch.randn(size=(32, 128)),
+            "b": torch.randn(size=(32,)),
+        })
+        auxvar = ScaffoldAuxVar(state=vector)
+        self.assert_serializable(auxvar)
 
 
 if __name__ == "__main__":

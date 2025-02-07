@@ -1,13 +1,13 @@
+import shutil
 import unittest
 import argparse
-import sys, io, os
+import tempfile
+import configparser
+import sys
+import io
+import os
 from unittest.mock import MagicMock, patch
 from pathlib import Path
-
-#############################################################
-# Import NodeTestCase before importing FedBioMed Module
-from testsupport.base_case import NodeTestCase
-#############################################################
 
 import fedbiomed
 import fedbiomed.node.cli_utils
@@ -19,6 +19,9 @@ from fedbiomed.node.cli import (
     TrainingPlanArgumentParser,
     start_node
 )
+
+from fedbiomed.node.config import NodeConfig
+
 from fedbiomed.node.cli_utils._medical_folder_dataset import get_map_modalities2folders_from_cli, \
     add_medical_folder_dataset_from_cli
 from fedbiomed.node.cli_utils import add_database
@@ -26,13 +29,14 @@ from fedbiomed.common.data import MapperBlock
 from fedbiomed.common.exceptions import FedbiomedError
 from test_medical_datasets import patch_modality_glob, patch_is_modality_dir
 
-class TestTrainingPlanArgumentParser(NodeTestCase):
+class TestTrainingPlanArgumentParser(unittest.TestCase):
 
     """Test case for node cli dataset argument parse """
     def setUp(self):
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
         self.tp_arg_pars = TrainingPlanArgumentParser(self.subparsers)
+        self.tp_arg_pars._node = MagicMock()
 
     def test_01_training_plan_argument_parser_initialize(self):
         """Tests training plan parser intialization"""
@@ -48,39 +52,40 @@ class TestTrainingPlanArgumentParser(NodeTestCase):
         self.assertTrue("view" in tp_choices) #noqa
         self.assertTrue("update" in tp_choices) #noqa
 
-    @patch.object(fedbiomed.node.cli,  "imp_cli_utils")
-    def test_02_training_plan_argument_parser_execute(self, cli_utils):
+    def test_02_training_plan_argument_parser_execute(self):
         """Tests training plan arugment parser actions"""
 
         self.tp_arg_pars.initialize()
 
         args = self.parser.parse_args(['training-plan', 'delete'])
         self.tp_arg_pars.delete(args)
-        cli_utils.return_value.delete_training_plan.assert_called_once()
-
         self.tp_arg_pars.list()
-        cli_utils.return_value.tp_security_manager.list_training_plans.assert_called_once()
-
-        self.tp_arg_pars.view()
-        cli_utils.return_value.view_training_plan.assert_called_once()
-
-        self.tp_arg_pars.register()
-        cli_utils.return_value.register_training_plan.assert_called_once()
-
-        args = self.parser.parse_args(['training-plan', 'reject'])
-        self.tp_arg_pars.reject(args)
-        cli_utils.return_value.reject_training_plan.assert_called_once()
-
         self.tp_arg_pars.update()
-        cli_utils.return_value.update_training_plan.assert_called_once()
+
+        with patch.object(fedbiomed.node.cli, 'view_training_plan') as m:
+            self.tp_arg_pars.view()
+            m.assert_called_once()
+
+        with patch.object(fedbiomed.node.cli, 'register_training_plan') as m:
+            self.tp_arg_pars.register()
+            m.assert_called_once()
 
 
-class TestDatasetArgumentParser(NodeTestCase):
+        with patch.object(fedbiomed.node.cli, 'reject_training_plan') as m:
+            args = self.parser.parse_args(['training-plan', 'reject'])
+            self.tp_arg_pars.reject(args)
+            m.assert_called_once()
+
+
+
+class TestDatasetArgumentParser(unittest.TestCase):
     """Test case for node cli dataset argument parse """
     def setUp(self):
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
         self.dataset_arg_pars = DatasetArgumentParser(self.subparsers)
+        self.node = MagicMock()
+        self.dataset_arg_pars._node = self.node
 
     def test_01_dataset_argument_parser_initialize(self):
         """Test initialization"""
@@ -100,59 +105,65 @@ class TestDatasetArgumentParser(NodeTestCase):
         self.assertTrue("--all" in  dataset_choices["delete"]._option_string_actions)
         self.assertTrue("--mnist" in  dataset_choices["delete"]._option_string_actions)
 
-    @patch.object(fedbiomed.node.cli,  "imp_cli_utils")
-    def test_02_dataset_argument_parser_add(self, cli_utils):
+    def test_02_dataset_argument_parser_add(self):
 
         self.dataset_arg_pars.initialize()
         args = self.parser.parse_args(["dataset", "add"])
-        self.dataset_arg_pars.add(args)
-        cli_utils.return_value.add_database.assert_called_once_with()
-        cli_utils.return_value.add_database.reset_mock()
 
-        args = self.parser.parse_args(["dataset", "add", "--mnist", "test"])
-        self.dataset_arg_pars.add(args)
-        cli_utils.return_value.add_database.assert_called_once_with(interactive=False, path="test")
-        cli_utils.return_value.add_database.reset_mock()
+        with patch.object(fedbiomed.node.cli, 'add_database') as m:
+            self.dataset_arg_pars.add(args)
+            m.assert_called_once()
+            m.reset_mock()
+
+            args = self.parser.parse_args(["dataset", "add", "--mnist", "test"])
+            self.dataset_arg_pars.add(args)
+            m.assert_called_once_with(self.node.dataset_manager, interactive=False, path="test")
+            m.reset_mock()
 
 
-    @patch.object(fedbiomed.node.cli,  "imp_cli_utils")
-    def test_03_dataset_argument_parser_delete(self, cli_utils):
+    def test_03_dataset_argument_parser_delete(self):
 
         self.dataset_arg_pars.initialize()
-        args = self.parser.parse_args(["dataset", "delete"])
-        self.dataset_arg_pars.delete(args)
-        cli_utils.return_value.delete_database.assert_called_once_with()
-        cli_utils.return_value.delete_database.reset_mock()
-
-        args = self.parser.parse_args(["dataset", "delete", "--all"])
-        self.dataset_arg_pars.delete(args)
-        cli_utils.return_value.delete_all_database.assert_called_once_with()
-        cli_utils.return_value.delete_all_database.reset_mock()
-
-        args = self.parser.parse_args(["dataset", "delete", "--mnist"])
-        self.dataset_arg_pars.delete(args)
-        cli_utils.return_value.delete_database.assert_called_once_with(interactive=False)
-        cli_utils.return_value.delete_database.reset_mock()
 
 
-    @patch.object(fedbiomed.node.cli,  "imp_cli_utils")
-    def test_04_dataset_argument_parser_list(self, cli_utils):
+        with patch.object(fedbiomed.node.cli, 'delete_database') as m:
+            args = self.parser.parse_args(["dataset", "delete"])
+            self.dataset_arg_pars.delete(args)
+            m.assert_called_once_with(self.node.dataset_manager)
+
+
+        with patch.object(fedbiomed.node.cli, 'delete_all_database') as m:
+            args = self.parser.parse_args(["dataset", "delete", "--all"])
+            self.dataset_arg_pars.delete(args)
+            m.assert_called_once_with(self.node.dataset_manager)
+            m.reset_mock()
+
+        with patch.object(fedbiomed.node.cli, 'delete_database') as m:
+            args = self.parser.parse_args(["dataset", "delete", "--mnist"])
+            self.dataset_arg_pars.delete(args)
+            m.assert_called_once_with(
+                self.node.dataset_manager,interactive=False)
+
+
+    def test_04_dataset_argument_parser_list(self):
 
         self.dataset_arg_pars.initialize()
         args = self.parser.parse_args(["dataset", "list"])
         self.dataset_arg_pars.list(args)
 
-        cli_utils.return_value.dataset_manager.list_my_data.return_value = []
-        cli_utils.return_value.dataset_manager.list_my_data.assert_called_once_with(verbose=True)
+        self.node.dataset_manager.list_my_data.return_value = []
+        self.node.dataset_manager.list_my_data.assert_called_once_with(verbose=True)
 
 
-class TestNodeControl(NodeTestCase):
+class TestNodeControl(unittest.TestCase):
     """Test case for node control parser"""
     def setUp(self):
 
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
         self.control = NodeControl(self.subparsers)
+        self.node = MagicMock()
+        self.control._node = self.node
 
     def test_01_node_control_initialize(self):
         """Tests intialize"""
@@ -179,52 +190,66 @@ class TestNodeControl(NodeTestCase):
             self.control.start(args)
 
 
-    @patch('fedbiomed.node.node.Node', autospec=True)
-    @patch('fedbiomed.node.cli_utils', autospec=True)
-    def test_03_node_control__start(self, cli_utils, mock_node):
+    @patch('fedbiomed.node.cli.Node', autospec=True)
+    def test_03_node_control__start(self, mock_node):
         """Tests node start"""
-        self.env["TRAINING_PLAN_APPROVAL"] = True
-        self.env["ALLOW_DEFAULT_TRAINING_PLANS"] = True
-
-        args= {"gpu": False}
-        start_node(args)
-        mock_node.return_value.task_manager.assert_called_once()
-        mock_node.return_value.task_manager.reset_mock()
-
-        args= {"gpu": False}
-        self.env["TRAINING_PLAN_APPROVAL"] = False
-        start_node(args)
-        mock_node.return_value.task_manager.assert_called_once()
-
-        with patch.object(fedbiomed.node.cli, "logger") as logger:
-            mock_node.return_value.task_manager.side_effect = FedbiomedError
-            start_node(args)
-            logger.critical.assert_called_once()
-            logger.critical.reset_mock()
-
-            mock_node.return_value.task_manager.side_effect = Exception
-            start_node(args)
-            logger.critical.assert_called_once()
 
 
+        cfg = configparser.ConfigParser()
+        cfg["security"] = {
+            'training_plan_apprival': 'true',
+            'allow_default_training_plan': 'true'
+        }
+        cfg["default"] = {
+            'id': 'test-id'
+        }
+
+        mock_node.return_value.tp_security_manager = MagicMock()
+
+        with tempfile.TemporaryDirectory() as temp_:
+            config = NodeConfig(temp_)
+            config._cfg = cfg
+            with patch('fedbiomed.node.cli.NodeConfig', autospec=True) as mock_config:
+                mock_config.return_value = config
+                args= {"gpu": False}
+                start_node('config.ini', args)
+                mock_node.return_value.task_manager.assert_called_once()
+                mock_node.return_value.task_manager.reset_mock()
+
+                args= {"gpu": False}
+                config._cfg["security"]["training_plan_approval"] = 'false'
+                start_node('config.ini', args)
+                mock_node.return_value.task_manager.assert_called_once()
+
+                with patch.object(fedbiomed.node.cli, "logger") as logger:
+                    mock_node.return_value.task_manager.side_effect = FedbiomedError
+                    start_node('config.ini', args)
+                    logger.critical.assert_called_once()
+                    logger.critical.reset_mock()
+
+                    mock_node.return_value.task_manager.side_effect = Exception
+                    start_node('config.ini', args)
+                    logger.critical.assert_called_once()
 
 
-class TestNodeCLI(NodeTestCase):
+
+class TestNodeCLI(unittest.TestCase):
     """Tests main NodeCLI"""
 
-    def setUp(self) -> None:
-        pass
-
-
-    def test_01_node_cli_init(self):
+    @patch("builtins.input")
+    def test_01_node_cli_init(self, input_patch):
         """Tests intialization"""
-        self.node_cli = NodeCLI()
-        self.node_cli.parse_args(["--config", "config_n1", 'dataset', 'list'])
+        input_patch.return_value = "y"
+        #import sys
+        #sys.argv.append('-y')
+        # remove any `fbm-node` folder already existing
+        shutil.rmtree('fbm-node', ignore_errors=True)
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            self.node_cli = NodeCLI()
+            self.node_cli.parse_args(["--path", os.path.join(str(tmpdirname), 'fbm-node'), 'dataset', 'list'])
+        #sys.argv.remove('-y')
 
-
-
-
-class TestCli(NodeTestCase):
+class TestCli(unittest.TestCase):
     @staticmethod
     def mock_cli_input(x):
         """Requires that each test defines TestCli.inputs as a list"""
@@ -269,36 +294,16 @@ class TestCli(NodeTestCase):
 
             MapperBlock.__eq__ = test_mapper_eq
 
-            fedbiomed.node.cli_utils.dataset_manager.add_database = MagicMock()
-            add_database()
+            fedbiomed.node.cli_utils.add_database = MagicMock()
+            add_database(MagicMock())
 
             dlb = MapperBlock()
             dlb.map = {'T1': ['T1philips', 'T1siemens'],
                        'T2': ['T2'], 'label': ['label'],
                        'Tnon-exist': ['non-existing-modality']}
 
-            # TODO : test with DLP, when CLI DLP supported by future version
-            # fedbiomed.node.cli_utils.dataset_manager.add_database.assert_called_once_with(
-            #    name='test-db-name',
-            #    tags=['test-tag1', 'test-tag2'],
-            #    data_type='medical-folder',
-            #    description='',
-            #    path='some/valid/path',
-            #    dataset_parameters={
-            #        'tabular_file': 'some/valid/path',
-            #        'index_col': 0
-            #    },
-            #    data_loading_plan=DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
-            # )
 
-            # TODO : test with DLP, when CLI DLP supported by future version
-            # dlp_arg = fedbiomed.node.cli_utils.dataset_manager.add_database.call_args[1]['data_loading_plan']
-            # self.assertIn(MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, dlp_arg)
-            # self.assertDictEqual(dlp_arg[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, dlb.map)
-            # self.assertEqual(dlp_arg.name, 'test-dlp-name')
-
-
-class TestMedicalFolderCliUtils(NodeTestCase):
+class TestMedicalFolderCliUtils(unittest.TestCase):
     @staticmethod
     def mock_input(x):
         return TestMedicalFolderCliUtils.inputs.pop(0)

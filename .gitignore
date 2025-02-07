@@ -7,10 +7,7 @@
 .#*
 \#*
 .ccls-cache
-.vscode
-
-
-### Generic ###
+.vscbuild### Generic ###
 *.log
 *.pot
 *.pyc
@@ -67,7 +64,6 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 pytestdebug.log
-
 # Translations
 *.mo
 
@@ -104,9 +100,6 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
-# poetry
-#poetry.lock
-
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
 
@@ -116,6 +109,9 @@ celerybeat.pid
 
 # SageMath parsed files
 *.sage.py
+
+# pdm
+.pdm-python
 
 # Environments
 # .env
@@ -127,6 +123,10 @@ ENV/
 env.bak/
 venv.bak/
 pythonenv*
+.venv*
+
+# FB environments
+fbm-researcher/
 
 # Spyder project settings
 .spyderproject
@@ -164,7 +164,7 @@ node_modules
 gui/ui/.yarn
 gui/ui/.pnp.cjs
 gui/ui/.pnp.loader.mjs
-
+!gui/ui/dist
 # testing
 coverage
 
@@ -181,8 +181,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-package-lock.json
-yarn.lock
 # -----------------------------------------------------------
 
 ### JupyterNotebooks ###
@@ -338,8 +336,6 @@ fabric.properties
 #   having no cross-platform support, pipenv may install dependencies that don't work, or not
 #   install all needed dependencies.
 
-# poetry
-
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 
 # Celery stuff
@@ -390,7 +386,6 @@ gui/config_gui.ini
 *queue*/
 db.json
 queue_manager/
-*.ini
 !config_gui.ini
 db_client_*.json
 queue_manager_client_*
@@ -409,9 +404,10 @@ trained_model
 .scannerwork
 
 
-# Docs 
+# Docs
 build
 public
+!fedbiomed_gui/ui/public
 build-tmp
 !envs/build
 report.tap

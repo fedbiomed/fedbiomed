@@ -12,20 +12,21 @@ source ~/bashrc_entrypoint
 
 check_vpn_environ
 init_misc_environ
-change_path_owner "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
+change_path_owner "fbm_researcher" "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
 start_wireguard
 configure_wireguard
 
 trap finish TERM INT QUIT
 
 ## TODO : make more general by including in the VPN configuration file and in user environment
-export RESEARCHER_SERVER_HOST=10.222.0.2
-export RESEARCHER_SERVER_PORT=50051
+export FBM_SERVER_HOST=10.222.0.2
+export FBM_SERVER_PORT=50051
 export PYTHONPATH=/fedbiomed
-export SECAGG_INSECURE_VALIDATION=False
-su -c "export PATH=${PATH} ; eval $(conda shell.bash hook) ; conda activate fedbiomed-researcher ; \
-    ./scripts/fedbiomed_run configuration create --component researcher --use-current; cd notebooks ; \
-    jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' " $CONTAINER_USER &
+export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=False
+su -c "export FBM_RESEARCHER_COMPONENT_ROOT=/fbm-researcher ; \
+      fedbiomed component create -c researcher --path /fbm-researcher  --exist-ok; \
+	  cd fedbiomed/notebooks ; \
+      jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' " $CONTAINER_USER &
 
 # proxy port for TensorBoard
 # enables launching TB without `--host` option (thus listening only on `localhost`)

@@ -1,0 +1,119 @@
+---
+name: 'Install Nodejs and Yarn'
+description: |
+  Installs NodeJs and yarn on self hosted and github hosted
+  runners.
+
+
+inputs:
+  node-version:
+    description: 'Node Version'
+    default: '23'
+
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check if runner is self-hosted
+      shell: bash -il {0}
+      run: |
+        if [[ "${{ runner.environment }}" == "self-hosted" ]]; then
+          echo "This is a self-hosted runner."
+          echo "IS_SELF_HOSTED=true" >> $GITHUB_ENV
+        else
+          echo "This is a GitHub-hosted runner."
+          echo "IS_SELF_HOSTED=false" >> $GITHUB_ENV
+        fi
+
+    - name: Install Node.js and Yarn (Self-Hosted)
+      if: env.IS_SELF_HOSTED == 'true' && runner.os != 'Windows'
+      shell: bash -il {0}
+      run: |
+        echo "Running custom installation script for self-hosted runner..."
+
+        # Get Node.js version from input
+        NODE_VERSION="${{ inputs.node-version }}"
+
+        echo "TEst shell"
+        echo $SHELL
+
+        # Install NVM
+        if [ ! -d "$HOME/.nvm" ]; then
+          echo "NVM not found, installing..."
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        else
+          echo "NVM is already installed."
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        fi
+
+        if [ -f "$HOME/.zshrc" ]; then
+          echo "Sourcing $HOME/.zshrc for zsh shell..."
+          source "$HOME/.zshrc"
+        fi
+
+        if [ -f "$HOME/.bashrc" ]; then
+          echo "Sourcing $HOME/.bashrc for shell..."
+          source "$HOME/.bashrc"
+        fi
+
+        if ! nvm ls "$NODE_VERSION" &> /dev/null; then
+          echo "Node.js version $NODE_VERSION is not installed. Installing..."
+          nvm install "$NODE_VERSION"
+        else
+          echo "Node.js version $NODE_VERSION is already installed."
+        fi
+
+        nvm use "$NODE_VERSION"
+
+        if ! command -v yarn &> /dev/null; then
+          echo "Yarn not found, installing..."
+          npm install -g yarn
+        else
+          echo "Yarn is already installed"
+        fi
+
+
+        # Verify installations
+        node --version
+        npm --version
+        yarn --version
+
+    - name: Validate NVM installation
+      shell: bash -il {0}
+      run: |
+        # Check if NVM initialization lines are present in .zshrc
+        if grep -q 'export NVM_DIR="$HOME/.nvm"' "$HOME/.zshrc"; then
+          echo "NVM initialization found in .zshrc, adding to .bashrc..."
+
+          # Check if the same lines are already in .bashrc
+          if ! grep -q 'export NVM_DIR="$HOME/.nvm"' "$HOME/.bash_profile"; then
+            # Append NVM initialization lines to .bashrc
+            echo 'export NVM_DIR="$HOME/.nvm"' >> "$HOME/.bash_profile"
+            echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> "$HOME/.bash_profile"
+            echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"' >> "$HOME/.bash_profile"
+            echo "NVM initialization added to .bashrc"
+          else
+            echo "NVM initialization already present in .bashrc"
+          fi
+        else
+          echo "No NVM initialization found in .zshrc, skipping."
+        fi
+
+    # Installation step for GitHub-hosted runners (Using actions/setup-node)
+    - name: Set up Node.js and Yarn (GitHub Hosted)
+      if: env.IS_SELF_HOSTED == 'false'
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ inputs.node-version }}  # Use the input version here
+
+    - name: Verify Node.js and Yarn (GitHub Hosted)
+      shell: bash -l {0}
+      if: env.IS_SELF_HOSTED == 'false'
+      run: |
+        # Verify installations
+        node --version
+        npm --version
+        yarn --version

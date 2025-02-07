@@ -4,34 +4,35 @@
 import os
 import tkinter.messagebox
 import warnings
+from typing import Union
+
 from importlib import import_module
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetManagerError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.data import DataLoadingPlan, FlambyDatasetMetadataBlock, \
-    FlambyLoadingBlockTypes
+from fedbiomed.common.data import DataLoadingPlan
 from fedbiomed.node.cli_utils._medical_folder_dataset import add_medical_folder_dataset_from_cli
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
-from fedbiomed.common.data import discover_flamby_datasets
 
 
-dataset_manager = DatasetManager()
-
-
-def add_database(interactive: bool = True,
-                 path: str = None,
-                 name: str = None,
-                 tags: str = None,
-                 description: str = None,
-                 data_type: str = None,
-                 dataset_parameters: dict = None):
+def add_database(
+    dataset_manager: DatasetManager,
+    interactive: bool = True,
+    path: str = None,
+    name: str = None,
+    tags: str = None,
+    description: str = None,
+    data_type: str = None,
+    dataset_parameters: dict = None
+) -> None:
     """Adds a dataset to the node database.
 
     Also queries interactively the user on the command line (and file browser)
     for dataset parameters if needed.
 
     Args:
+        dataset_manager: Object for managing the dataset
         interactive: Whether to query interactively for dataset parameters
             even if they are all passed as arguments. Defaults to `True`.
         path: Path to the dataset.
@@ -39,6 +40,7 @@ def add_database(interactive: bool = True,
         tags: Comma separated list of tags for the dataset.
         description: Human readable description of the dataset.
         data_type: Keyword for the data type of the dataset.
+        dataset_parameters: Parameters for the dataset manager
     """
 
     dataset_parameters = dataset_parameters or None
@@ -92,8 +94,8 @@ def add_database(interactive: bool = True,
                                                                                                   dataset_parameters,
                                                                                                   data_loading_plan)
             elif data_type == 'flamby':
-                path = None  # flamby datasets are not identified by their path
-
+                from fedbiomed.common.data.flamby_dataset import discover_flamby_datasets, FlambyDatasetMetadataBlock, \
+                    FlambyLoadingBlockTypes
                 # Select the type of dataset (fed_ixi, fed_heart, etc...)
                 available_flamby_datasets = discover_flamby_datasets()
                 msg = "Please select the FLamby dataset that you're configuring:\n"
@@ -111,7 +113,7 @@ def add_database(interactive: bool = True,
                             warnings.warn(f"Please pick a number in the range {list(available_flamby_datasets.keys())}")
                     except ValueError:
                         warnings.warn('Please input a numeric value (integer)')
-
+                path = available_flamby_datasets[flamby_dataset_index]  # flamby datasets not identified by their path
                 # Select the center id
                 module = import_module(f".{available_flamby_datasets[flamby_dataset_index]}", package='flamby.datasets')
                 n_centers = module.NUM_CLIENTS
@@ -163,8 +165,11 @@ def add_database(interactive: bool = True,
         if not os.path.exists(path):
             logger.critical("provided path does not exists: " + path)
 
-    logger.info(f"PATH VALUE {path}")
-    # Add database
+        path = os.path.abspath(path)
+
+    path = os.path.abspath(path)
+    logger.info(f"Dataset absolute path: {path}")
+
     try:
         dataset_manager.add_database(name=name,
                                      tags=tags,
@@ -189,7 +194,10 @@ def add_database(interactive: bool = True,
     dataset_manager.list_my_data(verbose=True)
 
 
-def delete_database(interactive: bool = True):
+def delete_database(
+    dataset_manager: DatasetManager,
+    interactive: bool = True
+) -> None:
     """Removes one or more dataset from the node's database.
 
     Does not modify the dataset's files.
@@ -205,6 +213,9 @@ def delete_database(interactive: bool = True):
     if not my_data:
         logger.warning('No dataset to delete')
         return
+
+    msg: str = ''
+    d_id: Union[str, None] = None
 
     if interactive is True:
         options = [d['name'] for d in my_data]
@@ -236,10 +247,13 @@ def delete_database(interactive: bool = True):
             logger.error('Invalid option. Please, try again.')
 
 
-def delete_all_database():
+def delete_all_database(dataset_manager):
     """Deletes all datasets from the node's database.
 
     Does not modify the dataset's files.
+
+    Args:
+        dataset_manager: Object for managing the dataset
     """
     my_data = dataset_manager.list_my_data(verbose=False)
 

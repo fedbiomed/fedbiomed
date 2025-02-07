@@ -1,8 +1,6 @@
 import unittest
 import argparse
 from unittest.mock import patch
-from testsupport.fake_researcher_environ import ResearcherEnviron
-from testsupport.base_case import ResearcherTestCase
 from fedbiomed.researcher.cli import ResearcherCLI, ResearcherControl
 from fedbiomed.common.cli import CommonCLI
 
@@ -28,6 +26,7 @@ class TestResearcherControl(unittest.TestCase):
 
         self.control.initialize()
         args = self.parser.parse_args(["start", "--directory", "./"])
+        args.__setattr__("path", 'fbm-researcher')
         self.control.start(args)
 
         sub_process_p_open.assert_called_once()
@@ -38,7 +37,7 @@ class TestResearcherControl(unittest.TestCase):
         with self.assertRaises(KeyboardInterrupt):
             self.control.start(args)
 
-class TestResearcherCLI(ResearcherTestCase):
+class TestResearcherCLI(unittest.TestCase):
 
     def setUp(self) -> None:
         self.cli = ResearcherCLI()
@@ -73,7 +72,6 @@ class TestResearcherCLI(ResearcherTestCase):
 
         generate_options = choices["generate"]._positionals._option_string_actions
         self.assertTrue("--path" in generate_options)
-        self.assertTrue("--force" in generate_options)
 
 
 if __name__ == "__main__":

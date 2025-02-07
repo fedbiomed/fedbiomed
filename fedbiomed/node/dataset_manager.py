@@ -8,7 +8,7 @@ Interfaces with the node component database.
 
 import csv
 import os.path
-from typing import Iterable, Union, List, Any, Optional, Tuple
+from typing import Iterable, Union, List, Optional, Tuple
 import uuid
 
 from urllib.request import urlretrieve
@@ -24,11 +24,9 @@ from torchvision import datasets
 from torchvision import transforms
 
 from fedbiomed.common.db import DBTable
-from fedbiomed.node.environ import environ
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
-from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock, FlambyLoadingBlockTypes, \
-    FlambyDataset
+from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock
 from fedbiomed.common.logger import logger
 
 
@@ -38,10 +36,13 @@ class DatasetManager:
     Facility for storing data, retrieving data and getting data info
     for the node. Currently uses TinyDB.
     """
-    def __init__(self):
+    def __init__(self, db: str):
         """Constructor of the class.
+
+        Args:
+            db: Path to the database file
         """
-        self._db = TinyDB(environ['DB_PATH'])
+        self._db = TinyDB(db)
         self._database = Query()
 
         # don't use DB read cache to ensure coherence
@@ -57,7 +58,7 @@ class DatasetManager:
 
         Returns:
             A `dict` containing the dataset's description if a dataset with this `dataset_id`
-            exists in the database. `None` if no such dataset exists in the database. 
+            exists in the database. `None` if no such dataset exists in the database.
         """
         return self._dataset_table.get(self._database.dataset_id == dataset_id)
 
@@ -103,7 +104,7 @@ class DatasetManager:
         """
         dlp_metadata = self._dlp_table.get(self._database.dlp_id == dlp_id)
 
-        # TODO: This exception should be removed once non-existing DLP situation is 
+        # TODO: This exception should be removed once non-existing DLP situation is
         # handled by higher layers in Round or Node classes
         if dlp_metadata is None:
             raise FedbiomedDatasetManagerError(
@@ -413,6 +414,7 @@ class DatasetManager:
                                       f'Compatible data types are: {data_types}')
 
         elif data_type == 'flamby':
+            from fedbiomed.common.data.flamby_dataset import FlambyLoadingBlockTypes, FlambyDataset
             # check that data loading plan is present and well formed
             if data_loading_plan is None or \
                     FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA not in data_loading_plan:
