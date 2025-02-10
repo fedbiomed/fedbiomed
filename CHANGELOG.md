@@ -1,5 +1,10 @@
 # Fed-BioMed changelog
 
+## 2025-02-06 version 6.0.0
+
+- In addition to the release candidate (details below), fix issue #1248, spaces where wrongly added when adding multiple tags in the GUI
+- Fix issue #1105 about incorrect parsing of `niftii` image file's name in the medical folder dataset.
+
 ## 2025-02-05 version 6.0.0.rc1
 
 - Implementation of packaging for the library/framework to publish on the PyPI repository.
@@ -12,6 +17,10 @@
 - Removal of the `environ` class in favor of the improved `Config` class.
 - Secure aggregation implementation for advanced federated optimization functionalities.
 - Fixes: 'colab' shell recognition issue #1274
+
+## 2025-01-24 version 5.4.1
+
+- Patch for missing list request handler on the node side.
 
 ## 2024-11-04 version 5.4.0
 

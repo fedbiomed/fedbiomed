@@ -17,7 +17,7 @@ git pull --prune
 - check that the CI for `develop` builds correctly (github checks)
 - set the release version tag for the release (or use this tag directly in commands)
 ```bash
-export RELEASE_TAG=v5.4.0
+export RELEASE_TAG=v6.0.1
 ```
 - fork a `release/$RELEASE_TAG` branch from `develop`, and checkout the `release/$RELEASE_TAG` branch
 ```bash
@@ -124,7 +124,7 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
   export HOTFIX_NAME=521-short-description
   ```
 
-- set the hotfix version tag for the release (or use this tag directly in commands).For example, if the previous version was `v5.3.0`, it becomes `v5.3.1`.
+- set the hotfix version tag for the release (or use this tag directly in commands).For example, if the previous version was `v6.0.0`, it becomes `v6.0.1`.
 
   ```bash
   export HOTFIX_TAG=v5.3.1

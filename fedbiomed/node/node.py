@@ -224,6 +224,20 @@ class Node:
                             count=len(databases),
                         )
                     )
+                case ListRequest.__name__:
+                    # Get list of all datasets
+                    databases = self.dataset_manager.list_my_data(verbose=False)
+                    databases = self.dataset_manager.obfuscate_private_information(databases)
+                    self._grpc_client.send(
+                        ListReply(
+                            success=True,
+                            request_id=message.request_id,
+                            node_id=environ['NODE_ID'],
+                            researcher_id=message.researcher_id,
+                            databases=databases,
+                            count=len(databases),
+                        )
+                    )
 
                 case PingRequest.__name__:
                     self._grpc_client.send(
