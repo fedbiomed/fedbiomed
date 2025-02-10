@@ -93,6 +93,7 @@ Therefore, it is essential to have Node.js and Yarn installed on your system. Pl
 ## Using PDM
 
 PDM is a tool to manage dependencies of a Python project, and build the python package:
+
 - from `pyproject.toml` containing package source configuration, that is to say explicit instructions for build settings and dependencies
 - from `pdm.lock` containing package locked cache version, that is to say a precise resolution of the configuration in `pyproject.toml`
 Both are located in the root directory of the project.
