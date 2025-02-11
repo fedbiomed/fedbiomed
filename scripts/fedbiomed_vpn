@@ -263,15 +263,12 @@ containers_clean() {
     /bin/rm -fr ./gui2/run_mounts/certs/*                   2> /dev/null
 
     # specific to gui
-    /bin/rm -rf ./node/run_mounts/data/*                    2> /dev/null
     /bin/rm -rf ./node/run_mounts/fbm-node/*                2> /dev/null
 
     # specific to node
-    /bin/rm -rf ./node/run_mounts/data/*                    2> /dev/null
     /bin/rm -rf ./node/run_mounts/fbm-node/*                2> /dev/null
 	/bin/rm -rf ./node/run_mounts/fbm-node/.fedbiomed       2> /dev/null
 
-    /bin/rm -rf ./node2/run_mounts/data/*                   2> /dev/null
     /bin/rm -rf ./node2/run_mounts/fbm-node/*               2> /dev/null
     /bin/rm -rf ./node2/run_mounts/fbm-node/.fedbiomed      2> /dev/null
 

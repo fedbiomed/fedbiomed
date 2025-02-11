@@ -127,7 +127,7 @@ def setup(request):
     researcher = create_component(
         ComponentType.RESEARCHER,
         directory=temproray_test_directory.name,
-        component_name="my-researhcer"
+        component_name="my-researcher"
     )
     dataset = {
         "name": "MNIST",

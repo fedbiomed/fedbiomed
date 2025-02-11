@@ -162,8 +162,13 @@ easily done with the previous start command. Currently, Flask server always get 
 flag to the start command.
 
 ```shell
-fedbiomed node -p /path/to/my-node gui start --data-folder /path/to/my-node/data --debug
+# data folder defaults to `/path/to/my-node/data`
+fedbiomed node -p /path/to/my-node gui start --debug
+
+# Or use an alternate data path 
+# fedbiomed node -p /path/to/my-node gui start --data-folder /alternate/data-path --debug
 ```
+
 **Important:** Please do not change Flask port and host while starting it for development purposes. Because React (UI) will be calling
 ``localhost:8484/api`` endpoint in development mode.
 

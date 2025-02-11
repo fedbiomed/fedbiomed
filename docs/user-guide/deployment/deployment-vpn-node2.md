@@ -100,7 +100,7 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 * do initial node configuration
 
     ```bash
-    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FBM_SECURITY_FORCE_SECURE_AGGREGATION='${FBM_SECURITY_FORCE_SECURE_AGGREGATION}' && export FBM_RESEARCHER_IP=10.222.0.2 && export FBM_RESEARCHER_PORT=50051 && FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --path /fbm_node --exist-ok'
+    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FBM_SECURITY_FORCE_SECURE_AGGREGATION='${FBM_SECURITY_FORCE_SECURE_AGGREGATION}' && export FBM_RESEARCHER_IP=10.222.0.2 && export FBM_RESEARCHER_PORT=50051 && FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --path /fbm-node --exist-ok'
     ```
 
 Optionally launch the node GUI :
@@ -149,13 +149,13 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
     * start the Fed-BioMed node, for example in background:
 
         ```bash
-        [user@node2-container $] nohup fedbiomed node start >/fbm_node/fedbiomed_node.out &
+        [user@node2-container $] nohup fedbiomed node start >/fbm-node/fedbiomed_node.out &
         ```
 
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):
 
         ```bash
-        [user@node2-container $] fedbiomed node dataset add -m /data
+        [user@node2-container $] fedbiomed node dataset add -m /fbm-node/data
         [user@node2-container $] fedbiomed node dataset add
         ```
 
@@ -167,9 +167,9 @@ Example of a few more possible commands:
     [user@node2-container $] fedbiomed node dataset list
     ```
 
-* optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node2/run_mounts/data/my_training_plan.txt`
+* optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node2/run_mounts/fbm-node/data/my_training_plan.txt`
 
     ```bash
     [user@node2-container $] fedbiomed node training-plan register
     ```
-    Indicate `/data/my_training_plan.txt` as path of the training plan file.
+    Indicate `/fbm-node/data/my_training_plan.txt` as path of the training plan file.

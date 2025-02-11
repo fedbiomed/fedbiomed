@@ -173,7 +173,7 @@ On the node machine
 * if needed load data to be passed to container
 ```bash
 # example : copy a MNIST dataset
-#[user@node $] rsync -auxvt /tmp/MNIST ./node/run_mounts/data/
+#[user@node $] rsync -auxvt /tmp/MNIST ./node/run_mounts/fbm-node/data/
 ```
 
 Then follow the common instructions for nodes (below).
@@ -242,8 +242,8 @@ Run this for all launches of the container :
 [user@node-container $] export PYTHONPATH=/fedbiomed
 # create configuration for component
 [user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --exist-ok
-# example : add MNIST dataset using persistent (mounted) /data
-[user@node-container $] fedbiomed node dataset add -m /data
+# example : add MNIST dataset using persistent (mounted) /fbm-node/data
+[user@node-container $] fedbiomed node dataset add -m /fbm-node/data
 # start the node
 [user@node-container $] fedbiomed node start
 # - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
@@ -255,33 +255,33 @@ Run this for all launches of the container :
 
 #### using the node
 
-To add datasets in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
+To add datasets in the node, copy them in the directory `./node/run_mounts/fbm-node/data` on the node host machine :
 ```bash
-[user@node $] ls ./node/run_mounts/data
+[user@node $] ls ./node/run_mounts/fbm-node/data
 MNIST
 ```
 - in the node gui (see below), this directory maps to the `/` directory.
-- in the node and node gui containers command line, this directory maps to `/data` directory :
+- in the node and node gui containers command line, this directory maps to `/fbm-node/data` directory :
 ```bash
-[user@node-container $] ls ./data
+[user@node-container $] ls ./fbm-node/data
 MNIST
 ```
 
-To register approved training plans in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
+To register approved training plans in the node, copy them in the directory `./node/run_mounts/fbm-node/data` on the node host machine :
 ```bash
-[user@node $] ls ./node/run_mounts/data
+[user@node $] ls ./node/run_mounts/fbm-node/data
 my_training_plan.txt
 ```
-- in the node container command line, this directory maps to `/data` directory :
+- in the node container command line, this directory maps to `/fbm-node/data` directory :
 ```bash
-[user@node-container $] ls ./data
+[user@node-container $] ls ./fbm-node/data
 my_training_plan.txt
 ```
 - register a new training plan with :
 ```bash
 [user@node-container $] fedbiomed node training-plan register
 ```
-- when prompted for the path of the training plan, indicate the `.txt` export of the training plan file (`/data/my_training_plan.txt` in our example)
+- when prompted for the path of the training plan, indicate the `.txt` export of the training plan file (`/fbm-node/data/my_training_plan.txt` in our example)
 
 
 ### initializing node gui (optional)

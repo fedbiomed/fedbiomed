@@ -129,14 +129,14 @@ fi
 
 
 info "Adding dataset for node 1"
-if ! docker compose exec -u $(id -u) node bash -ci 'fedbiomed node dataset add -m /data'; then
+if ! docker compose exec -u $(id -u) node bash -ci 'fedbiomed node dataset add -m /fbm-node/data'; then
 	error "Can not add dataset"
 fi
 
 docker compose exec -u $(id -u) node bash -ci 'fedbiomed node dataset list'
 
 info "Adding dataset for node 2"
-if ! docker compose exec -u $(id -u) node2 bash -ci 'fedbiomed node dataset add -m /data'; then
+if ! docker compose exec -u $(id -u) node2 bash -ci 'fedbiomed node dataset add -m /fbm-node/data'; then
 	error "Can not add dataset"
 fi
 docker compose exec -u $(id -u) node2 bash -ci 'fedbiomed node dataset list'
