@@ -100,7 +100,7 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 * do initial node configuration
 
     ```bash
-    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FBM_SECURITY_FORCE_SECURE_AGGREGATION='${FBM_SECURITY_FORCE_SECURE_AGGREGATION}' && export FBM_RESEARCHER_IP=10.222.0.2 && export FBM_RESEARCHER_PORT=50051 && FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --path /fbm-node --exist-ok'
+    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FBM_SECURITY_FORCE_SECURE_AGGREGATION='${FBM_SECURITY_FORCE_SECURE_AGGREGATION}' && export FBM_RESEARCHER_IP=10.222.0.2 && export FBM_RESEARCHER_PORT=50051 && FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --path /fbm_node --exist-ok'
     ```
 
 Optionally launch the node GUI :
@@ -135,7 +135,7 @@ This part is executed at least once on each node that runs a second node instanc
 
 Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
-* if node GUI is launched, it can be used to share datasets. On the node side machine, connect to `http://localhost:8485`
+* if node GUI is launched, it can be used to share datasets. On the node side machine, connect to `http://localhost:8444`
 
 * connect to the `node2` container and launch commands, for example :
 
@@ -143,7 +143,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
         ```bash
         [user@node $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-        [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export PYTHONPATH=/fedbiomed && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
+        [user@node $] docker compose exec -u $(id -u) node2 bash
         ```
 
     * start the Fed-BioMed node, for example in background:
