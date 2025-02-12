@@ -3,7 +3,7 @@
 [![](https://img.shields.io/badge/Medium-black?logo=medium)](https://medium.com/fed-biomed)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md)
 [![Python-versions](https://img.shields.io/badge/python-3.10-brightgreen)](https://www.python.org/)
-![PyPI - Version](https://img.shields.io/pypi/v/fedbiomed?color=white)
+[![PyPI - Version](https://img.shields.io/pypi/v/fedbiomed?color=white)](https://pypi.org/project/fedbiomed/)
 [![Citation](https://img.shields.io/badge/cite-paper-orange)](https://arxiv.org/abs/2304.12012)
 [![PR](https://img.shields.io/badge/PRs-welcome-green)](https://github.com/fedbiomed/fedbiomed/pulls)
 [![codecov](https://img.shields.io/codecov/c/gh/fedbiomed/fedbiomed/develop?logo=codecov)](https://app.codecov.io/gh/fedbiomed/fedbiomed/tree/develop)
