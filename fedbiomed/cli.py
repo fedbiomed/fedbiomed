@@ -96,6 +96,9 @@ class ComponentParser(CLIArgumentParser):
     def create(self, args):
         """CLI Handler for creating configuration file and assets for given component
         """
+        if args.component is None:
+            CommonCLI.error("Error: bad command line syntax")
+
         if not args.path:
             if args.component.lower() == "researcher":
                 component_path = os.path.join(os.getcwd(), DEFAULT_RESEARCHER_NAME)
@@ -106,8 +109,6 @@ class ComponentParser(CLIArgumentParser):
 
         # Researcher specific case ----------------------------------------------------
         # This is a special case since researcher import
-        if args.component is None:
-            CommonCLI.error("Error: bad command line syntax")
         if args.component.lower() == "researcher":
             if DEFAULT_RESEARCHER_NAME in component_path and \
                 os.path.isdir(component_path) and \
