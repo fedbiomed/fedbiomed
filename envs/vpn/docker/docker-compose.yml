@@ -27,8 +27,7 @@ x-node:
     - /dev/net/tun
   volumes:
     - ./node/run_mounts/config:/config # contains VPN configurations
-    - ./node/run_mounts/data:/data # datasets can be added here
-    - ./node/run_mounts/fbm-node:/fbm-node # contains fedbiomed default training plans...
+    - ./node/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
 #
 # optionally launch a second node instance on the same machine
 x-node2:
@@ -53,8 +52,7 @@ x-node2:
     - /dev/net/tun
   volumes:
     - ./node2/run_mounts/config:/config # contains VPN configurations
-    - ./node2/run_mounts/data:/data # datasets can be added here
-    - ./node2/run_mounts/fbm-node:/fbm-node
+    - ./node2/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
 
 services:
   #
@@ -180,10 +178,9 @@ services:
       - "${GUI_SERVER_IP:-127.0.0.1}:8484:8484" # nginx + flask HTTP server
       - "${GUI_SERVER_IP:-127.0.0.1}:8443:8443" # nginx + gunicorn HTTPS server
     volumes:
-      # caution: /data /etc /var directory must be shared with node
+      # caution: /fbm-node directory must be shared with node
       - ./gui/run_mounts/certs:/certs
-      - ./node/run_mounts/data:/data # datasets can be added here
-      - ./node/run_mounts/fbm-node:/fbm-node
+      - ./node/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
 
   # node gui component
   gui2:
@@ -208,10 +205,9 @@ services:
       - "${GUI_SERVER_IP:-127.0.0.1}:8485:8485" # nginx + gunicorn HTTP server
       - "${GUI_SERVER_IP:-127.0.0.1}:8444:8444" # nginx + gunicorn HTTPS server
     volumes:
-      # caution: /data /etc /var directory must be shared with node
+      # caution: /fbm-node directory must be shared with node
       - ./gui2/run_mounts/certs:/certs
-      - ./node2/run_mounts/data:/data # datasets can be added here
-      - ./node2/run_mounts/fbm-node:/fbm-node
+      - ./node2/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
 #
   # researcher component
   researcher:
@@ -244,4 +240,4 @@ services:
     volumes:
       - ./researcher/run_mounts/config:/config # contains VPN configurations
       - ./researcher/run_mounts/samples:/fedbiomed/notebooks/samples # contains researcher sample notebooks
-      - ./researcher/run_mounts/fbm-researcher:/fbm-researcher # contains researcher sample notebooks
+      - ./researcher/run_mounts/fbm-researcher:/fbm-researcher # contains fedbiomed component configuration and data

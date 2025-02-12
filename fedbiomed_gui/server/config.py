@@ -1,13 +1,9 @@
 import os
-import sys
 import configparser
 from fedbiomed.node.config import NodeConfig
 import shutil
 
 from fedbiomed.common.utils import ROOT_DIR
-from fedbiomed.node.config import NodeConfig
-
-from .utils import get_node_id
 
 cfg = configparser.ConfigParser()
 
@@ -46,7 +42,7 @@ class Config(dict):
 
         # Configuration of Flask APP to be able to access Fed-BioMed node information
         self.configuration['NODE_FEDBIOMED_ROOT'] = os.getenv(
-            'FBM_NODE_COMPONENT_ROOT', '/fedbiomed'
+            'FBM_NODE_COMPONENT_ROOT', os.getcwd()
         )
         conf = os.path.join(self.configuration['NODE_FEDBIOMED_ROOT'], 'etc', 'config_gui.ini')
         if not os.path.isfile(conf):
@@ -58,7 +54,7 @@ class Config(dict):
 
 
         # Data path ----------------------------------------------------------------
-        data_path = os.getenv('DATA_PATH', cfg.get('server', 'DATA_PATH', fallback='/data'))
+        data_path = os.getenv('DATA_PATH', cfg.get('server', 'DATA_PATH', fallback='data'))
 
         if data_path.startswith('/'):
             assert os.path.isdir(

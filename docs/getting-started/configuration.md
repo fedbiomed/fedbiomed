@@ -233,6 +233,7 @@ $ rm -rf COMPONENT_DIR
 ```
 
 Where `COMPONENT_DIR` is:
+
 * for a node, the parameter provided as `fedbiomed node -p COMPONENT_DIR` or by default `fbm-node` if no parameter was given
 * for a researcher, the parameter provided as `fedbiomed researcher -p COMPONENT_DIR` or by default `fbm-researcher` if no parameter was given
 

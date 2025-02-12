@@ -673,7 +673,7 @@ class NodeCLI(CommonCLI):
                     component_dir = os.path.abspath(component_dir)
                     os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
                 else:
-                    print("Component is not specified: Using 'fbm-researcher' in current working directory...")
+                    print("Component is not specified: Using 'fbm-node' in current working directory...")
                     component_dir =  os.path.join(os.getcwd(), 'fbm-node')
                     os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
 
