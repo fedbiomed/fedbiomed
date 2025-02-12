@@ -190,7 +190,7 @@ you will be able to see changes on the ``localhost:8484`` URL which serve built 
 
 ```shell
 yarn build
-fedbiomed node gui start --data-folder ../data
+fedbiomed node gui start
 ```
 
 ## Troubleshooting

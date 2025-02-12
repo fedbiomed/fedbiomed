@@ -248,7 +248,7 @@ Run this for all launches of the container :
 [user@node-container $] fedbiomed node start
 # - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
 # - start with training plan approval enabled and default training plans allowed
-[user@node-container $] fedbiomed node start --gpu
+[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed node start --gpu
 # alternative: start the node in background
 # [user@node-container $] nohup fedbiomed node start >./fedbiomed_node.out &
 ```
