@@ -118,12 +118,11 @@ class ComponentParser(CLIArgumentParser):
                         f"Default component is already existing. In the directory {component_path} "
                         "please remove existing one to re-initiate"
                     )
-                    sys.exit(1)
                 else:
                     CommonCLI.success(
                         "Component is already existing. Using existing component."
                     )
-                    sys.exit(0)
+                    return
             else:
                 self._get_component_instance(component_path, args.component)
                 return
@@ -138,7 +137,7 @@ class ComponentParser(CLIArgumentParser):
                 )
                 else:
                     CommonCLI.success(
-                        "Component is already exsiting. Using existing component."
+                        "Component is already existing. Using existing component."
                     )
                     return
 
