@@ -53,7 +53,7 @@ RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
 COPY ./envs/vpn/docker/gui/build_files/entrypoint*.bash /
 
 # Setup subset of fedbiomed code tree
-RUN mkdir -p /fedbiomed/envs /data /fbm-node
+RUN mkdir -p /fedbiomed/envs /fbm-node
 
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn

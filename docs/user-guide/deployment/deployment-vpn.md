@@ -335,7 +335,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node. The com
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):
 
         ```bash
-        [user@node-container $] fedbiomed node dataset add -m /data
+        [user@node-container $] fedbiomed node dataset add -m /fbm-node/data
         [user@node-container $] fedbiomed node dataset add
         ```
 
@@ -347,12 +347,12 @@ Example of a few more possible commands:
     [user@node-container $] fedbiomed node dataset list
     ```
 
-* optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node/run_mounts/data/my_training_plan.txt`
+* optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node/run_mounts/fbm-node/data/my_training_plan.txt`
 
     ```bash
     [user@node-container $] fedbiomed node training-plan register
     ```
-    Indicate `/data/my_training_plan.txt` as path of the training plan file.
+    Indicate `/fbm-node/data/my_training_plan.txt` as path of the training plan file.
 
 ## Optionally use a second node instance on the same node
 

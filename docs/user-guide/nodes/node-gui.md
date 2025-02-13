@@ -93,7 +93,7 @@ You can modify `HOST`, `IP` and `DATA_PATH` (equivalent of `--data-folder`) in t
 
 HOST = localhost
 PORT = 8484
-DATA_PATH = /data
+DATA_PATH = data
 ```
 
 ### Default Admin Configuration
