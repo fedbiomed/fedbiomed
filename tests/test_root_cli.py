@@ -17,11 +17,19 @@ class TestComponentParser(unittest.TestCase):
         self.conf_parser.initialize()
 
         self.tem = tempfile.TemporaryDirectory()
+        self.initial_dir = os.getcwd()
         os.chdir(self.tem.name)
 
     def tearDown(self):
+        os.chdir(self.initial_dir)
+        # forces the removal of config files for Nodes and Researchers
+        if 'fedbiomed.researcher.config' in sys.modules:
+            sys.modules.pop('fedbiomed.researcher.config')
+
+        if 'fedbiomed.node.config' in sys.modules:
+            sys.modules.pop('fedbiomed.node.config')
         self.tem.cleanup()
-        pass
+
 
     def test_01_component_parser_initialize(self):
         """Tests argument initialization"""
@@ -101,6 +109,7 @@ class TestComponentParser(unittest.TestCase):
             self.conf_parser._get_component_instance('any_path', 'bad_component_type')
 
         self.tem.cleanup()
+
         sys.modules.pop('fedbiomed.researcher.config')
 
 
