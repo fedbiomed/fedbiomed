@@ -167,7 +167,7 @@ extra:
           name: 'A new release of Fed-BioMed (v6.0) is now available!'
           desc: 'A new major version of Fed-BioMed is now available, featuring a new API and more!'
           link: '/news/Release-02-2025'
-          image: '/assets/Release-02-2025.png'
+          image: '/assets/img/Release-02-2025.png'
       'Release-11-2024':
           name: 'A new release of Fed-BioMed (v5.4) is out!'
           desc: 'A new release of Fed-BioMed is now available, improving secure aggregation !'
