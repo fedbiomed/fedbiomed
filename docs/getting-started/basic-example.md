@@ -20,8 +20,8 @@ fedbiomed component create -c node -p ./fbm-second-node
 The Fed-BioMed CLI comes with a predefined MNIST dataset configuration that automatically downloads the MNIST dataset and deploys it onto the nodes. The following commands will download the MNIST dataset into the `data` directory you created and deploy it to `my-node` and `my-second-node`.
 
 ```
-fedbiomed node -p ./fbm-node dataset add --mnist ./data
-fedbiomed node -p ./fbm-second-node dataset add --mnist ./data
+fedbiomed node -p ./fbm-node dataset add --mnist
+fedbiomed node -p ./fbm-second-node dataset add --mnist
 ```
 
 ## Start your Nodes

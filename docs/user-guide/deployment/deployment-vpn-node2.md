@@ -135,7 +135,7 @@ This part is executed at least once on each node that runs a second node instanc
 
 Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
-* if node GUI is launched, it can be used to share datasets. On the node side machine, connect to `http://localhost:8485`
+* if node GUI is launched, it can be used to share datasets. On the node side machine, connect to `http://localhost:8444`
 
 * connect to the `node2` container and launch commands, for example :
 
@@ -143,19 +143,19 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
         ```bash
         [user@node $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
-        [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export PYTHONPATH=/fedbiomed && eval "$(conda shell.bash hook)" && conda activate fedbiomed-node && bash'
+        [user@node $] docker compose exec -u $(id -u) node2 bash
         ```
 
     * start the Fed-BioMed node, for example in background:
 
         ```bash
-        [user@node2-container $] nohup fedbiomed node start >/fbm_node/fedbiomed_node.out &
+        [user@node2-container $] nohup fedbiomed node start >/fbm-node/fedbiomed_node.out &
         ```
 
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):
 
         ```bash
-        [user@node2-container $] fedbiomed node dataset add -m /data
+        [user@node2-container $] fedbiomed node dataset add -m /fbm-node/data
         [user@node2-container $] fedbiomed node dataset add
         ```
 
@@ -167,9 +167,9 @@ Example of a few more possible commands:
     [user@node2-container $] fedbiomed node dataset list
     ```
 
-* optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node2/run_mounts/data/my_training_plan.txt`
+* optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node2/run_mounts/fbm-node/data/my_training_plan.txt`
 
     ```bash
     [user@node2-container $] fedbiomed node training-plan register
     ```
-    Indicate `/data/my_training_plan.txt` as path of the training plan file.
+    Indicate `/fbm-node/data/my_training_plan.txt` as path of the training plan file.

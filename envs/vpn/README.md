@@ -173,7 +173,7 @@ On the node machine
 * if needed load data to be passed to container
 ```bash
 # example : copy a MNIST dataset
-#[user@node $] rsync -auxvt /tmp/MNIST ./node/run_mounts/data/
+#[user@node $] rsync -auxvt /tmp/MNIST ./node/run_mounts/fbm-node/data/
 ```
 
 Then follow the common instructions for nodes (below).
@@ -240,47 +240,48 @@ Run this for all launches of the container :
 [user@node-container $] export FBM_RESEARCHER_IP=10.222.0.2
 [user@node-container $] export FBM_RESEARCHER_PORT=50051
 [user@node-container $] export PYTHONPATH=/fedbiomed
-[user@node-container $] eval "$(conda shell.bash hook)"
-[user@node-container $] conda activate fedbiomed-node
-# example : add MNIST dataset using persistent (mounted) /data
-[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli dataset add --mnist /data
+# create configuration for component
+[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --exist-ok
+# example : add MNIST dataset using persistent (mounted) /fbm-node/data
+[user@node-container $] fedbiomed node dataset add -m /fbm-node/data
 # start the node
+[user@node-container $] fedbiomed node start
 # - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
 # - start with training plan approval enabled and default training plans allowed
-[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli start  --gpu
+[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed node start --gpu
 # alternative: start the node in background
-# [user@node-container $] nohup python -m fedbiomed.node.cli  start >./fedbiomed_node.out &
+# [user@node-container $] nohup fedbiomed node start >./fedbiomed_node.out &
 ```
 
 #### using the node
 
-To add datasets in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
+To add datasets in the node, copy them in the directory `./node/run_mounts/fbm-node/data` on the node host machine :
 ```bash
-[user@node $] ls ./node/run_mounts/data
+[user@node $] ls ./node/run_mounts/fbm-node/data
 MNIST
 ```
 - in the node gui (see below), this directory maps to the `/` directory.
-- in the node and node gui containers command line, this directory maps to `/data` directory :
+- in the node and node gui containers command line, this directory maps to `/fbm-node/data` directory :
 ```bash
-[user@node-container $] ls ./data
+[user@node-container $] ls ./fbm-node/data
 MNIST
 ```
 
-To register approved training plans in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
+To register approved training plans in the node, copy them in the directory `./node/run_mounts/fbm-node/data` on the node host machine :
 ```bash
-[user@node $] ls ./node/run_mounts/data
+[user@node $] ls ./node/run_mounts/fbm-node/data
 my_training_plan.txt
 ```
-- in the node container command line, this directory maps to `/data` directory :
+- in the node container command line, this directory maps to `/fbm-node/data` directory :
 ```bash
-[user@node-container $] ls ./data
+[user@node-container $] ls ./fbm-node/data
 my_training_plan.txt
 ```
 - register a new training plan with :
 ```bash
-[user@node-container $] fedbiomed node -d fbm-node training-plan register
+[user@node-container $] fedbiomed node training-plan register
 ```
-- when prompted for the path of the training plan, indicate the `.txt` export of the training plan file (`/data/my_training_plan.txt` in our example)
+- when prompted for the path of the training plan, indicate the `.txt` export of the training plan file (`/fbm-node/data/my_training_plan.txt` in our example)
 
 
 ### initializing node gui (optional)
@@ -419,11 +420,9 @@ Run this for all launches of the container :
 [user@researcher-container $] export FBM_SERVER_HOST=10.222.0.2
 [user@researcher-container $] export FBM_SERVER_PORT=50051
 [user@researcher-container $] export PYTHONPATH=/fedbiomed
-[user@researcher-container $] eval "$(conda shell.bash hook)"
-[user@researcher-container $] conda activate fedbiomed-researcher
 # ... or any other command
-[user@researcher-container $] jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb
-[user@researcher-container $] ./notebooks/101_getting-started.py
+[user@researcher-container $] jupyter nbconvert /fbm-researcher/notebooks/101_getting-started.ipynb --output=101_getting-started --to script
+[user@researcher-container $] python /fbm-researcher/notebooks/101_getting-started.py
 ```
 
 #### using the researcher
@@ -445,8 +444,6 @@ tensorboard --logdir "$tensorboard_dir"
 ```
 * alternatively connect to `http://localhost:6006` from your browser, after starting tensorboard either as an embedded tensorboard in the notebook (see above), or manually in the container with:
 ```bash
-[user@researcher-container $] eval "$(conda shell.bash hook)"
-[user@researcher-container $] conda activate fedbiomed-researcher
 [user@researcher-container $] tensorboard --logdir runs &
 ```
 
