@@ -54,6 +54,12 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
     [user@node $] cp /tmp/config2.env ./node2/run_mounts/config/config.env
     ```
 
+* **optionally** force the use of secure aggregation by the node (node will refuse to train without the use of secure aggregation):
+
+    ```bash
+    [user@node $] export FBM_SECURITY_FORCE_SECURE_AGGREGATION=True
+    ```
+
 * start `node2` container
 
     ```bash
@@ -91,18 +97,6 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 
     `node2` container is now ready to be used.
 
-* **optionally** force the use of secure aggregation by the node (node will refuse to train without the use of secure aggregation):
-
-    ```bash
-    [user@node $] export FBM_SECURITY_FORCE_SECURE_AGGREGATION=True
-    ```
-
-* do initial node configuration
-
-    ```bash
-    [user@node $] docker compose exec -u $(id -u) node2 bash -ci 'export FBM_SECURITY_FORCE_SECURE_AGGREGATION='${FBM_SECURITY_FORCE_SECURE_AGGREGATION}' && export FBM_RESEARCHER_IP=10.222.0.2 && export FBM_RESEARCHER_PORT=50051 && FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --path /fbm-node --exist-ok'
-    ```
-
 Optionally launch the node GUI :
 
 * start `gui2` container
@@ -137,7 +131,13 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
 * if node GUI is launched, it can be used to share datasets. On the node side machine, connect to `http://localhost:8444`
 
-* connect to the `node2` container and launch commands, for example :
+* view the node component logs
+
+```bash
+[user@node $] docker compose logs node2
+```
+
+* **optionally** connect to the `node2` container and launch commands, instead of using the GUI, for example :
 
     * connect to the container
 
@@ -145,12 +145,14 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
         [user@node $] cd ${FEDBIOMED_DIR}/envs/vpn/docker
         [user@node $] docker compose exec -u $(id -u) node2 bash
         ```
-
-    * start the Fed-BioMed node, for example in background:
+    * re-start the Fed-BioMed node, for example in background:
 
         ```bash
-        [user@node2-container $] nohup fedbiomed node start >/fbm-node/fedbiomed_node.out &
+        [user@node2-container $] kill $(ps auxwwww | grep -E 'python.*fedbiomed node start' | grep -Ev grep | awk '{ print $2}')
+        [user@node2-container $] nohup fedbiomed node start $(cat /fbm-node/FBM_NODE_OPTIONS) >/fbm-node/fedbiomed_node.out &
         ```
+
+        Please note that in that case, the node component output does not appear anymore in `docker compose logs node`
 
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):
 
