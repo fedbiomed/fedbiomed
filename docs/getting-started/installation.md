@@ -14,7 +14,14 @@ This tutorial gives steps for installing Fed-BioMed components (node, researcher
 
 ## System requirements
 
-Fed-BioMed is developed and tested under  Linux and MacOS distributions. It has not been fully tested on Windows machines. Using Fed-BioMed on windows can raise unexpected error.
+Fed-BioMed is developed and tested under  Linux and MacOS distributions.
+
+It has not been fully tested on Windows under WSL2. Using Fed-BioMed on Windows can raise unexpected error.
+Check specific installation guidelines for [Windows 11](../../user-guide/installation/windows-installation).
+
+## Hardware requirements
+
+16GB RAM recommended, 8GB RAM minimum for handling PyTorch & ML packages, for each Fed-BioMed component.
 
 
 ## Software packages
