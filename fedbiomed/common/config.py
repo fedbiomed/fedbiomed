@@ -113,7 +113,7 @@ class Config(metaclass=ABCMeta):
     def read(self) -> bool:
         """Reads configuration file that is already existing in given path
 
-        Raises verision compatibility error
+        Raises version compatibility error
         """
         self._cfg.read(self.config_path)
 
