@@ -1,6 +1,6 @@
 # Specific instructions for Windows installation
 
-**Fed-BioMed requires Windows 11, WSL2 and docker. It can run on a physical machine or a virtual machine.**
+**Fed-BioMed requires Windows 11 and WSL2. It can run on a physical machine or a virtual machine.**
 
 This documentation gives the steps for a typical Windows 11 installation, steps may vary depending on your system.
 
@@ -26,8 +26,9 @@ Requirement : **tested under Windows 11** 21H2, though Windows 10 version 2004 a
 * **[update](https://support.microsoft.com/en-au/windows/update-windows-3c5ae7fc-9fb6-9af1-1984-b5e0412c556a) Windows**
 * **reboot** Windows
 
-Requirement: Windows Enterprise, `Pro` or `Education` edition (needed for Hyper-V functionality, which is not present in `Home` edition). 
-You can still run Fed-BioMed on `Home` edition if you don't need containers/dockers.
+You can run Fed-BioMed on any Windows 11 edition including `Home` edition if you don't use optional containers/dockers functionality.
+
+Requirement: if using optional containers/docker, then Windows `Enterprise`, `Pro` or `Education` edition is needed for Hyper-V functionality, which is not present in `Home` edition. 
 
 Requirement : Hyper-V "Virtual Machine Platform" activation
 
@@ -35,7 +36,7 @@ Requirement : Hyper-V "Virtual Machine Platform" activation
 * **reboot** Windows
 
 
-## Step 2: WSL
+## Step 2: WSL2
 
 [WSL](https://docs.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux) is a tool that allows to run Linux within a Windows system.
 Version 2 of WSL is needed for docker.
@@ -78,7 +79,7 @@ user@wsl-ubuntu$
 ```
 
 
-## Step 3: docker (optional, required if VPN needed)
+## Step 3: docker (optional, required if containers/VPN needed)
 
 Requirement : `docker` and `docker compose`
 
@@ -113,7 +114,7 @@ user@wsl-ubuntu$ docker container run hello-world
 
 ## Step 4: conda
 
-It is recommanded to run `fedbiomed` under an environment manager. `conda` has been tested for Windows wsl installation of Fed-BioMed.
+It is recommended to run `fedbiomed` under an environment manager. `conda` has been tested for Windows WSL2 installation of Fed-BioMed.
 
 Requirement : conda installed in Ubuntu and configured for your user account
 
@@ -180,7 +181,7 @@ WSLRegisterDistribution failed with error: 0x80004005
 - Set the **value Data** to 2 and exit ```REGEDIT```.
 - reboot the machine and see if it is working
 
-### Step 4 trobleshooting:
+### Step 4 troubleshooting:
 
 - If you cannot launch `conda` after restarting your shell, you may need to activate through `source`.
 From your `miniconda3` installation folder, run:

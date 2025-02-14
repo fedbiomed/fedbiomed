@@ -59,4 +59,4 @@ On Fedora, please use sudo dnf install tk-devel.
 
 Some Fed-BioMed secure aggregation modules uses `gmpy2` for big integer operation. This module requires to have `libgmp3-dev` and `libmpfr-dev` and `libmpc-dev` installed on Linux debian distributions (and equivalents on different Linux distributions). In case of missing `gmp.h`,  `mpfr.h`, or `mpc.h` module errors please install `apt-get install libgmp3-dev libmpfr-dev libmpc-dev`.
 
-On maxOs please install: `brew link gmp mpfr mpc`.
+On macOS please install: `brew link gmp mpfr mpc`.
