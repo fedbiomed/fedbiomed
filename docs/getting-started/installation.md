@@ -62,6 +62,11 @@ For installing optional node GUI:
 pip install fedbiomed[gui]
 ```
 
+For installing optional dependency to FLamby:
+```
+pip install git+https://github.com/owkin/FLamby@main
+```
+
 Fed-BioMed is provided under [Apache 2.0 License](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md).
 
 
