@@ -6,7 +6,7 @@ Data Management classes
 """
 
 
-from typing import Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -57,9 +57,10 @@ class DataManager(object):
         Args:
             extension: the mapping used to extend the loader arguments
         """
-        self._loader_arguments.update(
-            {key: value for key, value in extension.items() if key not in self._loader_arguments}
-        )
+        if extension:
+            self._loader_arguments.update(
+                {key: value for key, value in extension.items() if key not in self._loader_arguments}
+            )
 
     def load(self, tp_type: TrainingPlans):
         """Loads proper DataManager based on given TrainingPlan and
@@ -130,8 +131,10 @@ class DataManager(object):
         # Specific to DataManager class
         if item == 'load':
             return object.__getattribute__(self, item)
+
         try:
             return self._data_manager_instance.__getattribute__(item)
         except AttributeError:
             raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: method {str(item)} not "
                                             f"implemented for class: {str(self._data_manager_instance)}")
+

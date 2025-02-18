@@ -87,7 +87,7 @@ class NPDataLoader:
                 f"{ErrorNumbers.FB609.value}. Wrong value for `batch_size` parameter of "
                 f"NPDataLoader. Expected a non-zero positive integer, instead got value {batch_size}.")
 
-        if random_seed is not None and not isinstance(random_seed, [int, np.random.Generator]):
+        if random_seed is not None and not isinstance(random_seed, (int, np.random.Generator)):
             raise FedbiomedTypeError(
                 f"{ErrorNumbers.FB609.value}. Wrong type for `random_seed` parameter of "
                 f"NPDataLoader. Expected int or None, instead got {type(random_seed)}.")
@@ -97,7 +97,7 @@ class NPDataLoader:
         self._batch_size = batch_size
         self._shuffle = shuffle
         self._drop_last = drop_last
-        self._rng = np.random.default_rng(random_seed) if isinstance(random_seed, int) else random_seed
+        self._rng = np.random.default_rng(random_seed) if isinstance(random_seed, (int, type(None))) else random_seed
 
     def __len__(self) -> int:
         """Returns the length of the encapsulated dataset"""
@@ -253,15 +253,49 @@ class SkLearnDataManager(object):
         else:
             self._target = target
 
-        # Additional loader arguments
-        self._loader_arguments = kwargs
-
-        rand_seed = self._loader_arguments.get('random_seed')
-        self.rng(rand_seed)
+        # rand_seed = kwargs.get('random_seed')
+        # self.rng(rand_seed)
 
         # Subset None means that train/validation split has not been performed
         self._subset_test: Union[Tuple[np.ndarray, np.ndarray], None] = None
         self._subset_train: Union[Tuple[np.ndarray, np.ndarray], None] = None
+
+        self._training_index: List[int] = []
+        self._testing_index: List[int] = []
+        self._test_ratio: Optional[float] = None
+        self._is_shuffled_testing_dataset: bool = False
+        if 'shuffle_testing_dataset' in kwargs:
+            self._is_shuffled_testing_dataset: bool = kwargs.pop('shuffle_testing_dataset')
+
+        # Additional loader arguments
+        self._loader_arguments = kwargs
+
+    @property
+    def testing_index(self) -> List[int]:
+        return self._testing_index
+
+    #@testing_index.setter
+    def set_testing_index(self, testing_index: List[int]) -> List[int]:
+        self._testing_index = testing_index
+        return self._testing_index
+
+
+    @property
+    def training_index(self) -> List[int]:
+        return self._training_index
+    
+    #@training_index.setter
+    def set_training_index(self, training_index: List[int]) -> List[int]:
+        self._training_index = training_index
+        return self._training_index
+
+    @property
+    def test_ratio(self) -> float:
+        return self._test_ratio
+
+    def set_test_ratio(self, test_ratio: Optional[float]) -> Optional[float]:
+        self._test_ratio = test_ratio
+        return test_ratio
 
     def dataset(self) -> Tuple[np.ndarray, np.ndarray]:
         """Gets the entire registered dataset.
@@ -294,7 +328,11 @@ class SkLearnDataManager(object):
 
         return self._subset_train
 
-    def split(self, test_ratio: float, test_batch_size: int) -> Tuple[NPDataLoader, NPDataLoader]:
+    def split(
+            self,
+            test_ratio: float, test_batch_size: int,
+            is_shuffled_testing_dataset: bool = False
+              ) -> Tuple[NPDataLoader, NPDataLoader]:
         """Splits `np.ndarray` dataset into train and validation.
 
         Args:
@@ -307,6 +345,7 @@ class SkLearnDataManager(object):
              train_loader: NPDataLoader of input variables for model training
              test_loader: NPDataLoader of target variable for model training
         """
+        #import pdb; pdb.set_trace()
         if not isinstance(test_ratio, float):
             msg = f'{ErrorNumbers.FB609.value}: The argument `ratio` should be type `float` not {type(test_ratio)}'
             logger.error(msg)
@@ -320,72 +359,130 @@ class SkLearnDataManager(object):
 
         empty_subset = (np.array([]), np.array([]))
 
+        if self._test_ratio != test_ratio and self._test_ratio is not None:
+            if not is_shuffled_testing_dataset:
+                logger.info("`test_ratio` value has changed: this will change the testing dataset")
+            is_shuffled_testing_dataset = True
+
         if test_ratio <= 0.:
             self._subset_train = (self._inputs, self._target)
             self._subset_test = empty_subset
+            self._training_index, self._testing_index = list(range(len(self._inputs))), []
         elif test_ratio >= 1.:
             self._subset_train = empty_subset
             self._subset_test = (self._inputs, self._target)
-        else:
+            self._training_index, self._testing_index = [], list(range(len(self._inputs)))
             
-            rand_s_g = self._bit_generator_to_randomstate(self._rng)
-            x_train, x_test, y_train, y_test = train_test_split(self._inputs,
-                                                                self._target,
-                                                                test_size=test_ratio,
-                                                                random_state=rand_s_g)
-            self._subset_test = (x_test, y_test)
-            self._subset_train = (x_train, y_train)
+        else:
+            _is_loading_failed: bool = False
+            if self._testing_index and not is_shuffled_testing_dataset:
+                # reloading testing dataset from previous rounds
+                try:
+                    self._load_indexes(self._training_index, self._testing_index)
+                except IndexError:
+                    _is_loading_failed = True  
+            if (not self._testing_index or is_shuffled_testing_dataset) or _is_loading_failed:
+                #rand_s_g = self._bit_generator_to_randomstate(self._rng)
+                ( 
+                    x_train,
+                    x_test,
+                    y_train,
+                    y_test,
+                    idx_train,
+                    idx_test
+                ) = train_test_split(
+                    self._inputs,
+                    self._target,
+                    np.arange(len(self._inputs)),
+                    test_size=test_ratio)
+                    #random_state=rand_s_g)
+
+                self._subset_test = (x_test, y_test)
+                self._subset_train = (x_train, y_train)
+                self._training_index = idx_train.tolist()
+                self._testing_index = idx_test.tolist()
 
         if not test_batch_size:
             test_batch_size = len(self._subset_test)
 
-        self._loader_arguments['random_seed'] = self._rng
+        #if self._is_shuffled_testing_dataset:
+        self._test_ratio = test_ratio #float(np.clip(0, 1, test_ratio))
+
+        #self._loader_arguments['random_seed'] = self._rng
         return self._subset_loader(self._subset_train, **self._loader_arguments), \
             self._subset_loader(self._subset_test, batch_size=test_batch_size)
 
-    def rng(self, rand_seed) -> None | np.random.Generator:
-        self._rng = rand_seed and np.random.Generator(rand_seed)
-        return self._rng
+    # def rng(self, rand_seed) -> None | np.random.Generator:
+    #     self._rng = rand_seed and np.random.Generator(rand_seed)
+    #     return self._rng
 
     def save_state(self) -> Dict:
-        _loader_args = {**self._loader_arguments}
-        if self._rng:
-            _loader_args['random_seed'] = self._bit_generator_to_randomstate(self.rng()).get_state()
-        return {'loader_arg': _loader_args}
+        _loader_args = {}
+        # if self._rng:
+        #     _loader_args['random_seed'] = self._bit_generator_to_randomstate(self.rng()).get_state()
+        _loader_args['training_dataset'], _loader_args['testing_dataset'] = self._get_indexes()
+        _loader_args['test_ratio'] = self._test_ratio
+
+        return _loader_args
 
     @classmethod
-    def load_state(clf, inputs, target, data_loader_state: Dict) -> NPDataLoader:
-        rand_state = data_loader_state['random_seed']
+    def load_state(
+            clf,
+            inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
+            target: Union[np.ndarray, pd.DataFrame, pd.Series],
+            **data_loader_state
+                ) -> NPDataLoader:
+        if 'testing_dataset' in data_loader_state:
+            testing_idx = data_loader_state.pop('testing_dataset')
+        else:
+            testing_idx = []
+        if 'training_dataset' in data_loader_state:
+            training_idx = data_loader_state.pop('training_dataset')
+        else:
+            training_idx = []
+        if 'test_ratio' in data_loader_state:
+            test_ratio = data_loader_state.pop('test_ratio')
+        else:
+            test_ratio = None
         rng: None | np.random.Generator = None
-        if rand_state is not None:
-            if rand_state['bit_generator'] == 'PCG64':
-                rng = np.random.PCG64()
-                rng.state = rand_state
-                data_loader_state['random_seed'] = None
-            else:
-                # raise error
+        # if rand_state is not None:
+        #     if rand_state['bit_generator'] == 'PCG64':
+        #         rng = np.random.PCG64()
+        #         rng.state = rand_state
+        #         data_loader_state['random_seed'] = None
+        #     else:
+        #         # raise error
+        #         pass
 
-                pass
-        clf(inputs, target, rand_state)
-        clf._rng = rng
-        return clf
+        data_manager = clf(inputs, target, **data_loader_state)
+        data_manager.set_testing_index(testing_idx)
+        data_manager.set_training_index(training_idx)
+        data_manager._test_ratio = test_ratio
+        #clf._rng = rng
+        return data_manager
 
-    @staticmethod
-    def _get_indexes(loader) -> Tuple[List[int], List[int]]:
-        pass
+    def _get_indexes(self) -> Tuple[List[int], List[int]]:
+        return self._training_index, self._testing_index
 
-    @staticmethod
-    def _load_indexes(loader: Tuple[List[int], List[int]]):
-        pass
+    def _load_indexes(self, training_idx: List[int], testing_idx: List[int]):
+        # training_idx = set(range(len(self._inputs))) - set(testing_idx)
+        # training_idx = list(training_idx)
+        try:
+            self._subset_train = (self._inputs[training_idx], self._target[training_idx])
+            self._subset_test = (self._inputs[testing_idx], self._target[testing_idx])
+        except IndexError as e:
+            msg = "Error: cannot load testing dataset, probably because dataset have changed.\n" \
+                  + f"Hence, dataset will be reshuffled. More details: {e}"
+            logger.error(msg)
+            raise IndexError(msg)
+    # @staticmethod
+    # def _bit_generator_to_randomstate(rng: np.random.Generator | None) -> None | np.random.RandomState:
+    #     return rng and np.random.RandomState(rng.bit_generator)
 
-    @staticmethod
-    def _bit_generator_to_randomstate(rng: np.random.Generator | None) -> None | np.random.RandomState:
-        return rng and np.random.RandomState(rng.bit_generator)
+    # @staticmethod
+    # def _randomstate_to_bit_generator(rs: np.random.RandomState | None) -> None | np.random.Generator:
+    #     return rs and rs._bit_generator
 
-    @staticmethod
-    def _randomstate_to_bit_generator(rs: np.random.RandomState | None) -> None | np.random.Generator:
-        return rs and rs._bit_generator
-    
     @staticmethod
     def _subset_loader(subset: Tuple[np.ndarray, np.ndarray], **loader_arguments) -> Optional[NPDataLoader]:
         """Loads subset partition for SkLearn based training plans.
@@ -423,4 +520,3 @@ class SkLearnDataManager(object):
             raise FedbiomedValueError(msg)
 
         return loader
-

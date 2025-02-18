@@ -122,6 +122,9 @@ class Round:
         self.training_arguments = None
         self._secure_aggregation = None
         self.is_test_data_shuffled: bool = False
+        self._testing_index: List[int] = []
+        self._training_index: List[int] = []
+        self._test_ratio: Optional[float] = None
         self._round = round_number
         self._node_state_manager: NodeStateManager = NodeStateManager(
             self._dir, self._node_id, self._db
@@ -293,6 +296,7 @@ class Round:
         try:
 
             self._set_training_testing_data_loaders()
+            
         except FedbiomedError as fe:
             error_message = f"Can not create validation/train data: {repr(fe)}"
             return self._send_round_reply(success=False, message=error_message)
@@ -606,8 +610,11 @@ class Round:
                 logger.debug(f" Error detail {err}")
 
         # load testing dataset if any
-        if state['rng'] is not None and self.is_test_data_shuffled:
-            pass # do stuff
+        if state['testing_dataset'] and not self.is_test_data_shuffled:
+            self._testing_index = state['testing_dataset']['testing_index']
+            self._training_index = state['testing_dataset']['training_index']
+            self._test_ratio = state['testing_dataset']['test_ratio']
+
         # add below other components that need to be reloaded from node state database
 
 
@@ -657,10 +664,16 @@ class Round:
         state['optimizer_state'] = optimizer_state_entry
 
         # save testing dataset
-        state['rng'] = None
-        if self.is_test_data_shuffled:
-            state['rng']
-        # TODO: to complete
+        state['testing_dataset'] = None
+
+        test_ratio = self._test_ratio if not self.testing_arguments else self.testing_arguments.get('test_ratio', None)
+        if not self.is_test_data_shuffled and test_ratio:
+            state['testing_dataset'] = {'testing_index': self._testing_index,
+                                        'training_index': self._training_index,
+                                        'test_ratio': test_ratio}
+            logger.info("testing dataset saved in database")
+        else:
+            logger.info("testing data will be reshuffled next rounds")
         # add here other object states (ie model state, ...)
 
         # save completed node state
@@ -719,7 +732,7 @@ class Round:
 
         # Get validation parameters
         test_ratio = self.testing_arguments.get('test_ratio', 0)
-        self.is_test_data_shuffled = self.testing_arguments.get('shuffle_data_on_local_updates', False)
+        self.is_test_data_shuffled = self.testing_arguments.get('shuffle_testing_dataset', False)
         rand_seed = self.testing_arguments.get('random_seed', None)
         test_global_updates = self.testing_arguments.get('test_on_global_updates', False)
         test_local_updates = self.testing_arguments.get('test_on_local_updates', False)
@@ -741,13 +754,14 @@ class Round:
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(
                 test_ratio=test_ratio,
-                random_seed=rand_seed
+                #random_seed=rand_seed
             )
         # Set models validating and training parts for training plan
         self.training_plan.set_data_loaders(train_data_loader=training_data_loader,
                                             test_data_loader=testing_data_loader)
 
-    def _split_train_and_test_data(self, test_ratio: float = 0, random_seed: Optional[int] = None) -> DataManager:
+    def _split_train_and_test_data(self, test_ratio: float = 0) -> DataManager:
+        # FIXME: incorrect type output
         """
         Method for splitting training and validation data based on training plan type. It sets
         `dataset_path` for training plan and calls `training_data` method of training plan.
@@ -765,6 +779,7 @@ class Round:
                                    `fedbiomed.common.data.DataManager`.
                                  - If `load` method of DataManager returns an error
         """
+
         training_plan_type = self.training_plan.type()  # FIXME: type is not part of the BaseTrainingPlan API
         try:
             data_manager = self.training_plan.training_data()
@@ -815,9 +830,21 @@ class Round:
         # self.testing_data will be equal to all samples
         # self.training_data will be equal to None
 
+        # setting testing_index (if any)
+        data_manager.set_testing_index(self._testing_index)
+        data_manager.set_training_index(self._training_index)
+        data_manager.set_test_ratio(self._test_ratio)
+
         # Split dataset as train and test
 
-        return data_manager.split(
+        training_loader, testing_loader = data_manager.split(
             test_ratio=test_ratio,
-            test_batch_size=self.testing_arguments.get('test_batch_size')
+            test_batch_size=self.testing_arguments.get('test_batch_size'),
+            is_shuffled_testing_dataset = self.is_test_data_shuffled
         )
+        # retrieve testing/training indexes
+        self._testing_index = data_manager.testing_index
+        self._training_index = data_manager.training_index
+        self._test_ratio = data_manager.test_ratio
+
+        return training_loader, testing_loader

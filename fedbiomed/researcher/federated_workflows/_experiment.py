@@ -222,7 +222,7 @@ class Experiment(TrainingPlanWorkflow):
         return self._round_current
 
     @exp_exceptions
-    def test_ratio(self) -> float:
+    def test_ratio(self) -> Tuple[float, bool]:
         """Retrieves the ratio for validation partition of entire dataset.
 
         Please see also [`set_test_ratio`][fedbiomed.researcher.federated_workflows.Experiment.set_test_ratio] to
@@ -232,7 +232,7 @@ class Experiment(TrainingPlanWorkflow):
             The ratio for validation part, `1 - test_ratio` is ratio for training set.
         """
 
-        return self._training_args['test_ratio']
+        return self._training_args['test_ratio'], self._training_args['shuffle_testing_dataset']
 
     @exp_exceptions
     def test_metric(self) -> Union[MetricTypes, str, None]:
@@ -560,7 +560,7 @@ class Experiment(TrainingPlanWorkflow):
         return self._round_current
 
     @exp_exceptions
-    def set_test_ratio(self, ratio: float) -> float:
+    def set_test_ratio(self, ratio: float, shuffle_testing_dataset: bool = False) -> float:
         """ Sets validation ratio for model validation.
 
         When setting test_ratio, nodes will allocate (1 - `test_ratio`) fraction of data for training and the
@@ -569,16 +569,20 @@ class Experiment(TrainingPlanWorkflow):
 
         Args:
             ratio: validation ratio. Must be within interval [0,1].
+            shuffle_testing_dataset: Whether testing dataset should
+                                     be shuffled from one `Round` to another.
+                                     Defaults to False
 
         Returns:
-            Validation ratio that is set
+            Tuple of Validation ratio that is set and shuffle_testing_dataset
 
         Raises:
             FedbiomedExperimentError: bad data type
             FedbiomedExperimentError: ratio is not within interval [0, 1]
         """
+        self._training_args['shuffle_testing_dataset'] = shuffle_testing_dataset
         self._training_args['test_ratio'] = ratio
-        return ratio
+        return ratio, shuffle_testing_dataset
 
     @exp_exceptions
     def set_test_metric(self, metric: Union[MetricTypes, str, None], **metric_args: dict) -> \
@@ -605,7 +609,7 @@ class Experiment(TrainingPlanWorkflow):
         return metric, metric_args
 
     @exp_exceptions
-    def set_test_on_local_updates(self, flag: bool = True, shuffle_data: bool = False) -> bool:
+    def set_test_on_local_updates(self, flag: bool = True) -> bool:
         """
         Setter for `test_on_local_updates`, that indicates whether to perform a validation on the federated model on the
         node side where model parameters are updated locally after training in each node.
@@ -620,8 +624,8 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError: bad flag type
         """
         self._training_args['test_on_local_updates'] = flag
-        self._training_args['shuffle_data_local_updates'] = shuffle_data
-        return self._training_args['test_on_local_updates'], self._training_args['shuffle_data_local_updates']
+        
+        return self._training_args['test_on_local_updates'] #, self._training_args['shuffle_data_local_updates']
 
     @exp_exceptions
     def set_test_on_global_updates(self, flag: bool = True) -> bool:
