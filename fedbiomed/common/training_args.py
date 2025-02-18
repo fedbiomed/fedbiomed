@@ -293,6 +293,7 @@ class TrainingArgs:
         | test_batch_size | batch size used for testing trained model wrt a set of metric |
         | test_on_local_updates | toggles validation after local training |
         | test_on_global_updates | toggles validation before local training |
+        | shuffle_data_on_local_updates | 
         | test_metric | metric to be used for validation |
         | test_metric_args | supplemental arguments for the validation metric |
         | log_interval | output a training logging entry every log_interval model updates |
@@ -332,6 +333,9 @@ class TrainingArgs:
                 "default": 0
             },
             "test_on_local_updates": {
+                "rules": [bool], "required": False, "default": False
+            },
+            "shuffle_data_on_local_updates": {
                 "rules": [bool], "required": False, "default": False
             },
             "test_on_global_updates": {

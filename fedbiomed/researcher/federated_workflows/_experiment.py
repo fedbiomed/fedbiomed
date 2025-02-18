@@ -605,7 +605,7 @@ class Experiment(TrainingPlanWorkflow):
         return metric, metric_args
 
     @exp_exceptions
-    def set_test_on_local_updates(self, flag: bool = True) -> bool:
+    def set_test_on_local_updates(self, flag: bool = True, shuffle_data: bool = False) -> bool:
         """
         Setter for `test_on_local_updates`, that indicates whether to perform a validation on the federated model on the
         node side where model parameters are updated locally after training in each node.
@@ -620,7 +620,8 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError: bad flag type
         """
         self._training_args['test_on_local_updates'] = flag
-        return self._training_args['test_on_local_updates']
+        self._training_args['shuffle_data_local_updates'] = shuffle_data
+        return self._training_args['test_on_local_updates'], self._training_args['shuffle_data_local_updates']
 
     @exp_exceptions
     def set_test_on_global_updates(self, flag: bool = True) -> bool:

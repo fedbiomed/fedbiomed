@@ -6,8 +6,8 @@ Torch data manager
 """
 
 import math
-from typing import Union, Tuple
-
+from typing import Dict, Optional, Union, Tuple
+import torch
 from torch.utils.data import Dataset, Subset, DataLoader
 from torch.utils.data import random_split
 
@@ -40,6 +40,7 @@ class TorchDataManager(object):
 
         self._dataset = dataset
         self._loader_arguments = kwargs
+        self.rng(self._loader_arguments.get('random_state'))
         self._subset_test: Union[Subset, None] = None
         self._subset_train: Union[Subset, None] = None
 
@@ -122,7 +123,11 @@ class TorchDataManager(object):
         test_samples = math.floor(samples * test_ratio)
         train_samples = samples - test_samples
 
-        self._subset_train, self._subset_test = random_split(self._dataset, [train_samples, test_samples])
+        self._subset_train, self._subset_test = random_split(
+                                            self._dataset,
+                                            [train_samples, test_samples],
+                                            generator=self.rng()
+                                            )
 
         if not test_batch_size:
 
@@ -161,6 +166,29 @@ class TorchDataManager(object):
             return None
 
         return self._create_torch_data_loader(subset, **kwargs)
+
+    def rng(self, rng: Optional[int], device: Optional[str | torch.device] = None) -> Tuple[int | None, torch.Generator | None]:
+        self._rng = rng and torch.Generator(device).manual_seed(rng)
+        return self._rng
+
+    def save_state(self) -> Dict:
+        data_manager_state = {**self._loader_arguments}
+        if self._rng:
+            data_manager_state['rng'] = self._rng.save_state()
+        else:
+            data_manager_state['rng'] = None
+        return data_manager_state
+
+    @classmethod
+    def load_state(clf, dataset, **state) -> 'TorchDataManager':
+        if 'rng' in state:
+            rng_save = state.pop('rng')
+        else:
+            rng_save = None
+        clf(dataset, **state)
+        rng = torch.Generator()
+        clf._rng = rng.set_state(rng_save)
+        return clf
 
     @staticmethod
     def _create_torch_data_loader(dataset: Dataset, **kwargs: dict) -> DataLoader:

@@ -9,7 +9,7 @@ Fed-BioMed users relying on the scikit-learn framework that is similar to the in
 """
 
 
-from typing import Union, Tuple, Optional
+from typing import Dict, List, Union, Tuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -41,7 +41,7 @@ class NPDataLoader:
                  target: np.ndarray,
                  batch_size: int = 1,
                  shuffle: bool = False,
-                 random_seed: Optional[int] = None,
+                 random_seed: Optional[int | np.random.Generator] = None,
                  drop_last: bool = False):
         """Construct numpy data loader
 
@@ -87,7 +87,7 @@ class NPDataLoader:
                 f"{ErrorNumbers.FB609.value}. Wrong value for `batch_size` parameter of "
                 f"NPDataLoader. Expected a non-zero positive integer, instead got value {batch_size}.")
 
-        if random_seed is not None and not isinstance(random_seed, int):
+        if random_seed is not None and not isinstance(random_seed, [int, np.random.Generator]):
             raise FedbiomedTypeError(
                 f"{ErrorNumbers.FB609.value}. Wrong type for `random_seed` parameter of "
                 f"NPDataLoader. Expected int or None, instead got {type(random_seed)}.")
@@ -97,7 +97,7 @@ class NPDataLoader:
         self._batch_size = batch_size
         self._shuffle = shuffle
         self._drop_last = drop_last
-        self._rng = np.random.default_rng(random_seed)
+        self._rng = np.random.default_rng(random_seed) if isinstance(random_seed, int) else random_seed
 
     def __len__(self) -> int:
         """Returns the length of the encapsulated dataset"""
@@ -256,6 +256,9 @@ class SkLearnDataManager(object):
         # Additional loader arguments
         self._loader_arguments = kwargs
 
+        rand_seed = self._loader_arguments.get('random_seed')
+        self.rng(rand_seed)
+
         # Subset None means that train/validation split has not been performed
         self._subset_test: Union[Tuple[np.ndarray, np.ndarray], None] = None
         self._subset_train: Union[Tuple[np.ndarray, np.ndarray], None] = None
@@ -324,16 +327,65 @@ class SkLearnDataManager(object):
             self._subset_train = empty_subset
             self._subset_test = (self._inputs, self._target)
         else:
-            x_train, x_test, y_train, y_test = train_test_split(self._inputs, self._target, test_size=test_ratio)
+            
+            rand_s_g = self._bit_generator_to_randomstate(self._rng)
+            x_train, x_test, y_train, y_test = train_test_split(self._inputs,
+                                                                self._target,
+                                                                test_size=test_ratio,
+                                                                random_state=rand_s_g)
             self._subset_test = (x_test, y_test)
             self._subset_train = (x_train, y_train)
 
         if not test_batch_size:
             test_batch_size = len(self._subset_test)
 
+        self._loader_arguments['random_seed'] = self._rng
         return self._subset_loader(self._subset_train, **self._loader_arguments), \
             self._subset_loader(self._subset_test, batch_size=test_batch_size)
 
+    def rng(self, rand_seed) -> None | np.random.Generator:
+        self._rng = rand_seed and np.random.Generator(rand_seed)
+        return self._rng
+
+    def save_state(self) -> Dict:
+        _loader_args = {**self._loader_arguments}
+        if self._rng:
+            _loader_args['random_seed'] = self._bit_generator_to_randomstate(self.rng()).get_state()
+        return {'loader_arg': _loader_args}
+
+    @classmethod
+    def load_state(clf, inputs, target, data_loader_state: Dict) -> NPDataLoader:
+        rand_state = data_loader_state['random_seed']
+        rng: None | np.random.Generator = None
+        if rand_state is not None:
+            if rand_state['bit_generator'] == 'PCG64':
+                rng = np.random.PCG64()
+                rng.state = rand_state
+                data_loader_state['random_seed'] = None
+            else:
+                # raise error
+
+                pass
+        clf(inputs, target, rand_state)
+        clf._rng = rng
+        return clf
+
+    @staticmethod
+    def _get_indexes(loader) -> Tuple[List[int], List[int]]:
+        pass
+
+    @staticmethod
+    def _load_indexes(loader: Tuple[List[int], List[int]]):
+        pass
+
+    @staticmethod
+    def _bit_generator_to_randomstate(rng: np.random.Generator | None) -> None | np.random.RandomState:
+        return rng and np.random.RandomState(rng.bit_generator)
+
+    @staticmethod
+    def _randomstate_to_bit_generator(rs: np.random.RandomState | None) -> None | np.random.Generator:
+        return rs and rs._bit_generator
+    
     @staticmethod
     def _subset_loader(subset: Tuple[np.ndarray, np.ndarray], **loader_arguments) -> Optional[NPDataLoader]:
         """Loads subset partition for SkLearn based training plans.
