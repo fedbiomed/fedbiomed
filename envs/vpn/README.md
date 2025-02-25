@@ -199,14 +199,14 @@ Run this only at first launch of container or after cleaning :
 * launch container
 ```bash
 [user@node $] NODE=node
-[user@node $] unset FBM_NODE_OPTIONS
+[user@node $] unset FBM_NODE_START_OPTIONS
 [user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose up -d $NODE
 ```
 Alternative: launch container with Nvidia GPU support activated. Before launching, install [all the pre-requisites for GPU support](#gpu-support-in-container).
 ```bash
 [user@node $] NODE=node-gpu
 # - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
-[user@node $] FBM_NODE_OPTIONS="--gpu"
+[user@node $] FBM_NODE_START_OPTIONS="--gpu"
 [user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose up -d $NODE
 ```
   * note : `CONTAINER_{UID,GID,USER,GROUP}` are not necessary if using the same identity as in for the build, but they need to have a read/write access to the directories mounted from the host machine's filesystem.
@@ -228,7 +228,7 @@ Alternative: launch container with Nvidia GPU support activated. Before launchin
 
 Run this for all launches of the container :
 
-* if using GPU set `FBM_NODE_OPTIONS="--gpu"`
+* if using GPU set `FBM_NODE_START_OPTIONS="--gpu"`
 * launch container
 ```bash
 # `CONTAINER_{UID,GID,USER,GROUP}` are not needed if they are the same as used for build

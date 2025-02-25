@@ -35,11 +35,11 @@ su -c "export FBM_SECURITY_FORCE_SECURE_AGGREGATION=\"${FBM_SECURITY_FORCE_SECUR
       fedbiomed component create --component NODE --exist-ok" $CONTAINER_USER
 
 # Overwrite node options file if re-launching container
-#   eg FBM_NODE_OPTIONS="--gpu-only" can be used for starting node forcing GPU usage
-su -c "echo \"$FBM_NODE_OPTIONS\" >/fbm-node/FBM_NODE_OPTIONS" $CONTAINER_USER
+#   eg FBM_NODE_START_OPTIONS="--gpu-only" can be used for starting node forcing GPU usage
+su -c "echo \"$FBM_NODE_START_OPTIONS\" >/fbm-node/FBM_NODE_START_OPTIONS" $CONTAINER_USER
 
 # Launch node using node options
-$SETUSER fedbiomed node start $FBM_NODE_OPTIONS &
+$SETUSER fedbiomed node start $FBM_NODE_START_OPTIONS &
 
 
 sleep infinity &

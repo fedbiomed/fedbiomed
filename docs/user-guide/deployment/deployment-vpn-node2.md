@@ -149,7 +149,7 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node:
 
         ```bash
         [user@node2-container $] kill $(ps auxwwww | grep -E 'python.*fedbiomed node start' | grep -Ev grep | awk '{ print $2}')
-        [user@node2-container $] nohup fedbiomed node start $(cat /fbm-node/FBM_NODE_OPTIONS) >/fbm-node/fedbiomed_node.out &
+        [user@node2-container $] nohup fedbiomed node start $(cat /fbm-node/FBM_NODE_START_OPTIONS) >/fbm-node/fedbiomed_node.out &
         ```
 
         Please note that in that case, the node component output does not appear anymore in `docker compose logs node`
