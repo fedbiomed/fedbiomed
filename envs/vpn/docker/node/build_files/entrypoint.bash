@@ -9,7 +9,6 @@ source /entrypoint_functions.bash
 
 # read config.env
 source ~/bashrc_entrypoint
-echo here
 check_vpn_environ
 
 init_misc_environ
@@ -27,7 +26,21 @@ fi
 
 trap finish TERM INT QUIT
 
-# TODO: refactor to launch gRPC communications node here ?
+
+# Create node configuration if not existing yet
+su -c "export FBM_SECURITY_FORCE_SECURE_AGGREGATION=\"${FBM_SECURITY_FORCE_SECURE_AGGREGATION}\" && \
+      export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=false && export FBM_RESEARCHER_IP=10.222.0.2 && \
+      export FBM_RESEARCHER_PORT=50051 && export PYTHONPATH=/fedbiomed && \
+      FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True \
+      fedbiomed component create --component NODE --exist-ok" $CONTAINER_USER
+
+# Overwrite node options file if re-launching container
+#   eg FBM_NODE_START_OPTIONS="--gpu-only" can be used for starting node forcing GPU usage
+su -c "echo \"$FBM_NODE_START_OPTIONS\" >/fbm-node/FBM_NODE_START_OPTIONS" $CONTAINER_USER
+
+# Launch node using node options
+$SETUSER fedbiomed node start $FBM_NODE_START_OPTIONS &
+
 
 sleep infinity &
 

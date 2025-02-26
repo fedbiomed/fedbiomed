@@ -77,6 +77,8 @@ fi
 docker compose exec vpnserver cat /config/config_peers/node/node1/config.env > ${FEDBIOMED_DIR}/envs/vpn/docker/node/run_mounts/config/config.env
 docker compose exec vpnserver cat /config/config_peers/node/node2/config.env > ${FEDBIOMED_DIR}/envs/vpn/docker/node2/run_mounts/config/config.env
 
+# Disable secure aggregation
+export FBM_SECURITY_FORCE_SECURE_AGGREGATION=False
 
 docker compose up -d node
 docker compose up -d node2
@@ -88,7 +90,6 @@ fi
 if ! docker ps | grep -q fedbiomed-vpn-node2; then
      error "Fed-BioMed node 2 container is not running"
 fi
-
 
 pbkey_n1="$(docker compose exec node wg show wg0 public-key | tr -d '\r')"
 pbkey_n2="$(docker compose exec node2 wg show wg0 public-key | tr -d '\r')"
@@ -104,27 +105,12 @@ info "Listing registered peers in VPN server"
 docker compose exec vpnserver bash -ci "python ./vpn/bin/configure_peer.py list"
 
 
-
 if ! ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn status node; then
 	error "Node is not configured correctly"
 fi
 
 if ! ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn status node2; then
 	error "Node 2 is not configured correctly"
-fi
-
-# Disable secure aggregation
-export FBM_SECURITY_FORCE_SECURE_AGGREGATION=False
-
-
-info "Creating a node component in the first node container"
-if ! docker compose exec -u $(id -u) node bash -ci 'export FBM_SECURITY_FORCE_SECURE_AGGREGATION='${FBM_SECURITY_FORCE_SECURE_AGGREGATION}'&& export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=false && export FBM_RESEARCHER_IP=10.222.0.2 && export FBM_RESEARCHER_PORT=50051 && export PYTHONPATH=/fedbiomed && FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --exist-ok'; then
-	error "Can not create node component in node container"
-fi
-
-info "Creating a node component in the second node container"
-if ! docker compose exec -u $(id -u) node2 bash -ci 'export FBM_SECURITY_FORCE_SECURE_AGGREGATION='${FBM_SECURITY_FORCE_SECURE_AGGREGATION}'&& export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=false && export FBM_RESEARCHER_IP=10.222.0.2 && export FBM_RESEARCHER_PORT=50051 && export PYTHONPATH=/fedbiomed && FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --exist-ok'; then
-	error "Can not create node component in node container 2"
 fi
 
 
@@ -141,22 +127,13 @@ if ! docker compose exec -u $(id -u) node2 bash -ci 'fedbiomed node dataset add 
 fi
 docker compose exec -u $(id -u) node2 bash -ci 'fedbiomed node dataset list'
 
-info "Starting node 1"
-docker compose exec -u $(id -u) node bash -ci "nohup fedbiomed node start >/fbm-node/fedbiomed_node.out &";
-if [[ ! $? -eq 0 ]]; then
-    error  "Node 1 starting operation failed."
-fi
 
-
-docker compose exec -u $(id -u) node2 bash -ci "nohup fedbiomed node start >/fbm-node/fedbiomed_node.out &";
-if [[ ! $? -eq 0 ]]; then
-    error  "Node 2 starting operation failed."
-fi
-
+# be sure to let the node be fully initialized
 sleep 10
 
-docker compose exec -u $(id -u) node bash -ci "cat fbm-node/fedbiomed_node.out"
-docker compose exec -u $(id -u) node2 bash -ci "cat fbm-node/fedbiomed_node.out"
+
+docker compose logs node
+docker compose logs node2
 
 
 info "Convert 101 notebook to python script "

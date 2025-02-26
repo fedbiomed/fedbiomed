@@ -200,6 +200,12 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
     [user@node $] cp /tmp/config.env ./node/run_mounts/config/config.env
     ```
 
+* **optionally** force the use of secure aggregation by the node (node will refuse to train without the use of secure aggregation):
+
+    ```bash
+    [user@node $] export FBM_SECURITY_FORCE_SECURE_AGGREGATION=True
+    ```
+
 * start `node` container
 
     ```bash
@@ -237,17 +243,6 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 
     `node` container is now ready to be used.
 
-* **optionally** force the use of secure aggregation by the node (node will refuse to train without the use of secure aggregation):
-
-    ```bash
-    [user@node $] export FBM_SECURITY_FORCE_SECURE_AGGREGATION=True
-    ```
-
-* do initial node configuration. Following command will create node component located `/fbm-node/` directory of the container. This directory will be mounted in `{FEDBIOMED_DIR}/envs/vpn/docker/node/run_mounts` directory of the host.
-
-    ```bash
-    [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FBM_SECURITY_FORCE_SECURE_AGGREGATION='${FBM_SECURITY_FORCE_SECURE_AGGREGATION}'&& export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=false && export FBM_RESEARCHER_IP=10.222.0.2 && export FBM_RESEARCHER_PORT=50051 && export PYTHONPATH=/fedbiomed && FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --exist-ok'
-    ```
 
 Optionally launch the node GUI :
 
@@ -313,11 +308,17 @@ This part of the tutorial is optionally executed on some nodes, after deploying 
 
 This part is executed at least once on each node, after deploying the node side containers.
 
-Setup the node by sharing datasets and by launching the Fed-BioMed node. The commands below will use default Fed-BioMed node directory which is located `/fbm-node` inside the container.
+Setup the node by sharing datasets. The commands below will use default Fed-BioMed node directory which is located `/fbm-node` inside the container.
 
 * if node GUI is launched, it can be used to share datasets. On the node side machine, connect to `https://localhost:8443` (or `https://<host_name_and_domain>:8443` if connection from distant machine is authorized)
 
-* connect to the `node` container and launch commands, for example :
+* view the node component logs
+
+```bash
+[user@node $] docker compose logs node
+```
+
+* **optionally** connect to the `node` container and launch commands, instead of using the GUI, for example :
 
     * connect to the container
 
@@ -326,11 +327,14 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node. The com
         [user@node $] docker compose exec -u $(id -u) node bash
         ```
 
-    * start the Fed-BioMed node, for example in background:
+    * re-start the Fed-BioMed node, for example in background:
 
         ```bash
-        [user@node-container $] nohup fedbiomed node start >/fbm-node/fedbiomed_node.out &
+        [user@node-container $] kill $(ps auxwwww | grep -E 'python.*fedbiomed node start' | grep -Ev grep | awk '{ print $2}')
+        [user@node-container $] nohup fedbiomed node start $(cat /fbm-node/FBM_NODE_START_OPTIONS) >/fbm-node/fedbiomed_node.out &
         ```
+
+        Please note that in that case, the node component output does not appear anymore in `docker compose logs node`
 
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):
 
