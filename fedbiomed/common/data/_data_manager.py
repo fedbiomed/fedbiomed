@@ -47,7 +47,7 @@ class DataManager(object):
         self._loader_arguments: Dict = kwargs
         self._data_manager_instance = None
 
-    def extend_loader_args(self, extension: Dict):
+    def extend_loader_args(self, extension: Optional[Dict]):
         """Extends the class' loader arguments
 
         Extends the class's `_loader_arguments` attribute with additional key-values from

@@ -434,12 +434,9 @@ class TestRound(unittest.TestCase):
         data_manager_mock.split = MagicMock()
         data_manager_mock.split.return_value = (data_loader_mock, None)
         data_manager_mock.dataset = my_dataset
-        data_manager_mock.testing_index = PropertyMock()
-        data_manager_mock.training_index = PropertyMock()
-        data_manager_mock.test_ratio = PropertyMock()
-        data_manager_mock.set_testing_index = MagicMock()
-        data_manager_mock.set_training_index = MagicMock()
-        data_manager_mock.set_test_ratio = MagicMock()
+
+        data_manager_mock.save_state = MagicMock()
+        data_manager_mock.load_state = MagicMock()
 
         self.r1.training_kwargs = {}
         self.r1.initialize_arguments()
@@ -872,8 +869,8 @@ class TestRound(unittest.TestCase):
         test_ratio = .1
         self.r1.experiment_id = '1234'
         self.r1._round = 34
-        self.r1._testing_index = testing_idx
-        self.r1._training_index = training_idx
+        self.r1._testing_indexes = {'training_index': training_idx,
+                                    'testing_index': testing_idx}
         self.r1.testing_arguments = {'test_ratio':test_ratio}
 
         optim_path = 'path/to/folder/containing/state/files'
@@ -923,8 +920,8 @@ class TestRound(unittest.TestCase):
         self.r1._round = 34
         training_idx, testing_idx = [1, 2, 3, 5, 7, 10], [4, 6, 8, 9, 11, 12]
         test_ratio = .23
-        self.r1._testing_index = testing_idx
-        self.r1._training_index = training_idx
+        self.r1._testing_indexes = {'testing_index': testing_idx,
+                                    'training_index': training_idx}
         self.r1.testing_arguments = {'test_ratio': test_ratio}
         #r = Round(experiment_id=experiment_id, round_number=round_nb)
         get_optim_patch.return_value = MagicMock(save_state=MagicMock(return_value=None))
@@ -961,8 +958,8 @@ class TestRound(unittest.TestCase):
         training_plan_mock.optimizer.return_value = optim_mock
         self.state_manager_mock.return_value.get_node_state_base_dir.return_value = "/path/to/base/dir"
         training_plan_mock.data_manager = MagicMock(spec=DataManager)
-        self.r1._testing_index = testing_idx
-        self.r1._training_index = training_idx
+        self.r1._testing_indexes = {'testing_index': testing_idx,
+                                    'training_index': training_idx}
 
         uuid_patch.return_value = FakeUuid()
         experiment_id = _id = FakeUuid.VALUE
@@ -999,6 +996,7 @@ class TestRound(unittest.TestCase):
 
         self.r1.experiment_id = '1234'
         self.r1._round = 11
+        self.r1.is_test_data_shuffled = False
 
         state_id = 'state_id_1234'
         path_state = '/path/to/state'
@@ -1058,7 +1056,7 @@ class TestRound(unittest.TestCase):
 
         train_loader2, test_loader2 = self.r1._split_train_and_test_data(test_ratio)
         state = self.r1._save_round_state()
-
+        
         self.assertDictEqual(state['testing_dataset'], node_state_mg_storage[0]['testing_dataset'])
         print(state)
 

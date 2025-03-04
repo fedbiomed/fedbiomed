@@ -122,9 +122,11 @@ class Round:
         self.training_arguments = None
         self._secure_aggregation = None
         self.is_test_data_shuffled: bool = False
-        self._testing_index: List[int] = []
-        self._training_index: List[int] = []
-        self._test_ratio: Optional[float] = None
+        self._testing_indexes: Dict = {
+            'testing_index': [],
+            'training_index': [],
+            'test_ratio': None
+        }
         self._round = round_number
         self._node_state_manager: NodeStateManager = NodeStateManager(
             self._dir, self._node_id, self._db
@@ -611,9 +613,7 @@ class Round:
 
         # load testing dataset if any
         if state['testing_dataset'] and not self.is_test_data_shuffled:
-            self._testing_index = state['testing_dataset']['testing_index']
-            self._training_index = state['testing_dataset']['training_index']
-            self._test_ratio = state['testing_dataset']['test_ratio']
+            self._testing_indexes = state['testing_dataset']
 
         # add below other components that need to be reloaded from node state database
 
@@ -666,11 +666,11 @@ class Round:
         # save testing dataset
         state['testing_dataset'] = None
 
-        test_ratio = self._test_ratio if not self.testing_arguments else self.testing_arguments.get('test_ratio', None)
+        test_ratio = self._testing_indexes.get('test_ratio')
+        test_ratio = test_ratio if not self.testing_arguments else self.testing_arguments.get('test_ratio', None)
         if not self.is_test_data_shuffled and test_ratio:
-            state['testing_dataset'] = {'testing_index': self._testing_index,
-                                        'training_index': self._training_index,
-                                        'test_ratio': test_ratio}
+            self._testing_indexes['test_ratio'] = test_ratio
+            state['testing_dataset'] = self._testing_indexes
             logger.info("testing dataset saved in database")
         else:
             logger.info("testing data will be reshuffled next rounds")
@@ -733,7 +733,6 @@ class Round:
         # Get validation parameters
         test_ratio = self.testing_arguments.get('test_ratio', 0)
         self.is_test_data_shuffled = self.testing_arguments.get('shuffle_testing_dataset', False)
-        rand_seed = self.testing_arguments.get('random_seed', None)
         test_global_updates = self.testing_arguments.get('test_on_global_updates', False)
         test_local_updates = self.testing_arguments.get('test_on_local_updates', False)
 
@@ -831,9 +830,7 @@ class Round:
         # self.training_data will be equal to None
 
         # setting testing_index (if any)
-        data_manager.set_testing_index(self._testing_index)
-        data_manager.set_training_index(self._training_index)
-        data_manager.set_test_ratio(self._test_ratio)
+        data_manager.load_state(self._testing_indexes)
 
         # Split dataset as train and test
 
@@ -843,8 +840,6 @@ class Round:
             is_shuffled_testing_dataset = self.is_test_data_shuffled
         )
         # retrieve testing/training indexes
-        self._testing_index = data_manager.testing_index
-        self._training_index = data_manager.training_index
-        self._test_ratio = data_manager.test_ratio
+        self._testing_indexes = data_manager.save_state()
 
         return training_loader, testing_loader

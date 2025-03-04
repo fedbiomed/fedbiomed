@@ -149,7 +149,7 @@ class TestSkLearnDataManager(unittest.TestCase):
 
     def test_sklearn_data_manager_06_save_load_state(self):
         init_state = self.sklearn_data_manager.save_state()
-        self.assertDictContainsSubset({'testing_dataset': [], 'test_ratio': None}, init_state)
+        self.assertDictContainsSubset({'testing_index': [], 'training_index': [], 'test_ratio': None}, init_state)
 
         ratio = 0.5
         n_samples = len(self.sklearn_data_manager.dataset()[0])
@@ -160,11 +160,11 @@ class TestSkLearnDataManager(unittest.TestCase):
 
         state = self.sklearn_data_manager.save_state()
 
-        new_sklearn_data_manager = SkLearnDataManager.load_state(
-                self.inputs,
-                self.target,
-                **{**state, 'random_seed': 1234, 'shuffle_testing_dataset': False}
-            )
+        new_sklearn_data_manager = SkLearnDataManager(self.inputs,
+                                                      self.target,
+                                                      **{'random_seed': 1234, 'shuffle_testing_dataset': False}
+                                                      )
+        new_sklearn_data_manager.load_state(state)
 
         self.assertListEqual(self.sklearn_data_manager.testing_index, new_sklearn_data_manager.testing_index)
         # test with same `test_ratio` as before
@@ -175,11 +175,10 @@ class TestSkLearnDataManager(unittest.TestCase):
 
         # check that testing dataset is re-shuffled if `test_ratio` changes
         del new_sklearn_data_manager
-        new_sklearn_data_manager = SkLearnDataManager.load_state(
-                self.inputs,
-                self.target,
-                **{**state, 'random_seed': 1234, 'shuffle_testing_dataset': False}
-            )
+        new_sklearn_data_manager = SkLearnDataManager(self.inputs,
+                                                      self.target,
+                                                      **{ 'random_seed': 1234, 'shuffle_testing_dataset': False})
+        new_sklearn_data_manager.load_state(state)
 
         train_loader_reshuffled, test_loader_reshuffled = new_sklearn_data_manager.split(
             test_ratio=.75, test_batch_size=None

@@ -75,7 +75,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             # this context manager is used to disable and then enable the sklearn internal optimizer (in case we
             # are using declern optimizer)
             for epoch in iterations_accountant.iterate_epochs():
-                #import remote_pdb; remote_pdb.set_trace()
+
                 training_data_iter: Iterator = iter(self.training_data_loader)
                 # Iterate over data batches.
                 for batch in iterations_accountant.iterate_batches():

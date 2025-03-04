@@ -45,10 +45,11 @@ class TorchDataManager(object):
         self.rng(self._loader_arguments.get('random_state'))
         self._subset_test: Union[Subset, None] = None
         self._subset_train: Union[Subset, None] = None
-        self._training_index: List[int] = []
-        self._testing_index: List[int] = []
-        self._test_ratio: Optional[float] = None
         self._is_shuffled_testing_dataset: bool = False #self._loader_arguments.get('shuffle_testing_dataset', False)
+        self.training_index: List[int] = []
+        self.testing_index: List[int] = []
+        self.test_ratio: Optional[float] = None
+        
 
     @property
     def dataset(self) -> Dataset:
@@ -75,32 +76,6 @@ class TorchDataManager(object):
             Train subset
         """
         return self._subset_train
-
-    @property
-    def testing_index(self) -> List[int]:
-        return self._testing_index
-
-
-    def set_testing_index(self, testing_index: List[int]) -> List[int]:
-        self._testing_index = testing_index
-        #return self._testing_index
-
-    @property
-    def training_index(self) -> List[int]:
-        return self._training_index
-
-    #@training_index.setter
-    def set_training_index(self, index: List[int]) -> List[int]:
-        self._training_index = index
-        return self._training_index
-
-    @property
-    def test_ratio(self) -> float:
-        return self._test_ratio
-
-    def set_test_ratio(self, test_ratio: Optional[float]) -> Optional[float]:
-        self._test_ratio = test_ratio
-        return test_ratio
 
     def load_all_samples(self) -> DataLoader:
         """Loading all samples as PyTorch DataLoader without splitting.
@@ -154,19 +129,19 @@ class TorchDataManager(object):
             raise FedbiomedTorchDataManagerError(f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
                                                  f"{str(self._dataset)}, {str(e)}")
 
-        if self._test_ratio != test_ratio and self._test_ratio is not None:
+        if self.test_ratio != test_ratio and self.test_ratio is not None:
             if not is_shuffled_testing_dataset:
                 logger.info("`test_ratio` value has changed: this will change the testing dataset")
             is_shuffled_testing_dataset = True
         _is_loading_failed: bool = False
         # Calculate number of samples for train and validation subsets
         test_samples = math.floor(samples * test_ratio)
-        if self._testing_index and not is_shuffled_testing_dataset:
+        if self.testing_index and not is_shuffled_testing_dataset:
             try:
-                self._load_indexes(self._training_index, self._testing_index)
+                self._load_indexes(self.training_index, self.testing_index)
             except IndexError:
                 _is_loading_failed = True
-        if (not self._testing_index or is_shuffled_testing_dataset) or _is_loading_failed:
+        if (not self.testing_index or is_shuffled_testing_dataset) or _is_loading_failed:
             train_samples = samples - test_samples
 
             self._subset_train, self._subset_test = random_split(
@@ -175,14 +150,14 @@ class TorchDataManager(object):
                                                 generator=self.rng()
                                                 )
 
-            self.set_testing_index(self._subset_test.indices)
-            self.set_training_index(self._subset_train.indices)
+            self.testing_index = self._subset_test.indices
+            self.training_index = self._subset_train.indices
 
         if not test_batch_size:
 
             test_batch_size = len(self._subset_test)
 
-        self._test_ratio = test_ratio
+        self.test_ratio = test_ratio
         
         loaders = (self._subset_loader(self._subset_train, **self._loader_arguments),
                    self._subset_loader(self._subset_test, batch_size = test_batch_size))
@@ -201,9 +176,9 @@ class TorchDataManager(object):
         inputs = next(iter(loader))[0].numpy()
         target = next(iter(loader))[1].numpy()
         sklearn_data_manager = SkLearnDataManager(inputs=inputs, target=target, **self._loader_arguments)
-        sklearn_data_manager.set_testing_index(self.testing_index)
-        sklearn_data_manager.set_training_index(self.training_index)
-        sklearn_data_manager._test_ratio = self._test_ratio
+        sklearn_data_manager.testing_index = self.testing_index
+        sklearn_data_manager.training_index = self.training_index
+        sklearn_data_manager.test_ratio = self.test_ratio
         return sklearn_data_manager
 
     def _subset_loader(self, subset: Subset, **kwargs) -> Union[DataLoader, None]:
@@ -227,9 +202,9 @@ class TorchDataManager(object):
         return self._rng
 
     def _load_indexes(self, training_index: List[int], testing_index: List[int]):
-        # TODO: put this method in main class
-        self.set_testing_index(testing_index)
-        self.set_training_index(training_index)
+
+        self.testing_index = testing_index
+        self.training_index = training_index
         # training_index = set(range(len(self._dataset))) - set(testing_index)
         # training_index = list(training_index)
 
@@ -245,11 +220,10 @@ class TorchDataManager(object):
         #     data_manager_state['rng'] = None
         data_manager_state['training_index'] = self.training_index
         data_manager_state['testing_index'] = self.testing_index
-        data_manager_state['test_ratio'] = self._test_ratio
+        data_manager_state['test_ratio'] = self.test_ratio
         return data_manager_state
 
-    @classmethod
-    def load_state(clf, dataset, **state) -> 'TorchDataManager':
+    def load_state(self, state: Dict):
         # if 'rng' in state:
         #     rng_save = state.pop('rng')
         # else:
@@ -258,21 +232,9 @@ class TorchDataManager(object):
         # rng = torch.Generator()
         # clf._rng = rng.set_state(rng_save)
 
-        training_index, testing_index = [], []
-        if 'testing_index' in state:
-            testing_index = state.pop('testing_index')
-        if 'training_index' in state:
-            training_index = state.pop('training_index')
-        if 'test_ratio' in state:
-            test_ratio = state.pop('test_ratio')
-        else:
-            test_ratio = 0.
-        data_manager = clf(dataset, **state)
-
-        data_manager._testing_index = testing_index
-        data_manager._training_index = training_index
-        data_manager._test_ratio = test_ratio
-        return data_manager
+        self.testing_index = state.get('testing_index', [])
+        self.training_index = state.get('training_index', [])
+        self.test_ratio = state.get('test_ratio', None)
 
     @staticmethod
     def _create_torch_data_loader(dataset: Dataset, **kwargs: dict) -> DataLoader:

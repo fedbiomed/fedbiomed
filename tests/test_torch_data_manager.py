@@ -205,10 +205,9 @@ class TestTorchDataManager(unittest.TestCase):
 
         state = self.torch_data_manager.save_state()
 
-        new_torch_data_manager = TorchDataManager.load_state(self.dataset,
-                                                             batch_size=48,
-                                                             shuffle=True,
-                                                             **state)
+        new_torch_data_manager = TorchDataManager(self.dataset, batch_size=48,
+                                                  shuffle=True)
+        new_torch_data_manager.load_state(state)
         
         new_train_loader, new_test_loader = new_torch_data_manager.split(test_ratio=test_ratio, 
                                                                          test_batch_size=None)
@@ -225,10 +224,10 @@ class TestTorchDataManager(unittest.TestCase):
 
         # changing the `test_ratio` value
         del new_torch_data_manager
-        new_torch_data_manager = TorchDataManager.load_state(self.dataset,
-                                                             batch_size=48,
-                                                             shuffle=True,
-                                                             **state)
+        new_torch_data_manager = TorchDataManager(self.dataset,
+                                                  batch_size=48,
+                                                  shuffle=True)
+        new_torch_data_manager.load_state(state)
         test_ratio = .25
         shuffled_train_loader, shuffled_test_loader = new_torch_data_manager.split(test_ratio=test_ratio, 
                                                                                    test_batch_size=None)

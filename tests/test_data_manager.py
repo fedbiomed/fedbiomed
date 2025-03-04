@@ -112,23 +112,23 @@ class TestDataManager(unittest.TestCase):
         # for sklearn
         data_manager = DataManager(dataset=pd.DataFrame([[1, 2, 3], [1, 2, 3]]), target=pd.Series([1, 1]))
         data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
-        data_manager.set_testing_index([1])
-        data_manager.set_training_index([0])
+        data_manager.testing_index = [1]
+        data_manager.training_index = [0]
 
         train, test = data_manager.split(test_ratio=.5, test_batch_size=None)
         self.assertEqual(data_manager.testing_index, [1])
-        self.assertListEqual(data_manager.testing_index, data_manager._testing_index)
+        #self.assertListEqual(data_manager.testing_index, data_manager._testing_index)
 
         # for pytorch
         data_manager = DataManager(dataset=pd.DataFrame([[1, 2, 3], [1, 2, 3]]), target=pd.Series([1, 1]))
         data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
 
-        data_manager.set_testing_index([1])
-        data_manager.set_training_index([0])
+        data_manager.testing_index = [1]
+        data_manager.training_index = [0]
 
         train, test = data_manager.split(test_ratio=.5, test_batch_size=None)
         self.assertEqual(data_manager.testing_index, [1])
-        self.assertListEqual(data_manager.testing_index, data_manager._testing_index)
+        #self.assertListEqual(data_manager.testing_index, data_manager._testing_index)
 
 
 if __name__ == '__main__':  # pragma: no cover

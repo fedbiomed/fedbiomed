@@ -248,7 +248,7 @@ class DatasetManager:
 
     def load_mednist_database(self,
                               path: str,
-                              as_dataset: bool = False) -> [Union[List[int],
+                              as_dataset: bool = False) -> Tuple[Union[List[int],
                                                             torch.utils.data.Dataset], str]:
         """Loads the MedNist dataset.
 
