@@ -153,7 +153,7 @@ On the build machine
 ```bash
 [user@build $] cd ./envs/vpn/docker
 # if needed, clean the configurations in ./node/run_mounts before
-[user@build $] tar cvzf /tmp/vpn-node-files.tar.gz ./docker compose_run_node.yml ./node/run_mounts
+[user@build $] tar cvzf /tmp/vpn-node-files.tar.gz ./docker-compose_run_node.yml ./node/run_mounts
 ```
 
 On the node machine
@@ -239,8 +239,8 @@ Run this for all launches of the container :
 [user@node $] docker compose exec -u $(id -u) $NODE bash
 # example : add MNIST dataset using persistent (mounted) /fbm-node/data
 [user@node-container $] fedbiomed node dataset add -m /fbm-node/data
-# - start with training plan approval enabled and default training plans allowed
-[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed node start --gpu
+# - start with training plan approval enabled and default training plans not allowed
+[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=False fedbiomed node start --gpu
 # alternative: re-start the node in background
 # [user@node-container $] nohup fedbiomed node start >./fedbiomed_node.out &
 ```
@@ -318,7 +318,13 @@ On the build machine
 ```bash
 [user@build $] docker image save fedbiomed/vpn-gui | gzip >/tmp/vpn-gui-image.tar.gz
 ```
-* we assume files needed for running container were already installed (see node documentation)
+* we assume files needed for running `node` container were already installed (see node documentation)
+* save additional files needed for running `gui` container
+```bash
+[user@build $] cd ./envs/vpn/docker
+# if needed, clean the configurations in ./node/run_mounts before
+[user@build $] tar cvzf /tmp/vpn-gui-files.tar.gz ./gui/run_mounts
+```
 
 On the node and gui machine
 
@@ -327,7 +333,13 @@ On the node and gui machine
 [user@node $] docker image load </tmp/vpn-gui-image.tar.gz
 ```
 * change to directory you want to use as base directory for running this container
-* we assume files and data needed for running container were already installed (see node documentation)
+* we assume files and data needed for running `node` container were already installed (see node documentation)
+* load additional files needed for running `gui` container
+```bash
+[user@node $] mkdir -p ./envs/vpn/docker
+[user@node $] cd ./envs/vpn/docker
+[user@node $] tar xvzf /tmp/vpn-gui-files.tar.gz
+```
 
 Then follow the common instructions for gui (below).
 
