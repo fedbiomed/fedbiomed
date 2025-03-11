@@ -2,7 +2,7 @@
 # - need coherent system version with base image
 # - may need update for properly compiling boringtun
 # - 2023-05: `bookworm` is not officially released, stick to `bullseye` for now
-FROM debian:bullseye-slim as builder
+FROM debian:bullseye-slim AS builder
 
 RUN apt-get update && apt-get install -y git build-essential curl
 

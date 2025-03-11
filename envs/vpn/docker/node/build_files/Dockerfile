@@ -1,4 +1,5 @@
-FROM fedbiomed/vpn-basenode
+ARG FEDBIOMED_VERSION_TAG
+FROM fedbiomed/vpn-basenode:${FEDBIOMED_VERSION_TAG:-latest}
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID

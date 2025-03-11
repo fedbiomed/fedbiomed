@@ -147,13 +147,13 @@ On the build machine
 ```
 * save image for container
 ```bash
-[user@build $] docker image save fedbiomed/vpn-node | gzip >/tmp/vpn-node-image.tar.gz
+[user@build $] ( source .env ; docker image save fedbiomed/vpn-node:$FEDBIOMED_VERSION_TAG | gzip >/tmp/vpn-node-image.tar.gz )
 ```
 * save files needed for running container
 ```bash
 [user@build $] cd ./envs/vpn/docker
 # if needed, clean the configurations in ./node/run_mounts before
-[user@build $] tar cvzf /tmp/vpn-node-files.tar.gz ./docker-compose_run_node.yml ./node/run_mounts
+[user@build $] tar cvzf /tmp/vpn-node-files.tar.gz ./.env ./docker-compose_run_node.yml ./node/run_mounts
 ```
 
 On the node machine
@@ -168,7 +168,7 @@ On the node machine
 [user@node $] mkdir -p ./envs/vpn/docker
 [user@node $] cd ./envs/vpn/docker
 [user@node $] tar xvzf /tmp/vpn-node-files.tar.gz
-[user@node $] mv docker compose_run_node.yml docker compose.yml
+[user@node $] mv docker compose_run_node.yml docker_compose.yml
 ```
 * if needed load data to be passed to container
 ```bash
@@ -316,7 +316,7 @@ On the build machine
 ```
 * save image for container
 ```bash
-[user@build $] docker image save fedbiomed/vpn-gui | gzip >/tmp/vpn-gui-image.tar.gz
+[user@build $] (source .env ; docker image save fedbiomed/vpn-gui | gzip >/tmp/vpn-gui-image.tar.gz )
 ```
 * we assume files needed for running `node` container were already installed (see node documentation)
 * save additional files needed for running `gui` container
@@ -535,13 +535,6 @@ You can connect to a container only if the corresponding container is already ru
 [user@researcher $] docker compose exec -u $(id -u) researcher bash
 ```
 
-Note : can also use commands in the form, so you don't have to be in the docker compose file directory
-```bash
-[user@node $] docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
-[user@node $] docker container exec -ti -u $(id -u) fedbiomed-vpn-gui bash
-[user@researcher $] docker container exec -ti -u $(id -u) fedbiomed-vpn-researcher bash
-```
-
 ## cleaning
 
 ### vpnserver
@@ -556,7 +549,7 @@ Note : can also use commands in the form, so you don't have to be in the docker 
 [user@network #] rm -rf vpnserver/run_mounts/config/{config.env,config_peers,ip_assign,wireguard}
 
 # level 3 : image
-[user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base
+[user@network $] ( source .env ; docker image rm fedbiomed/vpn-vpnserver:$FEDBIOMED_VERSION_TAG fedbiomed/vpn-base:$FEDBIOMED_VERSION_TAG )
 [user@network $] docker image prune -f
 ```
 
@@ -573,8 +566,8 @@ Note : can also use commands in the form, so you don't have to be in the docker 
 [user@node $] rm -rf ./node/run_mounts/fbm-node/{*,.fedbiomed}
 
 # level 3 : image
-[user@node $] docker image rm fedbiomed/vpn-node fedbiomed/vpn-basenode
-[user@network $] docker image prune -f
+[user@node $] ( source .env ; docker image rm fedbiomed/vpn-node:$FEDBIOMED_VERSION_TAG fedbiomed/vpn-basenode:$FEDBIOMED_VERSION_TAG )
+[user@node $] docker image prune -f
 ```
 
 ### node gui
@@ -590,7 +583,7 @@ Note : can also use commands in the form, so you don't have to be in the docker 
 [user@node $] rm -rf ./node/run_mounts/fbm-node/{*,.fedbiomed}
 
 # level 3 : image
-[user@node $] docker image rm fedbiomed/vpn-gui
+[user@node $] (source .env ; docker image rm fedbiomed/vpn-gui:$FEDBIOMED_VERSION_TAG )
 [user@network $] docker image prune -f
 ```
 
@@ -610,7 +603,7 @@ Same as node
 [user@researcher $] rm -rf ./researcher/run_mounts/{fbm-researcher,samples}/*
 
 # level 3 : image
-[user@researcher $] docker image rm fedbiomed/vpn-researcher fedbiomed/vpn-base
+[user@researcher $] (source .env ; docker image rm fedbiomed/vpn-researcher:$FEDBIOMED_VERSION_TAG fedbiomed/vpn-base:$FEDBIOMED_VERSION_TAG )
 [user@network $] docker image prune -f
 ```
 

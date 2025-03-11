@@ -1,4 +1,5 @@
-FROM fedbiomed/vpn-base
+ARG FEDBIOMED_VERSION_TAG
+FROM fedbiomed/vpn-base:${FEDBIOMED_VERSION_TAG:-latest}
 
 # jupyter notebook
 EXPOSE 8888

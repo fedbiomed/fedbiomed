@@ -17,7 +17,7 @@ git pull --prune
 - check that the CI for `develop` builds correctly (github checks)
 - set the release version tag for the release (or use this tag directly in commands)
 ```bash
-export RELEASE_TAG=v6.0.1
+export RELEASE_TAG=v6.1.0
 ```
 - fork a `release/$RELEASE_TAG` branch from `develop`, and checkout the `release/$RELEASE_TAG` branch
 ```bash
@@ -29,6 +29,7 @@ git checkout -b release/$RELEASE_TAG
 - in the `release/$RELEASE_TAG` branch, do the release time updates:
   * `CHANGELOG.md`
   * `fedbiomed/__init__.py` : change `__version__`
+  * `envs/vpn/docker/.env` : change `FEDBIOMED_VERSION_TAG`
 
 - in the `release` branch, commit the release time updates
 ```bash
@@ -121,13 +122,13 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 - choose a name (eg `521-short-description`) for the issue and assign it to `$HOTFIX_NAME`
 
   ```bash
-  export HOTFIX_NAME=521-short-description
+  export HOTFIX_NAME=601-short-description
   ```
 
 - set the hotfix version tag for the release (or use this tag directly in commands).For example, if the previous version was `v6.0.0`, it becomes `v6.0.1`.
 
   ```bash
-  export HOTFIX_TAG=v5.3.1
+  export HOTFIX_TAG=v6.0.1
   ```
 
 - fork a `hotfix/$HOTFIX_NAME` branch from `master`, and checkout the `hotfix/$HOTFIX_NAME` branch
@@ -142,7 +143,9 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 
 - in the `hotfix/$HOTFIX_NAME` branch, do the hotfix time updates:
   * `CHANGELOG.md`
-  * `fedbiomed/common/constants.py` : change `__version__`
+  * `fedbiomed/__init__.py` : change `__version__`
+  * `envs/vpn/docker/.env` : change `FEDBIOMED_VERSION_TAG`
+
 - in the `hotfix` branch, commit the hotfix time updates
 
   ```bash

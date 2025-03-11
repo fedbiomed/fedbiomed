@@ -288,7 +288,8 @@ containers_clean() {
     for i in ${ALL_VPN_CONTAINERS[@]} base basenode
     do
         [[ "$i" = "node2" ]] || [[ "$i" = "gui2" ]] && continue # same as node/gui images
-        docker image rm -f fedbiomed/vpn-$i 2>/dev/null
+        img=$(source ./.env ; docker image ls --filter "reference=fedbiomed/vpn-$i:$FEDBIOMED_VERSION_TAG" --format "{{.ID}}")
+        docker image rm -f $img 2>/dev/null
     done
 
     docker image prune -f
