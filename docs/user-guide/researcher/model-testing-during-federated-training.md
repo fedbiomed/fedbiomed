@@ -28,10 +28,6 @@ These two validations allow the users to compare how training on the node has im
     Changing the value of `test_ratio` from one `Round` to another automatically re-shuffles the validation and testing dataset. It is equivalent to setting `shuffle_testing_dataset=True`.
     Similary, if changes in the `Node` dataset happens form one `Round` to another, dataset training and validation may change as well. 
 
-
-!!! warning "Testing facility should not be confused with testing dataset"
-    In classical machine learning the testing dataset is used on unseen data once the training of the model has been achieved. `Fed-BioMed` testing facility (that is closer to validation dataset) should not be confused with this notion of testing dataset. It is assumed that the testing should be done by the `Researcher` using a local dataset that contains samples that were not used for the training. See tutorial section for further details.
-
 Figure 1 illustrates the phases of validation and training during 2 rounds of federated training. As it can be seen in the figure, after the last round of training, one last validation on global updates is performed on the last
 aggregated parameters by each node. Therefore, the number of validation on globally updated parameters, if it is activated, will be equal to the number of rounds + 1
 
@@ -81,7 +77,8 @@ Here is the list of validation arguments that can be configured.
  - `test_metric_args`: A dictionary that contains the arguments that will be used for the metric function.
  - `test_batch_size`: A value used to compute metrics using batches instead of
  loading the full testing dataset (specified by `test_ratio`). Setting `test_batch_size` can avoid having [`MemoryError`](https://docs.python.org/3/library/exceptions.html#MemoryError) errors due to large and /or heavy datasets. You should select wisely the batch size and the metric, for some metrics can be meaningless if computed over several small batches of data (e.g. explained variance). `test_batch_size` should be greater or equal than `1` (enabled) or equal to `0` or `None` (disabled).
-
+- `shuffle_testing_dataset`: This argument will perform shuffling of the dataset. If it is switched from `False` too `True` it will reinitialize testing dataset that will be different than the one used in the previous rounds.
+  
 !!! info
     Validation functions for each default metric executes functions from scikit-learn framework.
     Therefore, <code>test_metric_args</code> should be coherent with the arguments of "scikit-learn" metrics
