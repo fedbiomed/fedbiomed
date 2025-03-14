@@ -1,4 +1,6 @@
 import unittest
+
+import torch
 import fedbiomed.common.data._torch_data_manager  # noqa
 import numpy as np
 
@@ -127,7 +129,7 @@ class TestTorchDataManager(unittest.TestCase):
         with self.assertRaises(FedbiomedTorchDataManagerError):
             self.torch_data_manager.split(0.3, test_batch_size=6)
 
-    def test_torch_data_manager_05_split_results(self):
+    def test_torch_data_manager_03_split_results(self):
         """ Test splitting result """
 
         # Test with split
@@ -136,14 +138,17 @@ class TestTorchDataManager(unittest.TestCase):
                                                                            'of train partition')
 
         # If test partition is zero
+
         loader_train, loader_test = self.torch_data_manager.split(0, test_batch_size=None)
         self.assertIsNone(loader_test, 'Loader is not None where it should be')
+        self.assertListEqual(self.torch_data_manager.testing_index, [])
 
         # If test partition is 1
         loader_train, loader_test = self.torch_data_manager.split(1, test_batch_size=None)
         self.assertIsNone(loader_train, 'Loader is not None where it should be')
+        self.assertListEqual(sorted(self.torch_data_manager.testing_index), list(range(len(self.dataset))))
 
-    def test_torch_data_manager_05_subset_train(self):
+    def test_torch_data_manager_04_subset_train(self):
         """ Testing the method load train partition """
 
         # Test with split
@@ -192,6 +197,91 @@ class TestTorchDataManager(unittest.TestCase):
 
         result = self.torch_data_manager.to_sklearn()
         self.assertIsInstance(result, fedbiomed.common.data._sklearn_data_manager.SkLearnDataManager)
+
+    def test_torch_data_manager_08_save_load_state(self):
+        test_ratio = .5
+
+        loader_train, loader_test = self.torch_data_manager.split(test_ratio, test_batch_size=None)
+
+        state = self.torch_data_manager.save_state()
+
+        new_torch_data_manager = TorchDataManager(self.dataset, batch_size=48,
+                                                  shuffle=True)
+        new_torch_data_manager.load_state(state)
+        
+        new_train_loader, new_test_loader = new_torch_data_manager.split(test_ratio=test_ratio, 
+                                                                         test_batch_size=None)
+
+        self.assertListEqual(self.torch_data_manager.testing_index, new_torch_data_manager.testing_index)
+        
+        for i in range(2):
+            self.assertTrue(torch.equal(self.get_tensor_from_subset(loader_train.dataset)[i],
+                                        self.get_tensor_from_subset(new_train_loader.dataset)[i]))
+        
+        for i in range(2):
+            self.assertTrue(torch.equal(self.get_tensor_from_subset(loader_test.dataset)[i],
+                                        self.get_tensor_from_subset(new_test_loader.dataset)[i]))
+
+        # changing the `test_ratio` value
+        del new_torch_data_manager
+        new_torch_data_manager = TorchDataManager(self.dataset,
+                                                  batch_size=48,
+                                                  shuffle=True)
+        new_torch_data_manager.load_state(state)
+        test_ratio = .25
+        shuffled_train_loader, shuffled_test_loader = new_torch_data_manager.split(test_ratio=test_ratio, 
+                                                                                   test_batch_size=None)
+
+        for i in range(2):
+            self.assertFalse(torch.equal(self.get_tensor_from_subset(loader_train.dataset)[i],
+                                         self.get_tensor_from_subset(shuffled_train_loader.dataset)[i]))
+        for i in range(2):
+            self.assertFalse(torch.equal(self.get_tensor_from_subset(loader_test.dataset)[i],
+                                         self.get_tensor_from_subset(shuffled_test_loader.dataset)[i]))
+
+        # new_torch_data_manager.testing_index = [1, 2, 39999]
+        # new_torch_data_manager.training_index = []
+        # raise IndexError(f"{new_torch_data_manager._testing_index}")
+
+    def test_torch_data_manager_09_shuffle_testing_dataset(self):
+        self.torch_data_manager = TorchDataManager(dataset=self.dataset,
+                                                   batch_size=48,
+                                                   shuffle=True,
+                                                   )
+        
+        test_ratio = .5
+        loader_train, loader_test = self.torch_data_manager.split(test_ratio,
+                                                                  test_batch_size=None,
+                                                                  is_shuffled_testing_dataset=False)
+        loader_train2, loader_test2 = self.torch_data_manager.split(test_ratio, test_batch_size=None,
+                                                                    is_shuffled_testing_dataset=False)
+        
+        for i in range(2):
+            self.assertTrue(torch.equal(self.get_tensor_from_subset(loader_train.dataset)[i],
+                                         self.get_tensor_from_subset(loader_train2.dataset)[i]))
+        for i in range(2):
+            self.assertTrue(torch.equal(self.get_tensor_from_subset(loader_test.dataset)[i],
+                                         self.get_tensor_from_subset(loader_test2.dataset)[i]))
+            
+
+        loader_train2, loader_test2 = self.torch_data_manager.split(test_ratio, test_batch_size=None,
+                                                                    is_shuffled_testing_dataset=True)
+        
+        self.assertFalse(torch.equal(self.get_tensor_from_subset(loader_train.dataset)[1],
+                                    self.get_tensor_from_subset(loader_train2.dataset)[1]))
+        self.assertFalse(torch.equal(self.get_tensor_from_subset(loader_test.dataset)[1],
+                                    self.get_tensor_from_subset(loader_test2.dataset)[1]))
+
+    @staticmethod
+    def get_tensor_from_subset(subset: torch.utils.data.Subset) -> torch.Tensor:
+        tensor_x = []
+        tensor_y = []
+
+        for x, y in subset:
+            tensor_x.append(torch.from_numpy(x).unsqueeze(0))
+            tensor_y.append(int(y))
+        
+        return torch.cat(tensor_x, dim=0), torch.Tensor(tensor_y)
 
 
 if __name__ == '__main__':  # pragma: no cover

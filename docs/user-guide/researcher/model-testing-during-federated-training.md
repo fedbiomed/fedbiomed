@@ -20,12 +20,13 @@ In the federated learning concept, two validation types can be applied at each r
 These two validations allow the users to compare how training on the node has improved the model performance.
 
 
-!!! warning "Validation on the node side shouldn't be confused with the model **testing**"
-    Currently, nodes do not provide
-    completely separated datasets for validating model performance. Since the samples for validation and training are picked
-    randomly at each round of training, the same samples could be used for training in one round and for validation in another round. It is assumed that the testing should be done by the user using a local dataset that contains samples that
-    are not used for the training.
+!!! info "Validation and training dataset are kept seperated when testing is enabled"
+    Newest `Fed-BioMed` releases (>=6.1) allows `Researcher`s to keep distincts validation (for validating model performance) and training dataset when running the `Experiment`. It is now the default behaviour. 
+    In previous versions of `Fed-BioMed`, `Node`s did not provide  completely separated datasets for validating model performance. Since the samples for validation and training were picked randomly at each round of training, the same samples could be used for training in one round and for validation in another round. To revert back to this old behaviour, you can set in the [`Experiment.set_training_args`](fedbiomed.researcher.training_plan_worflow.TrainingPlanWorkflow.set_training_args) `shuffle_testing_dataset=True` (defaults to `False`). Setting `shuffle_testing_dataset=True` could make sense when dataset are very small, and you may want to use the whole dataset to train your model, validation samples included.
 
+!!! warning "Validation dataset are re-shuffled if `test_ratio` changes or if `Node's` dataset change from one `Round` to another"
+    Changing the value of `test_ratio` from one `Round` to another automatically re-shuffles the validation and testing dataset. It is equivalent to setting `shuffle_testing_dataset=True`.
+    Similary, if changes in the `Node` dataset happens form one `Round` to another, dataset training and validation may change as well. 
 
 Figure 1 illustrates the phases of validation and training during 2 rounds of federated training. As it can be seen in the figure, after the last round of training, one last validation on global updates is performed on the last
 aggregated parameters by each node. Therefore, the number of validation on globally updated parameters, if it is activated, will be equal to the number of rounds + 1
@@ -76,7 +77,8 @@ Here is the list of validation arguments that can be configured.
  - `test_metric_args`: A dictionary that contains the arguments that will be used for the metric function.
  - `test_batch_size`: A value used to compute metrics using batches instead of
  loading the full testing dataset (specified by `test_ratio`). Setting `test_batch_size` can avoid having [`MemoryError`](https://docs.python.org/3/library/exceptions.html#MemoryError) errors due to large and /or heavy datasets. You should select wisely the batch size and the metric, for some metrics can be meaningless if computed over several small batches of data (e.g. explained variance). `test_batch_size` should be greater or equal than `1` (enabled) or equal to `0` or `None` (disabled).
-
+- `shuffle_testing_dataset`: This argument will perform shuffling of the dataset. If it is switched from `False` too `True` it will reinitialize testing dataset that will be different than the one used in the previous rounds.
+  
 !!! info
     Validation functions for each default metric executes functions from scikit-learn framework.
     Therefore, <code>test_metric_args</code> should be coherent with the arguments of "scikit-learn" metrics

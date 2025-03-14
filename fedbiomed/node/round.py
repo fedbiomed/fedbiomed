@@ -121,6 +121,12 @@ class Round:
         self.loader_arguments = None
         self.training_arguments = None
         self._secure_aggregation = None
+        self.is_test_data_shuffled: bool = False
+        self._testing_indexes: Dict = {
+            'testing_index': [],
+            'training_index': [],
+            'test_ratio': None
+        }
         self._round = round_number
         self._node_state_manager: NodeStateManager = NodeStateManager(
             self._dir, self._node_id, self._db
@@ -292,6 +298,7 @@ class Round:
         try:
 
             self._set_training_testing_data_loaders()
+            
         except FedbiomedError as fe:
             error_message = f"Can not create validation/train data: {repr(fe)}"
             return self._send_round_reply(success=False, message=error_message)
@@ -604,6 +611,10 @@ class Round:
                                "Optimizer state.")
                 logger.debug(f" Error detail {err}")
 
+        # load testing dataset if any
+        if state['testing_dataset'] and not self.is_test_data_shuffled:
+            self._testing_indexes = state['testing_dataset']
+
         # add below other components that need to be reloaded from node state database
 
 
@@ -612,7 +623,7 @@ class Round:
         [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
 
         Some piece of information such as Optimizer state are also aved in files (located under
-        $FEDBIOMED_DIR/var/node_state<node_id>/experiment_id_<experiment_id>/).
+        <fedbiomed-node>/var/node_state<node_id>/experiment_id_<experiment_id>/).
         Should be called at the end of a `Round`, once the model has been trained.
 
         Entries saved in State:
@@ -651,6 +662,18 @@ class Round:
             _success = False
             optimizer_state_entry = None
         state['optimizer_state'] = optimizer_state_entry
+
+        # save testing dataset
+        state['testing_dataset'] = None
+
+        test_ratio = self._testing_indexes.get('test_ratio')
+        test_ratio = test_ratio if not self.testing_arguments else self.testing_arguments.get('test_ratio', None)
+        if not self.is_test_data_shuffled and test_ratio:
+            self._testing_indexes['test_ratio'] = test_ratio
+            state['testing_dataset'] = self._testing_indexes
+            logger.info("testing dataset saved in database")
+        else:
+            logger.info("testing data will be reshuffled next rounds")
         # add here other object states (ie model state, ...)
 
         # save completed node state
@@ -709,6 +732,7 @@ class Round:
 
         # Get validation parameters
         test_ratio = self.testing_arguments.get('test_ratio', 0)
+        self.is_test_data_shuffled = self.testing_arguments.get('shuffle_testing_dataset', False)
         test_global_updates = self.testing_arguments.get('test_on_global_updates', False)
         test_local_updates = self.testing_arguments.get('test_on_local_updates', False)
 
@@ -727,12 +751,16 @@ class Round:
             )
 
         # Setting validation and train subsets based on test_ratio
-        training_data_loader, testing_data_loader = self._split_train_and_test_data(test_ratio=test_ratio)
+        training_data_loader, testing_data_loader = self._split_train_and_test_data(
+                test_ratio=test_ratio,
+                #random_seed=rand_seed
+            )
         # Set models validating and training parts for training plan
         self.training_plan.set_data_loaders(train_data_loader=training_data_loader,
                                             test_data_loader=testing_data_loader)
 
-    def _split_train_and_test_data(self, test_ratio: float = 0):
+    def _split_train_and_test_data(self, test_ratio: float = 0) -> DataManager:
+        # FIXME: incorrect type output
         """
         Method for splitting training and validation data based on training plan type. It sets
         `dataset_path` for training plan and calls `training_data` method of training plan.
@@ -750,6 +778,7 @@ class Round:
                                    `fedbiomed.common.data.DataManager`.
                                  - If `load` method of DataManager returns an error
         """
+
         training_plan_type = self.training_plan.type()  # FIXME: type is not part of the BaseTrainingPlan API
         try:
             data_manager = self.training_plan.training_data()
@@ -800,9 +829,17 @@ class Round:
         # self.testing_data will be equal to all samples
         # self.training_data will be equal to None
 
+        # setting testing_index (if any)
+        data_manager.load_state(self._testing_indexes)
+
         # Split dataset as train and test
 
-        return data_manager.split(
+        training_loader, testing_loader = data_manager.split(
             test_ratio=test_ratio,
-            test_batch_size=self.testing_arguments.get('test_batch_size')
+            test_batch_size=self.testing_arguments.get('test_batch_size'),
+            is_shuffled_testing_dataset = self.is_test_data_shuffled
         )
+        # retrieve testing/training indexes
+        self._testing_indexes = data_manager.save_state()
+
+        return training_loader, testing_loader
