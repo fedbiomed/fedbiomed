@@ -16,7 +16,7 @@ This tutorial details a deployment scenario where:
 ## Requirements
 
 !!! note "Important"
-Fed-BioMed docker images aren't distributed in any platform, and it requires to be rebuilt from source code. This article will guide you building docker images and containers from Fed-BioMed source.
+    Fed-BioMed docker images aren't distributed in any platform, and it requires to be rebuilt from source code. This article will guide you building docker images and containers from Fed-BioMed source.
 
 
 !!! info "Supported operating systems and software requirements"
@@ -420,12 +420,6 @@ Some possible management commands after initial deployment include:
     node        NODETAG      10.221.0.2/32  ['1exampleofdummykey/Z1SKEzjsMkSe1qztF0uXglnA=']
     ```
 
-* restart all containers running on the server side
-
-    ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver researcher
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start vpnserver researcher
-    ```
 
     VPN configurations and container files are kept unchanged when restarting containers.
 
@@ -478,6 +472,41 @@ Some possible management commands after initial deployment include:
     ```
     [user@node $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean image
     ```
+
+## Misc use alternate container image version
+
+When building or starting a component using `fedbiomed_vpn` or `docker compose`, container image version automatically matches the software version of the sources in the *current clone*.
+
+To use a different container image version either:
+
+  * set the `FBM_CONTAINER_VERSION_TAG` environment variable (temporary change) or
+  * set the `FBM_CONTAINER_VERSION_TAG`variable in the `$FEDBIOMED_DIR/envs/vpn/docker/.env` file (permanent change)
+
+
+!!! warning "Important"
+    Using alternate container image version is advanced functionality. It may break the containers configurations of your *current clone*. Use them only if you know what you are doing. 
+
+
+Examples:
+
+* clean all containers and images for version `my_version_tag`, plus containers files and temporary files in *current clone* of the sources
+
+    ```bash
+    [user@server $] FBM_CONTAINER_VERSION_TAG=my_version_tag ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean image
+    ```
+
+* build researcher container from the *current clone* (thus using the sources of *current clone*'s version), then tag the image with version `my_version_tag`
+
+    ```bash
+    [user@server $] FBM_CONTAINER_VERSION_TAG=my_version_tag ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn build researcher
+    ```
+
+* start researcher container from the *current clone* (thus using a file tree fitting *current clone*'s version), using an image with version `my_version_tag`
+
+    ```bash
+    [user@server $] FBM_CONTAINER_VERSION_TAG=my_version_tag ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start researcher
+    ```
+
 
 ## Troubleshooting
 

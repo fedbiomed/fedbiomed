@@ -11,7 +11,7 @@ This article will guide you to:
 
 
 ## Clone the repository
-The first step is to clone the repository please go to (Fed-BioMed GitHub Repository)[https://github.com/fedbiomed/fedbiomed] and clone it your local environment.
+The first step is to clone the repository please go to [Fed-BioMed GitHub Repository](https://github.com/fedbiomed/fedbiomed) and clone it your local environment.
 
 ```
 git clone git@github.com:fedbiomed/fedbiomed.git <path-to-clone>

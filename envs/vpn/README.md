@@ -147,7 +147,7 @@ On the build machine
 ```
 * save image for container
 ```bash
-[user@build $] ( source .env ; docker image save fedbiomed/vpn-node:$FEDBIOMED_VERSION_TAG | gzip >/tmp/vpn-node-image.tar.gz )
+[user@build $] ( source .env ; docker image save fedbiomed/vpn-node:$FBM_CONTAINER_VERSION_TAG | gzip >/tmp/vpn-node-image.tar.gz )
 ```
 * save files needed for running container
 ```bash
@@ -549,7 +549,7 @@ You can connect to a container only if the corresponding container is already ru
 [user@network #] rm -rf vpnserver/run_mounts/config/{config.env,config_peers,ip_assign,wireguard}
 
 # level 3 : image
-[user@network $] ( source .env ; docker image rm fedbiomed/vpn-vpnserver:$FEDBIOMED_VERSION_TAG fedbiomed/vpn-base:$FEDBIOMED_VERSION_TAG )
+[user@network $] ( source .env ; docker image rm fedbiomed/vpn-vpnserver:$FBM_CONTAINER_VERSION_TAG fedbiomed/vpn-base:$FBM_CONTAINER_VERSION_TAG )
 [user@network $] docker image prune -f
 ```
 
@@ -566,7 +566,7 @@ You can connect to a container only if the corresponding container is already ru
 [user@node $] rm -rf ./node/run_mounts/fbm-node/{*,.fedbiomed}
 
 # level 3 : image
-[user@node $] ( source .env ; docker image rm fedbiomed/vpn-node:$FEDBIOMED_VERSION_TAG fedbiomed/vpn-basenode:$FEDBIOMED_VERSION_TAG )
+[user@node $] ( source .env ; docker image rm fedbiomed/vpn-node:$FBM_CONTAINER_VERSION_TAG fedbiomed/vpn-basenode:$FBM_CONTAINER_VERSION_TAG )
 [user@node $] docker image prune -f
 ```
 
@@ -583,7 +583,7 @@ You can connect to a container only if the corresponding container is already ru
 [user@node $] rm -rf ./node/run_mounts/fbm-node/{*,.fedbiomed}
 
 # level 3 : image
-[user@node $] (source .env ; docker image rm fedbiomed/vpn-gui:$FEDBIOMED_VERSION_TAG )
+[user@node $] (source .env ; docker image rm fedbiomed/vpn-gui:$FBM_CONTAINER_VERSION_TAG )
 [user@network $] docker image prune -f
 ```
 
@@ -603,7 +603,7 @@ Same as node
 [user@researcher $] rm -rf ./researcher/run_mounts/{fbm-researcher,samples}/*
 
 # level 3 : image
-[user@researcher $] (source .env ; docker image rm fedbiomed/vpn-researcher:$FEDBIOMED_VERSION_TAG fedbiomed/vpn-base:$FEDBIOMED_VERSION_TAG )
+[user@researcher $] (source .env ; docker image rm fedbiomed/vpn-researcher:$FBM_CONTAINER_VERSION_TAG fedbiomed/vpn-base:$FBM_CONTAINER_VERSION_TAG )
 [user@network $] docker image prune -f
 ```
 

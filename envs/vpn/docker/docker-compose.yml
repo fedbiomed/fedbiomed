@@ -12,8 +12,8 @@ x-node:
       - CONTAINER_GID
       - CONTAINER_USER
       - CONTAINER_GROUP
-      - FEDBIOMED_VERSION_TAG
-  image: fedbiomed/vpn-node:${FEDBIOMED_VERSION_TAG:-latest}
+      - FBM_CONTAINER_VERSION_TAG
+  image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
   environment:
   # enable overloading build-time id with a run-time id
     - CONTAINER_UID
@@ -40,7 +40,7 @@ x-node2:
   # this might re-build the same image but with different IMAGE ID
   # eg: `fedbiomed_vpn status` then fails, etc.
   # eg: `docker container ps` shows node not attached to `fedbiomed/vpn-node` image
-  image: fedbiomed/vpn-node:${FEDBIOMED_VERSION_TAG:-latest}
+  image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
   environment:
   # enable overloading build-time id with a run-time id
     - CONTAINER_UID
@@ -67,7 +67,7 @@ services:
     hostname: fedbiomed-vpn-base
     build:
       context: ./base/build_files
-    image: "fedbiomed/vpn-base:${FEDBIOMED_VERSION_TAG:-latest}"
+    image: "fedbiomed/vpn-base:${FBM_CONTAINER_VERSION_TAG:-unknown}"
     entrypoint: /bin/true
     # profiles:
     #  - debug
@@ -80,7 +80,7 @@ services:
     hostname: fedbiomed-vpn-base-node-no-gpu
     build:
       context: ./base/build_files
-    image: fedbiomed/vpn-basenode:${FEDBIOMED_VERSION_TAG:-latest}
+    image: fedbiomed/vpn-basenode:${FBM_CONTAINER_VERSION_TAG:-unknown}
     entrypoint: /bin/true
     # profiles:
     #  - debug
@@ -89,7 +89,7 @@ services:
     hostname: fedbiomed-vpn-base-node
     build:
       context: ./basegpu/build_files
-    image: fedbiomed/vpn-basenode:${FEDBIOMED_VERSION_TAG:-latest}
+    image: fedbiomed/vpn-basenode:${FBM_CONTAINER_VERSION_TAG:-unknown}
     entrypoint: /bin/true
     # profiles:
     #  - debug
@@ -105,8 +105,8 @@ services:
         - CONTAINER_GID # build and use other group than "root"
         - CONTAINER_USER # build and use other account than "root"
         - CONTAINER_GROUP # build and use other group than "root"
-        - FEDBIOMED_VERSION_TAG
-    image: fedbiomed/vpn-vpnserver:${FEDBIOMED_VERSION_TAG:-latest}
+        - FBM_CONTAINER_VERSION_TAG
+    image: fedbiomed/vpn-vpnserver:${FBM_CONTAINER_VERSION_TAG:-unknown}
     environment:
     # enable overloading build-time id with a run-time id
       - CONTAINER_UID
@@ -168,7 +168,7 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
         - PYTHON_VERSION
-    image: fedbiomed/vpn-gui:${FEDBIOMED_VERSION_TAG:-latest}
+    image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
     environment:
     # enable overloading build-time id with a run-time id
       - SSL_ON=true
@@ -195,7 +195,7 @@ services:
     # this might re-build the same image but with different IMAGE ID
     # eg: `fedbiomed_vpn status` then fails, etc.
     # eg: `docker container ps` shows gui not attached to `fedbiomed/vpn-gui` image
-    image: fedbiomed/vpn-gui:${FEDBIOMED_VERSION_TAG:-latest}
+    image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
     environment:
     # enable overloading build-time id with a run-time id
       - SSL_ON=true
@@ -226,8 +226,8 @@ services:
         - CONTAINER_GID
         - CONTAINER_USER
         - CONTAINER_GROUP
-        - FEDBIOMED_VERSION_TAG
-    image: fedbiomed/vpn-researcher:${FEDBIOMED_VERSION_TAG:-latest}
+        - FBM_CONTAINER_VERSION_TAG
+    image: fedbiomed/vpn-researcher:${FBM_CONTAINER_VERSION_TAG:-unknown}
     environment:
     # enable overloading build-time id with a run-time id
       - CONTAINER_UID
