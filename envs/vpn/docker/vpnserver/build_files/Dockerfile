@@ -1,4 +1,5 @@
-FROM fedbiomed/vpn-base
+ARG FBM_CONTAINER_VERSION_TAG
+FROM fedbiomed/vpn-base:${FBM_CONTAINER_VERSION_TAG:-unknown}
 
 WORKDIR /fedbiomed
 

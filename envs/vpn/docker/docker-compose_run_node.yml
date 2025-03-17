@@ -11,7 +11,7 @@ x-node:
   &standard-node
   container_name: fedbiomed-vpn-node
   hostname: fedbiomed-vpn-node
-  image: fedbiomed/vpn-node
+  image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
   environment:
     # enable overloading build-time id with a run-time id
     - CONTAINER_UID
@@ -35,7 +35,7 @@ x-node2:
   &standard-node2
   container_name: fedbiomed-vpn-node2
   hostname: fedbiomed-vpn-node2
-  image: fedbiomed/vpn-node
+  image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
   environment:
   # enable overloading build-time id with a run-time id
     - CONTAINER_UID
@@ -76,7 +76,7 @@ services:
   gui:
     container_name: fedbiomed-vpn-gui
     hostname: fedbiomed-vpn-gui
-    image: fedbiomed/vpn-gui
+    image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
     environment:
       # enable overloading build-time id with a run-time id
       - SSL_ON=true
@@ -100,7 +100,7 @@ services:
   gui2:
     container_name: fedbiomed-vpn-gui2
     hostname: fedbiomed-vpn-gui2
-    image: fedbiomed/vpn-gui
+    image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
     environment:
     # enable overloading build-time id with a run-time id
       - SSL_ON=true
