@@ -81,8 +81,14 @@ RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fbm-node # Fed-BioMed node direct
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
 
+# Set container user
+USER $CONTAINER_USER:$CONTAINER_GROUP
+
 # Installs fedbiomed and necessary modules
 RUN pip install '.[gui]'
+
+# Add fedbiomed command
+ENV PATH=/home/${CONTAINER_USER}/.local/bin:$PATH
 
 # Changedir to main directory
 WORKDIR /
