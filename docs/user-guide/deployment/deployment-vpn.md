@@ -86,7 +86,7 @@ It covers the initial server deployment, including build, configuration and laun
 
     `docker compose` commands need to be launched from `${FEDBIOMED_DIR}/envs/vpn/docker directory`.
 
-* **optionally** choose a unique ID for this instance of Fed-BioMed. This is useful only when multiples instances of Fed-BioMed exist on the same machine. It adds another layer of security by using distinct `docker` networks for each instance running on the machine.
+* **optionally** choose a unique ID for this instance of Fed-BioMed. This is useful only when multiples instances of Fed-BioMed exist on the same machine. It adds another layer of security by using distinct `docker` networks for each instance running on the machine. It uses distinct container names for each instance, but **does not support yet same containers from different instances running at the same time**.
 
     ```bash
     # example: choose ID manually
@@ -166,13 +166,13 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 
     `docker compose` commands need to be launched from `${FEDBIOMED_DIR}/envs/vpn/docker directory`.
 
-* **optionally** choose a unique ID for this instance of Fed-BioMed. This is useful only when multiples instances of Fed-BioMed exist on the same machine. It adds another layer of security by using distinct `docker` networks for each instance running on the machine.
+* **optionally** choose a unique ID for this instance of Fed-BioMed. This is useful only when multiples instances of Fed-BioMed exist on the same machine. It adds another layer of security by using distinct `docker` networks for each instance running on the machine. It uses distinct container names for each instance, but **does not support yet same containers from different instances running at the same time**.
 
     ```bash
     # example: choose ID manually
-    [user@server $] export FBM_CONTAINER_INSTANCE_ID=*my-instance-tag*
+    [user@node $] export FBM_CONTAINER_INSTANCE_ID=*my-instance-tag*
     # example: generate ID from docker file directory
-    [user@server $] export FBM_CONTAINER_INSTANCE_ID=$(realpath $(pwd)|cksum|cut -d ' ' -f1)
+    [user@node $] export FBM_CONTAINER_INSTANCE_ID=$(realpath $(pwd)|cksum|cut -d ' ' -f1)
     ```
 
 * clean running containers, containers files, temporary files (skip that step if node and server run on the same machine)
@@ -222,6 +222,13 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 
     ```bash
     [user@node $] export FBM_SECURITY_FORCE_SECURE_AGGREGATION=True
+    ```
+
+* **optionally** allow all training plans to execute without node side approval (warning: be sure this is coherent with your site security requirements !), or allow the pre-defined training plans to execute without approval:
+
+    ```bash
+    [user@node $] export FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True
+    [user@node $] export FBM_SECURITY_TRAINING_PLAN_APPROVAL=False
     ```
 
 * start `node` container

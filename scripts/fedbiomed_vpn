@@ -319,10 +319,13 @@ containers_status() {
     echo "** Checking docker VPN images & VPN access:" ${ONLY_CONTAINERS[@]}
     cd "$basedir/envs/vpn/docker"
 
+    # don't source full environment to avoid potential variable conflict
+    instance_id=$(source ./.env ; echo $FBM_CONTAINER_INSTANCE_ID)
+
     RUNNING_CONTAINERS=()
     for i in ${ONLY_CONTAINERS[@]}
     do
-        status=$(docker ps | grep fedbiomed-vpn-$i)
+        status=$(docker ps | grep fedbiomed-vpn-$i-$instance_id)
         if [ -z "$status" ]; then
             echo "- container $i is NOT running"
         else

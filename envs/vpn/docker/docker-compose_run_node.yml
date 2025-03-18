@@ -9,8 +9,8 @@
 # running a node
 x-node:
   &standard-node
-  container_name: fedbiomed-vpn-node
-  hostname: fedbiomed-vpn-node
+  container_name: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  hostname: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
   networks:
     - fedbiomed_node
@@ -22,6 +22,8 @@ x-node:
     - CONTAINER_GROUP
     - FBM_NODE_START_OPTIONS
     - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+    - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+    - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
   cap_add:
     - net_admin
     - sys_module
@@ -35,8 +37,8 @@ x-node:
 # optionally launch a second node instance on the same machine
 x-node2:
   &standard-node2
-  container_name: fedbiomed-vpn-node2
-  hostname: fedbiomed-vpn-node2
+  container_name: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  hostname: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
   networks:
     - fedbiomed_node2
@@ -48,6 +50,8 @@ x-node2:
     - CONTAINER_GROUP
     - FBM_NODE_START_OPTIONS
     - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+    - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+    - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
   cap_add:
     - net_admin
     - sys_module
@@ -78,8 +82,8 @@ services:
   #
   # node gui component
   gui:
-    container_name: fedbiomed-vpn-gui
-    hostname: fedbiomed-vpn-gui
+    container_name: fedbiomed-vpn-gui-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-gui-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
     networks:
       - fedbiomed_gui
@@ -104,8 +108,8 @@ services:
   #
   # node gui component
   gui2:
-    container_name: fedbiomed-vpn-gui2
-    hostname: fedbiomed-vpn-gui2
+    container_name: fedbiomed-vpn-gui2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-gui2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
     networks:
       - fedbiomed_gui2
