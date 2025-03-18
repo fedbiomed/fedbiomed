@@ -12,6 +12,8 @@ x-node:
   container_name: fedbiomed-vpn-node
   hostname: fedbiomed-vpn-node
   image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+  networks:
+    - fedbiomed_node
   environment:
     # enable overloading build-time id with a run-time id
     - CONTAINER_UID
@@ -36,6 +38,8 @@ x-node2:
   container_name: fedbiomed-vpn-node2
   hostname: fedbiomed-vpn-node2
   image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+  networks:
+    - fedbiomed_node2
   environment:
   # enable overloading build-time id with a run-time id
     - CONTAINER_UID
@@ -77,6 +81,8 @@ services:
     container_name: fedbiomed-vpn-gui
     hostname: fedbiomed-vpn-gui
     image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_gui
     environment:
       # enable overloading build-time id with a run-time id
       - SSL_ON=true
@@ -101,6 +107,8 @@ services:
     container_name: fedbiomed-vpn-gui2
     hostname: fedbiomed-vpn-gui2
     image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_gui2
     environment:
     # enable overloading build-time id with a run-time id
       - SSL_ON=true
@@ -118,3 +126,13 @@ services:
       # caution: /fbm-node directory must be shared with node
       - ./gui2/run_mounts/certs:/certs
       - ./node2/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+#
+networks:
+  fedbiomed_node:
+    name: fedbiomed_node_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_node2:
+    name: fedbiomed_node2_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_gui:
+    name: fedbiomed_gui_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_gui2:
+    name: fedbiomed_gui2_${FBM_CONTAINER_INSTANCE_ID:-unknown}

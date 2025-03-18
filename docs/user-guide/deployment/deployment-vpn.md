@@ -86,6 +86,15 @@ It covers the initial server deployment, including build, configuration and laun
 
     `docker compose` commands need to be launched from `${FEDBIOMED_DIR}/envs/vpn/docker directory`.
 
+* **optionally** choose a unique ID for this instance of Fed-BioMed. This is useful only when multiples instances of Fed-BioMed exist on the same machine. It adds another layer of security by using distinct `docker` networks for each instance running on the machine.
+
+    ```bash
+    # example: choose ID manually
+    [user@server $] export FBM_CONTAINER_INSTANCE_ID=*my-instance-tag*
+    # example: generate ID from docker file directory
+    [user@server $] export FBM_CONTAINER_INSTANCE_ID=$(realpath $(pwd)|cksum|cut -d ' ' -f1)
+    ```
+
 * clean running containers, containers files, temporary files
 
     ``` bash
@@ -156,6 +165,15 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
     For the rest of this tutorial `${FEDBIOMED_DIR}` represents the base directory of the clone.
 
     `docker compose` commands need to be launched from `${FEDBIOMED_DIR}/envs/vpn/docker directory`.
+
+* **optionally** choose a unique ID for this instance of Fed-BioMed. This is useful only when multiples instances of Fed-BioMed exist on the same machine. It adds another layer of security by using distinct `docker` networks for each instance running on the machine.
+
+    ```bash
+    # example: choose ID manually
+    [user@server $] export FBM_CONTAINER_INSTANCE_ID=*my-instance-tag*
+    # example: generate ID from docker file directory
+    [user@server $] export FBM_CONTAINER_INSTANCE_ID=$(realpath $(pwd)|cksum|cut -d ' ' -f1)
+    ```
 
 * clean running containers, containers files, temporary files (skip that step if node and server run on the same machine)
 

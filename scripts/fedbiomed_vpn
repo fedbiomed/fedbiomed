@@ -15,6 +15,7 @@
 # main variables
 # --------------
 ALL_VPN_CONTAINERS=( vpnserver researcher node node2 gui gui2 )
+ALL_VPN_NETWORKS=( vpnserver researcher node node2 gui gui2 misc )
 
 # all functions
 # -------------
@@ -227,7 +228,7 @@ containers_clean() {
     cd "$basedir/envs/vpn/docker"
 
     #
-    # level1 : stop and remove containers
+    # level1 : stop and remove containers and networks
     #
 
     containers_remove
@@ -235,6 +236,14 @@ containers_clean() {
     for i in base basenode
     do
         $DOCKER_COMPOSE rm -sf $i >/dev/null
+    done
+
+    # don't source full environment to avoid potential variable conflict
+    instance_id=$(source ./.env ; echo $FBM_CONTAINER_INSTANCE_ID)
+
+    for i in ${ALL_VPN_NETWORKS[@]}
+    do
+        docker network rm -f fedbiomed_${i}_$instance_id
     done
 
     #
