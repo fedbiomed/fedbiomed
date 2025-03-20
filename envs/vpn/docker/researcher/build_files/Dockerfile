@@ -80,10 +80,7 @@ WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Install fedbiomed and its requirements
-RUN pip install '.[researcher]'
-
-# Add fedbiomed command
-ENV PATH=/home/${CONTAINER_USER}/.local/bin:$PATH
+RUN pip install --no-warn-script-location '.[researcher]'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
