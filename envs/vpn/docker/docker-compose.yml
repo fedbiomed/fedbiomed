@@ -2,8 +2,8 @@
 # node component template
 x-node:
   &standard-node
-  container_name: fedbiomed-vpn-node
-  hostname: fedbiomed-vpn-node
+  container_name: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  hostname: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   build:
     context: ../../..
     dockerfile: envs/vpn/docker/node/build_files/Dockerfile
@@ -14,6 +14,8 @@ x-node:
       - CONTAINER_GROUP
       - FBM_CONTAINER_VERSION_TAG
   image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+  networks:
+    - fedbiomed_node
   environment:
   # enable overloading build-time id with a run-time id
     - CONTAINER_UID
@@ -22,6 +24,8 @@ x-node:
     - CONTAINER_GROUP
     - FBM_NODE_START_OPTIONS
     - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+    - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+    - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
   cap_add:
     - net_admin
     - sys_module
@@ -34,13 +38,15 @@ x-node:
 # optionally launch a second node instance on the same machine
 x-node2:
   &standard-node2
-  container_name: fedbiomed-vpn-node2
-  hostname: fedbiomed-vpn-node2
+  container_name: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  hostname: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   # dont build images as they are the same as for `node`
   # this might re-build the same image but with different IMAGE ID
   # eg: `fedbiomed_vpn status` then fails, etc.
   # eg: `docker container ps` shows node not attached to `fedbiomed/vpn-node` image
   image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+  networks:
+    - fedbiomed_node2
   environment:
   # enable overloading build-time id with a run-time id
     - CONTAINER_UID
@@ -49,6 +55,8 @@ x-node2:
     - CONTAINER_GROUP
     - FBM_NODE_START_OPTIONS
     - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+    - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+    - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
   cap_add:
     - net_admin
     - sys_module
@@ -63,11 +71,13 @@ services:
   # intermediate step : base image for building vpn and researcher containers
   # we usually dont want to launch this service (used for building other services)
   base:
-    container_name: fedbiomed-vpn-base
-    hostname: fedbiomed-vpn-base
+    container_name: fedbiomed-vpn-base-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-base-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     build:
       context: ./base/build_files
     image: "fedbiomed/vpn-base:${FBM_CONTAINER_VERSION_TAG:-unknown}"
+    networks:
+      - fedbiomed_misc
     entrypoint: /bin/true
     # profiles:
     #  - debug
@@ -76,28 +86,32 @@ services:
   # 2 options : without or without nvidia gpu support
   # we usually dont want to launch this service (used for building other services)
   basenode-no-gpu:
-    container_name: fedbiomed-vpn-base-node-no-gpu
-    hostname: fedbiomed-vpn-base-node-no-gpu
+    container_name: fedbiomed-vpn-base-node-no-gpu-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-base-node-no-gpu-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     build:
       context: ./base/build_files
     image: fedbiomed/vpn-basenode:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_misc
     entrypoint: /bin/true
     # profiles:
     #  - debug
   basenode:
-    container_name: fedbiomed-vpn-base-node
-    hostname: fedbiomed-vpn-base-node
+    container_name: fedbiomed-vpn-base-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-base-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     build:
       context: ./basegpu/build_files
     image: fedbiomed/vpn-basenode:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_misc
     entrypoint: /bin/true
     # profiles:
     #  - debug
   #
   # vpn server component
   vpnserver:
-    container_name: fedbiomed-vpn-vpnserver
-    hostname: fedbiomed-vpn-vpnserver
+    container_name: fedbiomed-vpn-vpnserver-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-vpnserver-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     build:
       context: ./vpnserver/build_files
       args:
@@ -107,6 +121,8 @@ services:
         - CONTAINER_GROUP # build and use other group than "root"
         - FBM_CONTAINER_VERSION_TAG
     image: fedbiomed/vpn-vpnserver:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_vpnserver
     environment:
     # enable overloading build-time id with a run-time id
       - CONTAINER_UID
@@ -157,8 +173,8 @@ services:
   #
   # node gui component
   gui:
-    container_name: fedbiomed-vpn-gui
-    hostname: fedbiomed-vpn-gui
+    container_name: fedbiomed-vpn-gui-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-gui-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     build:
       context: ../../..
       dockerfile: envs/vpn/docker/gui/build_files/Dockerfile
@@ -169,6 +185,8 @@ services:
         - CONTAINER_GROUP
         - PYTHON_VERSION
     image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_gui
     environment:
     # enable overloading build-time id with a run-time id
       - SSL_ON=true
@@ -189,13 +207,15 @@ services:
 
   # node gui component
   gui2:
-    container_name: fedbiomed-vpn-gui2
-    hostname: fedbiomed-vpn-gui2
+    container_name: fedbiomed-vpn-gui2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-gui2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     # dont build images as they are the same as for `gui`
     # this might re-build the same image but with different IMAGE ID
     # eg: `fedbiomed_vpn status` then fails, etc.
     # eg: `docker container ps` shows gui not attached to `fedbiomed/vpn-gui` image
     image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_gui2
     environment:
     # enable overloading build-time id with a run-time id
       - SSL_ON=true
@@ -216,8 +236,8 @@ services:
 #
   # researcher component
   researcher:
-    container_name: fedbiomed-vpn-researcher
-    hostname: fedbiomed-vpn-researcher
+    container_name: fedbiomed-vpn-researcher-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-researcher-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     build:
       context: ../../..
       dockerfile: envs/vpn/docker/researcher/build_files/Dockerfile
@@ -228,6 +248,8 @@ services:
         - CONTAINER_GROUP
         - FBM_CONTAINER_VERSION_TAG
     image: fedbiomed/vpn-researcher:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_researcher
     environment:
     # enable overloading build-time id with a run-time id
       - CONTAINER_UID
@@ -246,3 +268,20 @@ services:
       - ./researcher/run_mounts/config:/config # contains VPN configurations
       - ./researcher/run_mounts/samples:/fedbiomed/notebooks/samples # contains researcher sample notebooks
       - ./researcher/run_mounts/fbm-researcher:/fbm-researcher # contains fedbiomed component configuration and data
+#
+networks:
+  fedbiomed_vpnserver:
+    name: fedbiomed_vpnserver_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_researcher:
+    name: fedbiomed_researcher_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_node:
+    name: fedbiomed_node_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_node2:
+    name: fedbiomed_node2_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_gui:
+    name: fedbiomed_gui_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_gui2:
+    name: fedbiomed_gui2_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  # for intermediate containers, usuallly not used
+  fedbiomed_misc:
+    name: fedbiomed_misc_${FBM_CONTAINER_INSTANCE_ID:-unknown}
