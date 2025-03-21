@@ -71,8 +71,11 @@ RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fbm-node # Fed-BioMed node direct
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
 
+# Set container user
+USER $CONTAINER_USER:$CONTAINER_GROUP
+
 # Installs fedbiomed and necessary modules
-RUN /bin/pip install -I .
+RUN /bin/pip install --no-warn-script-location -I '.[node]'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

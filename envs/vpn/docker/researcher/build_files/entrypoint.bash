@@ -12,9 +12,9 @@ source ~/bashrc_entrypoint
 
 check_vpn_environ
 init_misc_environ
-change_path_owner "fbm_researcher" "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
 start_wireguard
 configure_wireguard
+change_path_owner "/fedbiomed" "/fbm-researcher /home/$CONTAINER_BUILD_USER"
 
 trap finish TERM INT QUIT
 
@@ -25,7 +25,7 @@ export PYTHONPATH=/fedbiomed
 export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=False
 su -c "export FBM_RESEARCHER_COMPONENT_ROOT=/fbm-researcher ; \
       fedbiomed component create -c researcher --path /fbm-researcher  --exist-ok; \
-	  cd fedbiomed/notebooks ; \
+	  cd /fedbiomed/notebooks ; \
       jupyter notebook --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' " $CONTAINER_USER &
 
 # proxy port for TensorBoard
@@ -36,6 +36,7 @@ su -c "export FBM_RESEARCHER_COMPONENT_ROOT=/fbm-researcher ; \
         sleep 1 ; \
     done &
 
+echo "Researcher container is ready"
 sleep infinity &
 
 wait $!

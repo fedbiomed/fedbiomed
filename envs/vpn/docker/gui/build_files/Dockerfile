@@ -42,8 +42,8 @@ RUN apt-get install nginx -y --fix-missing
 
 # read config.env in interactive shells & setup for reading it in entrypoint
 COPY ./envs/vpn/docker/gui/build_files/bashrc_append /tmp
-RUN cat /tmp/bashrc_append | tee -a /root/.bashrc \
-        /etc/skel/.bashrc >/dev/null
+RUN cat /tmp/bashrc_append | tee -a /root/.bashrc /root/bashrc_entrypoint \
+        /etc/skel/.bashrc /etc/skel/bashrc_entrypoint >/dev/null
 
 RUN [ "$CONTAINER_GROUP" != 'root' ] && groupadd -g $CONTAINER_GID $CONTAINER_GROUP || :
 RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
@@ -81,8 +81,11 @@ RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fbm-node # Fed-BioMed node direct
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
 
+# Set container user
+USER $CONTAINER_USER:$CONTAINER_GROUP
+
 # Installs fedbiomed and necessary modules
-RUN pip install '.[gui]'
+RUN pip install --no-warn-script-location '.[gui]'
 
 # Changedir to main directory
 WORKDIR /

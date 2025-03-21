@@ -14,9 +14,9 @@ source ~/bashrc_entrypoint
 check_vpn_environ 'VPN_IP VPN_SUBNET_PREFIX VPN_MANAGEMENT_IP_ASSIGN VPN_NODE_IP_ASSIGN VPN_RESEARCHER_IP_ASSIGN VPN_SERVER_PUBLIC_ADDR VPN_SERVER_PORT'
 
 init_misc_environ
-change_path_owner "" "/home/$CONTAINER_BUILD_USER"
 start_wireguard
 configure_wireguard
+change_path_owner "" "/home/$CONTAINER_BUILD_USER"
 
 trap finish TERM INT QUIT
 
@@ -40,5 +40,6 @@ then
     exit 1
 fi
 
+echo "VPN server container is ready"
 sleep infinity &
 wait $!

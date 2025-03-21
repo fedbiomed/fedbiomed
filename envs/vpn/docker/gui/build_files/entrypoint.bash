@@ -6,8 +6,11 @@
 # read functions
 source /entrypoint_functions.bash
 
+# read config.env
+source ~/bashrc_entrypoint
+
 init_misc_environ
-change_path_owner "/fbm-node" "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
+change_path_owner "/fedbiomed" "/fbm-node /home/$CONTAINER_BUILD_USER"
 
 
 # To avoid envsubst to over write default nginx variables

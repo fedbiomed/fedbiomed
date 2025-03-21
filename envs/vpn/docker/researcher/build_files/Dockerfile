@@ -76,8 +76,11 @@ RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fbm-researcher
 WORKDIR /fedbiomed
 
+# Set container user
+USER $CONTAINER_USER:$CONTAINER_GROUP
+
 # Install fedbiomed and its requirements
-RUN pip install '.[researcher]'
+RUN pip install --no-warn-script-location '.[researcher]'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
@@ -85,10 +88,6 @@ ENV CONTAINER_BUILD_GROUP=${CONTAINER_GROUP}
 ENV CONTAINER_BUILD_UID=${CONTAINER_UID}
 ENV CONTAINER_BUILD_GID=${CONTAINER_GID}
 ENV FBM_RESEARCHER_COMPONENT_ROOT=/fbm-researcher
-
-# Activates fedbiomed command for root too.
-ENV PATH="$HOME/.local/bin:$PATH"
-
 
 WORKDIR /
 
