@@ -2,29 +2,39 @@
 
 # Fed-BioMed - functions for container launch script
 
+VPN_ACTIVE=true
+
 # minimal checks on VPN environment variables
 check_vpn_environ() {
     # check requires VPN variables are set
     local required_vpn_vars=${1:-'VPN_IP VPN_SUBNET_PREFIX VPN_SERVER_ENDPOINT VPN_SERVER_ALLOWED_IPS VPN_SERVER_PUBLIC_KEY VPN_SERVER_PSK'}
     local vars_error=false
+	local at_least_one_defined=false
+
 
     for var in $required_vpn_vars
     do
         value=$(eval "echo \$$var")
-        if [ -z "$value" ] 
+        if [ -z "$value" ]
         then
             vars_error=true
-            echo "CRITICAL: required VPN variable $var is not set"  
+            echo "CRITICAL: required VPN variable $var is not set"
         else
+			at_least_one_defined=true
             [ "$var" = 'VPN_SERVER_PSK' ] && value='_HIDDEN_VALUE_'
             echo "info: set $var='$value'"
         fi
     done
-    if "$vars_error"
+    if [ "$vars_error" == "true" ] && [ "$at_least_one_defined" == "true" ]
     then
-        echo "CRITICAL: missing some required VPN variables, terminating"
+        echo "CRITICAL: Some VPN values are defined while some are missing. Please make sure all missing \
+		 VPN variables are defined if VPN is going to be activated."
         exit 1
-    fi
+    elif [ "$var_error" == "false" ]; then
+		VPN_ACTIVE=true
+	else
+		VPN_ACTIVE=false
+	fi
 }
 
 # initialize some environment variables, create new account/group
@@ -133,7 +143,7 @@ change_path_owner() {
 
         for path in $path_full
         do
-            if [ -e $path ] 
+            if [ -e $path ]
             then
                 # far quicker than doing a `find`
                 chown -R $CONTAINER_USER:$CONTAINER_GROUP $path
@@ -152,7 +162,7 @@ change_path_owner() {
 check_wg_interface() {
 
     if ! $(ifconfig wg0 >/dev/null 2>&1)
-    then 
+    then
         echo "CRITICAL: no wireguard interface wg0, cannot continue"
         exit 1
     fi
@@ -230,7 +240,7 @@ save_wg_config() {
     then
         echo "CRITICAL: could not save wireguard config to ${CONFIG_DIR}/wireguard/wg0.conf"
         exit 1
-    fi 
+    fi
     echo "info: saved wireguard config to ${CONFIG_DIR}/wireguard/wg0.conf"
 }
 
@@ -263,9 +273,9 @@ configure_wireguard() {
         then
             echo "CRITICAL: could not generate new wireguard config"
             exit 1
-        fi  
-        
-        save_wg_config      
+        fi
+
+        save_wg_config
     fi
 
     # VPN client setup
@@ -279,7 +289,7 @@ configure_wireguard() {
 
             wg set wg0 peer "$VPN_SERVER_PUBLIC_KEY" allowed-ips "$VPN_SERVER_ALLOWED_IPS" endpoint "$VPN_SERVER_ENDPOINT" preshared-key <(echo "$VPN_SERVER_PSK") persistent-keepalive 25
             if [ "$?" -ne 0 ]
-            then 
+            then
                 echo "CRITICAL: could not add peer to wireguard interface"
                 exit 1
             fi
@@ -297,7 +307,7 @@ configure_wireguard() {
     # add address and route
     ip -4 address add "$VPN_IP/$VPN_SUBNET_PREFIX" dev wg0
     if [ "$?" -ne 0 ]
-    then 
+    then
         echo "CRITICAL: could not set IP address and route for wireguard interface"
         exit 1
     fi
@@ -305,7 +315,7 @@ configure_wireguard() {
     # activate and set mtu
     ip link set mtu 1420 up dev wg0
     if [ "$?" -ne 0 ]
-    then 
+    then
         echo "CRITICAL: could not activate wireguard interface"
         exit 1
     fi

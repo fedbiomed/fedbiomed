@@ -1,13 +1,13 @@
 # temporary builder image for wireguard tools
 # - need coherent system version with base image
 # - may need update for properly compiling boringtun
-# - 2023-05: `12.1.1-base-ubuntu22.04` is uptodate version 
+# - 2023-05: `12.1.1-base-ubuntu22.04` is uptodate version
 FROM nvidia/cuda:12.1.1-base-ubuntu22.04 AS builder
 
 RUN apt-get update && apt-get install -y git build-essential cargo
 
 # install boringtun userspace implementation of wireguard
-# 
+#
 # - match versions of debian & boringtun : up to date 0.5.2 compiles ok for bullseye, but could not have it working
 #   Continue with 0.4.0
 RUN cargo install --locked --bin boringtun --version ~0.4.0 boringtun

@@ -75,7 +75,7 @@ services:
     hostname: fedbiomed-vpn-base-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     build:
       context: ./base/build_files
-    image: "fedbiomed/vpn-base:${FBM_CONTAINER_VERSION_TAG:-unknown}"
+    image: "fedbiomed/base:${FBM_CONTAINER_VERSION_TAG:-unknown}"
     networks:
       - fedbiomed_misc
     entrypoint: /bin/true
