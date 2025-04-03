@@ -336,8 +336,8 @@ plugins:
 
   - redirects:
       redirect_maps:
-        './getting-started/getting-started.md': './getting-started/basic-example.md'
-        './tutorials/0-basic-software-installation.md': './getting-started/installation.md'
+        'getting-started/getting-started.md': 'getting-started/basic-example.md'
+        'tutorials/installation/0-basic-software-installation.md': 'getting-started/installation.md'
         # 'old/file.md': 'new/file.md'
 
 extra_javascript:
