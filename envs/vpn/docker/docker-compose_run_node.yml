@@ -9,15 +9,21 @@
 # running a node
 x-node:
   &standard-node
-  container_name: fedbiomed-vpn-node
-  hostname: fedbiomed-vpn-node
-  image: fedbiomed/vpn-node
+  container_name: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  hostname: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+  networks:
+    - fedbiomed_node
   environment:
     # enable overloading build-time id with a run-time id
     - CONTAINER_UID
     - CONTAINER_GID
     - CONTAINER_USER
     - CONTAINER_GROUP
+    - FBM_NODE_START_OPTIONS
+    - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+    - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+    - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
   cap_add:
     - net_admin
     - sys_module
@@ -25,22 +31,27 @@ x-node:
     - /dev/net/tun
   volumes:
     - ./node/run_mounts/config:/config # contains VPN configurations
-    - ./node/run_mounts/data:/data # datasets can be added here
-    - ./node/run_mounts/fbm-node:/fbm-node
+    - ./node/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
 
 #
 # optionally launch a second node instance on the same machine
 x-node2:
   &standard-node2
-  container_name: fedbiomed-vpn-node2
-  hostname: fedbiomed-vpn-node2
-  image: fedbiomed/vpn-node
+  container_name: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  hostname: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
+  networks:
+    - fedbiomed_node2
   environment:
   # enable overloading build-time id with a run-time id
     - CONTAINER_UID
     - CONTAINER_GID
     - CONTAINER_USER
     - CONTAINER_GROUP
+    - FBM_NODE_START_OPTIONS
+    - FBM_SECURITY_FORCE_SECURE_AGGREGATION
+    - FBM_SECURITY_TRAINING_PLAN_APPROVAL
+    - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
   cap_add:
     - net_admin
     - sys_module
@@ -48,8 +59,7 @@ x-node2:
     - /dev/net/tun
   volumes:
     - ./node2/run_mounts/config:/config # contains VPN configurations
-    - ./node2/run_mounts/data:/data # datasets can be added here
-    - ./node2/run_mounts/fbm-node:/fbm-node
+    - ./node2/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
 
 services:
   # not using gpu
@@ -72,9 +82,11 @@ services:
   #
   # node gui component
   gui:
-    container_name: fedbiomed-vpn-gui
-    hostname: fedbiomed-vpn-gui
-    image: fedbiomed/vpn-gui
+    container_name: fedbiomed-vpn-gui-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-gui-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_gui
     environment:
       # enable overloading build-time id with a run-time id
       - SSL_ON=true
@@ -89,17 +101,18 @@ services:
       - "${GUI_SERVER_IP:-127.0.0.1}:8484:8484" # nginx + flask HTTP server
       - "${GUI_SERVER_IP:-127.0.0.1}:8443:8443" # nginx + gunicorn HTTPS server
     volumes:
-      # caution: /data /etc /var directory must be shared with node
+      # caution: /fbm-node directory must be shared with node
       - ./gui/run_mounts/certs:/certs
-      - ./node/run_mounts/data:/data # datasets can be added here
-      - ./node/run_mounts/fbm-node:/fbm-node
+      - ./node/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
 
   #
   # node gui component
   gui2:
-    container_name: fedbiomed-vpn-gui2
-    hostname: fedbiomed-vpn-gui2
-    image: fedbiomed/vpn-gui
+    container_name: fedbiomed-vpn-gui2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    hostname: fedbiomed-vpn-gui2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
+    image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
+    networks:
+      - fedbiomed_gui2
     environment:
     # enable overloading build-time id with a run-time id
       - SSL_ON=true
@@ -114,7 +127,16 @@ services:
       - "${GUI_SERVER_IP:-127.0.0.1}:8485:8485" # nginx + flask HTTP server
       - "${GUI_SERVER_IP:-127.0.0.1}:8444:8444" # nginx + gunicorn HTTPS server
     volumes:
-      # caution: /data /etc /var directory must be shared with node
+      # caution: /fbm-node directory must be shared with node
       - ./gui2/run_mounts/certs:/certs
-      - ./node2/run_mounts/data:/data # datasets can be added here
-      - ./node2/run_mounts/fbm-node:/fbm-node
+      - ./node2/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
+#
+networks:
+  fedbiomed_node:
+    name: fedbiomed_node_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_node2:
+    name: fedbiomed_node2_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_gui:
+    name: fedbiomed_gui_${FBM_CONTAINER_INSTANCE_ID:-unknown}
+  fedbiomed_gui2:
+    name: fedbiomed_gui2_${FBM_CONTAINER_INSTANCE_ID:-unknown}

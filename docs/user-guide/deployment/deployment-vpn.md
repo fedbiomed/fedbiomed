@@ -16,7 +16,7 @@ This tutorial details a deployment scenario where:
 ## Requirements
 
 !!! note "Important"
-Fed-BioMed docker images aren't distributed in any platform, and it requires to be rebuilt from source code. This article will guide you building docker images and containers from Fed-BioMed source.
+    Fed-BioMed docker images aren't distributed in any platform, and it requires to be rebuilt from source code. This article will guide you building docker images and containers from Fed-BioMed source.
 
 
 !!! info "Supported operating systems and software requirements"
@@ -85,6 +85,15 @@ It covers the initial server deployment, including build, configuration and laun
     For the rest of this tutorial `${FEDBIOMED_DIR}` represents the base directory of the clone.
 
     `docker compose` commands need to be launched from `${FEDBIOMED_DIR}/envs/vpn/docker directory`.
+
+* **optionally** choose a unique ID for this instance of Fed-BioMed. This is useful only when multiples instances of Fed-BioMed exist on the same machine. It adds another layer of security by using distinct `docker` networks for each instance running on the machine. It uses distinct container names for each instance, but **does not support yet same containers from different instances running at the same time**.
+
+    ```bash
+    # example: choose ID manually
+    [user@server $] export FBM_CONTAINER_INSTANCE_ID=*my-instance-tag*
+    # example: generate ID from docker file directory
+    [user@server $] export FBM_CONTAINER_INSTANCE_ID=$(realpath $(pwd)|cksum|cut -d ' ' -f1)
+    ```
 
 * clean running containers, containers files, temporary files
 
@@ -157,6 +166,15 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 
     `docker compose` commands need to be launched from `${FEDBIOMED_DIR}/envs/vpn/docker directory`.
 
+* **optionally** choose a unique ID for this instance of Fed-BioMed. This is useful only when multiples instances of Fed-BioMed exist on the same machine. It adds another layer of security by using distinct `docker` networks for each instance running on the machine. It uses distinct container names for each instance, but **does not support yet same containers from different instances running at the same time**.
+
+    ```bash
+    # example: choose ID manually
+    [user@node $] export FBM_CONTAINER_INSTANCE_ID=*my-instance-tag*
+    # example: generate ID from docker file directory
+    [user@node $] export FBM_CONTAINER_INSTANCE_ID=$(realpath $(pwd)|cksum|cut -d ' ' -f1)
+    ```
+
 * clean running containers, containers files, temporary files (skip that step if node and server run on the same machine)
 
     ``` bash
@@ -200,6 +218,19 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
     [user@node $] cp /tmp/config.env ./node/run_mounts/config/config.env
     ```
 
+* **optionally** force the use of secure aggregation by the node (node will refuse to train without the use of secure aggregation):
+
+    ```bash
+    [user@node $] export FBM_SECURITY_FORCE_SECURE_AGGREGATION=True
+    ```
+
+* **optionally** allow all training plans to execute without node side approval (warning: be sure this is coherent with your site security requirements !), or allow the pre-defined training plans to execute without approval:
+
+    ```bash
+    [user@node $] export FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True
+    [user@node $] export FBM_SECURITY_TRAINING_PLAN_APPROVAL=False
+    ```
+
 * start `node` container
 
     ```bash
@@ -237,17 +268,6 @@ For each node, choose a **unique** node tag (eg: *NODETAG* in this example) that
 
     `node` container is now ready to be used.
 
-* **optionally** force the use of secure aggregation by the node (node will refuse to train without the use of secure aggregation):
-
-    ```bash
-    [user@node $] export FBM_SECURITY_FORCE_SECURE_AGGREGATION=True
-    ```
-
-* do initial node configuration. Following command will create node component located `/fbm-node/` directory of the container. This directory will be mounted in `{FEDBIOMED_DIR}/envs/vpn/docker/node/run_mounts` directory of the host.
-
-    ```bash
-    [user@node $] docker compose exec -u $(id -u) node bash -ci 'export FBM_SECURITY_FORCE_SECURE_AGGREGATION='${FBM_SECURITY_FORCE_SECURE_AGGREGATION}'&& export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=false && export FBM_RESEARCHER_IP=10.222.0.2 && export FBM_RESEARCHER_PORT=50051 && export PYTHONPATH=/fedbiomed && FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True fedbiomed component create --component NODE --exist-ok'
-    ```
 
 Optionally launch the node GUI :
 
@@ -313,11 +333,17 @@ This part of the tutorial is optionally executed on some nodes, after deploying 
 
 This part is executed at least once on each node, after deploying the node side containers.
 
-Setup the node by sharing datasets and by launching the Fed-BioMed node. The commands below will use default Fed-BioMed node directory which is located `/fbm-node` inside the container.
+Setup the node by sharing datasets. The commands below will use default Fed-BioMed node directory which is located `/fbm-node` inside the container.
 
 * if node GUI is launched, it can be used to share datasets. On the node side machine, connect to `https://localhost:8443` (or `https://<host_name_and_domain>:8443` if connection from distant machine is authorized)
 
-* connect to the `node` container and launch commands, for example :
+* view the node component logs
+
+```bash
+[user@node $] docker compose logs node
+```
+
+* **optionally** connect to the `node` container and launch commands, instead of using the GUI, for example :
 
     * connect to the container
 
@@ -326,16 +352,19 @@ Setup the node by sharing datasets and by launching the Fed-BioMed node. The com
         [user@node $] docker compose exec -u $(id -u) node bash
         ```
 
-    * start the Fed-BioMed node, for example in background:
+    * re-start the Fed-BioMed node, for example in background:
 
         ```bash
-        [user@node-container $] nohup fedbiomed node start >/fbm-node/fedbiomed_node.out &
+        [user@node-container $] kill $(ps auxwwww | grep -E 'python.*fedbiomed node start' | grep -Ev grep | awk '{ print $2}')
+        [user@node-container $] nohup fedbiomed node start $(cat /fbm-node/FBM_NODE_START_OPTIONS) >/fbm-node/fedbiomed_node.out &
         ```
+
+        Please note that in that case, the node component output does not appear anymore in `docker compose logs node`
 
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):
 
         ```bash
-        [user@node-container $] fedbiomed node dataset add -m /data
+        [user@node-container $] fedbiomed node dataset add -m /fbm-node/data
         [user@node-container $] fedbiomed node dataset add
         ```
 
@@ -347,12 +376,12 @@ Example of a few more possible commands:
     [user@node-container $] fedbiomed node dataset list
     ```
 
-* optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node/run_mounts/data/my_training_plan.txt`
+* optionally register a new [authorized training plan](../../tutorials/security/training-with-approved-training-plans.ipynb) previously copied on the node side in `${FEDBIOMED_DIR}/envs/vpn/docker/node/run_mounts/fbm-node/data/my_training_plan.txt`
 
     ```bash
     [user@node-container $] fedbiomed node training-plan register
     ```
-    Indicate `/data/my_training_plan.txt` as path of the training plan file.
+    Indicate `/fbm-node/data/my_training_plan.txt` as path of the training plan file.
 
 ## Optionally use a second node instance on the same node
 
@@ -416,12 +445,6 @@ Some possible management commands after initial deployment include:
     node        NODETAG      10.221.0.2/32  ['1exampleofdummykey/Z1SKEzjsMkSe1qztF0uXglnA=']
     ```
 
-* restart all containers running on the server side
-
-    ```bash
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn stop vpnserver researcher
-    [user@server $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start vpnserver researcher
-    ```
 
     VPN configurations and container files are kept unchanged when restarting containers.
 
@@ -474,6 +497,41 @@ Some possible management commands after initial deployment include:
     ```
     [user@node $] ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean image
     ```
+
+## Misc use alternate container image version
+
+When building or starting a component using `fedbiomed_vpn` or `docker compose`, container image version automatically matches the software version of the sources in the *current clone*.
+
+To use a different container image version either:
+
+  * set the `FBM_CONTAINER_VERSION_TAG` environment variable (temporary change) or
+  * set the `FBM_CONTAINER_VERSION_TAG`variable in the `$FEDBIOMED_DIR/envs/vpn/docker/.env` file (permanent change)
+
+
+!!! warning "Important"
+    Using alternate container image version is advanced functionality. It may break the containers configurations of your *current clone*. Use them only if you know what you are doing. 
+
+
+Examples:
+
+* clean all containers and images for version `my_version_tag`, plus containers files and temporary files in *current clone* of the sources
+
+    ```bash
+    [user@server $] FBM_CONTAINER_VERSION_TAG=my_version_tag ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn clean image
+    ```
+
+* build researcher container from the *current clone* (thus using the sources of *current clone*'s version), then tag the image with version `my_version_tag`
+
+    ```bash
+    [user@server $] FBM_CONTAINER_VERSION_TAG=my_version_tag ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn build researcher
+    ```
+
+* start researcher container from the *current clone* (thus using a file tree fitting *current clone*'s version), using an image with version `my_version_tag`
+
+    ```bash
+    [user@server $] FBM_CONTAINER_VERSION_TAG=my_version_tag ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start researcher
+    ```
+
 
 ## Troubleshooting
 

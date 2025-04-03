@@ -6,6 +6,8 @@ import unittest
 from unittest.mock import MagicMock, create_autospec, patch, PropertyMock
 from typing import Any, Dict, Optional, Tuple
 
+import pandas as pd
+
 from fedbiomed.node.node_state_manager import NodeStateFileName
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
@@ -16,6 +18,7 @@ from testsupport import fake_training_plan
 
 import numpy as np
 import torch
+from torch.utils.data import Dataset
 
 from fedbiomed.common.constants import DatasetTypes, SecureAggregationSchemes, TrainingPlans
 from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
@@ -432,6 +435,9 @@ class TestRound(unittest.TestCase):
         data_manager_mock.split.return_value = (data_loader_mock, None)
         data_manager_mock.dataset = my_dataset
 
+        data_manager_mock.save_state = MagicMock()
+        data_manager_mock.load_state = MagicMock()
+
         self.r1.training_kwargs = {}
         self.r1.initialize_arguments()
         self.r1.training_plan = MagicMock()
@@ -789,7 +795,8 @@ class TestRound(unittest.TestCase):
             'optimizer_state': {
                 'optimizer_type': 'optimizer_type',
                 'state_path': path_state,
-            }
+            },
+            'testing_dataset': None
         }
         self.state_manager_mock.return_value.get.return_value = node_state
         get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
@@ -831,7 +838,8 @@ class TestRound(unittest.TestCase):
             'optimizer_state': {
                 'optimizer_type': 'optimizer_type',
                 'state_path': path_state,
-            }
+            },
+            'testing_dataset': None
         }
         self.state_manager_mock.return_value.get.return_value = node_state
         get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
@@ -857,8 +865,13 @@ class TestRound(unittest.TestCase):
                                        get_optim_patch,
                                        serializer_patch):
 
+        training_idx, testing_idx = [1, 2, 3, 4], [5, 6, 7]
+        test_ratio = .1
         self.r1.experiment_id = '1234'
         self.r1._round = 34
+        self.r1._testing_indexes = {'training_index': training_idx,
+                                    'testing_index': testing_idx}
+        self.r1.testing_arguments = {'test_ratio':test_ratio}
 
         optim_path = 'path/to/folder/containing/state/files'
         self.state_manager_mock.return_value.generate_folder_and_create_file_name.return_value = optim_path
@@ -876,13 +889,18 @@ class TestRound(unittest.TestCase):
             'optimizer_state': {
                 'optimizer_type': 'optimizer_type',
                 'state_path': optim_path
+            },
+            'testing_dataset': {
+                'training_index': training_idx,
+                'testing_index': testing_idx,
+                'test_ratio': test_ratio
             }
         }
 
         expected_state = copy.deepcopy(added_state)
         expected_state.update(
             {'version_node_id': '1',
-            'state_id': 'state_id_1234'}
+             'state_id': 'state_id_1234'}
         )
         get_optim_patch.return_value.save_state.assert_called_once()
         serializer_patch.dump.assert_called_once_with(
@@ -900,6 +918,11 @@ class TestRound(unittest.TestCase):
                                                                 ):
         self.r1.experiment_id = '1234'
         self.r1._round = 34
+        training_idx, testing_idx = [1, 2, 3, 5, 7, 10], [4, 6, 8, 9, 11, 12]
+        test_ratio = .23
+        self.r1._testing_indexes = {'testing_index': testing_idx,
+                                    'training_index': training_idx}
+        self.r1.testing_arguments = {'test_ratio': test_ratio}
         #r = Round(experiment_id=experiment_id, round_number=round_nb)
         get_optim_patch.return_value = MagicMock(save_state=MagicMock(return_value=None))
 
@@ -910,7 +933,12 @@ class TestRound(unittest.TestCase):
         expected_state = {
             'optimizer_state': None,
             'version_node_id': '1',
-            'state_id': 'state_id_1234'
+            'state_id': 'state_id_1234',
+            'testing_dataset': {
+                'training_index': training_idx,
+                'testing_index': testing_idx,
+                'test_ratio': test_ratio
+            }
         }
 
         self.assertDictEqual(res, expected_state)
@@ -921,6 +949,7 @@ class TestRound(unittest.TestCase):
                                           serializer_patch,
                                           uuid_patch):
 
+        training_idx, testing_idx = [1, 2, 3, 5, 7, 10], [4, 6, 8, 9, 11, 12]
         optim_mock = MagicMock(spec=BaseOptimizer,
                                __class__='optimizer_type')
 
@@ -928,6 +957,9 @@ class TestRound(unittest.TestCase):
                                        )
         training_plan_mock.optimizer.return_value = optim_mock
         self.state_manager_mock.return_value.get_node_state_base_dir.return_value = "/path/to/base/dir"
+        training_plan_mock.data_manager = MagicMock(spec=DataManager)
+        self.r1._testing_indexes = {'testing_index': testing_idx,
+                                    'training_index': training_idx}
 
         uuid_patch.return_value = FakeUuid()
         experiment_id = _id = FakeUuid.VALUE
@@ -945,6 +977,108 @@ class TestRound(unittest.TestCase):
         self.state_manager_mock.return_value.get.assert_called_once_with(str(experiment_id), 'test-state-id')
         self.state_manager_mock.return_value.add.assert_called_once()
 
+    @patch('fedbiomed.node.round.Round._get_base_optimizer')
+    @patch('uuid.uuid4', autospec=True)
+    @patch('fedbiomed.node.round.Serializer', autospec=True)
+    def test_round_33_test_correct_testing_dataset_reload(self,
+                                                          serializer_patch,
+                                                          uuid_patch,
+                                                          get_optim_patch):
+        
+        node_state_mg_storage = []
+        # side effect functions
+        def save_node_state_mg(exp_id, state):
+            node_state_mg_storage.append(state)
+        
+        def get_node_state_mg(exp_id, state_id):
+            return node_state_mg_storage.pop()
+        ###
+
+        self.r1.experiment_id = '1234'
+        self.r1._round = 11
+        self.r1.is_test_data_shuffled = False
+
+        state_id = 'state_id_1234'
+        path_state = '/path/to/state'
+
+        get_optim_patch.return_value = MagicMock(spec=DeclearnOptimizer,
+                                                 __class__='optimizer_type',
+                                                )
+        training_plan_mock = MagicMock(spec=BaseTrainingPlan,
+                                       type=MagicMock(),
+                                       _model=MagicMock(spec=Model))
+
+        # data_manager = MagicMock(spec=DataManager)
+        # data_manager.dataset = [[1, 2, 3], 
+        #                         [4, 5, 6], 
+        #                         [7, 8, 9],
+        #                         [10, 11, 12]]
+        
+        # data_manager.testing_index = PropertyMock(return_value=None)
+        # data_manager.training_index = PropertyMock(return_value=None)
+        # data_manager.
+
+        class CustomDataset(Dataset):
+            """ Create PyTorch Dataset for test purposes """
+
+            def __init__(self):
+                self.X_train = torch.Tensor(
+                    [[0.1000, 0.2000, 0.5000],
+                     [0.3300, 0.2000, 0.4000],
+                     [0.1200, 0.4300, 0.2200],
+                     [0.6000, 0.9900, 0.3200],
+                     [0.3200, 0.4400, 0.1100]])
+                self.Y_train = torch.Tensor([1, 2, 1, 1, 2])
+
+            def __len__(self):
+                return len(self.Y_train)
+
+            def __getitem__(self, idx):
+                return self.X_train[idx], self.Y_train[idx]
+        
+
+        # for pytorch: mimicking the process of saving and re-loading testing
+        # and training datasets
+
+        data_manager = DataManager(dataset=CustomDataset())
+        training_plan_mock.training_data = MagicMock(return_value=data_manager)
+        training_plan_mock.type = MagicMock(return_value = TrainingPlans.TorchTrainingPlan)
+        self.state_manager_mock.return_value.add = MagicMock( side_effect=save_node_state_mg)
+        self.state_manager_mock.return_value.get = MagicMock( side_effect=get_node_state_mg)
+        self.r1.training_plan = training_plan_mock
+        self.r1.testing_arguments = {}
+        test_ratio = .66
+
+        train_loader, test_loader = self.r1._split_train_and_test_data(test_ratio)
+        
+        state = self.r1._save_round_state()
+        self.r1._load_round_state('state_id_1234')
+
+        train_loader2, test_loader2 = self.r1._split_train_and_test_data(test_ratio)
+        state = self.r1._save_round_state()
+        
+        self.assertDictEqual(state['testing_dataset'], node_state_mg_storage[0]['testing_dataset'])
+        print(state)
+
+        # for sklearn
+        data_manager = DataManager(dataset=pd.DataFrame([[1, 2, 3],
+                                                         [.1, .2, .3],
+                                                         [.11, .22, .33],
+                                                         [.32, .11, .12]]), target=pd.Series([1, 2, 1, 2]))
+        data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+
+        data_manager = DataManager(dataset=CustomDataset())
+        training_plan_mock.training_data = MagicMock(return_value=data_manager)
+        training_plan_mock.type = MagicMock(return_value = TrainingPlans.SkLearnTrainingPlan)
+
+        train_loader, test_loader = self.r1._split_train_and_test_data(test_ratio)
+        state = self.r1._save_round_state()
+        self.r1._load_round_state('state_id_1234')
+
+        train_loader2, test_loader2 = self.r1._split_train_and_test_data(test_ratio)
+        state = self.r1._save_round_state()
+
+        self.assertDictEqual(state['testing_dataset'], node_state_mg_storage[0]['testing_dataset'])
 
     def test_round_33_initialize_arguments(self):
         previous_state_id = 'state_id_1234'

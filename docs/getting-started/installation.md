@@ -14,7 +14,14 @@ This tutorial gives steps for installing Fed-BioMed components (node, researcher
 
 ## System requirements
 
-Fed-BioMed is developed and tested under  Linux and MacOS distributions. It has not been fully tested on Windows machines. Using Fed-BioMed on windows can raise unexpected error.
+Fed-BioMed is developed and tested under  Linux and MacOS distributions.
+
+It has not been fully tested on Windows under WSL2. Using Fed-BioMed on Windows can raise unexpected error.
+Check specific installation guidelines for [Windows 11](../../user-guide/installation/windows-installation).
+
+## Hardware requirements
+
+16GB RAM recommended, 8GB RAM minimum for handling PyTorch & ML packages, for each Fed-BioMed component.
 
 
 ## Software packages
@@ -33,7 +40,7 @@ Fed-BioMed does not support a wide range of Python versions. Currently, the requ
 The command below will perform a complete installation of Fed-BioMed. This installation allows you to test all Fed-BioMed functionalities.
 
 ```
-pip install fedbiomed[node, researcher]
+pip install fedbiomed[node,researcher,gui]
 ```
 
 Fed-BioMed consists of different components, each requiring specific dependencies. These components are `node` and `researcher`. In the context of Federated Learning, these components are typically used in different locations and environments. To avoid installing unnecessary packages that may not be used, the dependencies for these components have been made optional in the pip package.
@@ -53,6 +60,11 @@ pip install fedbiomed[researcher]
 For installing optional node GUI:
 ```
 pip install fedbiomed[gui]
+```
+
+For installing optional dependency to FLamby:
+```
+pip install git+https://github.com/owkin/FLamby@main
 ```
 
 Fed-BioMed is provided under [Apache 2.0 License](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md).

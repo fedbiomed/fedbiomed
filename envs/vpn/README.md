@@ -147,13 +147,13 @@ On the build machine
 ```
 * save image for container
 ```bash
-[user@build $] docker image save fedbiomed/vpn-node | gzip >/tmp/vpn-node-image.tar.gz
+[user@build $] ( source .env ; docker image save fedbiomed/vpn-node:$FBM_CONTAINER_VERSION_TAG | gzip >/tmp/vpn-node-image.tar.gz )
 ```
 * save files needed for running container
 ```bash
 [user@build $] cd ./envs/vpn/docker
 # if needed, clean the configurations in ./node/run_mounts before
-[user@build $] tar cvzf /tmp/vpn-node-files.tar.gz ./docker compose_run_node.yml ./node/run_mounts
+[user@build $] tar cvzf /tmp/vpn-node-files.tar.gz ./.env ./docker-compose_run_node.yml ./node/run_mounts
 ```
 
 On the node machine
@@ -168,12 +168,12 @@ On the node machine
 [user@node $] mkdir -p ./envs/vpn/docker
 [user@node $] cd ./envs/vpn/docker
 [user@node $] tar xvzf /tmp/vpn-node-files.tar.gz
-[user@node $] mv docker compose_run_node.yml docker compose.yml
+[user@node $] mv docker compose_run_node.yml docker_compose.yml
 ```
 * if needed load data to be passed to container
 ```bash
 # example : copy a MNIST dataset
-#[user@node $] rsync -auxvt /tmp/MNIST ./node/run_mounts/data/
+#[user@node $] rsync -auxvt /tmp/MNIST ./node/run_mounts/fbm-node/data/
 ```
 
 Then follow the common instructions for nodes (below).
@@ -199,11 +199,14 @@ Run this only at first launch of container or after cleaning :
 * launch container
 ```bash
 [user@node $] NODE=node
+[user@node $] unset FBM_NODE_START_OPTIONS
 [user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose up -d $NODE
 ```
 Alternative: launch container with Nvidia GPU support activated. Before launching, install [all the pre-requisites for GPU support](#gpu-support-in-container).
 ```bash
 [user@node $] NODE=node-gpu
+# - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
+[user@node $] FBM_NODE_START_OPTIONS="--gpu"
 [user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose up -d $NODE
 ```
   * note : `CONTAINER_{UID,GID,USER,GROUP}` are not necessary if using the same identity as in for the build, but they need to have a read/write access to the directories mounted from the host machine's filesystem.
@@ -225,62 +228,52 @@ Alternative: launch container with Nvidia GPU support activated. Before launchin
 
 Run this for all launches of the container :
 
+* if using GPU set `FBM_NODE_START_OPTIONS="--gpu"`
 * launch container
 ```bash
 # `CONTAINER_{UID,GID,USER,GROUP}` are not needed if they are the same as used for build
 [user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose up -d $NODE
 ```
-* TODO: better package/scripting needed
-  Connect again to the node and launch manually, now that the VPN is established
+* *optional* Connect again to the node and launch additional commands to control the node component
 ```bash
 [user@node $] docker compose exec -u $(id -u) $NODE bash
-# TODO : make more general by including it in the VPN configuration and user environment ?
-# TODO : create scripts in VPN environment
-# need proper parameters at first launch to create configuration file
-[user@node-container $] export FBM_RESEARCHER_IP=10.222.0.2
-[user@node-container $] export FBM_RESEARCHER_PORT=50051
-[user@node-container $] export PYTHONPATH=/fedbiomed
-[user@node-container $] eval "$(conda shell.bash hook)"
-[user@node-container $] conda activate fedbiomed-node
-# example : add MNIST dataset using persistent (mounted) /data
-[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli dataset add --mnist /data
-# start the node
-# - `--gpu` : default gpu policy == use GPU if available *and* requested by researcher
-# - start with training plan approval enabled and default training plans allowed
-[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True python -m fedbiomed.node.cli start  --gpu
-# alternative: start the node in background
-# [user@node-container $] nohup python -m fedbiomed.node.cli  start >./fedbiomed_node.out &
+# example : add MNIST dataset using persistent (mounted) /fbm-node/data
+[user@node-container $] fedbiomed node dataset add -m /fbm-node/data
+# - start with training plan approval enabled and default training plans not allowed
+[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=False fedbiomed node start --gpu
+# alternative: re-start the node in background
+# [user@node-container $] nohup fedbiomed node start >./fedbiomed_node.out &
 ```
 
 #### using the node
 
-To add datasets in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
+To add datasets in the node, copy them in the directory `./node/run_mounts/fbm-node/data` on the node host machine :
 ```bash
-[user@node $] ls ./node/run_mounts/data
+[user@node $] ls ./node/run_mounts/fbm-node/data
 MNIST
 ```
 - in the node gui (see below), this directory maps to the `/` directory.
-- in the node and node gui containers command line, this directory maps to `/data` directory :
+- in the node and node gui containers command line, this directory maps to `/fbm-node/data` directory :
 ```bash
-[user@node-container $] ls ./data
+[user@node-container $] ls ./fbm-node/data
 MNIST
 ```
 
-To register approved training plans in the node, copy them in the directory `./node/run_mounts/data` on the node host machine :
+To register approved training plans in the node, copy them in the directory `./node/run_mounts/fbm-node/data` on the node host machine :
 ```bash
-[user@node $] ls ./node/run_mounts/data
+[user@node $] ls ./node/run_mounts/fbm-node/data
 my_training_plan.txt
 ```
-- in the node container command line, this directory maps to `/data` directory :
+- in the node container command line, this directory maps to `/fbm-node/data` directory :
 ```bash
-[user@node-container $] ls ./data
+[user@node-container $] ls ./fbm-node/data
 my_training_plan.txt
 ```
 - register a new training plan with :
 ```bash
-[user@node-container $] fedbiomed node -d fbm-node training-plan register
+[user@node-container $] fedbiomed node training-plan register
 ```
-- when prompted for the path of the training plan, indicate the `.txt` export of the training plan file (`/data/my_training_plan.txt` in our example)
+- when prompted for the path of the training plan, indicate the `.txt` export of the training plan file (`/fbm-node/data/my_training_plan.txt` in our example)
 
 
 ### initializing node gui (optional)
@@ -323,9 +316,15 @@ On the build machine
 ```
 * save image for container
 ```bash
-[user@build $] docker image save fedbiomed/vpn-gui | gzip >/tmp/vpn-gui-image.tar.gz
+[user@build $] (source .env ; docker image save fedbiomed/vpn-gui | gzip >/tmp/vpn-gui-image.tar.gz )
 ```
-* we assume files needed for running container were already installed (see node documentation)
+* we assume files needed for running `node` container were already installed (see node documentation)
+* save additional files needed for running `gui` container
+```bash
+[user@build $] cd ./envs/vpn/docker
+# if needed, clean the configurations in ./node/run_mounts before
+[user@build $] tar cvzf /tmp/vpn-gui-files.tar.gz ./gui/run_mounts
+```
 
 On the node and gui machine
 
@@ -334,7 +333,13 @@ On the node and gui machine
 [user@node $] docker image load </tmp/vpn-gui-image.tar.gz
 ```
 * change to directory you want to use as base directory for running this container
-* we assume files and data needed for running container were already installed (see node documentation)
+* we assume files and data needed for running `node` container were already installed (see node documentation)
+* load additional files needed for running `gui` container
+```bash
+[user@node $] mkdir -p ./envs/vpn/docker
+[user@node $] cd ./envs/vpn/docker
+[user@node $] tar xvzf /tmp/vpn-gui-files.tar.gz
+```
 
 Then follow the common instructions for gui (below).
 
@@ -419,11 +424,9 @@ Run this for all launches of the container :
 [user@researcher-container $] export FBM_SERVER_HOST=10.222.0.2
 [user@researcher-container $] export FBM_SERVER_PORT=50051
 [user@researcher-container $] export PYTHONPATH=/fedbiomed
-[user@researcher-container $] eval "$(conda shell.bash hook)"
-[user@researcher-container $] conda activate fedbiomed-researcher
 # ... or any other command
-[user@researcher-container $] jupyter nbconvert --output=101_getting-started --to script ./notebooks/101_getting-started.ipynb
-[user@researcher-container $] ./notebooks/101_getting-started.py
+[user@researcher-container $] jupyter nbconvert /fbm-researcher/notebooks/101_getting-started.ipynb --output=101_getting-started --to script
+[user@researcher-container $] python /fbm-researcher/notebooks/101_getting-started.py
 ```
 
 #### using the researcher
@@ -445,8 +448,6 @@ tensorboard --logdir "$tensorboard_dir"
 ```
 * alternatively connect to `http://localhost:6006` from your browser, after starting tensorboard either as an embedded tensorboard in the notebook (see above), or manually in the container with:
 ```bash
-[user@researcher-container $] eval "$(conda shell.bash hook)"
-[user@researcher-container $] conda activate fedbiomed-researcher
 [user@researcher-container $] tensorboard --logdir runs &
 ```
 
@@ -534,13 +535,6 @@ You can connect to a container only if the corresponding container is already ru
 [user@researcher $] docker compose exec -u $(id -u) researcher bash
 ```
 
-Note : can also use commands in the form, so you don't have to be in the docker compose file directory
-```bash
-[user@node $] docker container exec -ti -u $(id -u) fedbiomed-vpn-node bash
-[user@node $] docker container exec -ti -u $(id -u) fedbiomed-vpn-gui bash
-[user@researcher $] docker container exec -ti -u $(id -u) fedbiomed-vpn-researcher bash
-```
-
 ## cleaning
 
 ### vpnserver
@@ -555,7 +549,7 @@ Note : can also use commands in the form, so you don't have to be in the docker 
 [user@network #] rm -rf vpnserver/run_mounts/config/{config.env,config_peers,ip_assign,wireguard}
 
 # level 3 : image
-[user@network $] docker image rm fedbiomed/vpn-vpnserver fedbiomed/vpn-base
+[user@network $] ( source .env ; docker image rm fedbiomed/vpn-vpnserver:$FBM_CONTAINER_VERSION_TAG fedbiomed/vpn-base:$FBM_CONTAINER_VERSION_TAG )
 [user@network $] docker image prune -f
 ```
 
@@ -569,13 +563,11 @@ Note : can also use commands in the form, so you don't have to be in the docker 
 
 # level 2 : configuration
 [user@node $] rm -rf ./node/run_mounts/config/{config.env,wireguard}
-[user@node $] rm -rf ./node/run_mounts/{data,etc,var}/*
-[user@node $] rm -rf ./node/run_mounts/envs/!\(common\)
-[user@node $] rm -rf ./node/run_mounts/envs/common/*
+[user@node $] rm -rf ./node/run_mounts/fbm-node/{*,.fedbiomed}
 
 # level 3 : image
-[user@node $] docker image rm fedbiomed/vpn-node fedbiomed/vpn-basenode
-[user@network $] docker image prune -f
+[user@node $] ( source .env ; docker image rm fedbiomed/vpn-node:$FBM_CONTAINER_VERSION_TAG fedbiomed/vpn-basenode:$FBM_CONTAINER_VERSION_TAG )
+[user@node $] docker image prune -f
 ```
 
 ### node gui
@@ -587,10 +579,11 @@ Note : can also use commands in the form, so you don't have to be in the docker 
 [user@node $] docker compose rm -sf gui
 
 # level 2 : configuration
-[user@node $] rm -rf ./node/run_mounts/{data,etc,var}/*
+[user@node $] rm -rf ./gui/run_mounts/certs/*
+[user@node $] rm -rf ./node/run_mounts/fbm-node/{*,.fedbiomed}
 
 # level 3 : image
-[user@node $] docker image rm fedbiomed/vpn-gui
+[user@node $] (source .env ; docker image rm fedbiomed/vpn-gui:$FBM_CONTAINER_VERSION_TAG )
 [user@network $] docker image prune -f
 ```
 
@@ -606,10 +599,11 @@ Same as node
 
 # level 2 : configuration
 [user@researcher $] rm -rf ./researcher/run_mounts/config/{config.env,wireguard}
-[user@researcher $] rm -rf ./researcher/run_mounts/{data,etc,samples,runs,var}/*
+[user@researcher $] rm -rf ./researcher/run_mounts/fbm-researcher/.fedbiomed
+[user@researcher $] rm -rf ./researcher/run_mounts/{fbm-researcher,samples}/*
 
 # level 3 : image
-[user@researcher $] docker image rm fedbiomed/vpn-researcher fedbiomed/vpn-base
+[user@researcher $] (source .env ; docker image rm fedbiomed/vpn-researcher:$FBM_CONTAINER_VERSION_TAG fedbiomed/vpn-base:$FBM_CONTAINER_VERSION_TAG )
 [user@network $] docker image prune -f
 ```
 

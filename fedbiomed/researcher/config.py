@@ -99,7 +99,8 @@ class ResearcherComponent(Component):
             shutil.copytree(
                 os.path.join(docs_share_path, TUTORIALS_FOLDER_NAME),
                 os.path.join(notebooks_path, TUTORIALS_FOLDER_NAME),
-                symlinks=True
+                symlinks=True,
+                dirs_exist_ok=True,
             )
 
         return config

@@ -1,4 +1,5 @@
 import unittest
+import numpy as np
 import pandas as pd
 
 from torch.utils.data import Dataset
@@ -106,6 +107,28 @@ class TestDataManager(unittest.TestCase):
             **extension_keyword_args,
             **dm_keyword_args
         })
+
+    def test_data_manager_04_testing_index_setter_getter(self):
+        # for sklearn
+        data_manager = DataManager(dataset=pd.DataFrame([[1, 2, 3], [1, 2, 3]]), target=pd.Series([1, 1]))
+        data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+        data_manager.testing_index = [1]
+        data_manager.training_index = [0]
+
+        train, test = data_manager.split(test_ratio=.5, test_batch_size=None)
+        self.assertEqual(data_manager.testing_index, [1])
+        #self.assertListEqual(data_manager.testing_index, data_manager._testing_index)
+
+        # for pytorch
+        data_manager = DataManager(dataset=pd.DataFrame([[1, 2, 3], [1, 2, 3]]), target=pd.Series([1, 1]))
+        data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+
+        data_manager.testing_index = [1]
+        data_manager.training_index = [0]
+
+        train, test = data_manager.split(test_ratio=.5, test_batch_size=None)
+        self.assertEqual(data_manager.testing_index, [1])
+        #self.assertListEqual(data_manager.testing_index, data_manager._testing_index)
 
 
 if __name__ == '__main__':  # pragma: no cover

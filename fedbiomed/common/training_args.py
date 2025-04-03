@@ -124,7 +124,7 @@ class TrainingArgs:
             Testing arguments as dictionary
         """
         keys = ['test_ratio', 'test_on_local_updates', 'test_on_global_updates',
-                'test_metric', 'test_metric_args', 'test_batch_size']
+                'test_metric', 'test_metric_args', 'test_batch_size', 'shuffle_testing_dataset']
         return self._extract_args(keys)
 
     def loader_arguments(self) -> Dict:
@@ -293,6 +293,7 @@ class TrainingArgs:
         | test_batch_size | batch size used for testing trained model wrt a set of metric |
         | test_on_local_updates | toggles validation after local training |
         | test_on_global_updates | toggles validation before local training |
+        | shuffle_testing_dataset | whether reset or not the testing (and training) dataset for this `Round` |
         | test_metric | metric to be used for validation |
         | test_metric_args | supplemental arguments for the validation metric |
         | log_interval | output a training logging entry every log_interval model updates |
@@ -335,6 +336,9 @@ class TrainingArgs:
                 "rules": [bool], "required": False, "default": False
             },
             "test_on_global_updates": {
+                "rules": [bool], "required": False, "default": False
+            },
+            "shuffle_testing_dataset": {
                 "rules": [bool], "required": False, "default": False
             },
             "test_metric": {
