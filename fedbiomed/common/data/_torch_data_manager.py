@@ -283,10 +283,33 @@ class TorchDataManager(object):
             Data loader for given dataset
         """
 
+        class TorchDataset(Dataset):
+            def __init__(self, dataset):
+                self._d = dataset
+
+            def __len__(self):
+                return self._d.__len__()
+
+            def __getitem__(self, index):
+                data, targets = self._d.__getitem__(index)
+
+                t = {}
+                for k, v in targets.items():
+                    t[k] = torch.from_numpy(v)
+                d_data = {}
+                for k,v in data.items():
+                    if k != 'demographics':
+                        d_data[k] = torch.from_numpy(v)
+                d = (d_data, torch.from_numpy(data['demographics']))
+
+                return d, t
+
+        torch_dataset = TorchDataset(dataset)
+
         try:
             # Create a loader from self._dataset to extract inputs and target values
             # by iterating over samples
-            loader = DataLoader(dataset, **kwargs)
+            loader = DataLoader(torch_dataset, **kwargs)
         except AttributeError as e:
             raise FedbiomedTorchDataManagerError(
                 f"{ErrorNumbers.FB608.value}:  Error while creating Torch DataLoader due to undefined attribute"

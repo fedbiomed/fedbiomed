@@ -619,7 +619,15 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                         f"{ErrorNumbers.FB613.value}: Cannot apply target transformation to modality `{modality}`"
                         f"in sample number {item} from dataset, error message is {e}.")
 
-        return (data, demographics), targets
+        d = { 'demographics': demographics.numpy() }
+        for k, v in data.items():
+            d[k]  = v.numpy()
+        t = {}
+        for k, v in targets.items():
+            t[k] = v.numpy()
+        return d, t
+        #return (data, demographics), targets
+        #return data['T1'][0][0], targets['label'][0][0]
 
     def __len__(self):
         """ Length method to get number of samples
