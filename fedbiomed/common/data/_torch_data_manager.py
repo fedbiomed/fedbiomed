@@ -268,8 +268,10 @@ class TorchDataManager(object):
         self.training_index = state.get("training_index", [])
         self.test_ratio = state.get("test_ratio", None)
 
-    @staticmethod
-    def _create_torch_data_loader(dataset: Dataset, **kwargs: Dict) -> DataLoader:
+    # PoC : not static because of glitch
+    #@staticmethod
+    #def _create_torch_data_loader(dataset: Dataset, **kwargs: Dict) -> DataLoader:
+    def _create_torch_data_loader(self, dataset: Dataset, **kwargs: Dict) -> DataLoader:
         """Creates python data loader by given dataset object
 
         Args:
@@ -283,28 +285,39 @@ class TorchDataManager(object):
             Data loader for given dataset
         """
 
-        class TorchDataset(Dataset):
-            def __init__(self, dataset):
-                self._d = dataset
+        # Glitch: cannot use Subset for that
+        if hasattr(self._dataset, "to_torch"):
+            logger.info("DATA MANAGER: will use directly torch data format")
+            self._dataset.to_torch()
 
-            def __len__(self):
-                return self._d.__len__()
+            torch_dataset = dataset
+        else:
+            # PoC : re-convert to torch dataset , to create torch dataloader
+            # (TP framework expected data format)
+            logger.info("DATA MANAGER: will use generic dataset format and convert to torch dataset")
 
-            def __getitem__(self, index):
-                data, targets = self._d.__getitem__(index)
+            class TorchDataset(Dataset):
+                def __init__(self, dataset):
+                    self._d = dataset
 
-                t = {}
-                for k, v in targets.items():
-                    t[k] = torch.from_numpy(v)
-                d_data = {}
-                for k,v in data.items():
-                    if k != 'demographics':
-                        d_data[k] = torch.from_numpy(v)
-                d = (d_data, torch.from_numpy(data['demographics']))
+                def __len__(self):
+                    return self._d.__len__()
 
-                return d, t
+                def __getitem__(self, index):
+                    data, targets = self._d.__getitem__(index)
 
-        torch_dataset = TorchDataset(dataset)
+                    t = {}
+                    for k, v in targets.items():
+                        t[k] = torch.from_numpy(v)
+                    d_data = {}
+                    for k,v in data.items():
+                        if k != 'demographics':
+                            d_data[k] = torch.from_numpy(v)
+                    d = (d_data, torch.from_numpy(data['demographics']))
+
+                    return d, t
+
+            torch_dataset = TorchDataset(dataset)
 
         try:
             # Create a loader from self._dataset to extract inputs and target values
