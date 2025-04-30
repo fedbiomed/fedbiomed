@@ -258,7 +258,7 @@ class TorchDataManager(object):
         """Loads state of the data loader
 
 
-        It currently keep only testing index, training index and test ratio
+        It currently keeps only testing index, training index and test ratio
         as state.
 
         Args:
