@@ -389,16 +389,17 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         if self._transform is not None:
             for modality, transform in self._transform.items():
                 try:
-                    data[modality] = self._transform_framework(transform(data[modality]))
+                    #data[modality] = self._transform_framework(transform(data[modality]))
+                    data[modality] = self._image_reader._transform_framework(transform(data[modality]))
                 except Exception as e:
                     raise FedbiomedDatasetError(
                         f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in "
                         f"sample number {item} from dataset, error message is {e}.")
-        import pdb; pdb.set_trace()
+
         # Apply transforms to demographics elements
         if self._demographics_transform is not None:
             try:
-                demographics = self._from_pandas_to_framework(self._demographics_transform(demographics))
+                demographics = self._csv_reader._transform_framework(self._demographics_transform(demographics))
             except Exception as e:
                 raise FedbiomedDatasetError(
                     f"{ErrorNumbers.FB613.value}: Cannot apply demographics transformation to "
@@ -414,7 +415,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         if self._target_transform is not None:
             for modality, target_transform in self._target_transform.items():
                 try:
-                    targets[modality] = self._transform_framework(target_transform(targets[modality]))
+                    targets[modality] = self._image_reader._transform_framework(target_transform(targets[modality]))
                 except Exception as e:
                     raise FedbiomedDatasetError(
                         f"{ErrorNumbers.FB613.value}: Cannot apply target transformation to modality `{modality}`"
@@ -441,15 +442,19 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         self._tp_type = tp_type
 
     def to_torch(self):
-        self._transform_framework = ToTensor()
-        self._from_pandas_to_framework = lambda x: torch.as_tensor(x)
+        # self._transform_framework = ToTensor()
+        # self._from_pandas_to_framework = lambda x: torch.as_tensor(x)
+        self._csv_reader.to_torch()
+        self._image_reader.to_torch()
 
     def to_sklearn(self):
-        self._transform_framework = ToNumpy()
-        def method(x):
-            if x:
-                return np.array(x)
-        self._from_pandas_to_framework = method
+        self._csv_reader.to_sklearn()
+        self._image_reader.to_sklearn()
+        # self._transform_framework = ToNumpy()
+        # def method(x):
+        #     if x:
+        #         return np.array(x)
+        # self._from_pandas_to_framework = method
 
     @property
     def tabular_file(self):
