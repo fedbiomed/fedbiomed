@@ -1,5 +1,7 @@
 
+from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.data import MedicalFolderDataset
+from fedbiomed.common.data import DataManager
 
 
 index_col = 13
@@ -11,6 +13,17 @@ dataset = MedicalFolderDataset(path, ['T1', 'T2'],  transform={'T1': lambda x:x 
                                demographics_transform=demographics_transform,
                                tabular_file=demographics_path, index_col=index_col)
 
-dataset.to_sklearn()
+dataset.to_sklearn()  # change here the framework
 print(dataset._demographics_transform)
-print(dataset[0])
+print(dataset[1])
+
+
+dataset = MedicalFolderDataset(path, ['T1', 'T2'],  transform={'T1': lambda x:x , 'T2': lambda x:x}, target_modalities='label',
+                               demographics_transform=demographics_transform,
+                               tabular_file=demographics_path, index_col=index_col)
+data_manager = DataManager(dataset)
+#data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+val = next(iter(data_manager.dataset))
+print(val)
+print(len(val))

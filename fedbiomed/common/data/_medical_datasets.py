@@ -12,15 +12,12 @@ from pathlib import Path
 from typing import Any, Union, Tuple, Dict, Iterable, Optional, List, Callable
 from enum import Enum
 
-import numpy as np
 import torch
 import pandas as pd
 
 from functools import cache
-from monai.data import ITKReader
-from monai.transforms import LoadImage, ToTensor, ToNumpy, Compose
-from torch import Tensor
-from torch.utils.data import Dataset
+
+
 
 from fedbiomed.common.data.readers import CSVReader, ImageReader
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
@@ -295,7 +292,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         return DatasetTypes.MEDICAL_FOLDER
 
 
-class MedicalFolderDataset(Dataset, MedicalFolderBase):
+class MedicalFolderDataset(MedicalFolderBase):
     """Torch dataset following the Medical Folder Structure.
 
     The Medical Folder structure is loosely inspired by the [BIDS standard](https://bids.neuroimaging.io/) [1].
@@ -360,6 +357,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         self._tp_type = None
         self._transform_framework = lambda x:x
         self._from_pandas_to_framework = lambda x:x
+        self._parse_slice = lambda x: x
 
     def get_nontransformed_item(self, item):
         # For the first item retrieve complete subject folders
@@ -382,15 +380,31 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         demographics = self._get_from_demographics(subject_id=subject_folder.name)
         return (data, demographics), targets
 
+    def _slice_parser(self, item) -> int:
+        if not isinstance(item, slice):
+            self._parse_slice = lambda x: x  #define it in the _init__
+            return item
+        else:
+            self._parse_slice = lambda x: x[item.start:item.stop]
+            return item.start
+
     def __getitem__(self, item):
-        (data, demographics), targets = self.get_nontransformed_item(item)
+        # accept both a single value or an iterable (array/list)
+
+        if isinstance(item, Iterable):
+            if len(item) > 1:
+                return tuple(self[it] for it in item)
+            else:
+                item = item[0]
+        idx = item
+        (data, demographics), targets = self.get_nontransformed_item(idx)
 
         # Apply transforms to data elements
-        if self._transform is not None:
+        if self._transform is not None: 
             for modality, transform in self._transform.items():
                 try:
                     #data[modality] = self._transform_framework(transform(data[modality]))
-                    data[modality] = self._image_reader._transform_framework(transform(data[modality]))
+                    data[modality] = self._parse_slice(self._image_reader._transform_framework(transform(data[modality])))
                 except Exception as e:
                     raise FedbiomedDatasetError(
                         f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in "
@@ -516,13 +530,15 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         # Read demographics CSV
         try:
-            demographics = self.read_demographics(self._tabular_file, self._index_col)
+            values = self._csv_reader.read(self._tabular_file, self._index_col)
+            #demographics = self.read_demographics(self._tabular_file, self._index_col)
         except Exception as e:
             raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Can not load demographics tabular file. "
                                         f"Error message is: {e}")
 
         # Keep the first one in duplicated subjects
-        return demographics.loc[~demographics.index.duplicated(keep="first")]
+        #return demographics.loc[~demographics.index.duplicated(keep="first")]
+        return values
 
     @property
     def subjects_has_all_modalities(self):
@@ -566,7 +582,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             else:
                 raise FedbiomedDatasetError(f"{ErrorNumbers.FB613.value}: Trying to set non existing attribute '{key}'")
 
-    def load_images(self, subject_folder: Path, modalities: list) -> Dict[str, torch.Tensor]:
+    def load_images(self, subject_folder: Path, modalities: list) -> Dict[str, Union['torch.Tensor','np.ndarray']]:
         """Loads modality images in given subject folder
 
         Args:
@@ -642,7 +658,8 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         """Extracts subject information from a particular subject in the form of a dictionary."""
 
         if self._tabular_file and self._index_col is not None:
-            demographics = self.demographics.loc[subject_id].to_dict()
+            #demographics = self.demographics.loc[subject_id].to_dict()
+            demographics = self._csv_reader.read_single_entry(self._tabular_file, subject_id)
 
             # Extract only compatible types for torch
             # TODO Decide what to do with missing variables

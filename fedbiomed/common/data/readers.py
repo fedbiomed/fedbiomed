@@ -34,6 +34,8 @@ class ImageReader(GenericReader):
         self._transform_framework = ToTensor()
 
     def to_sklearn(self):
+        # FIXME: should we convert images into vectors for sklearn?
+        # and do it here?
         self._transform_framework = ToNumpy()
 
 class CSVReader(GenericReader):
@@ -44,17 +46,17 @@ class CSVReader(GenericReader):
         self._dataframe = None
 
     @cache
-    def _read(self,path, **kwargs):
+    def _read(self,path, index_col, **kwargs):
         sniffer = csv.Sniffer()
         with open(path, 'r') as file:
             delimiter = sniffer.sniff(file.readline()).delimiter
             file.seek(0)
             header = 0 if sniffer.has_header(file.read()) else None
-        self._dataframe = self._reader(path, index_col=self._index_col, sep=delimiter, header=header, engine='python')
+        self._dataframe = self._reader(path, index_col=index_col, sep=delimiter, header=header, engine='python')
     
-    def read(self, path, **kwargs):
+    def read(self, path, index_col=None, **kwargs):
         if self._dataframe is None:
-            self._read(path, **kwargs)
+            self._read(path, index_col, **kwargs)
         return self._dataframe
         return self._reader(path, **kwargs)
     
@@ -62,7 +64,12 @@ class CSVReader(GenericReader):
         if self._dataframe is None:
             self._read(path, **kwargs)
         demographics = self._dataframe.loc[~self._dataframe.index.duplicated(keep="first")]
+
         return demographics.loc[entry].to_dict()
+    
+    def get_index(self):
+        
+        return self._dataframe.index
     
     def convert(self, data: Dict):
         # extras step for converting data using transforms
@@ -79,3 +86,4 @@ class CSVReader(GenericReader):
             if x:
                 return np.array(x)
         self._transform_framework = method
+        

@@ -33,14 +33,16 @@ class TorchDataManager(object):
         """
 
         # TorchDataManager should get `dataset` argument as an instance of torch.utils.data.Dataset
-        if not isinstance(dataset, Dataset):
-            raise FedbiomedTorchDataManagerError(
-                f"{ErrorNumbers.FB608.value}: The attribute `dataset` should an instance "
-                f"of `torch.utils.data.Dataset`, please use `Dataset` as parent class for"
-                f"your custom torch dataset object"
-            )
+        # if not isinstance(dataset, Dataset):
+        #     raise FedbiomedTorchDataManagerError(
+        #         f"{ErrorNumbers.FB608.value}: The attribute `dataset` should an instance "
+        #         f"of `torch.utils.data.Dataset`, please use `Dataset` as parent class for"
+        #         f"your custom torch dataset object"
+        #     )
+        dataset.to_torch()
 
-        self._dataset = dataset
+        self._dataset = self._create_dataset(dataset)
+        
         self._loader_arguments = kwargs
 
         self._rng = self.rng(self._loader_arguments.get("random_state"))
@@ -53,6 +55,21 @@ class TorchDataManager(object):
         self.testing_index: List[int] = []
         self.test_ratio: Optional[float] = None
 
+
+    def _create_dataset(self, dataset):
+        class CustomDataset(Dataset):
+            def __init__(self, dataset):
+                self._dataset = dataset
+
+            def __getitem__(self, index):
+                return self._dataset[index]
+            def __len__(self):
+                return len(self._dataset)
+            
+        dataset = CustomDataset(dataset)
+
+        return dataset
+    
     @property
     def dataset(self) -> Dataset:
         """Gets dataset.

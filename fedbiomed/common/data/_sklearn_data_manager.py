@@ -16,6 +16,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.data._medical_datasets import MedicalFolderDataset
 from fedbiomed.common.exceptions import (
     FedbiomedError,
     FedbiomedTypeError,
@@ -43,7 +44,7 @@ class NPDataLoader:
     def __init__(
         self,
         dataset: np.ndarray,
-        target: np.ndarray,
+        target: Optional[np.ndarray],
         batch_size: int = 1,
         shuffle: bool = False,
         random_seed: Optional[int | np.random.Generator] = None,
@@ -61,7 +62,7 @@ class NPDataLoader:
             drop_last: whether to drop the last batch in case it does not fill the whole batch size
         """
 
-        if not isinstance(dataset, np.ndarray) or not isinstance(target, np.ndarray):
+        if not isinstance(dataset, (np.ndarray, MedicalFolderDataset)) or (target is not None and isinstance(target, np.ndarray)):
             msg = (
                 f"{ErrorNumbers.FB609.value}. Wrong input type for `dataset` or `target` in NPDataLoader. "
                 f"Expected type np.ndarray for both, instead got {type(dataset)} and"
@@ -71,21 +72,23 @@ class NPDataLoader:
             raise FedbiomedTypeError(msg)
 
         # If the researcher gave a 1-dimensional dataset, we expand it to 2 dimensions
-        if dataset.ndim == 1:
-            dataset = dataset[:, np.newaxis]
+        if isinstance(dataset, np.ndarray):
+            if dataset.ndim == 1:
+                dataset = dataset[:, np.newaxis]
 
         # If the researcher gave a 1-dimensional target, we expand it to 2 dimensions
-        if target.ndim == 1:
+        if target is not None and target.ndim == 1:
             target = target[:, np.newaxis]
 
-        if dataset.ndim != 2 or target.ndim != 2:
-            raise FedbiomedValueError(
-                f"{ErrorNumbers.FB609.value}. Wrong shape for `dataset` or `target` in "
-                f"NPDataLoader. Expected 2-dimensional arrays, instead got {dataset.ndim}- "
-                f"dimensional and {target.ndim}-dimensional arrays respectively."
-            )
+        if isinstance(dataset, np.ndarray):
+            if dataset.ndim != 2 or target is not None and target.ndim != 2:
+                raise FedbiomedValueError(
+                    f"{ErrorNumbers.FB609.value}. Wrong shape for `dataset` or `target` in "
+                    f"NPDataLoader. Expected 2-dimensional arrays, instead got {dataset.ndim}- "
+                    f"dimensional and {target.ndim}-dimensional arrays respectively."
+                )
 
-        if len(dataset) != len(target):
+        if target is not None and len(dataset) != len(target):
             raise FedbiomedValueError(
                 f"{ErrorNumbers.FB609.value}. Inconsistent length for `dataset` and `target` "
                 f"in NPDataLoader. Expected same length, instead got len(dataset)={len(dataset)}, "
@@ -215,15 +218,16 @@ class _BatchIterator:
         Raises:
             StopIteration: when an epoch of data has been exhausted.
         """
+        import pdb; pdb.set_trace()
         if self._num_yielded < len(self._loader):
             start = self._num_yielded * self._loader.batch_size()
             stop = (self._num_yielded + 1) * self._loader.batch_size()
             indices = self._index[start:stop]
             self._num_yielded += 1
             if self._loader.target is None:
-                return self._loader.dataset[indices, :], None
+                return self._loader.dataset[indices]
             else:
-                return self._loader.dataset[indices, :], self._loader.target[indices]
+                return self._loader.dataset[indices], self._loader.target[indices]
 
         # Set index to zero for next epochs
         self._reset()
@@ -240,7 +244,7 @@ class SkLearnDataManager(object):
     def __init__(
         self,
         inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
-        target: Union[np.ndarray, pd.DataFrame, pd.Series],
+        target: Union[np.ndarray, pd.DataFrame, pd.Series] = None,
         **kwargs: dict,
     ):
         """Construct a SkLearnDataManager from an array of inputs and an array of targets.
@@ -255,18 +259,21 @@ class SkLearnDataManager(object):
             **kwargs: Loader arguments
         """
 
-        if not isinstance(
-            inputs, (np.ndarray, pd.DataFrame, pd.Series)
-        ) or not isinstance(target, (np.ndarray, pd.DataFrame, pd.Series)):
-            msg = (
-                f"{ErrorNumbers.FB609.value}. Parameters `inputs` and `target` for "
-                f"initialization of {self.__class__.__name__} should be one of np.ndarray, pd.DataFrame, pd.Series"
-            )
-            logger.error(msg)
-            raise FedbiomedTypeError(msg)
+        # if not isinstance(
+        #     inputs, (np.ndarray, pd.DataFrame, pd.Series)
+        # ) or not isinstance(target, (np.ndarray, pd.DataFrame, pd.Series)):
+        #     msg = (
+        #         f"{ErrorNumbers.FB609.value}. Parameters `inputs` and `target` for "
+        #         f"initialization of {self.__class__.__name__} should be one of np.ndarray, pd.DataFrame, pd.Series"
+        #     )
+        #     logger.error(msg)
+        #     raise FedbiomedTypeError(msg)
 
         # Convert pd.DataFrame or pd.Series to np.ndarray for `inputs`
-        if isinstance(inputs, (pd.DataFrame, pd.Series)):
+        if isinstance(inputs, MedicalFolderDataset):  # FIXME: change that with GenericDataset
+            inputs.to_sklearn()
+            self._inputs = inputs
+        elif isinstance(inputs, (pd.DataFrame, pd.Series)):
             self._inputs = inputs.to_numpy()
         else:
             self._inputs = inputs
@@ -293,10 +300,12 @@ class SkLearnDataManager(object):
                 "shuffle_testing_dataset"
             )
 
+        self._dataset = NPDataLoader(self._inputs, self._target)
         # Additional loader arguments
         self._loader_arguments = kwargs
 
-    def dataset(self) -> Tuple[np.ndarray, np.ndarray]:
+    @property
+    def dataset(self) -> NPDataLoader:
         """Gets the entire registered dataset.
 
         This method returns whole dataset as it is without any split.
@@ -305,7 +314,7 @@ class SkLearnDataManager(object):
              inputs: Input variables for model training
              targets: Target variable for model training
         """
-        return self._inputs, self._target
+        return self._dataset
 
     def subset_test(self) -> Union[Tuple[np.ndarray, np.ndarray], None]:
         """Gets Subset of dataset for validation partition.

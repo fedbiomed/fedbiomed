@@ -76,43 +76,43 @@ class DataManager(object):
 
         # Training plan is type of TorcTrainingPlan
         if tp_type == TrainingPlans.TorchTrainingPlan:
-            if self._target is None and isinstance(self._dataset, Dataset):
+            # if self._target is None and isinstance(self._dataset, Dataset):
                 # Create Dataset for pytorch
-                self._data_manager_instance = TorchDataManager(dataset=self._dataset, **self._loader_arguments)
-            elif isinstance(self._dataset, (pd.DataFrame, pd.Series, np.ndarray)) and \
-                    isinstance(self._target, (pd.DataFrame, pd.Series, np.ndarray)):
-                # If `dataset` and `target` attributes are array-like object
-                # create TabularDataset object to instantiate a TorchDataManager
-                torch_dataset = TabularDataset(inputs=self._dataset, target=self._target)
-                self._data_manager_instance = TorchDataManager(dataset=torch_dataset, **self._loader_arguments)
-            else:
-                raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Invalid arguments for torch based "
-                                                f"training plan, either provide the argument  `dataset` as PyTorch "
-                                                f"Dataset instance, or provide `dataset` and `target` arguments as "
-                                                f"an instance one of pd.DataFrame, pd.Series or np.ndarray ")
+            self._data_manager_instance = TorchDataManager(dataset=self._dataset, **self._loader_arguments)
+            # elif isinstance(self._dataset, (pd.DataFrame, pd.Series, np.ndarray)) and \
+            #         isinstance(self._target, (pd.DataFrame, pd.Series, np.ndarray)):
+            #     # If `dataset` and `target` attributes are array-like object
+            #     # create TabularDataset object to instantiate a TorchDataManager
+            #     torch_dataset = TabularDataset(inputs=self._dataset, target=self._target)
+            #     self._data_manager_instance = TorchDataManager(dataset=torch_dataset, **self._loader_arguments)
+            # else:
+            #     raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Invalid arguments for torch based "
+            #                                     f"training plan, either provide the argument  `dataset` as PyTorch "
+            #                                     f"Dataset instance, or provide `dataset` and `target` arguments as "
+            #                                     f"an instance one of pd.DataFrame, pd.Series or np.ndarray ")
 
         elif tp_type == TrainingPlans.SkLearnTrainingPlan:
             # Try to convert `torch.utils.Data.Dataset` to SkLearnBased dataset/datamanager
-            if self._target is None and isinstance(self._dataset, Dataset):
-                torch_data_manager = TorchDataManager(dataset=self._dataset)
-                try:
-                    self._data_manager_instance = torch_data_manager.to_sklearn()
-                except Exception as e:
-                    raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: PyTorch based `Dataset` object "
-                                                    "has been instantiated with DataManager. An error occurred while"
-                                                    "trying to convert torch.utils.data.Dataset to numpy based "
-                                                    f"dataset: {str(e)}")
+            # if self._target is None and isinstance(self._dataset, Dataset):
+            #     torch_data_manager = TorchDataManager(dataset=self._dataset)
+            #     try:
+            #         self._data_manager_instance = torch_data_manager.to_sklearn()
+            #     except Exception as e:
+            #         raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: PyTorch based `Dataset` object "
+            #                                         "has been instantiated with DataManager. An error occurred while"
+            #                                         "trying to convert torch.utils.data.Dataset to numpy based "
+            #                                         f"dataset: {str(e)}")
 
             # For scikit-learn based training plans, the arguments `dataset` and `target` should be an instance
             # one of `pd.DataFrame`, `pd.Series`, `np.ndarray`
-            elif isinstance(self._dataset, (pd.DataFrame, pd.Series, np.ndarray)) and \
-                    isinstance(self._target, (pd.DataFrame, pd.Series, np.ndarray)):
+            # elif isinstance(self._dataset, (pd.DataFrame, pd.Series, np.ndarray)) and \
+            #         isinstance(self._target, (pd.DataFrame, pd.Series, np.ndarray)):
                 # Create Dataset for SkLearn training plans
-                self._data_manager_instance = SkLearnDataManager(inputs=self._dataset, target=self._target,
+            self._data_manager_instance = SkLearnDataManager(inputs=self._dataset, target=self._target,
                                                                  **self._loader_arguments)
-            else:
-                raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: The argument `dataset` and `target` "
-                                                f"should be instance of pd.DataFrame, pd.Series or np.ndarray ")
+            # else:
+            #     raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: The argument `dataset` and `target` "
+            #                                     f"should be instance of pd.DataFrame, pd.Series or np.ndarray ")
         else:
             raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Undefined training plan")
 
