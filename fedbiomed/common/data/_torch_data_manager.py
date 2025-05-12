@@ -297,7 +297,38 @@ class TorchDataManager(object):
             logger.info("DATA MANAGER: will use directly torch data format")
             self._dataset.to_torch()
 
-            torch_dataset = dataset
+            class TorchDataset(Dataset):
+                def __init__(self, dataset):
+                    self._d = dataset
+
+                def __len__(self):
+                    return self._d.__len__()
+
+                def __getitem__(self, index):
+                    (data, demographics), targets = self._d.__getitem__(index)
+
+                    d_data = {}
+                    for k,v in data.items():
+                        # Optional framework transform
+                        # TO BE FACTORED with same case below
+                        if framework_transform is not None:
+                            #logger.info(f"DATA MANAGER: applying framework_transform {framework_transform} to {type(v)}")
+                            if callable(framework_transform):
+                                f_t = framework_transform
+                            elif isinstance(framework_transform, dict) and k in framework_transform:
+                                f_t = framework_transform[k]
+                            else:
+                                raise Exception(f"DATA MANAGER: bad framework transform {type(framework_transform)} {framework_transform}")
+
+                            try:
+                                v = f_t(v)
+                            except Exception as e:
+                                logger.error(f"DATA MANAGER: error while applying framework_transform, bad geometry of transform ? : {e}")
+                                raise
+
+                        d_data[k] = v
+
+                    return (d_data, demographics), targets
         else:
             # PoC : re-convert to torch dataset , to create torch dataloader
             # (TP framework expected data format)
@@ -323,7 +354,7 @@ class TorchDataManager(object):
 
                             # Optional framework transform
                             if framework_transform is not None:
-                                logger.info(f"DATA MANAGER: applying framework_transform {framework_transform} to {type(v_target)}")
+                                #logger.info(f"DATA MANAGER: applying framework_transform {framework_transform} to {type(v_target)}")
                                 if callable(framework_transform):
                                     f_t = framework_transform
                                 elif isinstance(framework_transform, dict) and k in framework_transform:
@@ -343,7 +374,7 @@ class TorchDataManager(object):
 
                     return d, t
 
-            torch_dataset = TorchDataset(dataset)
+        torch_dataset = TorchDataset(dataset)
 
         try:
             # Create a loader from self._dataset to extract inputs and target values
