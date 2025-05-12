@@ -18,6 +18,7 @@ from ._data_loading_plan import (DataLoadingBlock,
                                  DataLoadingPlanMixin,
                                  SerializationValidation  # keep it for documentation
                                  )
+from ._fedbiomed_dataset import FedbiomedDataset
 
 __all__ = [
     "MedicalFolderBase",
@@ -35,4 +36,5 @@ __all__ = [
     "DataLoadingPlan",
     "DataLoadingPlanMixin",
     "SerializationValidation",
+    "FedbiomedDataset"
 ]

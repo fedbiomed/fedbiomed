@@ -25,6 +25,8 @@ from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
 from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin
 
+from ._fedbiomed_dataset import FedbiomedDataset
+
 
 class MedicalFolderLoadingBlockTypes(DataLoadingBlockTypes, Enum):
     MODALITIES_TO_FOLDERS: str = 'modalities_to_folders'
@@ -486,7 +488,8 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         return DatasetTypes.MEDICAL_FOLDER
 
 
-class MedicalFolderDataset(Dataset, MedicalFolderBase):
+class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
+#class MedicalFolderDataset(Dataset, MedicalFolderBase):
     """Torch dataset following the Medical Folder Structure.
 
     The Medical Folder structure is loosely inspired by the [BIDS standard](https://bids.neuroimaging.io/) [1].
@@ -520,6 +523,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                  demographics_transform: Optional[Callable] = None,
                  tabular_file: Union[str, PathLike, Path, None] = None,
                  index_col: Union[int, str, None] = None,
+                 framework_transform: Optional[Union[Callable, Dict[str, Callable]]] = None,
                  ):
         """Constructor for class `MedicalFolderDataset`.
 
@@ -533,7 +537,9 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             tabular_file: Path to a CSV or Excel file containing the demographic information from the patients.
             index_col: Column name in the tabular file containing the subject ids which mush match the folder names.
         """
-        super(MedicalFolderDataset, self).__init__(root=root)
+        #super(MedicalFolderDataset, self).__init__(root=root)
+        FedbiomedDataset.__init__(self, framework_transform)
+        MedicalFolderBase.__init__(self, root=root)
 
         self._tabular_file = tabular_file
         self._index_col = index_col

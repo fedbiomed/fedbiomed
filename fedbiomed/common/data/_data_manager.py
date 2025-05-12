@@ -19,6 +19,7 @@ from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from ._torch_data_manager import TorchDataManager
 from ._sklearn_data_manager import SkLearnDataManager
 from ._tabular_dataset import TabularDataset
+from ._fedbiomed_dataset import FedbiomedDataset
 
 
 class DataManager(object):
@@ -27,7 +28,8 @@ class DataManager(object):
     PyTorch training.
     """
     def __init__(self,
-                 dataset: Union[np.ndarray, pd.DataFrame, pd.Series, Dataset],
+                 #dataset: Union[np.ndarray, pd.DataFrame, pd.Series, Dataset],
+                 dataset: Union[np.ndarray, pd.DataFrame, pd.Series, Dataset, FedbiomedDataset],
                  target: Union[np.ndarray, pd.DataFrame, pd.Series] = None,
                  **kwargs: dict) -> None:
 
@@ -76,7 +78,8 @@ class DataManager(object):
 
         # Training plan is type of TorcTrainingPlan
         if tp_type == TrainingPlans.TorchTrainingPlan:
-            if self._target is None and isinstance(self._dataset, Dataset):
+            #if self._target is None and isinstance(self._dataset, Dataset):
+            if self._target is None and (isinstance(self._dataset, Dataset) or isinstance(self._dataset, FedbiomedDataset)):
                 # Create Dataset for pytorch
                 self._data_manager_instance = TorchDataManager(dataset=self._dataset, **self._loader_arguments)
             elif isinstance(self._dataset, (pd.DataFrame, pd.Series, np.ndarray)) and \
