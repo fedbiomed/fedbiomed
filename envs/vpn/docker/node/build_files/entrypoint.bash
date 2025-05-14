@@ -6,18 +6,18 @@
 
 # read functions
 source /entrypoint_functions.bash
-
 # read config.env
 source ~/bashrc_entrypoint
-check_vpn_environ
+
+# check_vpn_environ
 init_misc_environ
 change_path_owner "/fbm-node" "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
 
 # Check if VPN is activated or not
-if "$VPN_ACTIVE" == "true"; then
-	start_wireguard
-	configure_wireguard
-fi
+# if "$VPN_ACTIVE" == "true"; then
+#	start_wireguard
+#	configure_wireguard
+# fi
 
 
 COMMON_DIR="/fedbiomed/envs/common/"

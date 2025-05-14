@@ -4,37 +4,24 @@ ARG CONTAINER_GROUP=fedbio
 ARG CONTAINER_USER=fedbio-men
 
 
-# temporary builder image for wireguard tools
-# - need coherent system version with base image
-# - may need update for properly compiling boringtun
-# - 2023-05: `bookworm` is not officially released, stick to `bullseye` for now
-FROM debian:bullseye-slim AS builder
-
-RUN apt-get update && apt-get install -y git build-essential curl
-
-# install boringtun userspace implementation of wireguard
-#
-# - match versions of debian & boringtun : up to date 0.5.2 compiles ok for bullseye, but could not have it working
-#   Continue with 0.4.0
-# - glitch: bullseye's apt-get cargo is too old vs boringtun's cargo packages dependencies, need to install
-#   up to date rust/cargo
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && . /root/.cargo/env && \
-    cargo install --locked --bin boringtun --version ~0.4.0 boringtun
-
-# install needed wireguard-tools
-RUN apt-get install -y wireguard-tools
-
 # Multi-stage nodejs
 FROM node:20-bullseye AS node-base
 
 # Final python installation stage
 FROM python:3.10-slim-bullseye AS python-base
 
-
 # Merge multi-state builds
 FROM debian:bullseye
 COPY --from=node-base /usr/local /usr/local
 COPY --from=python-base /usr/local /usr/local
+
+
+
+RUN apt-get update && apt-get install -y git build-essential curl
+
+# Install entrypoint script
+COPY ./envs/vpn/docker/base/build_files/entrypoint_functions.bash /
+
 
 # Image build arguments for user name and group
 ARG CONTAINER_GID
@@ -60,7 +47,7 @@ RUN apt-get update && apt-get install -y iptables iproute2 iputils-ping \
 	python3-tk tk-dev libgmp3-dev libmpfr-dev libmpc-dev apt-utils wget git
 
 # Setup subset of fedbiomed code tree
-RUN mkdir -p /fedbiomed/envs /fbm-node
+RUN mkdir -p /fedbiomed/envs /fbm-node /fbm-researcher
 
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
@@ -82,6 +69,9 @@ RUN useradd -m --shell /bin/bash -d /home/$CONTAINER_USER \
 
 # Prepare for work in context of alternate account
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
+RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fbm-node
+RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fbm-researcher
+
 WORKDIR /fedbiomed
 
 # Activate Fed-BioMed user
@@ -100,8 +90,6 @@ ENV CONTAINER_BUILD_UID=${CONTAINER_UID}
 ENV CONTAINER_BUILD_GID=${CONTAINER_GID}
 
 # get wireguard from builder image
-COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/
-COPY --from=builder /usr/bin/wg* /usr/bin/
-
-USER root:root
+# COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/
+# COPY --from=builder /usr/bin/wg* /usr/bin/
 

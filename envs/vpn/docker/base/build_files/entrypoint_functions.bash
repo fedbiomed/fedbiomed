@@ -159,7 +159,8 @@ change_path_owner() {
 }
 
 # check wireguard interface exists
- check_wg_interface() {
+check_wg_interface() {
+
     if ! $(ifconfig wg0 >/dev/null 2>&1)
     then
         echo "CRITICAL: no wireguard interface wg0, cannot continue"
