@@ -1,4 +1,5 @@
-FROM fedbiomed/vpn-base
+ARG FBM_CONTAINER_VERSION_TAG
+FROM fedbiomed/vpn-base:${FBM_CONTAINER_VERSION_TAG:-unknown}
 
 # jupyter notebook
 EXPOSE 8888
@@ -63,6 +64,8 @@ COPY pyproject.toml /fedbiomed/pyproject.toml
 COPY README.md /fedbiomed/README.md
 COPY hatch_build.py /fedbiomed/hatch_build.py
 
+RUN ln -s /fedbiomed/docs/tutorials /fedbiomed/notebooks/tutorials
+
 # Alternative option : git clone & strip unused dirs
 #  - ensures working with clean repo (docker build begins with a stat(), hangs for
 #    a long time if you have zillion files in notebooks/data)
@@ -73,8 +76,11 @@ RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fbm-researcher
 WORKDIR /fedbiomed
 
+# Set container user
+USER $CONTAINER_USER:$CONTAINER_GROUP
+
 # Install fedbiomed and its requirements
-RUN pip install '.[researcher]'
+RUN pip install --no-warn-script-location '.[researcher]'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
@@ -82,10 +88,6 @@ ENV CONTAINER_BUILD_GROUP=${CONTAINER_GROUP}
 ENV CONTAINER_BUILD_UID=${CONTAINER_UID}
 ENV CONTAINER_BUILD_GID=${CONTAINER_GID}
 ENV FBM_RESEARCHER_COMPONENT_ROOT=/fbm-researcher
-
-# Activates fedbiomed command for root too.
-ENV PATH="$HOME/.local/bin:$PATH"
-
 
 WORKDIR /
 

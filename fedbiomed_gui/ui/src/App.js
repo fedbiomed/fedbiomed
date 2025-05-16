@@ -5,7 +5,8 @@ import { EuiProvider } from '@elastic/eui';
 import {
   BrowserRouter as Router,
   Routes,
-  Route
+  Route,
+  Navigate,
 } from "react-router-dom";
 
 import Home from './pages/Home'
@@ -60,7 +61,8 @@ function App(props) {
                   <Route path="/datasets/" element={<Datasets/>} />
                   <Route path="/datasets/preview/:dataset_id" element={<DatasetPreview />} />
                   <Route path="/datasets/add-dataset/" element={<AddDataset/>} >
-                    <Route index element={<CommonStandards/>} />
+                    <Route index element={<Navigate to="common-standards" replace />} />
+                    <Route path="common-standards" element={<CommonStandards/>} />
                     <Route path="medical-folder-dataset" element={<MedicalFolderDataset/>} />
                   </Route>
                   <Route

@@ -6,8 +6,11 @@
 # read functions
 source /entrypoint_functions.bash
 
+# read config.env
+source ~/bashrc_entrypoint
+
 init_misc_environ
-change_path_owner "/fbm-node" "/fedbiomed" "/home/$CONTAINER_BUILD_USER"
+change_path_owner "/fedbiomed" "/fbm-node /home/$CONTAINER_BUILD_USER"
 
 
 # To avoid envsubst to over write default nginx variables
@@ -90,9 +93,15 @@ fi
 
 cd /fbm-node
 
-# caveat: expect `data-folder` to be mounted under same path as in `node` container
+# need an initialized node to start the GUI
+if [ ! -f .fedbiomed -o ! -d ./data ] ; then
+  echo "Error: no node configuration found in the node base directory"
+  exit 1
+fi
+
+# caveat: expect `fbm-node` to be mounted under same path as in `node` container
 # to avoid inconsistencies in dataset declaration
-$SETUSER fedbiomed node --path . gui start --host "$FBM_GUI_HOST" --port "$FBM_GUI_PORT" --production --data-folder /data &
+$SETUSER fedbiomed node --path . gui start --host "$FBM_GUI_HOST" --port "$FBM_GUI_PORT" --production &
 
 # allow to stop/restart the gui without terminating the container
 sleep infinity &

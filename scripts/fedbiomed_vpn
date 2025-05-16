@@ -15,6 +15,7 @@
 # main variables
 # --------------
 ALL_VPN_CONTAINERS=( vpnserver researcher node node2 gui gui2 )
+ALL_VPN_NETWORKS=( vpnserver researcher node node2 gui gui2 misc )
 
 # all functions
 # -------------
@@ -227,7 +228,7 @@ containers_clean() {
     cd "$basedir/envs/vpn/docker"
 
     #
-    # level1 : stop and remove containers
+    # level1 : stop and remove containers and networks
     #
 
     containers_remove
@@ -235,6 +236,14 @@ containers_clean() {
     for i in base basenode
     do
         $DOCKER_COMPOSE rm -sf $i >/dev/null
+    done
+
+    # don't source full environment to avoid potential variable conflict
+    instance_id=$(source ./.env ; echo $FBM_CONTAINER_INSTANCE_ID)
+
+    for i in ${ALL_VPN_NETWORKS[@]}
+    do
+        docker network rm -f fedbiomed_${i}_$instance_id
     done
 
     #
@@ -263,15 +272,12 @@ containers_clean() {
     /bin/rm -fr ./gui2/run_mounts/certs/*                   2> /dev/null
 
     # specific to gui
-    /bin/rm -rf ./node/run_mounts/data/*                    2> /dev/null
     /bin/rm -rf ./node/run_mounts/fbm-node/*                2> /dev/null
 
     # specific to node
-    /bin/rm -rf ./node/run_mounts/data/*                    2> /dev/null
     /bin/rm -rf ./node/run_mounts/fbm-node/*                2> /dev/null
 	/bin/rm -rf ./node/run_mounts/fbm-node/.fedbiomed       2> /dev/null
 
-    /bin/rm -rf ./node2/run_mounts/data/*                   2> /dev/null
     /bin/rm -rf ./node2/run_mounts/fbm-node/*               2> /dev/null
     /bin/rm -rf ./node2/run_mounts/fbm-node/.fedbiomed      2> /dev/null
 
@@ -291,7 +297,8 @@ containers_clean() {
     for i in ${ALL_VPN_CONTAINERS[@]} base basenode
     do
         [[ "$i" = "node2" ]] || [[ "$i" = "gui2" ]] && continue # same as node/gui images
-        docker image rm -f fedbiomed/vpn-$i 2>/dev/null
+        img=$(source ./.env ; docker image ls --filter "reference=fedbiomed/vpn-$i:$FBM_CONTAINER_VERSION_TAG" --format "{{.ID}}")
+        docker image rm -f $img 2>/dev/null
     done
 
     docker image prune -f
@@ -312,10 +319,13 @@ containers_status() {
     echo "** Checking docker VPN images & VPN access:" ${ONLY_CONTAINERS[@]}
     cd "$basedir/envs/vpn/docker"
 
+    # don't source full environment to avoid potential variable conflict
+    instance_id=$(source ./.env ; echo $FBM_CONTAINER_INSTANCE_ID)
+
     RUNNING_CONTAINERS=()
     for i in ${ONLY_CONTAINERS[@]}
     do
-        status=$(docker ps | grep fedbiomed-vpn-$i)
+        status=$(docker ps | grep fedbiomed-vpn-$i-$instance_id)
         if [ -z "$status" ]; then
             echo "- container $i is NOT running"
         else

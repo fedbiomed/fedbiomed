@@ -2,7 +2,7 @@
 # - need coherent system version with base image
 # - may need update for properly compiling boringtun
 # - 2023-05: `12.1.1-base-ubuntu22.04` is uptodate version 
-FROM nvidia/cuda:12.1.1-base-ubuntu22.04 as builder
+FROM nvidia/cuda:12.1.1-base-ubuntu22.04 AS builder
 
 RUN apt-get update && apt-get install -y git build-essential cargo
 

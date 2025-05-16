@@ -1,4 +1,5 @@
-FROM fedbiomed/vpn-basenode
+ARG FBM_CONTAINER_VERSION_TAG
+FROM fedbiomed/vpn-basenode:${FBM_CONTAINER_VERSION_TAG:-unknown}
 
 ARG CONTAINER_GID
 ARG CONTAINER_UID
@@ -44,7 +45,7 @@ RUN [ "$CONTAINER_USER" != 'root' ] && useradd -m -d /home/$CONTAINER_USER \
 
 COPY ./envs/vpn/docker/node/build_files/entrypoint*.bash /
 # Setup subset of fedbiomed code tree
-RUN mkdir -p /fedbiomed/envs /data /fbm-node
+RUN mkdir -p /fedbiomed/envs /fbm-node
 
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
@@ -70,8 +71,11 @@ RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fbm-node # Fed-BioMed node direct
 RUN chown -R $CONTAINER_USER:$CONTAINER_GROUP /fedbiomed
 WORKDIR /fedbiomed
 
+# Set container user
+USER $CONTAINER_USER:$CONTAINER_GROUP
+
 # Installs fedbiomed and necessary modules
-RUN /bin/pip install -I .
+RUN /bin/pip install --no-warn-script-location -I '.[node]'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

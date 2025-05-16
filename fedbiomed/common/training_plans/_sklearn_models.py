@@ -55,6 +55,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             instance, [FedAverage][fedbiomed.researcher.aggregators.fedavg.FedAverage] needs this piece of information
             before aggregating model parameters).
         """
+        
         # set number of training loop iterations
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
         # Gather reporting parameters.
@@ -74,6 +75,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             # this context manager is used to disable and then enable the sklearn internal optimizer (in case we
             # are using declern optimizer)
             for epoch in iterations_accountant.iterate_epochs():
+
                 training_data_iter: Iterator = iter(self.training_data_loader)
                 # Iterate over data batches.
                 for batch in iterations_accountant.iterate_batches():

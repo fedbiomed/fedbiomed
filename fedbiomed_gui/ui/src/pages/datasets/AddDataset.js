@@ -9,7 +9,7 @@ const AddDataset = (props) => {
     return (
         <React.Fragment>
             <Tab
-                tabs={[{name: "Common Standards", to:'/datasets/add-dataset/'}, {name : "Medical Folder Dataset", to:'/datasets/add-dataset/medical-folder-dataset/'}]}
+                tabs={[{name: "Common Standards", to:'/datasets/add-dataset/common-standards'}, {name : "Medical Folder Dataset", to:'/datasets/add-dataset/medical-folder-dataset/'}]}
             />
             <div className={styles.main}>
                 <Outlet/>

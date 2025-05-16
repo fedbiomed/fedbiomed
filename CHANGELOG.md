@@ -1,5 +1,16 @@
 # Fed-BioMed changelog
 
+## 2025-05-16 version 6.1.0
+
+- Update testing/validation functionality to use fixed subset of data for testing on the node side between training rounds.
+- Add support for Docker image versioning; versions can now be specified during image build to allow multiple Fed-BioMed image versions.
+- Starts Fed-BioMed component automatically in docker when docker containers are launched.
+- Improve Docker networking by assigning a separate network to each Fed-BioMed component.
+- Updates containers to use `data` directory within component main folder by default.
+- Fix tab activation issue in the Node GUI on the dataset add page.
+- Fix broken documentation links caused by overwritten MkDocs redirection rules.
+- Updates windows installation documentation.
+
 ## 2025-02-06 version 6.0.0
 
 - In addition to the release candidate (details below), fix issue #1248, spaces where wrongly added when adding multiple tags in the GUI

@@ -1,7 +1,9 @@
 [![Documentation](https://img.shields.io/badge/Documentation-green)](https://fedbiomed.org)
+[![PyPI Downloads](https://static.pepy.tech/badge/fedbiomed)](https://pepy.tech/projects/fedbiomed)
 [![](https://img.shields.io/badge/Medium-black?logo=medium)](https://medium.com/fed-biomed)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md)
 [![Python-versions](https://img.shields.io/badge/python-3.10-brightgreen)](https://www.python.org/)
+[![PyPI - Version](https://img.shields.io/pypi/v/fedbiomed?color=white)](https://pypi.org/project/fedbiomed/)
 [![Citation](https://img.shields.io/badge/cite-paper-orange)](https://arxiv.org/abs/2304.12012)
 [![PR](https://img.shields.io/badge/PRs-welcome-green)](https://github.com/fedbiomed/fedbiomed/pulls)
 [![codecov](https://img.shields.io/codecov/c/gh/fedbiomed/fedbiomed/develop?logo=codecov)](https://app.codecov.io/gh/fedbiomed/fedbiomed/tree/develop)
@@ -162,10 +164,14 @@ It is also possible to start the GUI on a specific host and port. By default, it
 fedbiomed node --path <path/to/component/directory> gui start--data-folder <path-for-data-folder> --cert-file <path-to-certificate> --key-file <path-to-private-key>
 ```
 
-**IMPORTANT:** Please always consider providing `data-folder` argument while starting the GUI.
+```shell
+fedbiomed node -p </path/to/my-node> gui --port 80 --host 0.0.0.0
+```
+
+**IMPORTANT:** Provide `data-folder` argument while starting the GUI if not using the default `/path/to/my-node/data`
 
 ```shell
-fedbiomed node -p </path/to/my-node> gui --data-folder ../data  --port 80 --host 0.0.0.0
+fedbiomed node -p </path/to/my-node> gui --data-folder /another/data-dir --port 80 --host 0.0.0.0
 ```
 
 ### Launching Multiple Node GUI
@@ -173,9 +179,9 @@ fedbiomed node -p </path/to/my-node> gui --data-folder ../data  --port 80 --host
 It is possible to start multiple Node GUIs for different nodes as long as the http ports are different.
 
 ```shell
-fedbiomed node -p my-node gui start --data-folder ../data --port 8181
-fedbiomed node -p my-second-node gui start --data-folder ../data --port 8282
-fedbiomed node -p my-second-node gui start --data-folder ../data --port 8383
+fedbiomed node -p my-node gui start --port 8181
+fedbiomed node -p my-second-node gui start --port 8282
+fedbiomed node -p my-second-node gui start --port 8383
 ```
 
 Please see `docs/developer/development-environment.md` to find out how to debug and lunch UI for development purposes.

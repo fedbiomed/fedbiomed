@@ -581,7 +581,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             }
         )
 
-        self.assertEqual(exp.test_ratio(), 0.2)
+        self.assertEqual(exp.test_ratio(), (0.2, False))
         self.assertEqual(exp.test_metric(), MetricTypes.ACCURACY)
         self.assertDictEqual(exp.test_metric_args(), {})
         self.assertEqual(exp.test_on_local_updates(), True)
@@ -589,7 +589,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
 
         exp.set_test_ratio(0.2)
-        self.assertEqual(exp.test_ratio(), 0.2)
+        self.assertEqual(exp.test_ratio(), (0.2, False))
 
         _, _ = exp.set_test_metric(MetricTypes.ACCURACY, test=1)
         self.assertDictEqual(exp.test_metric_args(), {"test": 1})

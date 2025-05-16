@@ -42,7 +42,7 @@ The interface prompts you to select the type of dataset you would like to add. T
 
 For example, suppose you want to add a CSV dataset. To do this, type `1` and press Enter. The interface will then ask you to provide the common attributes: dataset name, tags, and description.
 
-!!! note "Falmby"
+!!! note "Flamby"
     To enable option 6 in Fed-BioMed, you'll need to install FLamby as an external dependency. After installing Fed-BioMed, use the following command: `pip install git+https://github.com/owkin/FLamby@main`."
 
 ```
