@@ -6,7 +6,7 @@ Torch data manager
 """
 
 import math
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset, random_split
@@ -21,7 +21,7 @@ from ._sklearn_data_manager import SkLearnDataManager
 class TorchDataManager(object):
     """Wrapper for PyTorch Dataset to manage loading operations for validation and train."""
 
-    def __init__(self, dataset: Dataset, **kwargs: dict):
+    def __init__(self, dataset: Dataset | Any, **kwargs: dict):
         """Construct  of class
 
         Args:
@@ -39,10 +39,14 @@ class TorchDataManager(object):
         #         f"of `torch.utils.data.Dataset`, please use `Dataset` as parent class for"
         #         f"your custom torch dataset object"
         #     )
-        dataset.to_torch()
-
+        if not isinstance(dataset, Dataset):
+            dataset.to_torch()
         self._dataset = self._create_dataset(dataset)
-        
+        # FIXME: use the commented code below instead of above?
+        # if isinstance(dataset, Dataset):
+        #     self._dataset = self._create_dataset(dataset)
+        # else:
+        #     self._dataset
         self._loader_arguments = kwargs
 
         self._rng = self.rng(self._loader_arguments.get("random_state"))
@@ -205,7 +209,7 @@ class TorchDataManager(object):
         Returns:
             Data manager to use in SkLearn base training plans
         """
-
+        raise Exception("SHOUD NOT BE CALLED")
         loader = self._create_torch_data_loader(
             self._dataset, batch_size=len(self._dataset)
         )

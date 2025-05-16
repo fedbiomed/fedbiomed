@@ -16,7 +16,9 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.data._image_dataset import ImageDataset
 from fedbiomed.common.data._medical_datasets import MedicalFolderDataset
+from fedbiomed.common.data._tabular_dataset import CSVDataset
 from fedbiomed.common.exceptions import (
     FedbiomedError,
     FedbiomedTypeError,
@@ -62,7 +64,7 @@ class NPDataLoader:
             drop_last: whether to drop the last batch in case it does not fill the whole batch size
         """
 
-        if not isinstance(dataset, (np.ndarray, MedicalFolderDataset)) or (target is not None and isinstance(target, np.ndarray)):
+        if not isinstance(dataset, (np.ndarray, CSVDataset, MedicalFolderDataset)) or (target is not None and isinstance(target, np.ndarray)):
             msg = (
                 f"{ErrorNumbers.FB609.value}. Wrong input type for `dataset` or `target` in NPDataLoader. "
                 f"Expected type np.ndarray for both, instead got {type(dataset)} and"
@@ -218,13 +220,14 @@ class _BatchIterator:
         Raises:
             StopIteration: when an epoch of data has been exhausted.
         """
-        import pdb; pdb.set_trace()
+
         if self._num_yielded < len(self._loader):
             start = self._num_yielded * self._loader.batch_size()
             stop = (self._num_yielded + 1) * self._loader.batch_size()
             indices = self._index[start:stop]
             self._num_yielded += 1
             if self._loader.target is None:
+                
                 return self._loader.dataset[indices]
             else:
                 return self._loader.dataset[indices], self._loader.target[indices]
@@ -233,7 +236,12 @@ class _BatchIterator:
         self._reset()
         raise StopIteration
 
+class FrameworkNativeDataLoader:
+    def __init__(self, dataset):
+        self._dataset = dataset
 
+    def split(self, test_ratio):
+        pass
 class SkLearnDataManager(object):
     """Wrapper for `pd.DataFrame`, `pd.Series` and `np.ndarray` datasets.
 
@@ -270,14 +278,15 @@ class SkLearnDataManager(object):
         #     raise FedbiomedTypeError(msg)
 
         # Convert pd.DataFrame or pd.Series to np.ndarray for `inputs`
-        if isinstance(inputs, MedicalFolderDataset):  # FIXME: change that with GenericDataset
+        if isinstance(inputs, (MedicalFolderDataset, CSVDataset, ImageDataset)):  # FIXME: change that with GenericDataset
             inputs.to_sklearn()
             self._inputs = inputs
         elif isinstance(inputs, (pd.DataFrame, pd.Series)):
             self._inputs = inputs.to_numpy()
-        else:
+        elif isinstance(inputs, (np.ndarray, List)):
             self._inputs = inputs
-
+        else:
+            raise
         # Convert pd.DataFrame or pd.Series to np.ndarray for `target`
         if isinstance(target, (pd.DataFrame, pd.Series)):
             self._target = target.to_numpy()
@@ -299,6 +308,7 @@ class SkLearnDataManager(object):
             self._is_shuffled_testing_dataset: bool = kwargs.pop(
                 "shuffle_testing_dataset"
             )
+
 
         self._dataset = NPDataLoader(self._inputs, self._target)
         # Additional loader arguments

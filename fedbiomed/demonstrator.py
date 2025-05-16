@@ -27,3 +27,5 @@ data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
 val = next(iter(data_manager.dataset))
 print(val)
 print(len(val))
+
+# TODO: improve output wrt last discussion

@@ -356,8 +356,6 @@ class MedicalFolderDataset(MedicalFolderBase):
         self._image_reader = ImageReader()
         self._tp_type = None
         self._transform_framework = lambda x:x
-        self._from_pandas_to_framework = lambda x:x
-        self._parse_slice = lambda x: x
 
     def get_nontransformed_item(self, item):
         # For the first item retrieve complete subject folders
@@ -380,14 +378,6 @@ class MedicalFolderDataset(MedicalFolderBase):
         demographics = self._get_from_demographics(subject_id=subject_folder.name)
         return (data, demographics), targets
 
-    def _slice_parser(self, item) -> int:
-        if not isinstance(item, slice):
-            self._parse_slice = lambda x: x  #define it in the _init__
-            return item
-        else:
-            self._parse_slice = lambda x: x[item.start:item.stop]
-            return item.start
-
     def __getitem__(self, item):
         # accept both a single value or an iterable (array/list)
 
@@ -404,7 +394,7 @@ class MedicalFolderDataset(MedicalFolderBase):
             for modality, transform in self._transform.items():
                 try:
                     #data[modality] = self._transform_framework(transform(data[modality]))
-                    data[modality] = self._parse_slice(self._image_reader._transform_framework(transform(data[modality])))
+                    data[modality] = self._image_reader._transform_framework(transform(data[modality]))
                 except Exception as e:
                     raise FedbiomedDatasetError(
                         f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in "
