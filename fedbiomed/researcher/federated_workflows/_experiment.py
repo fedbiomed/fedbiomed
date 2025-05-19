@@ -737,12 +737,18 @@ class Experiment(TrainingPlanWorkflow):
         if missing:
             raise FedbiomedExperimentError(ErrorNumbers.FB411.value + ': missing one or several object needed for'
                                            ' starting the `Experiment`. Details:\n' + missing)
+        
         # Sample nodes for training
-
         training_nodes = self._node_selection_strategy.sample_nodes(
             from_nodes=self.filtered_federation_nodes(),
             round_i=self._round_current
         )
+        if not training_nodes:
+            raise FedbiomedExperimentError(
+                "Empty list of nodes for training: no nodes replied to original "
+                "`search_request` or sampling strategy returned an empty list."
+            )
+
         # Setup Secure Aggregation (it's a noop if not active)
         secagg_arguments = self.secagg_setup(training_nodes)
 
