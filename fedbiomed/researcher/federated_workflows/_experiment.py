@@ -743,7 +743,7 @@ class Experiment(TrainingPlanWorkflow):
             from_nodes=self.filtered_federation_nodes(),
             round_i=self._round_current
         )
-        if not training_nodes:
+        if len(training_nodes) == 0:
             raise FedbiomedExperimentError(
                 "Empty list of nodes for training: no nodes replied to original "
                 "`search_request` or sampling strategy returned an empty list."
