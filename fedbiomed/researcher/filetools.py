@@ -12,6 +12,7 @@ import shutil
 from typing import Tuple, List
 
 from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME
 
 
 def create_exp_folder(experiments_dir, experimentation_folder: str = None) -> str:
@@ -47,7 +48,11 @@ def create_exp_folder(experiments_dir, experimentation_folder: str = None) -> st
             raise ValueError(f"Bad experimentation folder {experimentation_folder} - " +
                              "it cannot be a path")
     try:
-        os.makedirs(os.path.join(experiments_dir, experimentation_folder),
+        # Tensorboard folder automatically created inside experimentation folder.
+        # Might not be used.
+        os.makedirs(os.path.join(experiments_dir,
+                                 experimentation_folder,
+                                 TENSORBOARD_FOLDER_NAME),
                     exist_ok=True)
     except (PermissionError, OSError) as err:
         logger.error("Can not save experiment files because " +
