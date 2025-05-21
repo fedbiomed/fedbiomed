@@ -2,7 +2,10 @@ from typing import Union, List
 from unittest.mock import MagicMock
 
 from fedbiomed.common.constants import SecureAggregationSchemes
-from fedbiomed.researcher.secagg._secure_aggregation import _SecureAggregation, SecureAggregation
+from fedbiomed.researcher.secagg._secure_aggregation import (
+    _SecureAggregation,
+    SecureAggregation,
+)
 
 FAKE_CONTEXT_VALUE = "MY_CONTEXT"
 
@@ -45,12 +48,21 @@ class FakeSecaggContext:
 class FakeSecaggServkeyContext(FakeSecaggContext):
     pass
 
+
 class FakeSecAgg(SecureAggregation):
     arg_train_arguments = None
-    def __init__(self, *args, scheme: SecureAggregationSchemes = SecureAggregationSchemes.LOM, **kwargs) -> None:
-        self.__secagg = MagicMock(spec=_SecureAggregation,
-                                  train_arguments = MagicMock(return_value=FakeSecAgg.arg_train_arguments),
-                                  **kwargs)
+
+    def __init__(
+        self,
+        *args,
+        scheme: SecureAggregationSchemes = SecureAggregationSchemes.LOM,
+        **kwargs,
+    ) -> None:
+        self.__secagg = MagicMock(
+            spec=_SecureAggregation,
+            train_arguments=MagicMock(return_value=FakeSecAgg.arg_train_arguments),
+            **kwargs,
+        )
 
     def __getattr__(self, item: str):
         return getattr(self.__secagg, item)

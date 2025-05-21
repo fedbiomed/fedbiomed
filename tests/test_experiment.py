@@ -18,7 +18,7 @@ from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_researcher_secagg import FakeSecAgg
 from testsupport.fake_training_plan import (
     FakeTorchTrainingPlan,
-    FakeSKLearnTrainingPlan
+    FakeSKLearnTrainingPlan,
 )
 
 
@@ -46,23 +46,25 @@ from fedbiomed.researcher.secagg._secure_aggregation import _SecureAggregation
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
-
 class TestExperiment(unittest.TestCase, MockRequestModule):
-
     def setUp(self):
-        MockRequestModule.setUp(self, module="fedbiomed.researcher.federated_workflows._federated_workflow.Requests")
+        MockRequestModule.setUp(
+            self,
+            module="fedbiomed.researcher.federated_workflows._federated_workflow.Requests",
+        )
         super().setUp()
 
         self.patch_import_class_object = patch(
-            'fedbiomed.researcher.federated_workflows._training_plan_workflow.import_class_object_from_file'
+            "fedbiomed.researcher.federated_workflows._training_plan_workflow.import_class_object_from_file"
         )
         self.mock_import_class_object = self.patch_import_class_object.start()
 
         self.mock_tp = MagicMock()
         self.mock_import_class_object.return_value = None, self.mock_tp
 
-
-        self.patch_job = patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
+        self.patch_job = patch(
+            "fedbiomed.researcher.federated_workflows._experiment.TrainingJob"
+        )
         self.mock_job = self.patch_job.start()
         self.mock_job.return_value = MagicMock(spec=TrainingJob)
         self.mock_job.return_value._training_replies = {}
@@ -76,31 +78,35 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
     def test_experiment_01_initialization(self):
         # Experiment must be default-constructible
         exp = Experiment()
-        self.assertIsInstance(exp.monitor(), fedbiomed.researcher.monitor.Monitor)  # set by default
-        self.assertIsInstance(exp.aggregator(), fedbiomed.researcher.aggregators.FedAverage)  # set by default
+        self.assertIsInstance(
+            exp.monitor(), fedbiomed.researcher.monitor.Monitor
+        )  # set by default
+        self.assertIsInstance(
+            exp.aggregator(), fedbiomed.researcher.aggregators.FedAverage
+        )  # set by default
 
         # Test all possible combinations of init arguments
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
         _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
-        _aggregator.aggregator_name = 'mock aggregator'
+        _aggregator.aggregator_name = "mock aggregator"
         _strategy = MagicMock(spec=fedbiomed.researcher.strategies.Strategy)
         parameters_and_possible_values = {
-            'training_data': (_training_data,),
-            'training_args': (TrainingArgs({'epochs': 42}),),
-            'secagg': (_secagg,),
-            'save_breakpoints': (True, False),
-            'training_plan_class': (
+            "training_data": (_training_data,),
+            "training_args": (TrainingArgs({"epochs": 42}),),
+            "secagg": (_secagg,),
+            "save_breakpoints": (True, False),
+            "training_plan_class": (
                 FakeTorchTrainingPlan,
                 FakeSKLearnTrainingPlan,
-                None
+                None,
             ),
-            'model_args': ({'model': 'args'}, None),
-            'aggregator': (_aggregator, None),
-            'node_selection_strategy': (_strategy, None),
-            'round_limit': (42, None),
-            'tensorboard': (True, False),
-            'retain_full_history': (True, False)
+            "model_args": ({"model": "args"}, None),
+            "aggregator": (_aggregator, None),
+            "node_selection_strategy": (_strategy, None),
+            "round_limit": (42, None),
+            "tensorboard": (True, False),
+            "retain_full_history": (True, False),
         }  # some of the parameters which have already been tested in FederatedWorkflow have been simplified here
         # Compute cartesian product of parameter values to obtain all possible combinations
         keys, values = zip(*parameters_and_possible_values.items())
@@ -109,8 +115,10 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             try:
                 exp = Experiment(**params)
             except SystemExit as e:
-                print(f'Could not instantiate Experiment: exception {e} raised with the following constructor'
-                      f'arguments:\n {params}')
+                print(
+                    f"Could not instantiate Experiment: exception {e} raised with the following constructor"
+                    f"arguments:\n {params}"
+                )
                 raise e
 
     def test_experiment_02_set_aggregator(self):
@@ -121,15 +129,19 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # test default case
         exp.set_aggregator()
-        self.assertIsInstance(exp.aggregator(), fedbiomed.researcher.aggregators.FedAverage)
+        self.assertIsInstance(
+            exp.aggregator(), fedbiomed.researcher.aggregators.FedAverage
+        )
         self.assertEqual(exp.aggregator()._fds, _training_data)
 
         # setting through an object instance
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
-        _aggregator.aggregator_name = 'mock-aggregator'
+        _aggregator.aggregator_name = "mock-aggregator"
         exp.set_aggregator(_aggregator)
         self.assertEqual(exp.aggregator(), _aggregator)
-        _aggregator.set_fds.assert_called_once_with(exp.training_data())  # side effect: aggregator's fds must be set to
+        _aggregator.set_fds.assert_called_once_with(
+            exp.training_data()
+        )  # side effect: aggregator's fds must be set to
         # be compatible with experiment fds
 
         # setting through a class
@@ -138,10 +150,12 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         class FakeAggregator(Aggregator):
             aggregator_name = "aggregator"
             is_set_fds_called = False
+
             def set_fds(self, fds: FederatedDataSet) -> FederatedDataSet:
                 if not self.is_set_fds_called:
                     self.is_set_fds_called = True
                 return super().set_fds(fds)
+
         _aggregator_class = FakeAggregator
 
         with self.assertRaises(SystemExit):
@@ -151,7 +165,6 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertIsInstance(exp.aggregator(), FakeAggregator)
         self.assertTrue(exp.aggregator().is_set_fds_called)
         self.assertEqual(exp.training_data().data(), exp.aggregator()._fds.data())
-
 
         # check that setting training data resets the aggregator's fds
         _aggregator.reset_mock()
@@ -166,10 +179,15 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # test default case
         exp.set_strategy()
-        self.assertIsInstance(exp.strategy(), fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
+        self.assertIsInstance(
+            exp.strategy(),
+            fedbiomed.researcher.strategies.default_strategy.DefaultStrategy,
+        )
 
         # setting through an object instance
-        _strategy = MagicMock(spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
+        _strategy = MagicMock(
+            spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy
+        )
         exp.set_strategy(_strategy)
         self.assertEqual(exp.strategy(), _strategy)
 
@@ -178,9 +196,11 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         class FakeStrategy(DefaultStrategy):
             has_been_called = False
+
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 self.has_been_called = True
+
         _strategy_class = MagicMock()
         _strategy_class.return_value = _strategy
 
@@ -190,14 +210,16 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp.set_strategy(FakeStrategy())
         self.assertTrue(exp.strategy().has_been_called)
 
-#    @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
+    #    @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
     def test_experiment_04_run_once_base_case(self):
         """Tests run once method of experiment"""
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
-        _aggregator.aggregator_name = 'mock-aggregator'
-        _strategy = MagicMock(spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
-        _strategy.sample_nodes.return_value = ['node-1', 'node-2']
+        _aggregator.aggregator_name = "mock-aggregator"
+        _strategy = MagicMock(
+            spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy
+        )
+        _strategy.sample_nodes.return_value = ["node-1", "node-2"]
         _strategy.refine.return_value = (1, 2, 3, 4)
 
         exp = Experiment(
@@ -210,20 +232,19 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Test error case -------------------------------
         with self.assertRaises(SystemExit):
-            exp.run_once(increase='invalid-type')
+            exp.run_once(increase="invalid-type")
         # ------------------------------------------------
 
         # Test if no training nodes are returned from strategy.sample_nodes ---
         _strategy.sample_nodes.return_value = []
         with self.assertRaises(SystemExit):
             exp.run_once()
-        _strategy.sample_nodes.return_value = ['node-1', 'node-2']
+        _strategy.sample_nodes.return_value = ["node-1", "node-2"]
         # ---------------------------------------------------------------------
 
         # Go back to normal
         exp._round_limit = 1
         exp._current_round = 0
-
 
         # Check if it raises if there is missing object block --------
         exp._fds = None
@@ -272,7 +293,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         # Run once with secure aggregation ----------------------------------------
         secagg = MagicMock(spec=_SecureAggregation, instance=True)
         type(secagg).active = True
-        #type(secagg).return_value = MagicMock(spec=_SecureAggregation)
+        # type(secagg).return_value = MagicMock(spec=_SecureAggregation)
         exp.set_round_limit(6)
         exp._secagg = secagg
         exp.run_once()
@@ -280,8 +301,9 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         # -------------------------------------------------------------------------
 
         # Run once with whereas breakpoint is active
-        with patch("fedbiomed.researcher.federated_workflows.Experiment.breakpoint") \
-            as m_breakpoint:
+        with patch(
+            "fedbiomed.researcher.federated_workflows.Experiment.breakpoint"
+        ) as m_breakpoint:
             exp.set_save_breakpoints(True)
             exp.run_once()
             m_breakpoint.assert_called_once()
@@ -303,7 +325,9 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertEqual(_aggregator.create_aggregator_args.call_count, 2)
         self.assertEqual(self.mock_job.return_value.execute.call_count, 2)
         # 4 replies also from previous executions
-        self.assertEqual(len(exp.training_replies()), 5)  # validation replies are not saved
+        self.assertEqual(
+            len(exp.training_replies()), 5
+        )  # validation replies are not saved
         _strategy.refine.assert_called_once()
         _aggregator.aggregate.assert_called_once()
         exp.training_plan().set_model_params.assert_called_once()
@@ -315,48 +339,54 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp = Experiment(round_limit=2)
 
         # check that round limit is reached when run is called without arguments
-        with patch.object(exp, 'run_once', return_value=1) as mock_run_once:
+        with patch.object(exp, "run_once", return_value=1) as mock_run_once:
             exp.run()
             self.assertEqual(mock_run_once.call_count, 2)
             exp._set_round_current(2)  # manually set because of patched run_once
 
         # check that we can dynamically increase the round limit
         exp.set_round_limit(exp.round_current() + 5)
-        self.assertEqual(exp.round_limit(), 2+5)
-        with patch.object(exp, 'run_once', return_value=1) as mock_run_once:
+        self.assertEqual(exp.round_limit(), 2 + 5)
+        with patch.object(exp, "run_once", return_value=1) as mock_run_once:
             exp.run()
             self.assertEqual(mock_run_once.call_count, 5)
-            exp._set_round_current(2+5)  # manually set because of patched run_once
+            exp._set_round_current(2 + 5)  # manually set because of patched run_once
 
         # check that increase=True auto-increases the round limit
-        with patch.object(exp, 'run_once', return_value=1) as mock_run_once:
+        with patch.object(exp, "run_once", return_value=1) as mock_run_once:
             exp.run(rounds=1, increase=True)
             self.assertEqual(mock_run_once.call_count, 1)
-            self.assertEqual(exp.round_limit(), 2+5+1)
-            exp._set_round_current(2+5+1)  # manually set because of patched run_once
+            self.assertEqual(exp.round_limit(), 2 + 5 + 1)
+            exp._set_round_current(
+                2 + 5 + 1
+            )  # manually set because of patched run_once
 
         # check that increase=False takes precedence over user-specified rounds
         exp.set_round_limit(exp.round_current() + 2)
-        with patch.object(exp, 'run_once', return_value=1) as mock_run_once:
-            exp.run(rounds=100, increase=False)  # should only run for two rounds because of round_limit
+        with patch.object(exp, "run_once", return_value=1) as mock_run_once:
+            exp.run(
+                rounds=100, increase=False
+            )  # should only run for two rounds because of round_limit
             self.assertEqual(mock_run_once.call_count, 2)
-            self.assertEqual(exp.round_limit(), 2+5+1+2)
-            exp._set_round_current(2+5+1+2)  # manually set because of patched run_once
+            self.assertEqual(exp.round_limit(), 2 + 5 + 1 + 2)
+            exp._set_round_current(
+                2 + 5 + 1 + 2
+            )  # manually set because of patched run_once
 
         # wrong argument types
-        with patch.object(exp, 'run_once', return_value=1) as mock_run_once:
+        with patch.object(exp, "run_once", return_value=1) as mock_run_once:
             with self.assertRaises(SystemExit):
                 exp.run(rounds=-1)
                 self.assertFalse(mock_run_once.called)
             with self.assertRaises(SystemExit):
-                exp.run(rounds='one')
+                exp.run(rounds="one")
                 self.assertFalse(mock_run_once.called)
             with self.assertRaises(SystemExit):
-                exp.run(increase='True')
+                exp.run(increase="True")
                 self.assertFalse(mock_run_once.called)
 
         # inconsistent arguments
-        with patch.object(exp, 'run_once', return_value=1) as mock_run_once:
+        with patch.object(exp, "run_once", return_value=1) as mock_run_once:
             for increase in (True, False):
                 x = exp.run(increase=increase)
                 self.assertFalse(mock_run_once.called)
@@ -375,14 +405,14 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             self.assertEqual(x, 0)
 
             # check that one last validation round is performed when test_on_global_updates is True
-            exp.set_training_args({'test_on_global_updates': True})
+            exp.set_training_args({"test_on_global_updates": True})
             exp.set_round_limit(exp.round_current() + 1)
             x = exp.run()
             self.assertEqual(x, 1)
             mock_run_once.assert_called_once_with(increase=False, test_after=True)
 
         # Tests if run once return 0
-        with patch.object(exp, 'run_once', return_value=0) as mock_run_once:
+        with patch.object(exp, "run_once", return_value=0) as mock_run_once:
             with self.assertRaises(SystemExit):
                 exp.set_round_limit(exp.round_current() + 1)
                 x = exp.run()
@@ -392,10 +422,12 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
-        _aggregator.aggregator_name = 'mock-aggregator'
+        _aggregator.aggregator_name = "mock-aggregator"
         _aggregator.create_aggregator_args.return_value = ({}, {})
-        _strategy = MagicMock(spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
-        _strategy.sample_nodes.return_value = ['node-1', 'node-2']
+        _strategy = MagicMock(
+            spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy
+        )
+        _strategy.sample_nodes.return_value = ["node-1", "node-2"]
         _strategy.refine.return_value = (1, 2, 3, 4)
 
         # Test using aggregator-level optimizer
@@ -406,21 +438,22 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             round_limit=1,
             training_plan_class=FakeTorchTrainingPlan,
             node_selection_strategy=_strategy,
-            agg_optimizer=_agg_optim
+            agg_optimizer=_agg_optim,
         )
         with patch.object(Vector, "build", new=create_autospec(Vector)):
             exp.run_once()
         self.assertListEqual(
             [name for name, *_ in _agg_optim.method_calls],
             ["get_aux", "send_to_device", "init_round", "step"],
-            "Aggregator optimizer did not receive expected ordered calls"
+            "Aggregator optimizer did not receive expected ordered calls",
         )
 
         # Test that receiving auxiliary variables without an aggregator-level optimizer fails
         self.mock_job.reset_mock()
         mock_aux_var = create_autospec(AuxVar, instance=True)
         self.mock_job.return_value.execute.return_value = (
-            MagicMock(), {"node_id": {"module": mock_aux_var}}
+            MagicMock(),
+            {"node_id": {"module": mock_aux_var}},
         )
 
         exp = Experiment(
@@ -436,18 +469,14 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         patch_exc.assert_called_once()
         error_msg = patch_exc.call_args[0][0]
         self.assertTrue(
-            error_msg.startswith(
-                "Received auxiliary variables from 1+ node Optimizer"
-            ),
+            error_msg.startswith("Received auxiliary variables from 1+ node Optimizer"),
             "Receiving un-processable auxiliary variables did not raise "
-            "the excepted exception."
+            "the excepted exception.",
         )
 
-    @patch('builtins.eval')
-    @patch('builtins.print')
-    def test_experiment_07_info(self,
-                                mock_print,
-                                mock_eval):
+    @patch("builtins.eval")
+    @patch("builtins.print")
+    def test_experiment_07_info(self, mock_print, mock_eval):
         exp = Experiment()
         _ = exp.info()
 
@@ -456,64 +485,54 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         exp = Experiment()
         exp._training_replies = {
-            0: {
-                'node1': {
-                    'params': 'params',
-                    'other': 'metadata'
-                }
-            },
-            1 : {
-                'node1': {
-                    'only': 'metadata'
-                }
-            }
+            0: {"node1": {"params": "params", "other": "metadata"}},
+            1: {"node1": {"only": "metadata"}},
         }
 
         replies_to_save = exp.save_training_replies()
         self.assertDictEqual(
             replies_to_save,
-            {
-                0: {
-                    'node1': {
-                        'other': 'metadata'
-                    }
-                },
-                1 : {
-                    'node1': {
-                        'only': 'metadata'
-                    }
-                }
-            }
+            {0: {"node1": {"other": "metadata"}}, 1: {"node1": {"only": "metadata"}}},
         )
 
-    @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingPlanWorkflow.breakpoint')
-    @patch('fedbiomed.researcher.federated_workflows._experiment.uuid.uuid4', return_value='UUID')
-    @patch('fedbiomed.researcher.federated_workflows._experiment.choose_bkpt_file',
-           return_value=('/bkpt-path', 'bkpt-folder'))
-    @patch('fedbiomed.researcher.federated_workflows._experiment.Serializer')
-    def test_experiment_09_breakpoint(self,
-                                      mock_serializer,
-                                      mock_choose_bkpt_file,
-                                      mock_uuid,
-                                      mock_super_breakpoint,
-                                      ):
+    @patch(
+        "fedbiomed.researcher.federated_workflows._experiment.TrainingPlanWorkflow.breakpoint"
+    )
+    @patch(
+        "fedbiomed.researcher.federated_workflows._experiment.uuid.uuid4",
+        return_value="UUID",
+    )
+    @patch(
+        "fedbiomed.researcher.federated_workflows._experiment.choose_bkpt_file",
+        return_value=("/bkpt-path", "bkpt-folder"),
+    )
+    @patch("fedbiomed.researcher.federated_workflows._experiment.Serializer")
+    def test_experiment_09_breakpoint(
+        self,
+        mock_serializer,
+        mock_choose_bkpt_file,
+        mock_uuid,
+        mock_super_breakpoint,
+    ):
         # define attributes that will be saved in breakpoint
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
-        _aggregator.aggregator_name = 'mock-aggregator'
-        agg_bkpt = {"agg": 'bkpt'}
+        _aggregator.aggregator_name = "mock-aggregator"
+        agg_bkpt = {"agg": "bkpt"}
         _aggregator.save_state_breakpoint.return_value = agg_bkpt
 
         _agg_optim = MagicMock(spec=fedbiomed.common.optimizers.Optimizer)
 
-        _strategy = MagicMock(spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
-        strat_bkpt = {'strategy': 'bkpt'}
+        _strategy = MagicMock(
+            spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy
+        )
+        strat_bkpt = {"strategy": "bkpt"}
         _strategy.save_state_breakpoint.return_value = strat_bkpt
 
         exp = Experiment(
             round_limit=5,
             aggregator=_aggregator,
             agg_optimizer=_agg_optim,
-            node_selection_strategy=_strategy
+            node_selection_strategy=_strategy,
         )
 
         # Test if current round is less than 1 meaning that there is no round ran
@@ -523,59 +542,79 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         # ----------------------------------------------------------------------
 
         exp._set_round_current(2)
-        with patch.object(exp, 'save_aggregated_params', return_value={'agg_params': 'bkpt'}) as mock_agg_param_save,\
-                patch.object(exp, 'save_training_replies', return_value={'replies': 'bkpt'}) as mock_save_replies, \
-                patch.object(exp, 'training_plan') as mock_tp:
+        with (
+            patch.object(
+                exp, "save_aggregated_params", return_value={"agg_params": "bkpt"}
+            ) as mock_agg_param_save,
+            patch.object(
+                exp, "save_training_replies", return_value={"replies": "bkpt"}
+            ) as mock_save_replies,
+            patch.object(exp, "training_plan") as mock_tp,
+        ):
             exp.breakpoint()
 
         # This also validates the breakpoint scheme: if this fails, please consider updating the breakpoints version
         mock_super_breakpoint.assert_called_once_with(
             {
-                'round_current': 2,
-                'round_limit': 5,
-                'aggregator': agg_bkpt,
-                'agg_optimizer': '/bkpt-path/optimizer_UUID.mpk',
-                'node_selection_strategy': strat_bkpt,
-                'aggregated_params': {'agg_params': 'bkpt'},
-                'training_replies': {'replies': 'bkpt'},
+                "round_current": 2,
+                "round_limit": 5,
+                "aggregator": agg_bkpt,
+                "agg_optimizer": "/bkpt-path/optimizer_UUID.mpk",
+                "node_selection_strategy": strat_bkpt,
+                "aggregated_params": {"agg_params": "bkpt"},
+                "training_replies": {"replies": "bkpt"},
             },
-            2
+            2,
         )
 
-    @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingPlanWorkflow.load_breakpoint')
-    @patch('fedbiomed.researcher.federated_workflows._experiment.Serializer')
-    @patch.object(fedbiomed.researcher.federated_workflows._experiment.Optimizer, 'load_state',
-                  return_value=MagicMock(spec=fedbiomed.common.optimizers.Optimizer))
-    def test_experiment_10_load_breakpoint(self,
-                                                   mock_optimizer,
-                                                   mock_serializer,
-                                                   mock_super_load,
-                                                   ):
+    @patch(
+        "fedbiomed.researcher.federated_workflows._experiment.TrainingPlanWorkflow.load_breakpoint"
+    )
+    @patch("fedbiomed.researcher.federated_workflows._experiment.Serializer")
+    @patch.object(
+        fedbiomed.researcher.federated_workflows._experiment.Optimizer,
+        "load_state",
+        return_value=MagicMock(spec=fedbiomed.common.optimizers.Optimizer),
+    )
+    def test_experiment_10_load_breakpoint(
+        self,
+        mock_optimizer,
+        mock_serializer,
+        mock_super_load,
+    ):
         mock_super_load.return_value = (
             Experiment(),
             {
-                'round_current': 2,
-                'round_limit': 5,
-                'aggregator': {"agg": 'bkpt'},
-                'agg_optimizer': '/bkpt-path/optimizer_UUID.mpk',
-                'node_selection_strategy': {'strategy': 'bkpt'},
-                'aggregated_params': {0: {'params_path': 'bkpt'}},
-                'training_replies': {0: {'node1': {'params_path': 'bkpt', 'other': 'reply-data'}}},
-            }
+                "round_current": 2,
+                "round_limit": 5,
+                "aggregator": {"agg": "bkpt"},
+                "agg_optimizer": "/bkpt-path/optimizer_UUID.mpk",
+                "node_selection_strategy": {"strategy": "bkpt"},
+                "aggregated_params": {0: {"params_path": "bkpt"}},
+                "training_replies": {
+                    0: {"node1": {"params_path": "bkpt", "other": "reply-data"}}
+                },
+            },
         )
 
         def _gen():
-            _strategy = MagicMock(spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
+            _strategy = MagicMock(
+                spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy
+            )
             yield _strategy
             _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
-            _aggregator.aggregator_name = 'mock-aggregator'
+            _aggregator.aggregator_name = "mock-aggregator"
             yield _aggregator
+
         _g = _gen()
+
         def create_strategy_then_aggregator(*args, **kwargs):
             for x in _g:
                 return x
 
-        with patch.object(Experiment, '_create_object', new=create_strategy_then_aggregator) as mock_creat:
+        with patch.object(
+            Experiment, "_create_object", new=create_strategy_then_aggregator
+        ) as mock_creat:
             exp = Experiment.load_breakpoint()
 
     def test_experiment_11_testing_args(self):
@@ -583,10 +622,11 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         exp = Experiment()
         exp.set_training_args(
-            {   'test_ratio': 0.2,
-                'test_on_local_updates': True,
-                'test_on_global_updates': True,
-                'test_metric': MetricTypes.ACCURACY
+            {
+                "test_ratio": 0.2,
+                "test_on_local_updates": True,
+                "test_on_global_updates": True,
+                "test_metric": MetricTypes.ACCURACY,
             }
         )
 
@@ -595,7 +635,6 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertDictEqual(exp.test_metric_args(), {})
         self.assertEqual(exp.test_on_local_updates(), True)
         self.assertEqual(exp.test_on_global_updates(), True)
-
 
         exp.set_test_ratio(0.2)
         self.assertEqual(exp.test_ratio(), (0.2, False))
@@ -623,7 +662,6 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         # Set None
         exp.set_agg_optimizer(None)
         self.assertIsNone(exp._agg_optimizer)
-
 
         invalid_type_optimizer = MagicMock()
         with self.assertRaises(SystemExit):
@@ -666,7 +704,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         # Check monitor called correctly
         exp._monitor = MagicMock(spec=Monitor)
         exp._set_round_current(2)
-        exp._monitor.set_round.assert_called_once_with(2+1)
+        exp._monitor.set_round.assert_called_once_with(2 + 1)
 
     def test_experiment_15_set_tensorboard(self):
         """Tests setting tensorboard"""
@@ -678,7 +716,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Invalid type
         with self.assertRaises(SystemExit):
-            exp.set_tensorboard('opps')
+            exp.set_tensorboard("opps")
 
     def test_experiment_16_set_retain_full_history(self):
         """Tests setting retain full history"""
@@ -689,35 +727,29 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Tests setting invalid type
         with self.assertRaises(SystemExit):
-            exp.set_retain_full_history('invalid_type')
+            exp.set_retain_full_history("invalid_type")
 
     def test_experiment_17_commit_experiment_history(self):
         """Tests commit experiment history"""
 
         exp = Experiment()
-        exp.commit_experiment_history(
-            {'reply': 1},
-            {'param': 1}
-        )
+        exp.commit_experiment_history({"reply": 1}, {"param": 1})
 
-        self.assertDictEqual(exp._training_replies[0], {'reply': 1})
-        self.assertDictEqual(exp._aggregated_params[0], {'params': {'param': 1}})
+        self.assertDictEqual(exp._training_replies[0], {"reply": 1})
+        self.assertDictEqual(exp._aggregated_params[0], {"params": {"param": 1}})
 
         exp._retain_full_history = False
         exp._round_current = 5
-        exp.commit_experiment_history(
-            {'reply': 1},
-            {'param': 1})
+        exp.commit_experiment_history({"reply": 1}, {"param": 1})
 
-        self.assertDictEqual(exp.training_replies(), {5: {'reply': 1}})
-        self.assertDictEqual(exp.aggregated_params(), {5: {'params': {'param': 1}}})
+        self.assertDictEqual(exp.training_replies(), {5: {"reply": 1}})
+        self.assertDictEqual(exp.aggregated_params(), {5: {"params": {"param": 1}}})
 
-
-    @patch('fedbiomed.researcher.federated_workflows._experiment.Serializer')
+    @patch("fedbiomed.researcher.federated_workflows._experiment.Serializer")
     def test_experiment_18_load_training_replies(self, serializer):
         """Tests loading training replies"""
 
-        serializer.load.return_value = {'p':1}
+        serializer.load.return_value = {"p": 1}
         exp = Experiment()
 
         # Test empty training reply
@@ -725,24 +757,31 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Test normal case ---------------------------------------------------------
         reply = {
-            0: {'node-1':  {'params_path': 'x' }, 'node-2': {'params_path': 'x'} },
-            1: {'node-1':  {'params_path': 'x' }, 'node-2': {'params_path': 'x'} }
+            0: {"node-1": {"params_path": "x"}, "node-2": {"params_path": "x"}},
+            1: {"node-1": {"params_path": "x"}, "node-2": {"params_path": "x"}},
         }
 
         exp.load_training_replies(reply)
         self.assertDictEqual(
             exp._training_replies,
-            { 0: {'node-1': {'params_path': 'x', 'params': {'p': 1} },
-                  'node-2': {'params_path': 'x', 'params': {'p': 1}} },
-              1: {'node-1': {'params_path': 'x', 'params': {'p': 1} },
-                  'node-2': {'params_path': 'x', 'params': {'p': 1}} }})
+            {
+                0: {
+                    "node-1": {"params_path": "x", "params": {"p": 1}},
+                    "node-2": {"params_path": "x", "params": {"p": 1}},
+                },
+                1: {
+                    "node-1": {"params_path": "x", "params": {"p": 1}},
+                    "node-2": {"params_path": "x", "params": {"p": 1}},
+                },
+            },
+        )
 
     def test_experiment_19_save_aggregated_params(self):
         """Tests saving aggregated params"""
 
         # Prepares arguments
         path = "path/params"
-        params = { 0: {'params': 1}, 1: {'params': 1}}
+        params = {0: {"params": 1}, 1: {"params": 1}}
         exp = Experiment()
 
         # Error case invalid aggregated params
@@ -751,19 +790,21 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Error case invalid path
         with self.assertRaises(SystemExit):
-            exp.save_aggregated_params(params,True)
+            exp.save_aggregated_params(params, True)
 
         # Error case invalid params
         with self.assertRaises(SystemExit):
-            exp.save_aggregated_params({'x': 1}, path)
+            exp.save_aggregated_params({"x": 1}, path)
 
-        with patch('fedbiomed.researcher.federated_workflows._experiment.Serializer') as ser:
+        with patch(
+            "fedbiomed.researcher.federated_workflows._experiment.Serializer"
+        ) as ser:
             aggregated_params = exp.save_aggregated_params(params, path)
 
         self.assertTrue(0 in aggregated_params)
         self.assertTrue(1 in aggregated_params)
-        self.assertIsInstance(aggregated_params[0]['params_path'], str)
-        self.assertIsInstance(aggregated_params[1]['params_path'], str)
+        self.assertIsInstance(aggregated_params[0]["params_path"], str)
+        self.assertIsInstance(aggregated_params[1]["params_path"], str)
 
     def test_experiment_20_load_aggregated_params(self):
         """Tests loading aggregated paramaters"""
@@ -774,52 +815,62 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         with self.assertRaises(SystemExit):
             exp._load_aggregated_params(None)
 
-        with patch('fedbiomed.researcher.federated_workflows._experiment.Serializer') as ser:
+        with patch(
+            "fedbiomed.researcher.federated_workflows._experiment.Serializer"
+        ) as ser:
             ser.load.return_value = 0
-            agg_params = {'0': {'params_path': 1}, '1': {'params_path': 1}}
+            agg_params = {"0": {"params_path": 1}, "1": {"params_path": 1}}
             agg_params_final = exp._load_aggregated_params(agg_params)
 
-        self.assertTrue(agg_params_final[0]['params'] == 0)
-        self.assertTrue(agg_params_final[1]['params'] == 0)
+        self.assertTrue(agg_params_final[0]["params"] == 0)
+        self.assertTrue(agg_params_final[1]["params"] == 0)
 
     def test_experiment_21_save_optimizer(self):
         """Tests saving optimizer"""
 
         exp = Experiment()
         # Check if agg optimzer is None
-        result = exp.save_optimizer('my-path')
+        result = exp.save_optimizer("my-path")
         self.assertIsNone(result)
 
         # Normal case
-        with patch('fedbiomed.researcher.federated_workflows._experiment.Serializer') as ser:
+        with patch(
+            "fedbiomed.researcher.federated_workflows._experiment.Serializer"
+        ) as ser:
             ser.dump.return_value = "hello"
             exp._agg_optimizer = MagicMock(spec=fedbiomed.common.optimizers.Optimizer)
-            r = exp.save_optimizer('your-path')
-            self.assertTrue( 'optimizer_' in r)
+            r = exp.save_optimizer("your-path")
+            self.assertTrue("optimizer_" in r)
 
     def test_experiment_22_load_optimizer(self):
         """Tests loading experiment"""
 
-        path = 'sate-path'
+        path = "sate-path"
 
         exp = Experiment()
         r = exp._load_optimizer(None)
         self.assertIsNone(r)
 
-        with patch('fedbiomed.researcher.federated_workflows._experiment.Optimizer') as opt, \
-            patch('fedbiomed.researcher.federated_workflows._experiment.Serializer') as ser:
-            exp._load_optimizer('state-path')
+        with (
+            patch(
+                "fedbiomed.researcher.federated_workflows._experiment.Optimizer"
+            ) as opt,
+            patch(
+                "fedbiomed.researcher.federated_workflows._experiment.Serializer"
+            ) as ser,
+        ):
+            exp._load_optimizer("state-path")
             opt.load_state.assert_called_once()
 
     def test_experiment_23_update_nodes_states_agent(self):
         """Tests updating node state agent"""
 
-        state_agent  = MagicMock(spec=NodeStateAgent)
+        state_agent = MagicMock(spec=NodeStateAgent)
         exp = Experiment()
         exp._node_state_agent = state_agent
 
-        with patch.object(exp, 'all_federation_nodes') as afn:
-            afn.return_value = ['node-1', 'node-2']
+        with patch.object(exp, "all_federation_nodes") as afn:
+            afn.return_value = ["node-1", "node-2"]
             exp._update_nodes_states_agent(before_training=True, training_replies=None)
             state_agent.update_node_states.assert_called_once()
 
@@ -829,12 +880,13 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Test normal case
         state_agent.reset_mock()
-        with patch.object(exp, 'all_federation_nodes') as afn:
-            afn.return_value = ['node-1', 'node-2']
+        with patch.object(exp, "all_federation_nodes") as afn:
+            afn.return_value = ["node-1", "node-2"]
             exp._update_nodes_states_agent(False, {"hello": "world"})
-            state_agent.update_node_states.\
-                assert_called_once_with(['node-1', 'node-2'], {"hello": "world"})
+            state_agent.update_node_states.assert_called_once_with(
+                ["node-1", "node-2"], {"hello": "world"}
+            )
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()

@@ -53,6 +53,7 @@ class Node:
     etiher treating them instantly or queuing them,
     executing tasks requested by researcher stored in the queue.
     """
+
     tp_security_manager: TrainingPlanSecurityManager
     dataset_manager: DatasetManager
 
@@ -69,25 +70,29 @@ class Node:
         """
 
         self._config = config
-        self._node_id = self._config.get('default', 'id')
+        self._node_id = self._config.get("default", "id")
         self._tasks_queue = TasksQueue(
-            os.path.join(self._config.root, 'var', f'queue_{self._node_id}'),
-            str(os.path.join(self._config.root, 'var', 'tmp'))
+            os.path.join(self._config.root, "var", f"queue_{self._node_id}"),
+            str(os.path.join(self._config.root, "var", "tmp")),
         )
 
         self._grpc_client = GrpcController(
             node_id=self._node_id,
             researchers=[
                 ResearcherCredentials(
-                    port=self._config.get('researcher', 'port'),
-                    host=self._config.get('researcher', 'ip'),
-                    certificate=self._config.get('researcher', 'certificate', fallback=None)
+                    port=self._config.get("researcher", "port"),
+                    host=self._config.get("researcher", "ip"),
+                    certificate=self._config.get(
+                        "researcher", "certificate", fallback=None
+                    ),
                 )
             ],
             on_message=self.on_message,
         )
-        self._db_path = os.path.abspath(os.path.join(
-            self._config.root, CONFIG_FOLDER_NAME, self._config.get('default', 'db'))
+        self._db_path = os.path.abspath(
+            os.path.join(
+                self._config.root, CONFIG_FOLDER_NAME, self._config.get("default", "db")
+            )
         )
 
         self._pending_requests = EventWaitExchange(remove_delivered=True)
@@ -97,16 +102,15 @@ class Node:
             self._db_path,
             self._grpc_client,
             self._pending_requests,
-            self._controller_data
+            self._controller_data,
         )
-
 
         self.dataset_manager = DatasetManager(db=self._db_path)
         self.tp_security_manager = TrainingPlanSecurityManager(
             db=self._db_path,
             node_id=self._node_id,
-            hashing=self._config.get('security', 'hashing_algorithm'),
-            tp_approval=self._config.getbool('security', 'training_plan_approval')
+            hashing=self._config.get("security", "hashing_algorithm"),
+            tp_approval=self._config.getbool("security", "training_plan_approval"),
         )
 
         self.node_args = node_args
@@ -115,7 +119,6 @@ class Node:
     def node_id(self):
         """Returns id of the node"""
         return self._node_id
-
 
     @property
     def config(self):
@@ -170,7 +173,6 @@ class Node:
             logger.debug("Message received: " + str(msg_print))
 
             match message.__name__:
-
                 case (
                     TrainRequest.__name__
                     | SecaggRequest.__name__
@@ -199,7 +201,9 @@ class Node:
                 case ListRequest.__name__:
                     # Get list of all datasets
                     databases = self.dataset_manager.list_my_data(verbose=False)
-                    databases = self.dataset_manager.obfuscate_private_information(databases)
+                    databases = self.dataset_manager.obfuscate_private_information(
+                        databases
+                    )
                     self._grpc_client.send(
                         ListReply(
                             success=True,
@@ -258,8 +262,7 @@ class Node:
         }
 
         secagg_manager = SecaggManager(
-            db=self._db_path,
-            element=msg.get_param("element")
+            db=self._db_path, element=msg.get_param("element")
         )()
 
         status = secagg_manager.remove(
@@ -289,18 +292,20 @@ class Node:
             request: `SecaggRequest` message object to parse
         """
         setup_arguments = request.get_dict()
-        setup_arguments.pop('protocol_version')
-        setup_arguments.pop('request_id')
+        setup_arguments.pop("protocol_version")
+        setup_arguments.pop("request_id")
 
         # Needed when using node to node communications
-        setup_arguments.update({
-            'db': self._db_path,
-            'node_id': self._node_id,
-            'n2n_router': self._n2n_router,
-            'grpc_client': self._grpc_client,
-            'pending_requests': self._pending_requests,
-            'controller_data': self._controller_data,
-        })
+        setup_arguments.update(
+            {
+                "db": self._db_path,
+                "node_id": self._node_id,
+                "n2n_router": self._n2n_router,
+                "grpc_client": self._grpc_client,
+                "pending_requests": self._pending_requests,
+                "controller_data": self._controller_data,
+            }
+        )
 
         try:
             secagg = SecaggSetup(**setup_arguments)()
@@ -339,7 +344,7 @@ class Node:
         if data is None:
             return self.send_error(
                 extra_msg="Did not found proper data in local datasets "
-                f'on node={self._node_id}',
+                f"on node={self._node_id}",
                 request_id=msg.request_id,
                 researcher_id=msg.researcher_id,
                 errnum=ErrorNumbers.FB313,
@@ -370,7 +375,7 @@ class Node:
             tp_security_manager=self.tp_security_manager,
             round_number=msg.get_param("round"),
             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
-            aux_vars=msg.get_param('optim_aux_var'),
+            aux_vars=msg.get_param("optim_aux_var"),
         )
 
         # the round raises an error if it cannot initialize
@@ -391,7 +396,6 @@ class Node:
         """Manages training tasks in the queue."""
 
         while True:
-
             item: TrainRequest = self._tasks_queue.get()
             # don't want to treat again in case of failure
             self._tasks_queue.task_done()
@@ -402,19 +406,24 @@ class Node:
                 f"Experiment: {item.experiment_id}"
             )
             try:
-
                 match item.__name__:
                     case TrainRequest.__name__:
                         round_ = self.parser_task_train(item)
                         # once task is out of queue, initiate training rounds
                         if round_ is not None:
                             msg = round_.run_model_training(
-                                tp_approval=self._config.getbool('security', 'training_plan_approval'),
-                                secagg_insecure_validation=self._config.getbool('security',
-                                    "secagg_insecure_validation"),
-                                secagg_active=self._config.getbool("security", "secure_aggregation"),
+                                tp_approval=self._config.getbool(
+                                    "security", "training_plan_approval"
+                                ),
+                                secagg_insecure_validation=self._config.getbool(
+                                    "security", "secagg_insecure_validation"
+                                ),
+                                secagg_active=self._config.getbool(
+                                    "security", "secure_aggregation"
+                                ),
                                 force_secagg=self._config.getbool(
-                                    "security", "force_secure_aggregation"),
+                                    "security", "force_secure_aggregation"
+                                ),
                                 secagg_arguments=item.get_param("secagg_arguments"),
                             )
                             msg.request_id = item.request_id
@@ -424,7 +433,9 @@ class Node:
                     case SecaggRequest.__name__ | AdditiveSSSetupRequest.__name__:
                         self._task_secagg(item)
                     case _:
-                        errmess = f"{ErrorNumbers.FB319.value}: Undefined request message"
+                        errmess = (
+                            f"{ErrorNumbers.FB319.value}: Undefined request message"
+                        )
                         self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
 
             # TODO: Test exception
@@ -434,7 +445,7 @@ class Node:
                     researcher_id=item.researcher_id,
                     errnum=ErrorNumbers.FB300,
                     extra_msg="Round error: " + str(e),
-            )
+                )
 
     def start_protocol(self) -> None:
         """Start the node to node router thread, for handling node to node message"""

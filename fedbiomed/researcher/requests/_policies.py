@@ -7,7 +7,7 @@ from typing import List, Optional, TypeVar, Dict
 from ._status import PolicyStatus, RequestStatus
 
 
-TRequest = TypeVar('TRequest')
+TRequest = TypeVar("TRequest")
 
 
 class RequestPolicy:
@@ -98,6 +98,7 @@ class _ReplyTimeoutPolicy(RequestPolicy):
 
 class DiscardOnTimeout(_ReplyTimeoutPolicy):
     """Discards request that do not answer in given timeout"""
+
     def continue_(self, requests: TRequest) -> PolicyStatus:
         """Discards requests that reach timeout, always continue
 
@@ -109,6 +110,7 @@ class DiscardOnTimeout(_ReplyTimeoutPolicy):
 
 class StopOnTimeout(_ReplyTimeoutPolicy):
     """Stops the request if nodes do not answer in given timeout"""
+
     def continue_(self, requests) -> PolicyStatus:
         """Continues federated request if nodes dont reach timeout
 
@@ -120,8 +122,7 @@ class StopOnTimeout(_ReplyTimeoutPolicy):
 
 
 class StopOnDisconnect(_ReplyTimeoutPolicy):
-    """Stops collecting results if a node disconnects
-    """
+    """Stops collecting results if a node disconnects"""
 
     def continue_(self, requests: TRequest) -> PolicyStatus:
         """Continues federated request if nodes are not disconnect
@@ -143,8 +144,7 @@ class StopOnDisconnect(_ReplyTimeoutPolicy):
 
 
 class StopOnError(RequestPolicy):
-    """Stops collecting results if a node returns an error
-    """
+    """Stops collecting results if a node returns an error"""
 
     def continue_(self, requests: TRequest) -> PolicyStatus:
         """Continues federated request if nodes does not return error
@@ -164,12 +164,10 @@ class StopOnError(RequestPolicy):
 
 
 class PolicyController:
-
     def __init__(
         self,
         policies: Optional[List[RequestPolicy]] = None,
     ):
-
         policies = policies or []
         policies.insert(0, RequestPolicy())
         self._policies = policies
@@ -189,8 +187,10 @@ class PolicyController:
             return False
 
         status = all(
-            [policy.continue_(requests=requests) == PolicyStatus.CONTINUE
-                for policy in self._policies]
+            [
+                policy.continue_(requests=requests) == PolicyStatus.CONTINUE
+                for policy in self._policies
+            ]
         )
 
         return PolicyStatus.CONTINUE if status else PolicyStatus.COMPLETED
@@ -217,6 +217,6 @@ class PolicyController:
         report = {}
         for st in self._policies:
             if st.status == PolicyStatus.STOPPED:
-                report.update({st.stop_caused_by.node.id : st.__class__.__name__})
+                report.update({st.stop_caused_by.node.id: st.__class__.__name__})
 
         return report

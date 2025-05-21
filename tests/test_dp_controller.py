@@ -29,13 +29,23 @@ class TestDPController(unittest.TestCase):
         self.dpc = DPController(self.dp_args_c)
         self.dpl = DPController(self.dp_args_l)
 
-        self.patcher_privacy_engine = patch("opacus.PrivacyEngine.__init__", MagicMock(return_value=None))
-        self.patcher_privacy_engine_make_private = patch("opacus.PrivacyEngine.make_private")
-        self.patcher_module_validator = patch("opacus.validators.ModuleValidator.is_valid")
-        self.patcher_module_validator_fix = patch("opacus.validators.ModuleValidator.fix")
+        self.patcher_privacy_engine = patch(
+            "opacus.PrivacyEngine.__init__", MagicMock(return_value=None)
+        )
+        self.patcher_privacy_engine_make_private = patch(
+            "opacus.PrivacyEngine.make_private"
+        )
+        self.patcher_module_validator = patch(
+            "opacus.validators.ModuleValidator.is_valid"
+        )
+        self.patcher_module_validator_fix = patch(
+            "opacus.validators.ModuleValidator.fix"
+        )
 
         self.privacy_engine = self.patcher_privacy_engine.start()
-        self.privacy_engine_make_private = self.patcher_privacy_engine_make_private.start()
+        self.privacy_engine_make_private = (
+            self.patcher_privacy_engine_make_private.start()
+        )
         self.module_validator = self.patcher_module_validator.start()
         self.module_validator_fix = self.patcher_module_validator_fix.start()
 
@@ -55,28 +65,61 @@ class TestDPController(unittest.TestCase):
     def test_dep_controller_01_init_1(self):
         dp_controller = DPController()
         self.assertEqual(dp_controller._dp_args, {}, "_dp_args is not none")
-        self.assertFalse(dp_controller._is_active, "DPController is active where it should be inactive")
+        self.assertFalse(
+            dp_controller._is_active,
+            "DPController is active where it should be inactive",
+        )
 
     def test_dep_controller_02_init_2(self):
-        """Tests builds DP controller with CENTRAL DP """
+        """Tests builds DP controller with CENTRAL DP"""
         dp_args = {"type": "central", "sigma": 0.1, "clip": 0.1}
         dp_controller = DPController(dp_args)
-        self.assertTrue("sigma_CDP" in dp_controller._dp_args, "Sigma CDP is not set when DP type is central")
-        self.assertEqual(dp_controller._dp_args["sigma"], 0.0, "Sigma is not set when DP type is central")
-        self.assertEqual(dp_controller._dp_args["clip"], dp_args["clip"], "Sigma is not set when DP type is central")
-        self.assertEqual(dp_controller._dp_args["type"], dp_args["type"], "Sigma is not set when DP type is central")
+        self.assertTrue(
+            "sigma_CDP" in dp_controller._dp_args,
+            "Sigma CDP is not set when DP type is central",
+        )
+        self.assertEqual(
+            dp_controller._dp_args["sigma"],
+            0.0,
+            "Sigma is not set when DP type is central",
+        )
+        self.assertEqual(
+            dp_controller._dp_args["clip"],
+            dp_args["clip"],
+            "Sigma is not set when DP type is central",
+        )
+        self.assertEqual(
+            dp_controller._dp_args["type"],
+            dp_args["type"],
+            "Sigma is not set when DP type is central",
+        )
 
     def test_dep_controller_03_init_3(self):
-        """Tests builds DP controller with LOCAL DP """
+        """Tests builds DP controller with LOCAL DP"""
         dp_args = {"type": "local", "sigma": 0.1, "clip": 0.1}
         dp_controller = DPController(dp_args)
-        self.assertFalse("sigma_CDP" in dp_controller._dp_args, "Sigma CDP is set when DP type is local")
-        self.assertEqual(dp_controller._dp_args["sigma"], dp_args["sigma"], "Sigma is not set when DP type is local")
-        self.assertEqual(dp_controller._dp_args["clip"], dp_args["clip"], "Sigma is not set when DP type is local")
-        self.assertEqual(dp_controller._dp_args["type"], dp_args["type"], "Sigma is not set when DP type is local")
+        self.assertFalse(
+            "sigma_CDP" in dp_controller._dp_args,
+            "Sigma CDP is set when DP type is local",
+        )
+        self.assertEqual(
+            dp_controller._dp_args["sigma"],
+            dp_args["sigma"],
+            "Sigma is not set when DP type is local",
+        )
+        self.assertEqual(
+            dp_controller._dp_args["clip"],
+            dp_args["clip"],
+            "Sigma is not set when DP type is local",
+        )
+        self.assertEqual(
+            dp_controller._dp_args["type"],
+            dp_args["type"],
+            "Sigma is not set when DP type is local",
+        )
 
     def test_dep_controller_04_init_4(self):
-        """Tests builds DP controller with invalid arguments """
+        """Tests builds DP controller with invalid arguments"""
 
         # Invalid DP type
         dp_args = {"type": "invalid", "sigma": 0.1, "clip": 0.1}
@@ -94,7 +137,7 @@ class TestDPController(unittest.TestCase):
             DPController(dp_args)
 
     def test_dep_controller_05_validate_and_fix_model(self):
-        """Tests builds DP controller with invalid arguments """
+        """Tests builds DP controller with invalid arguments"""
 
         model = MagicMock()
         self.module_validator.return_value = True
@@ -106,11 +149,11 @@ class TestDPController(unittest.TestCase):
         self.dpl.validate_and_fix_model(model)
         self.module_validator_fix.assert_called_once_with(model)
 
-    @patch('fedbiomed.common.privacy.DPController.validate_and_fix_model')
+    @patch("fedbiomed.common.privacy.DPController.validate_and_fix_model")
     def test_dep_controller_06_before_training(self, validate_and_fix):
         """Tests before training method with different scenarios"""
 
-        #model_false = MagicMock()
+        # model_false = MagicMock()
         opt_false = MagicMock()
         loader_false = MagicMock()
 
@@ -136,11 +179,12 @@ class TestDPController(unittest.TestCase):
         self.privacy_engine_make_private.reset_mock()
         self.dpl.before_training(optim_wrapper, loader)
         self.privacy_engine_make_private.assert_called_once_with(
-                                                                 module=model,
-                                                                 optimizer=opt,
-                                                                 data_loader=loader,
-                                                                 noise_multiplier=self.dp_args_l.get('sigma'),
-                                                                 max_grad_norm=self.dp_args_l.get('clip'))
+            module=model,
+            optimizer=opt,
+            data_loader=loader,
+            noise_multiplier=self.dp_args_l.get("sigma"),
+            max_grad_norm=self.dp_args_l.get("clip"),
+        )
 
     def test_dep_controller_07_post_process_dp(self):
         """Tests before training method with different scenarios"""
@@ -149,15 +193,19 @@ class TestDPController(unittest.TestCase):
 
         # Post processes with DPL
         p = self.dpl._postprocess_dp(params)
-        self.assertTrue('module' not in list(p.keys())[0], "`module tag is not properly removed from private "
-                                                           "end-model`")
+        self.assertTrue(
+            "module" not in list(p.keys())[0],
+            "`module tag is not properly removed from private end-model`",
+        )
 
         # Post processes with DPC
         p = self.dpc._postprocess_dp(params)
-        self.assertTrue('module' not in list(p.keys())[0], "`module tag is not properly removed from private "
-                                                           "end-model`")
+        self.assertTrue(
+            "module" not in list(p.keys())[0],
+            "`module tag is not properly removed from private end-model`",
+        )
 
-    @patch('fedbiomed.common.privacy.DPController._postprocess_dp')
+    @patch("fedbiomed.common.privacy.DPController._postprocess_dp")
     def test_dep_controller_08_after_training(self, postprocess):
         """Tests before training method with different scenarios"""
 
@@ -174,5 +222,5 @@ class TestDPController(unittest.TestCase):
         self.assertEqual(p, "POSTPROCESS")
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()

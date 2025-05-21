@@ -16,7 +16,7 @@ def validated_data_type_input() -> str:
         A string keyword for one of the possible data type
             ('csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby').
     """
-    valid_options = ['csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby']
+    valid_options = ["csv", "default", "mednist", "images", "medical-folder", "flamby"]
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -29,12 +29,12 @@ def validated_data_type_input() -> str:
             assert t in valid_options.keys()
             break
         except Exception:
-            warnings.warn('\n[ERROR] Please, enter a valid option')
+            warnings.warn("\n[ERROR] Please, enter a valid option")
 
     return valid_options[t]
 
 
-def pick_with_tkinter(mode: str = 'file') -> str:
+def pick_with_tkinter(mode: str = "file") -> str:
     """Opens a tkinter graphical user interface to select dataset.
 
     Args:
@@ -49,19 +49,13 @@ def pick_with_tkinter(mode: str = 'file') -> str:
         # root = TK()
         # root.withdraw()
         # root.attributes("-topmost", True)
-        if mode == 'file':
+        if mode == "file":
             return tkinter.filedialog.askopenfilename(
-                filetypes=[
-                    ("CSV files",
-                     "*.csv")
-                ]
+                filetypes=[("CSV files", "*.csv")]
             )
-        elif mode == 'txt':
+        elif mode == "txt":
             return tkinter.filedialog.askopenfilename(
-                filetypes=[
-                    ("Text files",
-                     "*.txt")
-                ]
+                filetypes=[("Text files", "*.txt")]
             )
         else:
             return tkinter.filedialog.askdirectory()
@@ -69,10 +63,10 @@ def pick_with_tkinter(mode: str = 'file') -> str:
     except (ModuleNotFoundError, RuntimeError, _tkinter.TclError):
         # handling case where tkinter package cannot be found on system
         # or if tkinter crashes
-        if mode == 'file' or mode == 'txt':
-            return input('Insert the path of the file: ')
+        if mode == "file" or mode == "txt":
+            return input("Insert the path of the file: ")
         else:
-            return input('Insert the path of the folder: ')
+            return input("Insert the path of the folder: ")
 
 
 def validated_path_input(type: str) -> str:
@@ -86,33 +80,33 @@ def validated_path_input(type: str) -> str:
     """
     while True:
         try:
-            if type == 'csv':
-                path = pick_with_tkinter(mode='file')
+            if type == "csv":
+                path = pick_with_tkinter(mode="file")
                 logger.debug(path)
                 if not path:
-                    logger.critical('No file was selected. Exiting')
+                    logger.critical("No file was selected. Exiting")
                     exit(1)
                 assert os.path.isfile(path)
 
-            elif type == 'txt':  # for registering python model
-                path = pick_with_tkinter(mode='txt')
+            elif type == "txt":  # for registering python model
+                path = pick_with_tkinter(mode="txt")
                 logger.debug(path)
                 if not path:
-                    logger.critical('No python file was selected. Exiting')
+                    logger.critical("No python file was selected. Exiting")
                     exit(1)
                 assert os.path.isfile(path)
             else:
-                path = pick_with_tkinter(mode='dir')
+                path = pick_with_tkinter(mode="dir")
                 logger.debug(path)
                 if not path:
-                    logger.critical('No directory was selected. Exiting')
+                    logger.critical("No directory was selected. Exiting")
                     exit(1)
                 assert os.path.isdir(path)
             break
         except Exception:
-            error_msg = '[ERROR] Invalid path. Please enter a valid path.'
+            error_msg = "[ERROR] Invalid path. Please enter a valid path."
             try:
-                tkinter.messagebox.showerror(title='Error', message=error_msg)
+                tkinter.messagebox.showerror(title="Error", message=error_msg)
             except ModuleNotFoundError:
                 warnings.warn(error_msg)
 

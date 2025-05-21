@@ -195,6 +195,7 @@ addopts = [
 
 # Exclude a variety of commonly ignored directories.
 exclude = [
+	"envs",
     ".bzr",
     ".direnv",
     ".eggs",

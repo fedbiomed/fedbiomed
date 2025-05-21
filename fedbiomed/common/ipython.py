@@ -10,7 +10,7 @@ def is_ipython() -> bool:
         True, if python interpreter is IPython
     """
 
-    ipython_shells = ['ZMQInteractiveShell', 'TerminalInteractiveShell', 'Shell']
+    ipython_shells = ["ZMQInteractiveShell", "TerminalInteractiveShell", "Shell"]
     try:
         shell = get_ipython().__class__.__name__
         if shell in ipython_shells:

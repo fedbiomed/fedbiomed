@@ -29,20 +29,16 @@ class FedBernoulliNB(SKLearnTrainingPlan):
             model_args: model arguments. Defaults to {}
         """
 
-        msg = ErrorNumbers.FB605.value + \
-            " FedBernoulliNB not implemented."
+        msg = ErrorNumbers.FB605.value + " FedBernoulliNB not implemented."
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
         super().__init__()
 
         self.is_classification = True
-        self._add_dependency([
-            "from sklearn.naive_bayes import BernoulliNB"
-        ])
+        self._add_dependency(["from sklearn.naive_bayes import BernoulliNB"])
 
     def training_routine_hook(self):
-        """Training routine of BernoulliNB.
-        """
+        """Training routine of BernoulliNB."""
         data, target = self.training_data_loader
         classes = self._classes_from_concatenated_train_test()
         if classes.shape[0] < 3:
@@ -51,11 +47,12 @@ class FedBernoulliNB(SKLearnTrainingPlan):
         self._model.partial_fit(data, target, classes=classes)
 
     def set_init_params(self):
-        """Initialize the model parameter.
-        """
-        if 'verbose' in self._model_args:
-            logger.error("[TENSORBOARD ERROR]: cannot compute loss for BernoulliNB "
-                         ": it needs to be implemented")
+        """Initialize the model parameter."""
+        if "verbose" in self._model_args:
+            logger.error(
+                "[TENSORBOARD ERROR]: cannot compute loss for BernoulliNB "
+                ": it needs to be implemented"
+            )
 
 
 class FedGaussianNB(SKLearnTrainingPlan):
@@ -75,21 +72,17 @@ class FedGaussianNB(SKLearnTrainingPlan):
             model_args: model arguments. Defaults to {}
         """
 
-        msg = ErrorNumbers.FB605.value + \
-            " FedGaussianNB not implemented."
+        msg = ErrorNumbers.FB605.value + " FedGaussianNB not implemented."
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
         super().__init__()
 
         self.is_classification = True
-        self._add_dependency([
-            "from sklearn.naive_bayes  import GaussianNB"
-        ])
+        self._add_dependency(["from sklearn.naive_bayes  import GaussianNB"])
 
     def training_routine_hook(self):
-        """Training routine of GaussianNB.
-        """
+        """Training routine of GaussianNB."""
         data, target = self.training_data_loader
         classes = self._classes_from_concatenated_train_test()
         if classes.shape[0] < 3:
@@ -98,22 +91,26 @@ class FedGaussianNB(SKLearnTrainingPlan):
         self._model.partial_fit(data, target, classes=classes)
 
     def set_init_params(self):
-        """Initialize the model parameter.
-        """
+        """Initialize the model parameter."""
 
-        if 'verbose' in self._model_args:
-            logger.error("[TENSORBOARD ERROR]: cannot compute loss for GaussianNB "
-                         ": it needs to be implemented")
+        if "verbose" in self._model_args:
+            logger.error(
+                "[TENSORBOARD ERROR]: cannot compute loss for GaussianNB "
+                ": it needs to be implemented"
+            )
 
-        self._param_list = ['intercept_', 'coef_']
+        self._param_list = ["intercept_", "coef_"]
         init_params = {
-            'intercept_': np.array([0.]) if (self._model_args['n_classes'] == 2) else np.array(
-                [0.] * self._model_args['n_classes']),
-            'coef_': np.array([0.] * self._model_args['n_features']).reshape(1, self._model_args['n_features']) if (
-                self._model_args['n_classes'] == 2) else np.array(
-                    [0.] * self._model_args['n_classes'] * self._model_args['n_features']).reshape(
-                        self._model_args['n_classes'],
-                        self._model_args['n_features'])
+            "intercept_": np.array([0.0])
+            if (self._model_args["n_classes"] == 2)
+            else np.array([0.0] * self._model_args["n_classes"]),
+            "coef_": np.array([0.0] * self._model_args["n_features"]).reshape(
+                1, self._model_args["n_features"]
+            )
+            if (self._model_args["n_classes"] == 2)
+            else np.array(
+                [0.0] * self._model_args["n_classes"] * self._model_args["n_features"]
+            ).reshape(self._model_args["n_classes"], self._model_args["n_features"]),
         }
 
         for p in self._param_list:
@@ -128,8 +125,7 @@ class FedMultinomialNB(SKLearnTrainingPlan):
     """
 
     def __init__(self):
-        msg = ErrorNumbers.FB605.value + \
-            " FedMultinomialNB not implemented."
+        msg = ErrorNumbers.FB605.value + " FedMultinomialNB not implemented."
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -145,8 +141,10 @@ class FedPassiveAggressiveClassifier(SKLearnTrainingPlan):
     """
 
     def __init__(self):
-        msg = ErrorNumbers.FB605.value + \
-            ": model FedPassiveAggressiveClassifier not implemented yet "
+        msg = (
+            ErrorNumbers.FB605.value
+            + ": model FedPassiveAggressiveClassifier not implemented yet "
+        )
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -162,8 +160,10 @@ class FedPassiveAggressiveRegressor(SKLearnTrainingPlan):
     """
 
     def __init__(self):
-        msg = ErrorNumbers.FB605.value + \
-            ": model FedPassiveAggressiveRegressor not implemented yet "
+        msg = (
+            ErrorNumbers.FB605.value
+            + ": model FedPassiveAggressiveRegressor not implemented yet "
+        )
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -179,8 +179,9 @@ class FedMiniBatchKMeans(SKLearnTrainingPlan):
     """
 
     def __init__(self):
-        msg = ErrorNumbers.FB605.value + \
-            ": model FedMiniBatchKMeans not implemented yet "
+        msg = (
+            ErrorNumbers.FB605.value + ": model FedMiniBatchKMeans not implemented yet "
+        )
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
@@ -196,8 +197,10 @@ class FedMiniBatchDictionaryLearning(SKLearnTrainingPlan):
     """
 
     def __init__(self):
-        msg = ErrorNumbers.FB605.value + \
-            ": model FedMiniBatchDictionaryLearning not implemented yet "
+        msg = (
+            ErrorNumbers.FB605.value
+            + ": model FedMiniBatchDictionaryLearning not implemented yet "
+        )
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 

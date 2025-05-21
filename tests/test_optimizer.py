@@ -19,7 +19,10 @@ from declearn.optimizer.schedulers import Scheduler
 
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
 from fedbiomed.common.optimizers.declearn import (
-    AuxVar, ScaffoldAuxVar, ScaffoldServerModule, YogiModule
+    AuxVar,
+    ScaffoldAuxVar,
+    ScaffoldServerModule,
+    YogiModule,
 )
 from fedbiomed.common.optimizers.optimizer import Optimizer
 
@@ -83,9 +86,7 @@ class TestOptimizer(unittest.TestCase):
         # Set up an optimizer with mock attributes.
         lrate = mock.MagicMock(spec=Scheduler)
         decay = mock.MagicMock(spec=Scheduler)
-        modules = [
-            mock.create_autospec(OptiModule, instance=True) for _ in range(3)
-        ]
+        modules = [mock.create_autospec(OptiModule, instance=True) for _ in range(3)]
         regularizers = [
             mock.create_autospec(Regularizer, instance=True) for _ in range(2)
         ]
@@ -111,11 +112,17 @@ class TestOptimizer(unittest.TestCase):
         # Check that the learning rate was properly applied.
 
         lrate.get_next_rate.return_value.__neg__.assert_called_once()  # -1 * lrate
-        lrate.get_next_rate.return_value.__neg__.return_value.__mul__.assert_called_once_with(inputs)
-        output = lrate.get_next_rate.return_value.__neg__.return_value.__mul__.return_value
+        lrate.get_next_rate.return_value.__neg__.return_value.__mul__.assert_called_once_with(
+            inputs
+        )
+        output = (
+            lrate.get_next_rate.return_value.__neg__.return_value.__mul__.return_value
+        )
         # Check that the weight-decay term was properly applied.
         decay.get_next_rate.return_value.__mul__.assert_called_once_with(weights)
-        output.__isub__.assert_called_once_with(decay.get_next_rate.return_value.__mul__.return_value)
+        output.__isub__.assert_called_once_with(
+            decay.get_next_rate.return_value.__mul__.return_value
+        )
         # Check that the outputs match the expected ones.
         self.assertIs(updates, output.__isub__.return_value)
 
@@ -202,14 +209,18 @@ class TestOptimizer(unittest.TestCase):
         """
         # Set up an Optimizer and run a step to build Vector states.
         optim = Optimizer(lr=0.001, modules=["adam"], regularizers=["fedprox"])
-        grads = Vector.build({
-            "kernel": np.random.normal(size=(8, 4)),
-            "bias": np.random.normal(size=(4,))
-        })
-        weights = Vector.build({
-            "kernel": np.random.normal(size=(8, 4)),
-            "bias": np.random.normal(size=(4,))
-        })
+        grads = Vector.build(
+            {
+                "kernel": np.random.normal(size=(8, 4)),
+                "bias": np.random.normal(size=(4,)),
+            }
+        )
+        weights = Vector.build(
+            {
+                "kernel": np.random.normal(size=(8, 4)),
+                "bias": np.random.normal(size=(4,)),
+            }
+        )
         optim.step(grads, weights)
         # Check that states can be accessed, dumped to JSON and reloaded.
         state = optim.get_state()
@@ -227,14 +238,18 @@ class TestOptimizer(unittest.TestCase):
         """
         # Set up an Optimizer and run a step to build Vector states.
         optim = Optimizer(lr=0.001, modules=["adam"], regularizers=["fedprox"])
-        grads = Vector.build({
-            "kernel": np.random.normal(size=(8, 4)),
-            "bias": np.random.normal(size=(4,))
-        })
-        weights = Vector.build({
-            "kernel": np.random.normal(size=(8, 4)),
-            "bias": np.random.normal(size=(4,))
-        })
+        grads = Vector.build(
+            {
+                "kernel": np.random.normal(size=(8, 4)),
+                "bias": np.random.normal(size=(4,)),
+            }
+        )
+        weights = Vector.build(
+            {
+                "kernel": np.random.normal(size=(8, 4)),
+                "bias": np.random.normal(size=(4,)),
+            }
+        )
         optim.step(grads, weights)
         # Gather the state of that Optimizer and build a new one from it.
         state = optim.get_state()
@@ -250,20 +265,29 @@ class TestOptimizer(unittest.TestCase):
         """Tests if auxiliary variables are properly re-computed when loading state
         Uses Scaffold for that
         """
-        def get_scaffold_optimizer_aux_var(opt: Optimizer) -> List[Dict[str, torch.Tensor]]:
-            aux_var = opt.get_aux()['scaffold']
+
+        def get_scaffold_optimizer_aux_var(
+            opt: Optimizer,
+        ) -> List[Dict[str, torch.Tensor]]:
+            aux_var = opt.get_aux()["scaffold"]
             ordered_aux_var_names = sorted(aux_var)
 
-            aux_var_list = [aux_var[node_id]['delta'].coefs for node_id in ordered_aux_var_names]
+            aux_var_list = [
+                aux_var[node_id]["delta"].coefs for node_id in ordered_aux_var_names
+            ]
             return aux_var_list
 
-        model = torch.nn.Linear(4,2)
+        model = torch.nn.Linear(4, 2)
         model_params = dict(model.state_dict())
         scaffold_aux_var = ScaffoldAuxVar(
-            delta=Vector.build({k : torch.randn(v.shape) for k,v in model_params.items()}),
-            clients={"node-1", "node-2"}
+            delta=Vector.build(
+                {k: torch.randn(v.shape) for k, v in model_params.items()}
+            ),
+            clients={"node-1", "node-2"},
         )
-        agg_optimizer = Optimizer(lr=.12345, modules=[ScaffoldServerModule(), YogiModule()])
+        agg_optimizer = Optimizer(
+            lr=0.12345, modules=[ScaffoldServerModule(), YogiModule()]
+        )
         agg_optimizer.set_aux({"scaffold": scaffold_aux_var})
         # Dump and reload the optimizer's state.
         states = agg_optimizer.get_state()
@@ -279,5 +303,5 @@ class TestOptimizer(unittest.TestCase):
             Optimizer.load_state({})
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()

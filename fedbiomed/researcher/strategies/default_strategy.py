@@ -45,13 +45,13 @@ class DefaultStrategy(Strategy):
         return from_nodes
 
     def refine(
-            self,
-            training_replies: Dict,
-            round_i: int
-    ) -> Tuple[Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
-               Dict[str, float],
-               int,
-               Dict[str, List[int]]]:
+        self, training_replies: Dict, round_i: int
+    ) -> Tuple[
+        Dict[str, Dict[str, Union["torch.Tensor", "numpy.ndarray"]]],
+        Dict[str, float],
+        int,
+        Dict[str, List[int]],
+    ]:
         """
         The method where node selection is completed by extracting parameters and length from the training replies
 

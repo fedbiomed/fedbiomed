@@ -6,18 +6,19 @@ from fedbiomed.common.utils import quantize, multiply, divide, reverse_quantize
 class TestSecaggUtils(unittest.TestCase):
     def setUp(self) -> None:
         self.weights_collection = (
-            [[.1, .2, .3], [.4, .5, .6], [.7, .8, .9]],
-            [[.1], [.2], [.3]],
-            [[.1, .2, .3]], 
-            [[.1, .2, .3], [.4, .5, .6], [.7, .8, .9], [.1, .11, .12], [.1, .13, .14]],
-                                   )
-
-        self.multipliers_collection = (
-            [1, 2, 3],
-            [1, 2, 3],
-            [2],
-            [5, 4, 3, 2, 1]
+            [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]],
+            [[0.1], [0.2], [0.3]],
+            [[0.1, 0.2, 0.3]],
+            [
+                [0.1, 0.2, 0.3],
+                [0.4, 0.5, 0.6],
+                [0.7, 0.8, 0.9],
+                [0.1, 0.11, 0.12],
+                [0.1, 0.13, 0.14],
+            ],
         )
+
+        self.multipliers_collection = ([1, 2, 3], [1, 2, 3], [2], [5, 4, 3, 2, 1])
 
         self.clipping_range = 2
         self.target_range = 2**16
@@ -25,7 +26,9 @@ class TestSecaggUtils(unittest.TestCase):
     def tearDown(self) -> None:
         super().tearDown()
 
-    def quantize_and_aggregate(self, weights, n_nodes, clipping_range, target_range, multipliers=None):
+    def quantize_and_aggregate(
+        self, weights, n_nodes, clipping_range, target_range, multipliers=None
+    ):
         # Quantize weights
         quantized_weights = [quantize(w, clipping_range, target_range) for w in weights]
         if multipliers is not None:
@@ -40,7 +43,9 @@ class TestSecaggUtils(unittest.TestCase):
         aggregate_quantized_weights = divide(sum_quantized_weights, divisor)
         aggregate_weights = divide(sum_weights, divisor)
         # Reverse quantize
-        reverse_aggregate_weights = reverse_quantize(aggregate_quantized_weights, clipping_range, target_range)
+        reverse_aggregate_weights = reverse_quantize(
+            aggregate_quantized_weights, clipping_range, target_range
+        )
         return aggregate_weights, reverse_aggregate_weights
 
     def test_01_unweighted_average(self):
@@ -49,8 +54,9 @@ class TestSecaggUtils(unittest.TestCase):
 
         for weights in self.weights_collection:
             n_nodes = len(weights)
-            aggregate_weights, reverse_aggregate_weights = self.quantize_and_aggregate(weights, n_nodes,
-                                                                                       self.clipping_range, self.target_range)
+            aggregate_weights, reverse_aggregate_weights = self.quantize_and_aggregate(
+                weights, n_nodes, self.clipping_range, self.target_range
+            )
             for elem_1, elem_2 in zip(aggregate_weights, reverse_aggregate_weights):
                 self.assertAlmostEqual(elem_1, elem_2, places=3)
 
@@ -58,20 +64,30 @@ class TestSecaggUtils(unittest.TestCase):
         # here we compare result of a weighted sum of weights with the weighted sum of quantized weight that has been unqunatized
         # ie divide(multiply(weights)) == reverse_quantize(divide(multiply(quantize(weights))))
 
-        for weights, multipliers in zip(self.weights_collection, self.multipliers_collection):
+        for weights, multipliers in zip(
+            self.weights_collection, self.multipliers_collection
+        ):
             n_nodes = len(weights)
-            aggregate_weights, reverse_aggregate_weights = self.quantize_and_aggregate(weights, n_nodes, self.clipping_range, self.target_range, multipliers)
+            aggregate_weights, reverse_aggregate_weights = self.quantize_and_aggregate(
+                weights, n_nodes, self.clipping_range, self.target_range, multipliers
+            )
             for elem_1, elem_2 in zip(aggregate_weights, reverse_aggregate_weights):
                 self.assertAlmostEqual(elem_1, elem_2, places=3)
 
     def test_03_multiply_divide(self):
         # here we test that methods multiply and divide are reversibles
         # ie weights == divide(multiply(weights))
-        weights_collection = ([[.1, .2, .3], [.4, .5, .6], [.7, .8, .9]],
-                              [[.11, .21, .54]],
-                              [[.1], [.2], [.3]],
-                              [[.1, .5, 77], [.5, .67, .44, .55, .02], [.2, .4], [.1, .1, .1, 0.]]
-                              )   
+        weights_collection = (
+            [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]],
+            [[0.11, 0.21, 0.54]],
+            [[0.1], [0.2], [0.3]],
+            [
+                [0.1, 0.5, 77],
+                [0.5, 0.67, 0.44, 0.55, 0.02],
+                [0.2, 0.4],
+                [0.1, 0.1, 0.1, 0.0],
+            ],
+        )
         multipliers_collection = ([1, 2, 3], [3], [1, 2, 3], [1, 2, 3], [2, 3, 1, 2])
 
         for weights, multipliers in zip(weights_collection, multipliers_collection):

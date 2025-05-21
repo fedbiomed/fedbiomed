@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation setup on the node"""
+
 import random
 import uuid
 from abc import ABC, abstractmethod
@@ -41,6 +42,7 @@ class SecaggBaseSetup(ABC):
     """
     Sets up a Secure Aggregation context element on the node side.
     """
+
     _element: SecaggElementTypes
     _REPLY_CLASS: Message = SecaggReply
     _min_num_parties: int = 3
@@ -77,9 +79,7 @@ class SecaggBaseSetup(ABC):
             )
 
         if researcher_id is None:
-            errmess = (
-                f"{ErrorNumbers.FB318.value}: argument `researcher_id` must be a non-None value"
-            )
+            errmess = f"{ErrorNumbers.FB318.value}: argument `researcher_id` must be a non-None value"
 
         if errmess:
             # if one of the above condition is met, raise error
@@ -180,15 +180,14 @@ class SecaggBaseSetup(ABC):
 
 
 class _SecaggNN(SecaggBaseSetup):
-
     def __init__(
-            self,
-            *args,
-            n2n_router: NodeToNodeRouter,
-            grpc_client: GrpcController,
-            pending_requests: EventWaitExchange,
-            controller_data: EventWaitExchange,
-            **kwargs,
+        self,
+        *args,
+        n2n_router: NodeToNodeRouter,
+        grpc_client: GrpcController,
+        pending_requests: EventWaitExchange,
+        controller_data: EventWaitExchange,
+        **kwargs,
     ):
         """Constructor of the class.
 
@@ -236,7 +235,6 @@ class SecaggServkeySetup(_SecaggNN):
     # def __init__(self, share, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
     def _setup_specific(self) -> Message:
-
         other_nodes = list(filter(lambda x: x != self._node_id, self._parties))
         # Create secret user key and its shares
         seed = random.SystemRandom()

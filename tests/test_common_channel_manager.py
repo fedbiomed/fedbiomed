@@ -11,17 +11,17 @@ class TestCommonChannelManager(unittest.TestCase):
     """Test for common channel manager module"""
 
     def setUp(self):
-        self.patcher_db = patch('fedbiomed.common.channel_manager.TinyDB', FakeTinyDB)
-        self.patcher_query = patch('fedbiomed.common.channel_manager.Query', FakeQuery)
+        self.patcher_db = patch("fedbiomed.common.channel_manager.TinyDB", FakeTinyDB)
+        self.patcher_query = patch("fedbiomed.common.channel_manager.Query", FakeQuery)
 
         self.mock_db = self.patcher_db.start()
         self.mock_query = self.patcher_query.start()
 
-        #self.dh_key_1_in_bytes = b'DH_KEY_1'
-        #self.dh_key_1_in_str = str(base64.b64encode(self.dh_key_1_in_bytes), 'utf-8')  # value = 'REhfS0VZXzE='
-        #self.dh_key_2_in_bytes = b'DH_KEY_2'
-        #self.dh_key_2_in_str = str(base64.b64encode(self.dh_key_2_in_bytes), 'utf-8')  # value = 'REhfS0VZXzI='
-        #self.equivalences = {SecaggServkeyManager: SecaggElementTypes.SERVER_KEY,
+        # self.dh_key_1_in_bytes = b'DH_KEY_1'
+        # self.dh_key_1_in_str = str(base64.b64encode(self.dh_key_1_in_bytes), 'utf-8')  # value = 'REhfS0VZXzE='
+        # self.dh_key_2_in_bytes = b'DH_KEY_2'
+        # self.dh_key_2_in_str = str(base64.b64encode(self.dh_key_2_in_bytes), 'utf-8')  # value = 'REhfS0VZXzI='
+        # self.equivalences = {SecaggServkeyManager: SecaggElementTypes.SERVER_KEY,
         #                     SecaggDhManager: SecaggElementTypes.DIFFIE_HELLMAN}
 
     def tearDown(self) -> None:
@@ -32,15 +32,15 @@ class TestCommonChannelManager(unittest.TestCase):
         """Instantiate a channel manager DB table"""
 
         # 1. successful
-        ChannelManager('/path/to/dummy/file')
+        ChannelManager("/path/to/dummy/file")
 
         # 2. failed
-        patcher_db = patch('fedbiomed.common.channel_manager.TinyDB.__init__')
+        patcher_db = patch("fedbiomed.common.channel_manager.TinyDB.__init__")
         mock_db = patcher_db.start()
         mock_db.side_effect = Exception
 
         with self.assertRaises(FedbiomedNodeToNodeError):
-            ChannelManager('/path/to/dummy/file')
+            ChannelManager("/path/to/dummy/file")
 
         # clean
         patcher_db.stop()
@@ -51,11 +51,11 @@ class TestCommonChannelManager(unittest.TestCase):
         # 1. successful
 
         # prepare
-        node_id = 'node1'
-        dummy_key = b'12345678'
+        node_id = "node1"
+        dummy_key = b"12345678"
 
         # action
-        cm = ChannelManager('/path/to/dummy/file')
+        cm = ChannelManager("/path/to/dummy/file")
         list1 = cm.list()
 
         cm.add(node_id, dummy_key)
@@ -66,8 +66,8 @@ class TestCommonChannelManager(unittest.TestCase):
         self.assertEqual(list1, [])
         self.assertEqual(tuple(list2), (node_id,))
         self.assertTrue(element2)
-        self.assertEqual(element2['distant_node_id'], node_id)
-        self.assertEqual(element2['local_key'], dummy_key)
+        self.assertEqual(element2["distant_node_id"], node_id)
+        self.assertEqual(element2["local_key"], dummy_key)
 
         # 2. failed
         cm._table.exception_list = True
@@ -86,5 +86,5 @@ class TestCommonChannelManager(unittest.TestCase):
         cm._table.exception_upsert = False
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()
