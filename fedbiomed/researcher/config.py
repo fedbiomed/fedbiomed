@@ -11,7 +11,6 @@ from fedbiomed.common.constants import (
     __researcher_config_version__,
     CONFIG_FOLDER_NAME,
     VAR_FOLDER_NAME,
-    TENSORBOARD_FOLDER_NAME,
     DEFAULT_RESEARCHER_NAME,
     NOTEBOOKS_FOLDER_NAME,
     TUTORIALS_FOLDER_NAME,
@@ -63,12 +62,10 @@ class ResearcherConfig(Config):
 
         self.vars.update({
             'EXPERIMENTS_DIR': os.path.join(self.root, VAR_FOLDER_NAME, 'experiments'),
-            'TENSORBOARD_RESULTS_DIR': os.path.join(self.root, TENSORBOARD_FOLDER_NAME),
             'DB': os.path.join(self.root, CONFIG_FOLDER_NAME, self._cfg.get('default', 'db'))
         })
 
         os.makedirs(self.vars['EXPERIMENTS_DIR'], exist_ok=True)
-        os.makedirs(self.vars['TENSORBOARD_RESULTS_DIR'], exist_ok=True)
 
 
 logger.setLevel("DEBUG")
