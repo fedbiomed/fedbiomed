@@ -197,6 +197,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
         _aggregator.aggregator_name = 'mock-aggregator'
         _strategy = MagicMock(spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
+        _strategy.sample_nodes.return_value = ['node-1', 'node-2']
         _strategy.refine.return_value = (1, 2, 3, 4)
 
         exp = Experiment(
@@ -205,13 +206,19 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             round_limit=1,
             training_plan_class=FakeTorchTrainingPlan,
             node_selection_strategy=_strategy,
-
         )
 
         # Test error case -------------------------------
         with self.assertRaises(SystemExit):
             exp.run_once(increase='invalid-type')
         # ------------------------------------------------
+
+        # Test if no training nodes are returned from strategy.sample_nodes ---
+        _strategy.sample_nodes.return_value = []
+        with self.assertRaises(SystemExit):
+            exp.run_once()
+        _strategy.sample_nodes.return_value = ['node-1', 'node-2']
+        # ---------------------------------------------------------------------
 
         # Go back to normal
         exp._round_limit = 1
@@ -226,6 +233,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         # -------------------------------------------------------------
 
         # Run experiment ----------------------------------------------
+        _strategy.sample_nodes.reset_mock()
         exp.run_once()
         # experiment run workflow:
         # 1. sample nodes
@@ -387,6 +395,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         _aggregator.aggregator_name = 'mock-aggregator'
         _aggregator.create_aggregator_args.return_value = ({}, {})
         _strategy = MagicMock(spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy)
+        _strategy.sample_nodes.return_value = ['node-1', 'node-2']
         _strategy.refine.return_value = (1, 2, 3, 4)
 
         # Test using aggregator-level optimizer
