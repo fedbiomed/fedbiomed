@@ -7,11 +7,22 @@ from unittest.mock import patch, MagicMock, AsyncMock, PropertyMock, Mock
 
 
 from fedbiomed.transport.node_agent import AgentStore
-from fedbiomed.transport.server import SSLCredentials, GrpcServer, _GrpcAsyncServer, ResearcherServicer, NodeAgent
+from fedbiomed.transport.server import (
+    SSLCredentials,
+    GrpcServer,
+    _GrpcAsyncServer,
+    ResearcherServicer,
+    NodeAgent,
+)
 from fedbiomed.transport.node_agent import NodeActiveStatus
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import SearchRequest, SearchReply, OverlayMessage
-from fedbiomed.transport.protocols.researcher_pb2 import TaskRequest, TaskResult, Empty, FeedbackMessage
+from fedbiomed.transport.protocols.researcher_pb2 import (
+    TaskRequest,
+    TaskResult,
+    Empty,
+    FeedbackMessage,
+)
 
 
 example_task = SearchRequest(
@@ -20,32 +31,26 @@ example_task = SearchRequest(
 )
 
 reply = SearchReply(
-    researcher_id='researcher-id',
-    node_id='node-id',
+    researcher_id="researcher-id",
+    node_id="node-id",
     databases=[],
     count=0,
 )
 
 overlay_message = OverlayMessage(
-    researcher_id = 'test-id',
-    node_id = 'node-id',
-    dest_node_id = 'node-id-1',
-    overlay = b'sss',
-    setup = False,
-    salt = b'dummy',
-    nonce = b'any nonce',
+    researcher_id="test-id",
+    node_id="node-id",
+    dest_node_id="node-id-1",
+    overlay=b"sss",
+    setup=False,
+    salt=b"dummy",
+    nonce=b"any nonce",
 )
 
 
 class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
-
     def setUp(self) -> None:
-
-
-        self.request = TaskRequest(
-            node="node-1",
-            protocol_version="x"
-        )
+        self.request = TaskRequest(node="node-1", protocol_version="x")
 
         self.context = MagicMock()
 
@@ -61,81 +66,74 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
     def tearDown(self) -> None:
         return super().tearDown()
 
-
     async def test_researcher_servicer_01_GetTaskUnary(self):
-
         node_agent = AsyncMock()
         node_agent.task_done = MagicMock()
-        node_agent.get_task.return_value = [example_task, 0 , time.time()]
+        node_agent.get_task.return_value = [example_task, 0, time.time()]
 
         self.agent_store.retrieve.return_value = node_agent
-        async for r in self.servicer.GetTaskUnary(request=self.request, context=self.context):
+        async for r in self.servicer.GetTaskUnary(
+            request=self.request, context=self.context
+        ):
             self.assertEqual(r.iteration, 1)
             self.assertEqual(r.size, 1)
 
-
-    @patch('fedbiomed.transport.server.Serializer.loads')
+    @patch("fedbiomed.transport.server.Serializer.loads")
     async def test_researcher_servicer_02_ReplyTask(self, load):
-
         # Creates async iterator
         async def request_iterator():
             for i in [1, 2]:
-                yield TaskResult(
-                    size=2,
-                    iteration=i,
-                    bytes_=b'test'
-                )
+                yield TaskResult(size=2, iteration=i, bytes_=b"test")
 
-        load.return_value = {'node_id': 'test-node'}
-        result = await self.servicer.ReplyTask(request_iterator=request_iterator(), unused_context=self.context)
+        load.return_value = {"node_id": "test-node"}
+        result = await self.servicer.ReplyTask(
+            request_iterator=request_iterator(), unused_context=self.context
+        )
         self.assertEqual(result, Empty())
 
-
     async def test_researcher_servicer_03_Feedback(self):
-
         request = FeedbackMessage(
-            researcher_id='test',
-            log=FeedbackMessage.Log(
-                node_id='test',
-                level='DEBUG',
-                msg="Error message"
-            )
+            researcher_id="test",
+            log=FeedbackMessage.Log(node_id="test", level="DEBUG", msg="Error message"),
         )
 
-        result = await self.servicer.Feedback(request=request, unused_context=self.context)
+        result = await self.servicer.Feedback(
+            request=request, unused_context=self.context
+        )
         self.on_message.assert_called_once()
         self.assertEqual(result, Empty())
 
-
-    @patch('fedbiomed.transport.server.TaskResponse')
+    @patch("fedbiomed.transport.server.TaskResponse")
     async def test_researcher_servicer_04_GetTaskUnary_exceptions(self, task_response):
-
         for exception in [GeneratorExit, asyncio.CancelledError]:
             node_agent = AsyncMock()
             node_agent.task_done = MagicMock()
             node_agent.send_async = AsyncMock()
             self.agent_store.retrieve.return_value = node_agent
 
-            node_agent.get_task.return_value = [example_task, 0 , time.time()]
+            node_agent.get_task.return_value = [example_task, 0, time.time()]
             task_response.side_effect = exception
 
-            async for r in self.servicer.GetTaskUnary(request=self.request, context=self.context):
+            async for r in self.servicer.GetTaskUnary(
+                request=self.request, context=self.context
+            ):
                 self.assertEqual(r, None)
             node_agent.send_async.assert_called_once()
 
 
 class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
-
     def setUp(self) -> None:
-
-
         ssl_credentials = MagicMock()
-        type(ssl_credentials).private_key = PropertyMock(return_value=b'test')
-        type(ssl_credentials).certificate = PropertyMock(return_value=b'test')
+        type(ssl_credentials).private_key = PropertyMock(return_value=b"test")
+        type(ssl_credentials).certificate = PropertyMock(return_value=b"test")
 
-        self.server_patch = patch('fedbiomed.transport.server.grpc.aio.server')
-        self.node_agent_patch = patch('fedbiomed.transport.server.NodeAgent', autospec=True)
-        self.agent_store_patch = patch('fedbiomed.transport.server.AgentStore', autospec=True)
+        self.server_patch = patch("fedbiomed.transport.server.grpc.aio.server")
+        self.node_agent_patch = patch(
+            "fedbiomed.transport.server.NodeAgent", autospec=True
+        )
+        self.agent_store_patch = patch(
+            "fedbiomed.transport.server.AgentStore", autospec=True
+        )
 
         self.server_mock = self.server_patch.start()
         self.node_agent_mock = self.node_agent_patch.start()
@@ -146,67 +144,61 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
 
         self.on_message = MagicMock()
         self.grpc_server = _GrpcAsyncServer(
-            host='localhost',
+            host="localhost",
             port="50051",
             ssl=ssl_credentials,
             on_message=self.on_message,
-            debug=False
+            debug=False,
         )
 
         return super().setUp()
 
     def tearDown(self) -> None:
-
         self.server_patch.stop()
         self.node_agent_patch.stop()
         self.agent_store_patch.stop()
 
         return super().tearDown()
 
-
     async def test_grpc_async_server_01_start(self):
-
         await self.grpc_server.start()
         self.server_mock.return_value.start.assert_called_once()
         self.server_mock.return_value.wait_for_termination.assert_called_once()
 
-
-
     async def test_grpc_async_server_02_send(self):
-
         agent = AsyncMock(spec=NodeAgent)
         self.agent_store_mock.return_value.get.return_value = agent
         await self.grpc_server.start()
-        await self.grpc_server.send(example_task, 'node-id')
+        await self.grpc_server.send(example_task, "node-id")
         agent.send_async.assert_called_once()
 
         agent.send_async.reset_mock()
         self.agent_store_mock.return_value.get.return_value = None
         await self.grpc_server.start()
-        await self.grpc_server.send(example_task, 'node-id')
+        await self.grpc_server.send(example_task, "node-id")
         agent.send_async.assert_not_called()
 
-
     async def test_grpc_async_server_03_broadcast(self):
-
-        agents = {'node-1': AsyncMock(spec=NodeAgent), 'node-2': AsyncMock(spec=NodeAgent)}
+        agents = {
+            "node-1": AsyncMock(spec=NodeAgent),
+            "node-2": AsyncMock(spec=NodeAgent),
+        }
         self.agent_store_mock.return_value.get_all.return_value = agents
         await self.grpc_server.start()
         await self.grpc_server.broadcast(example_task)
-        agents['node-2'].send_async.assert_called_once()
-        agents['node-2'].send_async.assert_called_once()
-
+        agents["node-2"].send_async.assert_called_once()
+        agents["node-2"].send_async.assert_called_once()
 
     async def test_grpc_async_server_04_get_all_nodes(self):
-
         loop = asyncio.get_event_loop()
 
-        agents = {'node-1': NodeAgent('node-1', loop, on_forward=None),
-                  'node-2': NodeAgent('node-2', loop, on_forward=None)}
+        agents = {
+            "node-1": NodeAgent("node-1", loop, on_forward=None),
+            "node-2": NodeAgent("node-2", loop, on_forward=None),
+        }
         self.agent_store_mock.return_value.get_all.return_value = agents
-        agents['node-1']._status = NodeActiveStatus.DISCONNECTED
-        agents['node-2']._status = NodeActiveStatus.ACTIVE
-
+        agents["node-1"]._status = NodeActiveStatus.DISCONNECTED
+        agents["node-2"]._status = NodeActiveStatus.ACTIVE
 
         await self.grpc_server.start()
         nodes = await self.grpc_server.get_all_nodes()
@@ -214,38 +206,36 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(nodes[0]._status, NodeActiveStatus.DISCONNECTED)
         self.assertEqual(nodes[1]._status, NodeActiveStatus.ACTIVE)
 
-
     async def test_grpc_async_server_05_on_forward(self):
-
         agent = AsyncMock(spec=NodeAgent)
         self.agent_store_mock.return_value.get.return_value = agent
         await self.grpc_server.start()
         await self.grpc_server._on_forward(overlay_message)
         agent.send_async.assert_called_once()
 
-
     async def test_grpc_async_server_06_get_node(self):
-
         agent = AsyncMock(spec=NodeAgent)
         self.agent_store_mock.return_value.get.return_value = agent
         await self.grpc_server.start()
-        test_node_get  = await self.grpc_server.get_node('node-id')
+        test_node_get = await self.grpc_server.get_node("node-id")
         self.assertEqual(test_node_get, agent)
 
+
 class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
-
     def setUp(self) -> None:
-
         self.ssl_credentials = MagicMock()
-        type(self.ssl_credentials).private_key = PropertyMock(return_value=b'test')
-        type(self.ssl_credentials).certificate = PropertyMock(return_value=b'test')
+        type(self.ssl_credentials).private_key = PropertyMock(return_value=b"test")
+        type(self.ssl_credentials).certificate = PropertyMock(return_value=b"test")
 
-
-        self.async_server_patch = patch('fedbiomed.transport.server._GrpcAsyncServer')
-        self.server_patch = patch('fedbiomed.transport.server.grpc.aio.server')
-        self.node_agent_patch = patch('fedbiomed.transport.server.NodeAgent', autospec=True)
-        self.agent_store_patch = patch('fedbiomed.transport.server.AgentStore', autospec=True)
-        self.asyncio_patch = patch('fedbiomed.transport.server.asyncio')
+        self.async_server_patch = patch("fedbiomed.transport.server._GrpcAsyncServer")
+        self.server_patch = patch("fedbiomed.transport.server.grpc.aio.server")
+        self.node_agent_patch = patch(
+            "fedbiomed.transport.server.NodeAgent", autospec=True
+        )
+        self.agent_store_patch = patch(
+            "fedbiomed.transport.server.AgentStore", autospec=True
+        )
+        self.asyncio_patch = patch("fedbiomed.transport.server.asyncio")
 
         self.async_server = self.async_server_patch.start()
 
@@ -254,17 +244,16 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         self.agent_store_mock = self.agent_store_patch.start()
         self.asyncio_mock = self.asyncio_patch.start()
 
-
         self.server_mock.return_value.start = AsyncMock()
         self.server_mock.return_value.wait_for_termination = AsyncMock()
 
         self.on_message = MagicMock()
         self.grpc_server = GrpcServer(
-            host='localhost',
+            host="localhost",
             port="50051",
             ssl=self.ssl_credentials,
             on_message=self.on_message,
-            debug=False
+            debug=False,
         )
         return super().setUp()
 
@@ -277,16 +266,14 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
 
         return super().tearDown()
 
-
-    @patch('fedbiomed.transport.server.GrpcServer.get_all_nodes')
+    @patch("fedbiomed.transport.server.GrpcServer.get_all_nodes")
     def test_grpc_server_01_start(self, get_all_nodes):
-
         self.grpc_server = GrpcServer(
-            host='localhost',
+            host="localhost",
             port="50051",
             ssl=self.ssl_credentials,
             on_message=self.on_message,
-            debug=False
+            debug=False,
         )
 
         self.asyncio_patch.stop()
@@ -302,8 +289,7 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         self.server_mock.return_value.wait_for_termination.reset_mock()
         self.grpc_server._debug = True
 
-
-        get_all_nodes.side_effect = [ [], [1, 2]]
+        get_all_nodes.side_effect = [[], [1, 2]]
         self.grpc_server.start()
 
         self.server_mock.return_value.start.assert_called_once()
@@ -311,75 +297,54 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
 
         self.grpc_server._thread.join()
 
-
     def test_grpc_server_02_send(self):
-
         # Invalid message
         with self.assertRaises(FedbiomedCommunicationError):
-            self.grpc_server.send(
-                message='opps',
-                node_id='node-1'
-            )
-
+            self.grpc_server.send(message="opps", node_id="node-1")
 
         # Started is unset
         with self.assertRaises(FedbiomedCommunicationError):
-            self.grpc_server.send(
-                message=example_task,
-                node_id='node-1'
-            )
+            self.grpc_server.send(message=example_task, node_id="node-1")
 
         self.grpc_server._is_started.set()
-        self.grpc_server.send(
-            message=example_task,
-            node_id='node-1'
-        )
+        self.grpc_server.send(message=example_task, node_id="node-1")
         self.asyncio_mock.run_coroutine_threadsafe.assert_called_once()
 
     def test_grpc_server_03_broadcast(self):
-
         # Invalid message
         with self.assertRaises(FedbiomedCommunicationError):
-            self.grpc_server.broadcast(
-                message='opps'
-            )
+            self.grpc_server.broadcast(message="opps")
 
         # Started is unset
         with self.assertRaises(FedbiomedCommunicationError):
-            self.grpc_server.broadcast(
-                message=example_task
-            )
+            self.grpc_server.broadcast(message=example_task)
 
         self.grpc_server._is_started.set()
-        self.grpc_server.send(
-            message=example_task,
-            node_id='node-1'
-        )
+        self.grpc_server.send(message=example_task, node_id="node-1")
         self.asyncio_mock.run_coroutine_threadsafe.assert_called_once()
 
     def test_grpc_server_04_get_all_nodes(self):
-
         # Started is unset
         with self.assertRaises(FedbiomedCommunicationError):
             self.grpc_server.get_all_nodes()
 
         with self.assertRaises(FedbiomedCommunicationError):
-            self.grpc_server.get_node('node-id')
+            self.grpc_server.get_node("node-id")
 
         self.grpc_server._is_started.set()
-        self.asyncio_mock.run_coroutine_threadsafe.return_value.result.return_value = 'test'
+        self.asyncio_mock.run_coroutine_threadsafe.return_value.result.return_value = (
+            "test"
+        )
         result = self.grpc_server.get_all_nodes()
-        self.assertEqual(result, 'test')
+        self.assertEqual(result, "test")
 
-
-        self.asyncio_mock.run_coroutine_threadsafe.return_value.result.return_value = 'test2'
-        result = self.grpc_server.get_node('node-id')
-        self.assertEqual(result, 'test2')
-
-
+        self.asyncio_mock.run_coroutine_threadsafe.return_value.result.return_value = (
+            "test2"
+        )
+        result = self.grpc_server.get_node("node-id")
+        self.assertEqual(result, "test2")
 
     def test_grpc_server_05_is_alive(self):
-
         # Started is unset
         with self.assertRaises(FedbiomedCommunicationError):
             self.grpc_server.is_alive()

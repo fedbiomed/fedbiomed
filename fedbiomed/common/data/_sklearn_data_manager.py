@@ -8,7 +8,6 @@ This module introduces the NPDataLoader and SkLearnDataManager classes, to provi
 Fed-BioMed users relying on the scikit-learn framework that is similar to the interface for torch.
 """
 
-
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -441,7 +440,6 @@ class SkLearnDataManager(object):
         self.test_ratio = state.get("test_ratio", None)
 
     def _load_indexes(self, training_idx: List[int], testing_idx: List[int]):
-
         try:
             self._subset_train = (
                 self._inputs[training_idx],

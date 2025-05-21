@@ -1,4 +1,3 @@
-
 # SPDX-License-Identifier: Apache-2.0
 
 """Common CLI Modules
@@ -28,7 +27,7 @@ from fedbiomed.common.utils import (
     get_all_existing_certificates,
     get_existing_component_db_names,
     get_method_spec,
-    read_file
+    read_file,
 )
 
 RED = "\033[1;31m"  # red
@@ -39,9 +38,7 @@ BOLD = "\033[1m"
 
 
 class CLIArgumentParser:
-
-    def __init__(self, subparser: argparse.ArgumentParser, parser = None):
-
+    def __init__(self, subparser: argparse.ArgumentParser, parser=None):
         self._subparser = subparser
         # Parser that is going to be add using subparser
         self._parser = None
@@ -62,6 +59,7 @@ class ComponentDirectoryAction(ABC, argparse.Action):
     This action class gets the config file name and set config object before
     executing any command.
     """
+
     _component: ComponentType
 
     def __init__(self, *args, **kwargs):
@@ -70,15 +68,15 @@ class ComponentDirectoryAction(ABC, argparse.Action):
         # Sets config by default if option string for config is not present.
         # The default is defined by the argument parser.
         if (
-            not set(self.option_strings).intersection(set(sys.argv)) and
-            not set(["--help", "-h"]).intersection(set(sys.argv)) and
-            len(sys.argv) > 2
+            not set(self.option_strings).intersection(set(sys.argv))
+            and not set(["--help", "-h"]).intersection(set(sys.argv))
+            and len(sys.argv) > 2
         ):
             self._create_config(self.default)
 
         super().__init__(*args, **kwargs)
 
-    def __call__(self, parser, namespace, values: str, option_string = None) -> None:
+    def __call__(self, parser, namespace, values: str, option_string=None) -> None:
         """When argument is called"""
 
         if not set(["--help", "-h"]).intersection(set(sys.argv)):
@@ -96,23 +94,23 @@ class ComponentDirectoryAction(ABC, argparse.Action):
 
     def _create_config(self, component_dir: str):
         """Sets configuration
-       Args:
-          config_file: Name of the config file that is activated
+        Args:
+           config_file: Name of the config file that is activated
         """
         print(f"\n# {GRN}Using component located at:{NC} {BOLD}{component_dir}{NC} #")
 
         cdir = os.path.abspath(component_dir)
 
-        if not os.path.isdir(cdir) and not '-y' in sys.argv:
+        if not os.path.isdir(cdir) and not "-y" in sys.argv:
             print(
                 f"{BOLD}Action Needed{NC}: Action execution for a component not existing. "
                 f"The component directory is not existing in the path {cdir}. \n"
                 "Do you want to create this component to continue: (y/N)"
-                )
+            )
             x = input()
 
             if not x.lower() == "y":
-                 sys.exit("Operation is called.")
+                sys.exit("Operation is called.")
             else:
                 print(f"{GRN}Creating component directory:{NC}{cdir}")
 
@@ -123,7 +121,6 @@ class ComponentDirectoryAction(ABC, argparse.Action):
 
 
 class CommonCLI:
-
     _arg_parsers_classes: List[type] = []
     _arg_parsers: Dict[str, CLIArgumentParser] = {}
 
@@ -190,7 +187,6 @@ class CommonCLI:
 
         return self._description
 
-
     @staticmethod
     def config_action(this: "CommonCLI", component: ComponentType):
         """Returns CLI argument action for config file name"""
@@ -235,10 +231,7 @@ class CommonCLI:
         This parser classes will be added by child classes.
         """
 
-        self._parser.add_argument(
-            "-y",
-            action="store_true"
-        )
+        self._parser.add_argument("-y", action="store_true")
 
         for arg_parser in self._arg_parsers_classes:
             p = arg_parser(self._subparsers, self._parser)
@@ -252,7 +245,7 @@ class CommonCLI:
         self._parser.add_argument(
             "--version",
             "-v",
-            action='version',
+            action="version",
             version=str(__version__),
             help="Print software version",
         )
@@ -262,12 +255,12 @@ class CommonCLI:
         magic = self._subparsers.add_parser(
             "certificate-dev-setup",
             description="Prepares development environment by registering certificates "
-                        "of each component created in a single clone of Fed-BioMed. Parses "
-                        "configuration files ends with '.ini' that are created in 'etc' "
-                        "directory. This setup requires to have one 'researcher' and "
-                        "at least 2 nodes.",
+            "of each component created in a single clone of Fed-BioMed. Parses "
+            "configuration files ends with '.ini' that are created in 'etc' "
+            "directory. This setup requires to have one 'researcher' and "
+            "at least 2 nodes.",
             help="Prepares development environment by registering certificates of each "
-                 "component created in a single clone of Fed-BioMed.",
+            "component created in a single clone of Fed-BioMed.",
         )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
@@ -296,7 +289,7 @@ class CommonCLI:
         register_parser = certificate_sub_parsers.add_parser(
             "register",
             help="Register certificate of specified party. Please run 'fedbiomed' "
-                "[COMPONENT SPECIFICATION] certificate register --help'",
+            "[COMPONENT SPECIFICATION] certificate register --help'",
         )  # command register
 
         list_parser = certificate_sub_parsers.add_parser(
@@ -313,14 +306,14 @@ class CommonCLI:
             "Uses an alternate directory if '--path DIRECTORY' is given."
             " If files already exist, overwrite existing certificate.\n"
             "Certificate are here refering to the public certificate and its associated private key "
-            "(the latter should remain secret and not shared to other parties)."
+            "(the latter should remain secret and not shared to other parties).",
         )
 
         # Command `certificate generate`
         prepare = certificate_sub_parsers.add_parser(
             "registration-instructions",
             help="Prepares certificate of current component to send other FL participant"
-                 " through trusted channel.",
+            " through trusted channel.",
         )
 
         register_parser.set_defaults(func=self._register_certificate)
@@ -391,7 +384,6 @@ class CommonCLI:
             )
 
             for certificate in certificates:
-
                 if certificate["party_id"] == id_:
                     continue
                 try:
@@ -409,34 +401,24 @@ class CommonCLI:
         Args:
             args: Arguments that are passed after `certificate generate` command
         """
-        if (
-            os.path.isfile(f"{args.path}/FBM_certificate.key") or
-            os.path.isfile(f"{args.path}/FBM_certificate.pem")
+        if os.path.isfile(f"{args.path}/FBM_certificate.key") or os.path.isfile(
+            f"{args.path}/FBM_certificate.pem"
         ):
+            CommonCLI.error(f"Certificate is already existing in {args.path}. \n ")
 
-            CommonCLI.error(
-                f"Certificate is already existing in {args.path}. \n "
-            )
-
-        path = (
-            self.config.vars["CERT_DIR"]
-            if not args.path
-            else args.path
-        )
+        path = self.config.vars["CERT_DIR"] if not args.path else args.path
 
         try:
             key, pem = CertificateManager.generate_self_signed_ssl_certificate(
                 certificate_folder=path,
                 certificate_name="FBM_certificate",
-                component_id=self.config.get('default', 'id'),
+                component_id=self.config.get("default", "id"),
             )
         except FedbiomedError as e:
             CommonCLI.error(f"Can not generate certificate. Please see: {e}")
             sys.exit(1)
 
-        CommonCLI.success(
-            f"Certificate has been successfully generated in : {path} \n"
-        )
+        CommonCLI.success(f"Certificate has been successfully generated in : {path} \n")
 
         print(
             f"Please make sure in {os.getenv('CONFIG_FILE', 'component')}, the section "
@@ -456,7 +438,9 @@ class CommonCLI:
             args: Parser arguments
         """
         self._certificate_manager.set_db(
-            db_path=os.path.join(self.config.root, 'etc', self.config.get('default', 'db'))
+            db_path=os.path.join(
+                self.config.root, "etc", self.config.get("default", "db")
+            )
         )
 
         try:
@@ -479,14 +463,17 @@ class CommonCLI:
         print(f"{GRN}Listing registered certificates...{NC}")
 
         self._certificate_manager.set_db(
-            db_path=os.path.join(self.config.root, 'etc', self.config.get('default', 'db'))
+            db_path=os.path.join(
+                self.config.root, "etc", self.config.get("default", "db")
+            )
         )
         self._certificate_manager.list(verbose=True)
 
     def _delete_certificate(self, args: argparse.Namespace):
-
         self._certificate_manager.set_db(
-            db_path=os.path.join(self.config.root, 'etc', self.config.get('default', 'db'))
+            db_path=os.path.join(
+                self.config.root, "etc", self.config.get("default", "db")
+            )
         )
         certificates = self._certificate_manager.list(verbose=False)
         options = [d["party_id"] for d in certificates]
@@ -512,7 +499,11 @@ class CommonCLI:
         """Prints instruction to registration of the certificate by the other parties"""
 
         certificate = read_file(
-            os.path.join(self.config.root, CONFIG_FOLDER_NAME, self.config.get("certificate", "public_key"))
+            os.path.join(
+                self.config.root,
+                CONFIG_FOLDER_NAME,
+                self.config.get("certificate", "public_key"),
+            )
         )
 
         print("Hi There! \n\n")
