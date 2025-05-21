@@ -147,7 +147,7 @@ class Experiment(TrainingPlanWorkflow):
         self.set_round_limit(round_limit)
 
         # always create a monitoring process
-        self._monitor = Monitor(self.config.vars["TENSORBOARD_RESULTS_DIR"])
+        self._monitor = Monitor(self.tensorboard_results_path())
         self._reqs.add_monitor_callback(self._monitor.on_message_handler)
         self.set_tensorboard(tensorboard)
 
