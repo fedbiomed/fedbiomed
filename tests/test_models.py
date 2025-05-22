@@ -487,11 +487,6 @@ class TestTorchModel(unittest.TestCase):
         self.data = torch.randn(8, 1,  4, requires_grad=True)
         self.targets = torch.tensor([1,0,2,1,0,2,1,1])#.type(torch.LongTensor)
 
-
-    def tearDown(self) -> None:
-        pass
-
-
     def fake_training_step(self, data, targets):
         output = self.model.model.forward(data)
 
@@ -588,7 +583,7 @@ class TestTorchModel(unittest.TestCase):
         }
 
         # zeroes gradients model
-        self.model.model.zero_grad()
+        self.model.model.zero_grad(set_to_none=False)
         # action
         self.model.add_corrections_to_gradients(corrections)
         # checks

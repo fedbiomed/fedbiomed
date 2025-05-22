@@ -8,13 +8,17 @@ from testsupport.testing_data_loading_block import (
 )
 from torchvision.transforms import Compose as TorchCompose
 
+try:
+    from fedbiomed.common.data.flamby_dataset import (
+        FlambyDataset,
+        FlambyDatasetMetadataBlock,
+        FlambyLoadingBlockTypes,
+        discover_flamby_datasets,
+    )
+except ModuleNotFoundError as e:
+    raise unittest.SkipTest(f"Flamby not found with error {e}. Skipping all tests in test_flamby.py")
+
 from fedbiomed.common.data import DataLoadingPlan
-from fedbiomed.common.data.flamby_dataset import (
-    FlambyDataset,
-    FlambyDatasetMetadataBlock,
-    FlambyLoadingBlockTypes,
-    discover_flamby_datasets,
-)
 from fedbiomed.common.exceptions import (
     FedbiomedDatasetError,
     FedbiomedDatasetValueError,

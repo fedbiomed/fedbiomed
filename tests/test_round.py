@@ -189,15 +189,13 @@ class TestRound(unittest.TestCase):
         self.assertTrue(msg_test2.get_dict().get('success', False))
         self.assertEqual({"coefs": [1, 2, 3, 4]}, msg_test2.get_dict().get('params', False))
 
-    @patch('fedbiomed.node.round.Round._split_train_and_test_data')
     @patch('importlib.import_module')
     @patch('fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status')
     @patch('uuid.uuid4')
     def test_round_02_run_model_training_correct_model_calls(self,
                                                              uuid_patch,
                                                              tp_security_manager_patch,
-                                                             import_module_patch,
-                                                             mock_split_train_and_test_data):
+                                                             import_module_patch):
         """tests if all methods of `model` have been called after instanciating
         (in run_model_training)"""
         # `run_model_training`, when no issues are found
@@ -218,7 +216,6 @@ class TestRound(unittest.TestCase):
         uuid_patch.return_value = FakeUuid()
         tp_security_manager_patch.return_value = (True, {'name': "model_name"})
         import_module_patch.return_value = FakeModule
-        mock_split_train_and_test_data.return_value = (FakeLoader, FakeLoader)
 
         self.r1.training_kwargs = {}
         self.r1.dataset = {'path': 'my/dataset/path',
@@ -232,8 +229,10 @@ class TestRound(unittest.TestCase):
         with (
                 patch.object(FakeModel, 'set_dataset_path') as mock_set_dataset,
                 patch.object(FakeModel, 'training_routine') as mock_training_routine,
+                patch.object(self.r1, '_split_train_and_test_data') as mock_split_train_and_test_data,
                 patch.object(FakeModel, 'after_training_params', return_value=MODEL_PARAMS) as mock_after_training_params,  # noqa
         ):
+            mock_split_train_and_test_data.return_value = (FakeLoader, FakeLoader)
             self.r1.initialize_arguments()
             msg = self.r1.run_model_training(
                 tp_approval=False,
