@@ -4,11 +4,12 @@
 #from fedbiomed.common.data.converter_utils import from_torch_dataset_to_generic
 
 from typing import Callable
+import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset, random_split
 
 from fedbiomed.common.constants import TrainingPlans
-
+from torchvision import  transforms
 
 class NativeDataManager:
 
@@ -50,14 +51,14 @@ class PytorchNativeDataset(FrameworkNativeDataset):
             # avoid calling  default collate_fn function that will convert everyting to Pytroch
 
         return self._dataloader(inputs, target, **kwargs)#**kwargs)
-    @classmethod
-    def load(clf, dataset, tp_type):
-        dataset = clf(dataset)
-        if tp_type == TrainingPlans.TorchTrainingPlan:
-            dataset.to_torch()
-        elif tp_type == TrainingPlans.SkLearnTrainingPlan:
-            dataset.to_sklearn()
-        return clf
+    # @classmethod
+    # def load(clf, dataset, tp_type):
+    #     dataset = clf(dataset)
+    #     if tp_type == TrainingPlans.TorchTrainingPlan:
+    #         dataset.to_torch()
+    #     elif tp_type == TrainingPlans.SkLearnTrainingPlan:
+    #         dataset.to_sklearn()
+    #     return clf
 
             
     def to_sklearn(self):
@@ -66,13 +67,13 @@ class PytorchNativeDataset(FrameworkNativeDataset):
             def forward(self, img, label=None):
                 # Do some transformations
                 
-                return img.numpy(), label
+                return img.numpy() if hasattr(img, 'numpy') else np.array(img), label
         
         
         if self._dataset.transforms is not None:
             self._dataset.transform.transforms.append(ToNumpy())
         else:
-            self._dataset.tramsform.transforms = [ToNumpy()]
+            self._dataset.transform= transforms.Compose([ToNumpy()])
         #self._transform_framework = from_torch_dataset_to_generic
         # TODO: implement here, decide if we should use transform or collate_fn
 

@@ -28,3 +28,25 @@ data_manager = DataManager(dataset=ds)
 data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
 val = next(iter(data_manager.dataset))
 print(val)
+
+
+# without transforms
+
+path = 'dataset/MedNIST'
+
+
+    
+train_data = datasets.ImageFolder(path,)  # object from pytorch
+
+ds = PytorchNativeDataset(train_data)
+data_manager = DataManager(dataset=ds)
+
+
+data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+val = next(iter(data_manager.dataset))
+print(val)
+
+data_manager = DataManager(dataset=ds)
+data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+val = next(iter(data_manager.dataset))
+print(val)
