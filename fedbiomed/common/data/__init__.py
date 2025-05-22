@@ -9,7 +9,7 @@ Classes that simplify imports from fedbiomed.common.data
 from ._data_manager import DataManager
 from ._torch_data_manager import TorchDataManager
 from ._sklearn_data_manager import SkLearnDataManager, NPDataLoader
-from ._tabular_dataset import TabularDataset
+
 from ._medical_datasets import  MedicalFolderDataset, MedicalFolderBase, MedicalFolderController, \
     MedicalFolderLoadingBlockTypes
 from ._data_loading_plan import (DataLoadingBlock,
@@ -27,7 +27,7 @@ __all__ = [
     "DataManager",
     "TorchDataManager",
     "SkLearnDataManager",
-    "TabularDataset",
+
     "NPDataLoader",
     "DataLoadingBlock",
     "MapperBlock",

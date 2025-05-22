@@ -16,7 +16,8 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.data._image_dataset import ImageDataset
+
+from fedbiomed.common.data._framework_native_dataset import FrameworkNativeDataset
 from fedbiomed.common.data._medical_datasets import MedicalFolderDataset
 from fedbiomed.common.data._tabular_dataset import CSVDataset
 from fedbiomed.common.exceptions import (
@@ -278,7 +279,9 @@ class SkLearnDataManager(object):
         #     raise FedbiomedTypeError(msg)
 
         # Convert pd.DataFrame or pd.Series to np.ndarray for `inputs`
-        if isinstance(inputs, (MedicalFolderDataset, CSVDataset, ImageDataset)):  # FIXME: change that with GenericDataset
+
+        self._data_loader = NPDataLoader
+        if isinstance(inputs, (MedicalFolderDataset, CSVDataset, FrameworkNativeDataset)):  # FIXME: change that with GenericDataset
             inputs.to_sklearn()
             self._inputs = inputs
         elif isinstance(inputs, (pd.DataFrame, pd.Series)):
@@ -308,9 +311,11 @@ class SkLearnDataManager(object):
             self._is_shuffled_testing_dataset: bool = kwargs.pop(
                 "shuffle_testing_dataset"
             )
-
-
-        self._dataset = NPDataLoader(self._inputs, self._target)
+        # FIXME: find a better way to deal with this case
+        if hasattr(self._inputs, "set_dataloader"):
+            self._dataset = self._inputs.set_dataloader(self._inputs, self._target, kwargs)
+        else:
+            self._dataset = self._data_loader(self._inputs, self._target)
         # Additional loader arguments
         self._loader_arguments = kwargs
 

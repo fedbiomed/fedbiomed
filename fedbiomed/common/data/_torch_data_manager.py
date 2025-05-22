@@ -31,6 +31,7 @@ class TorchDataManager(object):
         Raises:
             FedbiomedTorchDataManagerError: If the argument `dataset` is not an instance of `torch.utils.data.Dataset`
         """
+        self._data_loader = DataLoader
 
         # TorchDataManager should get `dataset` argument as an instance of torch.utils.data.Dataset
         # if not isinstance(dataset, Dataset):
@@ -289,8 +290,8 @@ class TorchDataManager(object):
         self.training_index = state.get("training_index", [])
         self.test_ratio = state.get("test_ratio", None)
 
-    @staticmethod
-    def _create_torch_data_loader(dataset: Dataset, **kwargs: Dict) -> DataLoader:
+    #@staticmethod
+    def _create_torch_data_loader(self, dataset: Dataset, **kwargs: Dict) -> DataLoader:
         """Creates python data loader by given dataset object
 
         Args:
@@ -307,7 +308,7 @@ class TorchDataManager(object):
         try:
             # Create a loader from self._dataset to extract inputs and target values
             # by iterating over samples
-            loader = DataLoader(dataset, **kwargs)
+            loader = self._data_loader(dataset, **kwargs)
         except AttributeError as e:
             raise FedbiomedTorchDataManagerError(
                 f"{ErrorNumbers.FB608.value}:  Error while creating Torch DataLoader due to undefined attribute"
