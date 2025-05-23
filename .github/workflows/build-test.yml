@@ -49,7 +49,7 @@ jobs:
 
       - name: Install Dependencies
         if: steps.filter.outputs.docs == 'true'
-        run: pdm install -G docs
+        run: pdm install -G docs -G dev
 
       - name: Build documentation
         if: steps.filter.outputs.docs == 'true'
