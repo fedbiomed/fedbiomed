@@ -114,11 +114,9 @@ path = "fedbiomed/__init__.py"
 [tool.pdm]
 distribution = true
 
-[tool.pdm.dev-dependencies]
+[dependency-groups]
 test = ["pytest", "pytest-cov", "tox"]
-lint = [
-	"flake8",
-	"black",
+dev = [
 	"ruff",
 	"pre-commit>=4.2.0",
 ]

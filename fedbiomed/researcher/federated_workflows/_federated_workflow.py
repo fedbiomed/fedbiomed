@@ -48,8 +48,6 @@ from fedbiomed.researcher.requests import Requests
 # need to import JoyeLibertSecureAggregation, LomSecureAggregation - used for load_breakpoint()
 from fedbiomed.researcher.secagg import (
     SecureAggregation,
-    JoyeLibertSecureAggregation,
-    LomSecureAggregation,
 )
 
 
@@ -937,14 +935,14 @@ class FederatedWorkflow(ABC):
         bkpt_fds = FederatedDataSet(bkpt_fds)
 
         # retrieve experimentation folder
-        exp_folder = saved_state.get('experimentation_folder')
+        exp_folder = saved_state.get("experimentation_folder")
 
         # initializing experiment
         loaded_exp = cls(experimentation_folder=exp_folder)
-        loaded_exp._experiment_id = saved_state.get('id')
+        loaded_exp._experiment_id = saved_state.get("id")
         loaded_exp.set_training_data(bkpt_fds)
-        loaded_exp._tags = saved_state.get('tags')
-        loaded_exp.set_nodes(saved_state.get('nodes'))
+        loaded_exp._tags = saved_state.get("tags")
+        loaded_exp.set_nodes(saved_state.get("nodes"))
         secagg = SecureAggregation.load_state_breakpoint(saved_state.get("secagg"))
         loaded_exp.set_secagg(secagg)
         loaded_exp._node_state_agent.load_state_breakpoint(
