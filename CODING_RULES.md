@@ -5,6 +5,29 @@
 
 This document contains project specific coding rules and guidelines for managing code branches.
 
+## Auto formatter
+
+Fed-BioMed uses the `ruff` tool to enforce flake8 style rules on Python files. Once the development environment is set up by the developer, all necessary tools will be automatically installed. The rules are defined in the `pyproject.toml` file. Developers are free to integrate the Ruff formatter into their IDEs, as long as the IDE uses the configuration specified in `pyproject.toml`. Please refer to `ruff` [documentation](https://docs.astral.sh/ruff/) to see have to use `ruff` for manual execution.
+
+Formatter and linter checks are also applied via a [pre-commit hook](#pre-commit-hook-flake8). Pre-commit tools will be automatically installed once the development environment is correctly set up by the developer.
+Please see the [development environment documentation](./docs/developer/development-environment.md) for more details.
+
+### Disable linting for specific lines
+
+In some cases, you may want to intentionally ignore a specific linting rule for a particular line of code. For example, you might have an import that appears unused but is required for side effects, or a long line that you prefer not to break backward compatibility.
+
+To suppress a specific warning or error reported by `ruff`, you can add a `# noqa` comment at the end of the line. This tells the linter to ignore that line during checks. For example:
+
+```python
+import numpy as np  # noqa: F401  # disable "imported but unused" warning
+```
+
+You can also use just `# noqa` without specifying a rule code to ignore all warnings for that line, but it’s better practice to specify the exact code whenever possible, to avoid hiding unrelated issues.
+
+Use `# noqa` only if there's a valid reason to ignore the linting rule. Overusage of `# noqa` may lead to inconsistent or lower-quality code.
+
+To find the specific rule code reported by `ruff`, you can run `ruff check` locally or examine the pre-commit output, which will indicate the exact rule (e.g., `F401`, `E501`, etc.)
+
 ## Code writing rules
 
 ### general
@@ -229,7 +252,7 @@ Feature branch code comments sometimes contain:
 
 Before attempting to merge into `develop`, if you still have `FIXME` and `TODO` in comments:
 
-- they should be discussed during review 
+- they should be discussed during review
 - if kept, an associated issue must be created and referenced (eg `issue #1234`) in the comment
 
 
@@ -261,21 +284,28 @@ Add new function xxx
 - item5 not yet working
 ```
 
-### commit, push, pull
+#### Commit, push, pull
 
 These guidelines mostly apply when working in a feature branch.
 
-Commit, push:
+#### Commit, push:
 - work freely in your local branch (including using micro-commits, etc.).
 - shrink contribution's history to a few significant commits *before pushing* (avoid pushing micro-commits or successive versions of same code to the remote)
   - can use `git commit --amend` to modify your yet-unpushed last commit
   - can squash local commits with `git rebase -i local_branch_base_commit` to shrink the yet-unpushed commits on `local_branch_base_commit`. Typically keep the first commit as `pick`, don't change order of commits, turn the next ones to `squash` to merge them in a single commit.
   - stick to squashing the latest commits (unless you really know what you are doing)
 
-Pull:
+#### Pre-commit hook Flake8
+
+Once changes are committed, `ruff` will run checks to ensure that the modified files comply with the Flake8-style rules defined in `pyproject.toml`. If any lines of code violate these rules, the commit will be blocked, and an error will be displayed.
+
+The recommended practice is to address the issues flagged by `ruff` and then recommit the changes. However, in some cases, the tool may report issues in parts of the code that were not modified in the current commit, or the change requested by the linting tool is not applicable. In such cases, you can bypass the pre-commit hooks by using the `git commit --no-verify` command to skip the linter checks.
+
+
+#### Pull:
 - can always use `git pull --rebase` (or add it to configuration to apply by default). No danger, it only rebases local yet-unpushed commits on top of new pulled remote commits.
 
-### update, merge
+### Update, merge
 
 These guidelines mostly apply when updating a feature branch or merging it to `develop`.
 
@@ -286,7 +316,7 @@ Update a feature branch with latest version of `develop`:
 Merge:
 - before merging, if too many commits were pushed to the feature branch, squash *remote branch* with a rebase (see below)
 
-### rebase remote branch
+### Rebase remote branch
 
 These guidelines mostly apply when updating a feature branch or merging it to `develop`.
 - don't rebase `develop` and `master` branches (no rewrite of their history)

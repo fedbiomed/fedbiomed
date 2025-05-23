@@ -7,6 +7,7 @@ from fedbiomed.common.cli import CommonCLI
 
 class TestResearcherControl(unittest.TestCase):
     """Tests researcher control unit argument parser"""
+
     def setUp(self):
         self.parser = argparse.ArgumentParser()
         self.subparsers = self.parser.add_subparsers()
@@ -16,17 +17,17 @@ class TestResearcherControl(unittest.TestCase):
         pass
 
     def test_01_researcher_control_initialize(self):
-
         self.control.initialize()
         self.assertTrue("start" in self.subparsers.choices)
-        self.assertTrue("--directory" in self.subparsers.choices["start"]._option_string_actions)
+        self.assertTrue(
+            "--directory" in self.subparsers.choices["start"]._option_string_actions
+        )
 
     @patch("fedbiomed.researcher.cli.subprocess.Popen")
     def test_02_researcher_control_start(self, sub_process_p_open):
-
         self.control.initialize()
         args = self.parser.parse_args(["start", "--directory", "./"])
-        args.__setattr__("path", 'fbm-researcher')
+        args.__setattr__("path", "fbm-researcher")
         self.control.start(args)
 
         sub_process_p_open.assert_called_once()
@@ -37,8 +38,8 @@ class TestResearcherControl(unittest.TestCase):
         with self.assertRaises(KeyboardInterrupt):
             self.control.start(args)
 
-class TestResearcherCLI(unittest.TestCase):
 
+class TestResearcherCLI(unittest.TestCase):
     def setUp(self) -> None:
         self.cli = ResearcherCLI()
 
@@ -46,25 +47,44 @@ class TestResearcherCLI(unittest.TestCase):
         pass
 
     def test_01_researcher_cli_init(self):
-        self.assertEqual(ResearcherCLI.__base__, CommonCLI, 'ResearcherCLI should inherit from CommonCLI')
+        self.assertEqual(
+            ResearcherCLI.__base__,
+            CommonCLI,
+            "ResearcherCLI should inherit from CommonCLI",
+        )
 
-    @patch('builtins.print')
+    @patch("builtins.print")
     def test_02_researcher_initialize(self, mock_print):
-
         # Tests certificate parser options
-        choices = self.cli._subparsers.choices["certificate"]._subparsers._group_actions[0].choices
-        self.assertTrue('register' in choices)
-        self.assertTrue('list' in choices)
-        self.assertTrue('delete' in choices)
-        self.assertTrue('generate' in choices)
-        self.assertTrue('registration-instructions' in choices)
+        choices = (
+            self.cli._subparsers.choices["certificate"]
+            ._subparsers._group_actions[0]
+            .choices
+        )
+        self.assertTrue("register" in choices)
+        self.assertTrue("list" in choices)
+        self.assertTrue("delete" in choices)
+        self.assertTrue("generate" in choices)
+        self.assertTrue("registration-instructions" in choices)
 
-        self.assertEqual("_register_certificate", choices["register"]._defaults["func"].__func__.__name__)
-        self.assertEqual("_generate_certificate", choices["generate"]._defaults["func"].__func__.__name__)
-        self.assertEqual("_delete_certificate", choices["delete"]._defaults["func"].__func__.__name__)
-        self.assertEqual("_list_certificates", choices["list"]._defaults["func"].__func__.__name__)
-        self.assertEqual("_prepare_certificate_for_registration", choices["registration-instructions"].
-                         _defaults["func"].__func__.__name__)
+        self.assertEqual(
+            "_register_certificate",
+            choices["register"]._defaults["func"].__func__.__name__,
+        )
+        self.assertEqual(
+            "_generate_certificate",
+            choices["generate"]._defaults["func"].__func__.__name__,
+        )
+        self.assertEqual(
+            "_delete_certificate", choices["delete"]._defaults["func"].__func__.__name__
+        )
+        self.assertEqual(
+            "_list_certificates", choices["list"]._defaults["func"].__func__.__name__
+        )
+        self.assertEqual(
+            "_prepare_certificate_for_registration",
+            choices["registration-instructions"]._defaults["func"].__func__.__name__,
+        )
 
         register_options = choices["register"]._positionals._option_string_actions
         self.assertTrue("--party-id" in register_options)

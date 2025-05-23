@@ -3,7 +3,11 @@
 from fedbiomed.common.constants import SecureAggregationSchemes
 
 from ._secagg_context import SecaggServkeyContext, SecaggContext, SecaggDHContext
-from ._secure_aggregation import SecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation
+from ._secure_aggregation import (
+    SecureAggregation,
+    JoyeLibertSecureAggregation,
+    LomSecureAggregation,
+)
 
 
 __all__ = [

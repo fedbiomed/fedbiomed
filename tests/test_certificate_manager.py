@@ -44,7 +44,6 @@ class TestCertificateManager(unittest.TestCase):
         self.tiny_db_table_mock.reset_mock()
 
     def tearDown(self) -> None:
-
         self.tiny_db_mock.reset_mock()
         self.tiny_db_query_mock.reset_mock()
 
@@ -145,9 +144,7 @@ class TestCertificateManager(unittest.TestCase):
         )
 
     def test_05_certificate_manager_delete(self):
-        dummy_result = [
-            {"certificate": "xxxx", "party_id": "xxxx"}
-        ]
+        dummy_result = [{"certificate": "xxxx", "party_id": "xxxx"}]
         self.tiny_db_table_mock.return_value.all.return_value = dummy_result
 
         result = self.cm.list()
@@ -174,9 +171,12 @@ class TestCertificateManager(unittest.TestCase):
             with self.assertRaises(FedbiomedCertificateError):
                 self.cm.register_certificate(**arguments)
 
-            with patch("builtins.open") as mock_open, patch(
-                "fedbiomed.common.certificate_manager.CertificateManager.insert"
-            ) as cm_mock:
+            with (
+                patch("builtins.open") as mock_open,
+                patch(
+                    "fedbiomed.common.certificate_manager.CertificateManager.insert"
+                ) as cm_mock,
+            ):
                 mock_isfile.return_value = True
                 mock_open.return_value.__enter__.return_value.read.return_value = (
                     "Test certificate"
@@ -210,10 +210,9 @@ class TestCertificateManager(unittest.TestCase):
                 )
 
     def test_08_certificate_manager_write_certificate_file(self):
-
         with patch("builtins.open") as mock_open:
             self.cm._write_certificate_file("dummy/path", "Certificate")
-            mock_open.assert_called_once_with("dummy/path", "w", encoding='UTF-8')
+            mock_open.assert_called_once_with("dummy/path", "w", encoding="UTF-8")
             mock_open.return_value.__enter__.return_value.write.assert_called_once_with(
                 "Certificate"
             )
@@ -227,10 +226,8 @@ class TestCertificateManager(unittest.TestCase):
     def test_10_certificate_generate_self_signed_ssl_certificate(self, mock_abspath):
         """Tests method to generate self-signed ssl certificate"""
 
-
-        certificate_folder = 'test-dir'
+        certificate_folder = "test-dir"
         with patch("builtins.open") as mock_open:
-
             self.mock_isdir.return_value = True
             self.cm.generate_self_signed_ssl_certificate(
                 certificate_folder=certificate_folder,
@@ -238,10 +235,13 @@ class TestCertificateManager(unittest.TestCase):
                 component_id="component-id",
             )
             self.assertEqual(
-                mock_open.call_args_list[0][0], (os.path.join(certificate_folder, "certificate.key") , "wb")
+                mock_open.call_args_list[0][0],
+                (os.path.join(certificate_folder, "certificate.key"), "wb"),
             )
             self.assertEqual(
-                mock_open.call_args_list[1][0], (os.path.join(certificate_folder, "certificate.pem") , "wb")                )
+                mock_open.call_args_list[1][0],
+                (os.path.join(certificate_folder, "certificate.pem"), "wb"),
+            )
 
             self.assertEqual(
                 mock_open.return_value.__enter__.return_value.write.call_count, 2

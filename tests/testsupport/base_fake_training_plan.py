@@ -4,12 +4,11 @@ from fedbiomed.common.training_plans import TorchTrainingPlan
 
 
 class BaseFakeTrainingPlan(TorchTrainingPlan):
-
     def post_init(
-            self,
-            model_args: Dict[str, Any],
-            training_args: TrainingArgs,
-            aggregator_args: Optional[Dict[str, Any]] = None,
+        self,
+        model_args: Dict[str, Any],
+        training_args: TrainingArgs,
+        aggregator_args: Optional[Dict[str, Any]] = None,
     ) -> None:
         pass
 
@@ -27,7 +26,7 @@ class BaseFakeTrainingPlan(TorchTrainingPlan):
 
     def init_dependencies(self):
         return [
-            'from typing import Any, Dict, Optional',
-            'from fedbiomed.common.training_args import TrainingArgs',
-            'from fedbiomed.common.training_plans import TorchTrainingPlan',
+            "from typing import Any, Dict, Optional",
+            "from fedbiomed.common.training_args import TrainingArgs",
+            "from fedbiomed.common.training_plans import TorchTrainingPlan",
         ]

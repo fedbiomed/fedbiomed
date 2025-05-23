@@ -1,5 +1,3 @@
 """
 GUI server module
 """
-
-

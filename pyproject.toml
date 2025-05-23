@@ -4,26 +4,26 @@ dynamic = ["version"]
 description = "Collaborative learning for healthcare"
 
 maintainers = [
-	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
+	{name = "Yannick Bouillard", email="yannick.bouillard@inria.fr"},
 	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
-	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
-	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
+	{name = "Francesco Cremonesi", email="francesco.cremonesi@inria.fr"},
+	{name = "Marco Lorenzi", email="marco.lorenzi@inria.fr"},
 	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
 ]
 
 authors = [
-	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
+	{name = "Yannick Bouillard", email="yannick.bouillard@inria.fr"},
    	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
-	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
-	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
-	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
-	{name = "Paul Andrey <paul.andrey@inria.fr>"},
-	{name = "Lucie Chambon <lucie.chambon@inria.fr>"},
-	{name = "Erwan Demairy <erwan.demairy@inria.fr>"},
-	{name = "Thibaud Kloczko <thibaud.kloczko@inria.fr>"},
-	{name = "Côme Le Breton <come.le-breton@inria.fr>"},
-	{name = "Jean-Luc Szpyrka <jean-luc@szpyrka.fr>"},
-	{name = "Riccardo Taiello <riccardo.taiello@inria.fr>"},
+	{name = "Francesco Cremonesi", email="francesco.cremonesi@inria.fr"},
+	{name = "Marco Lorenzi", email="marco.lorenzi@inria.fr"},
+	{name = "Marc Vesin", email="marc.vesin@inria.fr"},
+	{name = "Paul Andrey", email="paul.andrey@inria.fr"},
+	{name = "Lucie Chambon", email="lucie.chambon@inria.fr"},
+	{name = "Erwan Demairy", email="erwan.demairy@inria.fr"},
+	{name = "Thibaud Kloczko", email="thibaud.kloczko@inria.fr"},
+	{name = "Côme Le Breton", email="come.le-breton@inria.fr"},
+	{name = "Jean-Luc Szpyrka", email="jean-luc@szpyrka.fr"},
+	{name = "Riccardo Taiello", email="riccardo.taiello@inria.fr"},
 	{name = "Maya Assal"},
 	{name = "Samy-Safwan Ayed"},
 	{name = "Irene Balelli"},
@@ -110,6 +110,27 @@ Repository = "https://github.com/fedbiomed/fedbiomed"
 [tool.hatch.version]
 path = "fedbiomed/__init__.py"
 
+
+[tool.pdm]
+distribution = true
+
+[dependency-groups]
+test = ["pytest", "pytest-cov", "tox"]
+dev = [
+	"ruff",
+	"pre-commit>=4.2.0",
+]
+docs = [
+	"mkdocs-material==9.5.18",
+	"mkdocs-jupyter==0.24.1",
+	"mkdocs-minify-plugin==0.6.4",
+	"mkdocstrings-python==1.10.8",
+	"mkdocs-redirects==1.2.2",
+]
+
+[tool.pdm.scripts]
+post_install = "pre-commit install"
+
 [project.optional-dependencies]  # This is optional dependencies
 node = [
 ]
@@ -163,20 +184,6 @@ skip-excluded-dirs = true
 "envs/common" = "share/fedbiomed/envs/common"
 "notebooks" = "share/fedbiomed/notebooks"
 
-[tool.pdm]
-distribution = true
-
-[tool.pdm.dev-dependencies]
-test = ["pytest", "pytest-cov", "tox"]
-lint = ["flake8", "black"]
-docs = [
-	"mkdocs-material==9.5.18",
-	"mkdocs-jupyter==0.24.1",
-	"mkdocs-minify-plugin==0.6.4",
-	"mkdocstrings-python==1.10.8",
-	"mkdocs-redirects==1.2.2",
-]
-
 [build-system]
 requires = ["hatchling", "hatch-build-scripts"]
 build-backend = "hatchling.build"
@@ -190,3 +197,65 @@ testpaths = ["tests"]
 addopts = [
     "--import-mode=importlib",
 ]
+
+[tool.ruff]
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+	"envs",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+	"*.ipynb",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+# Assume Python 3.10
+target-version = "py310"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Automatically detect the appropriate line ending.
+line-ending = "auto"
+
+docstring-code-format = false
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint]
+# 1. Enable flake8-bugbear (`B`) rules, in addition to the defaults.
+# https://github.com/PyCQA/flake8-bugbear
+# https://www.flake8rules.com/
+select = ["E4", "E7", "E9", "F", "B"]
+
+# 2. Avoid enforcing line-length violations (`E501`)
+ignore = []
+
+# 3. Avoid trying to fix flake8-bugbear (`B`) violations.
+unfixable = ["B"]

@@ -13,7 +13,7 @@ import shutil
 import pytest
 import psutil
 
-from helpers import  (
+from helpers import (
     kill_process,
     CONFIG_PREFIX,
 )
@@ -21,7 +21,7 @@ from helpers import  (
 _PORT = 50151
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def port():
     """Increases and return port for researcher server"""
     global _PORT
@@ -29,7 +29,8 @@ def port():
     _PORT += 1
     return str(_PORT)
 
-@pytest.fixture(scope='module', autouse=True)
+
+@pytest.fixture(scope="module", autouse=True)
 def data():
     home_dir = os.path.expanduser("~")
     tmp_dir = os.path.join(home_dir, "_tmp")
@@ -37,7 +38,8 @@ def data():
     print(f"##### FBM: Setting temporary test directory to {tmp_dir}")
     pytest.temporary_test_directory = tempfile.TemporaryDirectory(dir=tmp_dir)
 
-@pytest.fixture(scope='module', autouse=True)
+
+@pytest.fixture(scope="module", autouse=True)
 def post_session(request, data):
     """This method makes sure that the environment is clean to execute another test"""
 
@@ -57,7 +59,9 @@ def post_session(request, data):
     tmp_dir = os.path.join(os.path.expanduser("~"), "_tmp")
     shutil.rmtree(tmp_dir, ignore_errors=True)
     print("\n###### Cleaning temprorary directory: finished  -----\n\n")
-    print(f'#### Module tests have finished {request.node}:{request.node.name} --------')
+    print(
+        f"#### Module tests have finished {request.node}:{request.node.name} --------"
+    )
 
 
 def kill_e2e_test_processes():
@@ -70,7 +74,6 @@ def kill_e2e_test_processes():
             print(f"\n #####: FBM: PSUTIL ERROR: {e}")
             continue
         else:
-            if any([re.search(fr'^{CONFIG_PREFIX}.*\.ini$', cmd) for cmd in cmdline]):
+            if any([re.search(rf"^{CONFIG_PREFIX}.*\.ini$", cmd) for cmd in cmdline]):
                 print(f'#####: FBM: Found a processes not killed: "{cmdline}"')
                 kill_process(process)
-
