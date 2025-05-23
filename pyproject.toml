@@ -12,12 +12,12 @@ maintainers = [
 ]
 
 authors = [
-	{name = "Yannick Bouillard", email="yannick.bouillard@inria.fr>"},
+	{name = "Yannick Bouillard", email="yannick.bouillard@inria.fr"},
    	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
 	{name = "Francesco Cremonesi", email="francesco.cremonesi@inria.fr"},
 	{name = "Marco Lorenzi", email="marco.lorenzi@inria.fr"},
 	{name = "Marc Vesin", email="marc.vesin@inria.fr"},
-	{name = "Paul Andrey", email="paul.andrey@inria.fr>"},
+	{name = "Paul Andrey", email="paul.andrey@inria.fr"},
 	{name = "Lucie Chambon", email="lucie.chambon@inria.fr"},
 	{name = "Erwan Demairy", email="erwan.demairy@inria.fr"},
 	{name = "Thibaud Kloczko", email="thibaud.kloczko@inria.fr"},
@@ -110,6 +110,29 @@ Repository = "https://github.com/fedbiomed/fedbiomed"
 [tool.hatch.version]
 path = "fedbiomed/__init__.py"
 
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.dev-dependencies]
+test = ["pytest", "pytest-cov", "tox"]
+lint = [
+	"flake8",
+	"black",
+	"ruff",
+	"pre-commit>=4.2.0",
+]
+docs = [
+	"mkdocs-material==9.5.18",
+	"mkdocs-jupyter==0.24.1",
+	"mkdocs-minify-plugin==0.6.4",
+	"mkdocstrings-python==1.10.8",
+	"mkdocs-redirects==1.2.2",
+]
+
+[tool.pdm.scripts]
+post_install = "pre-commit install"
+
 [project.optional-dependencies]  # This is optional dependencies
 node = [
 ]
@@ -162,20 +185,6 @@ skip-excluded-dirs = true
 "docs/tutorials" = "share/fedbiomed/docs/tutorials"
 "envs/common" = "share/fedbiomed/envs/common"
 "notebooks" = "share/fedbiomed/notebooks"
-
-[tool.pdm]
-distribution = true
-
-[tool.pdm.dev-dependencies]
-test = ["pytest", "pytest-cov", "tox"]
-lint = ["flake8", "black", "ruff"]
-docs = [
-	"mkdocs-material==9.5.18",
-	"mkdocs-jupyter==0.24.1",
-	"mkdocs-minify-plugin==0.6.4",
-	"mkdocstrings-python==1.10.8",
-	"mkdocs-redirects==1.2.2",
-]
 
 [build-system]
 requires = ["hatchling", "hatch-build-scripts"]
