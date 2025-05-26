@@ -45,6 +45,9 @@ TExperiment = TypeVar("TExperiment", bound="Experiment")  # only for typing
 T = TypeVar("T")
 
 
+print("Hello world")
+
+
 class Experiment(TrainingPlanWorkflow):
     """
     A Federated Learning Experiment based on a Training Plan.

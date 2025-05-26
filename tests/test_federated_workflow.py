@@ -385,15 +385,11 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         return_value=("/bkpt-path", "bkpt-folder"),
     )
     @patch(
-        "fedbiomed.researcher.federated_workflows._federated_workflow.JoyeLibertSecureAggregation.load_state_breakpoint"
-    )
-    @patch(
         "fedbiomed.researcher.federated_workflows._federated_workflow.NodeStateAgent.load_state_breakpoint"
     )
     def test_federated_workflow_05_load_breakpoint(
         self,
         mock_node_state_load,
-        mock_secagg_load,
         mock_bkpt_file,
         mock_json_load,
         mock_open,
@@ -403,7 +399,6 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             exp, _ = FederatedWorkflow.load_breakpoint(breakpoint_folder_path=15)
 
         # Normal test case
-        mock_secagg_load.return_value = MagicMock(spec=SecureAggregation)
         mock_node_state_load.return_value = MagicMock(
             spec=fedbiomed.researcher.node_state_agent.NodeStateAgent
         )
