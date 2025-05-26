@@ -38,7 +38,7 @@ class CSVDataset:
             else:
                 return self._csv_reader._transform_framework(self._inputs)
         data = self._csv_reader.read(self._root)
-        return self._csv_reader._transform_framework(data)
+        return {'data': self._csv_reader._transform_framework(data)}
 
 
     def to_torch(self):

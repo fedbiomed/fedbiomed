@@ -36,13 +36,14 @@ class FrameworkNativeDataset:
         pass
 
 class PytorchNativeDataset(FrameworkNativeDataset):
-    def __init__(self, dataset):
+    def __init__(self, dataset: Dataset):
         self._dataset = dataset
         self._collate_fn = lambda x:x
         self._dataloader = DataLoader
 
     def __getitem__(self, idx):
-        return self._dataset[idx]
+        input_data, targets = self._dataset[idx]
+        return {'data': input_data, 'target': targets}
     def __len__(self):
         return len(self._dataset)
     def set_dataloader(self, inputs, target=None, kwargs={}):
@@ -67,7 +68,7 @@ class PytorchNativeDataset(FrameworkNativeDataset):
             def forward(self, img, label=None):
                 # Do some transformations
                 
-                return img.numpy() if hasattr(img, 'numpy') else np.array(img), label
+                return img.numpy() if hasattr(img, 'numpy') else np.array(img)
         
         
         if self._dataset.transforms is not None:
@@ -87,5 +88,3 @@ class PytorchNativeDataset(FrameworkNativeDataset):
 
         # return TorchDataManager(self._dataset, **loader_arguments)
 
-class ImageDataLoader:
-    pass

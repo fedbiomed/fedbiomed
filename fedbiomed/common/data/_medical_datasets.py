@@ -399,7 +399,7 @@ class MedicalFolderDataset(MedicalFolderBase):
                     raise FedbiomedDatasetError(
                         f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in "
                         f"sample number {item} from dataset, error message is {e}.")
-
+        
         # Apply transforms to demographics elements
         if self._demographics_transform is not None:
             try:
@@ -425,7 +425,9 @@ class MedicalFolderDataset(MedicalFolderBase):
                         f"{ErrorNumbers.FB613.value}: Cannot apply target transformation to modality `{modality}`"
                         f"in sample number {item} from dataset, error message is {e}.")
 
-        return (data, demographics), targets
+        # appending demogrphics
+        data.update({'demographics': demographics})
+        return data, targets
 
     def __len__(self):
         """ Length method to get number of samples
