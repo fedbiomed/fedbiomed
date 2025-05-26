@@ -437,7 +437,7 @@ Use notebooks from outside the researcher container :
 Use tensorboard from outside the researcher container :
 * connect to `http://localhost:8888` from your browser and use embedded tensorboard in your notebook as in the `./notebooks/general-tensorboard.ipynb` example :
 ```python
-tensorboard_dir = exp.tensorboard_results_path()
+tensorboard_dir = exp.tensorboard_results_path
 ```
 ```python
 %load_ext tensorboard
