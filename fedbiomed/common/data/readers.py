@@ -80,7 +80,7 @@ class CSVReader(GenericReader):
         # FIXME: example of convertion where we need to use numpy array before 
         # converting in pytorch
 
-        self._transform_framework = lambda x: torch.as_tensor(x.values)
+        self._transform_framework = lambda x: torch.as_tensor(x.values) if hasattr(x, 'values') else torch.Tensor(x)
 
     def to_sklearn(self):
 
