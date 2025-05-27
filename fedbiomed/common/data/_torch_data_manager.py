@@ -12,13 +12,14 @@ import torch
 from torch.utils.data import DataLoader, Dataset, Subset, random_split
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.data._generic_datamanager import GenericDataManager
 from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
 from fedbiomed.common.logger import logger
 
 from ._sklearn_data_manager import SkLearnDataManager
 
 
-class TorchDataManager(object):
+class TorchDataManager(GenericDataManager):
     """Wrapper for PyTorch Dataset to manage loading operations for validation and train."""
 
     def __init__(self, dataset: Dataset | Any, **kwargs: dict):

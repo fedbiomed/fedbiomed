@@ -6,14 +6,15 @@ from fedbiomed.common.data.readers import CSVReader
 
 
 
-
+# training plan
 path = 'dataset/CSV/pseudo_adni_mod.csv'
-
-
 
 #csv = pd.read_csv(path, delimiter=';')
 csv = CSVDataset(path)
 dm = DataManager(csv)
+
+
+## end of training plan
 
 #dm.load(tp_type=TrainingPlans.TorchTrainingPlan)
 dm.load(tp_type=TrainingPlans.SkLearnTrainingPlan)

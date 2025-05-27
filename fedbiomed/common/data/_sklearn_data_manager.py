@@ -18,6 +18,7 @@ from sklearn.model_selection import train_test_split
 from fedbiomed.common.constants import ErrorNumbers
 
 from fedbiomed.common.data._framework_native_dataset import FrameworkNativeDataset
+from fedbiomed.common.data._generic_datamanager import GenericDataManager
 from fedbiomed.common.data._generic_dataset import GenericDataset
 from fedbiomed.common.data._medical_datasets import MedicalFolderDataset
 from fedbiomed.common.data._tabular_dataset import CSVDataset
@@ -244,7 +245,8 @@ class FrameworkNativeDataLoader:
 
     def split(self, test_ratio):
         pass
-class SkLearnDataManager(object):
+
+class SkLearnDataManager(GenericDataManager):
     """Wrapper for `pd.DataFrame`, `pd.Series` and `np.ndarray` datasets.
 
     Manages datasets for scikit-learn based model training. Responsible for managing inputs, and target
