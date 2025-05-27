@@ -316,7 +316,6 @@ class FederatedWorkflow(ABC):
 
         return os.path.join(config.vars['EXPERIMENTS_DIR'], self._experimentation_folder)
 
-    @exp_exceptions
     @property
     def tensorboard_results_path(self) -> str:
         """Retrieves the file path where tensorboard related files are saved for the experiment.
