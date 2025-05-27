@@ -33,6 +33,7 @@ preprocess = transforms.Compose([
 train_data = datasets.ImageFolder(path, transform = preprocess)  # object from pytorch
 data_manager = DataManager(dataset=ds)
 data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+data_manager.split(test_ratio=.0, test_batch_size=None)
 val = next(iter(data_manager.dataset))
 print(val)
 

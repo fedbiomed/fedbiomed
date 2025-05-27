@@ -15,7 +15,8 @@ path = 'dataset/CSV/pseudo_adni_mod.csv'
 csv = CSVDataset(path)
 dm = DataManager(csv)
 
-dm.load(tp_type=TrainingPlans.TorchTrainingPlan)
-#dm.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+#dm.load(tp_type=TrainingPlans.TorchTrainingPlan)
+dm.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+dm.split(test_ratio=0., test_batch_size=None)
 val = next(iter(dm.dataset))
 print(val)

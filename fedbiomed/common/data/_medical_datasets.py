@@ -19,6 +19,7 @@ from functools import cache
 
 
 
+from fedbiomed.common.data._generic_dataset import GenericDataset
 from fedbiomed.common.data.readers import CSVReader, ImageReader
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
@@ -30,7 +31,7 @@ class MedicalFolderLoadingBlockTypes(DataLoadingBlockTypes, Enum):
 
 
 
-class MedicalFolderBase(DataLoadingPlanMixin):
+class MedicalFolderBase(DataLoadingPlanMixin, GenericDataset):
     """Controller class for Medical Folder dataset.
 
     Contains methods to validate the MedicalFolder folder hierarchy and extract folder-base metadata

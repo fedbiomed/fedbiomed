@@ -13,12 +13,13 @@ import pandas as pd
 from torch import from_numpy, Tensor
 from torch.utils.data import Dataset
 
+from fedbiomed.common.data._generic_dataset import GenericDataset
 from fedbiomed.common.data.readers import CSVReader
 from fedbiomed.common.exceptions import FedbiomedDatasetError
 from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
 
 
-class CSVDataset:
+class CSVDataset(GenericDataset):
     def __init__(self, root:str = None, inputs=None, targets=None):
         self._csv_reader = CSVReader()
         self._root = root

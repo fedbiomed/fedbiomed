@@ -3,6 +3,7 @@
 #from fedbiomed.common.data._torch_data_manager import TorchDataManager
 #from fedbiomed.common.data.converter_utils import from_torch_dataset_to_generic
 
+import copy
 from typing import Callable
 import numpy as np
 import torch
@@ -10,6 +11,8 @@ from torch.utils.data import DataLoader, Dataset, Subset, random_split
 
 from fedbiomed.common.constants import TrainingPlans
 from torchvision import  transforms
+
+from fedbiomed.common.data._generic_dataset import GenericDataset
 
 class NativeDataManager:
 
@@ -19,7 +22,7 @@ class NativeDataManager:
         self._targets = targets
 
 
-class FrameworkNativeDataset:
+class FrameworkNativeDataset(GenericDataset):
     """ImageFolder wrapper"""
     def __init__(self, dataset):
         self._dataset = dataset
@@ -38,7 +41,7 @@ class FrameworkNativeDataset:
 class PytorchNativeDataset(FrameworkNativeDataset):
     def __init__(self, dataset: Dataset):
         self._dataset = dataset
-        self._collate_fn = lambda x:x
+        self._collate_fn = lambda x:x[0] if isinstance(x, list) else x
         self._dataloader = DataLoader
 
     def __getitem__(self, idx):
@@ -51,7 +54,7 @@ class PytorchNativeDataset(FrameworkNativeDataset):
             kwargs['collate_fn'] = self._collate_fn
             # avoid calling  default collate_fn function that will convert everyting to Pytroch
 
-        return self._dataloader(inputs, target, **kwargs)#**kwargs)
+        return self._dataloader(inputs,  **kwargs), self._dataloader#**kwargs)
     # @classmethod
     # def load(clf, dataset, tp_type):
     #     dataset = clf(dataset)
@@ -67,7 +70,7 @@ class PytorchNativeDataset(FrameworkNativeDataset):
         class ToNumpy(torch.nn.Module):
             def forward(self, img, label=None):
                 # Do some transformations
-                
+
                 return img.numpy() if hasattr(img, 'numpy') else np.array(img)
         
         

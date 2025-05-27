@@ -18,6 +18,7 @@ from sklearn.model_selection import train_test_split
 from fedbiomed.common.constants import ErrorNumbers
 
 from fedbiomed.common.data._framework_native_dataset import FrameworkNativeDataset
+from fedbiomed.common.data._generic_dataset import GenericDataset
 from fedbiomed.common.data._medical_datasets import MedicalFolderDataset
 from fedbiomed.common.data._tabular_dataset import CSVDataset
 from fedbiomed.common.exceptions import (
@@ -65,7 +66,7 @@ class NPDataLoader:
             drop_last: whether to drop the last batch in case it does not fill the whole batch size
         """
 
-        if not isinstance(dataset, (np.ndarray, CSVDataset, MedicalFolderDataset)) or (target is not None and isinstance(target, np.ndarray)):
+        if not isinstance(dataset, (np.ndarray, CSVDataset, MedicalFolderDataset)) or (target is not None and not isinstance(target, np.ndarray)):
             msg = (
                 f"{ErrorNumbers.FB609.value}. Wrong input type for `dataset` or `target` in NPDataLoader. "
                 f"Expected type np.ndarray for both, instead got {type(dataset)} and"
@@ -281,7 +282,7 @@ class SkLearnDataManager(object):
         # Convert pd.DataFrame or pd.Series to np.ndarray for `inputs`
 
         self._data_loader = NPDataLoader
-        if isinstance(inputs, (MedicalFolderDataset, CSVDataset, FrameworkNativeDataset)):  # FIXME: change that with GenericDataset
+        if isinstance(inputs, GenericDataset):  # FIXME: change that with GenericDataset
             inputs.to_sklearn()
             self._inputs = inputs
         elif isinstance(inputs, (pd.DataFrame, pd.Series)):
@@ -313,7 +314,7 @@ class SkLearnDataManager(object):
             )
         # FIXME: find a better way to deal with this case
         if hasattr(self._inputs, "set_dataloader"):
-            self._dataset = self._inputs.set_dataloader(self._inputs, self._target, kwargs)
+            self._dataset, self._data_loader = self._inputs.set_dataloader(self._inputs,  **kwargs)
         else:
             self._dataset = self._data_loader(self._inputs, self._target)
         # Additional loader arguments
@@ -411,16 +412,29 @@ class SkLearnDataManager(object):
                 or is_shuffled_testing_dataset
                 or _is_loading_failed
             ):
-                (x_train, x_test, y_train, y_test, idx_train, idx_test) = (
-                    train_test_split(
-                        self._inputs,
-                        self._target,
-                        np.arange(len(self._inputs)),
-                        test_size=test_ratio,
+                
+                if self._target is not None:
+                    (x_train, x_test, y_train, y_test, idx_train, idx_test) = (
+                        train_test_split(
+                            self._inputs,
+                            self._target,
+                            np.arange(len(self._inputs)),
+                            test_size=test_ratio,
+                        )
                     )
-                )
-                self._subset_test = (x_test, y_test)
-                self._subset_train = (x_train, y_train)
+                    self._subset_test = (x_test, y_test)
+                    self._subset_train = (x_train, y_train)
+                else:
+                    (x_train, x_test, idx_train, idx_test) = (
+                        train_test_split(
+                            self._inputs,
+                            #np.arange(len(self._inputs)),
+                            test_size=test_ratio,
+                        )
+                    )
+                self._subset_test = (x_test, None)
+                self._subset_train = (x_train, None)
+                
                 self.training_index = idx_train.tolist()
                 self.testing_index = idx_test.tolist()
 
@@ -430,6 +444,7 @@ class SkLearnDataManager(object):
         self.test_ratio = test_ratio  # float(np.clip(0, 1, test_ratio))
 
         # self._loader_arguments['random_seed'] = self._rng
+
         return self._subset_loader(
             self._subset_train, **self._loader_arguments
         ), self._subset_loader(self._subset_test, batch_size=test_batch_size)
@@ -478,8 +493,9 @@ class SkLearnDataManager(object):
                 f"Hence, dataset will be reshuffled. More details: {e}"
             ) from e
 
-    @staticmethod
+
     def _subset_loader(
+            self,
         subset: Tuple[np.ndarray, np.ndarray], **loader_arguments
     ) -> Optional[NPDataLoader]:
         """Loads subset partition for SkLearn based training plans.
@@ -490,24 +506,28 @@ class SkLearnDataManager(object):
         Returns:
             A NPDataLoader encapsulating the subset
         """
+
         if (
             not isinstance(subset, Tuple)
             or len(subset) != 2
-            or not isinstance(subset[0], np.ndarray)
-            or not isinstance(subset[1], np.ndarray)
+            or not isinstance(subset[0], (np.ndarray, GenericDataset,))
+            or not isinstance(subset[1], (np.ndarray, type(None),))
         ):
             raise FedbiomedTypeError(
                 f"{ErrorNumbers.FB609.value}: The argument `subset` should a Tuple of size 2 "
                 f"that contains inputs/data and target as np.ndarray."
             )
         try:
-            loader = NPDataLoader(
-                dataset=subset[0], target=subset[1], **loader_arguments
-            )
+            if hasattr(self._inputs, "set_dataloader"):
+                # NativeFrameworkDataset specific case
+                loader,_ = self._inputs.set_dataloader(subset[0], subset[1], loader_arguments)
+                # FIXME: use `**kwargs` instead
+            else:
+                loader = self._data_loader(subset[0], subset[1], **loader_arguments)
         except TypeError as e:
-            valid_loader_arguments = get_method_spec(NPDataLoader)
+            valid_loader_arguments = get_method_spec(self._data_loader)
             valid_loader_arguments.pop("dataset")
-            valid_loader_arguments.pop("target")
+            valid_loader_arguments.pop("target") if "target" in valid_loader_arguments else ""
             raise FedbiomedTypeError(
                 f"{ErrorNumbers.FB609.value}. Wrong keyword loader arguments for NPDataLoader. "
                 f"Full error message was: {e} Valid arguments are: "
