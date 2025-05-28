@@ -47,43 +47,6 @@ class TestMonitor(unittest.TestCase):
         self.patch_add_scalar.stop()
         self.temp_dir.cleanup()
 
-    @patch('fedbiomed.researcher.monitor.Monitor._remove_logs')
-    def test_monitor_01_initialization(self,
-                                       patch_remove_logs):
-
-        tensorboard_folder = self.monitor._log_dir
-        self.assertTrue(os.path.isdir(tensorboard_folder))
-
-        # create file inside
-        test_file = os.path.join(tensorboard_folder, "test_file")
-        create_file(test_file)
-
-        # 2nd call to monitor
-        _ = Monitor(self.temp_dir.name)
-        patch_remove_logs.assert_called_once()
-
-    def test_monitor_02_remove_logs_as_file(self):
-
-        """ Test removing log files from directory
-        using _remove_logs method
-        """
-
-        test_file = os.path.join(self.temp_dir.name, "test_file")
-        create_file(test_file)
-        self.monitor._remove_logs()
-        self.assertFalse(os.path.isfile(test_file), "Tensorboard log file has not been removed properly")
-
-    def test_monitor_03_remove_logs_if_directory(self):
-
-        test_dir = os.path.join(self.temp_dir.name, 'test')
-        os.mkdir(test_dir)
-        test_file = os.path.join(self.temp_dir.name, 'test', "test_file")
-        create_file(test_file)
-
-        self.monitor._remove_logs()
-        self.assertFalse(os.path.isfile(test_file), "Tensorboard log file has not been removed properly")
-        self.assertFalse(os.path.isdir(test_dir), "Tensorboard log folder has not been removed properly")
-
     def test_monitor_05_summary_writer(self):
         """ Test writing loss value at the first step 0 iteration """
 

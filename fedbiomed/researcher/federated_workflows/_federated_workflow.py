@@ -18,7 +18,7 @@ import tabulate
 from pathvalidate import sanitize_filename
 
 from fedbiomed.common.constants import ErrorNumbers, EXPERIMENT_PREFIX, __breakpoints_version__, \
-    SecureAggregationSchemes
+    SecureAggregationSchemes, TENSORBOARD_FOLDER_NAME
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError, FedbiomedTypeError, FedbiomedValueError, \
     FedbiomedSecureAggregationError
@@ -316,6 +316,16 @@ class FederatedWorkflow(ABC):
 
         return os.path.join(config.vars['EXPERIMENTS_DIR'], self._experimentation_folder)
 
+    @property
+    def tensorboard_results_path(self) -> str:
+        """Retrieves the file path where tensorboard related files are saved for the experiment.
+
+        Returns:
+            Directory where experiment files related to tensorboard are saved
+        """
+
+        return os.path.join(self.experimentation_path(), TENSORBOARD_FOLDER_NAME)
+    
     @property
     def id(self):
         """Retrieves the unique experiment identifier."""

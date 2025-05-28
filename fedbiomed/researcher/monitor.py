@@ -224,11 +224,6 @@ class Monitor:
         self._round_state = 0
         self._tensorboard = False
 
-        if os.listdir(self._log_dir):
-            logger.info('Removing tensorboard logs from previous experiment')
-            # Clear logs' directory from the files from other experiments.
-            self._remove_logs()
-
     def set_round(self, round_: int) -> int:
         """ Setts round number that metric results will be received for.
 
@@ -286,17 +281,6 @@ class Monitor:
         # Close each open SummaryWriter
         for node in self._event_writers:
             self._event_writers[node].close()
-
-    def _remove_logs(self):
-        """ Private method for removing logs files from tensorboard logs dir. """
-
-        for file in os.listdir(self._log_dir):
-            if not file.startswith('.'):  # do not want to remove dotfiles
-                rf = os.path.join(self._log_dir, file)
-                if os.path.isdir(rf):
-                    shutil.rmtree(rf)
-                elif os.path.isfile(rf):
-                    os.remove(rf)
 
     def _log_metric_result(self, message: Dict, cum_iter: int = 0):
         """ Logs metric/scalar result that comes from nodes, and store them into tensorboard (through summary writer)
