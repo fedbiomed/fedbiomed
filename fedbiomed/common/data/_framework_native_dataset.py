@@ -14,12 +14,12 @@ from torchvision import  transforms
 
 from fedbiomed.common.data._generic_dataset import GenericDataset
 
-class NativeDataManager:
+# class NativeDataManager:
 
-    def __init__(self, dataset, targets=None, **kwargs):
+#     def __init__(self, dataset, targets=None, **kwargs):
         
-        self._dataset = dataset
-        self._targets = targets
+#         self._dataset = dataset
+#         self._targets = targets
 
 
 class FrameworkNativeDataset(GenericDataset):
@@ -36,6 +36,9 @@ class FrameworkNativeDataset(GenericDataset):
 
 
     def to_sklearn(self):
+        pass
+
+    def set_dataloader(self, inputs, target=None, kwargs={}):
         pass
 
 class PytorchNativeDataset(FrameworkNativeDataset):

@@ -15,7 +15,9 @@ class GenericReader:
     @abstractmethod
     def read(self, path):
         """"""
-
+    @abstractmethod
+    def to_sklearn(self):
+        """"""
 
 
 class ImageReader(GenericReader):

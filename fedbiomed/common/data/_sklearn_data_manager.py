@@ -430,10 +430,11 @@ class SkLearnDataManager(GenericDataManager):
                     (x_train, x_test, idx_train, idx_test) = (
                         train_test_split(
                             self._inputs,
-                            #np.arange(len(self._inputs)),
+                            np.arange(len(self._inputs)),
                             test_size=test_ratio,
                         )
                     )
+                    import pdb; pdb.set_trace()
                 self._subset_test = (x_test, None)
                 self._subset_train = (x_train, None)
                 
@@ -515,6 +516,7 @@ class SkLearnDataManager(GenericDataManager):
             or not isinstance(subset[0], (np.ndarray, GenericDataset,))
             or not isinstance(subset[1], (np.ndarray, type(None),))
         ):
+            import pdb; pdb.set_trace()
             raise FedbiomedTypeError(
                 f"{ErrorNumbers.FB609.value}: The argument `subset` should a Tuple of size 2 "
                 f"that contains inputs/data and target as np.ndarray."

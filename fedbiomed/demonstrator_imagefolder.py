@@ -11,7 +11,7 @@ from fedbiomed.common.data._framework_native_dataset import FrameworkNativeDatas
 
 # POC for MedNIST dataset: 
 
-## 1. with tramsforms defined
+## 1. with tramsforms defined for pytorch
 ### ---- defined in the training plan
 path = 'dataset/MedNIST'
 preprocess = transforms.Compose([
@@ -32,7 +32,7 @@ val = next(iter(data_manager.dataset))
 print(val)
 
 
-## 2. without transform defined
+## 2. with transform defined for sklearn
 ### ---- defined in the training plan
 preprocess = transforms.Compose([
                 transforms.Resize((224,224)),
@@ -48,6 +48,7 @@ print(val)
 
 # without transforms
 
+## start of training plan ----------------
 path = 'dataset/MedNIST'
 
 
@@ -57,7 +58,7 @@ train_data = datasets.ImageFolder(path,)  # object from pytorch
 ds = PytorchNativeDataset(train_data)
 data_manager = DataManager(dataset=ds)
 
-
+## end of trainingplan ---------------------
 data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
 val = next(iter(data_manager.dataset))
 print(val)
