@@ -11,13 +11,15 @@ class CustomPytorchDataset(Dataset):
 
 
     def __getitem__(self, idx):
-        return {'data': self._data[idx], 'target': self._target[idx]}
+        return {'data': self._data[idx]}, {'target': self._target[idx]}
     
     def __len__(self):
         return len(self._target)
     
 # FIXME: should the user return a dict in the `__getitem__` method?
 # or should we do it automatically in `DataManager`?
+
+# FIXME 2: should we mae it compatible with sklearn?
 
 dataset = CustomPytorchDataset()
 

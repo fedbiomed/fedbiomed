@@ -28,8 +28,8 @@ data_manager = DataManager(dataset)
 #### ------------------------------ end of training plan
 
 
-data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
-#data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+#data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
 train, test = data_manager.split(test_ratio=0., test_batch_size=None)
 val = next(iter(train.dataset))
 print(val)

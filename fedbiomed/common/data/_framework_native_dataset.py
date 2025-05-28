@@ -49,7 +49,7 @@ class PytorchNativeDataset(FrameworkNativeDataset):
 
     def __getitem__(self, idx):
         input_data, targets = self._dataset[idx]
-        return {'data': input_data, 'target': targets}
+        return {'data': input_data}, {'target': targets}
     def __len__(self):
         return len(self._dataset)
     def set_dataloader(self, inputs, target=None, kwargs={}):
