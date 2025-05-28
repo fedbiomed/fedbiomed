@@ -415,32 +415,45 @@ class SkLearnDataManager(GenericDataManager):
                 or _is_loading_failed
             ):
                 
-                if self._target is not None:
-                    (x_train, x_test, y_train, y_test, idx_train, idx_test) = (
-                        train_test_split(
-                            self._inputs,
-                            self._target,
-                            np.arange(len(self._inputs)),
-                            test_size=test_ratio,
-                        )
+                # if self._target is not None:
+                #     (x_train, x_test, y_train, y_test, idx_train, idx_test) = (
+                #         train_test_split(
+                #             self._inputs,
+                #             self._target,
+                #             np.arange(len(self._inputs)),
+                #             test_size=test_ratio,
+                #         )
+                #     )
+                    # self._subset_test = (x_test, y_test)
+                    # self._subset_train = (x_train, y_train)
+                # else:
+                    
+                (x_train, x_test, idx_train, idx_test) = (
+                    train_test_split(
+                        self._inputs,
+                        np.arange(len(self._inputs)),
+                        test_size=test_ratio,
                     )
-                    self._subset_test = (x_test, y_test)
-                    self._subset_train = (x_train, y_train)
-                else:
-                    (x_train, x_test, idx_train, idx_test) = (
-                        train_test_split(
-                            self._inputs,
-                            np.arange(len(self._inputs)),
-                            test_size=test_ratio,
-                        )
-                    )
-                    import pdb; pdb.set_trace()
-                self._subset_test = (x_test, None)
-                self._subset_train = (x_train, None)
-                
+                )
+                    
+                # self._subset_test = (x_test, None)
+                # self._subset_train = (x_train, None)
+                # -> optimization : dont exploit x_train, x_test
+
                 self.training_index = idx_train.tolist()
                 self.testing_index = idx_test.tolist()
 
+                if isinstance(self._inputs, MedicalFolderDataset):
+                    # TODO: find a better way to call `set_index` when needed
+                    # this method is preferred in order to avoid loading the whole dataset
+                    self._subset_test = (self._inputs.builder(self._inputs, self.testing_index), None)
+                    self._subset_train = (self._inputs.builder(self._inputs, self.training_index), None)
+                else:
+                    #deal with unsupervised learning
+                    self._subset_test = (self._inputs[self.testing_index],  self._target and self._target[self.testing_index])
+                    self._subset_train = (self._inputs[self.training_index], self._target and self._target[self.training_index])
+ 
+              
         if not test_batch_size:
             test_batch_size = len(self._subset_test)
 

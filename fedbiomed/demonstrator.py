@@ -30,7 +30,7 @@ data_manager = DataManager(dataset)
 
 #data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
 data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
-train, test = data_manager.split(test_ratio=0., test_batch_size=None)
+train, test = data_manager.split(test_ratio=0.1, test_batch_size=None)
 val = next(iter(train.dataset))
 print(val)
 print(len(val))

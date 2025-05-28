@@ -49,6 +49,8 @@ class CSVReader(GenericReader):
 
     @cache
     def _read(self,path, index_col, **kwargs):
+        # FIXME: sniffer is not a good idea for huge dataset.
+        # maybe we could use it only by checking the size of the dataset
         sniffer = csv.Sniffer()
         with open(path, 'r') as file:
             delimiter = sniffer.sniff(file.readline()).delimiter

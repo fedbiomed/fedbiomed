@@ -6,6 +6,7 @@
 Provides classes managing dataset for common cases of use in healthcare:
 - NIFTI: For NIFTI medical images
 """
+import operator
 from os import PathLike
 import os
 from pathlib import Path
@@ -358,6 +359,37 @@ class MedicalFolderDataset(MedicalFolderBase):
         self._tp_type = None
         self._transform_framework = lambda x:x
 
+        # split
+        self._index = range(len(self.subject_folders()))
+
+    def set_index(self, index: List[int]):
+        self._index = index
+    
+    def get_from_list(self, values):
+        """Extracts sub list of list through a list index"""
+        return operator.itemgetter(*self._index)(values)
+    @classmethod
+    def builder(cls, dataset: 'MedicalFolderDataset', index: List[int], test_batch_size=None):
+        # NOT SURE IT IS BEST WAY TO DO THAT
+        # Tensorflow has a split method, so could be convinient to keep things like that
+        # split_dataset = 
+        # return training, testing
+        _dataset = cls(dataset._root,
+                       dataset._data_modalities,
+                       dataset._transform,
+                       dataset._target_modalities,
+                       dataset._target_transform,
+                       dataset._demographics_transform,
+                       dataset._tabular_file,
+                       dataset._index_col)
+        
+        _dataset._csv_reader = dataset._csv_reader
+        _dataset._image_reader = dataset._image_reader
+        _dataset._transform_framework = dataset._transform_framework
+
+        _dataset.set_index(index)
+        return _dataset
+
     def get_nontransformed_item(self, item):
         # For the first item retrieve complete subject folders
         subjects = self.subject_folders()
@@ -366,7 +398,9 @@ class MedicalFolderDataset(MedicalFolderBase):
             # case where subjects is an empty list (subject folders have not been found)
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB613.value}: Cannot find complete subject folders with all the modalities")
+        
         # Get subject folder
+        subjects = self.get_from_list(subjects)
         subject_folder = subjects[item]
 
         # Load data modalities
@@ -629,7 +663,7 @@ class MedicalFolderDataset(MedicalFolderBase):
 
         return [self._root.joinpath(folder) for folder in complete_subject_folders]
 
-    def shape(self) -> dict:
+    def get_shape(self) -> dict:
         """Retrieves shape information for modalities and demographics csv"""
 
         # Get all modalities

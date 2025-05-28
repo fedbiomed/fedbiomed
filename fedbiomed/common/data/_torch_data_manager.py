@@ -61,14 +61,24 @@ class TorchDataManager(GenericDataManager):
         self.testing_index: List[int] = []
         self.test_ratio: Optional[float] = None
 
-
+    @staticmethod
+    def convert_output(x):
+        return x
+    @staticmethod
+    def convert_output_to_dict(x):
+        return {'data': x[0]}, {'target': x[1]}
+    
     def _create_dataset(self, dataset):
+        _first_entry = next(iter(dataset))
+        if not isinstance(_first_entry[0], dict):
+            TorchDataManager.convert_output = TorchDataManager.convert_output_to_dict
         class CustomDataset(Dataset):
             def __init__(self, dataset):
                 self._dataset = dataset
 
             def __getitem__(self, index):
-                return self._dataset[index]
+                
+                return TorchDataManager.convert_output(self._dataset[index])
             def __len__(self):
                 return len(self._dataset)
             
