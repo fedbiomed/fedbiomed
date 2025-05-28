@@ -81,7 +81,6 @@ class TrainingJob(Job):
     def _get_training_results(
         self,
         replies: Dict[str, TrainReply],
-        errors: Dict[str, ErrorMessage],
     ) -> Dict[str, Dict[str, Any]]:
         """"Waits for training replies, and updates `_training_replies` wrt replies from Node(s) participating
          in the training
@@ -91,28 +90,20 @@ class TrainingJob(Job):
             errors: errors collected (if any) while sending requests and rertieving replies
         """
         training_replies = {}
-        # Loops over errors
-        for node_id, error in errors.items():
-            logger.info(f"Error message received during training: {error.errnum}. {error.extra_msg}")
-            self._nodes.remove(node_id)
 
         # Loops over replies
         for node_id, reply in replies.items():
+            node_reply = reply.get_dict().copy()
 
             if not reply.success:
-                logger.error(f"Training failed for node {reply.node_id}: {reply.msg}")
                 self._nodes.remove(reply.node_id)  # remove the faulty node from the list
-                continue
+            else:
+                params_path = os.path.join(self._keep_files_dir, f"params_{str(node_id)[0:11]}_{uuid.uuid4()}.mpk")
+                Serializer.dump(reply.params, params_path)
+                node_reply['params_path'] = params_path
 
-            params_path = os.path.join(self._keep_files_dir, f"params_{str(node_id)[0:11]}_{uuid.uuid4()}.mpk")
-            Serializer.dump(reply.params, params_path)
-
-            training_replies.update({
-                node_id: {
-                    **reply.get_dict(),
-                    'params_path': params_path,
-                }
-            })
+            training_replies[node_id] = node_reply
+            
         return training_replies
 
     def _get_timing_results(self, replies: Dict[str, TrainReply], timer: Dict):
@@ -177,8 +168,12 @@ class TrainingJob(Job):
                 errors = federated_req.errors()
                 replies = federated_req.replies()
 
-        training_replies = self._get_training_results(replies=replies,
-                                                      errors=errors)
+        # Loop over errors
+        for node_id, error in errors.items():
+            logger.warning(f"Error message received during training: {error.errnum}. {error.extra_msg}")
+            self._nodes.remove(node_id)
+
+        training_replies = self._get_training_results(replies=replies)
 
         timing_results = self._get_timing_results(replies, timer)
         # `training_replies` can be empty if there wasnot any replies
