@@ -1,0 +1,20 @@
+[supervisord]
+nodaemon=true
+logfile=/home/$FEDBIOMED_USER/log/supervisord.log
+pidfile=/home/$FEDBIOMED_USER/supervisor.pid
+
+[supervisorctl]
+
+[inet_http_server]
+port = 127.0.0.1:9001
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[program:fedbiomed-node]
+command=/usr/local/bin/fedbiomed node -p /fbm-node start
+user=${CONTAINER_USER}
+autostart=true
+autorestart=true
+stdout_logfile=/home/$FEDBIOMED_USER/log/fedbiomed-node.log
+stderr_logfile=/home/$FEDBIOMED_USER/log/fedbiomed-node.err

@@ -108,11 +108,10 @@ class ComponentParser(CLIArgumentParser):
         # Researcher specific case ----------------------------------------------------
         # This is a special case since researcher import
         if args.component.lower() == "researcher":
-            if (
-                DEFAULT_RESEARCHER_NAME in component_path
-                and os.path.isdir(component_path)
-                and not docker_special_case(component_path)
-            ):
+           if DEFAULT_RESEARCHER_NAME in component_path and \
+                os.path.isdir(component_path) and \
+                not docker_special_case(component_path) and \
+                os.listdir(component_path):
                 if not args.exist_ok:
                     CommonCLI.error(
                         f"Default component is already existing. In the directory {component_path} "
