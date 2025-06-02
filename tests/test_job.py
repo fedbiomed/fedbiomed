@@ -327,8 +327,9 @@ class TestJob(unittest.TestCase):
                             expected_replies.update({
                                 node_id: {
                                     **r.get_dict(),
-                                    **({'params_path': os.path.join(job._keep_files_dir,
-                                    f"params_{node_id}_{mock_uuid.return_value}.mpk")} if success_status[node_id] else {})
+                                    **({'params_path': os.path.join(
+                                        job._keep_files_dir, f"params_{node_id}_{mock_uuid.return_value}.mpk"
+                                    )} if success_status[node_id] else {})
                                 }
                             })
                     self.assertDictEqual(training_replies, expected_replies)

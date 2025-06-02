@@ -89,18 +89,15 @@ class DefaultStrategy(Strategy):
                 - if a Node has not sent `sample_size` value in the TrainingReply, making it
                 impossible to compute aggregation weights.
         """
-        if not self._sampling_node_history.get(round_i):
-            raise FedbiomedStrategyError(ErrorNumbers.FB407.value)
-        
         missing_node_replies = []
         for node in self._sampling_node_history.get(round_i):
             if node not in training_replies:
                 missing_node_replies.append(node)
-                logger.error(ErrorNumbers.FB408.value + " (node = " + node + ")")
+                logger.error(ErrorNumbers.FB409.value + " (node = " + node + ")")
         if missing_node_replies:
             raise FedbiomedStrategyError(
                 ErrorNumbers.FB408.value
-                + f": {len(missing_node_replies)} missing nodes replies for round {round_i}"
+                + f": {len(missing_node_replies)} missing training replies for round {round_i}"
             )
 
         # check that all nodes that answer could successfully train
@@ -130,7 +127,9 @@ class DefaultStrategy(Strategy):
                 self._success_node_history[round_i].append(tr["node_id"])
             else:
                 all_success = False
-                logger.error(f"{ErrorNumbers.FB409.value} (node = {tr['node_id']} )")
+                msg = tr.get("msg") or ""
+                logger.error("Unsuccessful training reply{} (node = {} )".format(
+                    f": {msg}" if msg else "", tr["node_id"]))
 
         if not all_success:
             raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
