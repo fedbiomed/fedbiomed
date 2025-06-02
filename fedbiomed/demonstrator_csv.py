@@ -16,8 +16,8 @@ dm = DataManager(csv)
 
 ## end of training plan
 
-#dm.load(tp_type=TrainingPlans.TorchTrainingPlan)
-dm.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
-dm.split(test_ratio=0., test_batch_size=None)
+dm.load(tp_type=TrainingPlans.TorchTrainingPlan)
+#dm.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
+dm.split(test_ratio=0.1, test_batch_size=None)
 val = next(iter(dm.dataset))
 print(val)

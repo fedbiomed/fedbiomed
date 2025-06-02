@@ -17,7 +17,7 @@ from sklearn.model_selection import train_test_split
 
 from fedbiomed.common.constants import ErrorNumbers
 
-from fedbiomed.common.data._framework_native_dataset import FrameworkNativeDataset
+from fedbiomed.common.data._framework_native_dataset import FrameworkNativeDataset, PytorchNativeDataset
 from fedbiomed.common.data._generic_datamanager import GenericDataManager
 from fedbiomed.common.data._generic_dataset import GenericDataset
 from fedbiomed.common.data._medical_datasets import MedicalFolderDataset
@@ -427,27 +427,34 @@ class SkLearnDataManager(GenericDataManager):
                     # self._subset_test = (x_test, y_test)
                     # self._subset_train = (x_train, y_train)
                 # else:
-                    
-                (x_train, x_test, idx_train, idx_test) = (
-                    train_test_split(
-                        self._inputs,
-                        np.arange(len(self._inputs)),
-                        test_size=test_ratio,
+
+                if hasattr(self._inputs, 'splitter'):
+                    # dataset provides here a split method: 
+                    # for instance, it doesnot work with dataloader
+                    (x_train, x_test, idx_train, idx_test) = self._inputs.splitter(test_ratio)
+                    self.training_index = idx_train
+                    self.testing_index = idx_test
+                else:
+                    (x_train, x_test, idx_train, idx_test) = (
+                        train_test_split(
+                            self._inputs,
+                            np.arange(len(self._inputs)),
+                            test_size=test_ratio,
+                        )
                     )
-                )
-                    
-                # self._subset_test = (x_test, None)
-                # self._subset_train = (x_train, None)
-                # -> optimization : dont exploit x_train, x_test
 
-                self.training_index = idx_train.tolist()
-                self.testing_index = idx_test.tolist()
+                    # self._subset_test = (x_test, None)
+                    # self._subset_train = (x_train, None)
+                    # -> optimization : dont exploit x_train, x_test
 
-                if isinstance(self._inputs, MedicalFolderDataset):
+                    self.training_index = idx_train.tolist()
+                    self.testing_index = idx_test.tolist()
+
+                if isinstance(self._inputs, (PytorchNativeDataset, MedicalFolderDataset, CSVDataset)):
                     # TODO: find a better way to call `set_index` when needed
                     # this method is preferred in order to avoid loading the whole dataset
-                    self._subset_test = (self._inputs.builder(self._inputs, self.testing_index), None)
-                    self._subset_train = (self._inputs.builder(self._inputs, self.training_index), None)
+                    self._subset_test = (self._inputs.dataset_builder(self._inputs, x_test, self.testing_index), None)
+                    self._subset_train = (self._inputs.dataset_builder(self._inputs, x_train, self.training_index), None)
                 else:
                     #deal with unsupervised learning
                     self._subset_test = (self._inputs[self.testing_index],  self._target and self._target[self.testing_index])
@@ -529,7 +536,7 @@ class SkLearnDataManager(GenericDataManager):
             or not isinstance(subset[0], (np.ndarray, GenericDataset,))
             or not isinstance(subset[1], (np.ndarray, type(None),))
         ):
-            import pdb; pdb.set_trace()
+
             raise FedbiomedTypeError(
                 f"{ErrorNumbers.FB609.value}: The argument `subset` should a Tuple of size 2 "
                 f"that contains inputs/data and target as np.ndarray."

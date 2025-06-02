@@ -4,7 +4,8 @@
 #from fedbiomed.common.data.converter_utils import from_torch_dataset_to_generic
 
 import copy
-from typing import Callable
+import math
+from typing import Callable, List, Optional, Union
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset, Subset, random_split
@@ -50,14 +51,44 @@ class PytorchNativeDataset(FrameworkNativeDataset):
     def __getitem__(self, idx):
         input_data, targets = self._dataset[idx]
         return {'data': input_data}, {'target': targets}
+    
     def __len__(self):
         return len(self._dataset)
+    
+    @staticmethod
+    def rng(
+        rng: Optional[int] = None,
+        device: Optional[str | torch.device] = None
+    ) -> Union[None, torch.Generator]:
+        """Random number generator
+
+        Returns:
+            None if rng is None else a torch generator.
+        """
+
+        return None if rng is None else torch.Generator(device).manual_seed(rng)
+
+    
     def set_dataloader(self, inputs, target=None, kwargs={}):
         if 'collate_fn' not in kwargs:
             kwargs['collate_fn'] = self._collate_fn
             # avoid calling  default collate_fn function that will convert everyting to Pytroch
 
-        return self._dataloader(inputs,  **kwargs), self._dataloader#**kwargs)
+        return self._dataloader(inputs, **kwargs), self._dataloader#**kwargs)
+    
+    def splitter(self, test_ratio):
+        # copied%pasted from torch datamanager
+        samples = len(self._dataset)
+        test_samples = math.floor(samples * test_ratio)
+        train_samples = samples - test_samples
+        subset_train, subset_test = random_split(
+                self._dataset, [train_samples, test_samples], generator=self.rng()
+            )
+        return subset_train, subset_test, subset_train.indices, subset_test.indices
+
+    def dataset_builder(self, dataset: Subset, values, index: List[int], **kwargs):
+        #_dataset = self._dataloader(dataset, **kwargs)
+        return dataset
     # @classmethod
     # def load(clf, dataset, tp_type):
     #     dataset = clf(dataset)

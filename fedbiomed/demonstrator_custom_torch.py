@@ -11,7 +11,8 @@ class CustomPytorchDataset(Dataset):
 
 
     def __getitem__(self, idx):
-        return {'data': self._data[idx]}, {'target': self._target[idx]}
+        return self._data[idx], self._target[idx]
+        #return {'data': self._data[idx]}, {'target': self._target[idx]}
     
     def __len__(self):
         return len(self._target)

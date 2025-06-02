@@ -365,11 +365,12 @@ class MedicalFolderDataset(MedicalFolderBase):
     def set_index(self, index: List[int]):
         self._index = index
     
-    def get_from_list(self, values):
+    def get_from_list(self, values: List[int]) -> List[str]:
         """Extracts sub list of list through a list index"""
         return operator.itemgetter(*self._index)(values)
+
     @classmethod
-    def builder(cls, dataset: 'MedicalFolderDataset', index: List[int], test_batch_size=None):
+    def dataset_builder(cls, dataset: 'MedicalFolderDataset', values, index: List[int], test_batch_size=None):
         # NOT SURE IT IS BEST WAY TO DO THAT
         # Tensorflow has a split method, so could be convinient to keep things like that
         # split_dataset = 
