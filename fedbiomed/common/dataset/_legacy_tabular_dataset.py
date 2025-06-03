@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Torch tabulated data manager
+Torch legacy tabulated data manager
 """
 
 from typing import Union, Tuple
@@ -17,7 +17,7 @@ from fedbiomed.common.exceptions import FedbiomedDatasetError
 from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
 
 
-class TabularDataset(Dataset):
+class LegacyTabularDataset(Dataset):
     """Torch based Dataset object to create torch Dataset from given numpy or dataframe
     type of input and target variables
     """

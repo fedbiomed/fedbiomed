@@ -21,7 +21,7 @@ import torch
 from torch.utils.data import Dataset
 
 from fedbiomed.common.constants import DatasetTypes, SecureAggregationSchemes, TrainingPlans
-from fedbiomed.common.data import DataManager, DataLoadingPlanMixin, DataLoadingPlan
+from fedbiomed.common.datamanager import DataManager, DataLoadingPlanMixin, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply

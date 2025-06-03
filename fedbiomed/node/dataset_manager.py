@@ -26,7 +26,8 @@ from torchvision import transforms
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
 from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
-from fedbiomed.common.data import MedicalFolderController, DataLoadingPlan, DataLoadingBlock
+from fedbiomed.common.dataset import MedicalFolderController
+from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingBlock
 from fedbiomed.common.logger import logger
 
 
@@ -414,7 +415,7 @@ class DatasetManager:
                                       f'Compatible data types are: {data_types}')
 
         elif data_type == 'flamby':
-            from fedbiomed.common.data.flamby_dataset import FlambyLoadingBlockTypes, FlambyDataset
+            from fedbiomed.common.dataset.flamby_dataset import FlambyLoadingBlockTypes, FlambyDataset
             # check that data loading plan is present and well formed
             if data_loading_plan is None or \
                     FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA not in data_loading_plan:

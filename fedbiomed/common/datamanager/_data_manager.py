@@ -6,7 +6,7 @@ Data Management classes
 """
 
 
-from typing import Any, Dict, Optional, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -15,10 +15,10 @@ from torch.utils.data import Dataset
 
 from fedbiomed.common.exceptions import FedbiomedDataManagerError
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+from fedbiomed.common.dataset import LegacyTabularDataset
 
 from ._torch_data_manager import TorchDataManager
 from ._sklearn_data_manager import SkLearnDataManager
-from ._tabular_dataset import TabularDataset
 
 
 class DataManager(object):
@@ -82,8 +82,8 @@ class DataManager(object):
             elif isinstance(self._dataset, (pd.DataFrame, pd.Series, np.ndarray)) and \
                     isinstance(self._target, (pd.DataFrame, pd.Series, np.ndarray)):
                 # If `dataset` and `target` attributes are array-like object
-                # create TabularDataset object to instantiate a TorchDataManager
-                torch_dataset = TabularDataset(inputs=self._dataset, target=self._target)
+                # create LegacyTabularDataset object to instantiate a TorchDataManager
+                torch_dataset = LegacyTabularDataset(inputs=self._dataset, target=self._target)
                 self._data_manager_instance = TorchDataManager(dataset=torch_dataset, **self._loader_arguments)
             else:
                 raise FedbiomedDataManagerError(f"{ErrorNumbers.FB607.value}: Invalid arguments for torch based "

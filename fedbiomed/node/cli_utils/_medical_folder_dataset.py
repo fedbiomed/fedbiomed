@@ -5,7 +5,7 @@ from typing import Optional, List, Tuple
 import warnings
 from copy import copy
 from collections import defaultdict
-from fedbiomed.common.data import DataLoadingPlan, MedicalFolderController, MedicalFolderBase, MapperBlock
+from fedbiomed.common.dataloadingplan import DataLoadingPlan, MedicalFolderController, MedicalFolderBase, MapperBlock
 from fedbiomed.node.cli_utils._io import validated_path_input
 
 

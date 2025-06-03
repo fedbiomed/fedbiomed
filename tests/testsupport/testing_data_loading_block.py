@@ -1,5 +1,5 @@
 from enum import Enum
-from fedbiomed.common.data import DataLoadingBlock
+from fedbiomed.common.dataloadingplan import DataLoadingBlock
 from fedbiomed.common.constants import DataLoadingBlockTypes
 
 

@@ -3,7 +3,7 @@ import re
 
 from flask import request, g
 
-from fedbiomed.common.data import MedicalFolderController
+from fedbiomed.common.dataset import MedicalFolderController
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import DatasetManager
 

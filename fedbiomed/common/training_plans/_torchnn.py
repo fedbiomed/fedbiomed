@@ -101,7 +101,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                              "import torch.nn as nn",
                              "import torch.nn.functional as F",
                              "from fedbiomed.common.training_plans import TorchTrainingPlan",
-                             "from fedbiomed.common.data import DataManager",
+                             "from fedbiomed.common.datamanager import DataManager",
                              "from fedbiomed.common.constants import ProcessTypes",
                              "from torch.utils.data import DataLoader",
                              "from torchvision import datasets, transforms"

@@ -92,7 +92,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import datasets, transforms
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 
 
 class MyRemoteTrainingPlan(TorchTrainingPlan):

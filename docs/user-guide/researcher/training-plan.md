@@ -124,9 +124,9 @@ In both PyTorch and scikit-learn training plans, you are required to define a `t
 specs:
 
 1. takes as input a `batch_size` parameter
-2. returns a `fedbiomed.common.data.DataManager` object
+2. returns a `fedbiomed.common.datamanager.DataManager` object
 3. inside the method, a dataset is instantiated according to the data type that you wish to use (one of `torch.Dataset`,
-   `numpy.ndarray` or a `*Dataset` class from the `fedbiomed.common.data` module)
+   `numpy.ndarray` or a `*Dataset` class from the `fedbiomed.common.dataset` module)
 4. the dataset is used to initialize a `DataManager` class to be returned
 
 The signature of the `training_data` function is then:
@@ -160,7 +160,7 @@ the use of `model_args`.
 ```python
 import torch.nn as nn
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 
 
 # Here we define the model to be used.

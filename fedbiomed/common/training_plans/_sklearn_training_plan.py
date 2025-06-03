@@ -15,7 +15,7 @@ from sklearn.base import BaseEstimator
 from torch.utils.data import DataLoader
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.dataloader import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
@@ -70,7 +70,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             "import numpy as np",
             "import pandas as pd",
             "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
-            "from fedbiomed.common.data import DataManager",
+            "from fedbiomed.common.datamanager import DataManager",
         ])
         self._add_dependency(list(self._model_dep))
 
