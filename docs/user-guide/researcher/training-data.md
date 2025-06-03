@@ -26,7 +26,7 @@ This method takes no inputs and returns a [`DataManager`](./training-data.md#the
 therefore its signature is:
 
 ```python
-def training_data(self) -> fedbiomed.common.data.DataManager
+def training_data(self) -> fedbiomed.common.datamanager.DataManager
 ```
 
 The `training_data` method is always part of the training plan, as follows:
@@ -48,7 +48,7 @@ For details on how arguments are passed to the data loader, please refer to the 
 ### The `DataManager` return type
 
 The method `training_data` should always return `DataManager` of Fed-BioMed defined in the module 
-`fedbiomed.common.data.DataManager`. `DataManager` has been designed for managing different types of data objects for 
+`fedbiomed.common.datamanager.DataManager`. `DataManager` has been designed for managing different types of data objects for 
 different types of training plans. It is also responsible for splitting a given dataset into training and validation if 
 model validation is activated in the experiment. 
 
@@ -79,7 +79,7 @@ training loop on the node side.
 ```python
 import pandas as pd
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 
 class MyTrainingPlan(TorchTrainingPlan):
     def init_model(self):
@@ -104,7 +104,7 @@ It is also possible to define a custom PyTorch `Dataset` and use it in the `Data
 import pandas as pd
 from torch.utils.data import Dataset
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 
 class MyTrainingPlan(TorchTrainingPlan):
 
@@ -143,7 +143,7 @@ These arguments will be ignored even if they are set.
 ```python
 import pandas as pd
 from fedbiomed.common.training_plans import FedPerceptron
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 
 class SGDRegressorTrainingPlan(FedPerceptron):
 

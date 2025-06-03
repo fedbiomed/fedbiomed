@@ -5,7 +5,7 @@ import logging
 import numpy as np
 
 from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.dataloader import NPDataLoader
 
 
 class TestNPDataLoader(unittest.TestCase):

@@ -227,24 +227,24 @@ class SerializationValidation:
 class DataLoadingBlock(ABC):
     """The building blocks of a DataLoadingPlan.
 
-    A [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock] describes an intermediary
+    A [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock] describes an intermediary
     layer between the researcher and the node's filesystem. It allows the node to specify a customization
     in the way data is "perceived" by the data loaders during training.
 
-    A [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock] is identified by its type_id
+    A [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock] is identified by its type_id
     attribute. Thus, this attribute should be unique among all
     [DataLoadingBlockTypes][fedbiomed.common.constants.DataLoadingBlockTypes]
-    in the same [DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan].
+    in the same [DataLoadingPlan][fedbiomed.common.dataloadingplan.DataLoadingPlan].
     Moreover, we may test equality between a
-    [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
+    [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock]
     and a string by checking its type_id, as a means of easily testing whether a
-    [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock] is contained in a collection.
+    [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock] is contained in a collection.
 
     Correct usage of this class requires creating ad-hoc subclasses.
-    The [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock] class is not intended to
+    The [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock] class is not intended to
     be instantiated directly.
 
-    Subclasses of [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
+    Subclasses of [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock]
     must respect the following conditions:
     
     1. implement a default constructor
@@ -303,20 +303,20 @@ class DataLoadingBlock(ABC):
 
     @staticmethod
     def instantiate_class(loading_block: dict) -> TDataLoadingBlock:
-        """Instantiate one [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
+        """Instantiate one [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock]
         object of the type defined in the arguments.
 
         Uses the `loading_block_module` and `loading_block_class` fields of the loading_block argument to
-        identify the type of [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
+        identify the type of [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock]
         to be instantiated, then calls its default constructor.
         Note that this function **does not call deserialize**.
 
         Args:
-            loading_block (dict): [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
+            loading_block (dict): [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock]
                 metadata in the format returned by the serialize function.
         Returns:
             A default-constructed instance of a
-                [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
+                [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock]
                 of the type defined in the metadata.
         Raises:
            FedbiomedLoadingBlockError: if the instantiation process raised any exception.
@@ -360,14 +360,14 @@ class DataLoadingBlock(ABC):
 
 
 class MapperBlock(DataLoadingBlock):
-    """A [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock] for mapping values.
+    """A [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock] for mapping values.
 
-    This [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock] can be used whenever
+    This [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock] can be used whenever
     an "indirect mapping" is needed.
     For example, it can be used to implement a correspondence between a set
     of "logical" abstract names and a set of folder names on the filesystem.
 
-    The apply function of this [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock] takes
+    The apply function of this [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock] takes
     a "key" as input (a str) and returns the mapped value corresponding to map[key].
     Note that while the constructor of this class sets a value for type_id,
     developers are recommended to set a more meaningful value that better
@@ -387,14 +387,14 @@ class MapperBlock(DataLoadingBlock):
 
         Returns:
             a dictionary of key-value pairs sufficient for reconstructing
-            the [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock].
+            the [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock].
         """
         ret = super(MapperBlock, self).serialize()
         ret.update({'map': self.map})
         return ret
 
     def deserialize(self, load_from: dict) -> DataLoadingBlock:
-        """Reconstruct the [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
+        """Reconstruct the [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock]
         from a serialized version.
 
         Args:
@@ -432,14 +432,14 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
     """Customizations to the way the data is loaded and presented for training.
 
     A DataLoadingPlan is a dictionary of {name: DataLoadingBlock} pairs. Each
-    [DataLoadingBlock][fedbiomed.common.data._data_loading_plan.DataLoadingBlock]
+    [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock]
     represents a customization to the way data is loaded and presented to the researcher.
     These customizations are defined by the node, but they operate on a Dataset class,
     which is defined by the library and instantiated by the researcher.
 
     To exploit this functionality, a Dataset must be modified to accept the
     customizations provided by the DataLoadingPlan. To simplify this process,
-    we provide the [DataLoadingPlanMixin][fedbiomed.common.data._data_loading_plan.DataLoadingPlanMixin] class below.
+    we provide the [DataLoadingPlanMixin][fedbiomed.common.dataloadingplan.DataLoadingPlanMixin] class below.
 
     The DataLoadingPlan class should be instantiated directly, no subclassing
     is needed. The DataLoadingPlan *is* a dict, and exposes the same interface
@@ -479,9 +479,9 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
         Returns:
             a tuple sufficient for reconstructing the DataLoading plan. It includes:
                 - a dictionary of key-value pairs with the
-                [DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan] parameters.
+                [DataLoadingPlan][fedbiomed.common.dataloadingplan.DataLoadingPlan] parameters.
                 - a list of dict containing the data for reconstruction all the DataLoadingBlock
-                    of the [DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan] 
+                    of the [DataLoadingPlan][fedbiomed.common.dataloadingplan.DataLoadingPlan] 
         """
         return dict(
             dlp_id=self.dlp_id,
@@ -492,11 +492,11 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
         ), [dlb.serialize() for dlb in self.values()]
 
     def deserialize(self, serialized_dlp: dict, serialized_loading_blocks: List[dict]) -> TDataLoadingPlan:
-        """Reconstruct the DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan] from a serialized version.
+        """Reconstruct the DataLoadingPlan][fedbiomed.common.dataloadingplan.DataLoadingPlan] from a serialized version.
 
         !!! warning "Calling this function will *clear* the contained [DataLoadingBlockTypes]."
             This function may not be used to "update" nor to "append to"
-            a [DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan].
+            a [DataLoadingPlan][fedbiomed.common.dataloadingplan.DataLoadingPlan].
 
         Args:
             serialized_dlp: a dictionary of data loading plan metadata, as obtained from the first output of the
@@ -563,8 +563,8 @@ class DataLoadingPlanMixin:
     """Utility class to enable DLP functionality in a dataset.
 
     Any Dataset class that inherits from [DataLoadingPlanMixin] will have the
-    basic tools necessary to support a [DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan].
-    Typically, the logic of each specific DataLoadingBlock in the [DataLoadingPlan][fedbiomed.common.data._data_loading_plan.DataLoadingPlan]
+    basic tools necessary to support a [DataLoadingPlan][fedbiomed.common.dataloadingplan.DataLoadingPlan].
+    Typically, the logic of each specific DataLoadingBlock in the [DataLoadingPlan][fedbiomed.common.dataloadingplan.DataLoadingPlan]
     will be implemented in the form of hooks that are called within the Dataset's implementation
     using the helper function apply_dlb defined below.
     """

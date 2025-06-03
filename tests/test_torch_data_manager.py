@@ -1,12 +1,12 @@
 import unittest
 
 import torch
-import fedbiomed.common.data._torch_data_manager  # noqa
+import fedbiomed.common.datamanager._torch_data_manager  # noqa
 import numpy as np
 
 from unittest.mock import patch
 from torch.utils.data import Dataset, Subset
-from fedbiomed.common.data import TorchDataManager
+from fedbiomed.common.datamanager import TorchDataManager
 from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
 
 
@@ -172,7 +172,7 @@ class TestTorchDataManager(unittest.TestCase):
         loader = self.torch_data_manager.load_all_samples()
         self.assertEqual(len(loader.dataset), len(self.dataset), 'Did not properly get loader for all samples')
 
-    @patch('fedbiomed.common.data._torch_data_manager.DataLoader')
+    @patch('fedbiomed.common.datamanager._torch_data_manager.DataLoader')
     def test_torch_data_manager_06_create_torch_data_loader(self, data_loader):
         """ Test function create torch data loader """
 
@@ -196,7 +196,7 @@ class TestTorchDataManager(unittest.TestCase):
         """Test converting TorchDataManage to SkLearnDataManager"""
 
         result = self.torch_data_manager.to_sklearn()
-        self.assertIsInstance(result, fedbiomed.common.data._sklearn_data_manager.SkLearnDataManager)
+        self.assertIsInstance(result, fedbiomed.common.datamanager._sklearn_data_manager.SkLearnDataManager)
 
     def test_torch_data_manager_08_save_load_state(self):
         test_ratio = .5

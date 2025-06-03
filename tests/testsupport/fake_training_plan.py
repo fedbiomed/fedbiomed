@@ -15,7 +15,7 @@ from fedbiomed.common.training_plans import (
     FedSGDRegressor
 )
 from fedbiomed.common.models import SkLearnModel
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 
 
 # Fakes TrainingPlan (either `fedbiomed.common.torchnn`` or `fedbiomed.common.fedbiosklearn`)
@@ -92,7 +92,7 @@ class FakeModel(BaseTrainingPlan):
                 'from torch.utils.data import Dataset, DataLoader',
                 'from fedbiomed.common.models import Model',
                 'from fedbiomed.common.optimizers import BaseOptimizer',
-                'from fedbiomed.common.data import DataManager',
+                'from fedbiomed.common.datamanager import DataManager',
         ]
 
     def save(self, filename: str, results: Dict[str, Any] = None):
@@ -170,7 +170,7 @@ class FakeTorchTrainingPlan2(TorchTrainingPlan):
                 'from torch.utils.data import Dataset, DataLoader',
                 'from fedbiomed.common.models import Model',
                 'from fedbiomed.common.optimizers import BaseOptimizer',
-                'from fedbiomed.common.data import DataManager',
+                'from fedbiomed.common.datamanager import DataManager',
         ]
 
     def init_optimizer(self):

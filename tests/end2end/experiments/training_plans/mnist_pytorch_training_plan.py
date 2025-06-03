@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 from torchvision import datasets, transforms
 from fedbiomed.common.optimizers.optimizer import Optimizer
 from fedbiomed.common.optimizers.declearn import ScaffoldClientModule

@@ -9,7 +9,7 @@ import numpy as np
 
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.constants import ProcessTypes
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.dataloader import NPDataLoader
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
 # Import again the full module: we need it to test saving code without dependencies. Do not delete the line below.
 import fedbiomed.common.training_plans._base_training_plan  # noqa

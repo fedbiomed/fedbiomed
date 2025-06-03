@@ -3,9 +3,7 @@ import numpy as np
 import pandas as pd
 
 from torch.utils.data import Dataset
-from fedbiomed.common.data import DataManager
-from fedbiomed.common.data._torch_data_manager import TorchDataManager
-from fedbiomed.common.data._sklearn_data_manager import SkLearnDataManager
+from fedbiomed.common.datamanager import DataManager, TorchDataManager, SkLearnDataManager
 from fedbiomed.common.exceptions import FedbiomedDataManagerError
 from fedbiomed.common.constants import TrainingPlans
 

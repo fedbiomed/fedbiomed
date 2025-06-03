@@ -3,7 +3,7 @@ Sklearn training plans
 """
 
 from fedbiomed.common.training_plans import FedSGDClassifier, FedPerceptron, FedSGDRegressor
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 
 
 from fedbiomed.common.optimizers import Optimizer

@@ -25,7 +25,7 @@ from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.cli_utils._medical_folder_dataset import get_map_modalities2folders_from_cli, \
     add_medical_folder_dataset_from_cli
 from fedbiomed.node.cli_utils import add_database
-from fedbiomed.common.data import MapperBlock
+from fedbiomed.common.dataloadingplan import MapperBlock
 from fedbiomed.common.exceptions import FedbiomedError
 from test_medical_datasets import patch_modality_glob, patch_is_modality_dir
 
@@ -277,9 +277,9 @@ class TestCli(unittest.TestCase):
 
         with patch('pathlib.Path.glob', new=TestCli.patch_modality_glob) as patched_glob, \
                 patch('pathlib.Path.is_dir', return_value=True) as patched_dir, \
-                patch('fedbiomed.common.data.MedicalFolderBase.demographics_column_names',
+                patch('fedbiomed.common.dataset.MedicalFolderBase.demographics_column_names',
                       return_value=['col1', 'col2']) as patched_column_names, \
-                patch('fedbiomed.common.data.MedicalFolderBase.validate_MedicalFolder_root_folder',
+                patch('fedbiomed.common.dataset.MedicalFolderBase.validate_MedicalFolder_root_folder',
                       return_value=Path('some/valid/path')) as patched_validate_root, \
                 patch('fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input',
                       return_value='some/valid/path') as patched_val_path_in, \
@@ -349,9 +349,9 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
 
     @patch('fedbiomed.node.cli_utils._medical_folder_dataset.input', new=mock_input.__func__)
     @patch('fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input', new=mock_validated_input.__func__)
-    @patch('fedbiomed.common.data.MedicalFolderBase.validate_MedicalFolder_root_folder',
+    @patch('fedbiomed.common.dataset.MedicalFolderBase.validate_MedicalFolder_root_folder',
            return_value=Path('some/valid/path'))
-    @patch('fedbiomed.common.data.MedicalFolderBase.demographics_column_names', return_value=['col1', 'col2'])
+    @patch('fedbiomed.common.dataset.MedicalFolderBase.demographics_column_names', return_value=['col1', 'col2'])
     @patch('pathlib.Path.glob', new=patch_modality_glob)
     @patch('pathlib.Path.is_dir', new=patch_is_modality_dir)
     def test_medical_folder_cli_utils_02_load_medical_folder_dataset_from_cli(self,

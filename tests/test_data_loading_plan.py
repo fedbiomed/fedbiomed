@@ -1,7 +1,7 @@
 import unittest
 import logging
 from unittest.mock import patch
-from fedbiomed.common.data import DataLoadingPlan, DataLoadingPlanMixin, MapperBlock
+from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingPlanMixin, MapperBlock
 from testsupport.testing_data_loading_block import LoadingBlockForTesting, LoadingBlockTypesForTesting, \
     TestAbstractsBlock
 from fedbiomed.common.exceptions import FedbiomedLoadingBlockError, FedbiomedLoadingBlockValueError, \
@@ -107,7 +107,7 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.dlb2.data = {'my': 'different-data'}
         
         # patchers
-        self.patcher_infer_dataset = patch('fedbiomed.common.data.DataLoadingPlan.infer_dataset_type',
+        self.patcher_infer_dataset = patch('fedbiomed.common.dataloading.DataLoadingPlan.infer_dataset_type',
                                            lambda x: DatasetTypes.NONE)
 
     def test_data_loading_plan_01_interface(self):

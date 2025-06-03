@@ -1,12 +1,14 @@
 import os
 from flask import request, g
 
-from fedbiomed.common.data import (
+from fedbiomed.common.dataset import (
     MedicalFolderController,
     MedicalFolderDataset,
+    MedicalFolderLoadingBlockTypes
+)
+from fedbiomed.common.dataloadingplan import (
     DataLoadingPlan,
     MapperBlock,
-    MedicalFolderLoadingBlockTypes
 )
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.constants import DatasetTypes

@@ -47,7 +47,7 @@ class FedbiomedConfigurationError(FedbiomedError):
 
 class FedbiomedDataLoadingPlanError(FedbiomedError):
     """
-    Exceptions specific for the class fedbiomed.common.data.DataLoadingPlan.
+    Exceptions specific for the class fedbiomed.common.dataloadingplan.DataLoadingPlan.
     """
     pass
 
