@@ -34,6 +34,8 @@ class TorchDataManager(object):
             FedbiomedTorchDataManagerError: If the argument `dataset` is not an instance of `torch.utils.data.Dataset`
         """
 
+        # TODO: need to create these classes later - some functionality broken in `Round()`
+
         # TorchDataManager should get `dataset` argument as an instance of torch.utils.data.Dataset
         #if not isinstance(dataset, Dataset):
         if not isinstance(dataset, Dataset) and not isinstance(dataset, FedbiomedDataset):
@@ -43,7 +45,96 @@ class TorchDataManager(object):
                 f"your custom torch dataset object"
             )
 
-        self._dataset = dataset
+        # Note: in real implementation, we will only have FedbiomedDataset so the method
+        # would always exist
+        if hasattr(dataset, "framework_transform"):
+            framework_transform = dataset.framework_transform()
+
+        if hasattr(dataset, "to_torch"):
+            logger.info("DATA MANAGER: will use directly torch data format")
+            dataset.to_torch()
+
+            class TorchDataset(Dataset):
+                def __init__(self, dataset):
+                    self._d = dataset
+
+                def __len__(self):
+                    return self._d.__len__()
+
+                def __getitem__(self, index):
+                    (data, demographics), targets = self._d.__getitem__(index)
+
+                    d_data = {}
+                    for k,v in data.items():
+                        # Optional framework transform
+                        # TO BE FACTORED with same case below
+                        if framework_transform is not None:
+                            #logger.info(f"DATA MANAGER: applying framework_transform {framework_transform} to {type(v)}")
+                            if callable(framework_transform):
+                                f_t = framework_transform
+                            elif isinstance(framework_transform, dict) and k in framework_transform:
+                                f_t = framework_transform[k]
+                            else:
+                                raise Exception(f"DATA MANAGER: bad framework transform {type(framework_transform)} {framework_transform}")
+
+                            try:
+                                v = f_t(v)
+                            except Exception as e:
+                                logger.error(f"DATA MANAGER: error while applying framework_transform, bad geometry of transform ? : {e}")
+                                raise
+
+                        d_data[k] = v
+
+                    return (d_data, demographics), targets
+        else:
+            # PoC : re-convert to torch dataset , to create torch dataloader
+            # (TP framework expected data format)
+            logger.info("DATA MANAGER: will use generic dataset format and convert to torch dataset")
+
+            class TorchDataset(Dataset):
+                def __init__(self, dataset):
+                    self._d = dataset
+
+                def __len__(self):
+                    return self._d.__len__()
+
+                def __getitem__(self, index):
+                    data, targets = self._d.__getitem__(index)
+
+                    t = {}
+                    for k, v in targets.items():
+                        t[k] = torch.from_numpy(v)
+                    d_data = {}
+                    for k,v in data.items():
+                        if k != 'demographics':
+                            v_target = torch.from_numpy(v)
+
+                            # Optional framework transform
+                            if framework_transform is not None:
+                                #logger.info(f"DATA MANAGER: applying framework_transform {framework_transform} to {type(v_target)}")
+                                if callable(framework_transform):
+                                    f_t = framework_transform
+                                elif isinstance(framework_transform, dict) and k in framework_transform:
+                                    f_t = framework_transform[k]
+                                else:
+                                    raise Exception(f"DATA MANAGER: bad framework transform {type(framework_transform)} {framework_transform}")
+
+                                try:
+                                    v_target = f_t(v_target)
+                                except Exception as e:
+                                    logger.error(f"DATA MANAGER: error while applying framework_transform, bad geometry of transform ? : {e}")
+                                    raise
+
+                            d_data[k] = v_target
+
+                    d = (d_data, torch.from_numpy(data['demographics']))
+
+                    return d, t
+
+        torch_dataset = TorchDataset(dataset)
+
+        self._dataset = torch_dataset
+        #self._dataset = dataset
         self._loader_arguments = kwargs
 
         self._rng = self.rng(self._loader_arguments.get("random_state"))
@@ -146,6 +237,8 @@ class TorchDataManager(object):
                 f"{str(self._dataset)}, {str(e)}"
             )
 
+        from remote_pdb import RemotePdb
+        RemotePdb('127.0.0.1', 4444).set_trace()
         if self.test_ratio != test_ratio and self.test_ratio is not None:
             if not is_shuffled_testing_dataset:
                 logger.info(
@@ -271,10 +364,9 @@ class TorchDataManager(object):
         self.training_index = state.get("training_index", [])
         self.test_ratio = state.get("test_ratio", None)
 
-    # PoC : not static because of glitch
-    #@staticmethod
-    #def _create_torch_data_loader(dataset: Dataset, **kwargs: Dict) -> DataLoader:
-    def _create_torch_data_loader(self, dataset: Union[Dataset, FedbiomedDataset], **kwargs: Dict) -> DataLoader:
+    @staticmethod
+    def _create_torch_data_loader(dataset: Dataset, **kwargs: Dict) -> DataLoader:
+    #def _create_torch_data_loader(self, dataset: Union[Dataset, FedbiomedDataset], **kwargs: Dict) -> DataLoader:
         """Creates python data loader by given dataset object
 
         Args:
@@ -287,94 +379,7 @@ class TorchDataManager(object):
         Returns:
             Data loader for given dataset
         """
-        # Note: in real implementation, we will only have FedbiomedDataset so the method
-        # would always exist
-        if hasattr(self._dataset, "framework_transform"):
-            framework_transform = self._dataset.framework_transform()
-
-        # Glitch: cannot use Subset for that
-        if hasattr(self._dataset, "to_torch"):
-            logger.info("DATA MANAGER: will use directly torch data format")
-            self._dataset.to_torch()
-
-            class TorchDataset(Dataset):
-                def __init__(self, dataset):
-                    self._d = dataset
-
-                def __len__(self):
-                    return self._d.__len__()
-
-                def __getitem__(self, index):
-                    (data, demographics), targets = self._d.__getitem__(index)
-
-                    d_data = {}
-                    for k,v in data.items():
-                        # Optional framework transform
-                        # TO BE FACTORED with same case below
-                        if framework_transform is not None:
-                            #logger.info(f"DATA MANAGER: applying framework_transform {framework_transform} to {type(v)}")
-                            if callable(framework_transform):
-                                f_t = framework_transform
-                            elif isinstance(framework_transform, dict) and k in framework_transform:
-                                f_t = framework_transform[k]
-                            else:
-                                raise Exception(f"DATA MANAGER: bad framework transform {type(framework_transform)} {framework_transform}")
-
-                            try:
-                                v = f_t(v)
-                            except Exception as e:
-                                logger.error(f"DATA MANAGER: error while applying framework_transform, bad geometry of transform ? : {e}")
-                                raise
-
-                        d_data[k] = v
-
-                    return (d_data, demographics), targets
-        else:
-            # PoC : re-convert to torch dataset , to create torch dataloader
-            # (TP framework expected data format)
-            logger.info("DATA MANAGER: will use generic dataset format and convert to torch dataset")
-
-            class TorchDataset(Dataset):
-                def __init__(self, dataset):
-                    self._d = dataset
-
-                def __len__(self):
-                    return self._d.__len__()
-
-                def __getitem__(self, index):
-                    data, targets = self._d.__getitem__(index)
-
-                    t = {}
-                    for k, v in targets.items():
-                        t[k] = torch.from_numpy(v)
-                    d_data = {}
-                    for k,v in data.items():
-                        if k != 'demographics':
-                            v_target = torch.from_numpy(v)
-
-                            # Optional framework transform
-                            if framework_transform is not None:
-                                #logger.info(f"DATA MANAGER: applying framework_transform {framework_transform} to {type(v_target)}")
-                                if callable(framework_transform):
-                                    f_t = framework_transform
-                                elif isinstance(framework_transform, dict) and k in framework_transform:
-                                    f_t = framework_transform[k]
-                                else:
-                                    raise Exception(f"DATA MANAGER: bad framework transform {type(framework_transform)} {framework_transform}")
-
-                                try:
-                                    v_target = f_t(v_target)
-                                except Exception as e:
-                                    logger.error(f"DATA MANAGER: error while applying framework_transform, bad geometry of transform ? : {e}")
-                                    raise
-
-                            d_data[k] = v_target
-
-                    d = (d_data, torch.from_numpy(data['demographics']))
-
-                    return d, t
-
-        torch_dataset = TorchDataset(dataset)
+        torch_dataset = dataset
 
         try:
             # Create a loader from self._dataset to extract inputs and target values

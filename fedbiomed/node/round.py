@@ -807,6 +807,9 @@ class Round:
             data_manager.load(tp_type=training_plan_type)
         except FedbiomedError as e:
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}")
+       
+        # TODO: broken by current version of PoC - need to create native dataset after these steps
+       
         # Get dataset property
         if hasattr(data_manager.dataset, "set_dataset_parameters"):
             dataset_parameters = self.dataset.get("dataset_parameters", {})

@@ -561,8 +561,8 @@ class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
         # PoC : indicate that data is natively torch
         self._output_format = None
 
-    def to_torch(self):
-        self._output_format = "torch"
+    #def to_torch(self):
+    #    self._output_format = "torch"
 
 
 
