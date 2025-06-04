@@ -93,7 +93,7 @@ class TrainingJob(Job):
 
         # Loops over replies
         for node_id, reply in replies.items():
-            node_reply = reply.get_dict().copy()
+            node_reply = reply.get_dict()
 
             if not reply.success:
                 self._nodes.remove(reply.node_id)  # remove the faulty node from the list
