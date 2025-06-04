@@ -21,7 +21,8 @@ from tinydb import Query
 from testsupport.fake_uuid import FakeUuid
 from testsupport.testing_data_loading_block import LoadingBlockTypesForTesting
 
-from fedbiomed.node.dataset_manager import DatasetManager, DataLoadingPlan
+from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
 
 
@@ -889,7 +890,7 @@ class TestDatasetManager(unittest.TestCase):
                 self.assertEqual(res_dataset[i][1], fake_dataset[i][1])
 
 
-    @patch('fedbiomed.node.dataset_manager.urlretrieve')
+    @patch('fedbiomed.node.dataset_manager._dataset_manager.urlretrieve')
     def test_dataset_manager_27_download_extract_mednist(self,
                                                          urlretrieve_patch):
         """
@@ -948,13 +949,13 @@ class TestDatasetManager(unittest.TestCase):
 
         # simulating an error when downloading file
         # 1. expected error:
-        with patch('fedbiomed.node.dataset_manager.urlretrieve') as urlretrieve:
+        with patch('fedbiomed.node.dataset_manager._dataset_manager.urlretrieve') as urlretrieve:
             urlretrieve.side_effect = URLError("error raised for the sake of testing")
             with self.assertRaises(FedbiomedDatasetManagerError):
                 self.dataset_manager.load_mednist_database(mednist_path)
 
         # 2. unexpected error:
-        with patch('fedbiomed.node.dataset_manager.datasets.ImageFolder') as image_folder_patch:
+        with patch('fedbiomed.node.dataset_manager._dataset_manager.datasets.ImageFolder') as image_folder_patch:
             image_folder_patch.side_effect = Exception("error raised for the sake of testing")
             with self.assertRaises(FedbiomedDatasetManagerError):
                 self.dataset_manager.load_mednist_database(self.temp_dir.name)

@@ -107,7 +107,7 @@ class TestDataLoadingPlan(unittest.TestCase):
         self.dlb2.data = {'my': 'different-data'}
         
         # patchers
-        self.patcher_infer_dataset = patch('fedbiomed.common.dataloading.DataLoadingPlan.infer_dataset_type',
+        self.patcher_infer_dataset = patch('fedbiomed.common.dataloadingplan.DataLoadingPlan.infer_dataset_type',
                                            lambda x: DatasetTypes.NONE)
 
     def test_data_loading_plan_01_interface(self):
