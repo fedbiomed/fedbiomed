@@ -339,6 +339,7 @@ class Round:
                 try:
                     rtime_before = time.perf_counter()
                     ptime_before = time.process_time()
+
                     self.training_plan.training_routine(history_monitor=self.history_monitor,
                                                         node_args=self.node_args)
                     rtime_after = time.perf_counter()

@@ -8,7 +8,7 @@ Fed-BioMed training plans wrapping scikit-learn models.
 """
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Any, Dict, Iterator, Optional, Tuple, Type, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -117,8 +117,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
     def set_data_loaders(
             self,
-            train_data_loader: Union[DataLoader, NPDataLoader, None],
-            test_data_loader: Union[DataLoader, NPDataLoader, None]
+            train_data_loader: Union[Iterator, NPDataLoader, None],
+            test_data_loader: Union[Iterator, NPDataLoader, None]
     ) -> None:
         """Sets data loaders
 
@@ -127,15 +127,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             test_data_loader: Data loader for validation routine
         """
         args = (train_data_loader, test_data_loader)
-        if not all(isinstance(data, NPDataLoader) for data in args):
-            msg = (
-                f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan expects "
-                "NPDataLoader instances as training and testing data "
-                f"loaders, but received {type(train_data_loader)} "
-                f"and {type(test_data_loader)} respectively."
-            )
-            logger.error(msg)
-            raise FedbiomedTrainingPlanError(msg)
+        # if not all(isinstance(data, NPDataLoader) for data in args):
+            # msg = (
+            #     f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan expects "
+            #     "NPDataLoader instances as training and testing data "
+            #     f"loaders, but received {type(train_data_loader)} "
+            #     f"and {type(test_data_loader)} respectively."
+            # )
+            # logger.error(msg)
+            # raise FedbiomedTrainingPlanError(msg)
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
 
@@ -214,13 +214,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Run preprocesses
         self._preprocess()
 
-        if not isinstance(self.training_data_loader, NPDataLoader):
-            msg = (
-                f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot "
-                "be trained without a NPDataLoader as `training_data_loader`."
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
+        # if not isinstance(self.training_data_loader, NPDataLoader):
+        #     msg = (
+        #         f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot "
+        #         "be trained without a NPDataLoader as `training_data_loader`."
+        #     )
+        #     logger.critical(msg)
+        #     raise FedbiomedTrainingPlanError(msg)
 
         # Warn if GPU-use was expected (as it is not supported).
         if node_args is not None and node_args.get('gpu_only', False):

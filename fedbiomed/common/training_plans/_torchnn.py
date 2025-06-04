@@ -520,6 +520,11 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # FIXME 2: Should we move training process to `Optimizer` or `Model` class?
 
         # compute loss
+        # TODO: find a better way than using if/else statements as done below
+        if 'data' in data:
+            data = data['data']
+        if 'target' in target:
+            target = target['target']
         loss = self.training_step(data, target)  # raises an exception if not provided
         corrected_loss = torch.clone(loss)
 

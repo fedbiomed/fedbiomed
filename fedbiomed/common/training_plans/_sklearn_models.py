@@ -140,7 +140,13 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
 
         self._optimizer.init_training()
         stdout = []  # type: List[List[str]]
+        
+        if isinstance(inputs, dict) and 'data' in inputs:
+            inputs = inputs['data']
+        if isinstance(target, dict) and 'target' in target:
+            target = target['target']
 
+        #self._model.train(inputs.reshape(1, -1), target.reshape(1, -1))
         self._model.train(inputs, target, stdout=stdout)
         self._optimizer.step()
 

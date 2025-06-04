@@ -39,7 +39,7 @@ class FrameworkNativeDataset(GenericDataset):
     def to_sklearn(self):
         pass
 
-    def set_dataloader(self, inputs, target=None, kwargs={}):
+    def set_dataloader(self, inputs, target=None, **kwargs):
         pass
 
 class PytorchNativeDataset(FrameworkNativeDataset):
@@ -69,7 +69,7 @@ class PytorchNativeDataset(FrameworkNativeDataset):
         return None if rng is None else torch.Generator(device).manual_seed(rng)
 
     
-    def set_dataloader(self, inputs, target=None, kwargs={}):
+    def set_dataloader(self, inputs, target=None, **kwargs):
         if 'collate_fn' not in kwargs:
             kwargs['collate_fn'] = self._collate_fn
             # avoid calling  default collate_fn function that will convert everyting to Pytroch
@@ -98,23 +98,37 @@ class PytorchNativeDataset(FrameworkNativeDataset):
     #         dataset.to_sklearn()
     #     return clf
 
-            
+    #############################################################3
+
+    ################################################################
+    # reseaons why we wouild like to do things that way:
+    # - it can be complicated to split datasets in the datamanager 
+    # so having it in the dataset can make sense
+    # - data_loader is actually called in the datamanager
+    # the only cons I see is that we do more than just get type of dataset
+    # and additional complexity  
     def to_sklearn(self):
         
         class ToNumpy(torch.nn.Module):
             def forward(self, img, label=None):
+                
                 # Do some transformations
-
-                return img.numpy() if hasattr(img, 'numpy') else np.array(img)
-        
-        
+                #
+                img = img.numpy() if hasattr(img, 'numpy') else np.array(img)
+                return img.reshape(1, -1)
+    
         if self._dataset.transforms is not None:
             self._dataset.transform.transforms.append(ToNumpy())
         else:
             self._dataset.transform= transforms.Compose([ToNumpy()])
+
+        if self._dataset.target_transform is not None:
+            self._dataset.target_transform.transforms.append(ToNumpy())
+        else:
+            self._dataset.target_transform = transforms.Compose([ToNumpy()])
         #self._transform_framework = from_torch_dataset_to_generic
         # TODO: implement here, decide if we should use transform or collate_fn
-
+        # FIXME: check if it makes sense to have a specific method for target and for training data
 
     # def split(self, test_ratio):
     #     # implement here method where we split between testing and training dataset

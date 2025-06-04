@@ -544,7 +544,7 @@ class SkLearnDataManager(GenericDataManager):
         try:
             if hasattr(self._inputs, "set_dataloader"):
                 # NativeFrameworkDataset specific case
-                loader,_ = self._inputs.set_dataloader(subset[0], subset[1], loader_arguments)
+                loader,_ = self._inputs.set_dataloader(subset[0], subset[1], **loader_arguments)
                 # FIXME: use `**kwargs` instead
             else:
                 loader = self._data_loader(subset[0], subset[1], **loader_arguments)
