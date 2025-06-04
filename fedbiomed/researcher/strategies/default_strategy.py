@@ -112,7 +112,7 @@ class DefaultStrategy(Strategy):
                 model_params[tr["node_id"]] = tr["params"]
                 encryption_factors[tr["node_id"]] = tr.get("encryption_factor", None)
 
-                if tr["sample_size"] is None:
+                if tr.get("sample_size") is None:
                     # if a Node `sample_size` is None, we cannot compute the weights: in this case
                     # return an error
                     raise FedbiomedStrategyError(
