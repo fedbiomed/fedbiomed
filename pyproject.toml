@@ -24,6 +24,7 @@ authors = [
 	{name = "Côme Le Breton <come.le-breton@inria.fr>"},
 	{name = "Jean-Luc Szpyrka <jean-luc@szpyrka.fr>"},
 	{name = "Riccardo Taiello <riccardo.taiello@inria.fr>"},
+	{name = "Jhonatan Torres", email = "jhonatan--leonardo.torres-sanchez@inria.fr"},
 	{name = "Maya Assal"},
 	{name = "Samy-Safwan Ayed"},
 	{name = "Irene Balelli"},
