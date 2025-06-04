@@ -105,6 +105,10 @@ class PytorchNativeDataset(FrameworkNativeDataset):
     # - it can be complicated to split datasets in the datamanager 
     # so having it in the dataset can make sense
     # - data_loader is actually called in the datamanager
+    # - anticipating tensorflow implementation: split method is a `Dataset` method
+    # eg: ```train_ds, test_ds = tfds.load('mnist', split=['train', 'test[:50%]'])``` 
+    # this should be authorized by the user
+    # check https://www.tensorflow.org/datasets/splits for futher info
     # the only cons I see is that we do more than just get type of dataset
     # and additional complexity  
     def to_sklearn(self):

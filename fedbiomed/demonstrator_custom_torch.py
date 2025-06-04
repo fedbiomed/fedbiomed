@@ -1,6 +1,8 @@
 from torch.utils.data import DataLoader, Dataset
 import torch
 
+from fedbiomed.common.data._framework_native_dataset import FrameworkNativeDataset, PytorchNativeDataset
+
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.data._data_manager import DataManager
 
@@ -23,12 +25,12 @@ class CustomPytorchDataset(Dataset):
 # FIXME 2: should we mae it compatible with sklearn?
 
 dataset = CustomPytorchDataset()
-
+dataset = PytorchNativeDataset(dataset)
 data_manager = DataManager(dataset)
 
 data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
 
-train, test = data_manager.split(test_ratio=.0, test_batch_size=None)
+train, test = data_manager.split(test_ratio=0.1, test_batch_size=None)
 val = next(iter(train.dataset))
 
 print(val)

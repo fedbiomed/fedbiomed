@@ -43,7 +43,10 @@ class TorchDataManager(GenericDataManager):
         #     )
         if not isinstance(dataset, Dataset):
             dataset.to_torch()
-        self._dataset = self._create_dataset(dataset)
+            self._dataset = self._create_dataset(dataset)
+        else:
+            # for speed eficiency
+            self._dataset = dataset
         # FIXME: use the commented code below instead of above?
         # if isinstance(dataset, Dataset):
         #     self._dataset = self._create_dataset(dataset)
