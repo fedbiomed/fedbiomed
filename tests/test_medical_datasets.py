@@ -24,8 +24,13 @@ from monai.transforms import LoadImage, ToTensor, Compose, Identity, PadListData
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError
 from torch.utils.data import Dataset
 from torchvision.transforms import Lambda
-from fedbiomed.common.dataset import MedicalFolderDataset, MedicalFolderBase, MedicalFolderController,\
-                                  MedicalFolderLoadingBlockTypes, DataLoadingPlan, MapperBlock
+from fedbiomed.common.dataset import (
+    MedicalFolderDataset,
+    MedicalFolderBase,
+    MedicalFolderController,
+    MedicalFolderLoadingBlockTypes,
+)
+from fedbiomed.common.dataloadingplan import DataLoadingPlan, MapperBlock
 
 
 def _generate_image_names(add_dots_in_title, n_dots: int = 3, extension: str = '.nii.gz'):

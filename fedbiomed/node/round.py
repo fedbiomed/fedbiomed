@@ -14,7 +14,8 @@ from typing import Dict, Union, Any, Optional, Tuple, List
 
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
-from fedbiomed.common.datamanager import DataManager, DataLoadingPlan
+from fedbiomed.common.datamanager import DataManager
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.exceptions import (
     FedbiomedError, FedbiomedOptimizerError, FedbiomedRoundError,
     FedbiomedUserInputError, FedbiomedSecureAggregationError

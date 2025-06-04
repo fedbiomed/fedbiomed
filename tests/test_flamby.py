@@ -173,7 +173,7 @@ class TestFlamby(unittest.TestCase):
 
         # Assert raises when argument is of incorrect type
         with patch(
-            "fedbiomed.common.datast.flamby_dataset.isinstance", return_value=False
+            "fedbiomed.common.dataset.flamby_dataset.isinstance", return_value=False
         ):
             with self.assertRaises(FedbiomedDatasetValueError):
                 dataset.init_transform("Wrong type")
