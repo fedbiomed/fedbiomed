@@ -13,6 +13,7 @@ from ._dataloader import DataLoader
 
 
 class PytorchDataLoader(TorchDataLoader, DataLoader):
+    """Data loader class for PyTorch training plan"""
     # In that case
     # - either implement empy method (only inherit type DataLoader)
     # - or implement methods that call TorchDataLoader methods, cf below
