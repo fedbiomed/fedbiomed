@@ -323,11 +323,13 @@ class TestJob(unittest.TestCase):
                     # populate expected replies
                     expected_replies = {}
                     for node_id, r in self.federated_request_mock.replies.return_value.items():
-                        if not error_status[node_id] and success_status[node_id]:
+                        if not error_status[node_id]:
                             expected_replies.update({
                                 node_id: {
                                     **r.get_dict(),
-                                    'params_path': os.path.join(job._keep_files_dir, f"params_{node_id}_{mock_uuid.return_value}.mpk")
+                                    **({'params_path': os.path.join(
+                                        job._keep_files_dir, f"params_{node_id}_{mock_uuid.return_value}.mpk"
+                                    )} if success_status[node_id] else {})
                                 }
                             })
                     self.assertDictEqual(training_replies, expected_replies)
