@@ -26,6 +26,7 @@ from fedbiomed.common.exceptions import FedbiomedCommunicationError
 
 @dataclass
 class ResearcherCredentials:
+
     port: str
     host: str
     certificate: Optional[str] = None
@@ -475,8 +476,7 @@ class Listener:
             except (Exception, GeneratorExit) as exp:
                 logger.error(
                     f"Unexpected error raised by node gRPC client in {self.__class__.__name__}: "
-                    f"{type(exp).__name__} : {exp}",
-                    exc_info=True,
+                    f"{type(exp).__name__} : {exp}", exc_info=True
                 )
                 await self._handle_after_process(
                     ClientStatus.FAILED, True, False, self._post_handle_raise, exp
@@ -589,6 +589,7 @@ class TaskListener(Listener):
 
 
 class Sender(Listener):
+
     def __init__(
         self,
         channels: Channels,

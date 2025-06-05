@@ -38,7 +38,7 @@ jobs:
         uses: pdm-project/setup-pdm@v4
 
       - name: Install Dependencies
-        run: pdm install -G docs -G dev
+        run: pdm install -G docs
 
       - name: Build documentation
         run: |

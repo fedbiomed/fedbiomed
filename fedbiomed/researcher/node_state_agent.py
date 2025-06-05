@@ -12,7 +12,6 @@ class NodeStateAgent:
     """
     Manages Node States collection, gathered from `Nodes` replies.
     """
-
     def __init__(self, node_ids: List[str]) -> None:
         """Constructor for NodeStateAgent.
 
@@ -55,11 +54,9 @@ class NodeStateAgent:
             for node_reply in resp.values():
                 # adds Node replies
                 try:
-                    node_id, state_id = node_reply["node_id"], node_reply["state_id"]
+                    node_id, state_id = node_reply['node_id'], node_reply['state_id']
                 except KeyError as ke:
-                    raise FedbiomedNodeStateAgentError(
-                        f"{ErrorNumbers.FB419.value}: Missing entry in Response"
-                    ) from ke
+                    raise FedbiomedNodeStateAgentError(f"{ErrorNumbers.FB419.value}: Missing entry in Response") from ke
                 if node_id in self._collection_state_ids:
                     self._collection_state_ids[node_id] = state_id
 
@@ -84,7 +81,9 @@ class NodeStateAgent:
         Returns:
             Node state for breakpoint
         """
-        return {"collection_state_ids": self._collection_state_ids}
+        return {
+            'collection_state_ids': self._collection_state_ids
+        }
 
     def load_state_breakpoint(self, node_state: Dict):
         """Loads NodeStateAgent's state from saved state.
@@ -92,4 +91,4 @@ class NodeStateAgent:
         Args:
             node_state: state of `NodeStateAgent` to be loaded.
         """
-        self._collection_state_ids = node_state.get("collection_state_ids")
+        self._collection_state_ids = node_state.get('collection_state_ids')

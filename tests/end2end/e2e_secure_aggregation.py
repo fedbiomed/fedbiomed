@@ -14,18 +14,13 @@ from helpers import (
     get_data_folder,
 )
 
-from experiments.training_plans.mnist_pytorch_training_plan import (
-    MnistModelScaffoldDeclearn,
-    MyTrainingPlan,
-)
+from experiments.training_plans.mnist_pytorch_training_plan import MnistModelScaffoldDeclearn, MyTrainingPlan
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.optimizers.declearn import ScaffoldServerModule
 from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.secagg import (
-    SecureAggregation,
-    SecureAggregationSchemes as SecAggSchemes,
-)
+from fedbiomed.researcher.secagg import SecureAggregation, SecureAggregationSchemes as SecAggSchemes
+
 
 
 # Set up nodes and start
@@ -37,7 +32,7 @@ def setup(port, post_session, request):
         "description": "MNIST DATASET",
         "tags": "#MNIST,#dataset",
         "data_type": "default",
-        "path": get_data_folder("MNIST-e2e-test"),
+        "path": get_data_folder('MNIST-e2e-test')
     }
 
     # Configure secure aggregation
@@ -49,16 +44,15 @@ def setup(port, post_session, request):
         port=port,
         num_nodes=2,
         config_sections={
-            "security": {"secure_aggregation": "True"},
-            "researcher": {"port": port},
-        },
-    ) as nodes:
+            'security': {'secure_aggregation': 'True'},
+            'researcher': {'port': port}
+        }) as nodes:
+
         node_1, node_2 = nodes
 
-        print(
-            "Creating researcher component -------------------------------------------"
-        )
+        print("Creating researcher component -------------------------------------------")
         researcher = create_researcher(port=port)
+
 
         print("Adding first dataset --------------------------------------------")
         add_dataset_to_node(node_1, dataset)
@@ -88,18 +82,16 @@ def extra_node_force_secagg(port):
         "description": "MNIST DATASET",
         "tags": "#MNIST,#dataset",
         "data_type": "default",
-        "path": get_data_folder("MNIST-e2e-test"),
+        "path": get_data_folder('MNIST-e2e-test')
     }
 
     node_3 = create_node(
         port=port,
         config_sections={
-            "security": {
-                "secure_aggregation": "True",
-                "force_secure_aggregation": "True",
-            },
-        },
-    )
+            'security': {
+                'secure_aggregation': 'True',
+                'force_secure_aggregation': 'True'},
+        })
 
     add_dataset_to_node(node_3, dataset)
 
@@ -114,7 +106,6 @@ def extra_node_force_secagg(port):
     kill_subprocesses(node_processes)
     thread.join()
     clear_component_data(node_3)
-
 
 @pytest.fixture
 def extra_node_no_validation(port):
@@ -125,18 +116,16 @@ def extra_node_no_validation(port):
         "description": "MNIST DATASET",
         "tags": "#MNIST,#dataset",
         "data_type": "default",
-        "path": get_data_folder("MNIST-e2e-test"),
+        "path": get_data_folder('MNIST-e2e-test')
     }
 
     node_3 = create_node(
         port=port,
         config_sections={
-            "security": {
-                "secure_aggregation": "True",
-                "secagg_insecure_validation": "False",
-            },
-        },
-    )
+            'security': {
+                'secure_aggregation': 'True',
+                'secagg_insecure_validation': 'False'},
+        })
 
     add_dataset_to_node(node_3, dataset)
 
@@ -152,27 +141,27 @@ def extra_node_no_validation(port):
     thread.join()
     clear_component_data(node_3)
 
-
 @pytest.fixture
 def extra_nodes_for_lom(port):
+
+
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",
         "tags": "#MNIST,#dataset",
         "data_type": "default",
-        "path": get_data_folder("MNIST-e2e-test"),
+        "path": get_data_folder('MNIST-e2e-test')
     }
 
     with create_multiple_nodes(
         port,
         3,
         config_sections={
-            "security": {
-                "secure_aggregation": "True",
-                "force_secure_aggregation": "True",
-            },
-        },
-    ) as nodes:
+            'security': {
+                'secure_aggregation': 'True',
+                'force_secure_aggregation': 'True'},
+    }) as nodes:
+
         node_1, node_2, node_3 = nodes
 
         for node in nodes:
@@ -182,39 +171,40 @@ def extra_nodes_for_lom(port):
         node_processes, _ = start_nodes([node_1, node_2, node_3])
         time.sleep(15)
 
+
         yield
 
         kill_subprocesses(node_processes)
 
-
 @pytest.fixture
 def extra_nodes_for_lom_8_nodes(port):
+
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",
         "tags": "#MNIST,#dataset",
         "data_type": "default",
-        "path": get_data_folder("MNIST-e2e-test"),
+        "path": get_data_folder('MNIST-e2e-test')
     }
 
     with create_multiple_nodes(
-        port=port,
-        num_nodes=6,
-        config_sections={
-            "security": {"secure_aggregation": "True"},
-            "researcher": {"port": port},
-        },
+        port = port,
+        num_nodes = 6,
+        config_sections = {
+            'security': {'secure_aggregation': 'True'},
+            'researcher': {'port': port}
+        }
     ) as nodes:
+
         node_1, node_2, node_3, node_4, node_5, node_6 = nodes
 
         for node in nodes:
-            add_dataset_to_node(node, dataset)
+             add_dataset_to_node(node, dataset)
 
         # start nodes and give some time to start
-        node_processes, _ = start_nodes(
-            [node_1, node_2, node_3, node_4, node_5, node_6]
-        )
+        node_processes, _ = start_nodes([node_1, node_2, node_3, node_4, node_5, node_6])
         time.sleep(15)
+
 
         yield
 
@@ -227,17 +217,16 @@ def extra_nodes_for_lom_8_nodes(port):
 #############################################
 
 model_args = {}
-tags = ["#MNIST", "#dataset"]
+tags = ['#MNIST', '#dataset']
 rounds = 2
 training_args = {
-    "loader_args": {
-        "batch_size": 48,
+    'loader_args': { 'batch_size': 48, },
+    'optimizer_args': {
+        "lr" : 1e-3
     },
-    "optimizer_args": {"lr": 1e-3},
-    "num_updates": 100,
-    "dry_run": False,
+    'num_updates': 100,
+    'dry_run': False,
 }
-
 
 def test_01_secagg_joye_libert_pytorch_experiment_basic():
     """Tests running training mnist with basic configuration"""
@@ -255,7 +244,6 @@ def test_01_secagg_joye_libert_pytorch_experiment_basic():
     exp.run()
     clear_experiment_data(exp)
 
-
 def test_02_secagg_joye_libert_pytorch_breakpoint(setup):
     """Tests running experiment with breakpoint and loading it while secagg active"""
 
@@ -268,7 +256,7 @@ def test_02_secagg_joye_libert_pytorch_breakpoint(setup):
         aggregator=FedAverage(),
         node_selection_strategy=None,
         secagg=SecureAggregation(scheme=SecAggSchemes.JOYE_LIBERT),
-        save_breakpoints=True,
+        save_breakpoints=True
     )
 
     exp.run()
@@ -287,7 +275,7 @@ def test_02_secagg_joye_libert_pytorch_breakpoint(setup):
 
 def test_03_secagg_pytorch_force_secagg(extra_node_force_secagg):
     """Tests failure scenario whereas a node requires secure aggregation
-    and researcher does not set it true
+        and researcher does not set it true
     """
     exp = Experiment(
         tags=tags,
@@ -298,7 +286,7 @@ def test_03_secagg_pytorch_force_secagg(extra_node_force_secagg):
         aggregator=FedAverage(),
         node_selection_strategy=None,
         secagg=False,
-        save_breakpoints=True,
+        save_breakpoints=True
     )
 
     # This should raise exception with default stragety
@@ -311,7 +299,7 @@ def test_03_secagg_pytorch_force_secagg(extra_node_force_secagg):
 
 def test_04_secagg_pytorch_no_validation(extra_node_no_validation):
     """Tests failure scenario whereas a researcher requires secure aggregation
-    insecure validation and one node refuses to do it
+        insecure validation and one node refuses to do it
     """
     exp = Experiment(
         tags=tags,
@@ -321,7 +309,7 @@ def test_04_secagg_pytorch_no_validation(extra_node_no_validation):
         round_limit=3,
         aggregator=FedAverage(),
         node_selection_strategy=None,
-        secagg=True,
+        secagg=True
     )
 
     # This should raise exception with default stragety
@@ -344,7 +332,7 @@ def test_05_secagg_pytorch_lom():
         aggregator=FedAverage(),
         node_selection_strategy=None,
         secagg=SecureAggregation(scheme=SecAggSchemes.LOM),
-        save_breakpoints=True,
+        save_breakpoints=True
     )
     exp.run()
 
@@ -364,7 +352,7 @@ def test_06_secagg_lom_pytorch_breakpoint(extra_nodes_for_lom):
         aggregator=FedAverage(),
         node_selection_strategy=None,
         secagg=SecureAggregation(scheme=SecAggSchemes.LOM),
-        save_breakpoints=True,
+        save_breakpoints=True
     )
 
     exp.run()
@@ -395,7 +383,7 @@ def test_07_secagg_pytorch_lom_8_nodes(extra_nodes_for_lom_8_nodes):
     """
 
     training_args_8 = copy.deepcopy(training_args)
-    training_args_8["dry_run"] = True
+    training_args_8['dry_run'] = True
 
     exp = Experiment(
         tags=tags,
@@ -405,7 +393,7 @@ def test_07_secagg_pytorch_lom_8_nodes(extra_nodes_for_lom_8_nodes):
         round_limit=1,
         aggregator=FedAverage(),
         node_selection_strategy=None,
-        secagg=SecureAggregation(scheme=SecAggSchemes.LOM),
+        secagg=SecureAggregation(scheme=SecAggSchemes.LOM)
     )
     exp.run()
 
@@ -415,15 +403,14 @@ def test_07_secagg_pytorch_lom_8_nodes(extra_nodes_for_lom_8_nodes):
 
 def test_08_mnist_pytorch_experiment_declearn_scaffold_jls():
     model_args = {}
-    tags = ["#MNIST", "#dataset"]
+    tags = ['#MNIST', '#dataset']
     training_args = {
-        "loader_args": {
-            "batch_size": 48,
-        },
-        "optimizer_args": {"lr": 1e-3},
-        "num_updates": 200,
-        "dry_run": False,
-    }
+    'loader_args': { 'batch_size': 48, }, 
+    'optimizer_args': {
+        "lr" : 1e-3
+    },
+    'num_updates': 200, 
+    'dry_run': False,  }
 
     rounds = 5
     exp = Experiment(
@@ -436,9 +423,8 @@ def test_08_mnist_pytorch_experiment_declearn_scaffold_jls():
         node_selection_strategy=None,
         tensorboard=True,
         secagg=SecureAggregation(scheme=SecAggSchemes.JOYE_LIBERT),
-        save_breakpoints=True,
-    )
-    fed_opt = Optimizer(lr=0.8, modules=[ScaffoldServerModule()])
+        save_breakpoints=True)
+    fed_opt = Optimizer(lr=.8, modules=[ScaffoldServerModule()])
     exp.set_agg_optimizer(fed_opt)
 
     exp.run()
@@ -447,15 +433,14 @@ def test_08_mnist_pytorch_experiment_declearn_scaffold_jls():
 
 def test_09_mnist_pytorch_experiment_declearn_scaffold_lom():
     model_args = {}
-    tags = ["#MNIST", "#dataset"]
+    tags = ['#MNIST', '#dataset']
     training_args = {
-        "loader_args": {
-            "batch_size": 48,
-        },
-        "optimizer_args": {"lr": 1e-3},
-        "num_updates": 200,
-        "dry_run": False,
-    }
+    'loader_args': { 'batch_size': 48, }, 
+    'optimizer_args': {
+        "lr" : 1e-3
+    },
+    'num_updates': 200, 
+    'dry_run': False,  }
 
     rounds = 5
     exp = Experiment(
@@ -468,9 +453,8 @@ def test_09_mnist_pytorch_experiment_declearn_scaffold_lom():
         node_selection_strategy=None,
         tensorboard=True,
         secagg=SecureAggregation(scheme=SecAggSchemes.LOM),
-        save_breakpoints=True,
-    )
-    fed_opt = Optimizer(lr=0.8, modules=[ScaffoldServerModule()])
+        save_breakpoints=True)
+    fed_opt = Optimizer(lr=.8, modules=[ScaffoldServerModule()])
     exp.set_agg_optimizer(fed_opt)
 
     exp.run()

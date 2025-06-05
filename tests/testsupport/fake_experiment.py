@@ -1,7 +1,6 @@
-"""This file contains dummy Classes for unit testing. It fakes Experiment class
+""" This file contains dummy Classes for unit testing. It fakes Experiment class
 (from fedbiomed.researcher.federated_workflows._experiment)
 """
-
 from typing import List, Optional, Type, TypeVar, Union
 
 from fedbiomed.common.training_args import TrainingArgs
@@ -22,25 +21,24 @@ class ExperimentMock:
     for a subset of methods
     """
 
-    def __init__(
-        self,
-        tags: Union[List[str], str, None] = None,
-        nodes: Union[List[str], None] = None,
-        training_data: Union[FederatedDataSet, dict, None] = None,
-        aggregator: Union[Aggregator, Type[Aggregator], None] = None,
-        agg_optimizer: Optional[Optimizer] = None,
-        node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
-        round_limit: Union[int, None] = None,
-        training_plan_class: Union[Type_TrainingPlan, str, None] = None,
-        training_plan_path: Union[str, None] = None,
-        model_args: dict = {},
-        training_args: dict = {},
-        save_breakpoints: bool = False,
-        tensorboard: bool = False,
-        experimentation_folder: Union[str, None] = None,
-        secagg: Union[bool, SecureAggregation] = False,
-    ):
-        """Constructor of the class.
+    def __init__(self,
+                tags: Union[List[str], str, None] = None,
+                nodes: Union[List[str], None] = None,
+                training_data: Union[FederatedDataSet, dict, None] = None,
+                aggregator: Union[Aggregator, Type[Aggregator], None] = None,
+                agg_optimizer: Optional[Optimizer] = None,
+                node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,
+                round_limit: Union[int, None] = None,
+                training_plan_class: Union[Type_TrainingPlan, str, None] = None,
+                training_plan_path: Union[str, None] = None,
+                model_args: dict = {},
+                training_args: dict = {},
+                save_breakpoints: bool = False,
+                tensorboard: bool = False,
+                experimentation_folder: Union[str, None] = None,
+                secagg: Union[bool, SecureAggregation] = False,
+                ):
+        """ Constructor of the class.
 
         Args and Returns : see original function
         """
@@ -60,7 +58,7 @@ class ExperimentMock:
         self.aggregator_args = {}
         self._aggregated_params = {}
         self._save_breakpoints = save_breakpoints
-        self._monitor = tensorboard  # minimal
+        self._monitor = tensorboard # minimal
         self._secagg = secagg
 
     def _set_round_current(self, round_current: int) -> int:

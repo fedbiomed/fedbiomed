@@ -28,7 +28,6 @@ from ._execution import (
 )
 from .constants import CONFIG_PREFIX, End2EndError
 
-
 class PytestThread(threading.Thread):
     """Extension of Thread for PyTest to be able to fail thread properly"""
 
@@ -48,7 +47,10 @@ class PytestThread(threading.Thread):
             raise self.exception
 
 
-def add_dataset_to_node(config: Config, dataset: dict) -> True:
+def add_dataset_to_node(
+    config: Config,
+    dataset: dict
+) -> True:
     """Adds given dataset using given configuration of the node"""
 
     tempdir_ = tempfile.TemporaryDirectory()
@@ -72,7 +74,7 @@ def default_on_failure(process: subprocess.Popen):
 def start_nodes(
     configs: list[Config],
     interrupt_all_on_fail: bool = True,
-    on_failure: Callable = default_on_failure,
+    on_failure: Callable = default_on_failure
 ) -> Tuple[multiprocessing.Process, PytestThread]:
     """Starts the nodes by given list of configs
 
@@ -83,23 +85,21 @@ def start_nodes(
     processes = []
     for c in configs:
         # Keep it for debugging purposes
-        if "fail_my_component" in c.root:
+        if 'fail_my_component' in c.root:
             processes.append(
-                fedbiomed_run(["node", "--path", c.root, "unkown-commnad"], pipe=False)
-            )
+                fedbiomed_run(
+                    ['node', "--path", c.root, 'unkown-commnad'], pipe=False))
         else:
             processes.append(
-                fedbiomed_run(["node", "--path", c.root, "start"], pipe=False)
-            )
+                fedbiomed_run(
+                    ["node", "--path", c.root, "start"], pipe=False))
 
     t = PytestThread(
         target=execute_in_paralel,
         kwargs={
-            "processes": processes,
-            "interrupt_all_on_fail": interrupt_all_on_fail,
-            "on_failure": on_failure,
-        },
-    )
+            'processes': processes,
+            'interrupt_all_on_fail': interrupt_all_on_fail,
+            'on_failure': on_failure})
 
     t.daemon = True
     t.start()
@@ -107,28 +107,29 @@ def start_nodes(
     return processes, t
 
 
-def execute_script(file: str, activate: str = "researcher"):
+def execute_script(file: str, activate: str = 'researcher'):
     """Executes given scripts"""
 
     if not os.path.isfile(file):
         raise End2EndError("file is not existing")
 
-    if file.endswith(".py"):
+    if file.endswith('.py'):
         return execute_python(file, activate)
 
-    if file.endswith(".ipynb"):
+    if file.endswith('.ipynb'):
         return execute_ipython(file, activate)
 
-    raise End2EndError("Unsopported file file. Please use .py or .ipynb")
+    raise End2EndError('Unsopported file file. Please use .py or .ipynb')
 
 
 def execute_python(file: str, activate: str):
     """Executes given python file in a process"""
 
     return shell_process(
-        command=["python", f"{file}"], wait=True, on_failure=default_on_failure
+        command=["python", f'{file}'],
+        wait=True,
+        on_failure=default_on_failure
     )
-
 
 def execute_ipython(file: str, activate: str):
     """Executes given ipython file in a process"""
@@ -136,7 +137,7 @@ def execute_ipython(file: str, activate: str):
     return shell_process(
         command=["ipython", "-c", f'"%run {file}"'],
         wait=True,
-        on_failure=default_on_failure,
+        on_failure=default_on_failure
     )
 
 
@@ -148,7 +149,7 @@ def clear_component_data(config: Config):
     shutil.rmtree(config.root)
 
 
-def clear_experiment_data(exp: "Experiment"):
+def clear_experiment_data(exp: 'Experiment'):
     """Clears data relative to an Experiment execution, mainly:
     - `ROOT/experiments/Experiment_xx` folder
     - `ROOT/runs` folder when activating Tensorboard feature
@@ -166,7 +167,7 @@ def clear_experiment_data(exp: "Experiment"):
     if not exp._reqs._grpc_server._server._loop.is_closed():
         future = asyncio.run_coroutine_threadsafe(
             exp._reqs._grpc_server._server.stop(10),
-            exp._reqs._grpc_server._server._loop,
+            exp._reqs._grpc_server._server._loop
         )
         print("##### FBM: Waiting for server to stop, timeout after 10 seconds")
         try:
@@ -186,7 +187,6 @@ def clear_experiment_data(exp: "Experiment"):
     # Need to remove request
     print("##### FBM: Removing request object")
     from fedbiomed.researcher.requests import Requests
-
     if Requests in Requests._objects:
         del Requests._objects[Requests]
 
@@ -210,7 +210,7 @@ def create_component(
     directory: str,
     component_name: str,
     config_sections: Dict[str, Dict[str, Any]] = None,
-    use_prefix: bool = True,
+    use_prefix: bool = True
 ) -> Config:
     """Creates component configuration
 
@@ -225,15 +225,11 @@ def create_component(
     if component_type == ComponentType.NODE:
         comp = importlib.import_module("fedbiomed.node.config").node_component
     elif component_type == ComponentType.RESEARCHER:
-        comp = importlib.import_module(
-            "fedbiomed.researcher.config"
-        ).researcher_component
+        comp = importlib.import_module("fedbiomed.researcher.config").researcher_component
     else:
-        raise ValueError(f"Urecognized component type {component_type}")
+        raise ValueError(f'Urecognized component type {component_type}')
 
-    component_name = (
-        f"{CONFIG_PREFIX}{component_name}" if use_prefix else component_name
-    )
+    component_name = f"{CONFIG_PREFIX}{component_name}" if use_prefix else component_name
     root = os.path.join(directory, component_name)
     config = comp.initiate(root=root)
 
@@ -242,7 +238,6 @@ def create_component(
     # + may be re-created during each test
     print("Removing _SecaggTableSingleton object")
     from fedbiomed.common.secagg_manager import _SecaggTableSingleton
-
     if _SecaggTableSingleton in _SecaggTableSingleton._objects:
         del _SecaggTableSingleton._objects[_SecaggTableSingleton]
 
@@ -252,7 +247,7 @@ def create_component(
     if config_sections:
         for section, value in config_sections.items():
             if section not in config.sections():
-                raise ValueError(f"Section is not in config sections {section}")
+                raise ValueError(f'Section is not in config sections {section}')
             for key, val in value.items():
                 config.set(section, key, val)
         # Rewrite after modification
@@ -260,11 +255,14 @@ def create_component(
     return config
 
 
-def create_researcher(port: str, config_sections: Dict | None = None) -> Config:
+def create_researcher(
+    port: str,
+    config_sections: Dict | None = None
+) -> Config:
     """Creates researcher component"""
 
     config_sections = config_sections or {}
-    config_sections.update({"server": {"port": port}})
+    config_sections.update({'server': {'port': port}})
 
     researcher = create_component(
         ComponentType.RESEARCHER,
@@ -272,15 +270,17 @@ def create_researcher(port: str, config_sections: Dict | None = None) -> Config:
         component_name=f"config_researcher_{uuid.uuid4()}.ini",
         config_sections=config_sections,
     )
-    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = researcher.root
+    os.environ['FBM_RESEARCHER_COMPONENT_ROOT'] = researcher.root
     from fedbiomed.researcher.config import config
-
     config.load(root=researcher.root)
 
     return researcher
 
-
-def training_plan_operation(config: Config, operation: str, training_plan_id: str):
+def training_plan_operation(
+    config: Config,
+    operation: str,
+    training_plan_id: str
+):
     """Applies approve or reject operation on given config of node
 
     Args:
@@ -289,18 +289,13 @@ def training_plan_operation(config: Config, operation: str, training_plan_id: st
         training_plan_id: Id of the training plan that the operation will be applied to
     """
 
-    if not operation in ["approve", "reject"]:
-        raise ValueError("The argument operation should be one of apprive or reject")
 
-    command = [
-        "node",
-        "--path",
-        config.root,
-        "training-plan",
-        operation,
-        "--id",
-        training_plan_id,
-    ]
+    if not operation in ['approve', 'reject']:
+        raise ValueError('The argument operation should be one of apprive or reject')
+
+
+    command = ["node", "--path", config.root, "training-plan",
+               operation, "--id", training_plan_id]
     _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
 
 
@@ -311,13 +306,13 @@ def get_data_folder(path, root: str | None = None):
     Args:
 
     """
-    ci_data_path = os.environ.get("FEDBIOMED_E2E_DATA_PATH")
+    ci_data_path = os.environ.get('FEDBIOMED_E2E_DATA_PATH')
     if ci_data_path:
         folder = os.path.join(ci_data_path, path)
     else:
         if not root:
             root = pytest.temporary_test_directory.name
-        folder = os.path.join(root, "data", path)
+        folder = os.path.join(root, 'data', path)
 
     if not os.path.isdir(folder):
         print(f"Data folder for {path} is not existing. Creating folder...")
@@ -325,28 +320,28 @@ def get_data_folder(path, root: str | None = None):
 
     return folder
 
-
-def create_node(port, config_sections: Dict | None = None):
+def create_node(port, config_sections:Dict | None = None):
     """Creates node component"""
 
-    c_com = functools.partial(
-        create_component,
+    c_com = functools.partial(create_component,
         component_type=ComponentType.NODE,
         directory=pytest.temporary_test_directory.name,
-        component_name=f"config_e2e_{uuid.uuid4()}.ini",
-    )
+        component_name=f"config_e2e_{uuid.uuid4()}.ini")
 
     config_sections = config_sections or {}
-    config_sections.update({"researcher": {"port": port}})
+    config_sections.update({'researcher': {'port': port}})
 
     return c_com(config_sections=config_sections)
 
 
 @contextmanager
 def create_multiple_nodes(
-    port: int, num_nodes: int, config_sections: Dict | List[Dict] = None
+    port: int,
+    num_nodes: int,
+    config_sections: Dict | List[Dict] = None
 ) -> Tuple:
     """Creates multiple node in a context manager"""
+
 
     if config_sections:
         if isinstance(config_sections, dict):
@@ -354,10 +349,9 @@ def create_multiple_nodes(
         elif isinstance(config_sections, list) and len(config_sections) != num_nodes:
             raise ValueError(
                 f"Number of nodes {num_nodes} is not equal number of config "
-                f"sections {len(config_sections)}"
-            )
+                f"sections {len(config_sections)}")
         else:
-            raise TypeError(f"Invalid config_sections type {type(config_sections)}")
+            raise TypeError(f'Invalid config_sections type {type(config_sections)}')
 
     # Create nodes
     nodes = []
@@ -369,6 +363,10 @@ def create_multiple_nodes(
 
     yield tuple(nodes)
 
+
     # Clear node data
     for node in nodes:
         clear_component_data(node)
+
+
+

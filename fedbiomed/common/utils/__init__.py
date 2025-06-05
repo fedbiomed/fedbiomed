@@ -35,13 +35,13 @@ from ._secagg_utils import (
     reverse_quantize,
     multiply,
     divide,
-    get_default_biprime,
+    get_default_biprime
 )
 
 from ._versions import (
     raise_for_version_compatibility,
     __default_version__,
-    FBM_Component_Version,
+    FBM_Component_Version
 )
 
 
@@ -77,5 +77,5 @@ __all__ = [
     "FBM_Component_Version",
     "import_class_object_from_file",
     "import_class_from_spec",
-    "import_class_from_file",
+    "import_class_from_file"
 ]

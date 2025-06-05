@@ -5,6 +5,7 @@
 Provide test metrics, both MetricTypes to use in TrainingArgs but also calculation routines.
 """
 
+
 from copy import copy
 import numpy as np
 from typing import Any, Dict, List, Tuple, Union
@@ -18,6 +19,7 @@ from fedbiomed.common.exceptions import FedbiomedMetricError
 
 
 class _MetricCategory(_BaseEnum):
+
     CLASSIFICATION_LABELS = 0  # return labels
     REGRESSION = 2
 
@@ -72,13 +74,11 @@ class Metrics(object):
             MetricTypes.EXPLAINED_VARIANCE.name: self.explained_variance,
         }
 
-    def evaluate(
-        self,
-        y_true: Union[np.ndarray, list],
-        y_pred: Union[np.ndarray, list],
-        metric: MetricTypes,
-        **kwargs: dict,
-    ) -> Union[int, float]:
+    def evaluate(self,
+                 y_true: Union[np.ndarray, list],
+                 y_pred: Union[np.ndarray, list],
+                 metric: MetricTypes,
+                 **kwargs: dict) -> Union[int, float]:
         """Perform evaluation based on given metric.
 
         This method configures given y_pred and y_true to make them compatible with default evaluation methods.
@@ -96,34 +96,26 @@ class Metrics(object):
             FedbiomedMetricError: in case of invalid metric, y_true and y_pred types
         """
         if not isinstance(metric, MetricTypes):
-            raise FedbiomedMetricError(
-                f"{ErrorNumbers.FB611.value}: Metric should instance of `MetricTypes`"
-            )
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Metric should instance of `MetricTypes`")
 
         if y_true is not None and not isinstance(y_true, (np.ndarray, list)):
-            raise FedbiomedMetricError(
-                f"{ErrorNumbers.FB611.value}: The argument `y_true` should an instance "
-                f"of `np.ndarray`, but got {type(y_true)} "
-            )
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_true` should an instance "
+                                       f"of `np.ndarray`, but got {type(y_true)} ")
 
         if y_pred is not None and not isinstance(y_pred, (np.ndarray, list)):
-            raise FedbiomedMetricError(
-                f"{ErrorNumbers.FB611.value}: The argument `y_pred` should an instance "
-                f"of `np.ndarray`, but got {type(y_pred)} "
-            )
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: The argument `y_pred` should an instance "
+                                       f"of `np.ndarray`, but got {type(y_pred)} ")
 
-        y_true, y_pred = self._configure_y_true_pred_(
-            y_true=y_true, y_pred=y_pred, metric=metric
-        )
+        y_true, y_pred = self._configure_y_true_pred_(y_true=y_true, y_pred=y_pred, metric=metric)
         result = self.metrics[metric.name](y_true, y_pred, **kwargs)
 
         return result
 
     @staticmethod
-    def accuracy(
-        y_true: Union[np.ndarray, list], y_pred: Union[np.ndarray, list], **kwargs: dict
-    ) -> float:
-        """Evaluate the accuracy score
+    def accuracy(y_true: Union[np.ndarray, list],
+                 y_pred: Union[np.ndarray, list],
+                 **kwargs: dict) -> float:
+        """ Evaluate the accuracy score
 
         Source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
 
@@ -140,22 +132,16 @@ class Metrics(object):
         """
 
         try:
-            y_true, y_pred, _, _ = Metrics._configure_multiclass_parameters(
-                y_true, y_pred, kwargs, "ACCURACY"
-            )
+            y_true, y_pred, _, _ = Metrics._configure_multiclass_parameters(y_true, y_pred, kwargs, 'ACCURACY')
             return metrics.accuracy_score(y_true, y_pred, **kwargs)
         except Exception as e:
-            msg = (
-                ErrorNumbers.FB611.value
-                + " Exception raised from SKLEARN metrics: "
-                + str(e)
-            )
+            msg = ErrorNumbers.FB611.value + " Exception raised from SKLEARN metrics: " + str(e)
             raise FedbiomedMetricError(msg)
 
     @staticmethod
-    def precision(
-        y_true: Union[np.ndarray, list], y_pred: Union[np.ndarray, list], **kwargs: dict
-    ) -> float:
+    def precision(y_true: Union[np.ndarray, list],
+                  y_pred: Union[np.ndarray, list],
+                  **kwargs: dict) -> float:
         """Evaluate the precision score
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html]
 
@@ -171,27 +157,24 @@ class Metrics(object):
             FedbiomedMetricError: raised if above sklearn method for computing precision raises
         """
         # Get average and pob_label argument based on multiclass status
-        y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(
-            y_true, y_pred, kwargs, "PRECISION"
-        )
+        y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(y_true,
+                                                                                      y_pred,
+                                                                                      kwargs,
+                                                                                      'PRECISION')
 
         kwargs.pop("average", None)
         kwargs.pop("pos_label", None)
 
         try:
-            return metrics.precision_score(
-                y_true, y_pred, average=average, pos_label=pos_label, **kwargs
-            )
+            return metrics.precision_score(y_true, y_pred, average=average, pos_label=pos_label, **kwargs)
         except Exception as e:
-            raise FedbiomedMetricError(
-                f"{ErrorNumbers.FB611.value}: Error during calculation of `PRECISION` "
-                f"calculation: {str(e)}"
-            )
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `PRECISION` "
+                                       f"calculation: {str(e)}")
 
     @staticmethod
-    def recall(
-        y_true: Union[np.ndarray, list], y_pred: Union[np.ndarray, list], **kwargs: dict
-    ) -> float:
+    def recall(y_true: Union[np.ndarray, list],
+               y_pred: Union[np.ndarray, list],
+               **kwargs: dict) -> float:
         """Evaluate the recall.
         [source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html]
 
@@ -208,27 +191,21 @@ class Metrics(object):
         """
 
         # Get average and pob_label argument based on multiclass status
-        y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(
-            y_true, y_pred, kwargs, "RECALL"
-        )
+        y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(y_true, y_pred, kwargs, 'RECALL')
 
         kwargs.pop("average", None)
         kwargs.pop("pos_label", None)
 
         try:
-            return metrics.recall_score(
-                y_true, y_pred, average=average, pos_label=pos_label, **kwargs
-            )
+            return metrics.recall_score(y_true, y_pred, average=average, pos_label=pos_label, **kwargs)
         except Exception as e:
-            raise FedbiomedMetricError(
-                f"{ErrorNumbers.FB611.value}: Error during calculation of `RECALL` "
-                f"calculation: {str(e)}"
-            )
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `RECALL` "
+                                       f"calculation: {str(e)}")
 
     @staticmethod
-    def f1_score(
-        y_true: Union[np.ndarray, list], y_pred: Union[np.ndarray, list], **kwargs: dict
-    ) -> float:
+    def f1_score(y_true: Union[np.ndarray, list],
+                 y_pred: Union[np.ndarray, list],
+                 **kwargs: dict) -> float:
         """Evaluate the F1 score.
 
         Source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
@@ -246,26 +223,23 @@ class Metrics(object):
         """
 
         # Get average and pob_label argument based on multiclass status
-        y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(
-            y_true, y_pred, kwargs, "F1_SCORE"
-        )
+        y_true, y_pred, average, pos_label = Metrics._configure_multiclass_parameters(y_true,
+                                                                                      y_pred,
+                                                                                      kwargs,
+                                                                                      'F1_SCORE')
 
         kwargs.pop("average", None)
         kwargs.pop("pos_label", None)
 
         try:
-            return metrics.f1_score(
-                y_true, y_pred, average=average, pos_label=pos_label, **kwargs
-            )
+            return metrics.f1_score(y_true, y_pred, average=average, pos_label=pos_label, **kwargs)
         except Exception as e:
-            raise FedbiomedMetricError(
-                f"{ErrorNumbers.FB611.value}: Error during calculation of `F1_SCORE` {str(e)}"
-            )
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `F1_SCORE` {str(e)}")
 
     @staticmethod
-    def mse(
-        y_true: Union[np.ndarray, list], y_pred: Union[np.ndarray, list], **kwargs: dict
-    ) -> float:
+    def mse(y_true: Union[np.ndarray, list],
+            y_pred: Union[np.ndarray, list],
+            **kwargs: dict) -> float:
         """Evaluate the mean squared error.
 
         Source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
@@ -284,26 +258,22 @@ class Metrics(object):
 
         # Set multiouput as raw_values is it is not defined by researcher
         if len(y_true.shape) > 1:
-            multi_output = kwargs.get("multioutput", "raw_values")
+            multi_output = kwargs.get('multioutput', 'raw_values')
         else:
             multi_output = None
 
-        kwargs.pop("multioutput", None)
+        kwargs.pop('multioutput', None)
 
         try:
-            return metrics.mean_squared_error(
-                y_true, y_pred, multioutput=multi_output, **kwargs
-            )
+            return metrics.mean_squared_error(y_true, y_pred, multioutput=multi_output, **kwargs)
         except Exception as e:
-            raise FedbiomedMetricError(
-                f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_SQUARED_ERROR`"
-                f" {str(e)}"
-            )
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_SQUARED_ERROR`"
+                                       f" {str(e)}")
 
     @staticmethod
-    def mae(
-        y_true: Union[np.ndarray, list], y_pred: Union[np.ndarray, list], **kwargs: dict
-    ) -> float:
+    def mae(y_true: Union[np.ndarray, list],
+            y_pred: Union[np.ndarray, list],
+            **kwargs: dict) -> float:
         """Evaluate the mean absolute error.
 
         Source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html
@@ -321,26 +291,23 @@ class Metrics(object):
         """
         # Set multiouput as raw_values is it is not defined by researcher
         if len(y_true.shape) > 1:
-            multi_output = kwargs.get("multioutput", "raw_values")
+            multi_output = kwargs.get('multioutput', 'raw_values')
         else:
             multi_output = None
 
-        kwargs.pop("multioutput", None)
+        kwargs.pop('multioutput', None)
 
         try:
-            return metrics.mean_absolute_error(
-                y_true, y_pred, multioutput=multi_output, **kwargs
-            )
+            return metrics.mean_absolute_error(y_true, y_pred, multioutput=multi_output, **kwargs)
         except Exception as e:
             raise FedbiomedMetricError(
                 f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_ABSOLUTE_ERROR`"
-                f" {str(e)}"
-            ) from e
+                f" {str(e)}") from e
 
     @staticmethod
-    def explained_variance(
-        y_true: Union[np.ndarray, list], y_pred: Union[np.ndarray, list], **kwargs: dict
-    ) -> float:
+    def explained_variance(y_true: Union[np.ndarray, list],
+                           y_pred: Union[np.ndarray, list],
+                           **kwargs: dict) -> float:
         """Evaluate the Explained variance regression score.
 
         Source: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.explained_variance_score.html]
@@ -360,28 +327,22 @@ class Metrics(object):
 
         # Set multiouput as raw_values is it is not defined by researcher
         if len(y_true.shape) > 1:
-            multi_output = kwargs.get("multioutput", "raw_values")
+            multi_output = kwargs.get('multioutput', 'raw_values')
         else:
             multi_output = None
 
-        kwargs.pop("multioutput", None)
+        kwargs.pop('multioutput', None)
 
         try:
-            return metrics.explained_variance_score(
-                y_true, y_pred, multioutput=multi_output, **kwargs
-            )
+            return metrics.explained_variance_score(y_true, y_pred, multioutput=multi_output, **kwargs)
         except Exception as e:
-            raise FedbiomedMetricError(
-                f"{ErrorNumbers.FB611.value}: Error during calculation of `EXPLAINED_VARIANCE`"
-                f" {str(e)}"
-            )
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Error during calculation of `EXPLAINED_VARIANCE`"
+                                       f" {str(e)}")
 
     @staticmethod
-    def _configure_y_true_pred_(
-        y_true: Union[np.ndarray, list],
-        y_pred: Union[np.ndarray, list],
-        metric: MetricTypes,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def _configure_y_true_pred_(y_true: Union[np.ndarray, list],
+                                y_pred: Union[np.ndarray, list],
+                                metric: MetricTypes) -> Tuple[np.ndarray, np.ndarray]:
         """
         Method for configuring y_true and y_pred array to make them compatible for metric functions. It
         guarantees that the y_true and y_pred will have same shape.
@@ -416,11 +377,9 @@ class Metrics(object):
             y_true = y_true.reshape((1,))
 
         if y_pred.shape[0] != y_true.shape[0]:
-            raise FedbiomedMetricError(
-                f"{ErrorNumbers.FB611.value}: Predictions and true values should have"
-                f"equal number of samples, but got y_true = {len(y_true)}, and"
-                f" y_pred= {len(y_pred)}"
-            )
+            raise FedbiomedMetricError(f"{ErrorNumbers.FB611.value}: Predictions and true values should have"
+                                       f"equal number of samples, but got y_true = {len(y_true)}, and"
+                                       f" y_pred= {len(y_pred)}")
 
         # Get shape of the prediction should be 1D or 2D array
         shape_y_pred = y_pred.shape
@@ -432,29 +391,22 @@ class Metrics(object):
                 f"{ErrorNumbers.FB611.value}: Predictions or true values are not in "
                 f"supported shape {y_pred.shape}, `{y_true.shape}`, should be 1D or 2D "
                 f"list/array. If it isa special case,  please consider creating a custom "
-                f"`testing_step` method in training plan"
-            )
+                f"`testing_step` method in training plan")
 
         if Metrics._is_array_of_str(y_pred) != Metrics._is_array_of_str(y_true):
             raise FedbiomedMetricError(
                 f"{ErrorNumbers.FB611.value}: Predicted values and true values have "
-                f"different types `int` and `str`"
-            )
+                f"different types `int` and `str`")
 
         if Metrics._is_array_of_str(y_pred):
             if metric.metric_category() is _MetricCategory.REGRESSION:
                 raise FedbiomedMetricError(
                     f"{ErrorNumbers.FB611.value}: Can not apply metric `{metric.name}` "
-                    f"to non-numeric prediction results"
-                )
+                    f"to non-numeric prediction results")
             return y_true, y_pred
 
-        output_shape_y_pred = (
-            shape_y_pred[1] if len(shape_y_pred) == 2 else 0
-        )  # 0 for 1D array
-        output_shape_y_true = (
-            shape_y_true[1] if len(shape_y_true) == 2 else 0
-        )  # 0 for 1D array
+        output_shape_y_pred = shape_y_pred[1] if len(shape_y_pred) == 2 else 0  # 0 for 1D array
+        output_shape_y_true = shape_y_true[1] if len(shape_y_true) == 2 else 0  # 0 for 1D array
         if metric.metric_category() is _MetricCategory.CLASSIFICATION_LABELS:
             if output_shape_y_pred == 0 and output_shape_y_true == 0:
                 # If y_pred contains labels as integer, do not use threshold cut
@@ -465,9 +417,7 @@ class Metrics(object):
                     y_true = np.where(y_true > 0.5, 1, 0)
                     logger.warning(
                         f"Target data seems to be a regression, metric {metric.name} might "
-                        "not be appropriate",
-                        broadcast=True,
-                    )
+                        "not be appropriate", broadcast=True)
 
             # If y_true is one 2D array and y_pred is 1D array
             # Example: y_true: [ [0,1], [1,0]] | y_pred : [0.1, 0.5]
@@ -487,8 +437,7 @@ class Metrics(object):
                 if output_shape_y_pred != output_shape_y_true:
                     raise FedbiomedMetricError(
                         f"{ErrorNumbers.FB611.value}: Can not convert values to class labels, "
-                        f"shapes of predicted and true values do not match."
-                    )
+                        f"shapes of predicted and true values do not match.")
                 y_pred = np.argmax(y_pred, axis=1)
                 y_true = np.argmax(y_true, axis=1)
 
@@ -511,9 +460,10 @@ class Metrics(object):
         return isinstance(list_[0][0], str)
 
     @staticmethod
-    def _configure_multiclass_parameters(
-        y_true: np.ndarray, y_pred: np.ndarray, parameters: Dict[str, Any], metric: str
-    ) -> Tuple[np.ndarray, np.ndarray, str, int]:
+    def _configure_multiclass_parameters(y_true: np.ndarray,
+                                         y_pred: np.ndarray,
+                                         parameters: Dict[str, Any],
+                                         metric: str) -> Tuple[np.ndarray, np.ndarray, str, int]:
         """Re-format data giving the size of y_true and y_pred,
 
         In order to compute classification validation metric. If multiclass dataset, returns one hot encoding dataset.
@@ -536,10 +486,10 @@ class Metrics(object):
                 for computing Precision, recall, ...
         """
 
-        pos_label = parameters.get("pos_label", None)
+        pos_label = parameters.get('pos_label', None)
         # Check target variable is multi class or binary
         if len(np.unique(y_true)) > 2:
-            average = parameters.get("average", "weighted")
+            average = parameters.get('average', 'weighted')
 
             encoder = OneHotEncoder()
             y_true = np.expand_dims(y_true, axis=1)
@@ -554,7 +504,7 @@ class Metrics(object):
             y_true = encoder.transform(y_true).toarray()
             y_pred = encoder.transform(y_pred).toarray()
         else:
-            average = parameters.get("average", "binary")
+            average = parameters.get('average', 'binary')
             # Alphabetically select first label as pos_label
             if pos_label is None:
                 y_true_copy = copy(y_true)

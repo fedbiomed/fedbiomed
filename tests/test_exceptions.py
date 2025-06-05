@@ -2,13 +2,13 @@ import unittest
 
 from fedbiomed.common.exceptions import *
 
-
 class TestException(unittest.TestCase):
-    """
+    '''
     Test exceptions class hierarchy
-    """
+    '''
 
     def test_exception_logger(self):
+
         flag = False
         try:
             raise FedbiomedLoggerError("test")
@@ -21,6 +21,7 @@ class TestException(unittest.TestCase):
 
         self.assertTrue(flag, "Bad exception was caught for FedbiomedLoggerError")
 
+
         flag = False
         try:
             raise FedbiomedLoggerError("test")
@@ -33,7 +34,9 @@ class TestException(unittest.TestCase):
 
         self.assertTrue(flag, "Bad exception was caught for FedbiomedLoggerError")
 
+
     def test_exception_message(self):
+
         flag = False
         try:
             raise FedbiomedMessageError("test")
@@ -46,6 +49,7 @@ class TestException(unittest.TestCase):
 
         self.assertTrue(flag, "Bad exception was caught for FedbiomedMessageError")
 
+
         flag = False
         try:
             raise FedbiomedMessageError("test")
@@ -57,7 +61,9 @@ class TestException(unittest.TestCase):
             flag - False
         self.assertTrue(flag, "Bad exception was caught for FedbiomedMessageError")
 
+
     def test_exception_strategy(self):
+
         flag = False
         try:
             raise FedbiomedStrategyError("test")
@@ -70,6 +76,7 @@ class TestException(unittest.TestCase):
 
         self.assertTrue(flag, "Bad exception was caught for FedbiomedStrategyError")
 
+
         flag = False
         try:
             raise FedbiomedStrategyError("test")
@@ -82,7 +89,9 @@ class TestException(unittest.TestCase):
 
         self.assertTrue(flag, "Bad exception was caught for FedbiomedStrategyError")
 
+
     def test_exception_training(self):
+
         flag = False
         try:
             raise FedbiomedTrainingError("test")
@@ -94,6 +103,7 @@ class TestException(unittest.TestCase):
             flag - False
 
         self.assertTrue(flag, "Bad exception was caught for FedbiomedTrainingError")
+
 
         flag = False
         try:
@@ -108,5 +118,5 @@ class TestException(unittest.TestCase):
         self.assertTrue(flag, "Bad exception was caught for FedbiomedTrainingError")
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == '__main__': # pragma: no cover
     unittest.main()

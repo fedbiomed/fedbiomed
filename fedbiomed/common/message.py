@@ -201,6 +201,7 @@ class Message:
         dict_ = {}
         one_ofs = proto.DESCRIPTOR.oneofs_by_name
         for field in proto.DESCRIPTOR.fields:
+
             one_of_field = False
             for one_of, _ in one_ofs.items():
                 if field.name == proto.WhichOneof(one_of):
@@ -208,6 +209,7 @@ class Message:
 
             # If the field is oneof and options are in message type
             if one_of_field and field.type == FieldDescriptor.TYPE_MESSAGE:
+
                 field_ = cls.__dataclass_fields__[field.name]
                 args = get_args(field_.type)
 
@@ -233,11 +235,13 @@ class Message:
             # However, if the field is labeled as `optional` explicitly, it will have
             # presence, otherwise, `has_presence` returns False
             elif field.has_presence and field.label == FieldDescriptor.LABEL_OPTIONAL:
+
                 # If proto has the field it means that the value is not None
                 if proto.HasField(field.name):
                     dict_.update({field.name: getattr(proto, field.name)})
 
             elif field.label == FieldDescriptor.LABEL_REPEATED:
+
                 if field.type == FieldDescriptor.TYPE_MESSAGE:
                     dict_.update({field.name: dict(getattr(proto, field.name))})
                 else:
@@ -304,9 +308,7 @@ class OverlayMessage(Message, RequiresProtocolVersion):
     """
 
     researcher_id: str  # Needed for source and destination node side message handling
-    node_id: (
-        str  # Needed for researcher side message handling (receiving a `ReplyTask`)
-    )
+    node_id: str  # Needed for researcher side message handling (receiving a `ReplyTask`)
     dest_node_id: str  # Needed for researcher side message handling
     overlay: bytes
     setup: bool
@@ -443,7 +445,6 @@ class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
 
 # --- Node <=> Node messages ----------------------------------------------------
 
-
 @catch_dataclass_exception
 @dataclass
 class ChannelSetupRequest(InnerRequestReply, RequiresProtocolVersion):
@@ -465,7 +466,6 @@ class ChannelSetupReply(InnerRequestReply, RequiresProtocolVersion):
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
-
     public_key: bytes
 
 

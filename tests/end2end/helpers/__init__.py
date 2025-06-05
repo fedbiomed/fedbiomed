@@ -1,6 +1,10 @@
-from .constants import CONFIG_PREFIX
+from .constants import (
+    CONFIG_PREFIX
+)
 
-from ._datasets import generate_sklearn_classification_dataset
+from ._datasets import (
+   generate_sklearn_classification_dataset
+)
 
 from ._helpers import (
     create_component,
@@ -24,5 +28,7 @@ from ._execution import (
     shell_process,
     collect,
     kill_subprocesses,
-    kill_process,
+    kill_process
 )
+
+

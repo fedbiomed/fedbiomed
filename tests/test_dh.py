@@ -6,6 +6,7 @@ from fedbiomed.common.constants import ErrorNumbers
 
 
 class TestDHKey(unittest.TestCase):
+
     def setUp(self):
         """Initialize the DHKey instance."""
         self.dh_keys = DHKey()
@@ -48,6 +49,7 @@ class TestDHKey(unittest.TestCase):
 
 
 class TestDHKeyAgreement(unittest.TestCase):
+
     def setUp(self):
         """Initialize the DHKeyAgreement instances."""
         self.node_u_id = "node_u"

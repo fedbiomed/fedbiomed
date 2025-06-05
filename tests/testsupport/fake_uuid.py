@@ -1,5 +1,5 @@
-"""This file contains dummy Classes for unit testing. It fakes uuid
-(from uuid.uuid4()) that comes from the python standard library.
+""" This file contains dummy Classes for unit testing. It fakes uuid
+(from uuid.uuid4()) that comes from the python standard library. 
 """
 
 
@@ -9,11 +9,9 @@ class FakeUuid:
     set by attribute VALUE:
     - when accessing `hex` attribute (eg: replaces uuid.uuid4().hex)
     - when calling `uuid.uuid4()` or `str(uuid.uuid4())`
-
+    
     """
-
     VALUE = 1234
-
     def __init__(self):
         """Constructor of the dummy class that fakes uuid
         python standard package.
@@ -23,7 +21,7 @@ class FakeUuid:
         self.hex = FakeUuid.VALUE
 
     def __str__(self) -> str:
-        """Returns attribute VALUE in string
+        """Returns attribute VALUE in string 
 
         Returns:
             str: returns the value set in attribute VALUE.

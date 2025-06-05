@@ -12,7 +12,7 @@ from ._send_nodes import send_nodes
 
 __all__ = [
     "OverlayChannel",
-    "NodeToNodeController",
+    'NodeToNodeController',
     "NodeToNodeRouter",
     "send_nodes",
 ]

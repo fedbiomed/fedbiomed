@@ -168,5 +168,7 @@ class Serializer:
             return MetricTypes.get_metric_type_by_name(obj["value"])
         if objtype == "EncryptedAuxVar":
             return EncryptedAuxVar.from_dict(obj["value"])
-        logger.warning("Encountered an object that cannot be properly deserialized.")
+        logger.warning(
+            "Encountered an object that cannot be properly deserialized."
+        )
         return obj

@@ -47,7 +47,6 @@ class SecaggContext(ABC):
     """
     Handles a Secure Aggregation context element on the researcher side.
     """
-
     _REQUEST_SETUP = SecaggRequest
     _REQUEST_DELETE = SecaggDeleteRequest
     _min_num_parties: int
@@ -58,7 +57,7 @@ class SecaggContext(ABC):
         researcher_id: str,
         parties: List[str],
         experiment_id: str,
-        secagg_id: Union[str, None] = None,
+        secagg_id: Union[str, None] = None
     ):
         """Constructor of the class.
 
@@ -253,7 +252,7 @@ class SecaggContext(ABC):
             logger.info(
                 f"{ErrorNumbers.FB415.value}: secagg context for {self._secagg_id} exists"
             )
-            self._context = context["context"]
+            self._context = context['context']
         else:
             request = self._REQUEST_SETUP(
                 researcher_id=self._researcher_id,
@@ -268,6 +267,7 @@ class SecaggContext(ABC):
         self._status = True
 
         return self._status
+
 
     def delete(self) -> bool:
         """Delete secagg context element on defined parties.
@@ -344,6 +344,7 @@ class SecaggContext(ABC):
 
 
 class SecaggServkeyContext(SecaggContext):
+
     # Nodes  + researcher
     _REQUEST_SETUP = AdditiveSSSetupRequest
     _min_num_parties: int = 2
@@ -362,6 +363,7 @@ class SecaggServkeyContext(SecaggContext):
         self._raise_if_missing_parties(parties)
         self._secagg_manager = SecaggServkeyManager(self._db)
 
+
     def secagg_round(
         self,
         request: Message,
@@ -379,12 +381,11 @@ class SecaggServkeyContext(SecaggContext):
         """
 
         replies = self._launch_request(request)
-        servkey: int = AdditiveShares(
-            [AdditiveShare(rep.share) for rep in replies.values()]
-        ).reconstruct()
+        servkey: int = AdditiveShares([AdditiveShare(rep.share) for
+            rep in replies.values()]).reconstruct()
 
         biprime = get_default_biprime()
-        context = {"server_key": -servkey, "biprime": biprime}
+        context = {'server_key': -servkey, 'biprime': biprime}
         return self._register(context)
 
 
@@ -392,7 +393,6 @@ class SecaggDHContext(SecaggContext):
     """
     Handles a Secure Aggregation Diffie Hellman context element on the researcher side.
     """
-
     _REQUEST = SecaggRequest
     _min_num_parties: int = 2
 
@@ -401,7 +401,7 @@ class SecaggDHContext(SecaggContext):
         researcher_id: str,
         parties: List[str],
         experiment_id: str,
-        secagg_id: Union[str, None] = None,
+        secagg_id: Union[str, None] = None
     ):
         """Constructor of the class.
 
@@ -442,3 +442,4 @@ class SecaggDHContext(SecaggContext):
         _ = self._launch_request(request)
         context = {}
         return self._register(context)
+

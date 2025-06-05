@@ -17,15 +17,15 @@ from ._config_utils import SHARE_DIR
 
 def matching_parties_dh(context: dict, parties: list) -> bool:
     """Check if parties of given context are compatible with the parties
-    of a secagg Diffie Hellman element.
+        of a secagg Diffie Hellman element.
 
-    Args:
-        context: context to be compared with the secagg servkey element parties
-        parties: the secagg servkey element parties
+        Args:
+            context: context to be compared with the secagg servkey element parties
+            parties: the secagg servkey element parties
 
-    Returns:
-        True if this context can be used with this element, False if not.
-    """
+        Returns:
+            True if this context can be used with this element, False if not.
+        """
     # Need to ensure that:
     # - no check on first party (no cryptographic material attached to the researcher).
     #   The context is established for a given experiment, thus a given researcher but this should
@@ -45,21 +45,20 @@ def matching_parties_dh(context: dict, parties: list) -> bool:
         # isinstance(context['parties'], list) and
         # len(context['parties']) >= 1 and
         # isinstance(parties, list) and
-        set(parties[1:]).issubset(set(context["parties"][1:]))
-    )
+        set(parties[1:]).issubset(set(context['parties'][1:])))
 
 
 def matching_parties_servkey(context: dict, parties: list) -> bool:
     """Check if parties of given context are compatible with the parties
-    of a secagg servkey element.
+        of a secagg servkey element.
 
-    Args:
-        context: context to be compared with the secagg servkey element parties
-        parties: the secagg servkey element parties
+        Args:
+            context: context to be compared with the secagg servkey element parties
+            parties: the secagg servkey element parties
 
-    Returns:
-        True if this context can be used with this element, False if not.
-    """
+        Returns:
+            True if this context can be used with this element, False if not.
+        """
     # Need to ensure that:
     # - existing element was established for the same parties
     # - first party needs to be the same for both
@@ -75,9 +74,8 @@ def matching_parties_servkey(context: dict, parties: list) -> bool:
         # isinstance(context['parties'], list) and
         # len(context['parties']) >= 1 and
         # isinstance(parties, list) and
-        parties[0] == context["parties"][0]
-        and set(parties[1:]) == set(context["parties"][1:])
-    )
+        parties[0] == context['parties'][0] and
+        set(parties[1:]) == set(context['parties'][1:]))
 
 
 def quantize(
@@ -109,11 +107,11 @@ def quantize(
     f = np.vectorize(
         lambda x: min(
             target_range - 1,
-            (sorted((-clipping_range, x, clipping_range))[1] + clipping_range)
-            * target_range
-            / (2 * clipping_range),
+            (sorted((-clipping_range, x, clipping_range))[1] +
+            clipping_range) *
+            target_range / (2 * clipping_range),
         ),
-        otypes=[np.uint64],
+        otypes=[np.uint64]
     )
     quantized_list = f(weights)
 
@@ -180,7 +178,10 @@ def reverse_quantize(
     min_range = -clipping_range
     step_size = (max_range - min_range) / (target_range - 1)
     # Compute as input type (`np.uint64` then convert to `np.float64`)
-    f = np.vectorize(lambda x: (min_range + step_size * x), otypes=[np.float64])
+    f = np.vectorize(
+        lambda x: (min_range + step_size * x),
+        otypes=[np.float64]
+    )
 
     # TODO: we could check that received values are in the range
     weights = np.array(weights, dtype=np.uint64)
@@ -189,7 +190,10 @@ def reverse_quantize(
     return reverse_quantized_list.tolist()
 
 
-def _check_clipping_range(values: List[float], clipping_range: float) -> None:
+def _check_clipping_range(
+        values: List[float],
+        clipping_range: float
+) -> None:
     """Checks clipping range for quantization
 
     Args:
@@ -206,16 +210,14 @@ def _check_clipping_range(values: List[float], clipping_range: float) -> None:
     if state:
         logger.info(
             "There are some numbers in the local vector that exceeds clipping range. Please increase the "
-            "clipping range to account for value"
-        )
+            "clipping range to account for value")
 
 
 def get_default_biprime():
     """Gets default biprime"""
     biprime = os.path.join(
-        SHARE_DIR, "envs", "common", "default_biprimes", "biprime0.json"
-    )
-    with open(biprime, "+r", encoding="UTF-8") as json_file:
+        SHARE_DIR, "envs", "common", "default_biprimes", "biprime0.json")
+    with open(biprime, '+r', encoding="UTF-8") as json_file:
         biprime = json.load(json_file)
 
     return biprime["biprime"]

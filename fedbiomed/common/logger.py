@@ -52,13 +52,13 @@ from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.ipython import is_ipython
 
 # default values
-DEFAULT_LOG_FILE = "mylog.log"
+DEFAULT_LOG_FILE = 'mylog.log'
 DEFAULT_LOG_LEVEL = logging.WARNING
-DEFAULT_FORMAT = "%(asctime)s %(name)s %(levelname)s - %(message)s"
+DEFAULT_FORMAT = '%(asctime)s %(name)s %(levelname)s - %(message)s'
 
 
 class _GrpcFormatter(logging.Formatter):
-    """gRPC log  formatter"""
+    """gRPC log  formatter """
 
     # ATTENTION: should not be imported from this module
 
@@ -69,13 +69,9 @@ class _GrpcFormatter(logging.Formatter):
     def format(self, record):
         """Formats the message/data that is going to be send to remote party through gRPC"""
 
-        json_message = {
-            "asctime": record.__dict__["asctime"],
-            "node_id": self._node_id,
-            "name": record.__dict__["name"],
-            "level": record.__dict__["levelname"],
-            "message": record.__dict__["message"],
-        }
+        json_message = {"asctime": record.__dict__["asctime"], "node_id": self._node_id,
+                        "name": record.__dict__["name"], "level": record.__dict__["levelname"],
+                        "message": record.__dict__["message"]}
 
         record.msg = json.dumps(json_message)
         return super().format(record)
@@ -89,9 +85,9 @@ class _GrpcHandler(logging.Handler):
     """
 
     def __init__(
-        self,
-        on_log: Callable,
-        node_id: str = None,
+            self,
+            on_log: Callable,
+            node_id: str = None,
     ) -> None:
         """Constructor
 
@@ -111,19 +107,17 @@ class _GrpcHandler(logging.Handler):
             record: is automatically passed by the logger class
         """
 
-        if hasattr(record, "broadcast") or hasattr(record, "researcher_id"):
+        if hasattr(record, 'broadcast') or hasattr(record, 'researcher_id'):
+
+
             msg = dict(
                 level=record.__dict__["levelname"],
                 msg=self.format(record),
-                node_id=self._node_id,
-            )
+                node_id=self._node_id)
 
             # import is done here to avoid circular import it must also be done each time emit() is called
             import fedbiomed.common.message as message
-
-            feedback = message.FeedbackMessage(
-                researcher_id=record.researcher_id, log=message.Log(**msg)
-            )
+            feedback = message.FeedbackMessage(researcher_id=record.researcher_id, log=message.Log(**msg))
 
             try:
                 self._on_log(feedback, record.broadcast)
@@ -136,7 +130,6 @@ class _IpythonConsoleHandler(logging.Handler):
 
     Do not use in other contexts.
     """
-
     def emit(self, record: logging.LogRecord):
         """Emits the logged record
 
@@ -145,7 +138,7 @@ class _IpythonConsoleHandler(logging.Handler):
         """
 
         # `display` is defined in Ipython context
-        display({"text/plain": self.format(record)}, raw=True)
+        display({'text/plain': self.format(record)}, raw=True)
 
 
 class FedLogger(metaclass=SingletonMeta):
@@ -187,7 +180,7 @@ class FedLogger(metaclass=SingletonMeta):
             logging.INFO: "INFO",
             logging.WARNING: "WARNING",
             logging.ERROR: "ERROR",
-            logging.CRITICAL: "CRITICAL",
+            logging.CRITICAL: "CRITICAL"
         }
 
         # name this logger
@@ -258,18 +251,15 @@ class FedLogger(metaclass=SingletonMeta):
                 return self._nameToLevel[upper_level]
 
         self._logger.warning("Calling selLevel() with bad value: " + str(level))
-        self._logger.warning(
-            "Setting " + self._levelToName[DEFAULT_LOG_LEVEL] + " level instead"
-        )
+        self._logger.warning("Setting " + self._levelToName[DEFAULT_LOG_LEVEL] + " level instead")
 
         return DEFAULT_LOG_LEVEL
 
     def add_file_handler(
-        self,
-        filename: str = DEFAULT_LOG_FILE,
-        format: str = DEFAULT_FORMAT,
-        level: any = DEFAULT_LOG_LEVEL,
-    ):
+            self,
+            filename: str = DEFAULT_LOG_FILE,
+            format: str = DEFAULT_FORMAT,
+            level: any = DEFAULT_LOG_LEVEL):
         """Adds a file handler
 
         Args:
@@ -278,7 +268,7 @@ class FedLogger(metaclass=SingletonMeta):
             level: Initial level of the logger
         """
 
-        handler = logging.FileHandler(filename=filename, mode="a")
+        handler = logging.FileHandler(filename=filename, mode='a')
         handler.setLevel(self._internal_level_translator(level))
 
         formatter = logging.Formatter(format)
@@ -286,9 +276,11 @@ class FedLogger(metaclass=SingletonMeta):
 
         self._internal_add_handler("FILE", handler)
 
-    def add_console_handler(
-        self, format: str = DEFAULT_FORMAT, level: Any = DEFAULT_LOG_LEVEL
-    ):
+
+    def add_console_handler(self,
+                            format: str = DEFAULT_FORMAT,
+                            level: Any = DEFAULT_LOG_LEVEL):
+
         """Adds a console handler
 
         Args:
@@ -308,9 +300,12 @@ class FedLogger(metaclass=SingletonMeta):
 
         pass
 
-    def add_grpc_handler(
-        self, on_log: Callable = None, node_id: str = None, level: Any = logging.INFO
-    ):
+    def add_grpc_handler(self,
+                         on_log: Callable = None,
+                         node_id: str = None,
+                         level: Any = logging.INFO
+                         ):
+
         """Adds a gRPC handler, to publish error message on a topic
 
         Args:
@@ -337,11 +332,15 @@ class FedLogger(metaclass=SingletonMeta):
 
         pass
 
+
     def log(self, level: Any, msg: str):
-        """Overrides the logging.log() method to allow the use of string instead of a logging.* level"""
+        """Overrides the logging.log() method to allow the use of string instead of a logging.* level """
 
         level = logger._internal_level_translator(level)
-        self._logger.log(level, msg)
+        self._logger.log(
+            level,
+            msg
+        )
 
     def setLevel(self, level: Any, htype: Any = None):
         """Overrides the setLevel method, to deal with level given as a string and to change le level of
@@ -381,6 +380,7 @@ class FedLogger(metaclass=SingletonMeta):
         # htype provided but no handler for this type exists
         self._logger.warning(htype + " handler not initialized yet")
 
+
     def info(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Extends arguments of info message.
 
@@ -392,48 +392,29 @@ class FedLogger(metaclass=SingletonMeta):
             researcher_id: ID of the researcher that the message will be sent.
                 If broadcast True researcher id will be ignored
         """
-        self._logger.info(
-            msg,
-            *args,
-            **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
-        )
+        self._logger.info(msg, *args, **kwargs,
+                          extra={"researcher_id": researcher_id, 'broadcast': broadcast})
 
     def debug(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
-        self._logger.debug(
-            msg,
-            *args,
-            **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
-        )
+        self._logger.debug(msg, *args, **kwargs,
+                           extra={"researcher_id": researcher_id, 'broadcast': broadcast})
 
     def warning(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
-        self._logger.warning(
-            msg,
-            *args,
-            **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
-        )
+        self._logger.warning(msg, *args, **kwargs,
+                             extra={"researcher_id": researcher_id, 'broadcast': broadcast})
 
     def critical(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
-        self._logger.critical(
-            msg,
-            *args,
-            **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
-        )
+        self._logger.critical(msg, *args, **kwargs,
+                              extra={"researcher_id": researcher_id, 'broadcast': broadcast})
 
     def error(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
-        self._logger.error(
-            msg,
-            *args,
-            **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
-        )
+        self._logger.error(msg, *args, **kwargs,
+                           extra={"researcher_id": researcher_id, 'broadcast': broadcast})
+
 
     def __getattr__(self, s: Any):
         """Calls the method from self._logger if not override by this class"""

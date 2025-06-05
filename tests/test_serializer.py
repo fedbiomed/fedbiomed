@@ -106,22 +106,18 @@ class TestSerializer(unittest.TestCase):
 
     def test_serializer_06_numpy_vector(self) -> None:
         """Test that 'Serializer' operates well on 'NumpyVector' instances."""
-        vector = NumpyVector(
-            {
-                "a": np.random.normal(size=(32, 128)),
-                "b": np.random.normal(size=(32,)),
-            }
-        )
+        vector = NumpyVector({
+            "a": np.random.normal(size=(32, 128)),
+            "b": np.random.normal(size=(32,)),
+        })
         self.assert_serializable(vector)
 
     def test_serializer_07_torch_vector(self) -> None:
         """Test that 'Serializer' operates well on 'TorchVector' instances."""
-        vector = TorchVector(
-            {
-                "a": torch.randn(size=(32, 128)),
-                "b": torch.randn(size=(32,)),
-            }
-        )
+        vector = TorchVector({
+            "a": torch.randn(size=(32, 128)),
+            "b": torch.randn(size=(32,)),
+        })
         self.assert_serializable(vector)
 
     def test_serializer_08_raises_dump_error(self) -> None:
@@ -148,12 +144,12 @@ class TestSerializer(unittest.TestCase):
     def test_serializer_10_nested_dict(self) -> None:
         """Test that 'Serializer' supports operating on nested structures."""
         obj = {
-            "int": 0.0,
+            "int": 0.,
             "vec": TorchVector({"a": torch.randn(size=(4, 8))}),
             "dct": {
                 "vec": NumpyVector({"a": np.random.normal(size=(4, 8))}),
                 "str": "test",
-            },
+            }
         }
         self.assert_serializable(obj)
 
@@ -164,34 +160,28 @@ class TestSerializer(unittest.TestCase):
 
     def test_serializer_12_vector_spec_numpy(self) -> None:
         """Test that 'Serializer' operates well on 'VectorSpec' from numpy."""
-        vector = NumpyVector(
-            {
-                "a": np.random.normal(size=(32, 128)),
-                "b": np.random.normal(size=(32,)),
-            }
-        )
+        vector = NumpyVector({
+            "a": np.random.normal(size=(32, 128)),
+            "b": np.random.normal(size=(32,)),
+        })
         specs = vector.get_vector_specs()
         self.assert_serializable(specs)
 
     def test_serializer_13_vector_spec_torch(self) -> None:
         """Test that 'Serializer' operates well on 'VectorSpec' from torch."""
-        vector = TorchVector(
-            {
-                "a": torch.randn(size=(32, 128)),
-                "b": torch.randn(size=(32,)),
-            }
-        )
+        vector = TorchVector({
+            "a": torch.randn(size=(32, 128)),
+            "b": torch.randn(size=(32,)),
+        })
         specs = vector.get_vector_specs()
         self.assert_serializable(specs)
 
     def test_serializer_14_optimizer_auxvar(self) -> None:
         """Test that 'Serializer' operates well on 'AuxVar' instances."""
-        vector = TorchVector(
-            {
-                "a": torch.randn(size=(32, 128)),
-                "b": torch.randn(size=(32,)),
-            }
-        )
+        vector = TorchVector({
+            "a": torch.randn(size=(32, 128)),
+            "b": torch.randn(size=(32,)),
+        })
         auxvar = ScaffoldAuxVar(state=vector)
         self.assert_serializable(auxvar)
 

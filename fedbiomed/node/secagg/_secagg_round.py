@@ -8,19 +8,26 @@ from abc import ABC, abstractmethod
 
 from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
-from fedbiomed.common.utils import matching_parties_servkey, matching_parties_dh
+from fedbiomed.common.utils import (
+    matching_parties_servkey,
+    matching_parties_dh
+)
 from fedbiomed.common.secagg import SecaggCrypter, SecaggLomCrypter
 from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggDhManager
 
 
 class _SecaggSchemeRound(ABC):
-    """Common class for all secure aggregation types handling of a training round on node"""
+    """Common class for all secure aggregation types handling of a training round on node
+    """
 
     _min_num_parties: int = 2
     """Min number of parties"""
 
     def __init__(
-        self, node_id: str, secagg_arguments: Dict, experiment_id: str
+        self,
+        node_id: str,
+        secagg_arguments: Dict,
+        experiment_id: str
     ) -> None:
         """Constructor of the class
 
@@ -31,10 +38,9 @@ class _SecaggSchemeRound(ABC):
                 will be performed for.
         """
 
-        secagg_clipping_range = secagg_arguments.get("secagg_clipping_range")
-        if secagg_clipping_range is not None and not isinstance(
-            secagg_clipping_range, int
-        ):
+
+        secagg_clipping_range = secagg_arguments.get('secagg_clipping_range')
+        if secagg_clipping_range is not None and not isinstance(secagg_clipping_range, int):
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB318.value}: Bad secagg clipping range type in train "
                 f"request: {type(secagg_clipping_range)}"
@@ -42,15 +48,15 @@ class _SecaggSchemeRound(ABC):
 
         self._node_id = node_id
         self._secagg_clipping_range = secagg_clipping_range
-        self._parties = secagg_arguments.get("parties", [])
+        self._parties = secagg_arguments.get('parties', [])
         self._secagg_arguments = secagg_arguments
-        self._secagg_random = secagg_arguments.get("secagg_random")
+        self._secagg_random = secagg_arguments.get('secagg_random')
         self._experiment_id = experiment_id
 
         if len(self._parties) < self._min_num_parties:
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB318.value}: Bad parties list in train request: {self._parties}"
-            )
+                f"{ErrorNumbers.FB318.value}: Bad parties list in train request: {self._parties}")
+
 
     @property
     def secagg_random(self) -> float | None:
@@ -63,7 +69,10 @@ class _SecaggSchemeRound(ABC):
 
     @abstractmethod
     def encrypt(
-        self, params: List[float], current_round: int, weight: Optional[int] = None
+        self,
+        params: List[float],
+        current_round: int,
+        weight: Optional[int] = None
     ) -> List[int]:
         """Encrypts model parameters after local training.
 
@@ -83,7 +92,11 @@ class _JLSRound(_SecaggSchemeRound):
     _min_num_round: int = 3
 
     def __init__(
-        self, db: str, node_id: str, secagg_arguments: Dict, experiment_id: str
+        self,
+        db: str,
+        node_id: str,
+        secagg_arguments: Dict,
+        experiment_id: str
     ) -> None:
         """Constructor of the class
 
@@ -99,11 +112,10 @@ class _JLSRound(_SecaggSchemeRound):
         super().__init__(node_id, secagg_arguments, experiment_id)
 
         # setup
-        secagg_servkey_id = secagg_arguments.get("secagg_servkey_id")
+        secagg_servkey_id = secagg_arguments.get('secagg_servkey_id')
         self._secagg_manager = SecaggServkeyManager(db)
         self._secagg_servkey = self._secagg_manager.get(
-            secagg_id=secagg_servkey_id, experiment_id=self._experiment_id
-        )
+            secagg_id=secagg_servkey_id, experiment_id=self._experiment_id)
 
         if self._secagg_servkey is None:
             raise FedbiomedSecureAggregationError(
@@ -118,7 +130,10 @@ class _JLSRound(_SecaggSchemeRound):
             )
 
     def encrypt(
-        self, params: List[float], current_round: int, weight: Optional[int] = None
+        self,
+        params: List[float],
+        current_round: int,
+        weight: Optional[int] = None
     ) -> List[int]:
         """Encrypts model parameters with Joye-Libert after local training.
 
@@ -131,9 +146,7 @@ class _JLSRound(_SecaggSchemeRound):
             List of encrypted parameters
         """
         return SecaggCrypter().encrypt(
-            num_nodes=len(
-                self._secagg_servkey["parties"]
-            ),  # -1: don't count researcher
+            num_nodes=len(self._secagg_servkey["parties"]),  # -1: don't count researcher
             current_round=current_round,
             params=params,
             key=self._secagg_servkey["context"]["server_key"],
@@ -144,8 +157,8 @@ class _JLSRound(_SecaggSchemeRound):
 
 
 class _LomRound(_SecaggSchemeRound):
-    """Class for LOM secure aggregation handling of a training round on node"""
-
+    """Class for LOM secure aggregation handling of a training round on node
+    """
     _min_num_parties: int = 2
 
     def __init__(self, db, node_id, secagg_arguments: Dict, experiment_id: str):
@@ -163,12 +176,10 @@ class _LomRound(_SecaggSchemeRound):
         """
         super().__init__(node_id, secagg_arguments, experiment_id)
 
-        secagg_dh_id = secagg_arguments.get("secagg_dh_id")
+        secagg_dh_id = secagg_arguments.get('secagg_dh_id')
         self._secagg_manager = SecaggDhManager(db)
         self._secagg_id = secagg_dh_id
-        self._secagg_dh = self._secagg_manager.get(
-            secagg_id=secagg_dh_id, experiment_id=experiment_id
-        )
+        self._secagg_dh = self._secagg_manager.get(secagg_id=secagg_dh_id, experiment_id=experiment_id)
 
         if self._secagg_dh is None:
             raise FedbiomedSecureAggregationError(
@@ -184,8 +195,12 @@ class _LomRound(_SecaggSchemeRound):
 
         self.crypter = SecaggLomCrypter(nonce=self._secagg_id)
 
+
     def encrypt(
-        self, params: List[float], current_round: int, weight: Optional[int] = None
+        self,
+        params: List[float],
+        current_round: int,
+        weight: Optional[int] = None
     ) -> List[int]:
         """Encrypts model parameters with LOM after local training.
 
@@ -202,7 +217,7 @@ class _LomRound(_SecaggSchemeRound):
             node_id=self._node_id,
             current_round=current_round,
             params=params,
-            pairwise_secrets=self._secagg_dh["context"],
+            pairwise_secrets=self._secagg_dh['context'],
             clipping_range=self._secagg_clipping_range,
             weight=weight,
         )
@@ -218,7 +233,7 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
 
     element2class = {
         SecureAggregationSchemes.JOYE_LIBERT.value: _JLSRound,
-        SecureAggregationSchemes.LOM.value: _LomRound,
+        SecureAggregationSchemes.LOM.value: _LomRound
     }
 
     def __init__(
@@ -228,7 +243,7 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
         secagg_arguments: Dict[str, Any] | None,
         secagg_active: bool,
         force_secagg: bool,
-        experiment_id: str,
+        experiment_id: str
     ) -> None:
         """Constructor of the class"""
 
@@ -242,8 +257,7 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
         if not secagg_arguments and self._force_secagg:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB318.value}: Node requires to apply secure aggregation but "
-                f"training request does not define it."
-            )
+                f"training request does not define it.")
 
         if secagg_arguments:
             if not self._secagg_active:
@@ -252,7 +266,7 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
                     "it's not activated on the node."
                 )
 
-            sn = secagg_arguments.get("secagg_scheme")
+            sn = secagg_arguments.get('secagg_scheme')
 
             if sn is None:
                 raise FedbiomedSecureAggregationError(

@@ -20,10 +20,7 @@ from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.models import SkLearnModel
-from fedbiomed.common.optimizers.generic_optimizers import (
-    BaseOptimizer,
-    OptimizerBuilder,
-)
+from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer, OptimizerBuilder
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common import utils
@@ -68,26 +65,24 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._batch_maxnum = 0
         self.dataset_path: Optional[str] = None
         self._optimizer: Optional[BaseOptimizer] = None
-        self._add_dependency(
-            [
-                "import inspect",
-                "import numpy as np",
-                "import pandas as pd",
-                "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
-                "from fedbiomed.common.data import DataManager",
-            ]
-        )
+        self._add_dependency([
+            "import inspect",
+            "import numpy as np",
+            "import pandas as pd",
+            "from fedbiomed.common.training_plans import SKLearnTrainingPlan",
+            "from fedbiomed.common.data import DataManager",
+        ])
         self._add_dependency(list(self._model_dep))
 
         # Add dependencies
         self._configure_dependencies()
 
     def post_init(
-        self,
-        model_args: Dict[str, Any],
-        training_args: TrainingArgs,
-        aggregator_args: Optional[Dict[str, Any]] = None,
-        initialize_optimizer: bool = True,
+            self,
+            model_args: Dict[str, Any],
+            training_args: TrainingArgs,
+            aggregator_args: Optional[Dict[str, Any]] = None,
+            initialize_optimizer: bool = True
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -103,7 +98,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         model_args.setdefault("verbose", 1)
         super().post_init(model_args, training_args, aggregator_args)
         self._model = SkLearnModel(self._model_cls)
-        self._batch_maxnum = self._training_args.get("batch_maxnum", self._batch_maxnum)
+        self._batch_maxnum = self._training_args.get('batch_maxnum', self._batch_maxnum)
         self._warn_about_training_args()
 
         # configure optimizer (if provided in the TrainingPlan)
@@ -121,9 +116,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._model.set_init_params(model_args)
 
     def set_data_loaders(
-        self,
-        train_data_loader: Union[DataLoader, NPDataLoader, None],
-        test_data_loader: Union[DataLoader, NPDataLoader, None],
+            self,
+            train_data_loader: Union[DataLoader, NPDataLoader, None],
+            test_data_loader: Union[DataLoader, NPDataLoader, None]
     ) -> None:
         """Sets data loaders
 
@@ -166,18 +161,14 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 to the `init_optim` method.
         """
         # Message to format for unexpected argument definitions in special methods
-        method_error = (
-            ErrorNumbers.FB605.value
-            + ": Special method `{method}` has more than one argument: {keys}. This method "
-            "can not have more than one argument/parameter (for {prefix} arguments) or "
-            "method can be defined without argument and `{alternative}` can be used for "
-            "accessing {prefix} arguments defined in the experiment."
-        )
+        method_error = \
+            ErrorNumbers.FB605.value + ": Special method `{method}` has more than one argument: {keys}. This method " \
+                                       "can not have more than one argument/parameter (for {prefix} arguments) or " \
+                                       "method can be defined without argument and `{alternative}` can be used for " \
+                                       "accessing {prefix} arguments defined in the experiment."
 
         if self._model is None:
-            raise FedbiomedTrainingPlanError(
-                "can not configure optimizer, Model is None"
-            )
+            raise FedbiomedTrainingPlanError("can not configure optimizer, Model is None")
         # Get optimizer defined by researcher ---------------------------------------------------------------------
         init_optim_spec = utils.get_method_spec(self.init_optimizer)
         if not init_optim_spec:
@@ -185,14 +176,10 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         elif len(init_optim_spec.keys()) == 1:
             optimizer = self.init_optimizer(self.optimizer_args())
         else:
-            raise FedbiomedTrainingPlanError(
-                method_error.format(
-                    prefix="optimizer",
-                    method="init_optimizer",
-                    keys=list(init_optim_spec.keys()),
-                    alternative="self.optimizer_args()",
-                )
-            )
+            raise FedbiomedTrainingPlanError(method_error.format(prefix="optimizer",
+                                                                 method="init_optimizer",
+                                                                 keys=list(init_optim_spec.keys()),
+                                                                 alternative="self.optimizer_args()"))
         # create optimizer builder
         optim_builder = OptimizerBuilder()
 
@@ -208,9 +195,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         pass
 
     def training_routine(
-        self,
-        history_monitor: Optional["HistoryMonitor"] = None,
-        node_args: Optional[Dict[str, Any]] = None,
+            self,
+            history_monitor: Optional['HistoryMonitor'] = None,
+            node_args: Optional[Dict[str, Any]] = None
     ) -> None:
         """Training routine, to be called once per round.
 
@@ -222,9 +209,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 supported for scikit-learn models and thus will be ignored.
         """
         if self._optimizer is None:
-            raise FedbiomedTrainingPlanError(
-                "Optimizer is None, please run `post_init` beforehand"
-            )
+            raise FedbiomedTrainingPlanError('Optimizer is None, please run `post_init` beforehand')
 
         # Run preprocesses
         self._preprocess()
@@ -238,25 +223,28 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
 
         # Warn if GPU-use was expected (as it is not supported).
-        if node_args is not None and node_args.get("gpu_only", False):
-            self._optimizer.send_to_device(
-                False
-            )  # disable GPU, avoid `declearn` triggering warning messages
+        if node_args is not None and node_args.get('gpu_only', False):
+
+            self._optimizer.send_to_device(False)  # disable GPU, avoid `declearn` triggering warning messages
             logger.warning(
-                "Node would like to force GPU usage, but sklearn training "
-                "plan does not support it. Training on CPU."
+                'Node would like to force GPU usage, but sklearn training '
+                'plan does not support it. Training on CPU.'
             )
         # Run the model-specific training routine.
         try:
             return self._training_routine(history_monitor)
         except Exception as exc:
-            msg = f"{ErrorNumbers.FB605.value}: error while fitting the model: {exc}"
+            msg = (
+                f"{ErrorNumbers.FB605.value}: error while fitting "
+                f"the model: {exc}"
+            )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
 
     @abstractmethod
     def _training_routine(
-        self, history_monitor: Optional["HistoryMonitor"] = None
+            self,
+            history_monitor: Optional['HistoryMonitor'] = None
     ) -> None:
         """Model-specific training routine backend.
 
@@ -270,11 +258,11 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         """
 
     def testing_routine(
-        self,
-        metric: Optional[MetricTypes],
-        metric_args: Dict[str, Any],
-        history_monitor: Optional["HistoryMonitor"],
-        before_train: bool,
+            self,
+            metric: Optional[MetricTypes],
+            metric_args: Dict[str, Any],
+            history_monitor: Optional['HistoryMonitor'],
+            before_train: bool
     ) -> None:
         """Evaluation routine, to be called once per round.
 
@@ -303,9 +291,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
         # If required, make up for the lack of specifications regarding target
         # classification labels.
-        if self._model.is_classification and not hasattr(self.model(), "classes_"):
+        if self._model.is_classification and not hasattr(self.model(), 'classes_'):
             classes = self._classes_from_concatenated_train_test()
-            setattr(self.model(), "classes_", classes)
+            setattr(self.model(), 'classes_', classes)
         # If required, select the default metric (accuracy or mse).
         if metric is None:
             if self._model.is_classification:
@@ -313,7 +301,9 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             else:
                 metric = MetricTypes.MEAN_SQUARE_ERROR
         # Delegate the actual evalation routine to the parent class.
-        super().testing_routine(metric, metric_args, history_monitor, before_train)
+        super().testing_routine(
+            metric, metric_args, history_monitor, before_train
+        )
 
     def _classes_from_concatenated_train_test(self) -> np.ndarray:
         """Return unique target labels from the training and testing datasets.
@@ -322,21 +312,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             Numpy array containing the unique values from the targets wrapped
             in the training and testing NPDataLoader instances.
         """
-        return np.unique(
-            [
-                t
-                for loader in (self.training_data_loader, self.testing_data_loader)
-                for d, t in loader
-            ]
-        )
+        return np.unique([t for loader in (self.training_data_loader, self.testing_data_loader) for d, t in loader])
 
     def type(self) -> TrainingPlans:
-        """Getter for training plan type"""
+        """Getter for training plan type """
         return self.__type
 
     def _warn_about_training_args(self):
-        if self._training_args["share_persistent_buffers"]:
-            logger.warning(
-                "Option share_persistent_buffers is not supported in SKLearnTrainingPlan, "
-                "it will be ignored."
-            )
+        if self._training_args['share_persistent_buffers']:
+            logger.warning("Option share_persistent_buffers is not supported in SKLearnTrainingPlan, "
+                           "it will be ignored.")

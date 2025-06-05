@@ -55,7 +55,7 @@ class _NodeToNodeAsyncRouter:
             self._grpc_controller,
             self._overlay_channel,
             pending_requests,
-            controller_data,
+            controller_data
         )
 
         self._queue = asyncio.Queue(MAX_N2N_ROUTER_QUEUE_SIZE)
@@ -70,7 +70,7 @@ class _NodeToNodeAsyncRouter:
     @property
     def node_id(self):
         """Returns the node id"""
-        return self._node_id
+        return  self._node_id
 
     def _remove_finished_task(self, task: asyncio.Task) -> None:
         """Callback launched when a task completes.
@@ -172,9 +172,7 @@ class _NodeToNodeAsyncRouter:
                         "Ignore message."
                     )
                     return
-                inner_msg: InnerMessage = (
-                    await self._overlay_channel.format_incoming_overlay(overlay_msg)
-                )
+                inner_msg: InnerMessage = await self._overlay_channel.format_incoming_overlay(overlay_msg)
 
                 finally_kwargs = await self._node_to_node_controller.handle(
                     overlay_msg, inner_msg
@@ -188,9 +186,9 @@ class _NodeToNodeAsyncRouter:
                 # if we get the lock, then it cannot `cancel()` this task, as it need to get
                 # the lock for that
                 async with self._active_tasks_lock:
-                    self._active_tasks[asyncio.current_task().get_name()]["finally"] = (
-                        True
-                    )
+                    self._active_tasks[asyncio.current_task().get_name()][
+                        "finally"
+                    ] = True
 
             except asyncio.CancelledError as e:
                 logger.error(
@@ -231,9 +229,7 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
             pending_requests: object for receiving overlay node to node messages
             controller_data: object for sharing data with the controller
         """
-        super().__init__(
-            node_id, db, grpc_controller, pending_requests, controller_data
-        )
+        super().__init__(node_id, db, grpc_controller, pending_requests, controller_data)
 
         self._thread = Thread(target=self._run, args=(), daemon=True)
 
@@ -268,9 +264,9 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
             )
             raise e
 
-    def format_outgoing_overlay(
-        self, message: InnerMessage, researcher_id: str
-    ) -> Tuple[bytes, bytes, bytes]:
+
+    def format_outgoing_overlay(self, message: InnerMessage, researcher_id: str) -> \
+            Tuple[bytes, bytes, bytes]:
         """Creates an overlay message payload from an inner message.
 
         Serialize, crypt, sign the inner message
@@ -287,6 +283,6 @@ class NodeToNodeRouter(_NodeToNodeAsyncRouter):
         """
         future = asyncio.run_coroutine_threadsafe(
             self._overlay_channel.format_outgoing_overlay(message, researcher_id),
-            self._loop,
+            self._loop
         )
         return future.result()

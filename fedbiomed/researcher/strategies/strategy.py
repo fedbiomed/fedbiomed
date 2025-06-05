@@ -5,11 +5,12 @@
 Top class for strategy implementation
 """
 
+
 from typing import Any, Dict, List, Tuple, Union
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
-from fedbiomed.common.logger import logger
+from fedbiomed.common.logger     import logger
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 
@@ -43,21 +44,19 @@ class Strategy:
             from_nodes: the node ids which may be sampled
             round_i: Current round of experiment
         """
-        msg = (
-            ErrorNumbers.FB402.value
-            + ": sample nodes method should be overloaded by the provided strategy"
-        )
+        msg = ErrorNumbers.FB402.value + \
+            ": sample nodes method should be overloaded by the provided strategy"
         logger.critical(msg)
         raise FedbiomedStrategyError(msg)
 
     def refine(
-        self, training_replies: Dict, round_i: int
-    ) -> Tuple[
-        Dict[str, Dict[str, Union["torch.Tensor", "numpy.ndarray"]]],
-        Dict[str, float],
-        int,
-        Dict[str, List[int]],
-    ]:
+            self,
+            training_replies: Dict,
+            round_i: int
+               ) -> Tuple[Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
+                          Dict[str, float],
+                          int,
+                          Dict[str, List[int]]]:
         """
         Abstract method that must be implemented by child class
 
@@ -74,10 +73,8 @@ class Strategy:
         Raises:
             FedbiomedStrategyError: If method is not implemented by child class
         """
-        msg = (
-            ErrorNumbers.FB402.value
-            + ": refine method should be overloaded by the provided strategy"
-        )
+        msg = ErrorNumbers.FB402.value + \
+            ": refine method should be overloaded by the provided strategy"
         logger.critical(msg)
         raise FedbiomedStrategyError(msg)
 
@@ -104,4 +101,4 @@ class Strategy:
             state: The state that will be loaded
         """
         # fds may be modified and diverge from Experiment
-        self._parameters = state["parameters"]
+        self._parameters = state['parameters']

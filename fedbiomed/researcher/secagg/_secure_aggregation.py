@@ -94,6 +94,7 @@ class SecureAggregation:
         secagg = cls(scheme=SecureAggregationSchemes(state["arguments"]["scheme"]))
 
         for name, val in state["attributes_states"].items():
+
             _sub_cls = getattr(importlib.import_module(val["module"]), val["class"])
             instance = _sub_cls.load_state_breakpoint(val)
             setattr(secagg, name, instance)
@@ -237,8 +238,9 @@ class _SecureAggregation(ABC):
         experiment_id: str,
         researcher_id: str,
         force: bool = False,
-        insecure_validation: bool = True,
+        insecure_validation: bool = True
     ) -> bool:
+
         """Setup secure aggregation instruments.
 
         Requires setting `parties` and `experiment_id` if they are not set in previous secagg
@@ -270,14 +272,10 @@ class _SecureAggregation(ABC):
                 f"string but got {type(parties)}"
             )
 
-        self._configure_round(
-            researcher_id, parties, experiment_id, insecure_validation
-        )
+        self._configure_round(researcher_id, parties, experiment_id, insecure_validation)
 
     @abstractmethod
-    def _set_secagg_contexts(
-        self, researcher_id: str, parties: List[str], experiment_id: str
-    ) -> None:
+    def _set_secagg_contexts(self, researcher_id:str, parties: List[str], experiment_id: str) -> None:
         """Creates secure aggregation context classes.
 
         This function should be called after `experiment_id` and `parties` are set
@@ -297,7 +295,7 @@ class _SecureAggregation(ABC):
         researcher_id: str,
         parties: List[str],
         experiment_id: str,
-        insecure_validation: bool = True,
+        insecure_validation: bool = True
     ) -> None:
         """Configures secure aggregation for each round.
 
@@ -523,7 +521,7 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         experiment_id: str,
         researcher_id: str,
         force: bool = False,
-        insecure_validation: bool = True,
+        insecure_validation: bool = True
     ) -> bool:
         """Setup secure aggregation instruments.
 
@@ -555,7 +553,10 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         return True
 
     def _set_secagg_contexts(
-        self, researcher_id: str, parties: List[str], experiment_id: str
+        self,
+        researcher_id: str,
+        parties: List[str],
+        experiment_id: str
     ) -> None:
         """Creates secure aggregation context classes.
 
@@ -568,9 +569,7 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         super()._set_secagg_contexts(researcher_id, parties, experiment_id)
 
         self._servkey = SecaggServkeyContext(
-            researcher_id=researcher_id,
-            parties=self._parties,
-            experiment_id=self._experiment_id,
+            researcher_id=researcher_id, parties=self._parties, experiment_id=self._experiment_id
         )
 
     def aggregate(
@@ -709,6 +708,7 @@ class LomSecureAggregation(_SecureAggregation):
         self._secagg_crypter = SecaggLomCrypter()
         self._scheme = SecureAggregationSchemes.LOM
 
+
     @property
     def dh(self) -> Union[None, SecaggDHContext]:
         """Gets Diffie Hellman keypairs object
@@ -738,7 +738,7 @@ class LomSecureAggregation(_SecureAggregation):
         experiment_id: str,
         researcher_id: str,
         force: bool = False,
-        insecure_validation: bool = True,
+        insecure_validation: bool = True
     ) -> bool:
         """Setup secure aggregation instruments.
 
@@ -773,8 +773,12 @@ class LomSecureAggregation(_SecureAggregation):
 
         return self._dh.status
 
+
     def _set_secagg_contexts(
-        self, researcher_id: str, parties: List[str], experiment_id: str
+        self,
+        researcher_id: str,
+        parties: List[str],
+        experiment_id: str
     ) -> None:
         """Creates secure aggregation context classes.
 
@@ -787,9 +791,7 @@ class LomSecureAggregation(_SecureAggregation):
         super()._set_secagg_contexts(researcher_id, parties, experiment_id)
 
         self._dh = SecaggDHContext(
-            researcher_id=researcher_id,
-            parties=self._parties,
-            experiment_id=self._experiment_id,
+            researcher_id=researcher_id, parties=self._parties, experiment_id=self._experiment_id
         )
 
     def aggregate(
