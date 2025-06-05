@@ -133,7 +133,7 @@ def unflatten_auxvar_after_secagg(
         size = sum(size for _, size, _ in enc_specs[i])
         aux_var[name] = _unflatten_aux_var(
             aux_cls=aux_cls,
-            flattened=decrypted[indx : indx + size],
+            flattened=decrypted[indx:indx+size],
             enc_specs=enc_specs[i],
             cleartext=cleartext[i],
         )
@@ -168,10 +168,10 @@ def _unflatten_aux_var(
             fields[name] = flattened[indx]
         elif isinstance(spec, (tuple, list)):
             shape, dtype = spec
-            flat = flattened[indx : indx + size]
+            flat = flattened[indx:indx + size]
             fields[name] = np.array(flat).astype(dtype).reshape(shape)
         elif isinstance(spec, VectorSpec):
-            flat = flattened[indx : indx + size]
+            flat = flattened[indx:indx + size]
             fields[name] = Vector.build_from_specs(flat, spec)
         else:
             raise RuntimeError(
@@ -239,7 +239,9 @@ class EncryptedAuxVar:
     ) -> int:
         """Return the number of flat values that should be decrypted."""
         return sum(
-            size for module_specs in self.enc_specs for _, size, _ in module_specs
+            size
+            for module_specs in self.enc_specs
+            for _, size, _ in module_specs
         )
 
     def concatenate(
@@ -279,7 +281,9 @@ class EncryptedAuxVar:
         encrypted = self.encrypted + other.encrypted
         # Perform aggregation of cleartext values, using type-specific rules.
         cleartext = [
-            self._aggregate_cleartext(aux_cls, self.cleartext[i], other.cleartext[i])
+            self._aggregate_cleartext(
+                aux_cls, self.cleartext[i], other.cleartext[i]
+            )
             for i, (_, aux_cls) in enumerate(self.clear_cls)
         ]
         # Wrap up results in an EncryptedAuxVar instance and return it.
@@ -324,8 +328,8 @@ class EncryptedAuxVar:
         return cls(obj.encrypted, obj.enc_specs, obj.cleartext, obj.clear_cls)
 
     def get_mapping_encrypted_aux_var(self) -> Dict[str, List[int]]:
-        nodes_id = list(self.cleartext[0]["clients"])
-        return {n: p for n, p in zip(nodes_id, self.encrypted)}
+        nodes_id = list(self.cleartext[0]['clients'])
+        return {n: p for n,p in zip(nodes_id, self.encrypted)}
 
     def to_dict(
         self,
@@ -362,7 +366,8 @@ class EncryptedAuxVar:
         try:
             # Recover wrapped AuxVar classes from the type registry.
             clear_cls = [
-                (name, access_registered(*info)) for name, info in data["clear_cls"]
+                (name, access_registered(*info))
+                for name, info in data["clear_cls"]
             ]
             # Ensure tuples are preserved (as serialization converts to list).
             enc_specs = [

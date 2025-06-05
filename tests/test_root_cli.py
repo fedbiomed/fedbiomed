@@ -8,7 +8,9 @@ from fedbiomed.cli import ComponentParser
 
 
 class TestComponentParser(unittest.TestCase):
+
     def setUp(self):
+
         self.main_parser = argparse.ArgumentParser()
         self.parser = self.main_parser.add_subparsers()
         self.conf_parser = ComponentParser(subparser=self.parser)
@@ -21,12 +23,13 @@ class TestComponentParser(unittest.TestCase):
     def tearDown(self):
         os.chdir(self.initial_dir)
         # forces the removal of config files for Nodes and Researchers
-        if "fedbiomed.researcher.config" in sys.modules:
-            sys.modules.pop("fedbiomed.researcher.config")
+        if 'fedbiomed.researcher.config' in sys.modules:
+            sys.modules.pop('fedbiomed.researcher.config')
 
-        if "fedbiomed.node.config" in sys.modules:
-            sys.modules.pop("fedbiomed.node.config")
+        if 'fedbiomed.node.config' in sys.modules:
+            sys.modules.pop('fedbiomed.node.config')
         self.tem.cleanup()
+
 
     def test_01_component_parser_initialize(self):
         """Tests argument initialization"""
@@ -52,24 +55,8 @@ class TestComponentParser(unittest.TestCase):
         self.temp_component_node = tempfile.TemporaryDirectory()
         self.temp_component_researcher = tempfile.TemporaryDirectory()
         args_list_set = [
-            [
-                "component",
-                "create",
-                "--path",
-                self.temp_component_node.name,
-                "--component",
-                "NODE",
-                "-eo",
-            ],
-            [
-                "component",
-                "create",
-                "--path",
-                self.temp_component_researcher.name,
-                "--component",
-                "RESEARCHER",
-                "-eo",
-            ],
+            ["component", "create", "--path", self.temp_component_node.name, "--component", "NODE", "-eo"],
+            ["component", "create", "--path", self.temp_component_researcher.name, "--component", "RESEARCHER", "-eo"],
             ["component", "create", "--component", "NODE"],
             ["component", "create", "--component", "NODE", "-eo"],
             ["component", "create", "--component", "RESEARCHER"],
@@ -80,8 +67,8 @@ class TestComponentParser(unittest.TestCase):
             args = self.main_parser.parse_args(args_list)
             self.conf_parser.create(args)
 
-            if "fedbiomed.researcher.config" in sys.modules:
-                sys.modules.pop("fedbiomed.researcher.config")
+            if 'fedbiomed.researcher.config' in sys.modules:
+                sys.modules.pop('fedbiomed.researcher.config')
 
         self.tem.cleanup()
 
@@ -119,11 +106,11 @@ class TestComponentParser(unittest.TestCase):
 
         # 3. bad component type
         with self.assertRaises(SystemExit):
-            self.conf_parser._get_component_instance("any_path", "bad_component_type")
+            self.conf_parser._get_component_instance('any_path', 'bad_component_type')
 
         self.tem.cleanup()
 
-        sys.modules.pop("fedbiomed.researcher.config")
+        sys.modules.pop('fedbiomed.researcher.config')
 
 
 if __name__ == "__main__":

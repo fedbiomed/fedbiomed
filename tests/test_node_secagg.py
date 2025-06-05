@@ -14,9 +14,11 @@ from fedbiomed.common.constants import SecureAggregationSchemes
 
 
 class TestSecaggRound(unittest.TestCase):
+
     def setUp(self):
+
         self.skmanager_p = patch(
-            "fedbiomed.node.secagg._secagg_round.SecaggServkeyManager", autospec=True
+            'fedbiomed.node.secagg._secagg_round.SecaggServkeyManager', autospec=True
         )  # pylint: disable=W0212
         self.dhmanager_p = patch(
             "fedbiomed.node.secagg._secagg_round.SecaggDhManager", autospec=True
@@ -26,7 +28,7 @@ class TestSecaggRound(unittest.TestCase):
         self.dhmanager = self.dhmanager_p.start()
 
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.db = os.path.join(self.temp_dir.name, "test.json")
+        self.db = os.path.join(self.temp_dir.name, 'test.json')
 
         self.secagg_arguments = {
             "secagg_scheme": SecureAggregationSchemes.JOYE_LIBERT,
@@ -51,7 +53,7 @@ class TestSecaggRound(unittest.TestCase):
                 force_secagg=True,
                 secagg_active=True,
                 secagg_arguments={},
-                experiment_id="test-id",
+                experiment_id="test-id"
             )
 
         with self.assertRaises(FedbiomedError):
@@ -61,7 +63,7 @@ class TestSecaggRound(unittest.TestCase):
                 secagg_active=False,
                 force_secagg=False,
                 secagg_arguments=self.secagg_arguments,
-                experiment_id="test-id",
+                experiment_id="test-id"
             )
 
         self.secagg_arguments.pop("secagg_scheme", None)
@@ -72,7 +74,7 @@ class TestSecaggRound(unittest.TestCase):
                 secagg_active=True,
                 force_secagg=True,
                 secagg_arguments=self.secagg_arguments,
-                experiment_id="test-id",
+                experiment_id="test-id"
             )
 
         self.secagg_arguments["secagg_scheme"] = "opps"
@@ -83,7 +85,7 @@ class TestSecaggRound(unittest.TestCase):
                 secagg_active=True,
                 force_secagg=True,
                 secagg_arguments=self.secagg_arguments,
-                experiment_id="test-id",
+                experiment_id="test-id"
             )
 
     def test_02_secagg_round_jls(self):
@@ -95,12 +97,11 @@ class TestSecaggRound(unittest.TestCase):
             "parties": ["researcher-1", "node-1", "node-2"]
         }
         secagg_round = SecaggRound(
-            db=self.db,
-            node_id="test-node-id",
-            secagg_active=True,
-            force_secagg=True,
-            secagg_arguments=self.secagg_arguments,
-            experiment_id="test-id",
+                db=self.db,
+                node_id="test-node-id",
+                secagg_active=True,
+                force_secagg=True,
+                secagg_arguments=self.secagg_arguments, experiment_id="test-id"
         )
         self.assertIsInstance(secagg_round.scheme, _JLSRound)
         self.assertEqual(secagg_round.scheme.secagg_random, 34)
@@ -116,7 +117,7 @@ class TestSecaggRound(unittest.TestCase):
                 secagg_active=True,
                 force_secagg=True,
                 secagg_arguments=self.secagg_arguments,
-                experiment_id="test-id",
+                experiment_id="test-id"
             )
         # -------------------------------------------------------------
 
@@ -129,7 +130,7 @@ class TestSecaggRound(unittest.TestCase):
                 secagg_active=True,
                 force_secagg=True,
                 secagg_arguments=self.secagg_arguments,
-                experiment_id="test-id",
+                experiment_id="test-id"
             )
         # ----------------------------------------------------------------------
 
@@ -142,7 +143,7 @@ class TestSecaggRound(unittest.TestCase):
                 secagg_active=True,
                 force_secagg=True,
                 secagg_arguments=self.secagg_arguments,
-                experiment_id="test-id",
+                experiment_id="test-id"
             )
         self.secagg_arguments["parties"] = ["researcher-1", "node-1", "node-2"]
         # ---------------------------------------------------------------------
@@ -156,7 +157,7 @@ class TestSecaggRound(unittest.TestCase):
                 secagg_active=True,
                 force_secagg=True,
                 secagg_arguments=self.secagg_arguments,
-                experiment_id="test-id",
+                experiment_id="test-id"
             )
         # ----------------------------------------------------------------------
 
@@ -168,12 +169,12 @@ class TestSecaggRound(unittest.TestCase):
             "context": {"server_key": 12345, "biprime": 1156},
         }
         secagg = SecaggRound(
-            db=self.db,
-            node_id="test-node-id",
-            secagg_active=True,
-            force_secagg=True,
-            secagg_arguments=self.secagg_arguments,
-            experiment_id="test-id",
+                db=self.db,
+                node_id="test-node-id",
+                secagg_active=True,
+                force_secagg=True,
+                secagg_arguments=self.secagg_arguments,
+                experiment_id="test-id"
         )
         secagg.scheme.encrypt(params=[1.0, 1.0], current_round=1, weight=20)
 
@@ -187,13 +188,12 @@ class TestSecaggRound(unittest.TestCase):
         )
         self.dhmanager.return_value.get.return_value = {"parties": ["node-1", "node-2"]}
         secagg_round = SecaggRound(
-            db=self.db,
-            node_id="test-node-id",
-            secagg_active=True,
-            force_secagg=True,
-            secagg_arguments=self.secagg_arguments,
-            experiment_id="test-exp-id",
-        )
+                db=self.db,
+                node_id="test-node-id",
+                secagg_active=True,
+                force_secagg=True,
+                secagg_arguments=self.secagg_arguments,
+                experiment_id="test-exp-id")
         self.assertIsInstance(secagg_round.scheme, _LomRound)
 
         self.dhmanager.return_value.get.return_value = None
@@ -204,7 +204,7 @@ class TestSecaggRound(unittest.TestCase):
                 secagg_active=True,
                 force_secagg=True,
                 secagg_arguments=self.secagg_arguments,
-                experiment_id="test-exp-id",
+                experiment_id="test-exp-id"
             )
 
         self.dhmanager.return_value.get.return_value = {"parties": ["no-match"]}
@@ -215,7 +215,7 @@ class TestSecaggRound(unittest.TestCase):
                 secagg_active=True,
                 force_secagg=True,
                 secagg_arguments=self.secagg_arguments,
-                experiment_id="test-exp-id",
+                experiment_id="test-exp-id"
             )
 
     def test_05_secagg_round_lom_encrypt(self):
@@ -232,13 +232,12 @@ class TestSecaggRound(unittest.TestCase):
         }
 
         secagg_round = SecaggRound(
-            db=self.db,
-            node_id="node-1",
-            secagg_active=True,
-            force_secagg=True,
-            secagg_arguments=self.secagg_arguments,
-            experiment_id="test-exp-id",
-        )
+                db=self.db,
+                node_id="node-1",
+                secagg_active=True,
+                force_secagg=True,
+                secagg_arguments=self.secagg_arguments,
+                experiment_id="test-exp-id")
         result = secagg_round.scheme.encrypt(
             params=[1.0, 1.0], current_round=1, weight=20
         )

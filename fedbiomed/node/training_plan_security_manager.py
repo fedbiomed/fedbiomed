@@ -1,7 +1,8 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Manages training plan approval for a node."""
+"""Manages training plan approval for a node.
+"""
 
 from datetime import datetime
 import hashlib
@@ -47,7 +48,11 @@ class TrainingPlanSecurityManager:
     """Manages training plan approval for a node."""
 
     def __init__(
-        self, db: str, node_id: str, hashing: str, tp_approval: bool = False
+        self,
+        db: str,
+        node_id: str,
+        hashing: str,
+        tp_approval: bool = False
     ) -> None:
         """Class constructor for TrainingPlanSecurityManager.
 
@@ -63,9 +68,7 @@ class TrainingPlanSecurityManager:
 
         self._node_id = node_id
         self._tp_approval = tp_approval
-        self._default_tps = os.path.join(
-            SHARE_DIR, "envs", "common", "default_training_plans"
-        )
+        self._default_tps = os.path.join(SHARE_DIR, 'envs', 'common', 'default_training_plans')
         self._tinydb = TinyDB(db)
         self._tinydb.table_class = DBTable
         # dont use DB read cache for coherence when updating from multiple sources (eg: GUI and CLI)
@@ -132,7 +135,8 @@ class TrainingPlanSecurityManager:
         except Exception as err:
             # minify doesn't provide any specific exception
             raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f": cannot minify source code details: {err}"
+                ErrorNumbers.FB606.value + f": cannot minify source code "
+                f"details: {err}"
             ) from err
         # Hash training plan content based on active hashing algorithm
         if hash_algo in HashingAlgorithms.list():
@@ -319,7 +323,7 @@ class TrainingPlanSecurityManager:
                 # If training plan file is exists
                 if training_plan["algorithm"] != self._hashing:
                     logger.info(
-                        f"Recreating hashing for : {training_plan['name']} \t {training_plan['training_plan_id']}"
+                        f'Recreating hashing for : {training_plan["name"]} \t {training_plan["training_plan_id"]}'
                     )
                     hashing, algorithm, _ = self._create_hash(
                         training_plan["training_plan"], from_string=True
@@ -561,6 +565,7 @@ class TrainingPlanSecurityManager:
                     training_plan_object, self._database.hash == training_plan_hash
                 )
             except Exception as err:
+
                 logger.error(
                     f"Cannot add training plan in database due to error : {err}"
                 )
@@ -768,7 +773,7 @@ class TrainingPlanSecurityManager:
                     # Verify no such training plan already exists in DB
                     self._check_training_plan_not_existing(None, hash, algorithm)
                     logger.info(
-                        f"Recreating hashing for : {training_plan_info['name']} \t"
+                        f'Recreating hashing for : {training_plan_info["name"]} \t'
                         '{training_plan_info["training_plan_id"]}'
                     )
 

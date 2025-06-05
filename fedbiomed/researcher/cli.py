@@ -1,8 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Researcher CLI"""
-
+"""Researcher CLI """
 import os
 import subprocess
 import importlib
@@ -10,7 +9,11 @@ import importlib
 from typing import List, Dict
 
 from fedbiomed.common.constants import NOTEBOOKS_FOLDER_NAME
-from fedbiomed.common.cli import CommonCLI, CLIArgumentParser, ComponentDirectoryAction
+from fedbiomed.common.cli import (
+    CommonCLI,
+    CLIArgumentParser,
+    ComponentDirectoryAction
+)
 from fedbiomed.common.constants import ComponentType
 
 
@@ -29,12 +32,12 @@ __intro__ = """
 
 
 class ResearcherControl(CLIArgumentParser):
+
     def initialize(self):
+
         start = self._subparser.add_parser(
-            "start",
-            help="Starts Jupyter (server) Notebook for researcher API. The default"
-            "directory will be  notebook directory.",
-        )
+            "start", help="Starts Jupyter (server) Notebook for researcher API. The default"
+                          "directory will be  notebook directory.")
 
         start.add_argument(
             "--directory",
@@ -42,14 +45,14 @@ class ResearcherControl(CLIArgumentParser):
             type=str,
             nargs="?",
             required=False,
-            help="The directory where jupyter notebook will be started.",
-        )
+            help="The directory where jupyter notebook will be started.")
         start.set_defaults(func=self.start)
+
 
     def start(self, args):
         """Starts jupyter notebook"""
 
-        options = ["--NotebookApp.use_redirect_file=false"]
+        options = ['--NotebookApp.use_redirect_file=false']
 
         component_path = os.path.join(os.getcwd(), args.path)
 
@@ -61,7 +64,7 @@ class ResearcherControl(CLIArgumentParser):
         options.append(f"--notebook-dir={nb_start_dir}")
 
         current_env = os.environ.copy()
-        # comp_root = os.environ.get("FBM_RESEARCHER_COMPONENT_ROOT", None)
+        #comp_root = os.environ.get("FBM_RESEARCHER_COMPONENT_ROOT", None)
         command = ["jupyter", "notebook"]
         command = [*command, *options]
         process = subprocess.Popen(command, env=current_env)
@@ -84,6 +87,7 @@ class ResearcherCLI(CommonCLI):
     ]
     _arg_parsers: Dict[str, CLIArgumentParser] = {}
 
+
     def __init__(self):
         super().__init__()
         self.description = f"{__intro__}\nA CLI app for fedbiomed researchers."
@@ -91,6 +95,7 @@ class ResearcherCLI(CommonCLI):
 
     def initialize(self):
         """Initializes Researcher CLI"""
+
 
         class ComponentDirectoryActionResearcher(ComponentDirectoryAction):
             _this = self
@@ -103,7 +108,7 @@ class ResearcherCLI(CommonCLI):
                     config_name: Name of the config file for the component
                 """
                 os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = os.path.abspath(
-                    component_dir
+                        component_dir
                 )
                 module = importlib.import_module("fedbiomed.researcher.config")
                 self._this.config = module.config
@@ -117,5 +122,5 @@ class ResearcherCLI(CommonCLI):
             action=ComponentDirectoryActionResearcher,
             default="fbm-researcher",
             help="Name of the config file that the CLI will be activated for. Default "
-            "is 'config_researcher.ini'.",
+                 "is 'config_researcher.ini'."
         )

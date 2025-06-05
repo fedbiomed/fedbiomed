@@ -1,7 +1,6 @@
 """This test file tests launching many nodes and executing an experiment
 with 200 rounds of training using also secure aggregation
 """
-
 import time
 
 import pytest
@@ -15,7 +14,8 @@ from helpers import (
     get_data_folder,
     create_researcher,
     create_multiple_nodes,
-    generate_sklearn_classification_dataset,
+    generate_sklearn_classification_dataset
+
 )
 
 from experiments.training_plans.sklearn import PerceptronTraining
@@ -29,6 +29,7 @@ def setup(port, post_session, request):
     """Setup fixture for the module"""
 
     with create_multiple_nodes(port, 10) as nodes:
+
         p1, _, _ = generate_sklearn_classification_dataset()
 
         dataset = {
@@ -36,8 +37,8 @@ def setup(port, post_session, request):
             "description": "ddesc",
             "tags": "#csv-dataset-classification",
             "data_type": "csv",
-            "path": p1,
-        }
+            "path": p1}
+
 
         for node in nodes:
             print(node)
@@ -50,6 +51,7 @@ def setup(port, post_session, request):
         # Give some time to start nodes in parallel
         time.sleep(30)
 
+
         yield tuple(nodes)
 
         kill_subprocesses(node_processes)
@@ -57,22 +59,30 @@ def setup(port, post_session, request):
         print("Clearing component data")
         clear_component_data(researcher)
 
-
 #############################################
 ### Start writing tests
 ### Nodes will stay up till end of the tests
 #############################################
 
-per_model_args = {"max_iter": 1000, "tol": 1e-3, "n_features": 20, "n_classes": 2}
+per_model_args = {
+    'max_iter':1000,
+    'tol': 1e-3 ,
+    'n_features' : 20,
+    'n_classes' : 2
+}
 
-per_training_args = {"epochs": 5, "loader_args": {"batch_size": 1}}
+per_training_args = {
+    'epochs': 5,
+    'loader_args': { 'batch_size': 1 }
+}
+
 
 
 def test_01_sklearn_many_nodes_testing():
     """Tests SGD classifier with Declear optimizers"""
 
     exp = Experiment(
-        tags=["#csv-dataset-classification"],
+        tags=['#csv-dataset-classification'],
         model_args=per_model_args,
         training_plan_class=PerceptronTraining,
         training_args=per_training_args,
@@ -81,9 +91,11 @@ def test_01_sklearn_many_nodes_testing():
         node_selection_strategy=None,
         save_breakpoints=True,
         secagg=True,
-        retain_full_history=False,
-    )
+        retain_full_history=False
+        )
 
     exp.run()
 
     clear_experiment_data(exp)
+
+

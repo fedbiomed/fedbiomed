@@ -6,18 +6,14 @@ import os
 import shutil
 
 from unittest.mock import patch, MagicMock
-from fedbiomed.common.utils._config_utils import (
-    _get_fedbiomed_root,
-    get_component_config,
-    get_component_certificate_from_config,
-    get_all_existing_config_files,
-    get_all_existing_certificates,
-    get_existing_component_db_names,
-)
+from fedbiomed.common.utils._config_utils import _get_fedbiomed_root, get_component_config, \
+    get_component_certificate_from_config, get_all_existing_config_files, get_all_existing_certificates, \
+    get_existing_component_db_names
 from fedbiomed.common.exceptions import FedbiomedError
 
 
 class TestCommonConfigUtils(unittest.TestCase):
+
     def setUp(self):
         pass
 
@@ -25,15 +21,16 @@ class TestCommonConfigUtils(unittest.TestCase):
         pass
 
     def test_01_common_config_utils_get_fedbiomed_root(self):
-        """Test fedbiomed get root"""
+        """Test fedbiomed get root """
         root = _get_fedbiomed_root()
         self.assertTrue(
             os.path.exists(root),
-            f"a required path does not exist. Offending value = {root}",
+            f"a required path does not exist. Offending value = {root}"
         )
 
     @patch("fedbiomed.common.utils._config_utils.configparser")
-    def test_02_common_config_utils_get_component_config(self, mock_configparser):
+    def test_02_common_config_utils_get_component_config(self,
+                                                         mock_configparser):
         config_mock = MagicMock()
         mock_configparser.ConfigParser.return_value = config_mock
 
@@ -48,16 +45,19 @@ class TestCommonConfigUtils(unittest.TestCase):
 
     @patch("fedbiomed.common.utils._config_utils.get_component_config")
     @patch("fedbiomed.common.utils._config_utils.os.path.isfile")
-    def test_03_common_config_utils_get_component_certificate_from_config(
-        self, mock_is_file, mock_get_component_config
-    ):
+    def test_03_common_config_utils_get_component_certificate_from_config(self,
+                                                                          mock_is_file,
+                                                                          mock_get_component_config):
         cfg = configparser.ConfigParser()
 
-        cfg["default"] = {"id": "node-id", "component": "NODE"}
+        cfg["default"] = {
+            "id": "node-id",
+            "component": "NODE"
+        }
 
-        cfg["certificate"] = {
-            "public_key": "xx/xx/xx",
-            "private_key": "xx/xx/xx",
+        cfg["certificate"]= {
+            "public_key": 'xx/xx/xx',
+            "private_key": 'xx/xx/xx',
         }
 
         mock_get_component_config.return_value = cfg
@@ -73,19 +73,14 @@ class TestCommonConfigUtils(unittest.TestCase):
                 get_component_certificate_from_config("dummy/path/to/config")
 
             mock_open.side_effect = None
-            mock_open.return_value.__enter__.return_value.read.return_value = (
-                "test-certificate"
-            )
+            mock_open.return_value.__enter__.return_value.read.return_value = "test-certificate"
             cert = get_component_certificate_from_config("dummy/path/to/config")
 
-            self.assertDictEqual(
-                cert,
-                {
-                    "certificate": "test-certificate",
-                    "component": "NODE",
-                    "party_id": "node-id",
-                },
-            )
+            self.assertDictEqual(cert, {'certificate': 'test-certificate',
+                                        'component': 'NODE',
+                                        'party_id': 'node-id',
+                                        }
+                                 )
 
     def test_03_common_config_utils_get_all_existing_config_files(self):
         test_dir = tempfile.mkdtemp()
@@ -96,7 +91,7 @@ class TestCommonConfigUtils(unittest.TestCase):
             file.write("Hello world")
             file.close()
 
-        with patch("fedbiomed.common.utils._config_utils.ROOT_DIR", test_dir):
+        with patch('fedbiomed.common.utils._config_utils.ROOT_DIR', test_dir):
             files = get_all_existing_config_files()
 
         self.assertListEqual(files, [file_])
@@ -105,24 +100,24 @@ class TestCommonConfigUtils(unittest.TestCase):
 
     @patch("fedbiomed.common.utils._config_utils.get_all_existing_config_files")
     @patch("fedbiomed.common.utils._config_utils.get_component_certificate_from_config")
-    def test_03_common_config_utils_get_all_existing_certificates(
-        self, mock_get_component_certificate, mock_get_all_existing_config_files
-    ):
+    def test_03_common_config_utils_get_all_existing_certificates(self,
+                                                                  mock_get_component_certificate,
+                                                                  mock_get_all_existing_config_files):
         certificates = [
             {
-                "party_id": "node-1",
+                "party_id": 'node-1',
                 "certificate": "test-certificate-1",
                 "ip": "localhost",
                 "port": 1234,
-                "component": "NODE",
+                "component": "NODE"
             },
             {
-                "party_id": "node-1",
+                "party_id": 'node-1',
                 "certificate": "test-certificate-1",
                 "ip": "localhost",
                 "port": 1234,
-                "component": "NODE",
-            },
+                "component": "NODE"
+            }
         ]
 
         mock_get_component_certificate.side_effect = certificates
@@ -133,9 +128,11 @@ class TestCommonConfigUtils(unittest.TestCase):
 
     @patch("fedbiomed.common.utils._config_utils.get_all_existing_config_files")
     @patch("fedbiomed.common.utils._config_utils.get_component_config")
-    def test_03_common_config_utils_get_existing_component_db_names(
-        self, mock_get_component_config, mock_get_all_existing_config_files
-    ):
+    def test_03_common_config_utils_get_existing_component_db_names(self,
+                                                                    mock_get_component_config,
+                                                                    mock_get_all_existing_config_files
+                                                                    ):
+
         cfg_1 = configparser.ConfigParser()
         cfg_2 = configparser.ConfigParser()
 
@@ -146,6 +143,9 @@ class TestCommonConfigUtils(unittest.TestCase):
 
         result = get_existing_component_db_names()
         self.assertDictEqual(result, {"node-1": "db_node-1", "node-2": "db_node-2"})
+
+
+
 
 
 if __name__ == "__main__":

@@ -19,7 +19,6 @@ def middleware(middlewares: list[Callable]):
                     If the purpose of the middleware is to update global state `g` state of the Flask should
                     be updated wıthout returning anything.
     """
-
     def _middleware(func):
         @wraps(func)
         def __middleware(*args, **kwargs):
@@ -28,7 +27,5 @@ def middleware(middlewares: list[Callable]):
                 if result:
                     return result
             return func(*args, **kwargs)
-
         return __middleware
-
     return _middleware

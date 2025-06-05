@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Queue module that contains task queue class that is a wrapper to the persistqueue python library."""
+""" Queue module that contains task queue class that is a wrapper to the persistqueue python library."""
 
 import persistqueue
 from typing import Optional, Any
@@ -27,9 +27,7 @@ class TasksQueue:
         """
         try:
             # small chunksize to limit un-needed use of disk space
-            self.queue = persistqueue.Queue(
-                messages_queue_dir, tempdir=tmp_dir, chunksize=1
-            )
+            self.queue = persistqueue.Queue(messages_queue_dir, tempdir=tmp_dir, chunksize=1)
         except ValueError as e:
             msg = ErrorNumbers.FB603.value + ": cannot create queue (" + str(e) + ")"
             logger.critical(msg)

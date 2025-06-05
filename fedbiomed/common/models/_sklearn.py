@@ -67,7 +67,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     # Instance attributes' annotations - merely for the docs parser.
     model: BaseEstimator
     _null_optim_params: Dict[str, Any]
-    _optim_params: Dict[str, Any]  # optimizer parameters set by user
+    _optim_params: Dict[str, Any] # optimizer parameters set by user
 
     def __init__(
         self,
@@ -99,7 +99,9 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             )
 
     def get_weights(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
+        self,
+        only_trainable: bool = False,
+        exclude_buffers: bool = True
     ) -> Dict[str, np.ndarray]:
         """Return a copy of the model's trainable weights.
 
@@ -138,9 +140,9 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             ) from err
         return weights
 
-    def flatten(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
-    ) -> List[float]:
+    def flatten(self,
+                only_trainable: bool = False,
+                exclude_buffers: bool = True) -> List[float]:
         """Gets weights as flatten vector
 
         Args:
@@ -162,10 +164,10 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         return flatten
 
     def unflatten(
-        self,
-        weights_vector: List[float],
-        only_trainable: bool = False,
-        exclude_buffers: bool = True,
+            self,
+            weights_vector: List[float],
+            only_trainable: bool = False,
+            exclude_buffers: bool = True
     ) -> Dict[str, np.ndarray]:
         """Unflatten vectorized model weights
 
@@ -189,7 +191,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         params = {}
         for key, w in weights.items():
             num_param = w.size
-            params[key] = weights_vector[pointer : pointer + num_param].reshape(w.shape)
+            params[key] = weights_vector[pointer: pointer + num_param].reshape(w.shape)
 
             pointer += num_param
 
@@ -278,7 +280,8 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         #       hence eta_t * avg(grad_s) = w_init - (w_updt / B)
 
         self._gradients = {
-            key: w_init[key] - (w_updt[key] / batch_size) for key in self.param_list
+            key: w_init[key] - (w_updt[key] / batch_size)
+            for key in self.param_list
         }
 
         # ------------------------------ WARNINGS ----------------------------------
@@ -380,7 +383,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             logger.warning(
                 "The following non-default model parameters were overridden "
                 f"due to the disabling of the scikit-learn internal optimizer:\n\t{changed}",
-                broadcast=True,
+                broadcast=True
             )
 
     def enable_internal_optimizer(self) -> None:
@@ -438,6 +441,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             raise FedbiomedModelError(err_msg)
         self.model = model
 
+
     def _reload(self, filename: str) -> None:
         """Model-class-specific backend to the `reload` method.
 
@@ -486,10 +490,9 @@ class SGDSkLearnModel(BaseSkLearnModel, metaclass=ABCMeta):
     def __init__(self, model: BaseEstimator) -> None:
         super().__init__(model)
         self._null_optim_params: Dict[str, Any] = {
-            "eta0": 1.0,
-            "learning_rate": "constant",
+            'eta0': 1.0,
+            'learning_rate': "constant",
         }
-
     def get_learning_rate(self) -> List[float]:
         return [self.model.eta0]
 

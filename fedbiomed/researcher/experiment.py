@@ -4,8 +4,6 @@
 from .federated_workflows import Experiment
 from fedbiomed.common.logger import logger
 
-logger.warning(
-    "Importing Experiment class from the researcher package has been deprecated. "
-    "Please use the following import statement instead:\n"
-    "from fedbiomed.researcher.federated_workflows import Experiment"
-)
+logger.warning("Importing Experiment class from the researcher package has been deprecated. "
+               "Please use the following import statement instead:\n"
+               "from fedbiomed.researcher.federated_workflows import Experiment")

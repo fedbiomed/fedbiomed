@@ -2,7 +2,7 @@ from pathlib import Path
 import mkdocs_gen_files
 
 nav = mkdocs_gen_files.Nav()
-exclude = ["fedbiomed/node/cli.py"]
+exclude = ['fedbiomed/node/cli.py']
 
 for path in Path("./fedbiomed/fedbiomed").rglob("*.py"):
     if str(path) in exclude:

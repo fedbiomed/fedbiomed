@@ -309,6 +309,7 @@ class CertificateManager:
         return key_file, pem_file
 
 
+
 def generate_certificate(
     root,
     component_id,

@@ -95,16 +95,14 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def get_weights(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
-    ) -> Dict[str, DT]:
+    def get_weights(self, only_trainable: bool = False, exclude_buffers: bool = True) -> Dict[str, DT]:
         """Return a copy of the model's trainable weights.
 
         Args:
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or
+            exclude_buffers: Whether to ignore buffers (the default), or 
                 include them.
 
         Returns:
@@ -130,16 +128,16 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def flatten(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
-    ) -> List[float]:
+    def flatten(self,
+                only_trainable: bool = False,
+                exclude_buffers: bool = True) -> List[float]:
         """Flattens model weights
 
         Args:
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or
+            exclude_buffers: Whether to ignore buffers (the default), or 
                 include them.
 
         Returns:
@@ -189,10 +187,10 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
 
     @abstractmethod
     def unflatten(
-        self,
-        weights_vector: List[float],
-        only_trainable: bool = False,
-        exclude_buffers: bool = True,
+            self,
+            weights_vector: List[float],
+            only_trainable: bool = False,
+            exclude_buffers: bool = True
     ) -> None:
         """Revert flatten model weights back model-dict form.
 
@@ -201,16 +199,14 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or
+            exclude_buffers: Whether to ignore buffers (the default), or 
                 include them.
 
         Returns:
             Model dictionary
         """
 
-        if not isinstance(weights_vector, list) or not all(
-            [isinstance(w, float) for w in weights_vector]
-        ):
+        if not isinstance(weights_vector, list) or not all([isinstance(w, float) for w in weights_vector]):
             raise FedbiomedModelError(
                 f"{ErrorNumbers.FB622} `weights_vector should be 1D list of float containing flatten model parameters`"
             )

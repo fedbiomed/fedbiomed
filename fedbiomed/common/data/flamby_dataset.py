@@ -5,11 +5,8 @@ try:
     import flamby
 except ModuleNotFoundError as e:
     from fedbiomed.common.constants import ErrorNumbers
-
-    m = (
-        f"{ErrorNumbers.FB617.value}. Flamby module missing. "
-        f"Install it manually with `pip install git+https://github.com/owkin/FLamby@main`."
-    )
+    m = (f"{ErrorNumbers.FB617.value}. Flamby module missing. "
+         f"Install it manually with `pip install git+https://github.com/owkin/FLamby@main`.")
     raise ModuleNotFoundError(m) from e
 
 
@@ -24,17 +21,10 @@ from torchvision.transforms import Compose as TorchCompose
 from monai.transforms import Compose as MonaiCompose
 
 from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import (
-    FedbiomedDatasetError,
-    FedbiomedLoadingBlockError,
-    FedbiomedDatasetValueError,
-)
+from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError, FedbiomedDatasetValueError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
 from fedbiomed.common.utils import get_method_spec
-from fedbiomed.common.data._data_loading_plan import (
-    DataLoadingPlanMixin,
-    DataLoadingBlock,
-)
+from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin, DataLoadingBlock
 
 
 def discover_flamby_datasets() -> Dict[int, str]:
@@ -46,18 +36,13 @@ def discover_flamby_datasets() -> Dict[int, str]:
         path: `import flamby.datasets.dataset_name`.
 
     """
-    dataset_list = [
-        name
-        for _, name, ispkg in pkgutil.iter_modules(flamby_datasets_module.__path__)
-        if ispkg
-    ]
+    dataset_list = [name for _, name, ispkg in pkgutil.iter_modules(flamby_datasets_module.__path__) if ispkg]
     return {i: name for i, name in enumerate(dataset_list)}
 
 
 class FlambyLoadingBlockTypes(DataLoadingBlockTypes, Enum):
     """Additional DataLoadingBlockTypes specific to Flamby data"""
-
-    FLAMBY_DATASET_METADATA: str = "flamby_dataset_metadata"
+    FLAMBY_DATASET_METADATA: str = 'flamby_dataset_metadata'
 
 
 class FlambyDatasetMetadataBlock(DataLoadingBlock):
@@ -67,13 +52,14 @@ class FlambyDatasetMetadataBlock(DataLoadingBlock):
     - identity of the type of flamby dataset (e.g. fed_ixi, fed_heart, etc...)
     - the ID of the center of the flamby dataset
     """
-
     def __init__(self):
         super().__init__()
-        self.metadata = {"flamby_dataset_name": None, "flamby_center_id": None}
+        self.metadata = {
+            "flamby_dataset_name": None,
+            "flamby_center_id": None
+        }
         self._serialization_validator.update_validation_scheme(
-            FlambyDatasetMetadataBlock._extra_validation_scheme()
-        )
+            FlambyDatasetMetadataBlock._extra_validation_scheme())
 
     def serialize(self) -> dict:
         """Serializes the class in a format similar to json.
@@ -83,12 +69,9 @@ class FlambyDatasetMetadataBlock(DataLoadingBlock):
              the DataLoadingBlock.
         """
         ret = super().serialize()
-        ret.update(
-            {
-                "flamby_dataset_name": self.metadata["flamby_dataset_name"],
-                "flamby_center_id": self.metadata["flamby_center_id"],
-            }
-        )
+        ret.update({'flamby_dataset_name': self.metadata['flamby_dataset_name'],
+                    'flamby_center_id': self.metadata['flamby_center_id']
+                    })
         return ret
 
     def deserialize(self, load_from: dict) -> DataLoadingBlock:
@@ -100,8 +83,8 @@ class FlambyDatasetMetadataBlock(DataLoadingBlock):
             the self instance
         """
         super().deserialize(load_from)
-        self.metadata["flamby_dataset_name"] = load_from["flamby_dataset_name"]
-        self.metadata["flamby_center_id"] = load_from["flamby_center_id"]
+        self.metadata['flamby_dataset_name'] = load_from['flamby_dataset_name']
+        self.metadata['flamby_center_id'] = load_from['flamby_center_id']
         return self
 
     def apply(self) -> dict:
@@ -119,10 +102,8 @@ class FlambyDatasetMetadataBlock(DataLoadingBlock):
             this data loading block's metadata
         """
         if any([v is None for v in self.metadata.values()]):
-            msg = (
-                f"{ErrorNumbers.FB316}. Attempting to read Flamby dataset metadata, but "
-                f"the {[k for k, v in self.metadata.items() if v is None]} keys were not previously set."
-            )
+            msg = f"{ErrorNumbers.FB316}. Attempting to read Flamby dataset metadata, but " \
+                  f"the {[k for k,v in self.metadata.items() if v is None]} keys were not previously set."
             logger.critical(msg)
             raise FedbiomedLoadingBlockError(msg)
         return self.metadata
@@ -130,24 +111,21 @@ class FlambyDatasetMetadataBlock(DataLoadingBlock):
     @classmethod
     def _validate_flamby_dataset_name(cls, name: str):
         if name not in discover_flamby_datasets().values():
-            return (
-                False,
-                f"Flamby dataset name should be one of {discover_flamby_datasets().values()}, "
-                f"instead got {name}",
-            )
+            return False, f"Flamby dataset name should be one of {discover_flamby_datasets().values()}, " \
+                          f"instead got {name}"
         return True
 
     @classmethod
     def _extra_validation_scheme(cls) -> dict:
         return {
-            "flamby_dataset_name": {
-                "rules": [
-                    str,
-                    FlambyDatasetMetadataBlock._validate_flamby_dataset_name,
-                ],
-                "required": True,
+            'flamby_dataset_name': {
+                'rules': [str, FlambyDatasetMetadataBlock._validate_flamby_dataset_name],
+                'required': True
             },
-            "flamby_center_id": {"rules": [int], "required": True},
+            'flamby_center_id': {
+                'rules': [int],
+                'required': True
+            }
         }
 
 
@@ -171,15 +149,12 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
             when data is loaded.
         __flamby_fed_class: a private instance of the wrapped Flamby FedClass
     """
-
     def __init__(self):
         super().__init__()
         self.__flamby_fed_class = None
         self._transform = None
 
-    def _check_fed_class_initialization_status(
-        require_initialized, require_uninitialized, message=None
-    ):
+    def _check_fed_class_initialization_status(require_initialized, require_uninitialized, message=None):
         """Decorator that raises FedbiomedDatasetError if the FedClass was not initialized.
 
         This decorator can be used as a shorthand for testing whether the self.__flamby_fed_class was correctly
@@ -194,52 +169,38 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
             message (str): the error message to display
         """
         if require_initialized == require_uninitialized:
-            msg = (
-                f"{ErrorNumbers.FB617.value}. Inconsistent arguments for _check_fed_class_initialization_status "
-                f"decorator. Arguments require_initialized and require_uninitialized cannot both be true."
-            )
+            msg = f"{ErrorNumbers.FB617.value}. Inconsistent arguments for _check_fed_class_initialization_status " \
+                  f"decorator. Arguments require_initialized and require_uninitialized cannot both be true."
             logger.critical(msg)
             raise FedbiomedDatasetValueError(msg)
 
         def decorator(method):
             def wrapper(self, *args, **kwargs):
-                if (require_initialized and self.__flamby_fed_class is None) or (
-                    require_uninitialized and self.__flamby_fed_class is not None
-                ):
+                if (require_initialized and self.__flamby_fed_class is None) or \
+                        (require_uninitialized and self.__flamby_fed_class is not None):
                     msg = f"{ErrorNumbers.FB617.value}. {message or 'Wrong FedClass initialization status.'}"
                     logger.critical(msg)
                     raise FedbiomedDatasetError(msg)
                 return method(self, *args, **kwargs)
-
             return wrapper
-
         return decorator
 
     def _requires_dlp(method):
         """Decorator that raises FedbiomedDatasetError if the Data Loading Plan was not set."""
-
         def wrapper(self, *args, **kwargs):
-            if (
-                self._dlp is None
-                or FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA not in self._dlp
-            ):
-                msg = (
-                    f"{ErrorNumbers.FB315.value}. Flamby datasets must have an associated DataLoadingPlan "
-                    f"containing the {FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA} loading block. "
-                    f"Something went wrong while saving/loading the {self._dlp} associated with the dataset."
-                )
+            if self._dlp is None or FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA not in self._dlp:
+                msg = f"{ErrorNumbers.FB315.value}. Flamby datasets must have an associated DataLoadingPlan " \
+                      f"containing the {FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA} loading block. " \
+                      f"Something went wrong while saving/loading the {self._dlp} associated with the dataset."
                 logger.critical(msg)
                 raise FedbiomedDatasetError(msg)
             return method(self, *args, **kwargs)
-
         return wrapper
 
-    @_check_fed_class_initialization_status(
-        require_initialized=False,
-        require_uninitialized=True,
-        message="Calling _init_flamby_fed_class is not allowed if the "
-        "__flamby_fed_class attribute has already been initialized.",
-    )
+    @_check_fed_class_initialization_status(require_initialized=False,
+                                            require_uninitialized=True,
+                                            message="Calling _init_flamby_fed_class is not allowed if the "
+                                                    "__flamby_fed_class attribute has already been initialized.")
     @_requires_dlp
     def _init_flamby_fed_class(self) -> None:
         """Initializes once the __flamby_fed_class attribute with an object of type FedClass.
@@ -261,46 +222,35 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         # import the Flamby module corresponding to the dataset type
         metadata = self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA)
         try:
-            module = import_module(
-                f".{metadata['flamby_dataset_name']}", package="flamby.datasets"
-            )
+            module = import_module(f".{metadata['flamby_dataset_name']}",
+                                   package='flamby.datasets')
         except ModuleNotFoundError as e:
             msg = f"{ErrorNumbers.FB317.value}: Error while importing FLamby dataset package; {str(e)}"
             logger.critical(msg)
             raise FedbiomedDatasetError(msg)
 
         # set the center id
-        center_id = metadata["flamby_center_id"]
+        center_id = metadata['flamby_center_id']
 
         # finally instantiate FedClass
         try:
-            if "transform" in get_method_spec(module.FedClass):
+            if 'transform' in get_method_spec(module.FedClass):
                 # Since the __init__ signatures are different, we are forced to distinguish two cases
-                self.__flamby_fed_class = module.FedClass(
-                    transform=self._transform,
-                    center=center_id,
-                    train=True,
-                    pooled=False,
-                )
+                self.__flamby_fed_class = module.FedClass(transform=self._transform, center=center_id, train=True,
+                                                          pooled=False)
             else:
-                self.__flamby_fed_class = module.FedClass(
-                    center=center_id, train=True, pooled=False
-                )
+                self.__flamby_fed_class = module.FedClass(center=center_id, train=True, pooled=False)
         except Exception as e:
             msg = f"{ErrorNumbers.FB617.value}. Error while instantiating FedClass from module {module} because of {e}"
             logger.critical(msg)
             raise FedbiomedDatasetError(msg) from e
 
-    @_check_fed_class_initialization_status(
-        require_initialized=False,
-        require_uninitialized=True,
-        message="Calling init_transform is not allowed if the wrapped FedClass "
-        "has already been initialized. At your own risk, you may call "
-        "clear_dlp to reset the full FlambyDataset",
-    )
-    def init_transform(
-        self, transform: Union[MonaiCompose, TorchCompose]
-    ) -> Union[MonaiCompose, TorchCompose]:
+    @_check_fed_class_initialization_status(require_initialized=False,
+                                            require_uninitialized=True,
+                                            message="Calling init_transform is not allowed if the wrapped FedClass "
+                                                    "has already been initialized. At your own risk, you may call "
+                                                    "clear_dlp to reset the full FlambyDataset")
+    def init_transform(self, transform: Union[MonaiCompose, TorchCompose]) -> Union[MonaiCompose, TorchCompose]:
         """Initializes the transform attribute. Must be called before initialization of the wrapped FedClass.
 
         Arguments:
@@ -311,10 +261,8 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
             FedbiomedDatasetValueError: if the input is not of the correct type.
         """
         if not isinstance(transform, (MonaiCompose, TorchCompose)):
-            msg = (
-                f"{ErrorNumbers.FB618.value}. FlambyDataset transform must be of type "
-                f"torchvision.transforms.Compose or monai.transforms.Compose"
-            )
+            msg = f"{ErrorNumbers.FB618.value}. FlambyDataset transform must be of type " \
+                  f"torchvision.transforms.Compose or monai.transforms.Compose"
             logger.critical(msg)
             raise FedbiomedDatasetValueError(msg)
 
@@ -329,12 +277,10 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         """Returns the instance of the wrapped Flamby FedClass"""
         return self.__flamby_fed_class
 
-    @_check_fed_class_initialization_status(
-        require_initialized=True,
-        require_uninitialized=False,
-        message="Flamby dataset is in an inconsistent state: a Data Loading Plan "
-        "is set but the wrapped FedClass was not initialized.",
-    )
+    @_check_fed_class_initialization_status(require_initialized=True,
+                                            require_uninitialized=False,
+                                            message="Flamby dataset is in an inconsistent state: a Data Loading Plan "
+                                                    "is set but the wrapped FedClass was not initialized.")
     @_requires_dlp
     def get_center_id(self) -> int:
         """Returns the center id. Requires that the DataLoadingPlan has already been set.
@@ -346,38 +292,30 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
                 - if the data loading plan is not set or is malformed.
                 - if the wrapped FedClass is not initialized but the dlp exists
         """
-        return self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA)[
-            "flamby_center_id"
-        ]
+        return self.apply_dlb(None, FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA)['flamby_center_id']
 
     def _clear(self):
         """Clears the wrapped FedClass and the associated transforms"""
         self.__flamby_fed_class = None
         self._transform = None
 
-    @_check_fed_class_initialization_status(
-        require_initialized=True,
-        require_uninitialized=False,
-        message="Cannot get item because FedClass was not initialized.",
-    )
+    @_check_fed_class_initialization_status(require_initialized=True,
+                                            require_uninitialized=False,
+                                            message="Cannot get item because FedClass was not initialized.")
     def __getitem__(self, item):
         """Forwards call to the flamby_fed_class"""
         return self.__flamby_fed_class[item]
 
-    @_check_fed_class_initialization_status(
-        require_initialized=True,
-        require_uninitialized=False,
-        message="Cannot compute len because FedClass was not initialized.",
-    )
+    @_check_fed_class_initialization_status(require_initialized=True,
+                                            require_uninitialized=False,
+                                            message="Cannot compute len because FedClass was not initialized.")
     def __len__(self):
         """Forwards call to the flamby_fed_class"""
         return len(self.__flamby_fed_class)
 
-    @_check_fed_class_initialization_status(
-        require_initialized=True,
-        require_uninitialized=False,
-        message="Cannot compute shape because FedClass was not initialized.",
-    )
+    @_check_fed_class_initialization_status(require_initialized=True,
+                                            require_uninitialized=False,
+                                            message="Cannot compute shape because FedClass was not initialized.")
     def shape(self) -> List[int]:
         """Returns the shape of the flamby_fed_class"""
         return [len(self)] + list(self.__getitem__(0)[0].shape)

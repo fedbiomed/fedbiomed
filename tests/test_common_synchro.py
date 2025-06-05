@@ -12,9 +12,7 @@ class TestCommonSynchro(unittest.TestCase):
 
     def setUp(self):
         self.mock_event = MagicMock(spec=threading.Event)
-        self.patch_event = patch(
-            "fedbiomed.common.synchro.threading.Event", self.mock_event
-        )
+        self.patch_event = patch('fedbiomed.common.synchro.threading.Event', self.mock_event)
         self.patcher_event = self.patch_event.start()
 
     def tearDown(self):
@@ -34,12 +32,12 @@ class TestCommonSynchro(unittest.TestCase):
 
     def test_synchro_02_add_wait_events(self):
         """Add event(s) to the exchange, check they are correctly stored.
-        Then wait, check they are correctly retrieved.
+            Then wait, check they are correctly retrieved.
         """
 
         # prepare
         e1 = "event1"
-        d1 = ["one", "two"]
+        d1 = [ 'one', 'two']
         e2 = "event2"
         d2 = 12345
         d3 = 23456
@@ -57,19 +55,19 @@ class TestCommonSynchro(unittest.TestCase):
             # one event
             exchange.event(e1, d1)
             self.assertEqual(set(events.keys()), set([e1]))
-            self.assertEqual(events[e1]["data"], d1)
+            self.assertEqual(events[e1]['data'], d1)
 
             # two events
             exchange.event(e2, d2)
             self.assertEqual(set(events.keys()), set([e1, e2]))
-            self.assertEqual(events[e1]["data"], d1)
-            self.assertEqual(events[e2]["data"], d2)
+            self.assertEqual(events[e1]['data'], d1)
+            self.assertEqual(events[e2]['data'], d2)
 
             # two events, previous version overwritten
             exchange.event(e2, d3)
             self.assertEqual(set(events.keys()), set([e1, e2]))
-            self.assertEqual(events[e1]["data"], d1)
-            self.assertEqual(events[e2]["data"], d3)
+            self.assertEqual(events[e1]['data'], d1)
+            self.assertEqual(events[e2]['data'], d3)
 
             # one event waited, is it still there ?
             all_received, events_data = exchange.wait([e1], 1)
@@ -86,11 +84,12 @@ class TestCommonSynchro(unittest.TestCase):
             self.assertEqual(e1 in events, not remove_delivered)
 
     def test_synchro_03_wait_add_events(self):
-        """Wait for events listeners, then add events, then check listeners are woken up"""
+        """Wait for events listeners, then add events, then check listeners are woken up
+        """
 
         # prepare
         e1 = "event1"
-        d1 = ["one", "two"]
+        d1 = [ 'one', 'two']
         e2 = "event2"
         d2 = 12345
 
@@ -125,31 +124,25 @@ class TestCommonSynchro(unittest.TestCase):
             self.assertEqual(self.patcher_event.return_value.set.call_count, 3)
             self.patcher_event.return_value.set.reset_mock()
 
-    @patch("fedbiomed.common.synchro.EventWaitExchange._all_events", return_value=True)
+    @patch('fedbiomed.common.synchro.EventWaitExchange._all_events', return_value=True)
     def test_synchro_04_wait_arguments_ok_bad(self, event_wait_exchange):
-        """Wait called with good and bad arguments"""
+        """Wait called with good and bad arguments
+        """
         # prepare
-        timeouts = [-0.0, 3, 12, 0.4, 7.65, 60, MAX_TRIGGERED_EVENT_TIMEOUT]
+        timeouts = [ -0.0, 3, 12, 0.4, 7.65, 60, MAX_TRIGGERED_EVENT_TIMEOUT]
 
         for remove_delivered in [True, False]:
             for timeout in timeouts:
                 exchange = EventWaitExchange(remove_delivered)
 
                 # test
-                exchange.wait(["dummy_id"], timeout)
+                exchange.wait(['dummy_id'], timeout)
 
                 # no speficic check
 
         # prepare
-        timeouts = [
-            "another",
-            [1],
-            ["bad]"],
-            -1,
-            -2.3,
-            MAX_TRIGGERED_EVENT_TIMEOUT + 0.1,
-            MAX_TRIGGERED_EVENT_TIMEOUT + 1,
-        ]
+        timeouts = ['another', [1], ['bad]'], -1, -2.3,
+                    MAX_TRIGGERED_EVENT_TIMEOUT + 0.1, MAX_TRIGGERED_EVENT_TIMEOUT + 1]
 
         for remove_delivered in [True, False]:
             for timeout in timeouts:
@@ -157,37 +150,39 @@ class TestCommonSynchro(unittest.TestCase):
 
                 # test + check
                 with self.assertRaises(FedbiomedSynchroError):
-                    exchange.wait(["dummy_id"], timeout)
+                    exchange.wait(['dummy_id'], timeout)
 
-    @patch("fedbiomed.common.synchro.GRACE_TRIGGERED_EVENT", 0)
+    @patch('fedbiomed.common.synchro.GRACE_TRIGGERED_EVENT', 0)
     def test_synchro_05_wait_timeout(self):
-        """Call to `wait()` is timeouted"""
+        """Call to `wait()` is timeouted
+        """
         # prepare
         max_timeout = 0.1
 
-        with patch("fedbiomed.common.synchro.MAX_TRIGGERED_EVENT_TIMEOUT", max_timeout):
+        with patch('fedbiomed.common.synchro.MAX_TRIGGERED_EVENT_TIMEOUT', max_timeout):
             for remove_delivered in [True, False]:
                 exchange = EventWaitExchange(remove_delivered)
 
                 # test
-                all_received, events_data = exchange.wait(["dummy_id"], max_timeout / 2)
+                all_received, events_data = exchange.wait(['dummy_id'], max_timeout / 2)
 
                 # check
                 self.assertFalse(all_received)
                 self.assertEqual(events_data, [])
 
-    @patch("fedbiomed.common.synchro.GRACE_TRIGGERED_EVENT", 0)
+    @patch('fedbiomed.common.synchro.GRACE_TRIGGERED_EVENT', 0)
     def test_synchro_06_event_timeout(self):
-        """Stored event is timeouted"""
+        """Stored event is timeouted
+        """
         # prepare
         max_timeout = 0.1
 
         e1 = "event1"
-        d1 = ["one", "two"]
+        d1 = [ 'one', 'two']
         e2 = "event2"
         d2 = 12345
 
-        with patch("fedbiomed.common.synchro.MAX_TRIGGERED_EVENT_TIMEOUT", max_timeout):
+        with patch('fedbiomed.common.synchro.MAX_TRIGGERED_EVENT_TIMEOUT', max_timeout):
             for remove_delivered in [True, False]:
                 exchange = EventWaitExchange(remove_delivered)
                 # need to access private member to avoid creating an (un-needed) getter
@@ -198,7 +193,7 @@ class TestCommonSynchro(unittest.TestCase):
                 # one event
                 exchange.event(e1, d1)
                 self.assertEqual(set(events.keys()), set([e1]))
-                self.assertEqual(events[e1]["data"], d1)
+                self.assertEqual(events[e1]['data'], d1)
 
                 # trigger timeout
                 time.sleep(max_timeout)
@@ -206,6 +201,7 @@ class TestCommonSynchro(unittest.TestCase):
                 # two events, one timeouted
                 exchange.event(e2, d2)
                 self.assertEqual(set(events.keys()), set([e2]))
+
 
 
 if __name__ == "__main__":

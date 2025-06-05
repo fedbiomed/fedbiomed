@@ -17,13 +17,12 @@ class GrpcAsyncTaskController:
     listener to send the replies that are created by the node. All the methods of this class
     are awaitable, except the constructor.
     """
-
     def __init__(
-        self,
-        node_id: str,
-        researchers: List[ResearcherCredentials],
-        on_message: Callable,
-        debug: bool = False,
+            self,
+            node_id: str,
+            researchers: List[ResearcherCredentials],
+            on_message: Callable,
+            debug: bool = False
     ) -> None:
         """Constructs GrpcAsyncTaskController
 
@@ -57,8 +56,9 @@ class GrpcAsyncTaskController:
         self._debug = debug
         self._on_message = on_message
 
+
     async def start(self) -> None:
-        """ "Starts the tasks for each GrpcClient"""
+        """"Starts the tasks for each GrpcClient"""
 
         tasks = []
         for researcher in self._researchers:
@@ -79,6 +79,7 @@ class GrpcAsyncTaskController:
         # Run GrpcClient asyncio tasks
         await asyncio.gather(*tasks)
 
+
     async def send(self, message: Message, broadcast: bool = False) -> None:
         """Sends message to researcher.
 
@@ -95,6 +96,7 @@ class GrpcAsyncTaskController:
                 researcher = message.researcher_id
                 await self._clients[self._ip_id_map[researcher]].send(message)
 
+
     async def _broadcast(self, message: Message) -> None:
         """Broadcast given message
 
@@ -103,6 +105,7 @@ class GrpcAsyncTaskController:
         """
         for _, client in self._clients.items():
             await client.send(message)
+
 
     async def _update_id_ip_map(self, ip, id_) -> None:
         """Updates researcher IP and researcher ID map
@@ -114,20 +117,17 @@ class GrpcAsyncTaskController:
         async with self._ip_id_map_lock:
             self._ip_id_map.update({id_: ip})
 
+
     async def is_connected(self) -> bool:
         """Checks if there is running tasks"""
 
         async with self._clients_lock:
-            tasks = [
-                not task.done()
-                for client in self._clients.values()
-                for task in client.tasks
-            ]
+            tasks = [not task.done() for client in self._clients.values() for task in client.tasks]
             return all(tasks)
 
 
 class GrpcController(GrpcAsyncTaskController):
-    """ "gRPC Controller class
+    """"gRPC Controller class
 
     This class is responsible of managing GrpcConnections with researcher components.
     It is wrapper class of GrpcClients. It has been designed to be called main or
@@ -151,8 +151,7 @@ class GrpcController(GrpcAsyncTaskController):
         except Exception as e:
             logger.critical(
                 "An exception raised by running tasks within GrpcClients. This will stop "
-                f"gRPC client. The exception: {type(e).__name__}. Error message: {e}"
-            )
+                f"gRPC client. The exception: {type(e).__name__}. Error message: {e}")
             logger.info("Node is stopped!")
 
             if isinstance(on_finish, Callable):
@@ -162,15 +161,13 @@ class GrpcController(GrpcAsyncTaskController):
         """Start GRPCClients in a thread.
 
         Args:
-            on_finish: Called when the tasks for handling all known researchers have finished.
+            on_finish: Called when the tasks for handling all known researchers have finished. 
                 Callable has no argument. If None, then no action is taken.
         """
         # Adds grpc handler to send node logs to researchers
         logger.add_grpc_handler(on_log=self.send, node_id=self._node_id)
 
-        self._thread = threading.Thread(
-            target=self._run, args=(on_finish,), daemon=True
-        )
+        self._thread = threading.Thread(target=self._run, args=(on_finish,), daemon=True)
         self._thread.start()
 
     def send(self, message: Message, broadcast: bool = False) -> None:
@@ -190,18 +187,18 @@ class GrpcController(GrpcAsyncTaskController):
         """
         if not isinstance(message, Message):
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`"
-            )
+                f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`")
 
         if not self._is_started.is_set():
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Communication client is not initialized."
-            )
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
-        asyncio.run_coroutine_threadsafe(super().send(message, broadcast), self._loop)
+        asyncio.run_coroutine_threadsafe(
+            super().send(message, broadcast), self._loop
+        )
+
 
     def is_connected(self) -> bool:
-        """ "Checks GrpcController is connected to any RPC client.
+        """"Checks GrpcController is connected to any RPC client.
 
         This method should only be called from different thread than the one that asyncio loop running in.
 
@@ -212,12 +209,12 @@ class GrpcController(GrpcAsyncTaskController):
             FedbiomedCommunicationError: node is not started
         """
         if self._thread is None or not self._is_started.is_set():
-            raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Communication client is not initialized."
-            )
+            raise FedbiomedCommunicationError(f"{ErrorNumbers.FB628}: Communication client is not initialized.")
 
         if not self._thread.is_alive():
             return False
 
-        future = asyncio.run_coroutine_threadsafe(super().is_connected(), self._loop)
+        future = asyncio.run_coroutine_threadsafe(
+            super().is_connected(), self._loop
+        )
         return future.result()

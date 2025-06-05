@@ -5,7 +5,9 @@ from ._secagg_setups import (
     SecaggDHSetup,
 )
 
-from ._secagg_round import SecaggRound
+from ._secagg_round import (
+    SecaggRound
+)
 
 __all__ = [
     "SecaggBaseSetup",

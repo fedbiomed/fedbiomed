@@ -1,6 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-"""Imports of declearn Optimizers Optimodules that are compatible with FedBioMed"""
+"""Imports of declearn Optimizers Optimodules that are compatible with FedBioMed
+"""
 
 from typing import Dict
 
@@ -24,7 +25,7 @@ from declearn.optimizer.modules import (
     ScaffoldClientModule,
     ScaffoldServerModule,
     YogiModule,
-    YogiMomentumModule,
+    YogiMomentumModule
 )
 
 
@@ -44,7 +45,7 @@ __all__ = [
     "YogiModule",
     "YogiMomentumModule",
     "get_device_policy",
-    "set_device_policy",
+    "set_device_policy"
 ]
 
 _REGULARIZERS = (
@@ -62,7 +63,7 @@ _MODULES = (
     ScaffoldClientModule,
     ScaffoldServerModule,
     YogiModule,
-    YogiMomentumModule,
+    YogiMomentumModule
 )
 
 
@@ -72,7 +73,8 @@ def list_optim_regularizers() -> Dict[str, Regularizer]:
     Returns:
         Dict[str, Regularizer]: Mapping of <regularizer name, Regularizer class>
     """
-    return {r.name: r for r in _REGULARIZERS}
+    return {r.name : r for r in _REGULARIZERS}
+
 
 
 def list_optim_modules() -> Dict[str, OptiModule]:

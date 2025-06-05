@@ -10,13 +10,11 @@ the "TorchVector" and "NumpyVector" classes used in this module.
 """
 
 from ._model import Model
-from ._sklearn import (
-    SkLearnModel,
-    BaseSkLearnModel,
-    MLPSklearnModel,
-    SGDRegressorSKLearnModel,
-    SGDClassifierSKLearnModel,
-)
+from ._sklearn import SkLearnModel, \
+    BaseSkLearnModel, \
+    MLPSklearnModel, \
+    SGDRegressorSKLearnModel, \
+    SGDClassifierSKLearnModel
 from ._torch import TorchModel
 
 __all__ = [
@@ -26,5 +24,5 @@ __all__ = [
     "SGDRegressorSKLearnModel",
     "SGDClassifierSKLearnModel",
     "MLPSklearnModel",
-    "BaseSkLearnModel",
+    "BaseSkLearnModel"
 ]

@@ -9,6 +9,7 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 
 class TestCommonCLI(unittest.TestCase):
+
     def setUp(self) -> None:
         self.patch_certificate_manager = patch(
             "fedbiomed.common.cli.CertificateManager.__init__",
@@ -21,6 +22,7 @@ class TestCommonCLI(unittest.TestCase):
         self.config = MagicMock()
         self.cli = CommonCLI()
         self.cli.config = self.config
+
 
     def tearDown(self) -> None:
         self.patch_certificate_manager.stop()
@@ -48,6 +50,7 @@ class TestCommonCLI(unittest.TestCase):
             self.assertEqual(patch_print.call_count, 2)
 
     def test_04_bis_cli_initialize_optional(self):
+
         self.cli.initialize_optional()
 
         self.assertTrue("certificate-dev-setup" in self.cli._subparsers.choices)
@@ -149,6 +152,7 @@ class TestCommonCLI(unittest.TestCase):
         mock_get_all_certificates.return_value = certificates
 
         with patch("fedbiomed.common.cli.ROOT_DIR", "path/to/root"):
+
             self.cli._create_magic_dev_environment(None)
 
             self.assertEqual(self.mock_set_db.call_count, 3)
@@ -181,9 +185,9 @@ class TestCommonCLI(unittest.TestCase):
         tmp_dir = tempfile.mkdtemp()
         self.cli.initialize_certificate_parser()
         args = self.cli.parser.parse_args(
-            ["certificate", "generate", "--path", "dummy/path/-f"]
+            ["certificate", "generate", "--path", "dummy/path/" "-f"]
         )
-        self.config.get.return_value = "test"
+        self.config.get.return_value = 'test'
 
         with self.assertRaises(SystemExit):
             self.cli._generate_certificate(args)
@@ -198,6 +202,8 @@ class TestCommonCLI(unittest.TestCase):
         args = self.cli.parser.parse_args(
             ["certificate", "generate", "--path", "dummy/path/"]
         )
+
+
 
         with self.assertRaises(SystemExit):
             self.cli._generate_certificate(args)
@@ -276,8 +282,9 @@ class TestCommonCLI(unittest.TestCase):
     @patch("builtins.open")
     @patch("builtins.print")
     def test_11_common_cli_prepare_certificate_for_registration(
-        self, mock_print, mock_open
+        self , mock_print, mock_open
     ):
+
         self.cli.initialize_certificate_parser()
         args = self.cli.parser.parse_args(["certificate", "registration-instructions"])
 
@@ -287,9 +294,11 @@ class TestCommonCLI(unittest.TestCase):
         self.cli._prepare_certificate_for_registration(args)
         self.assertEqual(mock_print.call_args_list[2][0][0], "test-certificate")
 
+
     @patch("fedbiomed.common.cli.CertificateManager.list")
     @patch("fedbiomed.common.cli.CommonCLI._create_magic_dev_environment")
     def test_12_common_cli_parse_args(self, mock_dev_environment, mock_list):
+
         self.cli.initialize_certificate_parser()
 
         args = self.cli.parser.parse_args(["certificate", "list"])

@@ -5,9 +5,9 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 
 
 class TestAggregator(unittest.TestCase):
-    """
+    '''
     Test the Aggregator class
-    """
+    '''
 
     # before the tests
     def setUp(self):
@@ -25,35 +25,29 @@ class TestAggregator(unittest.TestCase):
         pass
 
     def test_aggregator_01_save_state_breakpoint(self):
-        expected_state = {
-            "class": "Aggregator",
-            "module": "fedbiomed.researcher.aggregators.aggregator",
-            "parameters": None,
-        }
+
+        expected_state = {'class': 'Aggregator',
+                          'module': 'fedbiomed.researcher.aggregators.aggregator',
+                          'parameters': None}
 
         state = self.aggregator.save_state_breakpoint()
-        self.assertDictEqual(
-            expected_state, state, "State of aggregator has not been saved correctly"
-        )
+        self.assertDictEqual(expected_state, state, 'State of aggregator has not been saved correctly')
 
     def test_aggregator_02_load_state_breakpoint(self):
-        state = {"parameters": {"param": True}}
+
+        state = {
+            'parameters': {'param' : True}
+        }
         self.aggregator.load_state_breakpoint(state)
-        self.assertDictEqual(
-            self.aggregator._aggregator_args,
-            state["parameters"],
-            "The state of the aggregator class has not been loaded correctly",
-        )
+        self.assertDictEqual(self.aggregator._aggregator_args,
+                             state['parameters'],
+                             'The state of the aggregator class has not been loaded correctly')
 
     def test_3_set_training_plan_type(self):
         self.aggregator.set_training_plan_type(TrainingPlans.SkLearnTrainingPlan)
-        self.assertEqual(
-            self.aggregator._training_plan_type, TrainingPlans.SkLearnTrainingPlan
-        )
+        self.assertEqual(self.aggregator._training_plan_type, TrainingPlans.SkLearnTrainingPlan)
         self.aggregator.set_training_plan_type(TrainingPlans.TorchTrainingPlan)
-        self.assertEqual(
-            self.aggregator._training_plan_type, TrainingPlans.TorchTrainingPlan
-        )
+        self.assertEqual(self.aggregator._training_plan_type, TrainingPlans.TorchTrainingPlan)
 
     def test_4_set_fds(self):
         fds = FederatedDataSet({})
@@ -61,5 +55,5 @@ class TestAggregator(unittest.TestCase):
         self.assertEqual(fds, self.aggregator._fds)
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == '__main__':  # pragma: no cover
     unittest.main()

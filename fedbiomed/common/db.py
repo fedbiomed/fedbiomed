@@ -1,16 +1,15 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""
+'''
 Interfaces with a tinyDB database for converting search results to dict.
-"""
+'''
 
 from tinydb.table import Table, Document
 
 
 def cast_(func):
     """Decorator function for typing casting"""
-
     # Wraps TinyDb get, all, search and upsert methods
     def wrapped(*args, **kwargs):
         add_docs = kwargs.get("add_docs")
@@ -23,12 +22,12 @@ def cast_(func):
         elif isinstance(document, Document):
             casted = dict(document)
         else:
-            # Plain python type
+            # Plain python type 
             casted = document
 
         if add_docs:
             return casted, document
-        else:
+        else: 
             return casted
 
     return wrapped
@@ -40,6 +39,7 @@ class DBTable(Table):
     @cast_
     def search(self, *args, **kwargs):
         return super().search(*args, **kwargs)
+
 
     @cast_
     def get(self, *args, **kwargs):

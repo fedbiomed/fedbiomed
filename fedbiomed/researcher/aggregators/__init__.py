@@ -12,5 +12,5 @@ __all__ = [
     "initialize",
     "federated_averaging",
     "weighted_sum",
-    "Scaffold",
+    "Scaffold"
 ]
