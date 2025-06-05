@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Tuple, Union
 from fedbiomed.common.constants  import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.common.logger     import logger
+from fedbiomed.common.message import TrainReply
 
 from fedbiomed.researcher.datasets import FederatedDataSet
 
@@ -51,7 +52,7 @@ class Strategy:
 
     def refine(
             self,
-            training_replies: Dict,
+            training_replies: Dict[str, TrainReply],
             round_i: int
                ) -> Tuple[Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
                           Dict[str, float],
@@ -61,13 +62,7 @@ class Strategy:
         Abstract method that must be implemented by child class
 
         Args:
-            training_replies: is a list of elements of type
-                 Response( { 'success': m['success'],
-                             'msg': m['msg'],
-                             'dataset_id': m['dataset_id'],
-                             'node_id': m['node_id'],
-                             'params_path': params_path,
-                             'params': params } )
+            training_replies: Dictionary of replies from nodes
             round_i: Current round of experiment
 
         Raises:
