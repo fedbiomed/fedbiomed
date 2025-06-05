@@ -25,12 +25,11 @@ from fedbiomed.researcher.secagg import (
 
 from fedbiomed.researcher.config import config
 
-test_id = 'researcher-test-id'
+test_id = "researcher-test-id"
+
 
 class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
-
     def setUp(self) -> None:
-
         super().setUp(module="fedbiomed.researcher.secagg._secagg_context.Requests")
 
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -42,8 +41,6 @@ class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
         )
         self.p1.start()
         self.secagg = JoyeLibertSecureAggregation()
-
-
 
     def tearDown(self) -> None:
         super().tearDown()
@@ -117,7 +114,9 @@ class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
         """Test secagg setup by setting Biprime and Servkey"""
 
         with self.assertRaises(FedbiomedSecureAggregationError):
-            self.secagg.setup(researcher_id=test_id, parties="oops", experiment_id="exp-id-1")
+            self.secagg.setup(
+                researcher_id=test_id, parties="oops", experiment_id="exp-id-1"
+            )
 
         with self.assertRaises(FedbiomedSecureAggregationError):
             self.secagg.setup(
@@ -134,7 +133,6 @@ class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
         )
 
     def test_jl_secure_aggregation_07_train_arguments(self):
-
         self.secagg.setup(
             researcher_id=test_id,
             parties=[test_id, "node-1", "node-2", "new_party"],
@@ -185,7 +183,6 @@ class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
 
         # Force to set context
         self.secagg._servkey._context = {"server_key": 1234, "biprime": 1234}
-
 
         # raises error if secagg_random is set but encryption factors are not provided
         with self.assertRaises(FedbiomedSecaggCrypterError):
@@ -278,7 +275,6 @@ class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
 
 
 class TestSecureAggregationWrapper(unittest.TestCase):
-
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         config.load(root=self.temp_dir.name)
@@ -328,7 +324,6 @@ class TestSecureAggregationWrapper(unittest.TestCase):
 
 
 class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
-
     def setUp(self) -> None:
         super().setUp(module="fedbiomed.researcher.secagg._secagg_context.Requests")
 
@@ -424,7 +419,10 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
         fake_replies.return_value["node-3"] = MagicMock(
             spec=Request, node_id="node-3", success=True
         )
-        send_fed_req = {"replies": fake_replies, "errors": MagicMock(return_value={'node-3': 'Error'})}
+        send_fed_req = {
+            "replies": fake_replies,
+            "errors": MagicMock(return_value={"node-3": "Error"}),
+        }
         super().setUp(
             module="fedbiomed.researcher.secagg._secagg_context.Requests",
             send_fed_req_conf=send_fed_req,

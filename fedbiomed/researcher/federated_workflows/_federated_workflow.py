@@ -1,8 +1,8 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-""" This file defines the FederatedWorkflow class and some additional generic utility functions that can be used by
-    all other workflows."""
+"""This file defines the FederatedWorkflow class and some additional generic utility functions that can be used by
+all other workflows."""
 
 import functools
 import json
@@ -17,25 +17,43 @@ from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
 import tabulate
 from pathvalidate import sanitize_filename
 
-from fedbiomed.common.constants import ErrorNumbers, EXPERIMENT_PREFIX, __breakpoints_version__, \
-    SecureAggregationSchemes, TENSORBOARD_FOLDER_NAME
+from fedbiomed.common.constants import (
+    ErrorNumbers,
+    EXPERIMENT_PREFIX,
+    __breakpoints_version__,
+    SecureAggregationSchemes,
+    TENSORBOARD_FOLDER_NAME,
+)
 from fedbiomed.common.exceptions import (
-    FedbiomedExperimentError, FedbiomedError, FedbiomedSilentTerminationError, FedbiomedTypeError, FedbiomedValueError, \
-    FedbiomedSecureAggregationError
+    FedbiomedExperimentError,
+    FedbiomedError,
+    FedbiomedSilentTerminationError,
+    FedbiomedTypeError,
+    FedbiomedValueError,
+    FedbiomedSecureAggregationError,
 )
 from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.config import config
-from fedbiomed.researcher.filetools import create_exp_folder, find_breakpoint_path, choose_bkpt_file
+from fedbiomed.researcher.filetools import (
+    create_exp_folder,
+    find_breakpoint_path,
+    choose_bkpt_file,
+)
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.requests import Requests
+
 # need to import JoyeLibertSecureAggregation, LomSecureAggregation - used for load_breakpoint()
-from fedbiomed.researcher.secagg import SecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation
+from fedbiomed.researcher.secagg import (
+    SecureAggregation,
+)
 
 
-TFederatedWorkflow = TypeVar("TFederatedWorkflow", bound='FederatedWorkflow')  # only for typing
+TFederatedWorkflow = TypeVar(
+    "TFederatedWorkflow", bound="FederatedWorkflow"
+)  # only for typing
 
 
 # Exception handling at top level for researcher
@@ -50,7 +68,7 @@ def exp_exceptions(function):
     def payload(*args, **kwargs):
         code = 0
 
-        if not os.environ.get('FEDBIOMED_DEBUG'):
+        if not os.environ.get("FEDBIOMED_DEBUG"):
             try:
                 ret = function(*args, **kwargs)
             except FedbiomedSilentTerminationError:
@@ -60,30 +78,35 @@ def exp_exceptions(function):
             except KeyboardInterrupt:
                 code = 1
                 print(
-                    '\n--------------------',
-                    'Fed-BioMed researcher stopped due to keyboard interrupt',
-                    '--------------------',
-                    sep=os.linesep)
-                logger.critical('Fed-BioMed researcher stopped due to keyboard interrupt')
+                    "\n--------------------",
+                    "Fed-BioMed researcher stopped due to keyboard interrupt",
+                    "--------------------",
+                    sep=os.linesep,
+                )
+                logger.critical(
+                    "Fed-BioMed researcher stopped due to keyboard interrupt"
+                )
             except FedbiomedError as e:
                 code = 1
                 print(
-                    '\n--------------------',
-                    f'Fed-BioMed researcher stopped due to exception:\n{str(e)}',
-                    '--------------------',
-                    sep=os.linesep)
+                    "\n--------------------",
+                    f"Fed-BioMed researcher stopped due to exception:\n{str(e)}",
+                    "--------------------",
+                    sep=os.linesep,
+                )
             except BaseException as e:
                 code = 3
                 print(
-                    '\n--------------------',
-                    f'Fed-BioMed researcher stopped due to unknown error:\n{str(e)}',
-                    'More details in the backtrace extract below',
-                    '--------------------',
-                    sep=os.linesep)
+                    "\n--------------------",
+                    f"Fed-BioMed researcher stopped due to unknown error:\n{str(e)}",
+                    "More details in the backtrace extract below",
+                    "--------------------",
+                    sep=os.linesep,
+                )
                 # at most 5 backtrace entries to avoid too long output
                 traceback.print_exc(limit=5, file=sys.stdout)
-                print('--------------------')
-                logger.critical(f'Fed-BioMed stopped due to unknown error:\n{str(e)}')
+                print("--------------------")
+                logger.critical(f"Fed-BioMed stopped due to unknown error:\n{str(e)}")
 
             if code != 0:
                 if is_ipython():
@@ -116,6 +139,7 @@ class FederatedWorkflow(ABC):
     - modifying tags if training data is not None will reset the training data based on the new tags
     - modifying the training data using a FederatedDataset object or a dict will set tags to None
     """
+
     @exp_exceptions
     def __init__(
         self,
@@ -125,7 +149,7 @@ class FederatedWorkflow(ABC):
         experimentation_folder: Union[str, None] = None,
         secagg: Union[bool, SecureAggregation] = False,
         save_breakpoints: bool = False,
-        config_path: str | None = None
+        config_path: str | None = None,
     ) -> None:
         """Constructor of the class.
 
@@ -177,25 +201,33 @@ class FederatedWorkflow(ABC):
         self.config = config
         # predefine all class variables, so no need to write try/except
         # block each time we use it
-        self._fds: Optional[FederatedDataSet] = None  # dataset metadata from the full federation
+        self._fds: Optional[FederatedDataSet] = (
+            None  # dataset metadata from the full federation
+        )
         self._reqs: Requests = Requests(config=self.config)
-        self._nodes_filter: Optional[List[str]] = None  # researcher-defined nodes filter
+        self._nodes_filter: Optional[List[str]] = (
+            None  # researcher-defined nodes filter
+        )
         self._tags: Optional[List[str]] = None
         self._experimentation_folder: Optional[str] = None
         self._secagg: Union[SecureAggregation, bool] = False
         self._save_breakpoints: Optional[bool] = None
         self._node_state_agent: Optional[NodeStateAgent] = None
-        self._researcher_id: str = config.get('default', 'id')
-        self._experiment_id: str = EXPERIMENT_PREFIX + str(uuid.uuid4())  # creating a unique experiment id
+        self._researcher_id: str = config.get("default", "id")
+        self._experiment_id: str = EXPERIMENT_PREFIX + str(
+            uuid.uuid4()
+        )  # creating a unique experiment id
 
         # set internal members from constructor arguments
         self.set_secagg(secagg)
 
         # TODO: Manage tags within the FederatedDataset to avoid conflicts
         if training_data is not None and tags is not None:
-            msg = f"{ErrorNumbers.FB410.value}: Can not set `training_data` and `tags` at the " \
-                "same time. Please provide only `training_data`, or tags to search for " \
+            msg = (
+                f"{ErrorNumbers.FB410.value}: Can not set `training_data` and `tags` at the "
+                "same time. Please provide only `training_data`, or tags to search for "
                 "training data."
+            )
             logger.critical(msg)
             raise FedbiomedValueError(msg)
 
@@ -210,8 +242,9 @@ class FederatedWorkflow(ABC):
         self.set_save_breakpoints(save_breakpoints)
 
         self.set_experimentation_folder(experimentation_folder)
-        self._node_state_agent = NodeStateAgent(list(self._fds.data().keys())
-                                                if self._fds and self._fds.data() else [])
+        self._node_state_agent = NodeStateAgent(
+            list(self._fds.data().keys()) if self._fds and self._fds.data() else []
+        )
 
     @property
     def requests(self) -> Requests:
@@ -274,7 +307,11 @@ class FederatedWorkflow(ABC):
     def filtered_federation_nodes(self) -> List[str]:
         """Returns the node ids in the federation after filtering with the nodes filter"""
         if self._nodes_filter is not None:
-            return [node for node in self.all_federation_nodes() if node in self._nodes_filter]
+            return [
+                node
+                for node in self.all_federation_nodes()
+                if node in self._nodes_filter
+            ]
         else:
             return self.all_federation_nodes()
 
@@ -314,7 +351,9 @@ class FederatedWorkflow(ABC):
             Experiment directory where all experiment related files are saved
         """
 
-        return os.path.join(config.vars['EXPERIMENTS_DIR'], self._experimentation_folder)
+        return os.path.join(
+            config.vars["EXPERIMENTS_DIR"], self._experimentation_folder
+        )
 
     @property
     def tensorboard_results_path(self) -> str:
@@ -325,7 +364,7 @@ class FederatedWorkflow(ABC):
         """
 
         return os.path.join(self.experimentation_path(), TENSORBOARD_FOLDER_NAME)
-    
+
     @property
     def id(self):
         """Retrieves the unique experiment identifier."""
@@ -351,15 +390,12 @@ class FederatedWorkflow(ABC):
 
         """
 
-        return {
-            'Arguments': [],
-            'Values': []
-        }
+        return {"Arguments": [], "Values": []}
 
     @exp_exceptions
-    def info(self,
-             info: Dict[str, List[str]] = None,
-             missing: str = '') -> Tuple[Dict[str, List[str]], str]:
+    def info(
+        self, info: Dict[str, List[str]] = None, missing: str = ""
+    ) -> Tuple[Dict[str, List[str]], str]:
         """Prints out the information about the current status of the experiment.
 
         Lists  all the parameters/arguments of the experiment and informs whether the experiment can be run.
@@ -377,35 +413,43 @@ class FederatedWorkflow(ABC):
         """
         if info is None:
             info = self._create_default_info_structure()
-        info['Arguments'].extend([
-            'Tags',
-            'Nodes filter',
-            'Training Data',
-            'Experiment folder',
-            'Experiment Path',
-            'Secure Aggregation'
-        ])
+        info["Arguments"].extend(
+            [
+                "Tags",
+                "Nodes filter",
+                "Training Data",
+                "Experiment folder",
+                "Experiment Path",
+                "Secure Aggregation",
+            ]
+        )
 
-        info['Values'].extend(['\n'.join(findall('.{1,60}', str(e))) for e in [
-            self._tags,
-            self._nodes_filter,
-            self._fds,
-            self._experimentation_folder,
-            self.experimentation_path(),
-            f'- Using: {self._secagg}\n- Active: {self._secagg.active}'
-        ]])
+        info["Values"].extend(
+            [
+                "\n".join(findall(".{1,60}", str(e)))
+                for e in [
+                    self._tags,
+                    self._nodes_filter,
+                    self._fds,
+                    self._experimentation_folder,
+                    self.experimentation_path(),
+                    f"- Using: {self._secagg}\n- Active: {self._secagg.active}",
+                ]
+            ]
+        )
 
         # printing list of items set / not set yet
-        print(tabulate.tabulate(info, headers='keys'))
+        print(tabulate.tabulate(info, headers="keys"))
 
         if missing:
-            print("\nWarning: Object not fully defined, missing"
-                  f": \n{missing}")
+            print(f"\nWarning: Object not fully defined, missing: \n{missing}")
         else:
             print(f"{self.__class__.__name__} can be run now (fully defined)")
         return info, missing
 
-    def _check_missing_objects(self, missing_objects: Optional[Dict[Any, str]] = None) -> str:
+    def _check_missing_objects(
+        self, missing_objects: Optional[Dict[Any, str]] = None
+    ) -> str:
         """Checks if some objects required for running the `run` method are not set.
 
         Args:
@@ -418,15 +462,15 @@ class FederatedWorkflow(ABC):
         # (value None == not defined yet for _fds,)
 
         _not_runable_if_missing = {
-            'Training Data': self._fds,
+            "Training Data": self._fds,
         }
 
         if missing_objects:
             _not_runable_if_missing.update(missing_objects)
-        missing: str = ''
+        missing: str = ""
         for key, value in _not_runable_if_missing.items():
             if value in (None, False):
-                missing += f'- {key}\n'
+                missing += f"- {key}\n"
 
         return missing
 
@@ -456,15 +500,19 @@ class FederatedWorkflow(ABC):
         """
         # preprocess the tags argument to correct typing
         if not tags:
-            msg = f"{ErrorNumbers.FB410.value}: Invalid value for tags argument {tags}, tags " \
+            msg = (
+                f"{ErrorNumbers.FB410.value}: Invalid value for tags argument {tags}, tags "
                 "should be non-empty list of str or non-empty str."
+            )
             logger.critical(msg)
             raise FedbiomedValueError(msg)
 
         if isinstance(tags, list):
             if not all(map(lambda tag: isinstance(tag, str), tags)):
-                msg = f"{ErrorNumbers.FB410.value}: `tags` must be a non-empty str or " \
+                msg = (
+                    f"{ErrorNumbers.FB410.value}: `tags` must be a non-empty str or "
                     "a non-empty list of str."
+                )
                 logger.critical(msg)
                 raise FedbiomedTypeError(msg)
 
@@ -474,8 +522,10 @@ class FederatedWorkflow(ABC):
         elif isinstance(tags, str):
             tags_to_set = [tags]
         else:
-            msg = f"{ErrorNumbers.FB410.value} `tags` must be a non-empty str, " \
+            msg = (
+                f"{ErrorNumbers.FB410.value} `tags` must be a non-empty str, "
                 "a non-empty list of str"
+            )
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
 
@@ -484,7 +534,8 @@ class FederatedWorkflow(ABC):
         # Set training data
         logger.info(
             "Updating training data. This action will update FederatedDataset, "
-            "and the nodes that will participate to the experiment.")
+            "and the nodes that will participate to the experiment."
+        )
 
         self.set_training_data(None, from_tags=True)
 
@@ -509,22 +560,28 @@ class FederatedWorkflow(ABC):
         # set nodes
         elif isinstance(nodes, list):
             if not all(map(lambda node: isinstance(node, str), nodes)):
-                msg = ErrorNumbers.FB410.value + ' `nodes` argument must be a list of strings or None.'
+                msg = (
+                    ErrorNumbers.FB410.value
+                    + " `nodes` argument must be a list of strings or None."
+                )
                 logger.critical(msg)
                 raise FedbiomedTypeError(msg)
             self._nodes_filter = nodes
         else:
-            msg = ErrorNumbers.FB410.value + ' `nodes` argument must be a list of strings or None.'
+            msg = (
+                ErrorNumbers.FB410.value
+                + " `nodes` argument must be a list of strings or None."
+            )
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
         return self._nodes_filter
 
     @exp_exceptions
     def set_training_data(
-            self,
-            training_data: Union[FederatedDataSet, dict, None],
-            from_tags: bool = False) -> \
-            Union[FederatedDataSet, None]:
+        self,
+        training_data: Union[FederatedDataSet, dict, None],
+        from_tags: bool = False,
+    ) -> Union[FederatedDataSet, None]:
         """Sets training data for federated training + verification on arguments type
 
 
@@ -564,14 +621,18 @@ class FederatedWorkflow(ABC):
         """
 
         if not isinstance(from_tags, bool):
-            msg = ErrorNumbers.FB410.value + \
-                f' `from_tags` : got {type(from_tags)} but expected a boolean'
+            msg = (
+                ErrorNumbers.FB410.value
+                + f" `from_tags` : got {type(from_tags)} but expected a boolean"
+            )
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
         if from_tags and training_data is not None:
-            msg = ErrorNumbers.FB410.value + \
-                ' set_training_data: cannot specify a training_data argument if ' \
-                'from_tags is True'
+            msg = (
+                ErrorNumbers.FB410.value
+                + " set_training_data: cannot specify a training_data argument if "
+                "from_tags is True"
+            )
             logger.critical(msg)
             raise FedbiomedValueError(msg)
 
@@ -579,15 +640,19 @@ class FederatedWorkflow(ABC):
         if training_data is None:
             if from_tags is True:
                 if not self._tags:
-                    msg = f"{ErrorNumbers.FB410.value}: attempting to " \
-                        "set training data from undefined tags. Please consider set tags before " \
+                    msg = (
+                        f"{ErrorNumbers.FB410.value}: attempting to "
+                        "set training data from undefined tags. Please consider set tags before "
                         "using set_tags method of the experiment."
+                    )
                     logger.critical(msg)
                     raise FedbiomedValueError(msg)
                 training_data = self._reqs.search(self._tags, self._nodes_filter)
             else:
-                msg = f"{ErrorNumbers.FB410.value}: Can not set training data to `None`. " \
+                msg = (
+                    f"{ErrorNumbers.FB410.value}: Can not set training data to `None`. "
                     "Please set from_tags=True or provide a valid training data"
+                )
                 logger.critical(msg)
                 raise FedbiomedValueError(msg)
 
@@ -596,8 +661,10 @@ class FederatedWorkflow(ABC):
         elif isinstance(training_data, dict):
             self._fds = FederatedDataSet(training_data)
         else:
-            msg = ErrorNumbers.FB410.value + \
-                f' `training_data` has incorrect type: {type(training_data)}'
+            msg = (
+                ErrorNumbers.FB410.value
+                + f" `training_data` has incorrect type: {type(training_data)}"
+            )
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
 
@@ -608,7 +675,9 @@ class FederatedWorkflow(ABC):
         return self._fds
 
     @exp_exceptions
-    def set_experimentation_folder(self, experimentation_folder: Optional[str] = None) -> str:
+    def set_experimentation_folder(
+        self, experimentation_folder: Optional[str] = None
+    ) -> str:
         """Sets `experimentation_folder`, the folder name where experiment data/result are saved.
 
         Args:
@@ -625,16 +694,22 @@ class FederatedWorkflow(ABC):
                 self.config.vars["EXPERIMENTS_DIR"]
             )
         elif isinstance(experimentation_folder, str):
-            sanitized_folder = sanitize_filename(experimentation_folder, platform='auto')
+            sanitized_folder = sanitize_filename(
+                experimentation_folder, platform="auto"
+            )
             self._experimentation_folder = create_exp_folder(
                 self.config.vars["EXPERIMENTS_DIR"], sanitized_folder
             )
             if sanitized_folder != experimentation_folder:
-                logger.warning(f'`experimentation_folder` was sanitized from '
-                               f'{experimentation_folder} to {sanitized_folder}')
+                logger.warning(
+                    f"`experimentation_folder` was sanitized from "
+                    f"{experimentation_folder} to {sanitized_folder}"
+                )
         else:
-            msg = ErrorNumbers.FB410.value + \
-                f' `experimentation_folder` : {type(experimentation_folder)}'
+            msg = (
+                ErrorNumbers.FB410.value
+                + f" `experimentation_folder` : {type(experimentation_folder)}"
+            )
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -644,9 +719,10 @@ class FederatedWorkflow(ABC):
 
     @exp_exceptions
     def set_secagg(
-            self,
-            secagg: Union[bool, SecureAggregation],
-            scheme: SecureAggregationSchemes = SecureAggregationSchemes.LOM):
+        self,
+        secagg: Union[bool, SecureAggregation],
+        scheme: SecureAggregationSchemes = SecureAggregationSchemes.LOM,
+    ):
         """Sets secure aggregation status and scheme
 
         Build secure aggregation controller/instance or sets given
@@ -671,24 +747,24 @@ class FederatedWorkflow(ABC):
         if not isinstance(scheme, SecureAggregationSchemes):
             raise FedbiomedExperimentError(
                 f"{ErrorNumbers.FB410.value}: Expected `scheme` argument "
-                "`SecureAggregationSchemes`, but got {type(scheme)}")
+                "`SecureAggregationSchemes`, but got {type(scheme)}"
+            )
 
         if isinstance(secagg, bool):
-            self._secagg = SecureAggregation(
-                scheme=scheme, active=secagg
-            )
+            self._secagg = SecureAggregation(scheme=scheme, active=secagg)
         elif isinstance(secagg, SecureAggregation):
             self._secagg = secagg
         else:
             raise FedbiomedExperimentError(
                 f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or "
-                f"`SecureAggregation` but got {type(secagg)}")
+                f"`SecureAggregation` but got {type(secagg)}"
+            )
 
         return self._secagg
 
     @exp_exceptions
     def set_save_breakpoints(self, save_breakpoints: bool) -> bool:
-        """ Setter for save_breakpoints + verification on arguments type
+        """Setter for save_breakpoints + verification on arguments type
 
         Args:
             save_breakpoints (bool): whether to save breakpoints or
@@ -705,7 +781,10 @@ class FederatedWorkflow(ABC):
             self._save_breakpoints = save_breakpoints
             # no warning if done during experiment, we may change breakpoint policy at any time
         else:
-            msg = ErrorNumbers.FB410.value + f' `save_breakpoints` : {type(save_breakpoints)}'
+            msg = (
+                ErrorNumbers.FB410.value
+                + f" `save_breakpoints` : {type(save_breakpoints)}"
+            )
             logger.critical(msg)
             raise FedbiomedExperimentError(msg)
 
@@ -719,7 +798,9 @@ class FederatedWorkflow(ABC):
                 parties=sampled_nodes,
                 experiment_id=self._experiment_id,
                 researcher_id=self._researcher_id,
-                insecure_validation=self.config.getbool('security', 'secagg_insecure_validation')
+                insecure_validation=self.config.getbool(
+                    "security", "secagg_insecure_validation"
+                ),
             ):
                 raise FedbiomedSecureAggregationError(
                     f"{ErrorNumbers.FB417.value}: Could not setup secure aggregation crypto "
@@ -729,9 +810,7 @@ class FederatedWorkflow(ABC):
         return secagg_arguments
 
     @exp_exceptions
-    def breakpoint(self,
-                   state: Dict,
-                   bkpt_number: int) -> None:
+    def breakpoint(self, state: Dict, bkpt_number: int) -> None:
         """
         Saves breakpoint with the state of the workflow.
 
@@ -748,41 +827,44 @@ class FederatedWorkflow(ABC):
             FedbiomedExperimentError: experiment not fully defined, experiment did not run any round
                 yet, or error when saving breakpoint
         """
-        state.update({
-            'id': self._experiment_id,
-            'breakpoint_version': str(__breakpoints_version__),
-            'training_data': self._fds.data(),
-            'experimentation_folder': self._experimentation_folder,
-            'tags': self._tags,
-            'nodes': self._nodes_filter,
-            'secagg': self._secagg.save_state_breakpoint(),
-            'node_state': self._node_state_agent.save_state_breakpoint()
-        })
+        state.update(
+            {
+                "id": self._experiment_id,
+                "breakpoint_version": str(__breakpoints_version__),
+                "training_data": self._fds.data(),
+                "experimentation_folder": self._experimentation_folder,
+                "tags": self._tags,
+                "nodes": self._nodes_filter,
+                "secagg": self._secagg.save_state_breakpoint(),
+                "node_state": self._node_state_agent.save_state_breakpoint(),
+            }
+        )
 
         # save state into a json file
         breakpoint_path, breakpoint_file_name = choose_bkpt_file(
             self.config.vars["EXPERIMENTS_DIR"],
             self._experimentation_folder,
-            bkpt_number - 1
+            bkpt_number - 1,
         )
         breakpoint_file_path = os.path.join(breakpoint_path, breakpoint_file_name)
         try:
-            with open(breakpoint_file_path, 'w', encoding="UTF-8") as bkpt:
+            with open(breakpoint_file_path, "w", encoding="UTF-8") as bkpt:
                 json.dump(state, bkpt)
-            logger.info(f"breakpoint number {bkpt_number - 1} saved at " +
-                        os.path.dirname(breakpoint_file_path))
+            logger.info(
+                f"breakpoint number {bkpt_number - 1} saved at "
+                + os.path.dirname(breakpoint_file_path)
+            )
         except (OSError, PermissionError, ValueError, TypeError, RecursionError) as e:
             # - OSError: heuristic for catching open() and write() errors
             # - see json.dump() documentation for documented errors for this call
-            msg = ErrorNumbers.FB413.value + f' - save failed with message {str(e)}'
+            msg = ErrorNumbers.FB413.value + f" - save failed with message {str(e)}"
             logger.critical(msg)
             raise FedbiomedExperimentError(msg) from e
 
     @classmethod
     @exp_exceptions
     def load_breakpoint(
-        cls,
-        breakpoint_folder_path: Optional[str] = None
+        cls, breakpoint_folder_path: Optional[str] = None
     ) -> Tuple[TFederatedWorkflow, dict]:
         """
         Loads breakpoint (provided a breakpoint has been saved)
@@ -801,7 +883,10 @@ class FederatedWorkflow(ABC):
                 bad loaded breakpoint content (corrupted)
         """
         # check parameters type
-        if not isinstance(breakpoint_folder_path, str) and breakpoint_folder_path is not None:
+        if (
+            not isinstance(breakpoint_folder_path, str)
+            and breakpoint_folder_path is not None
+        ):
             msg = (
                 f"{ErrorNumbers.FB413.value}: load failed, `breakpoint_folder_path`"
                 f" has bad type {type(breakpoint_folder_path)}"
@@ -811,8 +896,7 @@ class FederatedWorkflow(ABC):
 
         # get breakpoint folder path (if it is None) and state file
         breakpoint_folder_path, state_file = find_breakpoint_path(
-            config.vars['EXPERIMENTS_DIR'],
-            breakpoint_folder_path
+            config.vars["EXPERIMENTS_DIR"], breakpoint_folder_path
         )
         breakpoint_folder_path = os.path.abspath(breakpoint_folder_path)
 
@@ -837,29 +921,33 @@ class FederatedWorkflow(ABC):
             raise FedbiomedExperimentError(msg)
 
         # First, check version of breakpoints
-        bkpt_version = saved_state.get('breakpoint_version', __default_version__)
-        raise_for_version_compatibility(bkpt_version, __breakpoints_version__,
-                                        f"{ErrorNumbers.FB413.value}: Breakpoint "
-                                        "file was generated with version %s "
-                                        f"which is incompatible with the current version %s.")
+        bkpt_version = saved_state.get("breakpoint_version", __default_version__)
+        raise_for_version_compatibility(
+            bkpt_version,
+            __breakpoints_version__,
+            f"{ErrorNumbers.FB413.value}: Breakpoint "
+            "file was generated with version %s "
+            f"which is incompatible with the current version %s.",
+        )
 
         # retrieve breakpoint training data
-        bkpt_fds = saved_state.get('training_data')
+        bkpt_fds = saved_state.get("training_data")
         bkpt_fds = FederatedDataSet(bkpt_fds)
 
         # retrieve experimentation folder
-        exp_folder = saved_state.get('experimentation_folder')
+        exp_folder = saved_state.get("experimentation_folder")
 
         # initializing experiment
         loaded_exp = cls(experimentation_folder=exp_folder)
-        loaded_exp._experiment_id = saved_state.get('id')
+        loaded_exp._experiment_id = saved_state.get("id")
         loaded_exp.set_training_data(bkpt_fds)
-        loaded_exp._tags = saved_state.get('tags')
-        loaded_exp.set_nodes(saved_state.get('nodes'))
-
-        secagg = SecureAggregation.load_state_breakpoint(saved_state.get('secagg'))
+        loaded_exp._tags = saved_state.get("tags")
+        loaded_exp.set_nodes(saved_state.get("nodes"))
+        secagg = SecureAggregation.load_state_breakpoint(saved_state.get("secagg"))
         loaded_exp.set_secagg(secagg)
-        loaded_exp._node_state_agent.load_state_breakpoint(saved_state.get('node_state'))
+        loaded_exp._node_state_agent.load_state_breakpoint(
+            saved_state.get("node_state")
+        )
         loaded_exp.set_save_breakpoints(True)
 
         return loaded_exp, saved_state

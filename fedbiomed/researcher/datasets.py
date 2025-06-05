@@ -24,7 +24,7 @@ class FederatedDataSet:
         Args:
             data: Dictionary of datasets. Each key is a `str` representing a node's ID. Each value is
                 a `dict` (or a `list` containing exactly one `dict`). Each `dict` contains the description
-                of the dataset associated to this node in the federated dataset. 
+                of the dataset associated to this node in the federated dataset.
 
         Raises:
             FedbiomedFederatedDataSetError: bad `data` format
@@ -43,13 +43,17 @@ class FederatedDataSet:
                         # convert list of one dict to dict
                         data[node] = ds[0]
                     else:
-                        errmess = f'{ErrorNumbers.FB416.value}: {node} must have one unique dataset ' \
-                            f'but has {len(ds)} datasets.'
+                        errmess = (
+                            f"{ErrorNumbers.FB416.value}: {node} must have one unique dataset "
+                            f"but has {len(ds)} datasets."
+                        )
                         logger.error(errmess)
                         raise FedbiomedFederatedDataSetError(errmess)
         except ValidatorError as e:
-            errmess = f'{ErrorNumbers.FB416.value}: bad parameter `data` must be a `dict` of ' \
-                f'(`list` of one) `dict`: {e}'
+            errmess = (
+                f"{ErrorNumbers.FB416.value}: bad parameter `data` must be a `dict` of "
+                f"(`list` of one) `dict`: {e}"
+            )
             logger.error(errmess)
             raise FedbiomedFederatedDataSetError(errmess)
 
@@ -91,7 +95,7 @@ class FederatedDataSet:
                 [node_ids][fedbiomed.researcher.datasets.FederatedDataSet.node_ids]
         """
         sample_sizes = []
-        for (key, val) in self._data.items():
+        for key, val in self._data.items():
             sample_sizes.append(val["shape"][0])
 
         return sample_sizes
@@ -103,8 +107,7 @@ class FederatedDataSet:
             Includes [`sample_sizes`][fedbiomed.researcher.datasets.FederatedDataSet.sample_sizes] by node_ids.
         """
         shapes_dict = {}
-        for node_id, node_data_size in zip(self.node_ids(),
-                                           self.sample_sizes()):
+        for node_id, node_data_size in zip(self.node_ids(), self.sample_sizes()):
             shapes_dict[node_id] = node_data_size
 
         return shapes_dict

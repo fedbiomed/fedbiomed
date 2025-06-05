@@ -37,7 +37,6 @@ class TestMessage(unittest.TestCase):
     # helper function to check failures for all Message classes
     # ---------------------------------------------------------
     def check_class_args(self, cls, expected_result=True, **kwargs):
-
         result = True
 
         # list of permitted classes
@@ -108,7 +107,6 @@ class TestMessage(unittest.TestCase):
         b: str
 
     def test_message_additive_secret_sharing(self):
-
         AdditiveSSharingRequest(
             **{
                 "node_id": "1234",
@@ -148,7 +146,6 @@ class TestMessage(unittest.TestCase):
         )
 
     def test_message_01_dummy(self):
-
         m0 = self.DummyMessage(1, "test")
 
         # getter test
@@ -198,7 +195,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_to_dict_from_dict(self):
-
         msg = message.PingRequest(researcher_id="r1")
 
         t_msg = msg.to_dict()
@@ -234,7 +230,6 @@ class TestMessage(unittest.TestCase):
             message.Message.from_dict(t)
 
     def test_message_02_searchreply(self):
-
         # verify necessary arguments of all message creation
 
         # well formatted message
@@ -331,7 +326,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_03_pingreply(self):
-
         # verify necessary arguments of all message creation
 
         # well formatted message
@@ -405,7 +399,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_04_trainreply(self):
-
         # well formatted message
         self.check_class_args(
             message.TrainReply,
@@ -585,7 +578,6 @@ class TestMessage(unittest.TestCase):
         )
 
     def test_message_05_listreply(self):
-
         # well formatted message
         self.check_class_args(
             message.ListReply,
@@ -737,7 +729,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_07_modelstatusreply(self):
-
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=True,
@@ -837,7 +828,6 @@ class TestMessage(unittest.TestCase):
         )
 
     def test_message_08_log(self):
-
         # well formatted message
         self.check_class_args(
             message.Log,
@@ -894,7 +884,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_09_error(self):
-
         # well formatted message
         self.check_class_args(
             message.ErrorMessage,
@@ -1070,7 +1059,7 @@ class TestMessage(unittest.TestCase):
                 "secagg_clipping_range": None,
             },
             round=1,
-            aggregator_args={'aggregator_name': 'fedavg'},
+            aggregator_args={"aggregator_name": "fedavg"},
             optim_aux_var=None,
         )
 
@@ -1247,7 +1236,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_13_listrequest(self):
-
         # well formatted message
         self.check_class_args(
             message.ListRequest,
@@ -1294,7 +1282,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_14_modelstatusrequest(self):
-
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=True,

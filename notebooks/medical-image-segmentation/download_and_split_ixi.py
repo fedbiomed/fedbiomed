@@ -13,9 +13,16 @@ from fedbiomed.node.config import NodeConfig, node_component
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='IXI Sample downloader and splitter')
-    parser.add_argument('-f', '--root_folder', required=True, type=str)
-    parser.add_argument('-F', '--force',  action=argparse.BooleanOptionalAction, required=False, type=bool, default=False)
+    parser = argparse.ArgumentParser(description="IXI Sample downloader and splitter")
+    parser.add_argument("-f", "--root_folder", required=True, type=str)
+    parser.add_argument(
+        "-F",
+        "--force",
+        action=argparse.BooleanOptionalAction,
+        required=False,
+        type=bool,
+        default=False,
+    )
     return parser.parse_args()
 
 
@@ -31,12 +38,12 @@ def download_file(url, filename):
     """
     Helper method handling downloading large files from `url` to `filename`. Returns a pointer to `filename`.
     """
-    print('Downloading file from:', url)
-    print('File will be saved as:', filename)
+    print("Downloading file from:", url)
+    print("File will be saved as:", filename)
     chunkSize = 1024
     r = requests.get(url, stream=True)
-    with open(filename, 'wb') as f:
-        pbar = tqdm(unit="B", total=int(r.headers['Content-Length']))
+    with open(filename, "wb") as f:
+        pbar = tqdm(unit="B", total=int(r.headers["Content-Length"]))
         for chunk in r.iter_content(chunk_size=chunkSize):
             if chunk:  # filter out keep-alive new chunks
                 pbar.update(len(chunk))
@@ -45,10 +52,10 @@ def download_file(url, filename):
 
 
 def download_and_extract_ixi_sample(root_folder):
-    url = 'https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/7kd5wj7v7p-3.zip'
-    zip_filename = os.path.join(root_folder, 'notebooks', 'data', '7kd5wj7v7p-3.zip')
-    data_folder = os.path.join(root_folder, 'notebooks', 'data')
-    extracted_folder = os.path.join(data_folder, '7kd5wj7v7p-3', 'IXI_sample')
+    url = "https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/7kd5wj7v7p-3.zip"
+    zip_filename = os.path.join(root_folder, "notebooks", "data", "7kd5wj7v7p-3.zip")
+    data_folder = os.path.join(root_folder, "notebooks", "data")
+    extracted_folder = os.path.join(data_folder, "7kd5wj7v7p-3", "IXI_sample")
 
     # Extract if ZIP exists but not folder
     if not os.path.exists(zip_filename):
@@ -57,42 +64,46 @@ def download_and_extract_ixi_sample(root_folder):
 
     # Check if extracted folder exists
     if os.path.isdir(extracted_folder):
-        print(f'Dataset folder already exists in {extracted_folder}')
+        print(f"Dataset folder already exists in {extracted_folder}")
         return extracted_folder
 
-    assert has_correct_checksum_md5(zip_filename, 'eecb83422a2685937a955251fa45cb03')
-    with ZipFile(zip_filename, 'r') as zip_obj:
+    assert has_correct_checksum_md5(zip_filename, "eecb83422a2685937a955251fa45cb03")
+    with ZipFile(zip_filename, "r") as zip_obj:
         zip_obj.extractall(data_folder)
 
     assert os.path.isdir(extracted_folder)
     return extracted_folder
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = parse_args()
     root_folder = os.path.abspath(os.path.expanduser(args.root_folder))
-    assert os.path.isdir(root_folder), f'Folder does not exist: {root_folder}'
+    assert os.path.isdir(root_folder), f"Folder does not exist: {root_folder}"
 
     # Centralized dataset
     centralized_data_folder = download_and_extract_ixi_sample(root_folder)
 
     # Federated Dataset
-    federated_data_folder = os.path.join(root_folder, 'notebooks', 'data', 'Hospital-Centers')
+    federated_data_folder = os.path.join(
+        root_folder, "notebooks", "data", "Hospital-Centers"
+    )
     shutil.rmtree(federated_data_folder, ignore_errors=True)
 
-    csv_global = os.path.join(centralized_data_folder, 'participants.csv')
+    csv_global = os.path.join(centralized_data_folder, "participants.csv")
     allcenters = pd.read_csv(csv_global)
 
     # Split centers
-    center_names = ['Guys', 'HH', 'IOP']
+    center_names = ["Guys", "HH", "IOP"]
     center_dfs = list()
 
     for center_name in center_names:
         component_folder = os.path.join(os.getcwd(), center_name.lower())
 
-        print(f'Creating node at: {component_folder}')
+        print(f"Creating node at: {component_folder}")
         if node_component.is_component_existing(component_folder) and not args.force:
-            print(f"**Warning: component {component_folder} already exists. To overwrite, please specify `--force` option")
+            print(
+                f"**Warning: component {component_folder} already exists. To overwrite, please specify `--force` option"
+            )
         else:
             node_component.initiate(component_folder)
 
@@ -101,8 +112,10 @@ if __name__ == '__main__':
 
         train, test = train_test_split(df, test_size=0.1, random_state=21)
 
-        train_folder = os.path.join(os.getcwd(), center_name.lower(), 'data', 'train')
-        holdout_folder = os.path.join(os.getcwd(), center_name.lower(), 'data', 'holdout')
+        train_folder = os.path.join(os.getcwd(), center_name.lower(), "data", "train")
+        holdout_folder = os.path.join(
+            os.getcwd(), center_name.lower(), "data", "holdout"
+        )
 
         if not os.path.exists(train_folder):
             os.makedirs(train_folder)
@@ -113,28 +126,30 @@ if __name__ == '__main__':
             shutil.copytree(
                 src=os.path.join(centralized_data_folder, subject_folder),
                 dst=os.path.join(train_folder, subject_folder),
-                dirs_exist_ok=True
+                dirs_exist_ok=True,
             )
 
-        train_participants_csv = os.path.join(train_folder, 'participants.csv')
+        train_participants_csv = os.path.join(train_folder, "participants.csv")
         train.to_csv(train_participants_csv)
 
         for subject_folder in test.FOLDER_NAME.values:
             shutil.copytree(
                 src=os.path.join(centralized_data_folder, subject_folder),
                 dst=os.path.join(holdout_folder, subject_folder),
-                dirs_exist_ok=True
+                dirs_exist_ok=True,
             )
-        test.to_csv(os.path.join(holdout_folder, 'participants.csv'))
+        test.to_csv(os.path.join(holdout_folder, "participants.csv"))
 
-    print(f'Centralized dataset located at: {centralized_data_folder}')
-    print(f'Federated dataset located at: {federated_data_folder}')
+    print(f"Centralized dataset located at: {centralized_data_folder}")
+    print(f"Federated dataset located at: {federated_data_folder}")
 
     print()
-    print('Please add the data to your nodes executing and using the `ixi-train` tag (selecting option medical folder dataset):')
+    print(
+        "Please add the data to your nodes executing and using the `ixi-train` tag (selecting option medical folder dataset):"
+    )
     for center_name in center_names:
-        print(f'\tfedbiomed node -p { center_name.lower()} dataset add')
+        print(f"\tfedbiomed node -p {center_name.lower()} dataset add")
 
-    print('Then start your nodes by executing:')
+    print("Then start your nodes by executing:")
     for center_name in center_names:
-        print(f'\tfedbiomed node -p { center_name.lower()} start')
+        print(f"\tfedbiomed node -p {center_name.lower()} start")
