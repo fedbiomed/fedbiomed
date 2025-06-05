@@ -44,7 +44,7 @@ The `CREDIT.md` file and `credit/` directory shall be completed and updated acco
 
 ### Authors
 
-Project does not mention authors in the code files. Developers can add themselves to `AUTHORS.md`.
+Project does not mention authors in the code files. Developers can add themselves to `AUTHORS.md` and `pyproject.toml`.
 
 
 ## Repositories
