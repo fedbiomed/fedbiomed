@@ -5,11 +5,20 @@
 Class for data loader in PyTorch training plans
 """
 
+from typing import Optional, Dict, Tuple
+
 from torch.utils.data import Dataset as TorchDataset
 from torch.utils.data import DataLoader as TorchDataLoader
 from torch.utils.data.dataloader import _BaseDataLoaderIter 
+import torch
 
 from ._dataloader import DataLoader
+
+
+# Base type for data returned by `PytorchDataLoader`
+# a sample is tuple `(PytorchDataItem, PytorchDataItem)` for `(data, target)`
+PytorchDataLoaderItem = Optional[Dict[str, torch.Tensor]] 
+PytorchDataLoaderSample = Tuple[PytorchDataLoaderItem, PytorchDataLoaderItem]
 
 
 class PytorchDataLoader(TorchDataLoader, DataLoader):
