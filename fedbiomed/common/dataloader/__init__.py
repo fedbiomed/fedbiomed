@@ -7,12 +7,16 @@ Classes that simplify imports from fedbiomed.common.dataloader
 
 from ._np_dataloader import NPDataLoader
 from ._dataloader import DataLoader
-from ._pytorch_dataloader import PytorchDataLoader
-from ._sklearn_dataloader import SkLearnDataLoader
+from ._pytorch_dataloader import PytorchDataLoaderItem, PytorchDataLoaderSample, PytorchDataLoader
+from ._sklearn_dataloader import SkLearnDataLoaderItem, SkLearnDataLoaderSample, SkLearnDataLoader
 
 __all__ = [
     "DataLoader",
+    "PytorchDataLoaderItem",
+    "PytorchDataLoaderSample",
     "PytorchDataLoader",
+    "SkLearnDataLoaderItem",
+    "SkLearnDataLoaderSample",
     "SkLearnDataLoader",
     "NPDataLoader",
 ]
