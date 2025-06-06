@@ -5,12 +5,18 @@
 Class for data loader in PyTorch training plans
 """
 
-from typing import Optional
+from typing import Optional, Dict, Tuple
 from collections.abc import Iterable
 
 import numpy as np
 
 from ._dataloader import DataLoader
+
+
+# Base type for data returned by `PytorchDataLoader`
+# a sample is tuple `(SkLearnDataItem, SkLearnDataItem)` for `(data, target)`
+SkLearnDataLoaderItem = Optional[Dict[str, np.ndarray]]
+SkLearnDataLoaderSample = Tuple[SkLearnDataLoaderItem, SkLearnDataLoaderItem]
 
 
 # Can either instantiate, derive or re-implement `NPDataLoader`
