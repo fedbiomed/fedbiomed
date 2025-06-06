@@ -8,7 +8,5 @@ Dataset implementation for BIDS-like MedicalFolderDataset
 from ._dataset import StructuredDataset
 
 
-# WIP !!!!
-
-class MedicalFolderDataset(StructuredDataset, MedicalFolderController):
+class NewMedicalFolderDataset(StructuredDataset, NewMedicalFolderController):
     pass
