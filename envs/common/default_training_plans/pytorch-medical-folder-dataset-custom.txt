@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.constants import ProcessTypes
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from monai.transforms import (Compose, NormalizeIntensity, AddChannel, Resize, AsDiscrete)
-from fedbiomed.common.data import MedicalFolderDataset
+from fedbiomed.common.dataset import MedicalFolderDataset
 import numpy as np
 from torch.optim import AdamW
 class UNetTrainingPlan(TorchTrainingPlan):
@@ -27,7 +27,7 @@ class UNetTrainingPlan(TorchTrainingPlan):
             "from monai.transforms import (Compose, NormalizeIntensity, AddChannel, Resize, AsDiscrete)",
             "import torch.nn as nn",
             'import torch.nn.functional as F',
-            "from fedbiomed.common.data import MedicalFolderDataset",
+            "from fedbiomed.common.dataset import MedicalFolderDataset",
             'import numpy as np',
             'from torch.optim import AdamW']
         

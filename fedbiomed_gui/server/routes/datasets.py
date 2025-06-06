@@ -4,7 +4,7 @@ import uuid
 from flask import request
 
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.data import MedicalFolderLoadingBlockTypes
+from fedbiomed.common.dataset import MedicalFolderLoadingBlockTypes
 
 from fedbiomed.node.dataset_manager import DatasetManager
 

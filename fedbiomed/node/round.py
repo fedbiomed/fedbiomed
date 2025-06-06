@@ -14,7 +14,8 @@ from typing import Dict, Union, Any, Optional, Tuple, List
 
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
-from fedbiomed.common.data import DataManager, DataLoadingPlan
+from fedbiomed.common.datamanager import DataManager
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.exceptions import (
     FedbiomedError, FedbiomedOptimizerError, FedbiomedRoundError,
     FedbiomedUserInputError, FedbiomedSecureAggregationError
@@ -775,7 +776,7 @@ class Round:
                                     has unsupported arguments.
                                  - Error while calling `training_data` method
                                  - If the return value of `training_data` is not an instance of
-                                   `fedbiomed.common.data.DataManager`.
+                                   `fedbiomed.common.datamanager.DataManager`.
                                  - If `load` method of DataManager returns an error
         """
 
@@ -795,7 +796,7 @@ class Round:
         # it should be always Fed-BioMed DataManager
         if not isinstance(data_manager, DataManager):
             raise FedbiomedRoundError(f"{ErrorNumbers.FB314.value}: The method `training_data` should return an "
-                                      f"object instance of `fedbiomed.common.data.DataManager`, "
+                                      f"object instance of `fedbiomed.common.datamanager.DataManager`, "
                                       f"not {type(data_manager)}")
 
         # Set loader arguments

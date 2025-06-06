@@ -10,7 +10,7 @@ from importlib import import_module
 
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedDatasetManagerError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.data import DataLoadingPlan
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.node.cli_utils._medical_folder_dataset import add_medical_folder_dataset_from_cli
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
@@ -94,7 +94,7 @@ def add_database(
                                                                                                   dataset_parameters,
                                                                                                   data_loading_plan)
             elif data_type == 'flamby':
-                from fedbiomed.common.data.flamby_dataset import discover_flamby_datasets, FlambyDatasetMetadataBlock, \
+                from fedbiomed.common.dataset.flamby_dataset import discover_flamby_datasets, FlambyDatasetMetadataBlock, \
                     FlambyLoadingBlockTypes
                 # Select the type of dataset (fed_ixi, fed_heart, etc...)
                 available_flamby_datasets = discover_flamby_datasets()

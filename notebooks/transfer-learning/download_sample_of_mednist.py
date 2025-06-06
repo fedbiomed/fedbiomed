@@ -6,7 +6,7 @@ import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from fedbiomed.common.utils import ROOT_DIR
-from fedbiomed.common.data import DataLoadingPlan
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
 
 from fedbiomed.node.dataset_manager import DatasetManager

@@ -24,7 +24,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedLoadingBlockError, FedbiomedDatasetValueError
 from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
 from fedbiomed.common.utils import get_method_spec
-from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin, DataLoadingBlock
+from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin, DataLoadingBlock
 
 
 def discover_flamby_datasets() -> Dict[int, str]:
@@ -208,7 +208,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         This function cannot be called multiple times. It sets the self.__flamby_fed_class attribute by extracting
         the necessary information from the DataLoadingPlan. Therefore, a DataLoadingPlan is **required** to
         correctly use the FlambyDataset class. See the
-        [FlambyDataset][fedbiomed.common.data._flamby_dataset.FlambyDataset] documentation for more details.
+        [FlambyDataset][fedbiomed.common.dataset._flamby_dataset.FlambyDataset] documentation for more details.
 
         The correct FedClass constructor will be automatically called according to whether the transform attribute
         was set in the class.

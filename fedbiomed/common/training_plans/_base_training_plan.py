@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.dataloader import NPDataLoader
 from fedbiomed.common.exceptions import (
     FedbiomedError, FedbiomedModelError, FedbiomedTrainingPlanError
 )

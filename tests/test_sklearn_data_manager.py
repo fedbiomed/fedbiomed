@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from fedbiomed.common.data import SkLearnDataManager
+from fedbiomed.common.datamanager import SkLearnDataManager
 from fedbiomed.common.exceptions import FedbiomedTypeError
 
 

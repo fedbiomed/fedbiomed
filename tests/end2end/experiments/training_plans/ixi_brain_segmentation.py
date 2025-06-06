@@ -25,7 +25,7 @@ class UNetTrainingPlan(TorchTrainingPlan):
         deps = ["from monai.transforms import (Compose, NormalizeIntensity, AddChannel, Resize, AsDiscrete)",
                "import torch.nn as nn",
                'import torch.nn.functional as F',
-               "from fedbiomed.common.data import MedicalFolderDataset",
+               "from fedbiomed.common.dataset import MedicalFolderDataset",
                'import numpy as np',
                'from torch.optim import AdamW',
                'from monai.networks.nets import UNet',
