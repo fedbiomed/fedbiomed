@@ -5,8 +5,72 @@
 Dataset implementation for BIDS-like MedicalFolderDataset
 """
 
+from typing import Optional, Union, Iterable, Tuple
+from os import PathLike
+from pathlib import Path
+
+from fedbiomed.common.dataset_types import Transform, DatasetDataItem
+
+from fedbiomed.common.dataset_controller import NewMedicalFolderController
 from ._dataset import StructuredDataset
 
 
 class NewMedicalFolderDataset(StructuredDataset, NewMedicalFolderController):
-    pass
+
+    def __init__(
+            self,
+            framework_transform : Transform = None,
+            framework_target_transform : Transform = None,
+            generic_transform : Transform = None,
+            generic_target_transform : Transform = None,
+
+            # Keep actual names for backward compatibility
+            #
+            # native_images_transform : Transform = None,
+            # native_images_target_transform : Transform = None,
+            # native_demographics_transform : Transform = None.
+            transform: Transform = None,
+            target_transform: Transform = None,
+            demographics_transform: Transform = None,
+
+            # Keep actual names for backward compatibility
+            data_modalities: Optional[Union[str, Iterable[str]]] = 'T1',
+            target_modalities: Optional[Union[str, Iterable[str]]] = 'label',
+            tabular_file: Optional[Union[str, PathLike, Path, None]] = None,
+            index_col: Optional[Union[int, str, None]] = None,
+    ) -> None:
+        """Class constructor"""
+
+
+    # Implement abstract methods
+
+    def __len__(self) -> int:
+        """Get number of samples"""
+
+    # Nota: use Controller._get_nontransformed_item
+    def __getitem__(self, index: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
+        """Retrieve a data sample"""
+
+
+    # Support returning samples in format for torch training plan
+    #
+    # Possible alternate implementation: class to be inherited by datasets that implement it
+    # (multiple inheritance).
+    def to_torch(self) -> None:
+        """Request dataset to return samples for a torch training plan
+
+    Ignore + issue warning if generic transform needs to be applied
+    """ 
+
+
+    # Still needed or replaced by implementation in DLP ? cf current MedicalFolderDataset
+    #
+    # def set_dataset_parameters(self, parameters: dict):
+
+
+    # Notes for refactoring (from https://notes.inria.fr/aRJElvYmTFGNeU53HYJeCw?edit
+    # "review MedicalFolderDataset implementation" )
+    #
+    # 1. no other public methods to implement in MedicalFolderdataset ?
+    # 2. no other public methods to make private in MedicalFolderDataset ?                   
+    # 3. properties make code very difficult to read (vs getter). Maybe ok after refactoring.
