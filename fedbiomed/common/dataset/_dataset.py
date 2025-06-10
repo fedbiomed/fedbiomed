@@ -56,7 +56,7 @@ class Dataset(ABC):
     # Also need to wrap with try/except when calling `Reader` Transform (native Transform)
     # to give an explicit message (from the Dataset class)
 
-    def _apply_generic_Transform(
+    def _apply_generic_transform(
             self,
             sample: Tuple[DatasetDataItem, DatasetDataItem],
     ) -> Tuple[DatasetDataItem, DatasetDataItem]:
@@ -75,8 +75,8 @@ class Dataset(ABC):
         """Retrieve a data sample"""
 
 
-    # Optional methods which can be implemented (or not) by every dataset
-    # Possible implementation: class to be inherited by datasets that implement it
+    # Optional methods which can be implemented (or not) by some datasets
+    # Possible alternate implementation: class to be inherited by datasets that implement it
     # (multiple inheritance).
 
     # def to_torch(self) -> None:
@@ -99,21 +99,8 @@ class Dataset(ABC):
     # def set_dataset_parameters(self, parameters: dict):
 
 
-class NativeDataset(Dataset):
-    def __init__(
-            self,
-            data: Any,
-            framework_transform : Transform = None,
-            framework_target_transform : Transform = None,
-            # Optional, per-dataset: implement (or not) generic transform (use same argument name)
-            # generic_transform : Transform = None,
-            # generic_target_transform : Transform = None,
-            # Optional, per dataset: implement native transforms (argument name may vary)
-            *args,
-            **kwargs
-    ) -> None:
-        """Class constructor"""
-        super().__init__(framework_transform, *args, **kwargs)
+    # Additional methods for exploring data (folders, modalities, subjects),
+    # depending on Dataset and Reader
 
 
 class StructuredDataset(Dataset):
