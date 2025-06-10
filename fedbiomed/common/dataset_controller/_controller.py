@@ -10,7 +10,11 @@ from typing import Tuple, Dict
 from pathlib import Path
 
 from fedbiomed.common.dataset_reader import Reader
-from fedbiomed.common.dataset_types import DatasetDataItem, DatasetShape
+from fedbiomed.common.dataset_types import (
+    DatasetDataItem,
+    DatasetShape,
+    DatasetData
+)
 from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin
 
 
@@ -20,6 +24,13 @@ class Controller(ABC, DataLoadingPlanMixin):
     # key is a convenient name, internal to the class, for identifying a Reader
     # Enables common implementation, eg for `to_torch()`
     _readers : Dict[str, Reader]
+
+    # Store dataset structure and metadata
+    #
+    # Nota: can use _get_nontransformed_item and/or Reader.shape
+    # but shape part be more complicated than just querying `shape` of Readers
+    # as some Controller may (eg) filter out incomplete samples
+    _dataset_data_meta  : DatasetData
 
     def __init__(
             self,
@@ -47,13 +58,21 @@ class Controller(ABC, DataLoadingPlanMixin):
         """
 
     # Nota: includes filtering of DLP, not of transforms
-    # Nota: can use _get_nontransformed_item and/or Reader.shape
-    # but can be more complicated than just querying `shape` of Readers
-    # as some Controller may (eg) filter out incomplete samples
-    @abstractmethod
+    # Probably uses content of `DatasetData`
+    #
+    # Nota: probably common to all datasets, as we scan `DatasetData`
     def shape(self) -> DatasetShape:
         """Returns shape of a dataset"""
 
+    # Nota: includes filtering of DLP, not of transforms
+    #
+    # Nota: probably common to all datasets, as we scan `DatasetData`
+    #
+    # Nota: return a deep copy to avoid later modification ?
+    def dataset_meta(self) -> DatasetData:
+        """Returns full metadata of a dataset"""
+
+    # Future extensions: methods to set some metadata
 
     # Cf current implementation of MedicalFolderDataset, uses Reader
     # Nota: includes filtering of DLP, not of transforms
@@ -62,10 +81,5 @@ class Controller(ABC, DataLoadingPlanMixin):
         """Retrieve a data sample without applying transforms"""
 
 
-    # Optional methods which can be implemented (or not) by every dataset
-    # Possible implementation: class to be inherited by datasets that implement it
-    # (multiple inheritance).
-
-
-    # TODO: additional methods for exploring data (folders, modalities, subjects),
+    # Additional methods for exploring data (folders, modalities, subjects),
     # depending on Reader

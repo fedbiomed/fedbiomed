@@ -2,54 +2,39 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Base abstract classes for readers
+Reader implementation for MNIST dataset
 """
 
-from abc import ABC, abstractmethod
-from typing import Any
 from pathlib import Path
 
-from fedbiomed.common.dataset_types import DataReturnFormat, Transform, ReaderItemShape
+import torch
+
+from fedbiomed.common.dataset_types import ReaderItemShape
+from ._reader import Reader
 
 
-class Reader(ABC):
-
-    # Implementation of native transform (or not) is specific to each reader
-    _native_transform : Transform = None
-    _native_target_transform : Transform = None
-
-    # Possible implementation
-    #
-    # Track format for returning reader data sample, as some processing will change
-    #
-    # Nota: `_to_format` also kept in `Dataset`. To avoid duplicating state variable,
-    # we may prefer to implement passing this value as an argument for each `__getitem__` call
-    _to_format : DataReturnFormat = DataReturnFormat.GENERIC
-
+class MnistReader(Reader):
 
     def __init__(
             self,
             root: Path,
-            # Optional, per-reader: implement (or not) native transform (use same argument name)
+            # Do we want native transforms for MNIST ?
             # native_transform : Transform = None,
             # native_target_transform : Transform = None,
-            *args,
-            **kwargs
+            #
+            # Any other parameter ?
     ) -> None:
         """Class constructor"""
 
 
-    @abstractmethod
     def __len__(self) -> int:
         """Get number of samples"""
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
-    @abstractmethod
-    def __getitem__(self, index: int) -> Any:
+    def __getitem__(self, index: int) -> torch.Tensor:
         """Retrieve a data sample"""
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
-    @abstractmethod
     def validate(self) -> None:
         """Validate coherence of data modality served by a reader
 
@@ -57,7 +42,6 @@ class Reader(ABC):
         """
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
-    @abstractmethod
     def shape(self) -> ReaderItemShape:
         """Returns shape of a data modality served by a reader"""
 
@@ -71,20 +55,13 @@ class Reader(ABC):
     # `Reader` of another modality. Thus only dataset can ensure coherence
     # of "next" sample retrieval, using a tag.
     #
-    # def getitem_by_tag(self, tag: str) -> Any:
-    #    """Retrieve a data sample identified by an arbitrary string tag"""
+    def getitem_by_tag(self, tag: str) -> torch.Tensor:
+        """Retrieve a data sample identified by an arbitrary string tag"""
 
 
-    # def to_torch(self) -> None:
-    #     """Request reader to return samples for a torch training plan
-    # """ 
-    # 
-    # def to_sklearn(self) -> None:
-    #     """Request reader to return samples for a sklearn training plan
-    # """
-
-    # Nota: we could also implement a `to_native()` method in every dataset/reader,
-    # but do we have a use case for that ?
-
+    # Nothing to do to support it ?
+    def to_torch(self) -> None:
+        """Request reader to return samples for a torch training plan
+    """ 
 
     # Additional methods for exploring data, depending on Reader
