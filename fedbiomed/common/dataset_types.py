@@ -56,15 +56,19 @@ class DatasetDataItemModality:
 
 # Base type for `Dataset.__getitem__()` returning data in generic format
 # a sample is `(DatasetDataItem, DatasetDataItem)` for `(data, target)`
-
+#
+# - DatasetDataItemModality when data is an array like in a generic format
+# - Any when data is an array like in framework specific format (using `to_xxx`)
 DatasetDataItem = Optional[Dict[str, Union[Any, DatasetDataItemModality]]] 
 
 
+# shape for a sample of *one* modality as a list of dimensions of array
+ModalityShape = List[int]
 
-# shape for a sample of *one* modality as `(number of samples, dimensions of array)`
-ModalityShape = Tuple[int, List[int]]
+# shape for a sample of a `Reader`'s returned item as `(number of samples, dimensions of array)`
+ReaderItemShape = Tuple[int, ModalityShape]
 
-DatasetItemShape = Optional[Dict[str, ModalityShape]]
+DatasetItemShape = Optional[Dict[str, Tuple[DataType, ModalityShape]]]
 # shape for a full sample as `(number of samples, data shape, target shape)`
 DatasetShape = Tuple[int, DatasetItemShape, DatasetItemShape]
 
@@ -74,6 +78,7 @@ class DatasetDataModality(_BaseEnum):
     modality_name: str
     type: DataType
     shape: ModalityShape
+    # add more fields in the future for federated analytics function overload, metadata, etc.
 
 
 # Describe the structure and metadata of the full dataset
