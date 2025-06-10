@@ -624,7 +624,7 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError: bad flag type
         """
         self._training_args['test_on_local_updates'] = flag
-        
+
         return self._training_args['test_on_local_updates'] #, self._training_args['shuffle_data_local_updates']
 
     @exp_exceptions
@@ -737,7 +737,7 @@ class Experiment(TrainingPlanWorkflow):
         if missing:
             raise FedbiomedExperimentError(ErrorNumbers.FB411.value + ': missing one or several object needed for'
                                            ' starting the `Experiment`. Details:\n' + missing)
-        
+
         # Sample nodes for training
         training_nodes = self._node_selection_strategy.sample_nodes(
             from_nodes=self.filtered_federation_nodes(),
@@ -793,9 +793,6 @@ class Experiment(TrainingPlanWorkflow):
         # Collect training replies and (opt.) optimizer auxiliary variables.
         training_replies, nodes_aux_var = job.execute()
 
-        # Update node states with node answers + when used node list has changed during the round.
-        self._update_nodes_states_agent(before_training=False, training_replies=training_replies)
-
         # If no Optimizer is used but auxiliary variables were received, raise.
         if (self._agg_optimizer is None) and nodes_aux_var:
             raise FedbiomedExperimentError(
@@ -811,6 +808,9 @@ class Experiment(TrainingPlanWorkflow):
                 training_replies, self._round_current
             )
         )
+
+        # Update node states with node answers + when used node list has changed during the round.
+        self._update_nodes_states_agent(before_training=False, training_replies=training_replies)
 
         # (Secure-)Aggregate model parameters and optimizer auxiliary variables.
         if self._secagg.active:
@@ -836,7 +836,7 @@ class Experiment(TrainingPlanWorkflow):
             )
 
         # Process optimizer auxiliary variables if any.
-        
+
         if aggregated_auxvar:
             self._agg_optimizer.set_aux(aggregated_auxvar)
 
