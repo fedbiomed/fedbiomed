@@ -12,7 +12,6 @@ from fedbiomed.common.constants import (
     HashingAlgorithms,
     TrainingPlanApprovalStatus,
     TrainingPlanStatus,
-    __messaging_protocol_version__,
 )
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
 from fedbiomed.common.message import ApprovalRequest, TrainingPlanStatusRequest
@@ -35,7 +34,6 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
 
     # before the tests
     def setUp(self):
-
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db = os.path.join(self.temp_dir.name, "test-db.json")
 
@@ -48,10 +46,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
 
         # Build TrainingPlanSecurityManager
         self.tp_security_manager = TrainingPlanSecurityManager(
-            db=self.db,
-            node_id="test-id",
-            hashing="SHA256",
-            tp_approval=True
+            db=self.db, node_id="test-id", hashing="SHA256", tp_approval=True
         )
 
         # get test directory to access test-training plan files
@@ -78,7 +73,6 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         dtp = os.path.join(SHARE_DIR, "envs", "common", "default_training_plans")
         default_training_plans = os.listdir(dtp)
         for training_plan in default_training_plans:
-
             # set default hashing algorithm
 
             full_path = os.path.join(dtp, training_plan)

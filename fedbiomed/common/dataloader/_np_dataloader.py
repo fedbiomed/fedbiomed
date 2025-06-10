@@ -8,7 +8,6 @@ This module introduces the NPDataLoader to provide a data loader interface for n
 that is similar to the interface for torch.
 """
 
-
 from typing import Optional, Tuple
 
 import numpy as np

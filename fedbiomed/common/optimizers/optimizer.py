@@ -145,7 +145,7 @@ class Optimizer:
             for mod in self._optimizer.modules:
                 grads = mod.run(grads)
             # Apply the base learning rate.
-            updates = - self._optimizer.lrate * grads
+            updates = -self._optimizer.lrate * grads
             # Optionally add the decoupled weight decay term.
             if self._optimizer.w_decay:
                 updates -= self._optimizer.w_decay * weights

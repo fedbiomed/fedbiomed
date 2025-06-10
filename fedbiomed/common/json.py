@@ -8,7 +8,6 @@ Compared to the usual json module, it deals with some fedbiomed data types which
 default (eg: enumerations)
 """
 
-
 import json
 
 from typing import Union
@@ -33,17 +32,17 @@ def deserialize_msg(msg: Union[str, bytes]) -> dict:
 
     # errnum is present in ErrorMessage and is an Enum
     # which need to be deserialized
-    if 'errnum' in decode:
-        errnum = decode['errnum']
+    if "errnum" in decode:
+        errnum = decode["errnum"]
         found = False
         for e in ErrorNumbers:
             if e.value == errnum:
                 found = True
-                decode['errnum'] = e
+                decode["errnum"] = e
                 break
         if not found:
             # error code sent by the node is unknown
-            decode['errnum'] = ErrorNumbers.FB999
+            decode["errnum"] = ErrorNumbers.FB999
 
     return decode
 
@@ -65,33 +64,34 @@ def serialize_msg(msg: dict) -> str:
     # Errnum is present in ErrorMessage and is an Enum
     # which need to be serialized
 
-    if 'errnum' in msg:
-        msg['errnum'] = msg['errnum'].value
+    if "errnum" in msg:
+        msg["errnum"] = msg["errnum"].value
     return json.dumps(msg)
-
 
 
 def _serialize_training_args(msg):
     """TrainingArgs is a class and must be specifically serialized"""
-    if 'training_args' in msg:
-        if isinstance(msg['training_args'], TrainingArgs):
-            msg['training_args'] = msg['training_args'].dict()
+    if "training_args" in msg:
+        if isinstance(msg["training_args"], TrainingArgs):
+            msg["training_args"] = msg["training_args"].dict()
     return msg
 
 
 def _deserialize_test_metric(msg):
     """MetricTypes is an enum and must be specifically deserialized."""
-    if 'training_args' in msg:
-        metric = msg['training_args'].get('test_metric', False)
+    if "training_args" in msg:
+        metric = msg["training_args"].get("test_metric", False)
         if metric:
-            msg['training_args']['test_metric'] = MetricTypes.get_metric_type_by_name(metric)
+            msg["training_args"]["test_metric"] = MetricTypes.get_metric_type_by_name(
+                metric
+            )
     return msg
 
 
 def _serialize_test_metric(msg):
     """MetricTypes is an enum and must be specifically serialized."""
-    if 'training_args' in msg:
-        metric = msg['training_args'].get('test_metric', False)
+    if "training_args" in msg:
+        metric = msg["training_args"].get("test_metric", False)
         if metric and isinstance(metric, MetricTypes):
-            msg['training_args']['test_metric'] = metric.name
+            msg["training_args"]["test_metric"] = metric.name
     return msg

@@ -45,13 +45,13 @@ class DefaultStrategy(Strategy):
         return from_nodes
 
     def refine(
-            self,
-            training_replies: Dict[str, TrainReply],
-            round_i: int
-    ) -> Tuple[Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
-               Dict[str, float],
-               int,
-               Dict[str, List[int]]]:
+        self, training_replies: Dict[str, TrainReply], round_i: int
+    ) -> Tuple[
+        Dict[str, Dict[str, Union["torch.Tensor", "numpy.ndarray"]]],
+        Dict[str, float],
+        int,
+        Dict[str, List[int]],
+    ]:
         """
         The method where node selection is completed by extracting parameters and length from the training replies
 
@@ -120,8 +120,11 @@ class DefaultStrategy(Strategy):
             else:
                 all_success = False
                 msg = tr.get("msg") or ""
-                logger.error("Unsuccessful training reply{} (node = {} )".format(
-                    f": {msg}" if msg else "", tr["node_id"]))
+                logger.error(
+                    "Unsuccessful training reply{} (node = {} )".format(
+                        f": {msg}" if msg else "", tr["node_id"]
+                    )
+                )
 
         if not all_success:
             raise FedbiomedStrategyError(ErrorNumbers.FB402.value)

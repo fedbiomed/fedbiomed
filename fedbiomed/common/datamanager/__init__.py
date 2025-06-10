@@ -5,7 +5,6 @@
 Classes that simplify imports from fedbiomed.common.datamanager
 """
 
-
 from ._data_manager import DataManager
 from ._torch_data_manager import TorchDataManager
 from ._sklearn_data_manager import SkLearnDataManager

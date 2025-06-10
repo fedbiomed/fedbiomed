@@ -16,7 +16,9 @@ try:
         discover_flamby_datasets,
     )
 except ModuleNotFoundError as e:
-    raise unittest.SkipTest(f"Flamby not found with error {e}. Skipping all tests in test_flamby.py")
+    raise unittest.SkipTest(
+        f"Flamby not found with error {e}. Skipping all tests in test_flamby.py"
+    )
 
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.exceptions import (

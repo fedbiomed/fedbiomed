@@ -65,7 +65,6 @@ class EventWaitExchange:
         all_events = []
         with self._pending_listeners_lock:
             with self._triggered_events_lock:
-
                 # if no specified listener, test all listeners
                 if listener_id is None:
                     listener_ids = list(self._pending_listeners.keys())

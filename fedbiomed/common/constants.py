@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Fed-BioMed constants/enums"""
+
 import sys
 import os
 
@@ -42,28 +43,28 @@ VAR_FOLDER_NAME = "var"
 DB_FOLDER_NAME = VAR_FOLDER_NAME
 """Directory/folder name where DB files are saved"""
 
-DB_PREFIX = 'db_'
+DB_PREFIX = "db_"
 """Prefix for database files name"""
 
-NODE_PREFIX = 'node_'
+NODE_PREFIX = "node_"
 """Prefix for node ID"""
 
-NODE_STATE_PREFIX = 'node_state_'
+NODE_STATE_PREFIX = "node_state_"
 """Prefix for Node state ID"""
 
-EXPERIMENT_PREFIX = 'exper_'
+EXPERIMENT_PREFIX = "exper_"
 """Prefix for experiment ID"""
 
-REQUEST_PREFIX = 'request_'
+REQUEST_PREFIX = "request_"
 """Prefix for request ID"""
 
-DEFAULT_NODE_NAME = 'fbm-node'
+DEFAULT_NODE_NAME = "fbm-node"
 """Default node component folder name"""
 
-DEFAULT_RESEARCHER_NAME = 'fbm-researcher'
+DEFAULT_RESEARCHER_NAME = "fbm-researcher"
 """Default researcher component folder name"""
 
-CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, 'certs')
+CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, "certs")
 """FOLDER name for Certs directory"""
 
 TRACEBACK_LIMIT = 20
@@ -83,13 +84,19 @@ SERVER_certificate_prefix = "server_certificate"
 # major version, else the minor version. Micro versions are supported but their use is currently discouraged.
 
 __version__ = FBM_Component_Version(__version__)  # Fed-BioMed software version
-__researcher_config_version__ = FBM_Component_Version('3')  # researcher config file version
-__node_config_version__ = FBM_Component_Version('2')  # node config file version
-__node_state_version__ = FBM_Component_Version('2')  # node state version
-__breakpoints_version__ = FBM_Component_Version('3')  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version('5')  # format of gRPC messages.
-__secagg_element_version__ = FBM_Component_Version('2')  # format of secagg database elements
-__n2n_channel_element_version__ = FBM_Component_Version('1')  # format of n2n channels database elements
+__researcher_config_version__ = FBM_Component_Version(
+    "3"
+)  # researcher config file version
+__node_config_version__ = FBM_Component_Version("2")  # node config file version
+__node_state_version__ = FBM_Component_Version("2")  # node state version
+__breakpoints_version__ = FBM_Component_Version("3")  # breakpoints format version
+__messaging_protocol_version__ = FBM_Component_Version("5")  # format of gRPC messages.
+__secagg_element_version__ = FBM_Component_Version(
+    "2"
+)  # format of secagg database elements
+__n2n_channel_element_version__ = FBM_Component_Version(
+    "1"
+)  # format of n2n channels database elements
 
 # Nota: for messaging protocol version, all changes should be a major version upgrade
 
@@ -127,6 +134,7 @@ class MessageType(_BaseEnum):
         LOG: 'log' message (LogMessage)
         SCALAR: 'add_scalar' message (Scalar)
     """
+
     REPLY = "REPLY"
     LOG = "LOG"
     SCALAR = "SCALAR"
@@ -155,14 +163,14 @@ class ComponentType(_BaseEnum):
 class HashingAlgorithms(_BaseEnum):
     """Enumeration class, used to characterize the hashing algorithms"""
 
-    SHA256 = 'SHA256'
-    SHA384 = 'SHA384'
-    SHA512 = 'SHA512'
-    SHA3_256 = 'SHA3_256'
-    SHA3_384 = 'SHA3_384'
-    SHA3_512 = 'SHA3_512'
-    BLAKE2B = 'BLAKE2B'
-    BLAKE2S = 'BLAKE2S'
+    SHA256 = "SHA256"
+    SHA384 = "SHA384"
+    SHA512 = "SHA512"
+    SHA3_256 = "SHA3_256"
+    SHA3_384 = "SHA3_384"
+    SHA3_512 = "SHA3_512"
+    BLAKE2B = "BLAKE2B"
+    BLAKE2S = "BLAKE2S"
 
 
 class TrainingPlanStatus(_BaseEnum):
@@ -173,9 +181,10 @@ class TrainingPlanStatus(_BaseEnum):
         REGISTERED: means training plan added by a hospital/node
         DEFAULT: means training plan is default training plan provided by Fed-BioMed
     """
-    REQUESTED = 'requested'
-    REGISTERED = 'registered'
-    DEFAULT = 'default'
+
+    REQUESTED = "requested"
+    REGISTERED = "registered"
+    DEFAULT = "default"
 
 
 class TrainingPlanApprovalStatus(_BaseEnum):
@@ -187,6 +196,7 @@ class TrainingPlanApprovalStatus(_BaseEnum):
         REJECTED: training plan was disapproved for this node, cannot be executed
         PENDING: training plan is waiting for review and approval, cannot be executed yet
     """
+
     APPROVED = "Approved"
     REJECTED = "Rejected"
     PENDING = "Pending"
@@ -199,10 +209,10 @@ class TrainingPlanApprovalStatus(_BaseEnum):
 
 
 class TrainingPlans(_BaseEnum):
-    """Enumeration class for Training plans """
+    """Enumeration class for Training plans"""
 
-    TorchTrainingPlan = 'TorchTrainingPlan'
-    SkLearnTrainingPlan = 'SkLearnTrainingPlan'
+    TorchTrainingPlan = "TorchTrainingPlan"
+    SkLearnTrainingPlan = "SkLearnTrainingPlan"
 
 
 class ProcessTypes(_BaseEnum):
@@ -212,6 +222,7 @@ class ProcessTypes(_BaseEnum):
         DATA_LOADER: Preprocess for DataLoader
         PARAMS: Preprocess for model parameters
     """
+
     DATA_LOADER = 0
     PARAMS = 1
 
@@ -236,33 +247,38 @@ class DataLoadingBlockTypes(_BaseEnum):
         This class must always be empty as it is not allowed to
         contain any fields!
     """
+
     def __init__(self, *args):
         cls = self.__class__
         if not isinstance(self.value, str):
-            raise ValueError("all fields of DataLoadingBlockTypes subclasses"
-                             " must be of str type")
+            raise ValueError(
+                "all fields of DataLoadingBlockTypes subclasses must be of str type"
+            )
         if any(self.value == e.value for e in cls):
             a = self.name
             e = cls(self.value).name
             raise ValueError(
                 f"duplicate values not allowed in DataLoadingBlockTypes and "
-                f"its subclasses: {a} --> {e}")
+                f"its subclasses: {a} --> {e}"
+            )
 
 
 class DatasetTypes(_BaseEnum):
     """Types of Datasets implemented in Fed-BioMed"""
-    TABULAR = 'csv'
-    IMAGES = 'images'
-    DEFAULT = 'default'
-    MEDNIST = 'mednist'
-    MEDICAL_FOLDER = 'medical-folder'
-    FLAMBY = 'flamby'
-    TEST = 'test'
-    NONE = 'none'
+
+    TABULAR = "csv"
+    IMAGES = "images"
+    DEFAULT = "default"
+    MEDNIST = "mednist"
+    MEDICAL_FOLDER = "medical-folder"
+    FLAMBY = "flamby"
+    TEST = "test"
+    NONE = "none"
 
 
 class SecureAggregationSchemes(_BaseEnum):
     """Enumeration class for secure aggregation schemes"""
+
     NONE: int = 0
     JOYE_LIBERT: int = 1
     LOM: int = 2
@@ -275,6 +291,7 @@ class SecaggElementTypes(_BaseEnum):
         SERVER_KEY: server key split between the parties
         DIFFIE_HELLMAN: one pair of DH key for each node party, public key shared with other node parties
     """
+
     SERVER_KEY: int = 0
     DIFFIE_HELLMAN: int = 1
 
@@ -288,8 +305,10 @@ class SecaggElementTypes(_BaseEnum):
 class SAParameters:
     CLIPPING_RANGE: int = 3
     TARGET_RANGE: int = 2**13
-    WEIGHT_RANGE: int = 2**17 # TODO: this has to be provided by the researcher, find the max range among all the nodes' weights
-    #TODO: to separete from SAParameters
+    WEIGHT_RANGE: int = (
+        2**17
+    )  # TODO: this has to be provided by the researcher, find the max range among all the nodes' weights
+    # TODO: to separete from SAParameters
     KEY_SIZE: int = 2048
 
 
@@ -371,7 +390,7 @@ class ErrorNumbers(_BaseEnum):
     FB628 = "FB628: Communication error"
     FB629 = "FB629: Diffie-Hellman KA error"
     FB630 = "FB630: Additive Secret Sharing error"
-    FB631 = 'FB631: Node to node channels database error'
+    FB631 = "FB631: Node to node channels database error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 
@@ -391,10 +410,10 @@ class UserRoleType(int, _BaseEnum):
 class UserRequestStatus(str, _BaseEnum):
     """Enumeration class, used to characterize the status for user registration requests
 
-        Attributes:
-            NEW: New user registration
-            REJECTED: Rejected status
-        """
+    Attributes:
+        NEW: New user registration
+        REJECTED: Rejected status
+    """
 
     NEW = "NEW"
     REJECTED = "REJECTED"

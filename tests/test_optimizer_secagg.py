@@ -3,7 +3,6 @@
 
 """Unit tests for SecAgg-related tools for optimizer auxiliary variables."""
 
-import copy
 import dataclasses
 import functools
 import unittest
@@ -33,7 +32,7 @@ from fedbiomed.common.optimizers import (
 from fedbiomed.common.optimizers.declearn import (
     ScaffoldAuxVar,
     ScaffoldClientModule,
-    ScaffoldServerModule
+    ScaffoldServerModule,
 )
 from fedbiomed.common.secagg import SecaggCrypter
 from fedbiomed.common.serializer import Serializer
@@ -93,10 +92,8 @@ def generate_scaffold_aux_var(n_feats: int = 32) -> Dict[str, AuxVar]:
     return optimizer.get_aux()
 
 
-
 class TestFlattenAuxVarForSecagg(unittest.TestCase):
     """Unit tests for 'flatten_auxvar_for_secagg'."""
-
 
     def assert_flattened_auxvar_types(
         self,
@@ -123,7 +120,9 @@ class TestFlattenAuxVarForSecagg(unittest.TestCase):
         # Assert that 'clear_cls' is a list of module-wise (name, type) tuples.
         self.assertIsInstance(clear_cls, list)
         self.assertEqual(len(clear_cls), len(aux_var))
-        self.assertListEqual(clear_cls, [(key, type(val)) for key, val in aux_var.items()])
+        self.assertListEqual(
+            clear_cls, [(key, type(val)) for key, val in aux_var.items()]
+        )
 
     def test_flatten_auxvar_01_simple(self) -> None:
         """Test flattening a dict with a single 'SimpleAuxVar' instance."""
@@ -290,94 +289,122 @@ class TestEncryptedAuxVar(unittest.TestCase):
 
 class TestAuxVarSecAgg(unittest.TestCase):
     """Functional tests of Secure Aggregation of optimizer auxiliary variables."""
+
     def setUp(self) -> None:
         self.biprime = int.from_bytes(  # 1024-bits biprime number
-                b'\xe2+!\x9a\xdc\xc3.\xcaY\x1b\xd6\xfdH\xfc1\xaeG6\xc0O\xa5\x9a'
-                b'\x8bi)i \xac=\x88\xb5\xfdo\xac\xadS\x80\xb3xL\xa6\xc7\xca]\x17'
-                b'\xb1\x16\rB\x8f"\xb1*\x12.J`\xc8AW\x92\xd0\t\x14*fwx"o\xff\xca'
-                b'\xec\x8e\x86G\x7f\x9c\xdf?\x00}&\xa8b\xcd\n!\xa9\x1f\xc0\x99{'
-                b'\x91h"\xe6,j\x87\xf6\xa6\xee0\xc5_\xdbi\x93\xea\x80qJ\x12\xbc'
-                b'\xd7,AE\xb5\xdc\xf1\xf5\x962\xcdms',
-                byteorder="big",
-            )
+            b"\xe2+!\x9a\xdc\xc3.\xcaY\x1b\xd6\xfdH\xfc1\xaeG6\xc0O\xa5\x9a"
+            b"\x8bi)i \xac=\x88\xb5\xfdo\xac\xadS\x80\xb3xL\xa6\xc7\xca]\x17"
+            b'\xb1\x16\rB\x8f"\xb1*\x12.J`\xc8AW\x92\xd0\t\x14*fwx"o\xff\xca'
+            b"\xec\x8e\x86G\x7f\x9c\xdf?\x00}&\xa8b\xcd\n!\xa9\x1f\xc0\x99{"
+            b'\x91h"\xe6,j\x87\xf6\xa6\xee0\xc5_\xdbi\x93\xea\x80qJ\x12\xbc'
+            b"\xd7,AE\xb5\xdc\xf1\xf5\x962\xcdms",
+            byteorder="big",
+        )
         self.skey_a = secrets.randbits(2040)
-        
-        self.data1 = torch.Tensor([[1, 1, 1 ,1],
-                            [1, 0, 0, 1], 
-                            [1, 0, 0, 0],
-                            [0, 0, 0, 0],
-                            [1, 0, 0, 1]])
-        
-        self.targets1 = torch.Tensor([[1, 1], [1, 0], [1,1], [0,0], [0,1]])
 
+        self.data1 = torch.Tensor(
+            [[1, 1, 1, 1], [1, 0, 0, 1], [1, 0, 0, 0], [0, 0, 0, 0], [1, 0, 0, 1]]
+        )
 
-        self.data2 = torch.Tensor([[1, 1, 1 ,1],
-                            [1, 0, 0, 1], 
-                            [1, 0, 0, 0],
-                            [0, 0, 0, 0],
-                            [1, 0, 0, 1],
-                            [1, 0, 0, 1],
-                            [1, 0, 0, 1],
-                            [1, 1, 1 ,1],
-                            [1, 0, 0, 1], 
-                            [1, 0, 0, 0],
-                            [0, 0, 0, 0],
-                            [1, 0, 0, 1],
-                            [1, 0, 0, 1],
-                            [1, 0, 0, 1]])
-        self.targets2 = torch.Tensor([[1, 1],
-                                    [1, 0],
-                                    [1,1],
-                                    [0,0],
-                                    [0,1],
-                                    [0,1],
-                                    [0,1],
-                                    [1, 1],
-                                    [1, 0],
-                                    [1,1],
-                                    [0,0],
-                                    [0,1],
-                                    [0,1],
-                                    [0,1]])
+        self.targets1 = torch.Tensor([[1, 1], [1, 0], [1, 1], [0, 0], [0, 1]])
 
-        self.data3 = torch.Tensor([[1, 1, 1 ,1],
-                            [1, 0, 0, 1], 
-                            [1, 0, 0, 0],
-                            [0, 0, 0, 0],
-                            [1, 0, 0, 1],
-                            [1, 1, 1 ,1],
-                            [1, 0, 0, 1], 
-                            [1, 0, 0, 0],
-                            [0, 0, 0, 0],
-                            [1, 0, 0, 1]])
-        self.targets3 = torch.Tensor([[1, 1], [1, 0], [1,1], [0,0], [0,1],
-                                    [1, 1], [1, 0], [1,1], [0,0], [0,1]])
-        
-        self.model = nn.Linear(4,2)
-        self.model_parameters = (torch.Tensor([[-0.3392, -0.4828, -0.1458,  0.2349],
-                                               [ 0.1231,  0.4977, -0.1024, -0.2559]]),
-                                torch.Tensor([ 0.3919, -0.2463]))
+        self.data2 = torch.Tensor(
+            [
+                [1, 1, 1, 1],
+                [1, 0, 0, 1],
+                [1, 0, 0, 0],
+                [0, 0, 0, 0],
+                [1, 0, 0, 1],
+                [1, 0, 0, 1],
+                [1, 0, 0, 1],
+                [1, 1, 1, 1],
+                [1, 0, 0, 1],
+                [1, 0, 0, 0],
+                [0, 0, 0, 0],
+                [1, 0, 0, 1],
+                [1, 0, 0, 1],
+                [1, 0, 0, 1],
+            ]
+        )
+        self.targets2 = torch.Tensor(
+            [
+                [1, 1],
+                [1, 0],
+                [1, 1],
+                [0, 0],
+                [0, 1],
+                [0, 1],
+                [0, 1],
+                [1, 1],
+                [1, 0],
+                [1, 1],
+                [0, 0],
+                [0, 1],
+                [0, 1],
+                [0, 1],
+            ]
+        )
+
+        self.data3 = torch.Tensor(
+            [
+                [1, 1, 1, 1],
+                [1, 0, 0, 1],
+                [1, 0, 0, 0],
+                [0, 0, 0, 0],
+                [1, 0, 0, 1],
+                [1, 1, 1, 1],
+                [1, 0, 0, 1],
+                [1, 0, 0, 0],
+                [0, 0, 0, 0],
+                [1, 0, 0, 1],
+            ]
+        )
+        self.targets3 = torch.Tensor(
+            [
+                [1, 1],
+                [1, 0],
+                [1, 1],
+                [0, 0],
+                [0, 1],
+                [1, 1],
+                [1, 0],
+                [1, 1],
+                [0, 0],
+                [0, 1],
+            ]
+        )
+
+        self.model = nn.Linear(4, 2)
+        self.model_parameters = (
+            torch.Tensor(
+                [
+                    [-0.3392, -0.4828, -0.1458, 0.2349],
+                    [0.1231, 0.4977, -0.1024, -0.2559],
+                ]
+            ),
+            torch.Tensor([0.3919, -0.2463]),
+        )
 
         for p, l in zip(self.model.parameters(), self.model_parameters):
             l.requires_grad = True
             p = l
 
-    
     def _aggregate_model_weights(self, model_weights, avg_weights):
         for i, (f, w) in enumerate(zip(model_weights, avg_weights)):
             total_n_samples = sum(avg_weights)
-            model_weights[i] = [x*w/total_n_samples for x in f]
+            model_weights[i] = [x * w / total_n_samples for x in f]
         return list(map(lambda *x: sum(x), *model_weights))
 
     def _aggregate_aux_var(self, aux_vars, avg_weights):
         (self.targets1.shape[0], self.targets2.shape[0], self.targets3.shape[0])
         for ax, w in zip(aux_vars, avg_weights):
             total_n_samples = sum(avg_weights)
-            for k, v in ax['scaffold'].to_dict()['delta'].coefs.items():
+            for k, v in ax["scaffold"].to_dict()["delta"].coefs.items():
+                ax["scaffold"].to_dict()["delta"].coefs[k] = v * w / total_n_samples
 
-                ax['scaffold'].to_dict()['delta'].coefs[k] = v * w / total_n_samples
-            
-        exp_aux_var = sum((ax['scaffold'] for ax in aux_vars))#aux_var1['scaffold'] + aux_var2['scaffold']  + aux_var3['scaffold'] 
+        exp_aux_var = sum(
+            (ax["scaffold"] for ax in aux_vars)
+        )  # aux_var1['scaffold'] + aux_var2['scaffold']  + aux_var3['scaffold']
         return exp_aux_var
 
     @staticmethod
@@ -388,12 +415,12 @@ class TestAuxVarSecAgg(unittest.TestCase):
         """Perform Secure Aggregation of Optimizer auxiliary variables."""
         # Set up a SecAgg crypter and private and public parameters.
         biprime = int.from_bytes(  # 1024-bits biprime number
-            b'\xe2+!\x9a\xdc\xc3.\xcaY\x1b\xd6\xfdH\xfc1\xaeG6\xc0O\xa5\x9a'
-            b'\x8bi)i \xac=\x88\xb5\xfdo\xac\xadS\x80\xb3xL\xa6\xc7\xca]\x17'
+            b"\xe2+!\x9a\xdc\xc3.\xcaY\x1b\xd6\xfdH\xfc1\xaeG6\xc0O\xa5\x9a"
+            b"\x8bi)i \xac=\x88\xb5\xfdo\xac\xadS\x80\xb3xL\xa6\xc7\xca]\x17"
             b'\xb1\x16\rB\x8f"\xb1*\x12.J`\xc8AW\x92\xd0\t\x14*fwx"o\xff\xca'
-            b'\xec\x8e\x86G\x7f\x9c\xdf?\x00}&\xa8b\xcd\n!\xa9\x1f\xc0\x99{'
+            b"\xec\x8e\x86G\x7f\x9c\xdf?\x00}&\xa8b\xcd\n!\xa9\x1f\xc0\x99{"
             b'\x91h"\xe6,j\x87\xf6\xa6\xee0\xc5_\xdbi\x93\xea\x80qJ\x12\xbc'
-            b'\xd7,AE\xb5\xdc\xf1\xf5\x962\xcdms',
+            b"\xd7,AE\xb5\xdc\xf1\xf5\x962\xcdms",
             byteorder="big",
         )
         skey_a = secrets.randbits(2040)
@@ -467,7 +494,7 @@ class TestAuxVarSecAgg(unittest.TestCase):
         print(result["scaffold"].delta.coefs)
         # Verify that SecAgg results have expected type/format.
         self.assertIsInstance(result, dict)
-        self.assertEqual(result.keys(),  expect.keys())
+        self.assertEqual(result.keys(), expect.keys())
         self.assertEqual(result.keys(), {"scaffold"})
         exp_scaffold = expect["scaffold"]
         res_scaffold = result["scaffold"]
@@ -481,20 +508,24 @@ class TestAuxVarSecAgg(unittest.TestCase):
         self.assertIsInstance(res_scaffold.delta, declearn.model.torch.TorchVector)
         for key, val_exp in exp_scaffold.delta.coefs.items():
             val_res = res_scaffold.delta.coefs[key]
-            self.assertTrue(np.allclose(val_exp.cpu().numpy(), val_res.cpu().numpy(), atol=1e-2))
-
+            self.assertTrue(
+                np.allclose(val_exp.cpu().numpy(), val_res.cpu().numpy(), atol=1e-2)
+            )
 
     def test_secagg_weights_auxvar_03_jls(self):
         for num_nodes in (2, 3, 5, 8, 10):
             for current_round in range(1, 5):
                 for use_weighted_avg in (True, False):
-
                     torch_model = TorchModel(self.model)
-                    optim = _get_scaffold_optimizer_node(torch_model, self.data1, self.targets1)
+                    optim = _get_scaffold_optimizer_node(
+                        torch_model, self.data1, self.targets1
+                    )
 
                     aux_var = optim.get_aux()
 
-                    flat_a, enc_specs_a, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(aux_var)
+                    flat_a, enc_specs_a, cleartext_a, clear_cls_a = (
+                        flatten_auxvar_for_secagg(aux_var)
+                    )
                     flat_w = optim._model.flatten()
 
                     researcher_optim = _get_scaffold_optimizer_researcher(torch_model)
@@ -502,51 +533,40 @@ class TestAuxVarSecAgg(unittest.TestCase):
                     # encrypt material
 
                     encrypted_aux_var = SecaggCrypter().encrypt(
-                            params=flat_a,
-                            key=self.skey_a,
-                            num_nodes=num_nodes,
-                            current_round=current_round,
-                            biprime=self.biprime,
-                            clipping_range=3,
-                            weight=self.targets1.shape[0] if use_weighted_avg else None
-                        )
+                        params=flat_a,
+                        key=self.skey_a,
+                        num_nodes=num_nodes,
+                        current_round=current_round,
+                        biprime=self.biprime,
+                        clipping_range=3,
+                        weight=self.targets1.shape[0] if use_weighted_avg else None,
+                    )
 
                     encrypted_model_weights = SecaggCrypter().encrypt(
-                            params=flat_w,
-                            key=self.skey_a,
-                            num_nodes=num_nodes,
-                            current_round=current_round,
-                            biprime=self.biprime,
-                            clipping_range=3,
-                            weight=self.targets1.shape[0] if use_weighted_avg else None
-                        )
-                    
-                    enc_a = EncryptedAuxVar([encrypted_aux_var], enc_specs_a, cleartext_a, clear_cls_a)
+                        params=flat_w,
+                        key=self.skey_a,
+                        num_nodes=num_nodes,
+                        current_round=current_round,
+                        biprime=self.biprime,
+                        clipping_range=3,
+                        weight=self.targets1.shape[0] if use_weighted_avg else None,
+                    )
 
-                    enc_aux_var = functools.reduce(lambda x, y: x+y, tuple(enc_a for _ in range(num_nodes)))  # concatenate!
+                    enc_a = EncryptedAuxVar(
+                        [encrypted_aux_var], enc_specs_a, cleartext_a, clear_cls_a
+                    )
+
+                    enc_aux_var = functools.reduce(
+                        lambda x, y: x + y, tuple(enc_a for _ in range(num_nodes))
+                    )  # concatenate!
                     n_params = sum(spec[1] for mod in enc_a.enc_specs for spec in mod)
                     # decrypt
                     aux_var_decrypted = SecaggCrypter().aggregate(
-                            params=enc_aux_var.encrypted,
-                            key=-(self.skey_a * num_nodes),
-                            total_sample_size= self.targets1.shape[0]*num_nodes if use_weighted_avg else num_nodes,
-                            num_nodes=num_nodes,
-                            current_round=current_round,
-                            biprime=self.biprime,
-                            clipping_range=3,
-                            num_expected_params=n_params,
-                        )
-                    
-                    aux_var_decrypted = unflatten_auxvar_after_secagg(aux_var_decrypted,
-                                                                      enc_specs_a*num_nodes, 
-                                                                      cleartext_a*num_nodes,
-                                                                      clear_cls_a*num_nodes)
-                    aggregate_encrypted_model_w = [encrypted_model_weights] *num_nodes  # concatenate encrypted model weights
-                    
-                    deciphered_model_weights = SecaggCrypter().aggregate(
-                        params=aggregate_encrypted_model_w,
+                        params=enc_aux_var.encrypted,
                         key=-(self.skey_a * num_nodes),
-                        total_sample_size= self.targets1.shape[0]*num_nodes if use_weighted_avg else num_nodes, 
+                        total_sample_size=self.targets1.shape[0] * num_nodes
+                        if use_weighted_avg
+                        else num_nodes,
                         num_nodes=num_nodes,
                         current_round=current_round,
                         biprime=self.biprime,
@@ -554,141 +574,200 @@ class TestAuxVarSecAgg(unittest.TestCase):
                         num_expected_params=n_params,
                     )
 
-                    researcher_optim._model.set_weights(researcher_optim._model.unflatten(deciphered_model_weights))
+                    aux_var_decrypted = unflatten_auxvar_after_secagg(
+                        aux_var_decrypted,
+                        enc_specs_a * num_nodes,
+                        cleartext_a * num_nodes,
+                        clear_cls_a * num_nodes,
+                    )
+                    aggregate_encrypted_model_w = [
+                        encrypted_model_weights
+                    ] * num_nodes  # concatenate encrypted model weights
+
+                    deciphered_model_weights = SecaggCrypter().aggregate(
+                        params=aggregate_encrypted_model_w,
+                        key=-(self.skey_a * num_nodes),
+                        total_sample_size=self.targets1.shape[0] * num_nodes
+                        if use_weighted_avg
+                        else num_nodes,
+                        num_nodes=num_nodes,
+                        current_round=current_round,
+                        biprime=self.biprime,
+                        clipping_range=3,
+                        num_expected_params=n_params,
+                    )
+
+                    researcher_optim._model.set_weights(
+                        researcher_optim._model.unflatten(deciphered_model_weights)
+                    )
                     researcher_optim.set_aux(aux_var_decrypted)
 
                     # compare values of model before and after encryption
-                    for (k_n, n_layer), (k_r, r_layer) in zip(optim._model.model.state_dict().items(),
-                                                              researcher_optim._model.model.state_dict().items()):
+                    for (k_n, n_layer), (k_r, r_layer) in zip(
+                        optim._model.model.state_dict().items(),
+                        researcher_optim._model.model.state_dict().items(),
+                    ):
                         for n_val, r_val in zip(n_layer, r_layer):
-                            self.assertTrue(torch.any(torch.isclose(n_val.cpu(), r_val.cpu(), atol=1e-3)))
+                            self.assertTrue(
+                                torch.any(
+                                    torch.isclose(n_val.cpu(), r_val.cpu(), atol=1e-3)
+                                )
+                            )
 
                     # compare values of scaffold correction states before and after encryption
-                    correct_states_before = aux_var['scaffold'].to_dict()['delta'].coefs
-                    correct_states_after = researcher_optim.get_aux()['scaffold'].to_dict()['state'].coefs
+                    correct_states_before = aux_var["scaffold"].to_dict()["delta"].coefs
+                    correct_states_after = (
+                        researcher_optim.get_aux()["scaffold"].to_dict()["state"].coefs
+                    )
 
-                    for (k_before, before_layer), (k_after, after_layer) in zip(correct_states_before.items(), correct_states_after.items()):
+                    for (k_before, before_layer), (k_after, after_layer) in zip(
+                        correct_states_before.items(), correct_states_after.items()
+                    ):
                         for before_val, after_val in zip(before_layer, after_layer):
-                            self.assertTrue(torch.any(torch.isclose(before_val.cpu(), after_val.cpu(), atol=1e-3)))
+                            self.assertTrue(
+                                torch.any(
+                                    torch.isclose(
+                                        before_val.cpu(), after_val.cpu(), atol=1e-3
+                                    )
+                                )
+                            )
 
     def test_secagg_weights_auxvar_04_jls_2(self):
         for current_round in range(1, 5):
-
             torch_model = TorchModel(self.model)
 
             # operation on node 1
             optim = _get_scaffold_optimizer_node(torch_model, self.data1, self.targets1)
             aux_var1 = optim.get_aux()
-            
-            flat_a1, enc_specs_a1, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(aux_var1)
+
+            flat_a1, enc_specs_a1, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(
+                aux_var1
+            )
             flat_w1 = optim._model.flatten()
 
             encrypted_aux_var1 = SecaggCrypter().encrypt(
-                    params=flat_a1,
-                    key=self.skey_a,
-                    num_nodes=3,
-                    current_round=current_round,
-                    biprime=self.biprime,
-                    clipping_range=3,
-                    weight=self.targets1.shape[0]
-                )
-            enc_a1 = EncryptedAuxVar([encrypted_aux_var1], enc_specs_a1, cleartext_a, clear_cls_a)
+                params=flat_a1,
+                key=self.skey_a,
+                num_nodes=3,
+                current_round=current_round,
+                biprime=self.biprime,
+                clipping_range=3,
+                weight=self.targets1.shape[0],
+            )
+            enc_a1 = EncryptedAuxVar(
+                [encrypted_aux_var1], enc_specs_a1, cleartext_a, clear_cls_a
+            )
             encrypted_model_weights1 = SecaggCrypter().encrypt(
-                    params=flat_w1,
-                    key=self.skey_a,
-                    num_nodes=3,
-                    current_round=current_round,
-                    biprime=self.biprime,
-                    clipping_range=3,
-                    weight=self.targets1.shape[0]
-                )
+                params=flat_w1,
+                key=self.skey_a,
+                num_nodes=3,
+                current_round=current_round,
+                biprime=self.biprime,
+                clipping_range=3,
+                weight=self.targets1.shape[0],
+            )
 
             # operation on node 2
-            optim = _get_scaffold_optimizer_node(torch_model, self.data2, self.targets2,)
+            optim = _get_scaffold_optimizer_node(
+                torch_model,
+                self.data2,
+                self.targets2,
+            )
 
             aux_var2 = optim.get_aux()
-            flat_a2, enc_specs_a2, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(aux_var2)
+            flat_a2, enc_specs_a2, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(
+                aux_var2
+            )
             flat_w2 = optim._model.flatten()
 
             encrypted_aux_var2 = SecaggCrypter().encrypt(
-                    params=flat_a2,
-                    key=self.skey_a,
-                    num_nodes=3,
-                    current_round=current_round,
-                    biprime=self.biprime,
-                    clipping_range=3,
-                    weight=self.targets2.shape[0]
-                )
+                params=flat_a2,
+                key=self.skey_a,
+                num_nodes=3,
+                current_round=current_round,
+                biprime=self.biprime,
+                clipping_range=3,
+                weight=self.targets2.shape[0],
+            )
 
             encrypted_model_weights2 = SecaggCrypter().encrypt(
-                    params=flat_w2,
-                    key=self.skey_a,
-                    num_nodes=3,
-                    current_round=current_round,
-                    biprime=self.biprime,
-                    clipping_range=3,
-                    weight=self.targets2.shape[0]
-                )
-        
+                params=flat_w2,
+                key=self.skey_a,
+                num_nodes=3,
+                current_round=current_round,
+                biprime=self.biprime,
+                clipping_range=3,
+                weight=self.targets2.shape[0],
+            )
 
-            enc_a2 = EncryptedAuxVar([encrypted_aux_var2], enc_specs_a1, cleartext_a, clear_cls_a)
+            enc_a2 = EncryptedAuxVar(
+                [encrypted_aux_var2], enc_specs_a1, cleartext_a, clear_cls_a
+            )
 
             # operation on node 3
             optim = _get_scaffold_optimizer_node(torch_model, self.data3, self.targets3)
             aux_var3 = optim.get_aux()
-            flat_a3, enc_specs_a3, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(aux_var3)
+            flat_a3, enc_specs_a3, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(
+                aux_var3
+            )
             flat_w3 = optim._model.flatten()
 
             encrypted_aux_var3 = SecaggCrypter().encrypt(
-                    params=flat_a3,
-                    key=self.skey_a,
-                    num_nodes=3,
-                    current_round=current_round,
-                    biprime=self.biprime,
-                    clipping_range=3,
-                    weight=self.targets3.shape[0]
-                )
+                params=flat_a3,
+                key=self.skey_a,
+                num_nodes=3,
+                current_round=current_round,
+                biprime=self.biprime,
+                clipping_range=3,
+                weight=self.targets3.shape[0],
+            )
 
             encrypted_model_weights3 = SecaggCrypter().encrypt(
-                    params=flat_w3,
-                    key=self.skey_a,
-                    num_nodes=3,
-                    current_round=current_round,
-                    biprime=self.biprime,
-                    clipping_range=3,
-                    weight=self.targets3.shape[0]
-                )
-        
+                params=flat_w3,
+                key=self.skey_a,
+                num_nodes=3,
+                current_round=current_round,
+                biprime=self.biprime,
+                clipping_range=3,
+                weight=self.targets3.shape[0],
+            )
 
-            enc_a3 = EncryptedAuxVar([encrypted_aux_var3], enc_specs_a1, cleartext_a, clear_cls_a)
+            enc_a3 = EncryptedAuxVar(
+                [encrypted_aux_var3], enc_specs_a1, cleartext_a, clear_cls_a
+            )
             researcher_optim = _get_scaffold_optimizer_researcher(torch_model)
 
             enc_aux_var = enc_a1 + enc_a2 + enc_a3  # concatenate!
             n_params = sum(spec[1] for mod in enc_a1.enc_specs for spec in mod)
-            total_n_samples = self.targets1.shape[0] + self.targets2.shape[0] + self.targets3.shape[0]
+            total_n_samples = (
+                self.targets1.shape[0] + self.targets2.shape[0] + self.targets3.shape[0]
+            )
             # decrypt
 
             aux_var_decrypted = SecaggCrypter().aggregate(
-                    params=enc_aux_var.encrypted,
-                    key=-(self.skey_a *3),
-                    total_sample_size=total_n_samples,
-                    num_nodes=3,
-                    current_round=current_round,
-                    biprime=self.biprime,
-                    clipping_range=3,
-                    num_expected_params=n_params,
-                )
+                params=enc_aux_var.encrypted,
+                key=-(self.skey_a * 3),
+                total_sample_size=total_n_samples,
+                num_nodes=3,
+                current_round=current_round,
+                biprime=self.biprime,
+                clipping_range=3,
+                num_expected_params=n_params,
+            )
 
-            aux_var_decrypted = unflatten_auxvar_after_secagg(aux_var_decrypted,
-                                                            enc_specs_a1 + enc_specs_a2 + enc_specs_a3, 
-                                                            cleartext_a*3,
-                                                            clear_cls_a*3)
+            aux_var_decrypted = unflatten_auxvar_after_secagg(
+                aux_var_decrypted,
+                enc_specs_a1 + enc_specs_a2 + enc_specs_a3,
+                cleartext_a * 3,
+                clear_cls_a * 3,
+            )
 
-            
             aggregate_encrypted_model_w = [
-                encrypted_model_weights1, encrypted_model_weights2, encrypted_model_weights3
-                ]  # concatenate encrypted model weights
-            
+                encrypted_model_weights1,
+                encrypted_model_weights2,
+                encrypted_model_weights3,
+            ]  # concatenate encrypted model weights
+
             deciphered_model_weights = SecaggCrypter().aggregate(
                 params=aggregate_encrypted_model_w,
                 key=-(self.skey_a * 3),
@@ -697,74 +776,107 @@ class TestAuxVarSecAgg(unittest.TestCase):
                 current_round=current_round,
                 biprime=self.biprime,
                 clipping_range=3,
-                num_expected_params=n_params, # works because size of aux_var=size of model
+                num_expected_params=n_params,  # works because size of aux_var=size of model
             )
 
-            researcher_optim._model.set_weights(researcher_optim._model.unflatten(deciphered_model_weights))
+            researcher_optim._model.set_weights(
+                researcher_optim._model.unflatten(deciphered_model_weights)
+            )
             researcher_optim.set_aux(aux_var_decrypted)
 
             ref = [flat_w1, flat_w2, flat_w3]
 
-            flat_avg_weights = self._aggregate_model_weights(ref, (self.targets1.shape[0], self.targets2.shape[0],
-                                                                self.targets3.shape[0]))
+            flat_avg_weights = self._aggregate_model_weights(
+                ref,
+                (
+                    self.targets1.shape[0],
+                    self.targets2.shape[0],
+                    self.targets3.shape[0],
+                ),
+            )
             exp_model_weights = researcher_optim._model.unflatten(flat_avg_weights)
 
             # compare values of model before and after encryption
-            for (k_n, n_layer), (k_r, r_layer) in zip(exp_model_weights.items(),
-                                                      researcher_optim._model.model.state_dict().items()):
+            for (k_n, n_layer), (k_r, r_layer) in zip(
+                exp_model_weights.items(),
+                researcher_optim._model.model.state_dict().items(),
+            ):
                 for n_val, r_val in zip(n_layer, r_layer):
-
-                    self.assertTrue(torch.any(torch.isclose(
-                        n_val.cpu().type(dtype=torch.float64),
-                        r_val.cpu().type(dtype=torch.float64), atol=1e-3)))
+                    self.assertTrue(
+                        torch.any(
+                            torch.isclose(
+                                n_val.cpu().type(dtype=torch.float64),
+                                r_val.cpu().type(dtype=torch.float64),
+                                atol=1e-3,
+                            )
+                        )
+                    )
 
             # compare values of scaffold correction states before and after encryption
-            exp_aux_var = self._aggregate_aux_var((aux_var1, aux_var2, aux_var3),
-                            (self.targets1.shape[0], self.targets2.shape[0], self.targets3.shape[0]))
+            exp_aux_var = self._aggregate_aux_var(
+                (aux_var1, aux_var2, aux_var3),
+                (
+                    self.targets1.shape[0],
+                    self.targets2.shape[0],
+                    self.targets3.shape[0],
+                ),
+            )
 
-            correct_states_before = exp_aux_var.to_dict()['delta'].coefs
-            correct_states_after = researcher_optim.get_aux()['scaffold'].to_dict()['state'].coefs
+            correct_states_before = exp_aux_var.to_dict()["delta"].coefs
+            correct_states_after = (
+                researcher_optim.get_aux()["scaffold"].to_dict()["state"].coefs
+            )
 
-            for (k_before, before_layer), (k_after, after_layer) in zip(correct_states_before.items(), correct_states_after.items()):
+            for (k_before, before_layer), (k_after, after_layer) in zip(
+                correct_states_before.items(), correct_states_after.items()
+            ):
                 for before_val, after_val in zip(before_layer, after_layer):
-                    self.assertTrue(torch.any(torch.isclose(before_val.cpu(), after_val.cpu(), atol=1e-3)))
+                    self.assertTrue(
+                        torch.any(
+                            torch.isclose(before_val.cpu(), after_val.cpu(), atol=1e-3)
+                        )
+                    )
 
-    
+
 # idea: test encrypted value if array is full of zeros: check how works encryption in this case
 class TestAuxVarSecAggLOM(unittest.TestCase):
-    @patch('fedbiomed.node.secagg._secagg_round.SecaggDhManager')
+    @patch("fedbiomed.node.secagg._secagg_round.SecaggDhManager")
     def test_secagg_01_scaffold_and_weights_lom_encryption(self, dhmanager_patch):
         for num_nodes in (2, 3, 5, 10, 20, 23):
+            data = torch.Tensor(
+                [[1, 1, 1, 1], [1, 0, 0, 1], [1, 0, 0, 0], [0, 0, 0, 0], [1, 0, 0, 1]]
+            )
+            targets = torch.Tensor([[1, 1], [1, 0], [1, 1], [0, 0], [0, 1]])
 
-            data = torch.Tensor([[1, 1, 1 ,1],
-                                [1, 0, 0, 1], 
-                                [1, 0, 0, 0],
-                                [0, 0, 0, 0],
-                                [1, 0, 0, 1]])
-            targets = torch.Tensor([[1, 1], [1, 0], [1,1], [0,0], [0,1]])
-
-            torch_model = TorchModel(nn.Linear(4,2))
+            torch_model = TorchModel(nn.Linear(4, 2))
             optim = _get_scaffold_optimizer_node(torch_model, data, targets)
 
             aux_var = optim.get_aux()
 
-            flat_a, enc_specs_a, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(aux_var)
+            flat_a, enc_specs_a, cleartext_a, clear_cls_a = flatten_auxvar_for_secagg(
+                aux_var
+            )
 
-            party_a = list(cleartext_a[0]['clients'])[0]
+            party_a = list(cleartext_a[0]["clients"])[0]
 
             # simulate correct encryption on Node side (model_weights+ )
-            exp_id = 'experiment_id_1234'
+            exp_id = "experiment_id_1234"
             c_round = 1
             sample_size = len(targets)
 
-            secagg_args = {'secagg_scheme': 2,
-                        #'secagg_random': .123,
-                        'secagg_clipping_range':3,
-                        'parties': [party_a]*num_nodes,
-                        'secagg_dh_id': 'secagg_id_xxxx'}
-            
-            dhmanager_patch.return_value.get.return_value = {'parties': secagg_args['parties'],
-                                                'context': {party_a: b"\xba\xb2\xf2'\xa3\xa7\xb6\xee\x15uM\xf6j\x0f\xa9\xf8B}/ \x81]3\xa9p\x8b\xee\x9e:\xa8i("}
+            secagg_args = {
+                "secagg_scheme": 2,
+                #'secagg_random': .123,
+                "secagg_clipping_range": 3,
+                "parties": [party_a] * num_nodes,
+                "secagg_dh_id": "secagg_id_xxxx",
+            }
+
+            dhmanager_patch.return_value.get.return_value = {
+                "parties": secagg_args["parties"],
+                "context": {
+                    party_a: b"\xba\xb2\xf2'\xa3\xa7\xb6\xee\x15uM\xf6j\x0f\xa9\xf8B}/ \x81]3\xa9p\x8b\xee\x9e:\xa8i("
+                },
             }
 
             encrypted_model_weights, encrypted_aux_vars = [], []
@@ -772,20 +884,26 @@ class TestAuxVarSecAggLOM(unittest.TestCase):
             ## encrypt only aux var for party a
             for n in range(num_nodes):
                 lom_secagg_party_a = SecaggRound(
-                    db='dummy',
+                    db="dummy",
                     node_id=party_a,
                     secagg_arguments=secagg_args,
                     secagg_active=True,
                     force_secagg=False,
-                    experiment_id=exp_id
+                    experiment_id=exp_id,
                 )
-                encrypted_aux_var_a = lom_secagg_party_a.scheme.encrypt(flat_a, c_round, weight=sample_size)
-                encrypted_aux_var_a = EncryptedAuxVar([encrypted_aux_var_a], enc_specs_a, cleartext_a, clear_cls_a)
+                encrypted_aux_var_a = lom_secagg_party_a.scheme.encrypt(
+                    flat_a, c_round, weight=sample_size
+                )
+                encrypted_aux_var_a = EncryptedAuxVar(
+                    [encrypted_aux_var_a], enc_specs_a, cleartext_a, clear_cls_a
+                )
                 encrypted_aux_vars.append(encrypted_aux_var_a)
 
                 ## encrypt only  model weights
                 flat_w = optim._model.flatten()
-                encrypted_model_weights_a = lom_secagg_party_a.scheme.encrypt(flat_w, c_round, weight=sample_size)
+                encrypted_model_weights_a = lom_secagg_party_a.scheme.encrypt(
+                    flat_w, c_round, weight=sample_size
+                )
                 encrypted_model_weights.append(encrypted_model_weights_a)
 
             # decrypt
@@ -793,38 +911,55 @@ class TestAuxVarSecAggLOM(unittest.TestCase):
 
             n_params = len(targets) * num_nodes
 
-            decrypted_weights = lom_secagg_agg.aggregate(encrypted_model_weights,
-                                                         total_sample_size=n_params)
-            decrypted_aux_var = lom_secagg_agg.aggregate([encauxvar.encrypted[0] for encauxvar in encrypted_aux_vars],
-                                                         total_sample_size=n_params)
+            decrypted_weights = lom_secagg_agg.aggregate(
+                encrypted_model_weights, total_sample_size=n_params
+            )
+            decrypted_aux_var = lom_secagg_agg.aggregate(
+                [encauxvar.encrypted[0] for encauxvar in encrypted_aux_vars],
+                total_sample_size=n_params,
+            )
 
-
-            
             researcher_optim = _get_scaffold_optimizer_researcher(torch_model)
-            researcher_optim._model.set_weights(researcher_optim._model.unflatten(decrypted_weights))
-            retrieved_aux_var = unflatten_auxvar_after_secagg(decrypted_aux_var,
-                                                              enc_specs_a * num_nodes, 
-                                                              cleartext_a * num_nodes,
-                                                              clear_cls_a * num_nodes
-                                                              )
+            researcher_optim._model.set_weights(
+                researcher_optim._model.unflatten(decrypted_weights)
+            )
+            retrieved_aux_var = unflatten_auxvar_after_secagg(
+                decrypted_aux_var,
+                enc_specs_a * num_nodes,
+                cleartext_a * num_nodes,
+                clear_cls_a * num_nodes,
+            )
             researcher_optim.set_aux(retrieved_aux_var)
 
-            for (k_n, n_layer), (k_r, r_layer) in zip(optim._model.model.state_dict().items(),
-                                                      researcher_optim._model.model.state_dict().items()):
+            for (k_n, n_layer), (k_r, r_layer) in zip(
+                optim._model.model.state_dict().items(),
+                researcher_optim._model.model.state_dict().items(),
+            ):
                 for n_val, r_val in zip(n_layer, r_layer):
                     self.assertTrue(torch.any(torch.isclose(n_val, r_val, atol=1e-3)))
 
             # compare values of scaffold correction states before and after encryptions
-            correct_states_before = aux_var['scaffold'].to_dict()['delta'].coefs
-            correct_states_after = researcher_optim.get_aux()['scaffold'].to_dict()['state'].coefs
-            for (k_before, before_layer), (k_after, after_layer) in zip(correct_states_before.items(), correct_states_after.items()):
+            correct_states_before = aux_var["scaffold"].to_dict()["delta"].coefs
+            correct_states_after = (
+                researcher_optim.get_aux()["scaffold"].to_dict()["state"].coefs
+            )
+            for (k_before, before_layer), (k_after, after_layer) in zip(
+                correct_states_before.items(), correct_states_after.items()
+            ):
                 for before_val, after_val in zip(before_layer, after_layer):
-                    self.assertTrue(torch.any(torch.isclose(before_val.cpu(), after_val.cpu(), atol=1e-3)))
+                    self.assertTrue(
+                        torch.any(
+                            torch.isclose(before_val.cpu(), after_val.cpu(), atol=1e-3)
+                        )
+                    )
 
 
-def _get_scaffold_optimizer_node( model, data, targets, loss_fct = torch.nn.MSELoss(), lr = .1):
-    optim = DeclearnOptimizer(model, 
-                              FedOptimizer(lr=lr, modules=[ScaffoldClientModule()]))
+def _get_scaffold_optimizer_node(
+    model, data, targets, loss_fct=torch.nn.MSELoss(), lr=0.1
+):
+    optim = DeclearnOptimizer(
+        model, FedOptimizer(lr=lr, modules=[ScaffoldClientModule()])
+    )
     optim.init_training()
     optim.zero_grad()
 
@@ -835,9 +970,10 @@ def _get_scaffold_optimizer_node( model, data, targets, loss_fct = torch.nn.MSEL
     return optim
 
 
-def _get_scaffold_optimizer_researcher(model, lr=.7):
-    researcher_optim = DeclearnOptimizer(model, 
-                                    FedOptimizer(lr=lr, modules=[ScaffoldServerModule()]))
+def _get_scaffold_optimizer_researcher(model, lr=0.7):
+    researcher_optim = DeclearnOptimizer(
+        model, FedOptimizer(lr=lr, modules=[ScaffoldServerModule()])
+    )
 
     for p in researcher_optim._model.model.parameters():
         p.data.fill_(0)
