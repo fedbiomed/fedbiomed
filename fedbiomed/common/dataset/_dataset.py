@@ -28,6 +28,7 @@ class Dataset(ABC):
 
     def __init__(
             self,
+            # See subclass: either `root` or `dataset` + `target`
             framework_transform : Transform = None,
             framework_target_transform : Transform = None,
             # Optional, per-dataset: implement (or not) generic transform (use same argument name)
