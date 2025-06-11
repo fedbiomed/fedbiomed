@@ -29,15 +29,15 @@ class PytorchDataLoader(TorchDataLoader, DataLoader):
     #   to be more explicit
 
 
-    #def __init__(self, dataset: TorchDataset, *args, **kwargs) -> None:
-    #    """Class constructor"""
-#
-    #@property
-    #def dataset(self) -> TorchDataset:
-    #    """Returns the encapsulated dataset"""
-#
-    #def __len__(self) -> int:
-    #    """Returns the length of the encapsulated dataset"""
-#
-    #def __iter__(self) -> _BaseDataLoaderIter:
-    #    """Returns an iterator over batches of data"""
+    # def __init__(self, dataset: TorchDataset, *args, **kwargs) -> None:
+    #     """Class constructor"""
+# 
+    # @property
+    # def dataset(self) -> TorchDataset:
+    #     """Returns the encapsulated dataset"""
+# 
+    # def __len__(self) -> int:
+    #     """Returns the length of the encapsulated dataset"""
+# 
+    # def __iter__(self) -> _BaseDataLoaderIter:
+    #     """Returns an iterator over batches of data"""
