@@ -9,41 +9,39 @@ from typing import Tuple
 from pathlib import Path
 
 from fedbiomed.common.dataset_types import DatasetDataItem
-from fedbiomed.common.dataset_reader import CsvReader, NiftiReader
 from ._controller import Controller
 
 
 class NewMedicalFolderController(Controller):
-
     def __init__(
-            self,
-            root: Path,
-            # Any other parameter ?
+        self,
+        root: Path,
+        # Any other parameter ?
     ) -> None:
         """Class constructor"""
-
 
     # Implement abstract methods
 
     def validate(self) -> None:
         pass
 
-    def _get_nontransformed_item(self, index: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
+    def _get_nontransformed_item(
+        self, index: int
+    ) -> Tuple[DatasetDataItem, DatasetDataItem]:
         pass
-
 
     # Notes for refactoring (from https://notes.inria.fr/aRJElvYmTFGNeU53HYJeCw?edit
     # "review MedicalFolderDataset implementation" )
     #
-    # 1. the following methods from MedicalFolderDataset should probably move 
+    # 1. the following methods from MedicalFolderDataset should probably move
     # to MedicalFolderController
     #
-    # demographics                       
-    # subjects_has_all_modalities        
-    # subjects_registered_in_demographics 
-    # load_images                         
-    # subject_folders                    
-    # shape                              
+    # demographics
+    # subjects_has_all_modalities
+    # subjects_registered_in_demographics
+    # load_images
+    # subject_folders
+    # shape
     #
     # 2. methods used as private should be made `private`
     # root (getter)
