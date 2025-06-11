@@ -10,36 +10,25 @@ from typing import Tuple, Dict
 from pathlib import Path
 
 from fedbiomed.common.dataset_reader import Reader
-from fedbiomed.common.dataset_types import (
-    DatasetDataItem,
-    DatasetShape,
-    DatasetData
-)
+from fedbiomed.common.dataset_types import DatasetDataItem, DatasetShape, DatasetData
 from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin
 
 
 class Controller(ABC, DataLoadingPlanMixin):
-
     # Possible implementation
     # key is a convenient name, internal to the class, for identifying a Reader
     # Enables common implementation, eg for `to_torch()`
-    _readers : Dict[str, Reader]
+    _readers: Dict[str, Reader]
 
     # Store dataset structure and metadata
     #
     # Nota: can use _get_nontransformed_item and/or Reader.shape
     # but shape part be more complicated than just querying `shape` of Readers
     # as some Controller may (eg) filter out incomplete samples
-    _dataset_data_meta  : DatasetData
+    _dataset_data_meta: DatasetData
 
-    def __init__(
-            self,
-            root: Path,
-            *args,
-            **kwargs
-    ) -> None:
+    def __init__(self, root: Path, *args, **kwargs) -> None:
         """Class constructor"""
-
 
     # Nota: no need to implement `static` method as in current MedicalFolderDataset
     #
@@ -47,7 +36,7 @@ class Controller(ABC, DataLoadingPlanMixin):
     # is not only validating coherence for each reader. Need to cross check data and
     # sample list of different modalities, which requires more code in this method
     # for this Dataset, plus support from the Reader
-    # 
+    #
     # Nota: validate is not only called at initialization of object. If we change DLP
     # then we may want to validate again with different DLP context (cf MedicalFolderDataset)
     @abstractmethod
@@ -77,9 +66,10 @@ class Controller(ABC, DataLoadingPlanMixin):
     # Cf current implementation of MedicalFolderDataset, uses Reader
     # Nota: includes filtering of DLP, not of transforms
     @abstractmethod
-    def _get_nontransformed_item(self, index: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
+    def _get_nontransformed_item(
+        self, index: int
+    ) -> Tuple[DatasetDataItem, DatasetDataItem]:
         """Retrieve a data sample without applying transforms"""
-
 
     # Additional methods for exploring data (folders, modalities, subjects),
     # depending on Reader

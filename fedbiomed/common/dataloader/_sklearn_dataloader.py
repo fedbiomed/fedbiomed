@@ -25,13 +25,10 @@ SkLearnDataLoaderSample = Tuple[SkLearnDataLoaderItem, SkLearnDataLoaderItem]
 
 # Iterable to be replaced by the class used, eg `_BatchIterator` currently
 
+
 class SkLearnDataLoader(DataLoader):
     def __init__(
-            self,
-            dataset: np.ndarray,
-            target: Optional[np.ndarray] = None,
-            *args,
-            **kwargs
+        self, dataset: np.ndarray, target: Optional[np.ndarray] = None, *args, **kwargs
     ) -> None:
         """Class constructor"""
 
