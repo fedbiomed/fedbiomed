@@ -13,10 +13,9 @@ from fedbiomed.common.dataset_types import DataReturnFormat, Transform, ReaderIt
 
 
 class Reader(ABC):
-
     # Implementation of native transform (or not) is specific to each reader
-    _native_transform : Transform = None
-    _native_target_transform : Transform = None
+    _native_transform: Transform = None
+    _native_target_transform: Transform = None
 
     # Possible implementation
     #
@@ -24,20 +23,18 @@ class Reader(ABC):
     #
     # Nota: `_to_format` also kept in `Dataset`. To avoid duplicating state variable,
     # we may prefer to implement passing this value as an argument for each `__getitem__` call
-    _to_format : DataReturnFormat = DataReturnFormat.GENERIC
+    _to_format: DataReturnFormat = DataReturnFormat.GENERIC
 
-
-    def __init__(
-            self,
-            root: Path,
-            # Optional, per-reader: implement (or not) native transform (use same argument name)
-            # native_transform : Transform = None,
-            # native_target_transform : Transform = None,
-            *args,
-            **kwargs
+    def __init__(  # noqa : B027  # method empty for now, not yet implemented
+        self,
+        root: Path,
+        # Optional, per-reader: implement (or not) native transform (use same argument name)
+        # native_transform : Transform = None,
+        # native_target_transform : Transform = None,
+        *args,
+        **kwargs,
     ) -> None:
         """Class constructor"""
-
 
     @abstractmethod
     def __len__(self) -> int:
@@ -61,7 +58,6 @@ class Reader(ABC):
     def shape(self) -> ReaderItemShape:
         """Returns shape of a data modality served by a reader"""
 
-
     # Optional methods which can be implemented (or not) by some readers
     # Code is specific to each reader
 
@@ -74,17 +70,15 @@ class Reader(ABC):
     # def getitem_by_tag(self, tag: str) -> Any:
     #    """Retrieve a data sample identified by an arbitrary string tag"""
 
-
     # def to_torch(self) -> None:
     #     """Request reader to return samples for a torch training plan
-    # """ 
-    # 
+    # """
+    #
     # def to_sklearn(self) -> None:
     #     """Request reader to return samples for a sklearn training plan
     # """
 
     # Nota: we could also implement a `to_native()` method in every dataset/reader,
     # but do we have a use case for that ?
-
 
     # Additional methods for exploring data, depending on Reader
