@@ -5,14 +5,10 @@
 Data Management factory class
 """
 
-
 from typing import Dict, Optional, Union, Any
 
-from fedbiomed.common.exceptions import FedbiomedDataManagerError
-from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.dataset import Dataset
-from ._torch_data_manager import TorchDataManager
-from ._sklearn_data_manager import SkLearnDataManager
 
 
 class DataManager(object):
@@ -32,12 +28,8 @@ class DataManager(object):
     #   NativeDataset (which checks if native data format is correct and can
     #   be handled, and raises an error if this is not the case).
     def __init__(
-        self,
-        dataset: Union[Dataset, Any],
-        target: Optional[Any] = None,
-        **kwargs: dict
+        self, dataset: Union[Dataset, Any], target: Optional[Any] = None, **kwargs: dict
     ) -> None:
-
         """Constructor of DataManager,
 
         Args:
@@ -72,10 +64,8 @@ class DataManager(object):
 
         """
 
-
     # Same as current implementation ?
     def __getattr__(self, item: str):
-
         """Wraps all functions/attributes of factory class members.
 
         Args:

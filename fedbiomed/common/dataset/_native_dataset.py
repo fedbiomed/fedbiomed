@@ -13,23 +13,21 @@ from fedbiomed.common.dataset import Dataset
 
 class NativeDataset(Dataset):
     def __init__(
-            self,
-            data: Any,
-            # Target is optional
-            target: Optional[Any] = None,
-            framework_transform : Transform = None,
-            framework_target_transform : Transform = None,
-            # Optional, per-dataset: implement (or not) generic transform (use same argument name)
-            # generic_transform : Transform = None,
-            # generic_target_transform : Transform = None,
-            # Optional, per dataset: implement native transforms (argument name may vary)
-            *args,
-            **kwargs
+        self,
+        data: Any,
+        # Target is optional
+        target: Optional[Any] = None,
+        framework_transform: Transform = None,
+        framework_target_transform: Transform = None,
+        # Optional, per-dataset: implement (or not) generic transform (use same argument name)
+        # generic_transform : Transform = None,
+        # generic_target_transform : Transform = None,
+        # Optional, per dataset: implement native transforms (argument name may vary)
+        *args,
+        **kwargs,
     ) -> None:
         """Class constructor"""
         super().__init__(framework_transform, *args, **kwargs)
-
-
 
     # Implement abstract methods
 
@@ -39,6 +37,5 @@ class NativeDataset(Dataset):
     # Nota: use Controller._get_nontransformed_item
     def __getitem__(self, index: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
         """Retrieve a data sample"""
-
 
     # Additional methods for exploring data (folders, modalities, subjects) ?
