@@ -9,6 +9,9 @@ from typing import Optional, List, Dict, Any, Union, Callable, Tuple
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
+import numpy as np
+import pandas as pd
+
 from fedbiomed.common.constants import _BaseEnum
 
 
@@ -51,7 +54,8 @@ class DataType(_BaseEnum):
 class DatasetDataItemModality:
     modality_name: str
     type: DataType
-    data: Any
+    # Q: are these exacly the types we want to use for generic format
+    data: Union[np.ndarray, pd.DataFrame]
 
 
 # Base type for `Dataset.__getitem__()` returning data in generic format
