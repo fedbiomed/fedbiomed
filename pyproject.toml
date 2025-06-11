@@ -248,13 +248,20 @@ docstring-code-format = false
 docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint]
-# 1. Enable flake8-bugbear (`B`) rules, in addition to the defaults.
-# https://github.com/PyCQA/flake8-bugbear
+# 1. Rules to be taken into account
 # https://www.flake8rules.com/
-select = ["E4", "E7", "E9", "F", "B", "I"]
+select = [
+	"E4", "E7", "E9",  # pycodestyle
+	"F",  # Pyflakes
+	"B",  # flake8-bugbear
+	"I",  # isort
+]
 
-# 2. Avoid enforcing line-length violations (`E501`)
-ignore = []
+# 2. Sub-rules to ignore from the list above
+ignore = [
+]
 
-# 3. Avoid trying to fix flake8-bugbear (`B`) violations.
-unfixable = ["B"]
+# 3. Avoid auto correction with --fix
+unfixable = [
+	"B",  #   flake8-bugbear (`B`) violations
+]
