@@ -5,7 +5,7 @@
 Dataset implementation for native dataset
 """
 
-from typing import Any, Tuple
+from typing import Any, Tuple, Optional
 
 from fedbiomed.common.dataset_types import Transform, DatasetDataItem
 from fedbiomed.common.dataset import Dataset
@@ -15,6 +15,8 @@ class NativeDataset(Dataset):
     def __init__(
             self,
             data: Any,
+            # Target is optional
+            target: Optional[Any] = None,
             framework_transform : Transform = None,
             framework_target_transform : Transform = None,
             # Optional, per-dataset: implement (or not) generic transform (use same argument name)
