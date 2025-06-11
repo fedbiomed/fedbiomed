@@ -7,7 +7,6 @@ from unittest.mock import ANY, MagicMock, patch
 from testsupport.base_mocks import MockRequestModule
 
 #############################################################
-import fedbiomed.researcher.secagg._secagg_context
 from fedbiomed.common.constants import SecaggElementTypes, __secagg_element_version__
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecaggError
 from fedbiomed.common.message import (
@@ -20,21 +19,18 @@ from fedbiomed.researcher.secagg import (
     SecaggServkeyContext,
 )
 
-test_id = 'researcher-test-id'
+test_id = "researcher-test-id"
 
-class BaseTestCaseSecaggContext(
-    unittest.TestCase, MockRequestModule
-):  # pylint: disable=missing-docstring
 
+class BaseTestCaseSecaggContext(unittest.TestCase, MockRequestModule):  # pylint: disable=missing-docstring
     def setUp(self) -> None:
-
         MockRequestModule.setUp(
             self, "fedbiomed.researcher.secagg._secagg_context.Requests"
         )
 
         # self.patch_requests = patch("fedbiomed.researcher.secagg._secagg_context.Requests")
         self.patch_skmanager = patch(
-            'fedbiomed.researcher.secagg._secagg_context.SecaggServkeyManager'
+            "fedbiomed.researcher.secagg._secagg_context.SecaggServkeyManager"
         )
         self.patch_skmanager_s = self.patch_skmanager.start()
         self.mock_skmanager = MagicMock()
@@ -50,10 +46,7 @@ class BaseTestCaseSecaggContext(
         super().tearDown()
 
 
-class TestBaseSecaggContext(
-    BaseTestCaseSecaggContext
-):  # pylint: disable=missing-class-docstring
-
+class TestBaseSecaggContext(BaseTestCaseSecaggContext):  # pylint: disable=missing-class-docstring
     create_round_specific_output: Tuple = (
         None,
         None,
@@ -79,9 +72,7 @@ class TestBaseSecaggContext(
         )
 
     @staticmethod
-    def create_round_specific(
-        msg, payload
-    ) -> Tuple:  # pylint: disable=unused-argument, missing-docstring
+    def create_round_specific(msg, payload) -> Tuple:  # pylint: disable=unused-argument, missing-docstring
         payload()
         return TestBaseSecaggContext.create_round_specific_output
 
@@ -102,7 +93,7 @@ class TestBaseSecaggContext(
             SecaggContext(
                 researcher_id=test_id,
                 parties=[test_id, 12, 12],
-                experiment_id="experiment-id"
+                experiment_id="experiment-id",
             )  # type: ignore
 
         # Failed with bad secagg_id
@@ -152,7 +143,7 @@ class TestBaseSecaggContext(
                 "secagg_id": "my_secagg_id",
                 "parties": [test_id, "TWO_PARTIES", "THREE_PARTIES"],
                 "experiment_id": "my_experiment_id",
-                "researcher_id": test_id
+                "researcher_id": test_id,
             },
             "attributes": {
                 "_status": False,
@@ -161,10 +152,7 @@ class TestBaseSecaggContext(
         }
 
 
-class TestSecaggServkeyContext(
-    BaseTestCaseSecaggContext
-):  # pylint: disable=missing-docstring
-
+class TestSecaggServkeyContext(BaseTestCaseSecaggContext):  # pylint: disable=missing-docstring
     reply = AdditiveSSSetupReply(
         **{
             "researcher_id": "xx",
@@ -177,7 +165,6 @@ class TestSecaggServkeyContext(
     )
 
     def setUp(self) -> None:
-
         super().setUp()
         self.parties = [test_id, "party2", "party3"]
 
@@ -299,10 +286,7 @@ class TestSecaggServkeyContext(
             self._secagg_key_context, loaded_secagg, same_obj_attr, same_inst_attr
         )
 
-    def check_similarities_in_obj(
-        self, obj1, obj2, same_obj_attr, same_instance_attr
-    ):  # pylint: disable=missing-docstring
-
+    def check_similarities_in_obj(self, obj1, obj2, same_obj_attr, same_instance_attr):  # pylint: disable=missing-docstring
         for attr in obj1.__dict__:
             attr1, attr2 = getattr(obj1, attr), getattr(obj2, attr)
             if attr in same_obj_attr and attr1 != attr2:
@@ -311,22 +295,22 @@ class TestSecaggServkeyContext(
                 self.assertIsInstance(attr1, type(attr2))
 
 
-class TestSecaggDHContext(
-    BaseTestCaseSecaggContext
-):  # pylint: disable=missing-docstring
-
+class TestSecaggDHContext(BaseTestCaseSecaggContext):  # pylint: disable=missing-docstring
     def setUp(self) -> None:
         super().setUp()
 
         self.dhmanager_p = patch(
-            'fedbiomed.researcher.secagg._secagg_context.SecaggDhManager'
+            "fedbiomed.researcher.secagg._secagg_context.SecaggDhManager"
         )
         self.dhmanager_p_s = self.dhmanager_p.start()
         self.dhmanager = MagicMock()
         self.dhmanager_p_s.return_value = self.dhmanager
 
         self.secagg_dhcontext = SecaggDHContext(
-            researcher_id=test_id, parties=["party2", "party3"], experiment_id="", secagg_id="secagg_id"
+            researcher_id=test_id,
+            parties=["party2", "party3"],
+            experiment_id="",
+            secagg_id="secagg_id",
         )
 
     def tearDown(self) -> None:
@@ -334,15 +318,15 @@ class TestSecaggDHContext(
         self.dhmanager_p.stop()
 
     def test_01_dhcontext_init_error_cases(self):
-
         with self.assertRaises(FedbiomedError):
             SecaggDHContext(
-                researcher_id=test_id, parties=["party2"],
-                experiment_id="exp_id", secagg_id="secagg_id"
+                researcher_id=test_id,
+                parties=["party2"],
+                experiment_id="exp_id",
+                secagg_id="secagg_id",
             )
 
     def test_03_dh_context_secagg_setup(self):
-
         self.mock_federated_request.replies.return_value = {
             "party1": SecaggReply(
                 **{
@@ -364,7 +348,10 @@ class TestSecaggDHContext(
             ),
         }
 
-        self.dhmanager.get.return_value = {"context":  {},  "parties": ["party2", "party3"]}
+        self.dhmanager.get.return_value = {
+            "context": {},
+            "parties": ["party2", "party3"],
+        }
 
         self.mock_federated_request.errors.return_value = None
         type(

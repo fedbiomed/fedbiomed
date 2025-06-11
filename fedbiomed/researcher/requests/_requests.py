@@ -15,11 +15,7 @@ from typing import Any, Dict, Callable, Union, List, Optional
 import tabulate
 from python_minifier import minify
 
-from fedbiomed.common.constants import (
-    MessageType,
-    CONFIG_FOLDER_NAME,
-    REQUEST_PREFIX
-)
+from fedbiomed.common.constants import MessageType, CONFIG_FOLDER_NAME, REQUEST_PREFIX
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     PingRequest,
@@ -27,7 +23,7 @@ from fedbiomed.common.message import (
     ApprovalRequest,
     SearchRequest,
     ErrorMessage,
-    Message
+    Message,
 )
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.training_plans import BaseTrainingPlan
@@ -48,11 +44,11 @@ REQUEST_STATUS_CHECK_TIMEOUT = 0.5
 
 class MessagesByNode(dict):
     """Type to defined messages by node"""
+
     pass
 
 
 class Request:
-
     def __init__(
         self,
         message: Message,
@@ -135,11 +131,12 @@ class FederatedRequest:
     This class has been design to be send a request and wait until a
     response is received
     """
+
     def __init__(
         self,
         message: Union[Message, MessagesByNode],
         nodes: List[NodeAgent],
-        policy: Optional[List[RequestPolicy]] = None
+        policy: Optional[List[RequestPolicy]] = None,
     ):
         """Constructor of the class.
 
@@ -165,7 +162,9 @@ class FederatedRequest:
         if isinstance(self._message, Message):
             for node in self._nodes:
                 self._requests.append(
-                    Request(self._message, node, self._pending_replies, self._request_id)
+                    Request(
+                        self._message, node, self._pending_replies, self._request_id
+                    )
                 )
 
         # Different message for each node
@@ -176,7 +175,9 @@ class FederatedRequest:
                         Request(m, node, self._pending_replies, self._request_id)
                     )
                 else:
-                    logger.warning(f"Node {node.id} is unknown. Send message to others, ignore this one.")
+                    logger.warning(
+                        f"Node {node.id} is unknown. Send message to others, ignore this one."
+                    )
 
     @property
     def policy(self) -> PolicyController:
@@ -271,13 +272,13 @@ class Requests(metaclass=SingletonMeta):
         """
         self._monitor_message_callback = None
 
-        server_host=config.get('server', 'host')
-        server_port=config.get('server', 'port')
-        cert_priv=os.path.join(
-                config.root, CONFIG_FOLDER_NAME, config.get('certificate', 'private_key')
+        server_host = config.get("server", "host")
+        server_port = config.get("server", "port")
+        cert_priv = os.path.join(
+            config.root, CONFIG_FOLDER_NAME, config.get("certificate", "private_key")
         )
-        cert_pub=os.path.join(
-                config.root, CONFIG_FOLDER_NAME, config.get('certificate', 'public_key')
+        cert_pub = os.path.join(
+            config.root, CONFIG_FOLDER_NAME, config.get("certificate", "public_key")
         )
 
         # Creates grpc server and starts it
@@ -286,20 +287,17 @@ class Requests(metaclass=SingletonMeta):
             host=server_host,
             port=server_port,
             on_message=self.on_message,
-            ssl=SSLCredentials(
-                key=cert_priv,
-                cert=cert_pub)
-
+            ssl=SSLCredentials(key=cert_priv, cert=cert_pub),
         )
         self.start_messaging()
 
-
     def start_messaging(self) -> None:
-        """Start communications endpoint
-        """
+        """Start communications endpoint"""
         self._grpc_server.start()
 
-    def on_message(self, msg: Union[Dict[str, Any], Message], type_: MessageType) -> None:
+    def on_message(
+        self, msg: Union[Dict[str, Any], Message], type_: MessageType
+    ) -> None:
         """Handles arbitrary messages received from the remote agents
 
         This callback is only used for feedback messages from nodes (logs, experiment
@@ -339,31 +337,37 @@ class Requests(metaclass=SingletonMeta):
         original_msg = json.loads(log["msg"])
 
         # Loging fancy feedback for training
-        logger.info("\033[1m{}\033[0m\n"
-                    "\t\t\t\t\t\033[1m NODE\033[0m {}\n"
-                    "\t\t\t\t\t\033[1m MESSAGE:\033[0m {}\033[0m\n"
-                    "{}".format(log["level"],
-                                log["node_id"],
-                                original_msg["message"],
-                                5 * "-------------"))
+        logger.info(
+            "\033[1m{}\033[0m\n"
+            "\t\t\t\t\t\033[1m NODE\033[0m {}\n"
+            "\t\t\t\t\t\033[1m MESSAGE:\033[0m {}\033[0m\n"
+            "{}".format(
+                log["level"],
+                log["node_id"],
+                original_msg["message"],
+                5 * "-------------",
+            )
+        )
 
     def ping_nodes(self) -> list:
-        """ Pings online nodes
+        """Pings online nodes
 
         Returns:
             List of ID of up and running nodes
         """
         ping = PingRequest(researcher_id=self._researcher_id)
         with self.send(ping, policies=[DiscardOnTimeout(5)]) as federated_req:
-            nodes_online = [node_id for node_id, reply in federated_req.replies().items()]
+            nodes_online = [
+                node_id for node_id, reply in federated_req.replies().items()
+            ]
 
         return nodes_online
 
     def send(
-            self,
-            message: Union[Message, MessagesByNode],
-            nodes: Optional[List[str]] = None,
-            policies: List[RequestPolicy] = None
+        self,
+        message: Union[Message, MessagesByNode],
+        nodes: Optional[List[str]] = None,
+        policies: List[RequestPolicy] = None,
     ) -> FederatedRequest:
         """Sends federated request to given nodes with given message
 
@@ -401,21 +405,24 @@ class Requests(metaclass=SingletonMeta):
 
         data_found = {}
         with self.send(message, nodes, policies=[DiscardOnTimeout(5)]) as federated_req:
-
             for node_id, reply in federated_req.replies().items():
                 if reply.databases:
                     data_found[node_id] = reply.databases
-                    logger.info('Node selected for training -> {}'.format(reply.node_id))
+                    logger.info(
+                        "Node selected for training -> {}".format(reply.node_id)
+                    )
 
             for node_id, error in federated_req.errors().items():
-                logger.warning(f"Node {node_id} has returned error from search request {error.extra_msg}")
-
+                logger.warning(
+                    f"Node {node_id} has returned error from search request {error.extra_msg}"
+                )
 
             if not data_found:
-                logger.info("No available dataset has found in nodes with tags: {}".format(tags))
+                logger.info(
+                    "No available dataset has found in nodes with tags: {}".format(tags)
+                )
 
         return data_found
-
 
     def list(self, nodes: Optional[list] = None, verbose: bool = False) -> dict:
         """Lists available data in each node
@@ -440,20 +447,28 @@ class Requests(metaclass=SingletonMeta):
                 if len(data_found[node]) > 0:
                     rows = [row.values() for row in data_found[node]]
                     headers = data_found[node][0].keys()
-                    info = '\n Node: {} | Number of Datasets: {} \n'.format(node, len(data_found[node]))
-                    logger.info(info + tabulate.tabulate(rows, headers, tablefmt="grid") + '\n')
+                    info = "\n Node: {} | Number of Datasets: {} \n".format(
+                        node, len(data_found[node])
+                    )
+                    logger.info(
+                        info + tabulate.tabulate(rows, headers, tablefmt="grid") + "\n"
+                    )
                 else:
-                    logger.info('\n Node: {} | Number of Datasets: {}'.format(node, len(data_found[node])) +
-                                " No data has been set up for this node.")
+                    logger.info(
+                        "\n Node: {} | Number of Datasets: {}".format(
+                            node, len(data_found[node])
+                        )
+                        + " No data has been set up for this node."
+                    )
 
         return data_found
 
     def training_plan_approve(
-            self,
-            training_plan: BaseTrainingPlan,
-            description: str = "no description provided",
-            nodes: Optional[List[str]] = None,
-            policies: Optional[List] = None
+        self,
+        training_plan: BaseTrainingPlan,
+        description: str = "no description provided",
+        nodes: Optional[List[str]] = None,
+        policies: Optional[List] = None,
     ) -> dict:
         """Send a training plan and a ApprovalRequest message to node(s).
 
@@ -474,9 +489,9 @@ class Requests(metaclass=SingletonMeta):
         """
 
         training_plan_instance = training_plan
-        training_plan_module = 'model_' + str(uuid.uuid4())
+        training_plan_module = "model_" + str(uuid.uuid4())
         with tempfile.TemporaryDirectory() as tmp_dir:
-            training_plan_file = os.path.join(tmp_dir, training_plan_module + '.py')
+            training_plan_file = os.path.join(tmp_dir, training_plan_module + ".py")
             try:
                 training_plan_instance.save_code(training_plan_file)
             except Exception as e:
@@ -485,20 +500,23 @@ class Requests(metaclass=SingletonMeta):
 
             try:
                 _, training_plan_instance = import_class_object_from_file(
-                    training_plan_file, training_plan.__class__.__name__)
+                    training_plan_file, training_plan.__class__.__name__
+                )
                 tp_source = training_plan_instance.source()
             except Exception as e:
                 logger.error(f"Cannot instantiate the training plan: {e}")
                 return {}
 
         try:
-            minify(tp_source,
-                   remove_annotations=False,
-                   combine_imports=False,
-                   remove_pass=False,
-                   hoist_literals=False,
-                   remove_object_base=True,
-                   rename_locals=False)
+            minify(
+                tp_source,
+                remove_annotations=False,
+                combine_imports=False,
+                remove_pass=False,
+                hoist_literals=False,
+                remove_object_base=True,
+                rename_locals=False,
+            )
         except Exception as e:
             # minify does not provide any specific exception
             logger.error(f"This file is not a python file ({e})")
@@ -508,7 +526,8 @@ class Requests(metaclass=SingletonMeta):
         message = ApprovalRequest(
             researcher_id=self._researcher_id,
             description=str(description),
-            training_plan=tp_source)
+            training_plan=tp_source,
+        )
 
         with self.send(message, nodes, policies=policies) as federated_req:
             errors = federated_req.errors()
@@ -517,12 +536,14 @@ class Requests(metaclass=SingletonMeta):
 
             # TODO: Loop over errors and replies
             for node_id, error in errors.items():
-                logger.info(f"Node ({node_id}) has returned error {error.errnum}, {error.extra_msg}")
+                logger.info(
+                    f"Node ({node_id}) has returned error {error.errnum}, {error.extra_msg}"
+                )
 
         return {id: rep.get_dict() for id, rep in replies.items()}
 
     def add_monitor_callback(self, callback: Callable[[Dict], None]):
-        """ Adds callback function for monitor messages
+        """Adds callback function for monitor messages
 
         Args:
             callback: Callback function for handling monitor messages that come due 'general/monitoring' channel
@@ -531,6 +552,6 @@ class Requests(metaclass=SingletonMeta):
         self._monitor_message_callback = callback
 
     def remove_monitor_callback(self):
-        """ Removes callback function for Monitor class. """
+        """Removes callback function for Monitor class."""
 
         self._monitor_message_callback = None

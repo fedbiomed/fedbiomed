@@ -35,9 +35,9 @@ class DPController:
         if self._is_active:
             self._configure_dp_args()
 
-    def before_training(self,
-                        optimizer: NativeTorchOptimizer,
-                        loader: DataLoader) -> Tuple[NativeTorchOptimizer, DPDataLoader]:
+    def before_training(
+        self, optimizer: NativeTorchOptimizer, loader: DataLoader
+    ) -> Tuple[NativeTorchOptimizer, DPDataLoader]:
         """DP action before starting training.
 
         Args:
@@ -48,26 +48,27 @@ class DPController:
             Differential privacy applied Optimizer and data loader
         """
 
-
         if self._is_active:
             if not isinstance(optimizer.optimizer, torch.optim.Optimizer):
                 raise FedbiomedDPControllerError(
                     f"{ErrorNumbers.FB616.value}: "
                     f"Optimizer must be an instance of torch.optim.Optimizer, but got {optimizer}"
                     "\nDeclearn optimizers are not yet compatible with Differential Privacy"
-            )
+                )
             if not isinstance(loader, DataLoader):
                 raise FedbiomedDPControllerError(
                     f"{ErrorNumbers.FB616.value}: "
                     "Data loader must be an instance of torch.utils.data.DataLoader"
                 )
             try:
-                optimizer._model.model, optimizer.optimizer, loader = self._privacy_engine.make_private(
-                    module=optimizer._model.model,
-                    optimizer=optimizer.optimizer,
-                    data_loader=loader,
-                    noise_multiplier=float(self._dp_args['sigma']),
-                    max_grad_norm=float(self._dp_args['clip'])
+                optimizer._model.model, optimizer.optimizer, loader = (
+                    self._privacy_engine.make_private(
+                        module=optimizer._model.model,
+                        optimizer=optimizer.optimizer,
+                        data_loader=loader,
+                        noise_multiplier=float(self._dp_args["sigma"]),
+                        max_grad_norm=float(self._dp_args["clip"]),
+                    )
                 )
             except Exception as e:
                 raise FedbiomedDPControllerError(
@@ -89,7 +90,7 @@ class DPController:
         return params
 
     def _configure_dp_args(self) -> None:
-        """Initialize arguments to perform DP training. """
+        """Initialize arguments to perform DP training."""
         self._dp_args = DPArgsValidator.populate_with_defaults(
             self._dp_args, only_required=False
         )
@@ -99,9 +100,9 @@ class DPController:
             raise FedbiomedDPControllerError(
                 f"{ErrorNumbers.FB616.value}: DP arguments are not valid: {e}"
             )
-        if self._dp_args['type'] == 'central':
-            self._dp_args['sigma_CDP'] = self._dp_args['sigma']
-            self._dp_args['sigma'] = 0.
+        if self._dp_args["type"] == "central":
+            self._dp_args["sigma_CDP"] = self._dp_args["sigma"]
+            self._dp_args["sigma"] = 0.0
 
     def validate_and_fix_model(self, model: Module) -> Module:
         """Validate and Fix model to be DP-compliant.
@@ -135,7 +136,9 @@ class DPController:
             alpha: Calculated epsilon alpha for privacy budget
         """
         # To be used by the nodes to assess budget locally
-        eps, alpha = self._privacy_engine.accountant.get_privacy_spent(delta=.1 / len(loader))
+        eps, alpha = self._privacy_engine.accountant.get_privacy_spent(
+            delta=0.1 / len(loader)
+        )
         return eps, alpha
 
     def _postprocess_dp(self, params: Dict) -> Dict:
@@ -156,14 +159,11 @@ class DPController:
             Contains (post processed) parameters
         """
         # Rename parameters when needed.
-        params = {
-            key.replace('_module.', ''): param
-            for key, param in params.items()
-        }
+        params = {key.replace("_module.", ""): param for key, param in params.items()}
         # When using central DP, postprocess the parameters.
-        if self._dp_args['type'] == 'central':
-            sigma = self._dp_args['sigma_CDP']
+        if self._dp_args["type"] == "central":
+            sigma = self._dp_args["sigma_CDP"]
             for key, param in params.items():
-                noise = sigma * self._dp_args['clip'] * torch.randn_like(param)
+                noise = sigma * self._dp_args["clip"] * torch.randn_like(param)
                 params[key] = param + noise
         return params

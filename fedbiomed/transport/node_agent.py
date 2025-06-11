@@ -5,7 +5,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Awaitable, Callable, Dict, Optional
 
-import grpc
 
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import Message, OverlayMessage
@@ -34,7 +33,6 @@ class Replies(dict):
 
 
 class NodeAgentAsync:
-
     def __init__(
         self,
         id: str,
@@ -205,7 +203,6 @@ class NodeAgentAsync:
         """Updates node status as active"""
 
         async with self._status_lock:
-
             # Inform user that node is online again
             if self._status == NodeActiveStatus.DISCONNECTED:
                 logger.info(f"Node {self._id} is back online!")
@@ -253,7 +250,6 @@ class NodeAgentAsync:
 
 
 class NodeAgent(NodeAgentAsync):
-
     @property
     def status(self) -> NodeActiveStatus:
         """Getter for node status.

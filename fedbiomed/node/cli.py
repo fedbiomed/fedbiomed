@@ -21,7 +21,7 @@ from pathlib import Path
 
 
 from fedbiomed.node.node import Node
-from fedbiomed.node.config import NodeConfig, node_component
+from fedbiomed.node.config import node_component
 
 
 from fedbiomed.common.constants import NODE_DATA_FOLDER, ErrorNumbers, ComponentType
@@ -42,9 +42,8 @@ from fedbiomed.node.cli_utils import (
     update_training_plan,
     approve_training_plan,
     view_training_plan,
-    delete_training_plan
+    delete_training_plan,
 )
-import fedbiomed
 
 # Please use following code genereate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -66,15 +65,11 @@ def intro():
     """Prints intro for the CLI"""
 
     print(__intro__)
-    print('\t- 🆔 Your node ID:', os.environ['FEDBIOMED_ACTIVE_NODE_ID'], '\n')
-
-
-
+    print("\t- 🆔 Your node ID:", os.environ["FEDBIOMED_ACTIVE_NODE_ID"], "\n")
 
 
 def _node_signal_trigger_term() -> None:
-    """Triggers a TERM signal to the current process
-    """
+    """Triggers a TERM signal to the current process"""
     os.kill(os.getpid(), signal.SIGTERM)
 
 
@@ -105,15 +100,21 @@ def start_node(config, node_args):
 
         try:
             if _node and _node.is_connected():
-                _node.send_error(ErrorNumbers.FB312,
-                                 extra_msg = "Node is stopped",
-                                 broadcast=True)
+                _node.send_error(
+                    ErrorNumbers.FB312, extra_msg="Node is stopped", broadcast=True
+                )
                 time.sleep(2)
-                logger.critical("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
+                logger.critical(
+                    "Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)"
+                )
             else:
                 # take care of logger level used because message cannot be sent to node
-                logger.info("Cannot send error message to researcher (node not initialized yet)")
-                logger.info("Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)")
+                logger.info(
+                    "Cannot send error message to researcher (node not initialized yet)"
+                )
+                logger.info(
+                    "Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)"
+                )
         finally:
             # give some time to send messages to the researcher
             time.sleep(0.5)
@@ -121,28 +122,29 @@ def start_node(config, node_args):
 
     logger.setLevel("DEBUG")
 
-
     try:
         signal.signal(signal.SIGTERM, _node_signal_handler)
-        logger.info('Launching node...')
+        logger.info("Launching node...")
 
         # Register default training plans and update hashes
-        if _node.config.getbool('security', 'training_plan_approval'):
+        if _node.config.getbool("security", "training_plan_approval"):
             # This methods updates hashes if hashing algorithm has changed
             _node.tp_security_manager.check_hashes_for_registered_training_plans()
-            if _node.config.getbool('security', 'allow_default_training_plans'):
-                logger.info('Loading default training plans')
+            if _node.config.getbool("security", "allow_default_training_plans"):
+                logger.info("Loading default training plans")
                 _node.tp_security_manager.register_update_default_training_plans()
         else:
-            logger.warning('Training plan approval for train request is not activated. ' +
-                           'This might cause security problems. Please, consider to enable training plan approval.')
+            logger.warning(
+                "Training plan approval for train request is not activated. "
+                + "This might cause security problems. Please, consider to enable training plan approval."
+            )
 
-        logger.info('Starting communication channel with network')
+        logger.info("Starting communication channel with network")
 
         _node.start_messaging(_node_signal_trigger_term)
-        logger.info('Starting node to node router')
+        logger.info("Starting node to node router")
         _node.start_protocol()
-        logger.info('Starting task manager')
+        logger.info("Starting task manager")
         _node.task_manager()  # handling training tasks in queue
 
     except FedbiomedError as exp:
@@ -156,7 +158,6 @@ def start_node(config, node_args):
         logger.critical(f"Node stopped. {exp}")
 
 
-
 class DatasetArgumentParser(CLIArgumentParser):
     """Initializes CLI options for dataset actions"""
 
@@ -166,44 +167,35 @@ class DatasetArgumentParser(CLIArgumentParser):
     def initialize(self):
         """Initializes dataset options for the node CLI"""
 
-        self._parser = self._subparser.add_parser(
-            "dataset",
-            help="Dataset operations"
-        )
+        self._parser = self._subparser.add_parser("dataset", help="Dataset operations")
         self._parser.set_defaults(func=self.default)
-
 
         # Creates subparser of dataset option
         dataset_subparsers = self._parser.add_subparsers()
 
-
         # Add option
-        add = dataset_subparsers.add_parser(
-            "add",
-            help="Adds dataset"
-        )
+        add = dataset_subparsers.add_parser("add", help="Adds dataset")
         add.set_defaults(func=self.add)
 
         # List option
         list_ = dataset_subparsers.add_parser(
-            "list",
-            help="List datasets that are deployed in the node.")
+            "list", help="List datasets that are deployed in the node."
+        )
 
         # Delete option
         delete = dataset_subparsers.add_parser(
-            "delete",
-            help="Deletes dataset that are deployed in the node.")
-
+            "delete", help="Deletes dataset that are deployed in the node."
+        )
 
         add.add_argument(
             "--mnist",
             "-m",
             metavar="MNIST_DATA_PATH",
             help="Deploys MNIST dataset by downloading form default source to given path.",
-            nargs='?',
+            nargs="?",
             type=str,
             required=False,
-            default=""
+            default="",
         )
         self._mnist_path = add
 
@@ -213,22 +205,24 @@ class DatasetArgumentParser(CLIArgumentParser):
             required=False,
             metavar="File that describes the dataset",
             help="File path the dataset file description. This option adds dataset by given file which has"
-                 "custom format that describes the dataset.")
+            "custom format that describes the dataset.",
+        )
 
         delete.add_argument(
             "--all",
-            '-a',
+            "-a",
             required=False,
             action="store_true",
-            help="Removes entire dataset database.")
+            help="Removes entire dataset database.",
+        )
 
         delete.add_argument(
             "--mnist",
-            '-m',
+            "-m",
             required=False,
             action="store_true",
-            help="Removes MNIST dataset.")
-
+            help="Removes MNIST dataset.",
+        )
 
         list_.set_defaults(func=self.list)
         delete.set_defaults(func=self.delete)
@@ -242,9 +236,7 @@ class DatasetArgumentParser(CLIArgumentParser):
             else:
                 mnist_path = args.mnist
             return add_database(
-                self._node.dataset_manager,
-                interactive=False,
-                path=mnist_path
+                self._node.dataset_manager, interactive=False, path=mnist_path
             )
 
         if args.file:
@@ -259,10 +251,10 @@ class DatasetArgumentParser(CLIArgumentParser):
         Args:
           unused_args: Empty arguments since `list` command no positional args.
         """
-        print('Listing your data available')
+        print("Listing your data available")
         data = self._node.dataset_manager.list_my_data(verbose=True)
         if len(data) == 0:
-            print('No data has been set up.')
+            print("No data has been set up.")
 
     def delete(self, args):
         """Deletes datasets"""
@@ -276,7 +268,6 @@ class DatasetArgumentParser(CLIArgumentParser):
         return delete_database(self._node.dataset_manager)
 
     def _add_dataset_from_file(self, path):
-
         print("Dataset description file provided: adding these data")
         try:
             with open(path) as json_file:
@@ -322,7 +313,7 @@ class DatasetArgumentParser(CLIArgumentParser):
             description=data["description"],
             tags=data["tags"],
             name=data["name"],
-            dataset_parameters=data.get("dataset_parameters")
+            dataset_parameters=data.get("dataset_parameters"),
         )
 
 
@@ -332,25 +323,22 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
     _node: Node
 
     def initialize(self):
-
         self._parser = self._subparser.add_parser(
             "training-plan",
-            help="CLI operations for TrainingPlans register/list/delete/approve/reject etc."
+            help="CLI operations for TrainingPlans register/list/delete/approve/reject etc.",
         )
 
         training_plan_suparsers = self._parser.add_subparsers()
         self._parser.set_defaults(func=self.default)
 
-
         common_reject_approve = argparse.ArgumentParser(add_help=False)
         common_reject_approve.add_argument(
-            '--id',
+            "--id",
             type=str,
-            nargs='?',
+            nargs="?",
             required=False,
-            help='ID of the training plan that will be processed.'
+            help="ID of the training plan that will be processed.",
         )
-
 
         update = training_plan_suparsers.add_parser(
             "update", help="Updates training plan"
@@ -358,30 +346,35 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
         update.set_defaults(func=self.update)
 
         register = training_plan_suparsers.add_parser(
-            "register", help="Registers training plans manually by selected file thorugh interactive browser."
+            "register",
+            help="Registers training plans manually by selected file thorugh interactive browser.",
         )
         register.set_defaults(func=self.register)
 
         list = training_plan_suparsers.add_parser(
-            "list", help="Lists all saved/registered training plans with their status.")
+            "list", help="Lists all saved/registered training plans with their status."
+        )
         list.set_defaults(func=self.list)
 
         delete = training_plan_suparsers.add_parser(
             "delete",
             parents=[common_reject_approve],
-            help="Deletes interactively selected training plan from the database.")
+            help="Deletes interactively selected training plan from the database.",
+        )
         delete.set_defaults(func=self.delete)
 
         approve = training_plan_suparsers.add_parser(
             "approve",
             parents=[common_reject_approve],
-            help="Approves interactively selected training plans.")
+            help="Approves interactively selected training plans.",
+        )
         approve.set_defaults(func=self.approve)
 
         reject = training_plan_suparsers.add_parser(
             "reject",
             parents=[common_reject_approve],
-            help="Rejects interactively selected training plans.")
+            help="Rejects interactively selected training plans.",
+        )
 
         reject.add_argument(
             "--notes",
@@ -389,12 +382,13 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
             nargs="?",
             required=False,
             default="No notes provided.",
-            help="Note to explain why training plan is rejected."
+            help="Note to explain why training plan is rejected.",
         )
         reject.set_defaults(func=self.reject)
 
         view = training_plan_suparsers.add_parser(
-            "view", help="View interactively selected training plans.")
+            "view", help="View interactively selected training plans."
+        )
         view.set_defaults(func=self.view)
 
     def delete(self, args):
@@ -419,7 +413,9 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
 
     def reject(self, args):
         """Approves training plan"""
-        reject_training_plan(self._node.tp_security_manager, id=args.id, notes=args.notes)
+        reject_training_plan(
+            self._node.tp_security_manager, id=args.id, notes=args.notes
+        )
 
     def update(self):
         """Updates training plan"""
@@ -439,7 +435,8 @@ class NodeControl(CLIArgumentParser):
         start.add_argument(
             "--gpu",
             action="store_true",
-            help="Activate GPU usage if the flag is present")
+            help="Activate GPU usage if the flag is present",
+        )
 
         start.add_argument(
             "--gpu-num",
@@ -448,15 +445,16 @@ class NodeControl(CLIArgumentParser):
             nargs="?",
             required=False,
             default=1,
-            help="Number of GPU that is going to be used")
+            help="Number of GPU that is going to be used",
+        )
 
         start.add_argument(
             "--gpu-only",
             "-go",
             action="store_true",
             help="Node performs training only using GPU resources."
-                 "This flag automatically activate GPU.")
-
+            "This flag automatically activate GPU.",
+        )
 
     def start(self, args):
         """Starts the node"""
@@ -466,21 +464,22 @@ class NodeControl(CLIArgumentParser):
         node_args = {
             "gpu": (args.gpu is True) or (args.gpu_only is True),
             "gpu_num": args.gpu_num,
-            "gpu_only": True if args.gpu_only else False}
+            "gpu_only": True if args.gpu_only else False,
+        }
 
         # Node instance has to be re-instantiated in start_node
         # It is because Process can only pickle pure python objects
         p = Process(
             target=start_node,
-            name=f'node-{self._node.config.get("default", "id")}',
-            args=(self._node.config, node_args)
+            name=f"node-{self._node.config.get('default', 'id')}",
+            args=(self._node.config, node_args),
         )
         p.deamon = True
         p.start()
 
         logger.info("Node started as process with pid = " + str(p.pid))
         try:
-            print('To stop press Ctrl + C.')
+            print("To stop press Ctrl + C.")
             p.join()
         except KeyboardInterrupt:
             p.terminate()
@@ -488,27 +487,26 @@ class NodeControl(CLIArgumentParser):
             while p.is_alive():
                 logger.info("Terminating process id =" + str(p.pid))
                 time.sleep(1)
-            logger.info('Exited with code ' + str(p.exitcode))
+            logger.info("Exited with code " + str(p.exitcode))
             sys.exit(0)
 
 
 class GUIControl(CLIArgumentParser):
-
     _node: Node
+
     def initialize(self):
         """Initializes GUI commands"""
         self._parser = self._subparser.add_parser(
-            "gui", #add_help=False,
-             help="Action to manage Node user interface"
+            "gui",  # add_help=False,
+            help="Action to manage Node user interface",
         )
 
-        gui_subparsers = self._parser.add_subparsers(title='start GUI')
+        gui_subparsers = self._parser.add_subparsers(title="start GUI")
         start = gui_subparsers.add_parser(
-            'start',
-            help='Launch the server (defaults on localhost:8484)')
+            "start", help="Launch the server (defaults on localhost:8484)"
+        )
 
         start.set_defaults(func=self.forward)
-
 
         start.add_argument(
             "--data-folder",
@@ -516,7 +514,8 @@ class GUIControl(CLIArgumentParser):
             type=str,
             nargs="?",
             default="",  # data folder in root directory
-            required=False)
+            required=False,
+        )
 
         start.add_argument(
             "--cert-file",
@@ -525,7 +524,8 @@ class GUIControl(CLIArgumentParser):
             nargs="?",
             required=False,
             help="Name of the certificate to use in order to enable HTTPS. "
-                 "If cert file doesn't exist script will raise an error.")
+            "If cert file doesn't exist script will raise an error.",
+        )
 
         start.add_argument(
             "--key-file",
@@ -534,7 +534,8 @@ class GUIControl(CLIArgumentParser):
             nargs="?",
             required=False,
             help="Name of the private key for the SSL certificate. "
-                 "If the key file doesn't exist, the script will raise an error.")
+            "If the key file doesn't exist, the script will raise an error.",
+        )
 
         start.add_argument(
             "--port",
@@ -543,7 +544,8 @@ class GUIControl(CLIArgumentParser):
             nargs="?",
             default="8484",
             required=False,
-            help="HTTP port that GUI will be served. Default is `8484`")
+            help="HTTP port that GUI will be served. Default is `8484`",
+        )
 
         start.add_argument(
             "--host",
@@ -552,30 +554,32 @@ class GUIControl(CLIArgumentParser):
             default="localhost",
             nargs="?",
             required=False,
-            help="HTTP port that GUI will be served. Default is `127.0.0.1` (localhost)")
+            help="HTTP port that GUI will be served. Default is `127.0.0.1` (localhost)",
+        )
 
         start.add_argument(
             "--debug",
             "-dbg",
             action="store_true",
             required=False,
-            help="HTTP port that GUI will be served. Default is `8484`")
+            help="HTTP port that GUI will be served. Default is `8484`",
+        )
 
         start.add_argument(
             "--recreate",
             "-rc",
             action="store_true",
             required=False,
-            help="Re-creates gui build")
+            help="Re-creates gui build",
+        )
 
         start.add_argument(
             "--development",
             "-dev",
             action="store_true",
             required=False,
-            help="If it is set, GUI will start in development mode."
+            help="If it is set, GUI will start in development mode.",
         )
-
 
     def forward(self, args: argparse.Namespace, extra_args):
         """Launches Fed-BioMed Node GUI
@@ -586,23 +590,24 @@ class GUIControl(CLIArgumentParser):
 
         fedbiomed_root = os.path.abspath(args.path)
 
-        if args.data_folder == '':
+        if args.data_folder == "":
             data_folder = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
         else:
             data_folder = os.path.abspath(args.data_folder)
         if not os.path.isdir(data_folder):
             raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")
-        os.environ.update({
-            "DATA_PATH": data_folder,
-            "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
-        })
+        os.environ.update(
+            {
+                "DATA_PATH": data_folder,
+                "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
+            }
+        )
         current_env = os.environ.copy()
 
         if args.key_file and args.cert_file:
-            certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file ]
+            certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file]
         else:
             certificate = []
-
 
         fedbiomed_gui = importlib.import_module("fedbiomed_gui")
         server_app = Path(fedbiomed_gui.__file__).parent
@@ -612,12 +617,11 @@ class GUIControl(CLIArgumentParser):
         if args.development:
             command = [
                 "FLASK_ENV=development",
-                f"FLASK_APP="
-                f"{os.path.join(server_app, 'server', 'wsgi.py')}",
+                f"FLASK_APP={os.path.join(server_app, 'server', 'wsgi.py')}",
                 "flask",
                 "run",
                 *host_port,
-                *certificate
+                *certificate,
             ]
         else:
             command = [
@@ -630,23 +634,24 @@ class GUIControl(CLIArgumentParser):
                 f"{args.host}:{args.port}",
                 "--access-logfile",
                 "-",
-                "fedbiomed_gui.server.wsgi:app"
+                "fedbiomed_gui.server.wsgi:app",
             ]
 
         try:
-            with subprocess.Popen(" ".join(command), env=current_env, shell=True) as proc:
+            with subprocess.Popen(
+                " ".join(command), env=current_env, shell=True
+            ) as proc:
                 proc.wait()
         except Exception as e:
             print(e)
 
 
 class NodeCLI(CommonCLI):
-
     _arg_parsers_classes: List[type] = [
         NodeControl,
         DatasetArgumentParser,
         TrainingPlanArgumentParser,
-        GUIControl
+        GUIControl,
     ]
     _arg_parsers: Dict[str, CLIArgumentParser] = {}
 
@@ -662,7 +667,6 @@ class NodeCLI(CommonCLI):
         """Initializes node module"""
 
         class ComponentDirectoryActionNode(ComponentDirectoryAction):
-
             _this = self
             _component = ComponentType.NODE
 
@@ -673,8 +677,10 @@ class NodeCLI(CommonCLI):
                     component_dir = os.path.abspath(component_dir)
                     os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
                 else:
-                    print("Component is not specified: Using 'fbm-node' in current working directory...")
-                    component_dir =  os.path.join(os.getcwd(), 'fbm-node')
+                    print(
+                        "Component is not specified: Using 'fbm-node' in current working directory..."
+                    )
+                    component_dir = os.path.join(os.getcwd(), "fbm-node")
                     os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
 
                 config = node_component.initiate(component_dir)
@@ -682,13 +688,17 @@ class NodeCLI(CommonCLI):
                 node = Node(config)
 
                 # Set node object to make it accessible
-                setattr(ComponentDirectoryActionNode._this, '_node', node)
-                os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = \
-                    config.get("default", "id")
+                setattr(ComponentDirectoryActionNode._this, "_node", node)
+                os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = config.get(
+                    "default", "id"
+                )
 
                 # Set node in all subparsers
-                for _, parser in ComponentDirectoryActionNode._this._arg_parsers.items():
-                    setattr(parser, '_node', node)
+                for (
+                    _,
+                    parser,
+                ) in ComponentDirectoryActionNode._this._arg_parsers.items():
+                    setattr(parser, "_node", node)
 
         super().initialize()
 
@@ -699,11 +709,10 @@ class NodeCLI(CommonCLI):
             action=ComponentDirectoryActionNode,
             default="fbm-node",
             help="The path were component is located. It can be absolute or "
-                "realtive to the path where CLI is executed."
+            "realtive to the path where CLI is executed.",
         )
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli = NodeCLI()
     cli.parse_args()

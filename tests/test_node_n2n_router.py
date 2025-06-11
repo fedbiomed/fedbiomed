@@ -9,7 +9,6 @@ from fedbiomed.common.message import OverlayMessage, KeyReply, InnerMessage
 from fedbiomed.node.requests._n2n_router import NodeToNodeRouter, _NodeToNodeAsyncRouter
 
 
-
 class DummyException(Exception):
     pass
 
@@ -27,7 +26,7 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, unittest.TestC
         )
         self.n2n_controller_patch.side_effect = AsyncMock()
         self.format_overlay_channel_patch = patch(
-            'fedbiomed.node.requests._n2n_router.OverlayChannel', autospec=True
+            "fedbiomed.node.requests._n2n_router.OverlayChannel", autospec=True
         )
 
         self.async_queue_patcher = self.async_queue_patch.start()
@@ -39,9 +38,9 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, unittest.TestC
         self.controller_data_mock = MagicMock(autospec=True)
 
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.db = os.path.join(self.temp_dir.name, 'test.json')
+        self.db = os.path.join(self.temp_dir.name, "test.json")
         self.n2n_async_router = _NodeToNodeAsyncRouter(
-            'test-node-id',
+            "test-node-id",
             self.db,
             self.grpc_controller_mock,
             self.pending_requests_mock,
@@ -158,7 +157,7 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, unittest.TestC
         overlay_message_process.return_value = asyncio.create_task(dummy_task())
 
         message = {
-            "dest_node_id": 'test-node-id',
+            "dest_node_id": "test-node-id",
             "overlay": b"dummy content",
         }
         self.async_queue_patcher.return_value.get.side_effect = [
@@ -196,7 +195,7 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, unittest.TestC
         # prepare
         self.format_overlay_channel_patcher.return_value.format_incoming_overlay.return_value = KeyReply(
             request_id="request",
-            dest_node_id='test-node-id',
+            dest_node_id="test-node-id",
             node_id="test",
             public_key=b"test",
             secagg_id="test",
@@ -207,12 +206,12 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, unittest.TestC
         msg = OverlayMessage(
             **{
                 "node_id": "n1",
-                "dest_node_id": 'test-node-id',
+                "dest_node_id": "test-node-id",
                 "overlay": b"dummy content",
                 "researcher_id": "r1",
-                'setup': False,
-                'salt': b'my dummy salt',
-                'nonce': b'my dummy nonce',
+                "setup": False,
+                "salt": b"my dummy salt",
+                "nonce": b"my dummy nonce",
             }
         )
         # need to initialize private variable (store current active task)
@@ -241,9 +240,9 @@ class TestNodeToNodeAsyncRouter(unittest.IsolatedAsyncioTestCase, unittest.TestC
                 "dest_node_id": "incorrect node id",
                 "overlay": b"dummy content",
                 "researcher_id": "r1",
-                'setup': False,
-                'salt': b'my dummy salt',
-                'nonce': b'my dummy nonce',
+                "setup": False,
+                "salt": b"my dummy salt",
+                "nonce": b"my dummy nonce",
             }
         )
 
@@ -304,7 +303,6 @@ class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
     """Test for node2node router module, NodeToNodeRouter class"""
 
     def setUp(self):
-
         self.async_patch = patch(
             "fedbiomed.node.requests._n2n_router.asyncio", autospec=True
         )
@@ -325,10 +323,10 @@ class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
         self.controller_data_mock = MagicMock(autospec=True)
 
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.db = os.path.join(self.temp_dir.name, 'test.json')
+        self.db = os.path.join(self.temp_dir.name, "test.json")
 
         self.n2n_router = NodeToNodeRouter(
-            'test-node-id',
+            "test-node-id",
             self.db,
             self.grpc_controller_mock,
             self.pending_requests_mock,
@@ -336,7 +334,6 @@ class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
         )
 
     def tearDown(self):
-
         self.temp_dir.cleanup()
 
         self.async_patch.stop()
@@ -368,8 +365,8 @@ class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
             overlay=b"test payload",
             researcher_id="researcher",
             setup=False,
-            salt=b'my dummy salt',
-            nonce=b'my dummy nonce',
+            salt=b"my dummy salt",
+            nonce=b"my dummy nonce",
         )
 
         self.n2n_router.submit(message)
@@ -389,7 +386,7 @@ class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
         )
 
         # action + test
-        self.n2n_router.format_outgoing_overlay(message, 'my researcher')
+        self.n2n_router.format_outgoing_overlay(message, "my researcher")
         self.async_patcher.run_coroutine_threadsafe.assert_called_once()
 
 
