@@ -9,28 +9,26 @@ from typing import Tuple
 from pathlib import Path
 
 from fedbiomed.common.dataset_types import DatasetDataItem
-from fedbiomed.common.dataset_reader import MnistReader
 from ._controller import Controller
 
 
 class MnistController(Controller):
-
     def __init__(
-            self,
-            root: Path,
-            # Any other parameter ?
+        self,
+        root: Path,
+        # Any other parameter ?
     ) -> None:
         """Class constructor"""
-
 
     # Implement abstract methods
 
     def validate(self) -> None:
         pass
 
-    def _get_nontransformed_item(self, index: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
+    def _get_nontransformed_item(
+        self, index: int
+    ) -> Tuple[DatasetDataItem, DatasetDataItem]:
         pass
-
 
     # Additional methods for exploring data (folders, modalities, subjects),
     # depending on Reader
