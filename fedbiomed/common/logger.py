@@ -45,11 +45,10 @@ Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the
 import json
 import logging
 import logging.handlers
+from typing import Any, Callable
 
-from typing import Callable, Any
-
-from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.ipython import is_ipython
+from fedbiomed.common.singleton import SingletonMeta
 
 # default values
 DEFAULT_LOG_FILE = "mylog.log"

@@ -4,25 +4,24 @@
 import configparser
 import os
 import uuid
-
 from abc import ABCMeta, abstractmethod
-from typing import Any, Optional, Dict, Union
+from typing import Any, Dict, Optional, Union
+
 from packaging.version import Version
 
 from fedbiomed.common.constants import (
-    ErrorNumbers,
-    CONFIG_FOLDER_NAME,
-    VAR_FOLDER_NAME,
     CERTS_FOLDER_NAME,
+    CONFIG_FOLDER_NAME,
     DB_PREFIX,
+    VAR_FOLDER_NAME,
+    ErrorNumbers,
 )
-
+from fedbiomed.common.exceptions import FedbiomedConfigurationError
 from fedbiomed.common.utils import (
     create_fedbiomed_setup_folders,
     raise_for_version_compatibility,
     read_file,
 )
-from fedbiomed.common.exceptions import FedbiomedConfigurationError
 
 
 def docker_special_case(component_path: str) -> bool:

@@ -3,15 +3,14 @@
 
 """Fed-BioMed constants/enums"""
 
-import sys
 import os
-
-
-from packaging.version import Version as FBM_Component_Version
-from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed import __version__
+import sys
 from enum import Enum
 
+from packaging.version import Version as FBM_Component_Version
+
+from fedbiomed import __version__
+from fedbiomed.common.exceptions import FedbiomedError
 
 CONFIG_FOLDER_NAME = "etc"
 """Directory/folder name where configurations are saved"""

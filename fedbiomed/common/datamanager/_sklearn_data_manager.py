@@ -15,6 +15,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.dataloader import NPDataLoader
 from fedbiomed.common.exceptions import (
     FedbiomedError,
     FedbiomedTypeError,
@@ -22,7 +23,6 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_method_spec
-from fedbiomed.common.dataloader import NPDataLoader
 
 
 class SkLearnDataManager(object):

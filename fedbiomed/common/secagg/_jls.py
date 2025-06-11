@@ -22,11 +22,11 @@ Fed-BioMed FL infrastructure.
 
 import hashlib
 from math import ceil, floor, log2
-from typing import List, Tuple, Union, Callable
+from typing import Callable, List, Tuple, Union
 
 import gmpy2
-from gmpy2 import mpz, gcd
 import numpy as np
+from gmpy2 import gcd, mpz
 
 from fedbiomed.common.constants import SAParameters
 

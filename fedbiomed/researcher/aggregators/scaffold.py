@@ -6,17 +6,16 @@
 import copy
 import os
 import uuid
-from typing import Any, Dict, Collection, List, Mapping, Optional, Union
+from typing import Any, Collection, Dict, List, Mapping, Optional, Union
 
 import numpy as np
 import torch
 
-from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_plans import BaseTrainingPlan
-
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.functional import initialize
 from fedbiomed.researcher.datasets import FederatedDataSet

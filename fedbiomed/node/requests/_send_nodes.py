@@ -5,9 +5,8 @@ from typing import Any, List, Tuple
 
 from fedbiomed.common.constants import TIMEOUT_NODE_TO_NODE_REQUEST, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
-from fedbiomed.common.message import InnerMessage, OverlayMessage, InnerRequestReply
+from fedbiomed.common.message import InnerMessage, InnerRequestReply, OverlayMessage
 from fedbiomed.common.synchro import EventWaitExchange
-
 from fedbiomed.transport.controller import GrpcController
 
 from ._n2n_router import NodeToNodeRouter

@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
-from typing import List, Optional, TypeVar, Dict
+from typing import Dict, List, Optional, TypeVar
 
 from ._status import PolicyStatus, RequestStatus
-
 
 TRequest = TypeVar("TRequest")
 

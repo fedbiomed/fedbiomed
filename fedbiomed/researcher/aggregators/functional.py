@@ -4,8 +4,8 @@
 import copy
 from typing import Dict, List, Mapping, Tuple, Union
 
-import torch
 import numpy as np
+import torch
 
 
 def initialize(

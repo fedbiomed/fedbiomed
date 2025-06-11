@@ -3,13 +3,12 @@
 
 """Interface with the component secure aggregation element database"""
 
-from abc import ABC, abstractmethod
-from typing import Union, List, Dict
 import base64
+from abc import ABC, abstractmethod
+from typing import Dict, List, Union
 
-from tinydb import TinyDB, Query
+from tinydb import Query, TinyDB
 
-from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
 from fedbiomed.common.constants import (
     ErrorNumbers,
     SecaggElementTypes,
@@ -19,7 +18,7 @@ from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonMeta
-
+from fedbiomed.common.utils import __default_version__, raise_for_version_compatibility
 
 _TableName = "SecaggManager"
 

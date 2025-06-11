@@ -33,7 +33,7 @@ from fedbiomed.common.secagg import (
 )
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.utils import get_default_biprime
-from fedbiomed.node.requests import send_nodes, NodeToNodeRouter
+from fedbiomed.node.requests import NodeToNodeRouter, send_nodes
 from fedbiomed.node.secagg_manager import SecaggManager
 from fedbiomed.transport.controller import GrpcController
 

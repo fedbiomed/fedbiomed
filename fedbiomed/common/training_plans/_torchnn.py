@@ -4,9 +4,7 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABCMeta, abstractmethod
-
-from typing import Any, Dict, List, Tuple, OrderedDict, Optional, Union, Iterator
-
+from typing import Any, Dict, Iterator, List, Optional, OrderedDict, Tuple, Union
 
 import torch
 
@@ -22,12 +20,11 @@ from fedbiomed.common.optimizers.generic_optimizers import (
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.privacy import DPController
 from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
 from fedbiomed.common.training_plans._training_iterations import (
     MiniBatchTrainingIterationsAccountant,
 )
-from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
 from fedbiomed.common.utils import get_method_spec
-
 
 ModelInputType = Union[torch.Tensor, Dict, List, Tuple]
 

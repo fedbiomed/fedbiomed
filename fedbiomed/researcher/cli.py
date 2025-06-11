@@ -3,16 +3,13 @@
 
 """Researcher CLI"""
 
+import importlib
 import os
 import subprocess
-import importlib
+from typing import Dict, List
 
-from typing import List, Dict
-
-from fedbiomed.common.constants import NOTEBOOKS_FOLDER_NAME
-from fedbiomed.common.cli import CommonCLI, CLIArgumentParser, ComponentDirectoryAction
-from fedbiomed.common.constants import ComponentType
-
+from fedbiomed.common.cli import CLIArgumentParser, CommonCLI, ComponentDirectoryAction
+from fedbiomed.common.constants import NOTEBOOKS_FOLDER_NAME, ComponentType
 
 __intro__ = """
    __         _ _     _                          _

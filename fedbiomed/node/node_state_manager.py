@@ -2,24 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Dict, Optional, Union, Any
 import uuid
+from typing import Any, Dict, Optional, Union
 
-from tinydb import TinyDB, Query
+from tinydb import Query, TinyDB
 from tinydb.table import Table
-from fedbiomed.common.db import DBTable
 
-from fedbiomed.common.utils import raise_for_version_compatibility
 from fedbiomed.common.constants import (
-    VAR_FOLDER_NAME,
-    _BaseEnum,
-    ErrorNumbers,
     NODE_STATE_PREFIX,
+    VAR_FOLDER_NAME,
+    ErrorNumbers,
     __node_state_version__,
+    _BaseEnum,
 )
+from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedNodeStateManagerError
 from fedbiomed.common.logger import logger
-
+from fedbiomed.common.utils import raise_for_version_compatibility
 
 NODE_STATE_TABLE_NAME = "Node_states"
 

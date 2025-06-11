@@ -3,18 +3,16 @@
 
 
 import time
+from typing import Dict, List, Optional, Union
 
-from typing import Dict, List, Union, Optional
 from gmpy2 import mpz
 
-from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.constants import ErrorNumbers, SAParameters
+from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.utils import divide, multiply, quantize, reverse_quantize
 
-from fedbiomed.common.utils import quantize, reverse_quantize, multiply, divide
-
-from ._jls import JoyeLibert, EncryptedNumber, ServerKey, UserKey, FDH, PublicParam
-
+from ._jls import FDH, EncryptedNumber, JoyeLibert, PublicParam, ServerKey, UserKey
 from ._lom import LOM
 
 

@@ -9,15 +9,14 @@ from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
-
 from torch.utils.data import Dataset
 
-from fedbiomed.common.exceptions import FedbiomedDataManagerError
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.dataset import LegacyTabularDataset
+from fedbiomed.common.exceptions import FedbiomedDataManagerError
 
-from ._torch_data_manager import TorchDataManager
 from ._sklearn_data_manager import SkLearnDataManager
+from ._torch_data_manager import TorchDataManager
 
 
 class DataManager(object):

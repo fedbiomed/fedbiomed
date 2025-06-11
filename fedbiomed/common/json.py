@@ -9,7 +9,6 @@ default (eg: enumerations)
 """
 
 import json
-
 from typing import Union
 
 from fedbiomed.common.constants import ErrorNumbers

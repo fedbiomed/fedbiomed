@@ -3,8 +3,9 @@
 
 """Queue module that contains task queue class that is a wrapper to the persistqueue python library."""
 
+from typing import Any, Optional
+
 import persistqueue
-from typing import Optional, Any
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTaskQueueError

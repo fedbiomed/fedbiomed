@@ -12,35 +12,35 @@ import traceback
 import uuid
 from abc import ABC, abstractmethod
 from re import findall
-from typing import Any, Dict, List, TypeVar, Union, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
 
 import tabulate
 from pathvalidate import sanitize_filename
 
 from fedbiomed.common.constants import (
-    ErrorNumbers,
     EXPERIMENT_PREFIX,
-    __breakpoints_version__,
-    SecureAggregationSchemes,
     TENSORBOARD_FOLDER_NAME,
+    ErrorNumbers,
+    SecureAggregationSchemes,
+    __breakpoints_version__,
 )
 from fedbiomed.common.exceptions import (
-    FedbiomedExperimentError,
     FedbiomedError,
+    FedbiomedExperimentError,
+    FedbiomedSecureAggregationError,
     FedbiomedSilentTerminationError,
     FedbiomedTypeError,
     FedbiomedValueError,
-    FedbiomedSecureAggregationError,
 )
 from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.logger import logger
-from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.common.utils import __default_version__, raise_for_version_compatibility
 from fedbiomed.researcher.config import config
+from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.filetools import (
+    choose_bkpt_file,
     create_exp_folder,
     find_breakpoint_path,
-    choose_bkpt_file,
 )
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.requests import Requests
@@ -49,7 +49,6 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.secagg import (
     SecureAggregation,
 )
-
 
 TFederatedWorkflow = TypeVar(
     "TFederatedWorkflow", bound="FederatedWorkflow"

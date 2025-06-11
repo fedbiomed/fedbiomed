@@ -5,16 +5,15 @@
 Torch legacy tabulated data manager
 """
 
-from typing import Union, Tuple
+from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
-
-from torch import from_numpy, Tensor
+from torch import Tensor, from_numpy
 from torch.utils.data import Dataset
 
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDatasetError
-from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
 
 
 class LegacyTabularDataset(Dataset):

@@ -4,15 +4,15 @@
 import os
 from typing import Optional
 
-from fedbiomed.common.constants import (
-    DEFAULT_CERT_NAME,
-    HashingAlgorithms,
-    __node_config_version__,
-    DEFAULT_NODE_NAME,
-    NODE_DATA_FOLDER,
-)
 from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.config import Component, Config
+from fedbiomed.common.constants import (
+    DEFAULT_CERT_NAME,
+    DEFAULT_NODE_NAME,
+    NODE_DATA_FOLDER,
+    HashingAlgorithms,
+    __node_config_version__,
+)
 
 
 class NodeConfig(Config):

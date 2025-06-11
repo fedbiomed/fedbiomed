@@ -4,8 +4,8 @@
 import os
 import tkinter.filedialog
 import tkinter.messagebox
-from tkinter import _tkinter
 import warnings
+from tkinter import _tkinter
 
 from fedbiomed.common.logger import logger
 

@@ -3,8 +3,8 @@
 
 """Manage the training part of the experiment."""
 
-from abc import ABC, abstractmethod
 import time
+from abc import ABC, abstractmethod
 from typing import Any, List
 
 from fedbiomed.researcher.requests import RequestPolicy, Requests

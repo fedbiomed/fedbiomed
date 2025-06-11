@@ -4,21 +4,20 @@
 import os
 import tkinter.messagebox
 import warnings
+from importlib import import_module
 from typing import Union
 
-from importlib import import_module
-
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.exceptions import (
     FedbiomedDatasetError,
     FedbiomedDatasetManagerError,
 )
 from fedbiomed.common.logger import logger
-from fedbiomed.common.dataloadingplan import DataLoadingPlan
+from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
 from fedbiomed.node.cli_utils._medical_folder_dataset import (
     add_medical_folder_dataset_from_cli,
 )
 from fedbiomed.node.dataset_manager import DatasetManager
-from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
 
 
 def add_database(
@@ -106,9 +105,9 @@ def add_database(
                 )
             elif data_type == "flamby":
                 from fedbiomed.common.dataset.flamby_dataset import (
-                    discover_flamby_datasets,
                     FlambyDatasetMetadataBlock,
                     FlambyLoadingBlockTypes,
+                    discover_flamby_datasets,
                 )
 
                 # Select the type of dataset (fed_ixi, fed_heart, etc...)

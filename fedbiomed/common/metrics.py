@@ -6,15 +6,15 @@ Provide test metrics, both MetricTypes to use in TrainingArgs but also calculati
 """
 
 from copy import copy
-import numpy as np
 from typing import Any, Dict, List, Tuple, Union
 
+import numpy as np
 from sklearn import metrics
 from sklearn.preprocessing import OneHotEncoder
 
-from fedbiomed.common.constants import _BaseEnum, ErrorNumbers
-from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import ErrorNumbers, _BaseEnum
 from fedbiomed.common.exceptions import FedbiomedMetricError
+from fedbiomed.common.logger import logger
 
 
 class _MetricCategory(_BaseEnum):

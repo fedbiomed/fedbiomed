@@ -6,11 +6,10 @@
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
-from declearn.optimizer.modules import AuxVar
 from declearn.model.api import Vector, VectorSpec
+from declearn.optimizer.modules import AuxVar
 from declearn.utils import access_registered, access_registration_info
 from typing_extensions import Self
-
 
 __all__ = [
     "EncryptedAuxVar",

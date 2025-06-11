@@ -5,22 +5,22 @@
 implementation of Round class of the node component
 """
 
-import tempfile
 import os
+import tempfile
 import time
 import uuid
-from typing import Dict, Union, Any, Optional, Tuple, List
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-
+from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlanApprovalStatus
-from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
+from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.exceptions import (
     FedbiomedError,
     FedbiomedOptimizerError,
     FedbiomedRoundError,
-    FedbiomedUserInputError,
     FedbiomedSecureAggregationError,
+    FedbiomedUserInputError,
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
@@ -33,10 +33,8 @@ from fedbiomed.common.optimizers import (
 )
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common import utils
-
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.node_state_manager import NodeStateManager, NodeStateFileName
+from fedbiomed.node.node_state_manager import NodeStateFileName, NodeStateManager
 from fedbiomed.node.secagg import SecaggRound
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 

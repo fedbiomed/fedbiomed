@@ -7,26 +7,23 @@ Interfaces with the node component database.
 
 import csv
 import os.path
-from typing import Iterable, Union, List, Optional, Tuple
-import uuid
-
-from urllib.request import urlretrieve
-from urllib.error import ContentTooShortError, HTTPError, URLError
 import tarfile
+import uuid
+from typing import Iterable, List, Optional, Tuple, Union
+from urllib.error import ContentTooShortError, HTTPError, URLError
+from urllib.request import urlretrieve
 
-from tinydb import TinyDB, Query
 import pandas as pd
-from tabulate import tabulate  # only used for printing
-
 import torch
-from torchvision import datasets
-from torchvision import transforms
+from tabulate import tabulate  # only used for printing
+from tinydb import Query, TinyDB
+from torchvision import datasets, transforms
 
-from fedbiomed.common.db import DBTable
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedDatasetManagerError
-from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
+from fedbiomed.common.dataloadingplan import DataLoadingBlock, DataLoadingPlan
 from fedbiomed.common.dataset import MedicalFolderController
-from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingBlock
+from fedbiomed.common.db import DBTable
+from fedbiomed.common.exceptions import FedbiomedDatasetManagerError, FedbiomedError
 from fedbiomed.common.logger import logger
 
 
@@ -454,8 +451,8 @@ class DatasetManager:
 
         elif data_type == "flamby":
             from fedbiomed.common.dataset.flamby_dataset import (
-                FlambyLoadingBlockTypes,
                 FlambyDataset,
+                FlambyLoadingBlockTypes,
             )
 
             # check that data loading plan is present and well formed

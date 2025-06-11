@@ -5,18 +5,18 @@
 top class for all aggregators
 """
 
-import os
 import functools
-import uuid
 import math
-from typing import Any, Dict, Optional, List
+import os
+import uuid
+from typing import Any, Dict, List, Optional
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.secagg import SecaggCrypter
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.common.secagg import SecaggCrypter
 
 
 class Aggregator:

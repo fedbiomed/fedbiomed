@@ -1,37 +1,36 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Tuple, Optional
-import os
-from dataclasses import dataclass, field
-import uuid
-import secrets
 import asyncio
+import os
+import secrets
+import uuid
+from dataclasses import dataclass, field
+from typing import Optional, Tuple
 
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 
 from fedbiomed.common.channel_manager import ChannelManager
 from fedbiomed.common.constants import (
-    ErrorNumbers,
-    TIMEOUT_NODE_TO_NODE_REQUEST,
     REQUEST_PREFIX,
+    TIMEOUT_NODE_TO_NODE_REQUEST,
+    ErrorNumbers,
 )
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
-    Message,
-    InnerMessage,
-    OverlayMessage,
     ChannelSetupRequest,
+    InnerMessage,
+    Message,
+    OverlayMessage,
 )
 from fedbiomed.common.secagg import DHKey, DHKeyAgreement
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.utils import SHARE_DIR
-
 from fedbiomed.transport.controller import GrpcController
 
 _DEFAULT_KEY_DIR = os.path.join(SHARE_DIR, "envs", "common", "default_keys")

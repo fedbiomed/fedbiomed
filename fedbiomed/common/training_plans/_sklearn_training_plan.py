@@ -14,6 +14,7 @@ import numpy as np
 from sklearn.base import BaseEstimator
 from torch.utils.data import DataLoader
 
+from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.dataloader import NPDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
@@ -26,7 +27,6 @@ from fedbiomed.common.optimizers.generic_optimizers import (
 )
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common import utils
 
 from ._base_training_plan import BaseTrainingPlan
 

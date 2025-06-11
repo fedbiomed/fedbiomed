@@ -7,36 +7,33 @@ Implements the message exchanges from researcher to nodes
 
 import json
 import os
-import uuid
 import tempfile
 import threading
-from typing import Any, Dict, Callable, Union, List, Optional
+import uuid
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import tabulate
 from python_minifier import minify
 
-from fedbiomed.common.constants import MessageType, CONFIG_FOLDER_NAME, REQUEST_PREFIX
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME, REQUEST_PREFIX, MessageType
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
-    PingRequest,
-    ListRequest,
     ApprovalRequest,
-    SearchRequest,
     ErrorMessage,
+    ListRequest,
     Message,
+    PingRequest,
+    SearchRequest,
 )
 from fedbiomed.common.singleton import SingletonMeta
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.common.utils import import_class_object_from_file
-
-from fedbiomed.transport.server import GrpcServer, SSLCredentials
-from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
-
 from fedbiomed.researcher.config import ResearcherConfig
+from fedbiomed.transport.node_agent import NodeActiveStatus, NodeAgent
+from fedbiomed.transport.server import GrpcServer, SSLCredentials
 
-from ._policies import RequestPolicy, PolicyController, DiscardOnTimeout
-from ._status import RequestStatus, PolicyStatus
-
+from ._policies import DiscardOnTimeout, PolicyController, RequestPolicy
+from ._status import PolicyStatus, RequestStatus
 
 # timeout in seconds for checking disconnection and node status changes
 REQUEST_STATUS_CHECK_TIMEOUT = 0.5

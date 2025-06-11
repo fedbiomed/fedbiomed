@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError

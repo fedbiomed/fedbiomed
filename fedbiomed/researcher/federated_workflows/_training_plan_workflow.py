@@ -3,14 +3,14 @@ This file is originally part of Fed-BioMed
 SPDX-License-Identifier: Apache-2.0
 """
 
-import os
 import inspect
+import os
 import uuid
 from abc import ABC
 from contextlib import contextmanager
 from copy import deepcopy
 from re import findall
-from typing import Any, Dict, List, Type, TypeVar, Union, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError, FedbiomedTypeError
@@ -19,18 +19,17 @@ from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import (
     BaseTrainingPlan,
-    TorchTrainingPlan,
     SKLearnTrainingPlan,
+    TorchTrainingPlan,
 )
 from fedbiomed.common.utils import import_class_from_file, import_class_object_from_file
-
 from fedbiomed.researcher.federated_workflows.jobs import (
     TrainingPlanApproveJob,
     TrainingPlanCheckJob,
 )
-from fedbiomed.researcher.filetools import create_unique_link, choose_bkpt_file
+from fedbiomed.researcher.filetools import choose_bkpt_file, create_unique_link
 
-from ._federated_workflow import exp_exceptions, FederatedWorkflow
+from ._federated_workflow import FederatedWorkflow, exp_exceptions
 
 # for checking class passed to experiment
 TRAINING_PLAN_TYPES = (TorchTrainingPlan, SKLearnTrainingPlan)

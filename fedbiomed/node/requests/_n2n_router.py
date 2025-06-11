@@ -2,20 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
-from threading import Thread
 import time
+from threading import Thread
 from typing import Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import OverlayMessage, InnerMessage
+from fedbiomed.common.message import InnerMessage, OverlayMessage
 from fedbiomed.common.synchro import EventWaitExchange
-
 from fedbiomed.transport.controller import GrpcController
 
-from ._overlay import OverlayChannel
 from ._n2n_controller import NodeToNodeController
-
+from ._overlay import OverlayChannel
 
 # Maximum number of pending messages in the node to node router input queue
 MAX_N2N_ROUTER_QUEUE_SIZE = 1000

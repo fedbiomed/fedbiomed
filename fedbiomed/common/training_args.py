@@ -6,17 +6,17 @@ Provide a way to easily to manage training arguments.
 """
 
 from copy import deepcopy
-from typing import Any, Dict, Type, TypeVar, Union, Tuple, Callable
+from typing import Any, Callable, Dict, Tuple, Type, TypeVar, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.validator import (
-    SchemeValidator,
-    ValidatorError,
-    ValidateError,
     RuleError,
+    SchemeValidator,
+    ValidateError,
+    ValidatorError,
     validator_decorator,
 )
 

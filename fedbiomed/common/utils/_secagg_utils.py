@@ -1,9 +1,8 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import json
-
+import os
 from typing import List, Union
 
 import numpy as np

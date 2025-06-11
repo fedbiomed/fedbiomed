@@ -4,29 +4,27 @@
 
 from typing import Dict
 
-from declearn.utils import set_device_policy, get_device_policy
-from declearn.optimizer.regularizers import (
-    Regularizer,
-    FedProxRegularizer,
-    LassoRegularizer,
-    RidgeRegularizer,
-)
-
 from declearn.optimizer.modules import (
-    AuxVar,
-    OptiModule,
     AdaGradModule,
     AdamModule,
+    AuxVar,
     EWMAModule,
-    RMSPropModule,
     MomentumModule,
+    OptiModule,
+    RMSPropModule,
     ScaffoldAuxVar,
     ScaffoldClientModule,
     ScaffoldServerModule,
     YogiModule,
     YogiMomentumModule,
 )
-
+from declearn.optimizer.regularizers import (
+    FedProxRegularizer,
+    LassoRegularizer,
+    Regularizer,
+    RidgeRegularizer,
+)
+from declearn.utils import get_device_policy, set_device_policy
 
 __all__ = [
     "FedProxRegularizer",

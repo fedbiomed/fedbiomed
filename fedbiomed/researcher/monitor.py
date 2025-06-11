@@ -6,9 +6,9 @@ monitor class to trap information sent during training and
 sned it to tensordboard
 """
 
-import os
 import collections
-from typing import Dict, Union, Any
+import os
+from typing import Any, Dict, Union
 
 from torch.utils.tensorboard import SummaryWriter
 
