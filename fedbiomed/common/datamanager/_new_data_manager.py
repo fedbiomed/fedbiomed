@@ -11,7 +11,7 @@ from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.dataset import Dataset
 
 
-class DataManager(object):
+class NewDataManager(object):
     """Factory class that builds different data loaders
 
     Data loader type is based on the framework of the training plan.
