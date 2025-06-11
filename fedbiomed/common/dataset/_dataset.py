@@ -6,43 +6,41 @@ Base abstract classes for datasets
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Tuple
+from typing import Tuple
 from pathlib import Path
 
 from fedbiomed.common.dataset_types import DataReturnFormat, Transform, DatasetDataItem
 
 
 class Dataset(ABC):
-
-    _framework_transform : Transform = None
-    _framework_target_transform : Transform = None
+    _framework_transform: Transform = None
+    _framework_target_transform: Transform = None
 
     # Implementation of generic transform (or not) is specific to each dataset
-    _generic_transform : Transform = None
-    _generic_target_transform : Transform = None
+    _generic_transform: Transform = None
+    _generic_target_transform: Transform = None
 
     # Possible implementation
     #
     # Format for returning data sample, as some processing will change
-    _to_format : DataReturnFormat = DataReturnFormat.GENERIC
+    _to_format: DataReturnFormat = DataReturnFormat.GENERIC
 
     def __init__(
-            self,
-            # See subclass: either `root` or `dataset` + `target`
-            framework_transform : Transform = None,
-            framework_target_transform : Transform = None,
-            # Optional, per-dataset: implement (or not) generic transform (use same argument name)
-            # generic_transform : Transform = None,
-            # generic_target_transform : Transform = None,
-            # Optional, per dataset: implement native transforms (argument name may vary)
-            *args,
-            **kwargs
+        self,
+        # See subclass: either `root` or `dataset` + `target`
+        framework_transform: Transform = None,
+        framework_target_transform: Transform = None,
+        # Optional, per-dataset: implement (or not) generic transform (use same argument name)
+        # generic_transform : Transform = None,
+        # generic_target_transform : Transform = None,
+        # Optional, per dataset: implement native transforms (argument name may vary)
+        *args,
+        **kwargs,
     ) -> None:
         """Class constructor"""
         # TODO: check type
         self._framework_transform = framework_transform
         self._framework_target_transform = framework_target_transform
-
 
     def framework_transform(self) -> Transform:
         """Getter for framework transform"""
@@ -52,14 +50,13 @@ class Dataset(ABC):
         """Getter for framework target transform"""
         return self._framework_target_transform
 
-
     # Caveat: give explicit user error message when raising exception
     # Also need to wrap with try/except when calling `Reader` Transform (native Transform)
     # to give an explicit message (from the Dataset class)
 
-    def _apply_generic_transform(
-            self,
-            sample: Tuple[DatasetDataItem, DatasetDataItem],
+    def _apply_generic_transform(  # noqa : B027  # empty method for now
+        self,
+        sample: Tuple[DatasetDataItem, DatasetDataItem],
     ) -> Tuple[DatasetDataItem, DatasetDataItem]:
         """Apply generic (target) Transform to a data sample in generic format
 
@@ -75,20 +72,19 @@ class Dataset(ABC):
     def __getitem__(self, index: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
         """Retrieve a data sample"""
 
-
     # Optional methods which can be implemented (or not) by some datasets
     # Possible alternate implementation: class to be inherited by datasets that implement it
     # (multiple inheritance).
 
     # def to_torch(self) -> None:
     #     """Request dataset to return samples for a torch training plan
-    # 
+    #
     # Ignore + issue warning if generic transform needs to be applied
-    # """ 
-    # 
+    # """
+    #
     # def to_sklearn(self) -> None:
     #     """Request dataset to return samples for a sklearn training plan
-    # 
+    #
     # Ignore + issue warning if generic transform needs to be applied
     # """
 
@@ -99,23 +95,22 @@ class Dataset(ABC):
     #
     # def set_dataset_parameters(self, parameters: dict):
 
-
     # Additional methods for exploring data (folders, modalities, subjects),
     # depending on Dataset and Reader
 
 
 class StructuredDataset(Dataset):
     def __init__(
-            self,
-            root: Path,
-            framework_transform : Transform = None,
-            framework_target_transform : Transform = None,
-            # Optional, per-dataset: implement (or not) generic transform (use same argument name)
-            # generic_transform : Transform = None,
-            # generic_target_transform : Transform = None,
-            # Optional, per dataset: implement native transforms (argument name may vary)
-            *args,
-            **kwargs
+        self,
+        root: Path,
+        framework_transform: Transform = None,
+        framework_target_transform: Transform = None,
+        # Optional, per-dataset: implement (or not) generic transform (use same argument name)
+        # generic_transform : Transform = None,
+        # generic_target_transform : Transform = None,
+        # Optional, per dataset: implement native transforms (argument name may vary)
+        *args,
+        **kwargs,
     ) -> None:
         """Class constructor"""
         super().__init__(framework_transform, *args, **kwargs)

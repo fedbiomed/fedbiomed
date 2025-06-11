@@ -17,9 +17,10 @@ from fedbiomed.common.constants import _BaseEnum
 
 class DataReturnFormat(_BaseEnum):
     """Possible return formats of data samples"""
-    GENERIC : int = 0
-    TORCH : int = 1
-    SKLEARN : int = 2
+
+    GENERIC: int = 0
+    TORCH: int = 1
+    SKLEARN: int = 2
 
 
 # Type for researcher-defined (in training plan) data transforms
@@ -43,11 +44,11 @@ class DataReturnFormat(_BaseEnum):
 Transform = Optional[Union[Callable, Dict[str, Callable]]]
 
 
-
 class DataType(_BaseEnum):
     """Possible data modality types"""
-    IMAGE : int = 1
-    TABULAR : int = 2
+
+    IMAGE: int = 1
+    TABULAR: int = 2
 
 
 @dataclass
@@ -63,7 +64,7 @@ class DatasetDataItemModality:
 #
 # - DatasetDataItemModality when data is an array like in a generic format
 # - Any when data is an array like in framework specific format (using `to_xxx`)
-DatasetDataItem = Optional[Dict[str, Union[Any, DatasetDataItemModality]]] 
+DatasetDataItem = Optional[Dict[str, Union[Any, DatasetDataItemModality]]]
 
 
 # shape for a sample of *one* modality as a list of dimensions of array
@@ -79,6 +80,7 @@ DatasetShape = Tuple[int, DatasetItemShape, DatasetItemShape]
 
 class DatasetDataModality(_BaseEnum):
     """Structure and metadata of a dataset's modality"""
+
     modality_name: str
     type: DataType
     shape: ModalityShape
@@ -87,6 +89,7 @@ class DatasetDataModality(_BaseEnum):
 
 # Describe the structure and metadata of the full dataset
 # does not contain the data or the `Reader`s
+
 
 # Nota: `len` is number of samples of dataset. May be different than number
 # of sample in a modality if we have incomplete samples, and remove with
@@ -104,6 +107,7 @@ class DatasetData(ABC):
 
 
 # Nota: keep distinction between native and structured for future extensions
+
 
 class DatasetDataNative(DatasetData):
     def _dummy(self):
