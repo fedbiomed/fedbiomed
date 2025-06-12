@@ -6,18 +6,18 @@ Base abstract classes for controllers
 """
 
 from abc import ABC, abstractmethod
-from typing import Tuple, Dict
 from pathlib import Path
+from typing import Dict, Tuple
 
-from fedbiomed.common.dataset_reader import Reader
-from fedbiomed.common.dataset_types import DatasetDataItem, DatasetShape, DatasetData
 from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin
+from fedbiomed.common.dataset_reader import Reader
+from fedbiomed.common.dataset_types import DatasetData, DatasetDataItem, DatasetShape
 
 
 class Controller(ABC, DataLoadingPlanMixin):
     # Possible implementation
     # key is a convenient name, internal to the class, for identifying a Reader
-    # Enables common implementation, eg for `to_torch()`
+    # Enables common implementation, eg for `validate()`
     _readers: Dict[str, Reader]
 
     # Store dataset structure and metadata

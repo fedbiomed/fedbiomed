@@ -6,10 +6,10 @@ Base abstract classes for datasets
 """
 
 from abc import ABC, abstractmethod
-from typing import Tuple
 from pathlib import Path
+from typing import Tuple
 
-from fedbiomed.common.dataset_types import DataReturnFormat, Transform, DatasetDataItem
+from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem, Transform
 
 
 class Dataset(ABC):
@@ -23,7 +23,7 @@ class Dataset(ABC):
     # Possible implementation
     #
     # Format for returning data sample, as some processing will change
-    _to_format: DataReturnFormat = DataReturnFormat.GENERIC
+    _to_format: DataReturnFormat = DataReturnFormat.DEFAULT
 
     def __init__(
         self,
@@ -88,7 +88,7 @@ class Dataset(ABC):
     # Ignore + issue warning if generic transform needs to be applied
     # """
 
-    # Nota: we could also implement a `to_native()` method in every dataset/reader,
+    # Nota: we could also implement a `to_native()` method in every dataset,
     # but do we have a use case for that ?
 
     # Still needed or replaced by implementation in DLP ? cf current MedicalFolderDataset
