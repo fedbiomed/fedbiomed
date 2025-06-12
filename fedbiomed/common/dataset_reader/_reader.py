@@ -6,10 +6,10 @@ Base abstract classes for readers
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 from pathlib import Path
+from typing import Any
 
-from fedbiomed.common.dataset_types import DataReturnFormat, Transform, ReaderItemShape
+from fedbiomed.common.dataset_types import DataReturnFormat, ReaderItemShape, Transform
 
 
 class Reader(ABC):
@@ -56,7 +56,10 @@ class Reader(ABC):
     # Nota: does not include filtering of DLP, which is unknown to Reader
     @abstractmethod
     def shape(self) -> ReaderItemShape:
-        """Returns shape of a data modality served by a reader"""
+        """Returns shape of a data modality served by a reader
+
+        Computed before applying transforms of to_xxx
+        """
 
     # Optional methods which can be implemented (or not) by some readers
     # Code is specific to each reader
