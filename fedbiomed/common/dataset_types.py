@@ -5,9 +5,9 @@
 Classes for dataset's data types and structures
 """
 
-from typing import Optional, List, Dict, Any, Union, Callable, Tuple
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -16,11 +16,16 @@ from fedbiomed.common.constants import _BaseEnum
 
 
 class DataReturnFormat(_BaseEnum):
-    """Possible return formats of data samples"""
+    """Possible return formats of data samples by dataset and reader classes"""
 
-    GENERIC: int = 0
+    # for a Dataset: DEFAULT is generic Dataset data format
+    # for a Reader: DEFAULT is native Reader data format
+    DEFAULT: int = 0
     TORCH: int = 1
     SKLEARN: int = 2
+
+
+drf_default = DataReturnFormat(DataReturnFormat.DEFAULT)
 
 
 # Type for researcher-defined (in training plan) data transforms
