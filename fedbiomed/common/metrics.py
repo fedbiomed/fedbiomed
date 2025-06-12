@@ -150,7 +150,7 @@ class Metrics(object):
                 + " Exception raised from SKLEARN metrics: "
                 + str(e)
             )
-            raise FedbiomedMetricError(msg)
+            raise FedbiomedMetricError(msg) from e
 
     @staticmethod
     def precision(
@@ -186,7 +186,7 @@ class Metrics(object):
             raise FedbiomedMetricError(
                 f"{ErrorNumbers.FB611.value}: Error during calculation of `PRECISION` "
                 f"calculation: {str(e)}"
-            )
+            ) from e
 
     @staticmethod
     def recall(
@@ -223,7 +223,7 @@ class Metrics(object):
             raise FedbiomedMetricError(
                 f"{ErrorNumbers.FB611.value}: Error during calculation of `RECALL` "
                 f"calculation: {str(e)}"
-            )
+            ) from e
 
     @staticmethod
     def f1_score(
@@ -260,7 +260,7 @@ class Metrics(object):
         except Exception as e:
             raise FedbiomedMetricError(
                 f"{ErrorNumbers.FB611.value}: Error during calculation of `F1_SCORE` {str(e)}"
-            )
+            ) from e
 
     @staticmethod
     def mse(
@@ -298,7 +298,7 @@ class Metrics(object):
             raise FedbiomedMetricError(
                 f"{ErrorNumbers.FB611.value}: Error during calculation of `MEAN_SQUARED_ERROR`"
                 f" {str(e)}"
-            )
+            ) from e
 
     @staticmethod
     def mae(
@@ -374,7 +374,7 @@ class Metrics(object):
             raise FedbiomedMetricError(
                 f"{ErrorNumbers.FB611.value}: Error during calculation of `EXPLAINED_VARIANCE`"
                 f" {str(e)}"
-            )
+            ) from e
 
     @staticmethod
     def _configure_y_true_pred_(

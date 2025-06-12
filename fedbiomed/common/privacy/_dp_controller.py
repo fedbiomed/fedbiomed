@@ -74,7 +74,7 @@ class DPController:
                 raise FedbiomedDPControllerError(
                     f"{ErrorNumbers.FB616.value}: "
                     f"Error while running privacy engine: {e}"
-                )
+                ) from e
         return optimizer, loader
 
     def after_training(self, params: Dict) -> Dict:
@@ -99,7 +99,7 @@ class DPController:
         except ValidateError as e:
             raise FedbiomedDPControllerError(
                 f"{ErrorNumbers.FB616.value}: DP arguments are not valid: {e}"
-            )
+            ) from e
         if self._dp_args["type"] == "central":
             self._dp_args["sigma_CDP"] = self._dp_args["sigma"]
             self._dp_args["sigma"] = 0.0
@@ -120,7 +120,7 @@ class DPController:
                 raise FedbiomedDPControllerError(
                     f"{ErrorNumbers.FB616.value}: "
                     f"Error while making model DP-compliant: {e}"
-                )
+                ) from e
         return model
 
     def _assess_budget_locally(self, loader: DataLoader) -> Tuple[float, float]:

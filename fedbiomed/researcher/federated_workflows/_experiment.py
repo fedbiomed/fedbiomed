@@ -1544,7 +1544,7 @@ class Experiment(TrainingPlanWorkflow):
                 + f"fails with message {str(e)}"
             )
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedExperimentError(msg) from e
 
         # create a class variable containing the class
         try:
@@ -1559,7 +1559,7 @@ class Experiment(TrainingPlanWorkflow):
                 + f"fails with message {str(e)}"
             )
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedExperimentError(msg) from e
 
         # instantiate object from module
         try:
@@ -1578,7 +1578,7 @@ class Experiment(TrainingPlanWorkflow):
                 + f"{str(module_class)} fails with message {str(e)}"
             )
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedExperimentError(msg) from e
 
         # load breakpoint state for object
         if (

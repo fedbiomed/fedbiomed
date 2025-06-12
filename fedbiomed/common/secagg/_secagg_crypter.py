@@ -204,7 +204,7 @@ class SecaggCrypter:
             raise FedbiomedSecaggCrypterError(
                 f"{ErrorNumbers.FB624.value}: The aggregation of encrypted parameters "
                 f"is not successful: {e}"
-            )
+            ) from e
 
         # Reverse quantize and division (averaging)
         logger.info(f"Aggregating {len(params)} parameters from {num_nodes} nodes.")

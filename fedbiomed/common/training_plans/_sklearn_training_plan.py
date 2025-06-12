@@ -252,7 +252,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         except Exception as exc:
             msg = f"{ErrorNumbers.FB605.value}: error while fitting the model: {exc}"
             logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
+            raise FedbiomedTrainingPlanError(msg) from exc
 
     @abstractmethod
     def _training_routine(

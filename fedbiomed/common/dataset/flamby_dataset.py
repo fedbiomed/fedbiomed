@@ -264,7 +264,7 @@ class FlambyDataset(DataLoadingPlanMixin, Dataset):
         except ModuleNotFoundError as e:
             msg = f"{ErrorNumbers.FB317.value}: Error while importing FLamby dataset package; {str(e)}"
             logger.critical(msg)
-            raise FedbiomedDatasetError(msg)
+            raise FedbiomedDatasetError(msg) from e
 
         # set the center id
         center_id = metadata["flamby_center_id"]

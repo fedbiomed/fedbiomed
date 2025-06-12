@@ -55,7 +55,7 @@ class FederatedDataSet:
                 f"(`list` of one) `dict`: {e}"
             )
             logger.error(errmess)
-            raise FedbiomedFederatedDataSetError(errmess)
+            raise FedbiomedFederatedDataSetError(errmess) from e
 
         self._data = data
 

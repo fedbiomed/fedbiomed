@@ -103,7 +103,7 @@ def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[An
     except Exception as e:
         raise FedbiomedError(
             f"{ErrorNumbers.FB627.value}: Cannot instantiate training plan object: {e}"
-        )
+        ) from e
 
     return module, train_class_instance
 
@@ -198,14 +198,14 @@ def import_class_from_spec(code: str, class_name: str) -> Tuple[Any, Any]:
     except Exception as e:
         raise FedbiomedError(
             f"{ErrorNumbers.FB627.value}: Can not load module from given code: {e}"
-        )
+        ) from e
 
     try:
         class_ = getattr(module, class_name)
-    except AttributeError:
+    except AttributeError as e:
         raise FedbiomedError(
             f"{ErrorNumbers.FB627.value}: Can not import {class_name} from given code"
-        )
+        ) from e
 
     return module, class_
 

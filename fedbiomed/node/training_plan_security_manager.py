@@ -287,7 +287,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + " : database insertion failed with"
                 f" following error: {str(err)}"
-            )
+            ) from err
         return training_plan_id
 
     def check_hashes_for_registered_training_plans(self):
@@ -311,7 +311,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value
                 + f"database search operation failed, with following error: {str(e)}"
-            )
+            ) from e
         logger.info("Checking hashes for registered training plans")
         if not training_plans:
             logger.info("There are no training plans registered")
@@ -346,7 +346,7 @@ class TrainingPlanSecurityManager:
                             ErrorNumbers.FB606.value
                             + ": database update failed, with error "
                             f" {str(err)}"
-                        )
+                        ) from err
 
     def check_training_plan_status(
         self,
@@ -700,7 +700,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value
                 + f"database search operation failed, with following error: {str(e)}"
-            )
+            ) from e
 
         # Get training plan names from list of training plans
         training_plans_dict = {
@@ -745,7 +745,7 @@ class TrainingPlanSecurityManager:
                 raise FedbiomedTrainingPlanSecurityManagerError(
                     ErrorNumbers.FB606.value + ": failed to update database, "
                     f" with error {str(err)}"
-                )
+                ) from err
         # Update training plans
         for training_plan in training_plans_exists:
             path = os.path.join(self._default_tps, training_plan)
@@ -757,7 +757,7 @@ class TrainingPlanSecurityManager:
                     ErrorNumbers.FB606.value
                     + f": failed to get training_plan info for training plan {training_plan}"
                     f"Details : {str(err)}"
-                )
+                ) from err
 
             # Check if hashing algorithm has changed
             try:
@@ -817,7 +817,7 @@ class TrainingPlanSecurityManager:
                     ErrorNumbers.FB606.value
                     + ": Failed to update database, with error: "
                     f"{str(err)}"
-                )
+                ) from err
 
     def update_training_plan_hash(self, training_plan_id: str, path: str) -> True:
         """Updates an existing training plan entry in training plan database.
@@ -848,7 +848,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + ": get request on database failed."
                 f" Details: {str(err)}"
-            )
+            ) from err
         if training_plan["training_plan_type"] != TrainingPlanStatus.DEFAULT.value:
             hash, algorithm, source = self._create_hash(path)
             # Verify no such training plan already exists in DB
@@ -877,7 +877,7 @@ class TrainingPlanSecurityManager:
                 raise FedbiomedTrainingPlanSecurityManagerError(
                     ErrorNumbers.FB606.value + ": update database failed. Details :"
                     f"{str(err)}"
-                )
+                ) from err
         else:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value
@@ -1003,7 +1003,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + ": cannot get training plan from database."
                 f"Details: {str(err)}"
-            )
+            ) from err
 
         if training_plan is None:
             raise FedbiomedTrainingPlanSecurityManagerError(
@@ -1018,7 +1018,7 @@ class TrainingPlanSecurityManager:
                 raise FedbiomedTrainingPlanSecurityManagerError(
                     ErrorNumbers.FB606.value
                     + f": cannot remove training plan from database. Details: {str(err)}"
-                )
+                ) from err
         else:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value
@@ -1085,7 +1085,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 f"{ErrorNumbers.FB606.value}: request failed when looking for a training plan into database with "
                 f"error: {err}"
-            )
+            ) from err
 
         # Drop some keys for security reasons
         for doc in training_plans:

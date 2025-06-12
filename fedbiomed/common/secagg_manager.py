@@ -60,7 +60,7 @@ class BaseSecaggManager(ABC):
         except Exception as e:
             errmess = f"{ErrorNumbers.FB623.value}: failed to access the database with error: {e}"
             logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+            raise FedbiomedSecaggError(errmess) from e
 
         self._query = Query()
         self._table = _SecaggTableSingleton(self._db).table
@@ -91,7 +91,7 @@ class BaseSecaggManager(ABC):
                 f'for secagg element "{secagg_id}" with error: {e}'
             )
             logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+            raise FedbiomedSecaggError(errmess) from e
 
         if len(entries) > 1:
             errmess = (
@@ -155,7 +155,7 @@ class BaseSecaggManager(ABC):
                 f"for secagg element={secagg_elem.name} secagg_id={secagg_id} with error: {e}"
             )
             logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+            raise FedbiomedSecaggError(errmess) from e
 
     def _check_existing_entry_in_db(self, secagg_id: str):
         """Checks if an entry with the secagg_id has already been saved in the database: if so,
@@ -256,7 +256,7 @@ class BaseSecaggManager(ABC):
                 f"for secagg element {component.value} secagg_id={secagg_id} with error: {e}"
             )
             logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+            raise FedbiomedSecaggError(errmess) from e
 
         return True
 

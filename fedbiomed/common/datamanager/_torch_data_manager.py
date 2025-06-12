@@ -136,12 +136,12 @@ class TorchDataManager(object):
             raise FedbiomedTorchDataManagerError(
                 f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
                 f"{str(self._dataset)} due to undefined attribute, {str(e)}"
-            )
+            ) from e
         except TypeError as e:
             raise FedbiomedTorchDataManagerError(
                 f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
                 f"{str(self._dataset)}, {str(e)}"
-            )
+            ) from e
 
         if self.test_ratio != test_ratio and self.test_ratio is not None:
             if not is_shuffled_testing_dataset:
