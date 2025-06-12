@@ -8,7 +8,7 @@ import inspect
 import os
 import uuid
 from re import findall
-from typing import Any, Dict, Optional, List, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch
@@ -29,14 +29,13 @@ from fedbiomed.common.optimizers import (
     unflatten_auxvar_after_secagg,
 )
 from fedbiomed.common.serializer import Serializer
-
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 from fedbiomed.researcher.filetools import choose_bkpt_file
 from fedbiomed.researcher.monitor import Monitor
-from fedbiomed.researcher.strategies.strategy import Strategy
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
+from fedbiomed.researcher.strategies.strategy import Strategy
 
 from ._federated_workflow import exp_exceptions
 from ._training_plan_workflow import TrainingPlanWorkflow
@@ -837,7 +836,9 @@ class Experiment(TrainingPlanWorkflow):
         )
 
         # Update node states with node answers + when used node list has changed during the round.
-        self._update_nodes_states_agent(before_training=False, training_replies=training_replies)
+        self._update_nodes_states_agent(
+            before_training=False, training_replies=training_replies
+        )
 
         # (Secure-)Aggregate model parameters and optimizer auxiliary variables.
         if self._secagg.active:

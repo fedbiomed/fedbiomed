@@ -4,12 +4,11 @@
 """'Model' abstract base class defining an API to interface framework-specific models."""
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, ClassVar, Dict, Generic, Type, TypeVar, List
+from typing import Any, ClassVar, Dict, Generic, List, Type, TypeVar
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
-
 
 # Generic type variables for annotations: specify types that are abstract
 # at this level, but have to be coherent when defined by children classes.

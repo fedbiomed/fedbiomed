@@ -14,7 +14,8 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
-from fedbiomed.researcher.strategies import Strategy
+
+from .strategy import Strategy
 
 
 class DefaultStrategy(Strategy):

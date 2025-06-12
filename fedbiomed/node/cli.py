@@ -6,44 +6,39 @@ Command line user interface for the node component
 """
 
 import argparse
+import importlib
 import json
 import os
 import signal
+import subprocess
 import sys
 import time
-import subprocess
-import importlib
-
 from multiprocessing import Process
-from typing import Union, List, Dict
-from types import FrameType
 from pathlib import Path
+from types import FrameType
+from typing import Dict, List, Union
 
-
-from fedbiomed.node.node import Node
-from fedbiomed.node.config import node_component
-
-
-from fedbiomed.common.constants import NODE_DATA_FOLDER, ErrorNumbers, ComponentType
-from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.logger import logger
 from fedbiomed.common.cli import (
-    CommonCLI,
     CLIArgumentParser,
+    CommonCLI,
     ComponentDirectoryAction,
 )
-
+from fedbiomed.common.constants import NODE_DATA_FOLDER, ComponentType, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.logger import logger
 from fedbiomed.node.cli_utils import (
-    delete_database,
-    delete_all_database,
     add_database,
+    approve_training_plan,
+    delete_all_database,
+    delete_database,
+    delete_training_plan,
     register_training_plan,
     reject_training_plan,
     update_training_plan,
-    approve_training_plan,
     view_training_plan,
-    delete_training_plan,
 )
+from fedbiomed.node.config import node_component
+from fedbiomed.node.node import Node
 
 # Please use following code genereate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))

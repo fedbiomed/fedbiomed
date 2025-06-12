@@ -8,10 +8,10 @@ Functions for managing Job/Experiment files.
 import os
 import re
 import shutil
-from typing import Tuple, List
+from typing import List, Tuple
 
-from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import TENSORBOARD_FOLDER_NAME
+from fedbiomed.common.logger import logger
 
 
 def create_exp_folder(experiments_dir, experimentation_folder: str = None) -> str:

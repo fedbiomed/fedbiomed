@@ -9,12 +9,13 @@ See https://fedbiomed.org/latest/user-guide/deployment/versions or
 ./doc/user-guide/deployment/versions.md for more information
 """
 
-from packaging.version import Version
 from typing import Optional, Union
-from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import FedbiomedVersionError
 
+from packaging.version import Version
+
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedVersionError
+from fedbiomed.common.logger import logger
 
 FBM_Component_Version = Version  # for Typing
 """The Type of objects representing version numbers in Fed-BioMed"""

@@ -3,16 +3,15 @@
 
 """Interface with the node to node channel state database"""
 
-from typing import Union, List
 import base64
+from typing import List, Union
 
-from tinydb import TinyDB, Query
+from tinydb import Query, TinyDB
 
-from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
 from fedbiomed.common.constants import ErrorNumbers, __n2n_channel_element_version__
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
-
+from fedbiomed.common.utils import __default_version__, raise_for_version_compatibility
 
 _TableName = "ChannelManager"
 

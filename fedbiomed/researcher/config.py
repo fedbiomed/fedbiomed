@@ -5,20 +5,20 @@ import os
 import shutil
 from typing import Optional
 
+from fedbiomed.common.certificate_manager import generate_certificate
+from fedbiomed.common.config import Component, Config
 from fedbiomed.common.constants import (
-    SERVER_certificate_prefix,
-    __researcher_config_version__,
     CONFIG_FOLDER_NAME,
-    VAR_FOLDER_NAME,
     DEFAULT_RESEARCHER_NAME,
+    DOCS_FOLDER_NAME,
     NOTEBOOKS_FOLDER_NAME,
     TUTORIALS_FOLDER_NAME,
-    DOCS_FOLDER_NAME,
+    VAR_FOLDER_NAME,
+    SERVER_certificate_prefix,
+    __researcher_config_version__,
 )
-from fedbiomed.common.utils import SHARE_DIR
-from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.logger import logger
-from fedbiomed.common.config import Component, Config
+from fedbiomed.common.utils import SHARE_DIR
 
 
 class ResearcherConfig(Config):

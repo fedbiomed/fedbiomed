@@ -4,20 +4,19 @@
 import inspect
 from typing import Optional
 
-from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST
+from fedbiomed.common.constants import TIMEOUT_NODE_TO_NODE_REQUEST, ErrorNumbers
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     AdditiveSSharingReply,
     AdditiveSSharingRequest,
-    ChannelSetupRequest,
     ChannelSetupReply,
+    ChannelSetupRequest,
     InnerMessage,
     KeyReply,
     KeyRequest,
     OverlayMessage,
 )
 from fedbiomed.common.synchro import EventWaitExchange
-
 from fedbiomed.transport.controller import GrpcController
 
 from ._overlay import OverlayChannel

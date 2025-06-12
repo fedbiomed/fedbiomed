@@ -10,16 +10,16 @@ from abc import ABCMeta
 from typing import Any, Dict, Iterator, List, Optional
 
 import numpy as np
-from sklearn.linear_model import SGDClassifier, SGDRegressor, Perceptron
+from sklearn.linear_model import Perceptron, SGDClassifier, SGDRegressor
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.training_plans import SKLearnTrainingPlan
 from fedbiomed.common.training_plans._training_iterations import (
     MiniBatchTrainingIterationsAccountant,
 )
 
+from ._sklearn_training_plan import SKLearnTrainingPlan
 
 __all__ = [
     "FedPerceptron",

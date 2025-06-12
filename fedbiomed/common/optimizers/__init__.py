@@ -7,8 +7,12 @@ optimizers for Federated Learning inside Fed-BioMed
 """
 
 from . import declearn
+from ._secagg import (
+    EncryptedAuxVar,
+    flatten_auxvar_for_secagg,
+    unflatten_auxvar_after_secagg,
+)
 from .declearn import AuxVar
-from .optimizer import Optimizer
 from .generic_optimizers import (
     BaseOptimizer,
     DeclearnOptimizer,
@@ -16,11 +20,7 @@ from .generic_optimizers import (
     NativeTorchOptimizer,
     SklearnOptimizerProcessing,
 )
-from ._secagg import (
-    EncryptedAuxVar,
-    flatten_auxvar_for_secagg,
-    unflatten_auxvar_after_secagg,
-)
+from .optimizer import Optimizer
 
 __all__ = [
     "AuxVar",

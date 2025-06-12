@@ -6,24 +6,23 @@ Core code of the node component.
 """
 
 import os
-
 from typing import Callable, Optional, Union
 
-from fedbiomed.common.constants import ErrorNumbers, CONFIG_FOLDER_NAME
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     AdditiveSSSetupRequest,
     ApprovalRequest,
     ErrorMessage,
+    ListReply,
+    ListRequest,
     Message,
     OverlayMessage,
     PingReply,
     PingRequest,
     SearchReply,
     SearchRequest,
-    ListRequest,
-    ListReply,
     SecaggDeleteReply,
     SecaggDeleteRequest,
     SecaggReply,
@@ -33,8 +32,8 @@ from fedbiomed.common.message import (
 )
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.tasks_queue import TasksQueue
-from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.config import NodeConfig
+from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.requests import NodeToNodeRouter
 from fedbiomed.node.round import Round

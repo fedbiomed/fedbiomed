@@ -11,11 +11,11 @@ the "TorchVector" and "NumpyVector" classes used in this module.
 
 from ._model import Model
 from ._sklearn import (
-    SkLearnModel,
     BaseSkLearnModel,
     MLPSklearnModel,
-    SGDRegressorSKLearnModel,
     SGDClassifierSKLearnModel,
+    SGDRegressorSKLearnModel,
+    SkLearnModel,
 )
 from ._torch import TorchModel
 

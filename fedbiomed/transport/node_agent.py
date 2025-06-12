@@ -5,7 +5,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Awaitable, Callable, Dict, Optional
 
-
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import Message, OverlayMessage
 

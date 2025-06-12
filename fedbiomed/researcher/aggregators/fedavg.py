@@ -3,10 +3,10 @@
 
 """ """
 
-from typing import Dict, Union, Mapping
+from typing import Dict, Mapping, Union
 
-import torch  # used by typing
 import numpy  # used by typing
+import torch  # used by typing
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedAggregatorError

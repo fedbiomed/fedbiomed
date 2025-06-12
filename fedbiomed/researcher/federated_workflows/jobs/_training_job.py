@@ -5,7 +5,6 @@ import os
 import uuid
 from typing import Any, Dict, Optional, Tuple, Union
 
-
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply, TrainRequest
 from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar

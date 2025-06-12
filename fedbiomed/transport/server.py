@@ -1,34 +1,35 @@
-import time
-import os
-from typing import Callable, Iterable, Any, Coroutine, Optional, List
-import threading
-
 import asyncio
+import os
+import threading
+import time
+from typing import Any, Callable, Coroutine, Iterable, List, Optional
+
 import grpc
 from google.protobuf.message import Message as ProtoBufMessage
 
-from fedbiomed.transport.protocols.researcher_pb2 import Empty
 import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
+from fedbiomed.common.constants import (
+    MAX_MESSAGE_BYTES_LENGTH,
+    MAX_SEND_RETRIES,
+    ErrorNumbers,
+    MessageType,
+)
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
+from fedbiomed.common.logger import logger
+from fedbiomed.common.message import (
+    FeedbackMessage,
+    Message,
+    OverlayMessage,
+    TaskRequest,
+    TaskResponse,
+)
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.client import (
     GRPC_CLIENT_CONN_RETRY_TIMEOUT,
     GRPC_CLIENT_TASK_REQUEST_TIMEOUT,
 )
 from fedbiomed.transport.node_agent import AgentStore, NodeAgent
-
-from fedbiomed.common.constants import ErrorNumbers, MAX_SEND_RETRIES
-from fedbiomed.common.exceptions import FedbiomedCommunicationError
-from fedbiomed.common.logger import logger
-from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.message import (
-    Message,
-    TaskResponse,
-    TaskRequest,
-    FeedbackMessage,
-    OverlayMessage,
-)
-
-from fedbiomed.common.constants import MessageType, MAX_MESSAGE_BYTES_LENGTH
-
+from fedbiomed.transport.protocols.researcher_pb2 import Empty
 
 # Maximum time in seconds for sending a message, before considering it should be discarded.
 MAX_SEND_DURATION = 300

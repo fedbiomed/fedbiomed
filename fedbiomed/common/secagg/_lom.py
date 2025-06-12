@@ -1,12 +1,10 @@
 import math
 import secrets
-from typing import List, Dict
+from typing import Dict, List
 
 import numpy as np
-
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.hazmat.backends import default_backend
-
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedSecaggError

@@ -1,17 +1,16 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import sys
-import os
-import inspect
 import importlib.util
+import inspect
+import os
 import re
-
+import sys
 from collections.abc import Iterable
-from typing import Callable, Iterator, List, Optional, Union, Any, Tuple
+from typing import Any, Callable, Iterator, List, Optional, Tuple, Union
 
-import torch
 import numpy as np
+import torch
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError

@@ -2,13 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 from fedbiomed.common.constants import SecureAggregationSchemes
 
-from ._secagg_context import SecaggServkeyContext, SecaggContext, SecaggDHContext
+from ._secagg_context import SecaggContext, SecaggDHContext, SecaggServkeyContext
 from ._secure_aggregation import (
-    SecureAggregation,
     JoyeLibertSecureAggregation,
     LomSecureAggregation,
+    SecureAggregation,
 )
-
 
 __all__ = [
     "SecaggServkeyContext",

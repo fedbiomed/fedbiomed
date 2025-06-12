@@ -3,18 +3,16 @@
 
 import tkinter.messagebox
 import warnings
-
 from typing import Optional
 
 from pygments import highlight
-from pygments.lexers import PythonLexer
 from pygments.formatters import Terminal256Formatter
+from pygments.lexers import PythonLexer
 
-
-from fedbiomed.common.logger import logger
-from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from fedbiomed.common.constants import TrainingPlanApprovalStatus, TrainingPlanStatus
+from fedbiomed.common.logger import logger
 from fedbiomed.node.cli_utils._io import validated_path_input
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
 def register_training_plan(tp_security_manager: TrainingPlanSecurityManager):

@@ -3,30 +3,31 @@
 
 """Manages training plan approval for a node."""
 
-from datetime import datetime
 import hashlib
 import os
 import re
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Tuple, Union
+
 from python_minifier import minify
 from tabulate import tabulate
-from tinydb import TinyDB, Query
-from typing import Any, Dict, List, Tuple, Union
-import uuid
+from tinydb import Query, TinyDB
 
 from fedbiomed.common.constants import (
+    ErrorNumbers,
     HashingAlgorithms,
     TrainingPlanApprovalStatus,
     TrainingPlanStatus,
-    ErrorNumbers,
 )
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
-    ApprovalRequest,
     ApprovalReply,
-    TrainingPlanStatusRequest,
+    ApprovalRequest,
     TrainingPlanStatusReply,
+    TrainingPlanStatusRequest,
 )
 from fedbiomed.common.utils import SHARE_DIR
 

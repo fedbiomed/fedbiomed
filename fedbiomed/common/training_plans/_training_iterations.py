@@ -1,11 +1,11 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Tuple, Optional, TypeVar
-from fedbiomed.common.logger import logger
+from typing import Optional, Tuple, TypeVar
+
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
-
+from fedbiomed.common.logger import logger
 
 TTrainingIterationsAccountant = TypeVar(
     "TTrainingIterationsAccountant", bound="MiniBatchTrainingIterationsAccountant"

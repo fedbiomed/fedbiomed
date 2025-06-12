@@ -4,7 +4,6 @@
 """Diffenrential Privacy controller."""
 
 from typing import Dict, Tuple, Union
-from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 
 import torch
 from opacus import PrivacyEngine
@@ -13,10 +12,11 @@ from opacus.validators import ModuleValidator
 from torch.nn import Module
 from torch.utils.data import DataLoader
 
-from fedbiomed.common.validator import ValidateError
-from fedbiomed.common.training_args import DPArgsValidator
-from fedbiomed.common.exceptions import FedbiomedDPControllerError
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedDPControllerError
+from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
+from fedbiomed.common.training_args import DPArgsValidator
+from fedbiomed.common.validator import ValidateError
 
 
 class DPController:

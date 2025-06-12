@@ -6,11 +6,10 @@
 from fedbiomed.common.constants import ErrorNumbers, SecaggElementTypes
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
-
 from fedbiomed.common.secagg_manager import (
-    SecaggServkeyManager,
-    SecaggDhManager,
     BaseSecaggManager,
+    SecaggDhManager,
+    SecaggServkeyManager,
 )
 
 

@@ -3,8 +3,8 @@
 
 """API and wrappers to interface framework-specific and generic optimizers."""
 
-from abc import ABCMeta, abstractmethod
 import copy
+from abc import ABCMeta, abstractmethod
 from types import TracebackType
 from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
@@ -18,7 +18,6 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.models import Model, SkLearnModel, TorchModel
 from fedbiomed.common.optimizers.declearn import AuxVar
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
-
 
 OT = TypeVar("OT")  # generic type-annotation for wrapped optimizers
 """Generic TypeVar for framework-specific Optimizer types"""

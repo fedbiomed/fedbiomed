@@ -1,14 +1,14 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-import sys
 import argparse
 import importlib
+import os
+import sys
 
-from fedbiomed.common.constants import DEFAULT_NODE_NAME, DEFAULT_RESEARCHER_NAME
-from fedbiomed.common.config import docker_special_case
 from fedbiomed.common.cli import CLIArgumentParser, CommonCLI
+from fedbiomed.common.config import docker_special_case
+from fedbiomed.common.constants import DEFAULT_NODE_NAME, DEFAULT_RESEARCHER_NAME
 
 
 class UniqueStore(argparse.Action):

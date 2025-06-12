@@ -6,7 +6,8 @@
 Send information from node to researcher during the training
 """
 
-from typing import Union, Dict, Callable
+from typing import Callable, Dict, Union
+
 from fedbiomed.common.message import FeedbackMessage, Scalar
 
 

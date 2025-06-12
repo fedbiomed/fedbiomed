@@ -84,7 +84,6 @@ This error is raised then a value does not comply to defined rule(s)
 import functools
 import inspect
 import sys
-
 from copy import deepcopy
 from enum import Enum
 from typing import Any, Callable, Dict, Union

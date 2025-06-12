@@ -5,7 +5,7 @@
 Interfaces with a tinyDB database for converting search results to dict.
 """
 
-from tinydb.table import Table, Document
+from tinydb.table import Document, Table
 
 
 def cast_(func):

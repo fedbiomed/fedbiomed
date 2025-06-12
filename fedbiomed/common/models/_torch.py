@@ -9,9 +9,9 @@ from typing import Dict, List
 import numpy as np
 import torch
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.models import Model
 
 

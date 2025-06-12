@@ -13,25 +13,25 @@ except ModuleNotFoundError as e:
     raise ModuleNotFoundError(m) from e
 
 
-from importlib import import_module
-from enum import Enum
-from typing import List, Dict, Union
 import pkgutil
+from enum import Enum
+from importlib import import_module
+from typing import Dict, List, Union
 
-from torch.utils.data import Dataset
 import flamby.datasets as flamby_datasets_module
-from torchvision.transforms import Compose as TorchCompose
 from monai.transforms import Compose as MonaiCompose
+from torch.utils.data import Dataset
+from torchvision.transforms import Compose as TorchCompose
 
-from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import DataLoadingBlockTypes, DatasetTypes, ErrorNumbers
+from fedbiomed.common.dataloadingplan import DataLoadingBlock, DataLoadingPlanMixin
 from fedbiomed.common.exceptions import (
     FedbiomedDatasetError,
-    FedbiomedLoadingBlockError,
     FedbiomedDatasetValueError,
+    FedbiomedLoadingBlockError,
 )
-from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
+from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import get_method_spec
-from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin, DataLoadingBlock
 
 
 def discover_flamby_datasets() -> Dict[int, str]:

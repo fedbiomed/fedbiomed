@@ -3,14 +3,14 @@ This file is originally part of Fed-BioMed
 SPDX-License-Identifier: Apache-2.0
 """
 
-from typing import Dict, List, Optional, Any
 from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
 
 from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
-from fedbiomed.common.utils import matching_parties_servkey, matching_parties_dh
 from fedbiomed.common.secagg import SecaggCrypter, SecaggLomCrypter
-from fedbiomed.node.secagg_manager import SecaggServkeyManager, SecaggDhManager
+from fedbiomed.common.utils import matching_parties_dh, matching_parties_servkey
+from fedbiomed.node.secagg_manager import SecaggDhManager, SecaggServkeyManager
 
 
 class _SecaggSchemeRound(ABC):

@@ -1,13 +1,12 @@
 import asyncio
 import threading
-from typing import Callable, List, Dict, Optional
-
-from fedbiomed.transport.client import GrpcClient, ResearcherCredentials
+from typing import Callable, Dict, List, Optional
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import Message
+from fedbiomed.transport.client import GrpcClient, ResearcherCredentials
 
 
 class GrpcAsyncTaskController:

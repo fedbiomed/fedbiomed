@@ -4,7 +4,7 @@
 """Scikit-learn interfacing Model classes."""
 
 import sys
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from copy import deepcopy
 from io import StringIO
@@ -16,10 +16,10 @@ from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 
-from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.models import Model
+from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.models import Model
 
 
 @contextmanager

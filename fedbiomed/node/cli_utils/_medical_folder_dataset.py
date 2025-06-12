@@ -1,12 +1,13 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Optional, List, Tuple
 import warnings
-from copy import copy
 from collections import defaultdict
+from copy import copy
+from typing import List, Optional, Tuple
+
 from fedbiomed.common.dataloadingplan import DataLoadingPlan, MapperBlock
-from fedbiomed.common.dataset import MedicalFolderController, MedicalFolderBase
+from fedbiomed.common.dataset import MedicalFolderBase, MedicalFolderController
 from fedbiomed.node.cli_utils._io import validated_path_input
 
 

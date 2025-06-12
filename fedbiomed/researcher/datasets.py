@@ -3,7 +3,7 @@
 
 """Module includes the classes that allow researcher to interact with remote datasets (federated datasets)."""
 
-from typing import List, Dict
+from typing import Dict, List
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedFederatedDataSetError
