@@ -340,7 +340,7 @@ def compute_dot_product(
     dot_prod = sum(
         [
             torch.sum(m * torch.tensor(p).float().to(device))
-            for m, p in zip(model_p, correction_state)
+            for m, p in zip(model_p, correction_state, strict=True)
         ]
     )
     return dot_prod

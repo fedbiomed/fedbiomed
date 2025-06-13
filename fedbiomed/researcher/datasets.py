@@ -107,7 +107,9 @@ class FederatedDataSet:
             Includes [`sample_sizes`][fedbiomed.researcher.datasets.FederatedDataSet.sample_sizes] by node_ids.
         """
         shapes_dict = {}
-        for node_id, node_data_size in zip(self.node_ids(), self.sample_sizes()):
+        for node_id, node_data_size in zip(
+            self.node_ids(), self.sample_sizes(), strict=True
+        ):
             shapes_dict[node_id] = node_data_size
 
         return shapes_dict

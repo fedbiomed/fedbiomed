@@ -719,7 +719,9 @@ class Sender(Listener):
 
         reply = Serializer.dumps(message.to_dict())
         chunk_range = range(0, len(reply), MAX_MESSAGE_BYTES_LENGTH)
-        for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
+        for start, iter_ in zip(
+            chunk_range, range(1, len(chunk_range) + 1), strict=True
+        ):
             stop = start + MAX_MESSAGE_BYTES_LENGTH
             yield TaskResult(
                 size=len(chunk_range), iteration=iter_, bytes_=reply[start:stop]

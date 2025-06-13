@@ -67,7 +67,7 @@ def weighted_sum(
         (t, avg_params[key]) = initialize(val)
 
     if t == "tensor":
-        for model, weight in zip(model_params, proportions):
+        for model, weight in zip(model_params, proportions, strict=True):
             for key in avg_params.keys():
                 avg_params[key] += weight * model[key]
 

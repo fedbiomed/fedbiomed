@@ -329,7 +329,9 @@ class DeclearnOptimizer(BaseOptimizer):
         idx: int = 0  # list index
 
         for init_module, new_module in zip(
-            init_state["states"][component_name], optim_state["states"][component_name]
+            init_state["states"][component_name],
+            optim_state["states"][component_name],
+            strict=True,
         ):
             if init_module[0] == new_module[0]:
                 # if we have the same modules from last to current round, update module wrt last saved state

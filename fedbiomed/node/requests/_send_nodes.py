@@ -41,7 +41,7 @@ def send_nodes(
     """
     request_ids = []
 
-    for node, message in zip(nodes, messages):
+    for node, message in zip(nodes, messages, strict=True):
         overlay, salt, nonce = n2n_router.format_outgoing_overlay(
             message, researcher_id
         )
