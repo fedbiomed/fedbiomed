@@ -399,6 +399,7 @@ class ErrorNumbers(_BaseEnum):
     FB629 = "FB629: Diffie-Hellman KA error"
     FB630 = "FB630: Additive Secret Sharing error"
     FB631 = "FB631: Node to node channels database error"
+    FB632 = "FB632: Data handling error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 
