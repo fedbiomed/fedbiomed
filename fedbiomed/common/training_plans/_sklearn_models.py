@@ -7,7 +7,7 @@
 
 import functools
 from abc import ABCMeta
-from typing import Any, Dict, Iterator, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
 import numpy as np
 from sklearn.linear_model import Perceptron, SGDClassifier, SGDRegressor
@@ -20,6 +20,9 @@ from fedbiomed.common.training_plans._training_iterations import (
 )
 
 from ._sklearn_training_plan import SKLearnTrainingPlan
+
+if TYPE_CHECKING:
+    from fedbiomed.node.history_monitor import HistoryMonitor
 
 __all__ = [
     "FedPerceptron",

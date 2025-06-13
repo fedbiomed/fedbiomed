@@ -8,7 +8,7 @@ Fed-BioMed training plans wrapping scikit-learn models.
 """
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator
@@ -29,6 +29,9 @@ from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.training_args import TrainingArgs
 
 from ._base_training_plan import BaseTrainingPlan
+
+if TYPE_CHECKING:
+    from fedbiomed.node.history_monitor import HistoryMonitor
 
 
 class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):

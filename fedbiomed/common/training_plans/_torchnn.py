@@ -4,7 +4,17 @@
 """TrainingPlan definition for the pytorch deep learning framework."""
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Iterator, List, Optional, OrderedDict, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    OrderedDict,
+    Tuple,
+    Union,
+)
 
 import torch
 
@@ -25,6 +35,9 @@ from fedbiomed.common.training_plans._training_iterations import (
     MiniBatchTrainingIterationsAccountant,
 )
 from fedbiomed.common.utils import get_method_spec
+
+if TYPE_CHECKING:
+    from fedbiomed.node.history_monitor import HistoryMonitor
 
 ModelInputType = Union[torch.Tensor, Dict, List, Tuple]
 
