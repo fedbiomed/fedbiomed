@@ -117,6 +117,12 @@ jobs:
         run: |
           pip install tox
 
+      - name: Verify Tox Config
+        if: steps.filter.outputs.module == 'true'
+        run: |
+          tox --showconfig
+        shell: bash -l {0}
+
       - name: Run tests
         if: steps.filter.outputs.module == 'true'
         run: |
