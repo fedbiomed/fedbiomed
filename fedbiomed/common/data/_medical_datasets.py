@@ -439,6 +439,8 @@ class MedicalFolderDataset(MedicalFolderBase):
         # Apply transforms to demographics elements
         if self._demographics_transform is not None:
             try:
+                #import remote_pdb; remote_pdb.set_trace()
+                import pdb; pdb.set_trace()
                 demographics = self._csv_reader._transform_framework(self._demographics_transform(demographics))
             except Exception as e:
                 raise FedbiomedDatasetError(

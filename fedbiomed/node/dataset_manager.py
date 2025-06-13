@@ -475,7 +475,9 @@ class DatasetManager:
             except FedbiomedError as e:
                 raise FedbiomedDatasetManagerError(f"Can not create Medical Folder dataset. {e}")
             else:
-                shape = dataset.shape()
+                # Discalimer: this should change with indtroduction of controller
+                
+                shape = dataset.get_shape()
 
             # try to read one sample and raise if it doesn't work
             try:
