@@ -372,7 +372,7 @@ class DataLoadingBlock(ABC):
            FedbiomedLoadingBlockError: if the instantiation process raised any exception.
         """
         try:
-            dlb_module = import_module(loading_block["loading_block_module"])
+            dlb_module = import_module(loading_block["loading_block_module"])  # noqa: F841
             dlb = eval(f"dlb_module.{loading_block['loading_block_class']}()")
         except Exception as e:
             msg = (
@@ -402,7 +402,7 @@ class DataLoadingBlock(ABC):
             DataLoadingBlockTypes: _description_
         """
         try:
-            keys = import_module(key_module)
+            keys = import_module(key_module)  # noqa: F841
             loading_block_key = eval(f"keys.{key_classname}('{loading_block_key_str}')")
         except Exception as e:
             msg = (

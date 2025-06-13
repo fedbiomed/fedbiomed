@@ -41,7 +41,7 @@ def register_training_plan(tp_security_manager: TrainingPlanSecurityManager):
         try:
             tkinter.messagebox.showwarning(title="Warning", message=str(e))
         except ModuleNotFoundError:
-            warnings.warn(f"[ERROR]: {e}")
+            warnings.warn(f"[ERROR]: {e}", stacklevel=1)
         exit(1)
 
     print("\nGreat! Take a look at your data:")

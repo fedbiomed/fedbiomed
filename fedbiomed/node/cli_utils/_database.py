@@ -127,10 +127,14 @@ def add_database(
                             keep_asking_for_input = False
                         else:
                             warnings.warn(
-                                f"Please pick a number in the range {list(available_flamby_datasets.keys())}"
+                                f"Please pick a number in the range {list(available_flamby_datasets.keys())}",
+                                stacklevel=1,
                             )
                     except ValueError:
-                        warnings.warn("Please input a numeric value (integer)")
+                        warnings.warn(
+                            "Please input a numeric value (integer)",
+                            stacklevel=1,
+                        )
                 path = available_flamby_datasets[
                     flamby_dataset_index
                 ]  # flamby datasets not identified by their path
@@ -152,7 +156,8 @@ def add_database(
                             keep_asking_for_input = False
                     except ValueError:
                         warnings.warn(
-                            f"Please input a numeric value (integer) between 0 and {str(n_centers - 1)}"
+                            f"Please input a numeric value (integer) between 0 and {str(n_centers - 1)}",
+                            stacklevel=1,
                         )
 
                 # Build the DataLoadingPlan with the selected dataset type and center id
@@ -220,14 +225,15 @@ def add_database(
             try:
                 tkinter.messagebox.showwarning(title="Warning", message=str(e))
             except ModuleNotFoundError:
-                warnings.warn(f"[ERROR]: {e}")
+                warnings.warn(f"[ERROR]: {e}", stacklevel=1)
         else:
-            warnings.warn(f"[ERROR]: {e}")
+            warnings.warn(f"[ERROR]: {e}", stacklevel=1)
         exit(1)
     except FedbiomedDatasetError as err:
         warnings.warn(
             f"[ERROR]: {err} ... Aborting"
-            "\nHint: are you sure you have selected the correct index in Demographic file?"
+            "\nHint: are you sure you have selected the correct index in Demographic file?",
+            stacklevel=1,
         )
     print("\nGreat! Take a look at your data:")
     dataset_manager.list_my_data(verbose=True)

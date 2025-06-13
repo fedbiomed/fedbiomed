@@ -29,7 +29,7 @@ def validated_data_type_input() -> str:
             assert t in valid_options.keys()
             break
         except Exception:
-            warnings.warn("\n[ERROR] Please, enter a valid option")
+            warnings.warn("\n[ERROR] Please, enter a valid option", stacklevel=1)
 
     return valid_options[t]
 
@@ -108,6 +108,6 @@ def validated_path_input(type: str) -> str:
             try:
                 tkinter.messagebox.showerror(title="Error", message=error_msg)
             except ModuleNotFoundError:
-                warnings.warn(error_msg)
+                warnings.warn(error_msg, stacklevel=1)
 
     return path
