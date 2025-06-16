@@ -5,10 +5,11 @@
 Data manager for Pytorch training plan
 """
 
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
-from fedbiomed.common.dataset import Dataset
 from fedbiomed.common.dataloader import PytorchDataLoader
+from fedbiomed.common.dataset import Dataset
+
 from ._framework_data_manager import FrameworkDataManager
 
 

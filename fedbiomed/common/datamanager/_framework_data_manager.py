@@ -5,11 +5,11 @@
 Generic data manager
 """
 
-from typing import Tuple, Optional
 from abc import ABC, abstractmethod
+from typing import Optional, Tuple
 
-from fedbiomed.common.dataset import Dataset
 from fedbiomed.common.dataloader import DataLoader
+from fedbiomed.common.dataset import Dataset
 
 
 class FrameworkDataManager(ABC):
