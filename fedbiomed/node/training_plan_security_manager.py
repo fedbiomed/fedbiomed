@@ -316,7 +316,7 @@ class TrainingPlanSecurityManager:
         if not training_plans:
             logger.info("There are no training plans registered")
         else:
-            for training_plan, doc in zip(training_plans, docs, strict=True):
+            for training_plan, _doc in zip(training_plans, docs, strict=False):
                 # If training plan file is exists
                 if training_plan["algorithm"] != self._hashing:
                     logger.info(

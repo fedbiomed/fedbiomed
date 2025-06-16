@@ -62,7 +62,7 @@ class AdditiveSecret:
                 partial_shares = self._shares_int(value, num_shares, bit_length)
                 shares.append(partial_shares)
 
-            shares = list(map(list, zip(*shares, strict=True)))
+            shares = list(map(list, zip(*shares, strict=False)))
 
         return AdditiveShares([AdditiveShare(share) for share in shares])
 

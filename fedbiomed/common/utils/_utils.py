@@ -228,7 +228,7 @@ def get_ipython_class_file(cls: Callable) -> str:
             return object_.__file__
 
         # If parent module is __main__
-        for name, member in inspect.getmembers(cls):
+        for _name, member in inspect.getmembers(cls):
             if (
                 inspect.isfunction(member)
                 and cls.__qualname__ + "." + member.__name__ == member.__qualname__
@@ -340,7 +340,7 @@ def compute_dot_product(
     dot_prod = sum(
         [
             torch.sum(m * torch.tensor(p).float().to(device))
-            for m, p in zip(model_p, correction_state, strict=True)
+            for m, p in zip(model_p, correction_state, strict=False)
         ]
     )
     return dot_prod

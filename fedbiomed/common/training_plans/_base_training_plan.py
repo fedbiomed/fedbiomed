@@ -494,7 +494,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     f"{ErrorNumbers.FB605.value}: error when converting "
                     f"metric values to float - {exc}"
                 ) from exc
-            return dict(zip(metric_names, values, strict=True))
+            return dict(zip(metric_names, values, strict=False))
 
         raise FedbiomedTrainingPlanError(
             f"{ErrorNumbers.FB605.value}: metric value should be one of type "

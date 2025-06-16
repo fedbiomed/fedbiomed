@@ -471,10 +471,10 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
 
         # Training loop iterations
-        for epoch in iterations_accountant.iterate_epochs():
+        for _epoch in iterations_accountant.iterate_epochs():
             training_data_iter: Iterator = iter(self.training_data_loader)
 
-            for batch_idx in iterations_accountant.iterate_batches():
+            for _batch_idx in iterations_accountant.iterate_batches():
                 # retrieve data and target
                 data, target = next(training_data_iter)
 

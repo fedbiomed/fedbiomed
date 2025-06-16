@@ -324,7 +324,7 @@ class EncryptedAuxVar:
 
     def get_mapping_encrypted_aux_var(self) -> Dict[str, List[int]]:
         nodes_id = list(self.cleartext[0]["clients"])
-        return {n: p for n, p in zip(nodes_id, self.encrypted, strict=True)}
+        return {n: p for n, p in zip(nodes_id, self.encrypted, strict=False)}
 
     def to_dict(
         self,

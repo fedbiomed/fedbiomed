@@ -95,7 +95,7 @@ class FederatedDataSet:
                 [node_ids][fedbiomed.researcher.datasets.FederatedDataSet.node_ids]
         """
         sample_sizes = []
-        for key, val in self._data.items():
+        for _, val in self._data.items():
             sample_sizes.append(val["shape"][0])
 
         return sample_sizes
@@ -108,7 +108,7 @@ class FederatedDataSet:
         """
         shapes_dict = {}
         for node_id, node_data_size in zip(
-            self.node_ids(), self.sample_sizes(), strict=True
+            self.node_ids(), self.sample_sizes(), strict=False
         ):
             shapes_dict[node_id] = node_data_size
 
