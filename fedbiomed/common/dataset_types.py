@@ -20,9 +20,9 @@ class DataReturnFormat(_BaseEnum):
 
     # for a Dataset: DEFAULT is generic Dataset data format
     # for a Reader: DEFAULT is native Reader data format
-    DEFAULT: int = 0
-    TORCH: int = 1
-    SKLEARN: int = 2
+    DEFAULT = 0
+    TORCH = 1
+    SKLEARN = 2
 
 
 drf_default = DataReturnFormat(DataReturnFormat.DEFAULT)
@@ -52,8 +52,8 @@ Transform = Optional[Union[Callable, Dict[str, Callable]]]
 class DataType(_BaseEnum):
     """Possible data modality types"""
 
-    IMAGE: int = 1
-    TABULAR: int = 2
+    IMAGE = 1
+    TABULAR = 2
 
 
 @dataclass
@@ -75,8 +75,13 @@ DatasetDataItem = Optional[Dict[str, Union[Any, DatasetDataItemModality]]]
 # shape for a sample of *one* modality as a list of dimensions of array
 ModalityShape = List[int]
 
-# shape for a sample of a `Reader`'s returned item as `(number of samples, dimensions of array)`
-ReaderItemShape = Tuple[int, ModalityShape]
+# shape for a sample of a `Reader`'s returned item as
+# `(number_of_samples, { 'modality_name' => dimensions_of_array })`
+# This is needed to support the multiple cases, eg
+# - a CSV may be interpreted as one sample (with multiple lines)
+#   or multiple samples (one per line) => not done by the reader
+# - data may be multi-modal (eg: BIDS)
+ReaderShape = Dict[str, ModalityShape]
 
 DatasetItemShape = Optional[Dict[str, Tuple[DataType, ModalityShape]]]
 # shape for a full sample as `(number of samples, data shape, target shape)`
