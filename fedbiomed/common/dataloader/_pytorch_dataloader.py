@@ -5,13 +5,12 @@
 Class for data loader in PyTorch training plans
 """
 
-from typing import Optional, Dict, Tuple
+from typing import Dict, Optional, Tuple
 
-from torch.utils.data import DataLoader as TorchDataLoader
 import torch
+from torch.utils.data import DataLoader as TorchDataLoader
 
 from ._dataloader import DataLoader
-
 
 # Base type for data returned by `PytorchDataLoader`
 # a sample is tuple `(PytorchDataItem, PytorchDataItem)` for `(data, target)`

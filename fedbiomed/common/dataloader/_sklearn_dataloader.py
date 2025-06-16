@@ -5,13 +5,12 @@
 Class for data loader in PyTorch training plans
 """
 
-from typing import Optional, Dict, Tuple
 from collections.abc import Iterable
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 
 from ._dataloader import DataLoader
-
 
 # Base type for data returned by `PytorchDataLoader`
 # a sample is tuple `(SkLearnDataItem, SkLearnDataItem)` for `(data, target)`
