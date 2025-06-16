@@ -5,14 +5,15 @@
 Manage the node's database table for handling datasets
 """
 
-from typing import Union, Optional
+from typing import Optional, Union
 
-from fedbiomed.common.db import DBTable
-from fedbiomed.common.dataset_controller import (  # noqa  # not used yet, sketch
-    NewMedicalFolderController,
-    MnistController,
-)
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
+from fedbiomed.common.dataset_controller import (  # noqa  # not used yet, sketch
+    MnistController,
+    NewMedicalFolderController,
+)
+from fedbiomed.common.db import DBTable
+
 from ._dlp_db_manager import DlpDatabaseManager
 
 

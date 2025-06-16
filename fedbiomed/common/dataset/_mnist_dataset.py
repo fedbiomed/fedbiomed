@@ -7,9 +7,9 @@ Dataset implementation for MNIST
 
 from typing import Tuple
 
-from fedbiomed.common.dataset_types import Transform, DatasetDataItem
-
 from fedbiomed.common.dataset_controller import MnistController
+from fedbiomed.common.dataset_types import DatasetDataItem, Transform
+
 from ._dataset import StructuredDataset
 
 
