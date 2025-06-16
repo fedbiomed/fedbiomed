@@ -6,7 +6,6 @@ Classes that simplify imports from fedbiomed.common.dataset
 """
 
 from ._dataset import Dataset, StructuredDataset
-from ._native_dataset import NativeDataset
 from ._legacy_tabular_dataset import LegacyTabularDataset
 from ._medical_datasets import (
     MedicalFolderBase,
@@ -14,6 +13,7 @@ from ._medical_datasets import (
     MedicalFolderDataset,
     MedicalFolderLoadingBlockTypes,
 )
+from ._native_dataset import NativeDataset
 
 __all__ = [
     "Dataset",

@@ -5,7 +5,7 @@
 Data Management factory class
 """
 
-from typing import Dict, Optional, Union, Any
+from typing import Any, Dict, Optional, Union
 
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.dataset import Dataset
