@@ -5,8 +5,10 @@
 Manage the node's database table for handling DLP / DLB
 """
 
+from fedbiomed.common.dataloadingplan import (
+    DataLoadingPlan,  # noqa   # not used yet, sketch
+)
 from fedbiomed.common.db import DBTable
-from fedbiomed.common.dataloadingplan import DataLoadingPlan  # noqa   # not used yet, sketch
 
 
 class DlpDatabaseManager:
