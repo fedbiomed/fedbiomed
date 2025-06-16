@@ -103,7 +103,7 @@ def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[An
     except Exception as e:
         raise FedbiomedError(
             f"{ErrorNumbers.FB627.value}: Cannot instantiate training plan object: {e}"
-        )
+        ) from e
 
     return module, train_class_instance
 
@@ -198,14 +198,14 @@ def import_class_from_spec(code: str, class_name: str) -> Tuple[Any, Any]:
     except Exception as e:
         raise FedbiomedError(
             f"{ErrorNumbers.FB627.value}: Can not load module from given code: {e}"
-        )
+        ) from e
 
     try:
         class_ = getattr(module, class_name)
-    except AttributeError:
+    except AttributeError as e:
         raise FedbiomedError(
             f"{ErrorNumbers.FB627.value}: Can not import {class_name} from given code"
-        )
+        ) from e
 
     return module, class_
 
@@ -228,7 +228,7 @@ def get_ipython_class_file(cls: Callable) -> str:
             return object_.__file__
 
         # If parent module is __main__
-        for name, member in inspect.getmembers(cls):
+        for _name, member in inspect.getmembers(cls):
             if (
                 inspect.isfunction(member)
                 and cls.__qualname__ + "." + member.__name__ == member.__qualname__
@@ -340,7 +340,7 @@ def compute_dot_product(
     dot_prod = sum(
         [
             torch.sum(m * torch.tensor(p).float().to(device))
-            for m, p in zip(model_p, correction_state)
+            for m, p in zip(model_p, correction_state, strict=False)
         ]
     )
     return dot_prod

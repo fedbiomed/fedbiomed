@@ -45,7 +45,7 @@ class PRF:
         except ValueError as ve:
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB417.value}: Error while ciphering: got exception {ve}"
-            )
+            ) from ve
         c = encryptor.update(tau) + encryptor.finalize()
         # the output is a 16 bytes string, pad it to 32 bytes
         c = c + b"\x00" * 16

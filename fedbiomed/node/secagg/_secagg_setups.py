@@ -244,7 +244,7 @@ class SecaggServkeySetup(_SecaggNN):
 
         # The last share is the share for the node who executes the request
         my_share = AdditiveShare(shares.pop(-1))
-        party_shares = dict(zip(other_nodes, shares))
+        party_shares = dict(zip(other_nodes, shares, strict=False))
         self._controller_data.event(self._secagg_id, {"shares": party_shares})
 
         requests = [

@@ -42,7 +42,9 @@ def add_medical_folder_dataset_from_cli(
                     index_col = int(index_col)
                     keep_asking_for_input = False
                 except ValueError:
-                    warnings.warn("Please input a numeric value (integer)")
+                    warnings.warn(
+                        "Please input a numeric value (integer)", stacklevel=1
+                    )
         dataset_parameters["tabular_file"] = tabular_file_path
         dataset_parameters["index_col"] = index_col
     modality_folder_names, _ = controller.modalities_candidates_from_subfolders()
@@ -83,7 +85,7 @@ def get_map_modalities2folders_from_cli(
                 )
                 modality_idx = int(modality_idx)
             except ValueError:
-                warnings.warn("Please input a numeric value (integer)")
+                warnings.warn("Please input a numeric value (integer)", stacklevel=1)
             else:
                 # Only execute this branch if a numeric value was correctly inserted
                 if modality_idx == 0:
@@ -101,7 +103,8 @@ def get_map_modalities2folders_from_cli(
                             keep_asking = False
                 elif modality_idx >= len(modality_names):
                     warnings.warn(
-                        "Please input a number equal to one of the indices in the list above."
+                        "Please input a number equal to one of the indices in the list above.",
+                        stacklevel=1,
                     )
                 else:
                     map_modalities_to_folders[modality_names[modality_idx]].append(

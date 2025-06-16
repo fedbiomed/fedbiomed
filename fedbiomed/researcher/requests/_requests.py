@@ -529,7 +529,6 @@ class Requests(metaclass=SingletonMeta):
         with self.send(message, nodes, policies=policies) as federated_req:
             errors = federated_req.errors()
             replies = federated_req.replies()
-            results = {req.node.id: False for req in federated_req.requests}
 
             # TODO: Loop over errors and replies
             for node_id, error in errors.items():

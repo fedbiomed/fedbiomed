@@ -7,6 +7,9 @@ Top class for strategy implementation
 
 from typing import Any, Dict, List, Tuple, Union
 
+import numpy as np
+import torch
+
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.common.logger import logger
@@ -52,7 +55,7 @@ class Strategy:
     def refine(
         self, training_replies: Dict[str, TrainReply], round_i: int
     ) -> Tuple[
-        Dict[str, Dict[str, Union["torch.Tensor", "numpy.ndarray"]]],
+        Dict[str, Dict[str, Union["torch.Tensor", "np.ndarray"]]],
         Dict[str, float],
         int,
         Dict[str, List[int]],

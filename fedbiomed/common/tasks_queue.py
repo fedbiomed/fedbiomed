@@ -34,7 +34,7 @@ class TasksQueue:
         except ValueError as e:
             msg = ErrorNumbers.FB603.value + ": cannot create queue (" + str(e) + ")"
             logger.critical(msg)
-            raise FedbiomedTaskQueueError(msg)
+            raise FedbiomedTaskQueueError(msg) from e
 
     def add(self, task: dict):
         """Adds a task to the queue
@@ -44,10 +44,10 @@ class TasksQueue:
         """
         try:
             self.queue.put(task)
-        except persistqueue.exceptions.Full:
+        except persistqueue.exceptions.Full as e:
             msg = ErrorNumbers.FB603.value + ": queue is full"
             logger.critical(msg)
-            raise FedbiomedTaskQueueError(msg)
+            raise FedbiomedTaskQueueError(msg) from e
         # persistequeue does also raise ValueError if timeout is < 0
         # but we do not provide a timeout value
 
@@ -65,10 +65,10 @@ class TasksQueue:
         """
         try:
             return self.queue.get(block)
-        except persistqueue.exceptions.Empty:
+        except persistqueue.exceptions.Empty as e:
             msg = ErrorNumbers.FB603.value + ": queue is empty"
             logger.debug(msg)
-            raise FedbiomedTaskQueueError(msg)
+            raise FedbiomedTaskQueueError(msg) from e
 
         # - this ignores may be ignored by the caller
         # - persist queue does also raise ValueError then timeout < 0,

@@ -865,12 +865,12 @@ class Round:
                 f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                 f"{str(training_plan_type)} should not take any arguments."
                 f"Instead, the following error occurred: {repr(e)}"
-            )
+            ) from e
         except Exception as e:
             raise FedbiomedRoundError(
                 f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                 f"{str(training_plan_type)} has failed: {repr(e)}"
-            )
+            ) from e
 
         # Check whether training_data returns proper instance
         # it should be always Fed-BioMed DataManager
@@ -891,7 +891,7 @@ class Round:
         except FedbiomedError as e:
             raise FedbiomedRoundError(
                 f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}"
-            )
+            ) from e
         # Get dataset property
         if hasattr(data_manager.dataset, "set_dataset_parameters"):
             dataset_parameters = self.dataset.get("dataset_parameters", {})

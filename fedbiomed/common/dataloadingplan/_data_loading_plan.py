@@ -82,7 +82,7 @@ class SerializationValidation:
         except RuleError as e:
             msg = ErrorNumbers.FB614.value + f": {e}"
             logger.critical(msg)
-            raise exception_type(msg)
+            raise exception_type(msg) from e
 
         try:
             dlb_metadata = sc.populate_with_defaults(
@@ -91,14 +91,14 @@ class SerializationValidation:
         except ValidatorError as e:
             msg = ErrorNumbers.FB614.value + f": {e}"
             logger.critical(msg)
-            raise exception_type(msg)
+            raise exception_type(msg) from e
 
         try:
             sc.validate(dlb_metadata)
         except ValidateError as e:
             msg = ErrorNumbers.FB614.value + f": {e}"
             logger.critical(msg)
-            raise exception_type(msg)
+            raise exception_type(msg) from e
 
     def update_validation_scheme(self, new_scheme: dict) -> None:
         """Updates the validation scheme.
@@ -372,7 +372,7 @@ class DataLoadingBlock(ABC):
            FedbiomedLoadingBlockError: if the instantiation process raised any exception.
         """
         try:
-            dlb_module = import_module(loading_block["loading_block_module"])
+            dlb_module = import_module(loading_block["loading_block_module"])  # noqa: F841
             dlb = eval(f"dlb_module.{loading_block['loading_block_class']}()")
         except Exception as e:
             msg = (
@@ -380,7 +380,7 @@ class DataLoadingBlock(ABC):
                 + f"{loading_block} because of {type(e).__name__}: {e}"
             )
             logger.debug(msg)
-            raise FedbiomedLoadingBlockError(msg)
+            raise FedbiomedLoadingBlockError(msg) from e
         return dlb
 
     @staticmethod
@@ -402,7 +402,7 @@ class DataLoadingBlock(ABC):
             DataLoadingBlockTypes: _description_
         """
         try:
-            keys = import_module(key_module)
+            keys = import_module(key_module)  # noqa: F841
             loading_block_key = eval(f"keys.{key_classname}('{loading_block_key_str}')")
         except Exception as e:
             msg = (
@@ -411,7 +411,7 @@ class DataLoadingBlock(ABC):
                 + f"because of {type(e).__name__}: {e}"
             )
             logger.debug(msg)
-            raise FedbiomedDataLoadingPlanError(msg)
+            raise FedbiomedDataLoadingPlanError(msg) from e
         return loading_block_key
 
 

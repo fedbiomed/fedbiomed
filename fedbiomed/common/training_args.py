@@ -93,7 +93,7 @@ class TrainingArgs:
             # internal error (invalid scheme)
             msg = ErrorNumbers.FB414.value + f": {e}"
             logger.critical(msg)
-            raise FedbiomedUserInputError(msg)
+            raise FedbiomedUserInputError(msg) from e
 
         # scheme is validated from here
         if ta is None:
@@ -105,7 +105,7 @@ class TrainingArgs:
             # scheme has required keys without defined default value
             msg = ErrorNumbers.FB414.value + f": {e}"
             logger.critical(msg)
-            raise FedbiomedUserInputError(msg)
+            raise FedbiomedUserInputError(msg) from e
 
         try:
             self._sc.validate(self._ta)
@@ -113,7 +113,7 @@ class TrainingArgs:
             # transform to a Fed-BioMed error
             msg = ErrorNumbers.FB414.value + f": {e}"
             logger.critical(msg)
-            raise FedbiomedUserInputError(msg)
+            raise FedbiomedUserInputError(msg) from e
 
         # Validate DP arguments if it is existing in training arguments
         if self._ta["dp_args"] is not None:
@@ -125,7 +125,7 @@ class TrainingArgs:
             except ValidateError as e:
                 msg = f"{ErrorNumbers.FB414.value}: {e}"
                 logger.critical(msg)
-                raise FedbiomedUserInputError(msg)
+                raise FedbiomedUserInputError(msg) from e
 
     def testing_arguments(self) -> Dict:
         """Extract testing arguments from training arguments
@@ -453,7 +453,7 @@ class TrainingArgs:
             # transform to FedbiomedError
             msg = ErrorNumbers.FB414.value + f": {e}"
             logger.critical(msg)
-            raise FedbiomedUserInputError(msg)
+            raise FedbiomedUserInputError(msg) from e
         return deepcopy(self._ta[key])
 
     def __getitem__(self, key: str) -> Any:
@@ -472,14 +472,14 @@ class TrainingArgs:
         try:
             ret = self._ta[key]
             return ret
-        except KeyError:
+        except KeyError as e:
             # transform to FedbiomedError
             msg = (
                 ErrorNumbers.FB414.value
                 + f": The key `{key}` does not exist in training args"
             )
             logger.critical(msg)
-            raise FedbiomedUserInputError(msg)
+            raise FedbiomedUserInputError(msg) from e
 
     def update(self, values: Dict) -> TypeVar("TrainingArgs"):
         """

@@ -679,7 +679,9 @@ class JoyeLibert:
 
         n_user = len(list_y_u_tau)
 
-        sum_of_vectors: List[EncryptedNumber] = [sum(ep) for ep in zip(*list_y_u_tau)]
+        sum_of_vectors: List[EncryptedNumber] = [
+            sum(ep) for ep in zip(*list_y_u_tau, strict=False)
+        ]
 
         decrypted_vector = sk_0.decrypt(sum_of_vectors, tau)
 

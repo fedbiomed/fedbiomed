@@ -650,7 +650,7 @@ class Validator(object):
             try:
                 sv = SchemeValidator(hook)
             except RuleError as e:
-                raise RuleError(f"validator is an invalid dict: {e}")
+                raise RuleError(f"validator is an invalid dict: {e}") from e
             hook = sv
 
         # rule description is valid -> register it

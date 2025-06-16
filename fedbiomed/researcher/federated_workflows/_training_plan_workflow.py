@@ -230,7 +230,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                     + f", in method `training_plan_file` : error when reading training plan file - {e}"
                 )
                 logger.critical(msg)
-                raise FedbiomedExperimentError(msg)
+                raise FedbiomedExperimentError(msg) from e
 
         return self._training_plan_file
 
@@ -662,6 +662,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
                     f"Try re-running the intended method by also setting `keep_weights=False` as parameter to "
                     f"force resetting the model."
                 )
-                raise FedbiomedExperimentError(msg)
+                raise FedbiomedExperimentError(msg) from e
         else:
             yield

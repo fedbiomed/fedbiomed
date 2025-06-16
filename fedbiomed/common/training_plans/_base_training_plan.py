@@ -6,7 +6,7 @@
 import random
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypedDict, Union
 
 import numpy as np
 import torch
@@ -25,6 +25,9 @@ from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer
 from fedbiomed.common.utils import get_class_source, get_method_spec
+
+if TYPE_CHECKING:
+    from fedbiomed.node.history_monitor import HistoryMonitor
 
 
 class PreProcessDict(TypedDict):
@@ -491,7 +494,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     f"{ErrorNumbers.FB605.value}: error when converting "
                     f"metric values to float - {exc}"
                 ) from exc
-            return dict(zip(metric_names, values))
+            return dict(zip(metric_names, values, strict=False))
 
         raise FedbiomedTrainingPlanError(
             f"{ErrorNumbers.FB605.value}: metric value should be one of type "

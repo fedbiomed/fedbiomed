@@ -311,7 +311,7 @@ class DatasetManager:
                     + str(e)
                 )
                 logger.error(_msg)
-                raise FedbiomedDatasetManagerError(_msg)
+                raise FedbiomedDatasetManagerError(_msg) from e
 
         try:
             dataset = datasets.ImageFolder(
@@ -328,7 +328,7 @@ class DatasetManager:
                    or choose another path."
             )
             logger.error(_msg)
-            raise FedbiomedDatasetManagerError(_msg)
+            raise FedbiomedDatasetManagerError(_msg) from e
 
         except Exception as e:
             _msg = (
@@ -337,7 +337,7 @@ class DatasetManager:
                 + str(e)
             )
             logger.error(_msg)
-            raise FedbiomedDatasetManagerError(_msg)
+            raise FedbiomedDatasetManagerError(_msg) from e
 
         if as_dataset:
             return dataset, download_path
@@ -373,7 +373,7 @@ class DatasetManager:
                 and doesn't have any empty class folder"
             )
             logger.error(_msg)
-            raise FedbiomedDatasetManagerError(_msg)
+            raise FedbiomedDatasetManagerError(_msg) from e
 
         if as_dataset:
             return dataset
@@ -478,7 +478,7 @@ class DatasetManager:
             except FedbiomedError as e:
                 raise FedbiomedDatasetManagerError(
                     f"Can not create FLamby dataset. {e}"
-                )
+                ) from e
             else:
                 shape = dataset.shape()
 
@@ -540,7 +540,7 @@ class DatasetManager:
             except FedbiomedError as e:
                 raise FedbiomedDatasetManagerError(
                     f"Can not create Medical Folder dataset. {e}"
-                )
+                ) from e
             else:
                 shape = dataset.shape()
 
@@ -551,7 +551,7 @@ class DatasetManager:
                 raise FedbiomedDatasetManagerError(
                     f"Medical Folder Dataset was not saved properly and "
                     f"cannot be read. {e}"
-                )
+                ) from e
 
         if not dataset_id:
             dataset_id = "dataset_" + str(uuid.uuid4())
@@ -616,7 +616,7 @@ class DatasetManager:
                 ErrorNumbers.FB316.value + f": Error during remove of DLP {dlp_id}: {e}"
             )
             logger.error(_msg)
-            raise FedbiomedDatasetManagerError(_msg)
+            raise FedbiomedDatasetManagerError(_msg) from e
 
     def remove_database(self, dataset_id: str):
         """Removes a dataset from database.
@@ -783,9 +783,9 @@ class DatasetManager:
                     if d["data_type"] == "medical-folder":
                         if "dataset_parameters" in d:
                             d["dataset_parameters"].pop("tabular_file", None)
-            except AttributeError:
+            except AttributeError as e:
                 raise FedbiomedDatasetManagerError(
                     f"Object of type {type(d)} does not support pop or getitem method "
                     f"in obfuscate_private_information."
-                )
+                ) from e
         return database_metadata

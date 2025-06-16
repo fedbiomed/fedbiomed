@@ -47,6 +47,8 @@ import logging
 import logging.handlers
 from typing import Any, Callable
 
+from IPython.display import display
+
 from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.singleton import SingletonMeta
 

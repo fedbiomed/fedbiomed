@@ -8,7 +8,7 @@ import inspect
 import os
 import uuid
 from re import findall
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch
@@ -39,6 +39,9 @@ from fedbiomed.researcher.strategies.strategy import Strategy
 
 from ._federated_workflow import exp_exceptions
 from ._training_plan_workflow import TrainingPlanWorkflow
+
+if TYPE_CHECKING:
+    from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
 
 TExperiment = TypeVar("TExperiment", bound="Experiment")  # only for typing
 T = TypeVar("T")
@@ -1493,9 +1496,7 @@ class Experiment(TrainingPlanWorkflow):
     @exp_exceptions
     def _create_object(
         args: Dict[str, Any],
-        training_plan: Optional[
-            "fedbiomed.common.training_plans.BaseTrainingPlan"
-        ] = None,
+        training_plan: Optional["BaseTrainingPlan"] = None,
         **object_kwargs: dict,
     ) -> Any:
         """
@@ -1544,7 +1545,7 @@ class Experiment(TrainingPlanWorkflow):
                 + f"fails with message {str(e)}"
             )
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedExperimentError(msg) from e
 
         # create a class variable containing the class
         try:
@@ -1559,7 +1560,7 @@ class Experiment(TrainingPlanWorkflow):
                 + f"fails with message {str(e)}"
             )
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedExperimentError(msg) from e
 
         # instantiate object from module
         try:
@@ -1578,7 +1579,7 @@ class Experiment(TrainingPlanWorkflow):
                 + f"{str(module_class)} fails with message {str(e)}"
             )
             logger.critical(msg)
-            raise FedbiomedExperimentError(msg)
+            raise FedbiomedExperimentError(msg) from e
 
         # load breakpoint state for object
         if (

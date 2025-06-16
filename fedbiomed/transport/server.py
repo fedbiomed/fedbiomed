@@ -109,7 +109,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             task_bytes = Serializer.dumps(task.to_dict())
 
             chunk_range = range(0, len(task_bytes), MAX_MESSAGE_BYTES_LENGTH)
-            for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
+            for start, iter_ in zip(
+                chunk_range, range(1, len(chunk_range) + 1), strict=True
+            ):
                 stop = start + MAX_MESSAGE_BYTES_LENGTH
 
                 try:

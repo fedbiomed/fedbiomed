@@ -48,4 +48,4 @@ class SecaggManager:
         except Exception as e:
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB318.value}: Missing secure aggregation component for this element type: Error{e}"
-            )
+            ) from e

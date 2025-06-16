@@ -116,7 +116,7 @@ class DataManager(object):
                         "has been instantiated with DataManager. An error occurred while"
                         "trying to convert torch.utils.data.Dataset to numpy based "
                         f"dataset: {str(e)}"
-                    )
+                    ) from e
 
             # For scikit-learn based training plans, the arguments `dataset` and `target` should be an instance
             # one of `pd.DataFrame`, `pd.Series`, `np.ndarray`
@@ -154,8 +154,8 @@ class DataManager(object):
 
         try:
             return self._data_manager_instance.__getattribute__(item)
-        except AttributeError:
+        except AttributeError as e:
             raise FedbiomedDataManagerError(
                 f"{ErrorNumbers.FB607.value}: method {str(item)} not "
                 f"implemented for class: {str(self._data_manager_instance)}"
-            )
+            ) from e

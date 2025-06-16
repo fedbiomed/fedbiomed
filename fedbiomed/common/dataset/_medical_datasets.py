@@ -206,7 +206,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB613.value}: Cannot access folders for subject "
                 f"{subject_or_folder}. Error message is: {e}"
-            )
+            ) from e
         folder = modality_folders.intersection(subject_subfolders)
 
         if len(folder) == 0 or len(folder) > 1:
@@ -467,7 +467,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                     raise FedbiomedDatasetError(
                         f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in "
                         f"sample number {item} from dataset, error message is {e}."
-                    )
+                    ) from e
 
         # Apply transforms to demographics elements
         if self._demographics_transform is not None:
@@ -479,7 +479,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                     f"sample number {item} from dataset. Error message: {repr(e)}. "
                     f"If the dataset was loaded without a demographics file, please ensure that the provided "
                     f"demographics transform immediately returns an empty dict when an empty dict is given as input."
-                )
+                ) from e
 
         # Try to convert demographics to tensor one last time
         if isinstance(demographics, dict) and len(demographics) == 0:
@@ -495,7 +495,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                     f"Please use demographics_transformation argument of BIDSDataset to convert "
                     f"the results manually or provide a data type that can be easily converted.\n"
                     f"Reason for failed conversion: {e}"
-                )
+                ) from e
 
         # Apply transform to target elements
         if self._target_transform is not None:
@@ -506,7 +506,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                     raise FedbiomedDatasetError(
                         f"{ErrorNumbers.FB613.value}: Cannot apply target transformation to modality `{modality}`"
                         f"in sample number {item} from dataset, error message is {e}."
-                    )
+                    ) from e
 
         return (data, demographics), targets
 
@@ -598,7 +598,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB613.value}: Can not load demographics tabular file. "
                 f"Error message is: {e}"
-            )
+            ) from e
 
         # Keep the first one in duplicated subjects
         return demographics.loc[~demographics.index.duplicated(keep="first")]
@@ -938,7 +938,7 @@ class MedicalFolderController(MedicalFolderBase):
         except FedbiomedError as e:
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB613.value}: Can not create Medical Folder dataset. {e}"
-            )
+            ) from e
 
         if self._dlp is not None:
             dataset.set_dlp(self._dlp)

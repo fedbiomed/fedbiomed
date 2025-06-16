@@ -5,7 +5,7 @@ import configparser
 import os
 import uuid
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from packaging.version import Version
 
@@ -22,6 +22,10 @@ from fedbiomed.common.utils import (
     raise_for_version_compatibility,
     read_file,
 )
+
+if TYPE_CHECKING:
+    from fedbiomed.node.config import NodeConfig
+    from fedbiomed.researcher.config import ResearcherConfig
 
 
 def docker_special_case(component_path: str) -> bool:
