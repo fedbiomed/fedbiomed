@@ -11,7 +11,7 @@ import torch
 
 from fedbiomed.common.dataset_types import (
     DataReturnFormat,
-    ReaderItemShape,
+    ReaderShape,
     Transform,
     drf_default,
 )
@@ -46,10 +46,10 @@ class NiftiReader(Reader):
         """
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
-    def shape(self) -> ReaderItemShape:
-        """Returns shape of a data modality served by a reader
+    def shape(self) -> ReaderShape:
+        """Returns shape of the data served by a reader
 
-        Computed before applying transforms or convrsion to other format"""
+        Computed before applying transforms or conversion to other format"""
 
     # Optional methods which can be implemented (or not) by some readers
     # Code is specific to each reader
