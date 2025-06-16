@@ -131,11 +131,11 @@ class MedicalFolderBase(DataLoadingPlanMixin):
                 f"{ErrorNumbers.FB613.value}: Expected a list for modalities, "
                 f"but got {type(modalities)}"
             )
-        if not all([type(m) is str for m in modalities]):
+        if not all([isinstance(m, str) for m in modalities]):
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB613.value}: Expected a list of string for modalities, "
                 f"but some modalities are "
-                f"{' '.join([str(type(m) for m in modalities if type(m) != str)])}"
+                f"{' '.join([str(type(m) for m in modalities if not isinstance(m, str))])}"
             )
         are_modalities_existing = list()
         for modality in modalities:
@@ -583,7 +583,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         self._index_col = value
 
     @property
-    @cache
+    @cache  # noqa: B019
     def demographics(self) -> pd.DataFrame:
         """Loads tabular data file (supports excel, csv, tsv and colon separated value files)."""
 
@@ -616,7 +616,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         return complete_subjects
 
     @property
-    @cache
+    @cache  # noqa: B019
     def subjects_registered_in_demographics(self):
         """Gets the subject only those who are present in the demographics file."""
 

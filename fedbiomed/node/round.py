@@ -560,7 +560,7 @@ class Round:
         success: bool = False,
         message: str = "",
         extend_with: Optional[Dict] = None,
-        timing: dict = {},
+        timing: dict = None,
     ) -> TrainReply:
         """Sends reply to researcher after training/validation.
 
@@ -572,9 +572,11 @@ class Round:
             extend_with: Extends the train reply
             timing: Timing statistics
         """
-
+        # Avoid mutable argument by default
         if extend_with is None:
             extend_with = {}
+        if timing is None:
+            timing = {}
 
         # If round is not successful log error message
         return TrainReply(

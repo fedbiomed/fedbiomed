@@ -55,6 +55,7 @@ __all__ = [
     "SHARE_DIR",
     "get_component_config",
     "get_component_certificate_from_config",
+    "get_default_biprime",
     "get_all_existing_config_files",
     "get_all_existing_certificates",
     "get_existing_component_db_names",

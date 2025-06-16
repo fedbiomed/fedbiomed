@@ -558,7 +558,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         # Set up a batch-wise metrics-computation function.
         # Either use an optionally-implemented custom training routine.
         if hasattr(self, "testing_step"):
-            evaluate = getattr(self, "testing_step")
+            evaluate = self.testing_step
             metric_name = "Custom"
         # Or use the provided `metric` (or its default value).
         else:
@@ -753,7 +753,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return self._loader_args
 
-    def optimizer_args(self) -> Dict[str, Any]:
+    def optimizer_args(self) -> Dict[str, Any]:  # noqa: F811
         """Retrieves optimizer arguments
 
         Returns:

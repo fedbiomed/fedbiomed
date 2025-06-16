@@ -161,7 +161,9 @@ class _SecureAggregation(ABC):
         self._experiment_id: Optional[str] = None
         self._secagg_random: Optional[float] = None
         self._secagg_crypter: Union[SecaggCrypter, SecaggLomCrypter, None] = None
-        self._scheme: SecureAggregationSchemes.LOM | Secure
+        self._scheme: Union[
+            SecureAggregationSchemes.LOM, SecureAggregationSchemes.JOYE_LIBERT
+        ]
 
     @property
     def parties(self) -> Union[List[str], None]:
@@ -579,7 +581,7 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         round_: int,
         total_sample_size: int,
         model_params: Dict[str, List[int]],
-        encryption_factors: Dict[str, Union[List[int], None]] = {},
+        encryption_factors: Dict[str, Union[List[int], None]] = None,
         num_expected_params: int = 1,
         **kwargs,
     ) -> List[float]:
@@ -598,6 +600,9 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         Raises:
             FedbiomedSecureAggregationError: secure aggregation context not properly configured
         """
+        # Avoid mutable argument by default
+        if encryption_factors is None:
+            encryption_factors = {}
 
         if self._servkey is None:
             raise FedbiomedSecureAggregationError(
@@ -797,7 +802,7 @@ class LomSecureAggregation(_SecureAggregation):
         *args,
         model_params: Dict[str, List[int]],
         total_sample_size: int,
-        encryption_factors: Dict[str, Union[List[int], None]] = {},
+        encryption_factors: Dict[str, Union[List[int], None]] = None,
         **kwargs,
     ) -> List[float]:
         """Aggregates given model parameters
@@ -813,6 +818,9 @@ class LomSecureAggregation(_SecureAggregation):
         Raises:
             FedbiomedSecureAggregationError: secure aggregation context not properly configured
         """
+        # Avoid mutable argument by default
+        if encryption_factors is None:
+            encryption_factors = {}
 
         if self._dh is None:
             raise FedbiomedSecureAggregationError(

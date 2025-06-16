@@ -308,7 +308,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # classification labels.
         if self._model.is_classification and not hasattr(self.model(), "classes_"):
             classes = self._classes_from_concatenated_train_test()
-            setattr(self.model(), "classes_", classes)
+            self.model().classes_ = classes
         # If required, select the default metric (accuracy or mse).
         if metric is None:
             if self._model.is_classification:

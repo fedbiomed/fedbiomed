@@ -23,7 +23,7 @@ _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(
     DESCRIPTOR, "fedbiomed.transport.protocols.researcher_pb2", _globals
 )
-if _descriptor._USE_C_DESCRIPTORS == False:
+if _descriptor._USE_C_DESCRIPTORS is False:
     DESCRIPTOR._options = None
     _globals["_FEEDBACKMESSAGE_SCALAR_METRICENTRY"]._options = None
     _globals["_FEEDBACKMESSAGE_SCALAR_METRICENTRY"]._serialized_options = b"8\001"

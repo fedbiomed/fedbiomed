@@ -267,7 +267,7 @@ class DatasetArgumentParser(CLIArgumentParser):
         try:
             with open(path) as json_file:
                 data = json.load(json_file)
-        except:
+        except:  # noqa: E722
             print(f"Cannot read dataset json file: {path}")
             sys.exit(-1)
 
@@ -683,7 +683,7 @@ class NodeCLI(CommonCLI):
                 node = Node(config)
 
                 # Set node object to make it accessible
-                setattr(ComponentDirectoryActionNode._this, "_node", node)
+                ComponentDirectoryActionNode._this._node = node
                 os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = config.get(
                     "default", "id"
                 )
@@ -693,7 +693,7 @@ class NodeCLI(CommonCLI):
                     _,
                     parser,
                 ) in ComponentDirectoryActionNode._this._arg_parsers.items():
-                    setattr(parser, "_node", node)
+                    parser._node = node
 
         super().initialize()
 
