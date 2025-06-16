@@ -5,10 +5,11 @@
 Controller implementation for MNIST
 """
 
-from typing import Tuple
 from pathlib import Path
+from typing import Tuple
 
 from fedbiomed.common.dataset_types import DatasetDataItem
+
 from ._controller import Controller
 
 
