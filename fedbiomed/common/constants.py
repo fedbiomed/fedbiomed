@@ -216,6 +216,7 @@ class TrainingPlanApprovalStatus(_BaseEnum):
 class TrainingPlans(_BaseEnum):
     """Enumeration class for Training plans"""
 
+    NoneTrainingPlan = "NoneTrainingPlan"
     TorchTrainingPlan = "TorchTrainingPlan"
     SkLearnTrainingPlan = "SkLearnTrainingPlan"
 
