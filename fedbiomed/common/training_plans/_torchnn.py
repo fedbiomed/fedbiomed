@@ -248,10 +248,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         return self._optimizer
 
-    def type(self) -> TrainingPlans.TorchTrainingPlan:
-        """Gets training plan type"""
-        return self.__type
-
     def _configure_model_and_optimizer(self, initialize_optimizer: bool = True):
         """Configures model and optimizer before training
 
