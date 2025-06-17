@@ -10,15 +10,10 @@ from ._framework_data_manager import FrameworkDataManager
 from ._new_data_manager import NewDataManager
 from ._new_sklearn_data_manager import NewSkLearnDataManager
 from ._new_torch_data_manager import NewTorchDataManager
-from ._sklearn_data_manager import SkLearnDataManager
-from ._torch_data_manager import TorchDataManager
 
 __all__ = [
     "DataManager",
     "TorchDataManager",
     "SkLearnDataManager",
     "FrameworkDataManager",
-    "NewDataManager",
-    "NewTorchDataManager",
-    "NewSkLearnDataManager",
 ]
