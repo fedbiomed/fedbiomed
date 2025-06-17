@@ -333,10 +333,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             ]
         )
 
-    def type(self) -> TrainingPlans:
-        """Getter for training plan type"""
-        return self.__type
-
     def _warn_about_training_args(self):
         if self._training_args["share_persistent_buffers"]:
             logger.warning(
