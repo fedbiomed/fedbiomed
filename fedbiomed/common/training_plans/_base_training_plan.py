@@ -13,7 +13,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
-from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
+from fedbiomed.common.constants import ErrorNumbers, ProcessTypes, TrainingPlans
 from fedbiomed.common.dataloader import NPDataLoader
 from fedbiomed.common.exceptions import (
     FedbiomedError,
@@ -63,6 +63,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     _model: Optional[Model]
     _optimizer: Optional[BaseOptimizer]
 
+    # Training plan type needs to be defined for every framework
+    __type = TrainingPlans.NoneTrainingPlan
+
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
@@ -99,6 +102,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             if model is not instantiated.
         """
         return self._model
+
+    def type(self) -> TrainingPlans:
+        """Getter for training plan type"""
+        return self.__type
 
     @property
     def dependencies(self):
