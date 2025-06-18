@@ -126,7 +126,7 @@ jobs:
       - name: Run tests
         if: steps.filter.outputs.module == 'true'
         run: |
-            tox -r -e py${{ matrix.python-version }}
+            tox -r -e py${{ matrix.python-version }}-unit
         shell: bash -l {0}
 
       - name: Upload coverage reports to Codecov
