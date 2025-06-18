@@ -190,5 +190,5 @@ jobs:
         if: steps.filter.outputs.module == 'true'
         run: |
           FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
-            tox -r -m e2e -- e2e_mnist_pytorch.py
+            tox -r -e py${{ matrix.python-version }}-e2e -- e2e_mnist_pytorch.py
         shell: bash -il {0}
