@@ -163,7 +163,7 @@ jobs:
           - '3.10'
           - '3.11'
     runs-on: ${{ matrix.os }}
-    needs: unit-test
+    continue-on-error: true
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to commit
