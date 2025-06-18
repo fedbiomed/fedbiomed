@@ -164,6 +164,7 @@ jobs:
           - '3.11'
     runs-on: ${{ matrix.os }}
     continue-on-error: true
+    needs: unit-test
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout to commit
