@@ -4,11 +4,18 @@
 """
 Dataset implementation for MNIST
 """
+from pathlib import Path
+from typing import Tuple, Union
 
-from typing import Tuple
-
-from fedbiomed.common.dataset_controller import MnistController
-from fedbiomed.common.dataset_types import DatasetDataItem, Transform
+from fedbiomed.common.dataset_controller._mnist_controller import MnistController
+from fedbiomed.common.dataset_types import (
+    DataReturnFormat,
+    DatasetDataItem,
+    DatasetDataItemModality,
+    DataType,
+    Transform,
+)
+from fedbiomed.common.exceptions import FedbiomedError
 
 from ._dataset import StructuredDataset
 
@@ -16,31 +23,42 @@ from ._dataset import StructuredDataset
 class MnistDataset(StructuredDataset, MnistController):
     def __init__(
         self,
+        root: Union[str, Path],
         framework_transform: Transform = None,
         framework_target_transform: Transform = None,
         # Do we want generic transforms for MNIST ?
         # generic_transform : Transform = None,
         # generic_target_transform : Transform = None,
     ) -> None:
-        """Class constructor"""
-
-    # Implement abstract methods
+        super().__init__(
+            root=root,
+            framework_transform=framework_transform,
+            framework_target_transform=framework_target_transform,
+        )
 
     def __len__(self) -> int:
         """Get number of samples"""
+        return len(self._data)
 
-    # Nota: use Controller._get_nontransformed_item
     def __getitem__(self, index: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
         """Retrieve a data sample"""
+        data, target = self._get_nontransformed_item(index=index)
 
-    # Support returning samples in format for torch training plan
-    #
-    # Nothing much to do in that case, just call `Reader` ?
-    def to_torch(self) -> None:
-        """Request dataset to return samples for a torch training plan
+        if self._to_format == DataReturnFormat.DEFAULT:
+            data_item = {
+                "data": DatasetDataItemModality(
+                    modality_name="data",
+                    type=DataType.IMAGE,
+                    data=data.numpy(),  # CPU tensor not tracked by autograd
+                )
+            }
+            target_item = {"target": int(target)}
+        elif self._to_format == DataReturnFormat.TORCH:
+            data_item = {"data": data}
+            target_item = {"target": target}
+        else:
+            raise FedbiomedError(
+                "DataReturnFormat not supported by __getitem__ in MnistDataset"
+            )
 
-        Ignore + issue warning if generic transform needs to be applied
-        """
-
-    # Additional methods for exploring data (folders, modalities, subjects),
-    # depending on Dataset and Reader
+        return data_item, target_item
