@@ -6,7 +6,6 @@ Base abstract classes for datasets
 """
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Tuple
 
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem, Transform
@@ -34,21 +33,29 @@ class Dataset(ABC):
         # generic_transform : Transform = None,
         # generic_target_transform : Transform = None,
         # Optional, per dataset: implement native transforms (argument name may vary)
-        *args,
         **kwargs,
     ) -> None:
         """Class constructor"""
         # TODO: check type
-        self._framework_transform = framework_transform
-        self._framework_target_transform = framework_target_transform
+        # self._framework_transform = framework_transform
+        # self._framework_target_transform = framework_target_transform
+        super().__init__(**kwargs)
 
+    @property
     def framework_transform(self) -> Transform:
-        """Getter for framework transform"""
         return self._framework_transform
 
+    """ 
+    @framework_transform.setter
+    def framework_transform(self, input):
+        ... control
+        self._framework_transform = input
+    """
+
+    @property
     def framework_target_transform(self) -> Transform:
-        """Getter for framework target transform"""
         return self._framework_target_transform
+    
 
     # Caveat: give explicit user error message when raising exception
     # Also need to wrap with try/except when calling `Reader` Transform (native Transform)
@@ -102,15 +109,14 @@ class Dataset(ABC):
 class StructuredDataset(Dataset):
     def __init__(
         self,
-        root: Path,
         framework_transform: Transform = None,
         framework_target_transform: Transform = None,
         # Optional, per-dataset: implement (or not) generic transform (use same argument name)
         # generic_transform : Transform = None,
         # generic_target_transform : Transform = None,
         # Optional, per dataset: implement reader transforms (argument name may vary)
-        *args,
         **kwargs,
     ) -> None:
-        """Class constructor"""
-        super().__init__(framework_transform, *args, **kwargs)
+        self.framework_transform = framework_transform
+        self.framework_target_transform = framework_target_transform
+        super().__init__(**kwargs)
