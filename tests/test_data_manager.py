@@ -1,14 +1,15 @@
 import unittest
-import pandas as pd
 
+import pandas as pd
 from torch.utils.data import Dataset
+
+from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.datamanager import (
     DataManager,
-    TorchDataManager,
     SkLearnDataManager,
+    TorchDataManager,
 )
 from fedbiomed.common.exceptions import FedbiomedDataManagerError
-from fedbiomed.common.constants import TrainingPlans
 
 
 class TestDataManager(unittest.TestCase):
@@ -95,8 +96,8 @@ class TestDataManager(unittest.TestCase):
         )
         data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
         try:
-            load = data_manager.__getattr__("load")
-            dataset = data_manager.__getattr__("dataset")
+            data_manager.__getattr__("load")
+            data_manager.__getattr__("dataset")
         except Exception as e:
             self.assertTrue(
                 False, f"Error while calling __getattr__ method of DataManager {str(e)}"
@@ -131,12 +132,12 @@ class TestDataManager(unittest.TestCase):
             dataset=pd.DataFrame([[1, 2, 3], [1, 2, 3]]), target=pd.Series([1, 1])
         )
         data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
-        data_manager.testing_index = [1]
-        data_manager.training_index = [0]
+        data_manager._testing_index = [1]
+        data_manager._training_index = [0]
 
         train, test = data_manager.split(test_ratio=0.5, test_batch_size=None)
-        self.assertEqual(data_manager.testing_index, [1])
-        # self.assertListEqual(data_manager.testing_index, data_manager._testing_index)
+        self.assertEqual(data_manager._testing_index, [1])
+        # self.assertListEqual(data_manager._testing_index, data_manager._testing_index)
 
         # for pytorch
         data_manager = DataManager(
@@ -144,12 +145,12 @@ class TestDataManager(unittest.TestCase):
         )
         data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
 
-        data_manager.testing_index = [1]
-        data_manager.training_index = [0]
+        data_manager._testing_index = [1]
+        data_manager._training_index = [0]
 
         train, test = data_manager.split(test_ratio=0.5, test_batch_size=None)
-        self.assertEqual(data_manager.testing_index, [1])
-        # self.assertListEqual(data_manager.testing_index, data_manager._testing_index)
+        self.assertEqual(data_manager._testing_index, [1])
+        # self.assertListEqual(data_manager._testing_index, data_manager._testing_index)
 
 
 if __name__ == "__main__":  # pragma: no cover

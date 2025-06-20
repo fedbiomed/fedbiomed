@@ -17,7 +17,8 @@ class FrameworkDataManager(ABC):
 
     _dataset: Dataset
 
-    def __init__(self, dataset: Dataset, **kwargs: dict):  # noqa : B027 # not yet implemented
+    @abstractmethod
+    def __init__(self, dataset: Dataset, **kwargs: dict):
         """Class constructor
 
         Args:

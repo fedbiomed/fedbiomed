@@ -142,7 +142,7 @@ class TestTorchDataManager(unittest.TestCase):
             0, test_batch_size=None
         )
         self.assertIsNone(loader_test, "Loader is not None where it should be")
-        self.assertListEqual(self.torch_data_manager.testing_index, [])
+        self.assertListEqual(self.torch_data_manager._testing_index, [])
 
         # If test partition is 1
         loader_train, loader_test = self.torch_data_manager.split(
@@ -150,7 +150,7 @@ class TestTorchDataManager(unittest.TestCase):
         )
         self.assertIsNone(loader_train, "Loader is not None where it should be")
         self.assertListEqual(
-            sorted(self.torch_data_manager.testing_index),
+            sorted(self.torch_data_manager._testing_index),
             list(range(len(self.dataset))),
         )
 
@@ -230,7 +230,8 @@ class TestTorchDataManager(unittest.TestCase):
         )
 
         self.assertListEqual(
-            self.torch_data_manager.testing_index, new_torch_data_manager.testing_index
+            self.torch_data_manager._testing_index,
+            new_torch_data_manager._testing_index,
         )
 
         for i in range(2):
@@ -275,8 +276,8 @@ class TestTorchDataManager(unittest.TestCase):
                 )
             )
 
-        # new_torch_data_manager.testing_index = [1, 2, 39999]
-        # new_torch_data_manager.training_index = []
+        # new_torch_data_manager._testing_index = [1, 2, 39999]
+        # new_torch_data_manager._training_index = []
         # raise IndexError(f"{new_torch_data_manager._testing_index}")
 
     def test_torch_data_manager_09_shuffle_testing_dataset(self):
