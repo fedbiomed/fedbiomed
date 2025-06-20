@@ -79,9 +79,9 @@ class SkLearnDataManager(object):
         self._subset_test: Union[Tuple[np.ndarray, np.ndarray], None] = None
         self._subset_train: Union[Tuple[np.ndarray, np.ndarray], None] = None
 
-        self.training_index: List[int] = []
-        self.testing_index: List[int] = []
-        self.test_ratio: Optional[float] = None
+        self._training_index: List[int] = []
+        self._testing_index: List[int] = []
+        self._test_ratio: Optional[float] = None
         self._is_shuffled_testing_dataset: bool = False
         if "shuffle_testing_dataset" in kwargs:
             self._is_shuffled_testing_dataset: bool = kwargs.pop(
@@ -153,7 +153,7 @@ class SkLearnDataManager(object):
 
         empty_subset = (np.array([]), np.array([]))
 
-        if self.test_ratio != test_ratio and self.test_ratio is not None:
+        if self._test_ratio != test_ratio and self._test_ratio is not None:
             if not is_shuffled_testing_dataset:
                 logger.info(
                     "`test_ratio` value has changed: this will change the testing dataset"
@@ -163,22 +163,28 @@ class SkLearnDataManager(object):
         if test_ratio <= 0.0:
             self._subset_train = (self._inputs, self._target)
             self._subset_test = empty_subset
-            self.training_index, self.testing_index = list(range(len(self._inputs))), []
+            self._training_index, self._testing_index = (
+                list(range(len(self._inputs))),
+                [],
+            )
         elif test_ratio >= 1.0:
             self._subset_train = empty_subset
             self._subset_test = (self._inputs, self._target)
-            self.training_index, self.testing_index = [], list(range(len(self._inputs)))
+            self._training_index, self._testing_index = (
+                [],
+                list(range(len(self._inputs))),
+            )
 
         else:
             _is_loading_failed: bool = False
-            if self.testing_index and not is_shuffled_testing_dataset:
+            if self._testing_index and not is_shuffled_testing_dataset:
                 # reloading testing dataset from previous rounds
                 try:
-                    self._load_indexes(self.training_index, self.testing_index)
+                    self._load_indexes(self._training_index, self._testing_index)
                 except IndexError:
                     _is_loading_failed = True
             if (
-                not self.testing_index
+                not self._testing_index
                 or is_shuffled_testing_dataset
                 or _is_loading_failed
             ):
@@ -192,13 +198,13 @@ class SkLearnDataManager(object):
                 )
                 self._subset_test = (x_test, y_test)
                 self._subset_train = (x_train, y_train)
-                self.training_index = idx_train.tolist()
-                self.testing_index = idx_test.tolist()
+                self._training_index = idx_train.tolist()
+                self._testing_index = idx_test.tolist()
 
         if not test_batch_size:
             test_batch_size = len(self._subset_test)
 
-        self.test_ratio = test_ratio  # float(np.clip(0, 1, test_ratio))
+        self._test_ratio = test_ratio  # float(np.clip(0, 1, test_ratio))
 
         # self._loader_arguments['random_seed'] = self._rng
         return self._subset_loader(
@@ -213,10 +219,10 @@ class SkLearnDataManager(object):
         """
         _loader_args = {}
         _loader_args["training_index"], _loader_args["testing_index"] = (
-            self.training_index,
-            self.testing_index,
+            self._training_index,
+            self._testing_index,
         )
-        _loader_args["test_ratio"] = self.test_ratio
+        _loader_args["test_ratio"] = self._test_ratio
 
         return _loader_args
 
@@ -231,9 +237,9 @@ class SkLearnDataManager(object):
             state: Object containing data loader state.
         """
 
-        self.testing_index = state.get("testing_index", [])
-        self.training_index = state.get("training_index", [])
-        self.test_ratio = state.get("test_ratio", None)
+        self._testing_index = state.get("testing_index", [])
+        self._training_index = state.get("training_index", [])
+        self._test_ratio = state.get("test_ratio", None)
 
     def _load_indexes(self, training_idx: List[int], testing_idx: List[int]):
         try:
