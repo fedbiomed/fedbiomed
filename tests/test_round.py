@@ -3,24 +3,19 @@ import inspect
 import os
 import tempfile
 import unittest
-from unittest.mock import MagicMock, create_autospec, patch, PropertyMock
 from typing import Any, Dict, Optional, Tuple
-
-import pandas as pd
-
-from fedbiomed.node.node_state_manager import NodeStateFileName
-from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
-
-from testsupport.fake_training_plan import FakeModel, DeclearnAuxVarModel
-from testsupport.fake_uuid import FakeUuid
-from testsupport.testing_data_loading_block import (
-    ModifyGetItemDP,
-    LoadingBlockTypesForTesting,
-)
-from testsupport import fake_training_plan
+from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
 import numpy as np
+import pandas as pd
 import torch
+from testsupport import fake_training_plan
+from testsupport.fake_training_plan import DeclearnAuxVarModel, FakeModel
+from testsupport.fake_uuid import FakeUuid
+from testsupport.testing_data_loading_block import (
+    LoadingBlockTypesForTesting,
+    ModifyGetItemDP,
+)
 from torch.utils.data import Dataset
 
 from fedbiomed.common.constants import (
@@ -28,12 +23,12 @@ from fedbiomed.common.constants import (
     SecureAggregationSchemes,
     TrainingPlans,
 )
+from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingPlanMixin
 from fedbiomed.common.datamanager import DataManager
-from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
-from fedbiomed.common.models import TorchModel, Model
+from fedbiomed.common.models import Model, TorchModel
 from fedbiomed.common.optimizers import (
     AuxVar,
     BaseOptimizer,
@@ -49,6 +44,7 @@ from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg._secagg_round import _SecaggSchemeRound
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
 # Needed to access length of dataset from Round class
@@ -238,7 +234,6 @@ class TestRound(unittest.TestCase):
         #  - model.set_dataset_path
 
         FakeModel.SLEEPING_TIME = 0
-        MODEL_NAME = "my_model"
         MODEL_PARAMS = {"coef": [1, 2, 3, 4]}
 
         class FakeModule:
@@ -257,7 +252,7 @@ class TestRound(unittest.TestCase):
         # and we will check if there are called when running
         # `run_model_training`
         with (
-            patch.object(FakeModel, "set_dataset_path") as mock_set_dataset,
+            patch.object(FakeModel, "set_dataset_path"),
             patch.object(FakeModel, "training_routine") as mock_training_routine,
             patch.object(
                 FakeModel, "after_training_params", return_value=MODEL_PARAMS
@@ -1031,12 +1026,7 @@ class TestRound(unittest.TestCase):
 
         uuid_patch.return_value = FakeUuid()
         experiment_id = _id = FakeUuid.VALUE
-        state_id = f"node_state_{_id}"
-        path = (
-            "/path/to/base/dir"
-            + f"/experiment_id_{experiment_id}/"
-            + NodeStateFileName.OPTIMIZER.value % (0, state_id)
-        )
+        # state_id = f"node_state_{_id}"
 
         # first create state
         self.r1.training_plan = training_plan_mock
@@ -1072,9 +1062,6 @@ class TestRound(unittest.TestCase):
         self.r1._round = 11
         self.r1.is_test_data_shuffled = False
 
-        state_id = "state_id_1234"
-        path_state = "/path/to/state"
-
         get_optim_patch.return_value = MagicMock(
             spec=DeclearnOptimizer,
             __class__="optimizer_type",
@@ -1089,8 +1076,8 @@ class TestRound(unittest.TestCase):
         #                         [7, 8, 9],
         #                         [10, 11, 12]]
 
-        # data_manager.testing_index = PropertyMock(return_value=None)
-        # data_manager.training_index = PropertyMock(return_value=None)
+        # data_manager._testing_index = PropertyMock(return_value=None)
+        # data_manager._training_index = PropertyMock(return_value=None)
         # data_manager.
 
         class CustomDataset(Dataset):
