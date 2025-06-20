@@ -13,6 +13,7 @@ from ._medical_datasets import (
     MedicalFolderDataset,
     MedicalFolderLoadingBlockTypes,
 )
+from ._mnist_dataset import MnistDataset
 from ._native_dataset import NativeDataset
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "MedicalFolderController",
     "MedicalFolderDataset",
     "MedicalFolderLoadingBlockTypes",
+    "MnistDataset",
 ]
