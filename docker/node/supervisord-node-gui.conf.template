@@ -1,0 +1,7 @@
+[program:fedbiomed-gui]
+command=/usr/local/bin/fedbiomed node -p /fbm-node gui start
+user=${CONTAINER_USER}
+autostart=true
+autorestart=true
+stdout_logfile=/home/$FEDBIOMED_USER/log/fedbiomed-gui.log
+stderr_logfile=/home/$FEDBIOMED_USER/log/fedbiomed-gui.err
