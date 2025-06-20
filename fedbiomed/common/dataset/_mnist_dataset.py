@@ -4,9 +4,11 @@
 """
 Dataset implementation for MNIST
 """
+
 from pathlib import Path
 from typing import Tuple, Union
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller._mnist_controller import MnistController
 from fedbiomed.common.dataset_types import (
     DataReturnFormat,
@@ -26,9 +28,6 @@ class MnistDataset(StructuredDataset, MnistController):
         root: Union[str, Path],
         framework_transform: Transform = None,
         framework_target_transform: Transform = None,
-        # Do we want generic transforms for MNIST ?
-        # generic_transform : Transform = None,
-        # generic_target_transform : Transform = None,
     ) -> None:
         super().__init__(
             root=root,
@@ -49,16 +48,16 @@ class MnistDataset(StructuredDataset, MnistController):
                 "data": DatasetDataItemModality(
                     modality_name="data",
                     type=DataType.IMAGE,
-                    data=data.numpy(),  # CPU tensor not tracked by autograd
+                    data=data.numpy(),
                 )
             }
-            target_item = {"target": int(target)}
+            target_item = {"target": target.numpy()}
         elif self._to_format == DataReturnFormat.TORCH:
             data_item = {"data": data}
             target_item = {"target": target}
         else:
             raise FedbiomedError(
-                "DataReturnFormat not supported by __getitem__ in MnistDataset"
+                f"{ErrorNumbers.FB632.value}: DataReturnFormat not supported"
             )
 
         return data_item, target_item
