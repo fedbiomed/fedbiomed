@@ -29,20 +29,21 @@ class Controller(ABC, DataLoadingPlanMixin):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-    
+
     @property
     def root(self):
         return self._root
-    
+
     @root.setter
     def root(self, path_input: Union[str, Path]):
         if not isinstance(path_input, (str, Path)):
-            raise TypeError(f"Expected a string or Path, got {type(path_input).__name__}")
+            raise TypeError(
+                f"Expected a string or Path, got {type(path_input).__name__}"
+            )
         path = Path(path_input).expanduser().resolve()
         if not path.exists():
             raise FileNotFoundError(f"Path does not exist: {path}")
         self._root = path
-
 
     # Nota: no need to implement `static` method as in current MedicalFolderDataset
     #
