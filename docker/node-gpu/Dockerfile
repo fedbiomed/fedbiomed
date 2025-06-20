@@ -1,5 +1,7 @@
+ARG FBM_IMAGE_VERSION
+
 # Stage 1: base with image1 (e.g. fedbiomed-node)
-FROM fedbiomed/node AS fedbiomed-node
+FROM fedbiomed/node:${FBM_IMAGE_VERSION:-latest} AS fedbiomed-node
 
 # Stage 2: base with image2 (e.g. nvidia/cuda)
 FROM nvidia/cuda:12.1.1-base-ubuntu22.04 AS cuda
@@ -25,10 +27,12 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev libpng-dev \
     liblzma-dev libreadline-dev libsqlite3-dev \
     gcc zlib1g python3-tk vim \
-	libgmp3-dev libmpfr-dev libmpc-dev \
-	gettext-base \
-	supervisor \
+	  libgmp3-dev libmpfr-dev libmpc-dev \
+	  gettext-base \
+	  supervisor \
     && rm -rf /var/lib/apt/lists/*
+
+COPY docker/node-gpu/before-entrypoint-hook.sh /before-entrypoint-hook.sh
 
 # Copy installed Fed-BioMed Modules from fedbiomed image
 COPY --from=fedbiomed-node /usr/local/ /usr/local/

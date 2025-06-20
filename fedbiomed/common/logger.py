@@ -45,6 +45,7 @@ Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the
 import json
 import logging
 import logging.handlers
+import sys
 from typing import Any, Callable
 
 from IPython.display import display
@@ -299,7 +300,7 @@ class FedLogger(metaclass=SingletonMeta):
         if is_ipython():
             handler = _IpythonConsoleHandler()
         else:
-            handler = logging.StreamHandler()
+            handler = logging.StreamHandler(sys.stdout)
 
         handler.setLevel(self._internal_level_translator(level))
 

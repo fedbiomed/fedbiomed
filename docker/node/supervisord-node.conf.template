@@ -3,16 +3,18 @@ nodaemon=true
 logfile=/home/$FEDBIOMED_USER/log/supervisord.log
 pidfile=/home/$FEDBIOMED_USER/supervisor.pid
 
-[supervisorctl]
+[unix_http_server]
+file=/tmp/supervisor.sock
+chmod=0700
 
-[inet_http_server]
-port = 127.0.0.1:9001
+[supervisorctl]
+serverurl=unix:///tmp/supervisor.sock
 
 [rpcinterface:supervisor]
 supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 
 [program:fedbiomed-node]
-command=/usr/local/bin/fedbiomed node -p /fbm-node start
+command=/usr/local/bin/fedbiomed node -p /fbm-node start ${FBM_NODE_START_OPTIONS}
 user=${CONTAINER_USER}
 autostart=true
 autorestart=true
