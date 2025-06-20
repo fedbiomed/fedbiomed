@@ -1,0 +1,67 @@
+---
+
+name: Docker build test
+run-name: fedbiomed-docker-image-build-test
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+      - review_requested
+      - ready_for_review
+    branches:
+      - master
+      - develop
+  push:
+    branches:
+      - 'feature/1335-*'
+
+jobs:
+  build-and-test:
+    name: Test building docker images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      # Build base image
+      - name: Build fedbiomed/base
+        run: |
+          docker build -t fedbiomed/base:dev -f docker/base/Dockerfile .
+
+      # Build node image (depends on base)
+      - name: Build fedbiomed/node
+        run: |
+          docker build --build-arg FBM_IMAGE_VERSION=dev \
+            -t fedbiomed/node:dev -f docker/node/Dockerfile .
+
+      # Build node-gpu image (depends on node)
+      - name: Build fedbiomed/node-gpu
+        run: |
+          docker build --build-arg FBM_IMAGE_VERSION=dev \
+          -t fedbiomed/node-gpu:dev -f docker/node-gpu/Dockerfile .
+
+      # Build researcher image (also based on base)
+      - name: Build fedbiomed/researcher
+        run: |
+          docker build --build-arg FBM_IMAGE_VERSION=dev \
+          -t fedbiomed/researcher:dev -f docker/researcher/Dockerfile .
+
+      # Build node-gui (depends on node)
+      - name: Build fedbiomed/node-gui
+        run: |
+          docker build --build-arg FBM_IMAGE_VERSION=dev \
+          -t fedbiomed/node-gui:dev -f docker/node-gui/Dockerfile .
+      
+      # List created images 
+      - name: List created Docker images
+        run: docker images | grep fedbiomed
+        
+

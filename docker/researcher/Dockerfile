@@ -1,5 +1,7 @@
 # Start from Fed-BioMed base image
-FROM fedbiomed/base AS fedbiomed-base
+ARG FBM_IMAGE_VERSION
+
+FROM fedbiomed/base:${FBM_IMAGE_VERSION:-latest} AS fedbiomed-base
 
 # jupyter notebook
 EXPOSE 8888
@@ -7,7 +9,7 @@ EXPOSE 8888
 EXPOSE 6007
 
 # Copy node entry point file
-COPY docker/entrypoint.researcher.bash /entrypoint.bash
+COPY docker/researcher/entrypoint.bash /entrypoint.bash
 
 USER root:root
 # Install socat

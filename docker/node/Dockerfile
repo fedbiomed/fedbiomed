@@ -1,9 +1,11 @@
-FROM fedbiomed/base AS fedbiomed-base
+# Version tag of Fed-BioMed image
+ARG FBM_IMAGE_VERSION
+
+FROM fedbiomed/base:${FBM_IMAGE_VERSION:-latest} AS fedbiomed-base
 
 # Copy node entry point file
-COPY docker/entrypoint.node.bash /entrypoint.bash
-COPY docker/supervisord-node.conf.template /etc/supervisor/supervisord.conf.template
-
+COPY docker/node/entrypoint.bash /entrypoint.bash
+COPY docker/node/supervisord-node.conf.template /etc/supervisor/supervisord.conf.template
 
 USER root:root
 

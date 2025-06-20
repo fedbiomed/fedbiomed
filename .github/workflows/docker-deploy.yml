@@ -1,0 +1,64 @@
+name: Publish Fed-BioMed Docker Images
+description: Builds and deploys Fed-BioMed docker images
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on tags like v1.2.3
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - name: fedbiomed/base
+            dockerfile: docker/base/Dockerfile
+          - name: fedbiomed/node
+            dockerfile: docker/node/Dockerfile
+          - name: fedbiomed/node-gui
+            dockerfile: docker/node-gui/Dockerfile
+          - name: fedbiomed/node-gpu
+            dockerfile: docker/node-gpu/Dockerfile
+          - name: fedbiomed/researcher
+            dockerfile: docker/researcher/Dockerfile
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.FBM_DOCKER_USERNAME }}
+          password: ${{ secrets.FBM_DOCKER_PASSWORD }}
+
+      - name: Extract Version from Git
+        id: version
+        run: |
+          VERSION_TAG="${GITHUB_REF#refs/tags/}"
+          VERSION=${VERSION_TAG#v}
+          VERSION_MAJOR=$(echo $VERSION | cut -d. -f1)
+          VERSION_MINOR=$(echo $VERSION | cut -d. -f1,2)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "VERSION_MINOR=$VERSION_MINOR" >> $GITHUB_OUTPUT
+          echo "VERSION_MAJOR=$VERSION_MAJOR" >> $GITHUB_OUTPUT
+
+      - name: Build and push ${{ matrix.name }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ matrix.name }}:${{ steps.version.outputs.VERSION }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ matrix.name }}:${{ steps.version.outputs.VERSION_MINOR }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ matrix.name }}:${{ steps.version.outputs.VERSION_MAJOR }}
+            ${{ secrets.DOCKER_USERNAME }}/${{ matrix.name }}:latest
+
+

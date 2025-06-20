@@ -25,9 +25,9 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev libpng-dev \
     liblzma-dev libreadline-dev libsqlite3-dev \
     gcc zlib1g python3-tk vim \
-	libgmp3-dev libmpfr-dev libmpc-dev \
-	gettext-base \
-	supervisor \
+	  libgmp3-dev libmpfr-dev libmpc-dev \
+	  gettext-base \
+	  supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Node
@@ -46,7 +46,7 @@ COPY --from=python-build /usr/lib/ /usr/lib/
 RUN mkdir -p /fedbiomed/envs
 
 # Copy entrypoint bash
-COPY docker/functions.bash /functions.bash
+COPY docker/base/functions.bash /functions.bash
 
 # Copy files from fedbiomed repo - in the context of fedbiomed top directory
 COPY envs/vpn /fedbiomed/envs/vpn
