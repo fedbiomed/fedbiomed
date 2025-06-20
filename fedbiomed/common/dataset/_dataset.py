@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple
 
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem, Transform
+from fedbiomed.common.exceptions import FedbiomedError
 
 
 class Dataset(ABC):
@@ -27,35 +28,41 @@ class Dataset(ABC):
     def __init__(
         self,
         # See subclass: either `root` or `dataset` + `target`
-        framework_transform: Transform = None,
-        framework_target_transform: Transform = None,
         # Optional, per-dataset: implement (or not) generic transform (use same argument name)
         # generic_transform : Transform = None,
         # generic_target_transform : Transform = None,
         # Optional, per dataset: implement native transforms (argument name may vary)
         **kwargs,
     ) -> None:
-        """Class constructor"""
-        # TODO: check type
-        # self._framework_transform = framework_transform
-        # self._framework_target_transform = framework_target_transform
         super().__init__(**kwargs)
 
     @property
-    def framework_transform(self) -> Transform:
+    def framework_transform(self):
         return self._framework_transform
 
-    """ 
     @framework_transform.setter
-    def framework_transform(self, input):
-        ... control
-        self._framework_transform = input
-    """
+    def framework_transform(self, transform_input: Transform):
+        self._validate_transform_input(transform_input)
+        self._framework_transform = transform_input
 
     @property
-    def framework_target_transform(self) -> Transform:
+    def framework_target_transform(self):
         return self._framework_target_transform
     
+    @framework_target_transform.setter
+    def framework_target_transform(self, transform_input: Transform):
+        self._validate_transform_input(transform_input)
+        self._framework_target_transform = transform_input
+
+    def _validate_transform_input(transform_input: Transform) -> None:
+        """Should raise Exception if transform_input is not a valid input"""
+        if transform_input is None or callable(transform_input):
+            return
+        elif isinstance(transform_input, dict):
+            if not all(isinstance(k, str) and callable(v) for k,v in transform_input.items()):
+                raise TypeError("Transform dict must map strings to callables")
+        else:
+            raise TypeError("Unexpected Transform input")
 
     # Caveat: give explicit user error message when raising exception
     # Also need to wrap with try/except when calling `Reader` Transform (native Transform)
@@ -117,6 +124,9 @@ class StructuredDataset(Dataset):
         # Optional, per dataset: implement reader transforms (argument name may vary)
         **kwargs,
     ) -> None:
-        self.framework_transform = framework_transform
-        self.framework_target_transform = framework_target_transform
+        try:
+            self.framework_transform = framework_transform
+            self.framework_target_transform = framework_target_transform
+        except Exception as e:
+            raise FedbiomedError(e) from e
         super().__init__(**kwargs)
