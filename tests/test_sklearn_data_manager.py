@@ -1,5 +1,6 @@
 import math
 import unittest
+
 import numpy as np
 import pandas as pd
 
@@ -67,8 +68,8 @@ class TestSkLearnDataManager(unittest.TestCase):
         msg_train = "Number of samples of train loader is not as expected"
         self.assertEqual(len(loader_test.dataset), n_test, msg_test)
         self.assertEqual(len(loader_train.dataset), n_train, msg_train)
-        self.assertEqual(len(self.sklearn_data_manager.testing_index), 2)
-        self.assertEqual(self.sklearn_data_manager.test_ratio, ratio)
+        self.assertEqual(len(self.sklearn_data_manager._testing_index), 2)
+        self.assertEqual(self.sklearn_data_manager._test_ratio, ratio)
 
         # Test if test ratio is 1
         ratio = 1.0
@@ -78,7 +79,7 @@ class TestSkLearnDataManager(unittest.TestCase):
         self.assertEqual(len(loader_test.dataset), n_samples, msg_test)
         self.assertEqual(len(loader_train.dataset), 0)
         self.assertListEqual(
-            self.sklearn_data_manager.testing_index, list(range(len(self.inputs)))
+            self.sklearn_data_manager._testing_index, list(range(len(self.inputs)))
         )
 
         # Test if test ratio is 0
@@ -88,7 +89,7 @@ class TestSkLearnDataManager(unittest.TestCase):
         )
         self.assertEqual(len(loader_test.dataset), 0, msg_test)
         self.assertEqual(len(loader_train.dataset), n_samples, msg_train)
-        self.assertListEqual(self.sklearn_data_manager.testing_index, [])
+        self.assertListEqual(self.sklearn_data_manager._testing_index, [])
 
     def test_sklearn_data_manager_03_getter_subsets(self):
         """Test getter for subset train and subset test"""
@@ -155,7 +156,7 @@ class TestSkLearnDataManager(unittest.TestCase):
         self.assertEqual(len(loader_test), 0)
 
         count_iter = 0
-        for i, (data, target) in enumerate(loader_train):
+        for _, (data, target) in enumerate(loader_train):
             self.assertNPArrayEqual(data, self.inputs[:batch_size, :])
             self.assertNPArrayEqual(target, self.target[:batch_size])
             count_iter += 1
@@ -171,9 +172,9 @@ class TestSkLearnDataManager(unittest.TestCase):
         )
 
         ratio = 0.5
-        n_samples = len(self.sklearn_data_manager.dataset()[0])
-        n_test = math.floor(n_samples * ratio)
-        n_train = n_samples - n_test
+        # n_samples = len(self.sklearn_data_manager.dataset()[0])
+        # n_test = math.floor(n_samples * ratio)
+        # n_train = n_samples - n_test
 
         train_loader, test_loader = self.sklearn_data_manager.split(
             test_ratio=ratio, test_batch_size=None
@@ -189,8 +190,8 @@ class TestSkLearnDataManager(unittest.TestCase):
         new_sklearn_data_manager.load_state(state)
 
         self.assertListEqual(
-            self.sklearn_data_manager.testing_index,
-            new_sklearn_data_manager.testing_index,
+            self.sklearn_data_manager._testing_index,
+            new_sklearn_data_manager._testing_index,
         )
         # test with same `test_ratio` as before
         new_train_loader, new_test_loader = new_sklearn_data_manager.split(

@@ -246,6 +246,7 @@ class TestRound(unittest.TestCase):
         # and we will check if there are called when running
         # `run_model_training`
         with (
+            patch.object(FakeModel, "set_dataset_path"),
             patch.object(FakeModel, "training_routine") as mock_training_routine,
             patch.object(
                 self.r1, "_split_train_and_test_data"
@@ -1023,6 +1024,7 @@ class TestRound(unittest.TestCase):
 
         uuid_patch.return_value = FakeUuid()
         experiment_id = _id = FakeUuid.VALUE
+        # state_id = f"node_state_{_id}"
 
         # first create state
         self.r1.training_plan = training_plan_mock
@@ -1072,8 +1074,8 @@ class TestRound(unittest.TestCase):
         #                         [7, 8, 9],
         #                         [10, 11, 12]]
 
-        # data_manager.testing_index = PropertyMock(return_value=None)
-        # data_manager.training_index = PropertyMock(return_value=None)
+        # data_manager._testing_index = PropertyMock(return_value=None)
+        # data_manager._training_index = PropertyMock(return_value=None)
         # data_manager.
 
         class CustomDataset(Dataset):
