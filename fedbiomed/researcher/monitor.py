@@ -367,7 +367,7 @@ class Monitor:
                 log_dir=os.path.join(self._log_dir, node)
             )
 
-        for metric, value in metric.items():
+        for key, value in metric.items():
             self._event_writers[node].add_scalar(
-                "{}/{}".format(header.upper(), metric), value, cum_iter
+                "{}/{}".format(header.upper(), key), value, cum_iter
             )

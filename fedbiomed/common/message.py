@@ -56,7 +56,7 @@ def catch_dataclass_exception(cls: Callable):
 
         """
         cls.__initial_init__ = cls.__init__
-        setattr(cls, "__init__", __cde_init__)
+        cls.__init__ = __cde_init__
 
         return cls
 

@@ -511,7 +511,7 @@ class Validator(object):
         if inspect.isclass(hook):
             return _ValidatorHookType.TYPECHECK
 
-        _l = lambda: 0
+        _l = lambda: 0  # noqa: E731
         if isinstance(hook, type(_l)) and hook.__name__ == _l.__name__:
             return _ValidatorHookType.LAMBDA
 

@@ -541,7 +541,7 @@ class SGDClassifierSKLearnModel(SGDSkLearnModel):
             setattr(self.model, key, val)
         # Also initialize the "classes_" slot with unique predictable labels.
         # FIXME: this assumes target values are integers in range(n_classes).
-        setattr(self.model, "classes_", np.arange(n_classes))
+        self.model.classes_ = np.arange(n_classes)
 
 
 class MLPSklearnModel(BaseSkLearnModel, metaclass=ABCMeta):  # just for sake of demo

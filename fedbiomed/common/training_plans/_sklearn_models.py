@@ -242,7 +242,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         losses = np.array(values).mean(axis=0)
         # Compute the support-weighted average of label-wise losses.
         # NOTE: this assumes a (n, 1)-shaped targets array.
-        classes = getattr(self.model(), "classes_")
+        classes = self.model().classes_
         support = (target == classes).sum(axis=0)
         return float(np.average(losses, weights=support))
 
