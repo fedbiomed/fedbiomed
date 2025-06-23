@@ -11,14 +11,11 @@ from typing import Any
 
 
 class DataLoader(ABC):
+    dataset: Any
+
     @abstractmethod
     def __init__(self, dataset: Any, *args, **kwargs) -> None:
         """Class constructor"""
-
-    @property
-    @abstractmethod
-    def dataset(self) -> Any:
-        """Returns the encapsulated dataset"""
 
     @abstractmethod
     def __len__(self) -> int:

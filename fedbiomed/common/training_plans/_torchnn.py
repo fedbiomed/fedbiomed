@@ -80,7 +80,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         super().__init__()
 
-        self.__type = TrainingPlans.TorchTrainingPlan
+        self._type = TrainingPlans.TorchTrainingPlan
 
         # Differential privacy support
         self._dp_controller: Optional[DPController] = None
@@ -311,7 +311,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             # Validate optimizer
             optim_builder = OptimizerBuilder()
             #  build the optimizer wrapper
-            self._optimizer = optim_builder.build(self.__type, self._model, optimizer)
+            self._optimizer = optim_builder.build(self._type, self._model, optimizer)
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
