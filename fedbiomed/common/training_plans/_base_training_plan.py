@@ -64,7 +64,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     _optimizer: Optional[BaseOptimizer]
 
     # Training plan type needs to be defined for every framework
-    __type = TrainingPlans.NoneTrainingPlan
+    _type = TrainingPlans.NoneTrainingPlan
 
     def __init__(self) -> None:
         """Construct the base training plan."""
@@ -105,7 +105,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     def type(self) -> TrainingPlans:
         """Getter for training plan type"""
-        return self.__type
+        return self._type
 
     @property
     def dependencies(self):
