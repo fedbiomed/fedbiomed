@@ -97,7 +97,9 @@ class DataManager(object):
 
         """
         if tp_type in _tp_to_datamanager:
-            _tp_to_datamanager[tp_type](dataset=self._dataset, **self._loader_arguments)
+            self._data_manager_instance = _tp_to_datamanager[tp_type](
+                dataset=self._dataset, **self._loader_arguments
+            )
         else:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Unknown training plan type, "
