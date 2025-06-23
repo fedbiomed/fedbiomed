@@ -18,7 +18,6 @@ import pandas as pd
 import torch
 from monai.data import ITKReader
 from monai.transforms import Compose, LoadImage, ToTensor
-from torch.utils.data import Dataset
 
 from fedbiomed.common.constants import DataLoadingBlockTypes, DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin
@@ -358,7 +357,12 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         return DatasetTypes.MEDICAL_FOLDER
 
 
-class MedicalFolderDataset(Dataset, MedicalFolderBase):
+# MV: tempo before refactor
+from fedbiomed.common.dataset import Dataset as FedbiomedDataset
+
+
+class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
+    # class MedicalFolderDataset(Dataset, MedicalFolderBase):
     """Torch dataset following the Medical Folder Structure.
 
     The Medical Folder structure is loosely inspired by the [BIDS standard](https://bids.neuroimaging.io/) [1].
@@ -394,6 +398,10 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         demographics_transform: Optional[Callable] = None,
         tabular_file: Union[str, PathLike, Path, None] = None,
         index_col: Union[int, str, None] = None,
+        framework_transform: Optional[Union[Callable, Dict[str, Callable]]] = None,
+        framework_target_transform: Optional[
+            Union[Callable, Dict[str, Callable]]
+        ] = None,
     ):
         """Constructor for class `MedicalFolderDataset`.
 
@@ -407,7 +415,10 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             tabular_file: Path to a CSV or Excel file containing the demographic information from the patients.
             index_col: Column name in the tabular file containing the subject ids which mush match the folder names.
         """
-        super(MedicalFolderDataset, self).__init__(root=root)
+        # MV: tempo until refactor
+        # super(MedicalFolderDataset, self).__init__(root=root)
+        FedbiomedDataset.__init__(self, framework_transform, framework_target_transform)
+        MedicalFolderBase.__init__(self, root=root)
 
         self._tabular_file = tabular_file
         self._index_col = index_col
@@ -435,6 +446,9 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
 
         # Image loader
         self._reader = Compose([LoadImage(ITKReader(), image_only=True), ToTensor()])
+
+        # MV: temporary before refactor
+        self._to_torch = False
 
     def get_nontransformed_item(self, item):
         # For the first item retrieve complete subject folders
@@ -511,7 +525,44 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                         f"in sample number {item} from dataset, error message is {e}."
                     ) from e
 
-        return (data, demographics), targets
+        # MV: temporary before refactor
+        # return (data, demographics), targets
+
+        from fedbiomed.common.dataset_types import DatasetDataItemModality, DataType
+
+        if self._to_torch:
+            d = {"demographics": demographics}
+            for k, v in data.items():
+                d[k] = torch.Tensor(v)
+            t = {}
+            for k, v in targets.items():
+                # CAVEAT: why 2 items in targets['label'] ???
+                t[k] = torch.Tensor(v)
+        else:
+            d = {
+                "demographics": DatasetDataItemModality(
+                    modality_name="demographics",
+                    type=DataType.TABULAR,
+                    data=pd.DataFrame([demographics.numpy()]),
+                )
+            }
+            for k, v in data.items():
+                d[k] = DatasetDataItemModality(
+                    modality_name=k, type=DataType.IMAGE, data=v.numpy()
+                )
+
+            t = {}
+            for k, v in targets.items():
+                # CAVEAT : why 2 items in targets['label']
+                t[k] = DatasetDataItemModality(
+                    modality_name=k, type=DataType.IMAGE, data=v.numpy()
+                )
+
+        return d, t
+
+    # MV: temporary before refactor
+    # def to_torch(self):
+    #    self._to_torch = True
 
     def __len__(self):
         """Length method to get number of samples
