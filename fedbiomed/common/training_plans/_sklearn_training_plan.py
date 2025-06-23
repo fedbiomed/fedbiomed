@@ -67,7 +67,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         super().__init__()
         self._model: Union[SkLearnModel, None] = None
         self._training_args = {}  # type: Dict[str, Any]
-        self.__type = TrainingPlans.SkLearnTrainingPlan
+        self._type = TrainingPlans.SkLearnTrainingPlan
         self._batch_maxnum = 0
         self.dataset_path: Optional[str] = None
         self._optimizer: Optional[BaseOptimizer] = None
@@ -200,7 +200,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         optim_builder = OptimizerBuilder()
 
         # then build optimizer wrapper given model and optimizer
-        self._optimizer = optim_builder.build(self.__type, self._model, optimizer)
+        self._optimizer = optim_builder.build(self._type, self._model, optimizer)
 
     def init_optimizer(self) -> Optional[FedOptimizer]:
         """Creates and configures optimizer. By default, returns None (meaning native inner scikit
