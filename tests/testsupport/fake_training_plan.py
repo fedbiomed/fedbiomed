@@ -34,7 +34,7 @@ class FakeModel(BaseTrainingPlan):
         super().__init__()
         # For testing Job model_args
         self.model_args = model_args
-        self.__type = "DummyTrainingPlan"
+        self._type = "DummyTrainingPlan"
         self._optimizer_args = {}
         self._model = mock.create_autospec(Model, instance=True)
         self._model.get_weights.return_value = {"coefs": [1, 2, 3, 4]}
