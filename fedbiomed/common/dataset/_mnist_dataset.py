@@ -23,12 +23,15 @@ from ._dataset import StructuredDataset
 
 
 class MnistDataset(StructuredDataset, MnistController):
+    """Interface of MnistController to return data samples in specific format."""
+
     def __init__(
         self,
         root: Union[str, Path],
         framework_transform: Transform = None,
         framework_target_transform: Transform = None,
     ) -> None:
+        """Constructor of the class"""
         super().__init__(
             root=root,
             framework_transform=framework_transform,
@@ -40,7 +43,17 @@ class MnistDataset(StructuredDataset, MnistController):
         return len(self._data)
 
     def __getitem__(self, index: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
-        """Retrieve a data sample"""
+        """Retrieve a data sample in specific format
+
+        Args:
+            index (int): Index
+
+        Raises:
+            FedbiomedError: If data return format is not supported
+
+        Returns:
+            Tuple[DatasetDataItem, DatasetDataItem]: (data, target)
+        """
         data, target = self._get_nontransformed_item(index=index)
 
         if self._to_format == DataReturnFormat.DEFAULT:
@@ -48,16 +61,15 @@ class MnistDataset(StructuredDataset, MnistController):
                 "data": DatasetDataItemModality(
                     modality_name="data",
                     type=DataType.IMAGE,
-                    data=data.numpy(),
+                    data=data["data"].numpy(),
                 )
             }
-            target_item = {"target": target.numpy()}
-        elif self._to_format == DataReturnFormat.TORCH:
-            data_item = {"data": data}
-            target_item = {"target": target}
-        else:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: DataReturnFormat not supported"
-            )
+            target_item = {"target": target["target"].numpy()}
+            return data_item, target_item
 
-        return data_item, target_item
+        if self._to_format == DataReturnFormat.TORCH:
+            return data, target
+
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB632.value}: DataReturnFormat not supported"
+        )
