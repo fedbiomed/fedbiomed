@@ -51,10 +51,11 @@ class NewMedicalFolderDataset(StructuredDataset, NewMedicalFolderController):
     #
     # Possible alternate implementation: class to be inherited by datasets that implement it
     # (multiple inheritance).
-    def to_torch(self) -> None:
+    def to_torch(self) -> bool:
         """Request dataset to return samples for a torch training plan
 
-        Ignore + issue warning if generic transform needs to be applied
+        Return True if accepted by the dataset (no generic transform to apply)
+        Ignore + issue warning + return False if generic transform needs to be applied
         """
 
     # Still needed or replaced by implementation in DLP ? cf current MedicalFolderDataset
