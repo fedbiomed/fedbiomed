@@ -48,18 +48,20 @@ class Dataset(ABC):
     @property
     def framework_target_transform(self):
         return self._framework_target_transform
-    
+
     @framework_target_transform.setter
     def framework_target_transform(self, transform_input: Transform):
         self._validate_transform_input(transform_input)
         self._framework_target_transform = transform_input
 
-    def _validate_transform_input(transform_input: Transform) -> None:
+    def _validate_transform_input(self, transform_input: Transform) -> None:
         """Should raise Exception if transform_input is not a valid input"""
         if transform_input is None or callable(transform_input):
             return
         elif isinstance(transform_input, dict):
-            if not all(isinstance(k, str) and callable(v) for k,v in transform_input.items()):
+            if not all(
+                isinstance(k, str) and callable(v) for k, v in transform_input.items()
+            ):
                 raise TypeError("Transform dict must map strings to callables")
         else:
             raise TypeError("Unexpected Transform input")
