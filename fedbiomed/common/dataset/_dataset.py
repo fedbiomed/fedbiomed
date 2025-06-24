@@ -108,7 +108,7 @@ class StructuredDataset(Dataset):
         # Optional, per-dataset: implement (or not) generic transform (use same argument name)
         # generic_transform : Transform = None,
         # generic_target_transform : Transform = None,
-        # Optional, per dataset: implement native transforms (argument name may vary)
+        # Optional, per dataset: implement reader transforms (argument name may vary)
         *args,
         **kwargs,
     ) -> None:

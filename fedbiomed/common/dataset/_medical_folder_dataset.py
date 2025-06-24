@@ -5,13 +5,13 @@
 Dataset implementation for BIDS-like MedicalFolderDataset
 """
 
-from typing import Optional, Union, Iterable, Tuple
 from os import PathLike
 from pathlib import Path
-
-from fedbiomed.common.dataset_types import Transform, DatasetDataItem
+from typing import Iterable, Optional, Tuple, Union
 
 from fedbiomed.common.dataset_controller import NewMedicalFolderController
+from fedbiomed.common.dataset_types import DatasetDataItem, Transform
+
 from ._dataset import StructuredDataset
 
 
@@ -24,9 +24,9 @@ class NewMedicalFolderDataset(StructuredDataset, NewMedicalFolderController):
         generic_target_transform: Transform = None,
         # Keep actual names for backward compatibility
         #
-        # native_images_transform : Transform = None,
-        # native_images_target_transform : Transform = None,
-        # native_demographics_transform : Transform = None.
+        # reader_images_transform : Transform = None,
+        # reader_images_target_transform : Transform = None,
+        # reader_demographics_transform : Transform = None.
         transform: Transform = None,
         target_transform: Transform = None,
         demographics_transform: Transform = None,
