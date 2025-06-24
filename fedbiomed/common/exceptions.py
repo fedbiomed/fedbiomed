@@ -84,14 +84,6 @@ class FedbiomedDatasetValueError(FedbiomedError):
     pass
 
 
-class FedbiomedDataManagerError(FedbiomedError):
-    """
-    Exception for DataManager errors.
-    """
-
-    pass
-
-
 class FedbiomedDatasetManagerError(FedbiomedError):
     """
     Exceptions specific for the class DatasetManager.
@@ -253,14 +245,6 @@ class FedbiomedSilentTerminationError(FedbiomedError):
         return []
 
 
-class FedbiomedSkLearnDataManagerError(FedbiomedError):
-    """
-    Exceptions specific for the class SkLearnDataset.
-    """
-
-    pass
-
-
 class FedbiomedStrategyError(FedbiomedError):
     """
     Exception specific to the Strategy class and subclasses.
@@ -280,14 +264,6 @@ class FedbiomedSynchroError(FedbiomedError):
 class FedbiomedTaskQueueError(FedbiomedError):
     """
     Exception specific to the internal queuing system.
-    """
-
-    pass
-
-
-class FedbiomedTorchDataManagerError(FedbiomedError):
-    """
-    Exceptions specific for the class TorchDataset.
     """
 
     pass
