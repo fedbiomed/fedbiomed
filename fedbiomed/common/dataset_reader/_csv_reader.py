@@ -28,8 +28,8 @@ class CsvReader(Reader):
         root: Path,
         # to_format: support DEFAULT TORCH SKLEARN
         to_format: DataReturnFormat = drf_default,
-        native_transform: Transform = None,
-        native_target_transform: Transform = None,
+        reader_transform: Transform = None,
+        reader_target_transform: Transform = None,
         # Any other parameter ?
     ) -> None:
         """Class constructor"""
