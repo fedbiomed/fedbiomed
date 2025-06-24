@@ -6,19 +6,15 @@ FROM fedbiomed/node:${FBM_IMAGE_VERSION:-latest} AS fedbiomed-node
 # Stage 2: base with image2 (e.g. nvidia/cuda)
 FROM nvidia/cuda:12.1.1-base-ubuntu22.04 AS cuda
 
-# Stage 3: final image starting from cuda
-FROM cuda
-
-ARG FEDBIOMED_GID=101
+ARG FEDBIOMED_USER=fedbiomed  
+ARG FEDBIOMED_GROUP=fedbiomed
 ARG FEDBIOMED_UID=1001
-ARG FEDBIOMED_GROUP=fedgroup
-ARG FEDBIOMED_USER=fedman
+ARG FEDBIOMED_GID=101
 
-# Set environment variable to remember the user
-ENV FEDBIOMED_GID=${FEDBIOMED_GID}
-ENV FEDBIOMED_UID=${FEDBIOMED_UID}
-ENV FEDBIOMED_GROUP=${FEDBIOMED_GROUP}
 ENV FEDBIOMED_USER=${FEDBIOMED_USER}
+ENV FEDBIOMED_GROUP=${FEDBIOMED_GROUP}
+ENV FEDBIOMED_UID=${FEDBIOMED_UID}
+ENV FEDBIOMED_GID=${FEDBIOMED_GID}
 
 # Install dependencies that will be needed for Node and Python
 RUN apt-get update && apt-get install -y \
@@ -44,19 +40,18 @@ COPY --from=fedbiomed-node /fbm-node /fbm-node
 COPY --from=fedbiomed-node /etc/supervisor/supervisord.conf.template \
 	/etc/supervisor/supervisord.conf.template
 
-# Create log directory
-RUN mkdir -p /home/$FEDBIOMED_USER/log
-
-# Create user for fedbiomed gpu image
+# Create and activate fedbiomed user
 RUN groupadd --gid $FEDBIOMED_GID $FEDBIOMED_GROUP
 RUN useradd -m --shell /bin/bash -d /home/$FEDBIOMED_USER \
 	--uid $FEDBIOMED_UID --gid $FEDBIOMED_GID $FEDBIOMED_USER
 
-RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fbm-node
+# Create log directory
+RUN mkdir -p /home/$FEDBIOMED_USER/log
 
-# Prepare for work in context of alternate account
-RUN chgrp -R $FEDBIOMED_GROUP /home/$FED_BIOMED_USER
-RUN chmod -R g+rwX /home/fedman
+# Give permission to Fed-BioMed group to allows user in the same group 
+# can user fedbiomed home directory
+RUN chgrp -R $FEDBIOMED_GROUP /home/$FEDBIOMED_USER
+RUN chmod -R g+rwX /home/$FEDBIOMED_USER
 
 # Restore entrypoint and working directory
 WORKDIR /
