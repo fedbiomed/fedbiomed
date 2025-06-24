@@ -18,9 +18,9 @@ from fedbiomed.common.dataset_types import (
 
 
 class Reader(ABC):
-    # Implementation of native transform (or not) is specific to each reader
-    _native_transform: Transform = None
-    _native_target_transform: Transform = None
+    # Implementation of reader transform (or not) is specific to each reader
+    _reader_transform: Transform = None
+    _reader_target_transform: Transform = None
 
     # Possible implementation
     #
@@ -34,9 +34,9 @@ class Reader(ABC):
         self,
         root: Path,
         to_format: DataReturnFormat = drf_default,
-        # Optional, per-reader: implement (or not) native transform (use same argument name)
-        # native_transform : Transform = None,
-        # native_target_transform : Transform = None,
+        # Optional, per-reader: implement (or not) reader transform (use same argument name)
+        # reader_transform : Transform = None,
+        # reader_target_transform : Transform = None,
         *args,
         **kwargs,
     ) -> None:
