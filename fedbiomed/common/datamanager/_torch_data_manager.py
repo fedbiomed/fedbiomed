@@ -257,7 +257,7 @@ class TorchDataManager(FrameworkDataManager):
                 f"Dataset of type {self._dataset.__class__.__name__} implements "
                 "`to_torch()`. Can request data directly in PyTorch format."
             )
-            self._to_torch = self._dataset.to_torch()  # type: ignore  # prevously tested that the method exists
+            self._to_torch = self._dataset.to_torch()  # type: ignore  # previously tested that the method exists
         else:
             logger.debug(
                 f"Dataset of type {self._dataset.__class__.__name__} doesn't implement "
@@ -273,6 +273,7 @@ class TorchDataManager(FrameworkDataManager):
         """
         return self._dataset
 
+    # Nota: used only for unit tests
     def subset_test(self) -> Optional[TorchSubset]:
         """Gets validation subset of the dataset.
 
@@ -282,6 +283,7 @@ class TorchDataManager(FrameworkDataManager):
 
         return self._subset_test
 
+    # Nota: used only for unit tests
     def subset_train(self) -> Optional[TorchSubset]:
         """Gets train subset of the dataset.
 
@@ -290,6 +292,7 @@ class TorchDataManager(FrameworkDataManager):
         """
         return self._subset_train
 
+    # Nota: used only for unit tests
     def load_all_samples(self) -> PytorchDataLoader:
         """Loading all samples as PyTorch DataLoader without splitting.
 
@@ -297,7 +300,13 @@ class TorchDataManager(FrameworkDataManager):
             Dataloader for entire datasets. `DataLoader` arguments will be retrieved from the `**kwargs` which
                 is defined while initializing the class
         """
-        return self._create_torch_data_loader(self._dataset, **self._loader_arguments)
+        torch_dataset = _DatasetWrapper(
+            self._dataset,
+            self._to_torch,
+            self._framework_transform,
+            self._framework_target_transform,
+        )
+        return self._create_torch_data_loader(torch_dataset, **self._loader_arguments)
 
     def split(
         self,
@@ -354,7 +363,7 @@ class TorchDataManager(FrameworkDataManager):
         )
 
         try:
-            samples = len(self._dataset)
+            samples = len(torch_dataset)
         except AttributeError as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Can not get number of samples from "
@@ -378,7 +387,9 @@ class TorchDataManager(FrameworkDataManager):
         test_samples = math.floor(samples * test_ratio)
         if self._testing_index and not is_shuffled_testing_dataset:
             try:
-                self._load_indexes(self._training_index, self._testing_index)
+                self._load_indexes(
+                    torch_dataset, self._training_index, self._testing_index
+                )
             except IndexError:
                 _is_loading_failed = True
         if (
@@ -436,10 +447,15 @@ class TorchDataManager(FrameworkDataManager):
 
         return None if rng is None else torch.Generator(device).manual_seed(rng)
 
-    def _load_indexes(self, training_index: List[int], testing_index: List[int]):
+    def _load_indexes(
+        self,
+        torch_dataset: TorchDataset,
+        training_index: List[int],
+        testing_index: List[int],
+    ):
         # Improvement: catch INdexOutOfRange kind of errors
-        self._subset_train = TorchSubset(self._dataset, training_index)
-        self._subset_test = TorchSubset(self._dataset, testing_index)
+        self._subset_train = TorchSubset(torch_dataset, training_index)
+        self._subset_test = TorchSubset(torch_dataset, testing_index)
 
     def save_state(self) -> Dict:
         """Gets state of the data loader.
@@ -488,7 +504,7 @@ class TorchDataManager(FrameworkDataManager):
         try:
             # Create a loader from self._dataset to extract inputs and target values
             # by iterating over samples
-            loader = PytorchDataLoader(dataset, **kwargs)
+            loader = PytorchDataLoader(dataset, **kwargs)  # type: ignore  # catch errors if kwargs are incorrect
         except AttributeError as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}:  Error while creating Torch DataLoader due to undefined attribute"

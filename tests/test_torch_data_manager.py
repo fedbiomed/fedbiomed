@@ -2,12 +2,15 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pandas as pd
 import torch
-from torch.utils.data import Dataset, Subset
+from torch.utils.data import Subset
 
 import fedbiomed.common.datamanager._torch_data_manager  # noqa
 from fedbiomed.common.datamanager import TorchDataManager
-from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
+from fedbiomed.common.dataset import Dataset
+from fedbiomed.common.dataset_types import DatasetDataItemModality, DataType
+from fedbiomed.common.exceptions import FedbiomedError
 
 
 class TestTorchDataManager(unittest.TestCase):
@@ -15,10 +18,98 @@ class TestTorchDataManager(unittest.TestCase):
         """Create PyTorch Dataset for test purposes"""
 
         def __init__(self):
-            self.X_train = np.array(
-                [[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]
-            )
-            self.Y_train = np.array([1, 2, 3, 4, 5, 6])
+            # self.X_train = np.array(
+            #    [[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]
+            # )
+            # self.Y_train = np.array([1, 2, 3, 4, 5, 6])
+            self.X_train = [
+                {
+                    "mod1": DatasetDataItemModality(
+                        modality_name="mod1",
+                        type=DataType.IMAGE,
+                        data=np.array([1, 2, 3]),
+                    )
+                },
+                {
+                    "mod1": DatasetDataItemModality(
+                        modality_name="mod1",
+                        type=DataType.IMAGE,
+                        data=np.array([4, 5, 6]),
+                    )
+                },
+                {
+                    "mod1": DatasetDataItemModality(
+                        modality_name="mod1",
+                        type=DataType.IMAGE,
+                        data=np.array([7, 8, 9]),
+                    )
+                },
+                {
+                    "mod1": DatasetDataItemModality(
+                        modality_name="mod1",
+                        type=DataType.IMAGE,
+                        data=np.array([10, 11, 12]),
+                    )
+                },
+                {
+                    "mod1": DatasetDataItemModality(
+                        modality_name="mod1",
+                        type=DataType.IMAGE,
+                        data=np.array([13, 14, 15]),
+                    )
+                },
+                {
+                    "mod1": DatasetDataItemModality(
+                        modality_name="mod1",
+                        type=DataType.IMAGE,
+                        data=np.array([16, 17, 18]),
+                    )
+                },
+            ]
+            self.Y_train = [
+                {
+                    "target1": DatasetDataItemModality(
+                        modality_name="target1",
+                        type=DataType.TABULAR,
+                        data=pd.DataFrame([1]),
+                    )
+                },
+                {
+                    "target1": DatasetDataItemModality(
+                        modality_name="target1",
+                        type=DataType.TABULAR,
+                        data=pd.DataFrame([2]),
+                    )
+                },
+                {
+                    "target1": DatasetDataItemModality(
+                        modality_name="target1",
+                        type=DataType.TABULAR,
+                        data=pd.DataFrame([3]),
+                    )
+                },
+                {
+                    "target1": DatasetDataItemModality(
+                        modality_name="target1",
+                        type=DataType.TABULAR,
+                        data=pd.DataFrame([4]),
+                    )
+                },
+                {
+                    "target1": DatasetDataItemModality(
+                        modality_name="target1",
+                        type=DataType.TABULAR,
+                        data=pd.DataFrame([5]),
+                    )
+                },
+                {
+                    "target1": DatasetDataItemModality(
+                        modality_name="target1",
+                        type=DataType.TABULAR,
+                        data=pd.DataFrame([6]),
+                    )
+                },
+            ]
 
         def __len__(self):
             return len(self.Y_train)
@@ -26,7 +117,7 @@ class TestTorchDataManager(unittest.TestCase):
         def __getitem__(self, idx):
             return self.X_train[idx], self.Y_train[idx]
 
-    class CustomDatasetInvalid(Dataset):
+    class CustomDatasetInvalid:
         """Create Invalid PyTorch Dataset for test purposes"""
 
         def __init__(self):
@@ -75,7 +166,7 @@ class TestTorchDataManager(unittest.TestCase):
     def test_torch_data_manager_01_init_failure(self):
         """Testing build failure of Torch Data Manager"""
 
-        with self.assertRaises(FedbiomedTorchDataManagerError):
+        with self.assertRaises(FedbiomedError):
             TorchDataManager(dataset="wrong_type", batch_size=48, shuffle=True)
 
     def test_torch_data_manager_01_dataset(self):
@@ -90,15 +181,15 @@ class TestTorchDataManager(unittest.TestCase):
         """Testing split method of TorchDataManager class"""
 
         # Test invalid ratio argument
-        with self.assertRaises(FedbiomedTorchDataManagerError):
+        with self.assertRaises(FedbiomedError):
             self.torch_data_manager.split(test_ratio=12, test_batch_size=0)
 
         # Test invalid ratio argument
-        with self.assertRaises(FedbiomedTorchDataManagerError):
+        with self.assertRaises(FedbiomedError):
             self.torch_data_manager.split(test_ratio="12", test_batch_size=2)
 
         # Test invalid ratio argument
-        with self.assertRaises(FedbiomedTorchDataManagerError):
+        with self.assertRaises(FedbiomedError):
             self.torch_data_manager.split(test_ratio=-12, test_batch_size=3)
 
         # Test proper split
@@ -110,17 +201,17 @@ class TestTorchDataManager(unittest.TestCase):
         # Test exceptions
         invalid = TestTorchDataManager.CustomDatasetInvalid()
         self.torch_data_manager._dataset = invalid
-        with self.assertRaises(FedbiomedTorchDataManagerError):
+        with self.assertRaises(FedbiomedError):
             self.torch_data_manager.split(0.3, test_batch_size=4)
 
         invalid = TestTorchDataManager.CustomDatasetTypeError()
         self.torch_data_manager._dataset = invalid
-        with self.assertRaises(FedbiomedTorchDataManagerError):
+        with self.assertRaises(FedbiomedError):
             self.torch_data_manager.split(0.3, test_batch_size=5)
 
         invalid = TestTorchDataManager.CustomDatasetAttrError()
         self.torch_data_manager._dataset = invalid
-        with self.assertRaises(FedbiomedTorchDataManagerError):
+        with self.assertRaises(FedbiomedError):
             self.torch_data_manager.split(0.3, test_batch_size=6)
 
     def test_torch_data_manager_03_split_results(self):
@@ -182,7 +273,7 @@ class TestTorchDataManager(unittest.TestCase):
             "Did not properly get loader for all samples",
         )
 
-    @patch("fedbiomed.common.datamanager._torch_data_manager.DataLoader")
+    @patch("fedbiomed.common.datamanager._torch_data_manager.PytorchDataLoader")
     def test_torch_data_manager_06_create_torch_data_loader(self, data_loader):
         """Test function create torch data loader"""
 
@@ -190,26 +281,17 @@ class TestTorchDataManager(unittest.TestCase):
         s = self.torch_data_manager.subset_test()
 
         data_loader.side_effect = TypeError()
-        with self.assertRaises(FedbiomedTorchDataManagerError):
+        with self.assertRaises(FedbiomedError):
             self.torch_data_manager._create_torch_data_loader(s)
 
         data_loader.side_effect = AttributeError()
-        with self.assertRaises(FedbiomedTorchDataManagerError):
+        with self.assertRaises(FedbiomedError):
             self.torch_data_manager._subset_loader(s)
 
         data_loader.side_effect = None
         data_loader.return_value = "Data"
         result = self.torch_data_manager._subset_loader(s)
         self.assertEqual(result, "Data")
-
-    def test_torch_data_manager_07_to_sklearn(self):
-        """Test converting TorchDataManage to SkLearnDataManager"""
-
-        result = self.torch_data_manager.to_sklearn()
-        self.assertIsInstance(
-            result,
-            fedbiomed.common.datamanager._sklearn_data_manager.SkLearnDataManager,
-        )
 
     def test_torch_data_manager_08_save_load_state(self):
         test_ratio = 0.5
@@ -320,13 +402,13 @@ class TestTorchDataManager(unittest.TestCase):
             mock_random_split.assert_called_once()
 
     @staticmethod
-    def get_tensor_from_subset(subset: torch.utils.data.Subset) -> torch.Tensor:
+    def get_tensor_from_subset(subset: Subset) -> torch.Tensor:
         tensor_x = []
         tensor_y = []
 
         for x, y in subset:
-            tensor_x.append(torch.from_numpy(x).unsqueeze(0))
-            tensor_y.append(int(y))
+            tensor_x.append(x["mod1"].data.unsqueeze(0))
+            tensor_y.append(y["target1"].data)
 
         return torch.cat(tensor_x, dim=0), torch.Tensor(tensor_y)
 
