@@ -1,9 +1,5 @@
 #!/bin/bash
 source /functions.bash
-new_run_time_user
-
-# This functions changes path owner to new container user if it defined in run time
-change_path_owner /fedbiomed "/fbm-node /data /home/$FEDBIOMED_USER/log"
 
 BEFORE_USER_HOOK_SCRIPT="/before-entrypoint-hook.sh"
 
@@ -17,6 +13,11 @@ elif [ -f "$BEFORE_USER_HOOK_SCRIPT" ]; then
 else
   echo "[INFO] No user hook script found at $BEFORE_USER_HOOK_SCRIPT, skipping"
 fi
+
+new_run_time_user
+
+# This functions changes path owner to new container user if it defined in run time
+change_path_owner /fedbiomed "/fbm-node /data /home/$FEDBIOMED_USER/log"
 
 
 cat <<EOF > /tmp/fbm-env.sh
