@@ -9,8 +9,8 @@ FROM debian:bullseye
 
 ARG FEDBIOMED_GID=101
 ARG FEDBIOMED_UID=1001
-ARG FEDBIOMED_GROUP=fedgroup
-ARG FEDBIOMED_USER=fedman
+ARG FEDBIOMED_GROUP=fedbiomed
+ARG FEDBIOMED_USER=fedbiomed
 
 # Set environment variable to remember the user
 ENV FEDBIOMED_GID=${FEDBIOMED_GID}
@@ -73,8 +73,11 @@ RUN mkdir -p /home/$FEDBIOMED_USER/log
 
 # Prepare for work in context of alternate account
 RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fedbiomed
-RUN chgrp -R $FEDBIOMED_GROUP /home/$FED_BIOMED_USER
-RUN chmod -R g+rwX /home/fedman
+
+# Give permission to Fed-BioMed group to allows user in the same group 
+# can user fedbiomed home directory
+RUN chgrp -R $FEDBIOMED_GROUP /home/$FEDBIOMED_USER
+RUN chmod -R g+rwX /home/$FEDBIOMED_USER
 
 
 WORKDIR /fedbiomed
