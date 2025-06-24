@@ -26,8 +26,8 @@ class NiftiReader(Reader):
         # to_format: support DEFAULT and TORCH (SKLEARN not supported)
         # both are torch.Tensor
         to_format: DataReturnFormat = drf_default,
-        native_transform: Transform = None,
-        native_target_transform: Transform = None,
+        reader_transform: Transform = None,
+        reader_target_transform: Transform = None,
         # Any other parameter ?
         modality: str = "T1",
     ) -> None:
