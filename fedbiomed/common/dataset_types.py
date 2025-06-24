@@ -7,7 +7,7 @@ Classes for dataset's data types and structures
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -73,7 +73,7 @@ DatasetDataItem = Optional[Dict[str, Union[Any, DatasetDataItemModality]]]
 
 
 # shape for a sample of *one* modality as a list of dimensions of array
-ModalityShape = List[int]
+ModalityShape = Tuple[int, ...]
 
 # shape for a sample of a `Reader`'s returned item as
 # `(number_of_samples, { 'modality_name' => dimensions_of_array })`
