@@ -561,8 +561,9 @@ class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
         return d, t
 
     # MV: temporary before refactor
-    # def to_torch(self):
+    # def to_torch(self) -> bool:
     #    self._to_torch = True
+    #    return True
 
     def __len__(self):
         """Length method to get number of samples
