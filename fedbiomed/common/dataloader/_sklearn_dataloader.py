@@ -34,6 +34,7 @@ class SkLearnDataLoader(DataLoader):
     @property
     def dataset(self) -> np.ndarray:
         """Returns the encapsulated dataset"""
+        # TODO: fix return type with the type that represents a "scikitlearn dataset" in nee implementation
 
     def __len__(self) -> int:
         """Returns the length of the encapsulated dataset"""
