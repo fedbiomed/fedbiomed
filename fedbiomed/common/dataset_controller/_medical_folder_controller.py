@@ -6,7 +6,7 @@ Controller implementation for BIDS-like MedicalFolderController
 """
 
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Union
 
 from fedbiomed.common.dataset_types import DatasetDataItem
 
@@ -16,7 +16,7 @@ from ._controller import Controller
 class NewMedicalFolderController(Controller):
     def __init__(
         self,
-        root: Path,
+        root: Union[str, Path],
         # Any other parameter ?
     ) -> None:
         """Class constructor"""
