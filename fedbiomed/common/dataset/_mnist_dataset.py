@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Tuple, Union
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.dataset_controller._mnist_controller import MnistController
+from fedbiomed.common.dataset_controller import MnistController
 from fedbiomed.common.dataset_types import (
     DataReturnFormat,
     DatasetDataItem,
