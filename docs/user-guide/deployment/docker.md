@@ -129,11 +129,11 @@ Within `<path-to-host-fbm-node>`, a `data` directory will be created. You can co
 Once your dataset files are placed in the `data` directory, you can enter the container's terminal to use the CLI and register the dataset:
 
 ```bash
-docker exec -it -u fedman my-node bash
+docker exec -it -u fedbiomed my-node bash
 ```
 
 !!! warning "Test" 
-    Make sure to replace `fedman` with the appropriate container user if it's different.
+    Make sure to replace `fedbiomed` with the appropriate container user if it's different.
 
 
 ##### 3. Registering the Dataset via CLI
@@ -187,7 +187,7 @@ docker run -it \
     fedbiomed/node-gui:latest
 ```
 
-If SSL is activated, the Node GUI will use port `8483`; otherwise, it will use port `8484`.
+If SSL is activated, the Node GUI will use port `8443`; otherwise, it will use port `8484`.
 
 You can choose the host port for this application. The following command will make the Fed-BioMed Node GUI accessible on port `8812`:
 
@@ -200,11 +200,16 @@ docker run -it \
     fedbiomed/node-gui:latest
 ```
 
+!!! note "Node GUI Ports"
+    The Node GUI image exposes ports `8484` (non-SSL) and `8443` (SSL). If you launch multiple Node GUI instances, please use `-p <port>:8484` or `-p <port-ssl>:8443` to forward the container port to an available port on the host machine.
+
 ---
 
-## Running Researcher container
+## Researcher
 
-The follwing commad will launch a researcher component with a basic configuration. There it is recommanded to mount the volume for `/fbm-researcher` directory in host that generated and keeps researcher component configurations, folders and files. Researcher component exposes a port that allows other component. Researcher component also exposes port tensorbard application to display feedback scalar values collected from particpating node during the training.  
+As it is in Node image researcher node work in a same way to lancuhs and configure. Environment variables can be used to manupulate researcher configuration or researcher configuration file located in the mounted directory can changed. 
+
+The following commad will launch a researcher component with a basic configuration. There it is recommanded to mount the volume for `/fbm-researcher` directory in host that generated and keeps researcher component configurations, folders and files. Researcher component exposes a port that allows other component. Researcher component also exposes port tensorbard application to display feedback scalar values collected from particpating node during the training.  
 
 ```bash
 docker run -it -d \ 
@@ -213,9 +218,23 @@ docker run -it -d \
     fedbiomed/researcher:latest
 ```
 
-### IP/Hostname of the Researcher component
+### Configuring Networking for the Fed-BioMed Researcher Docker Container
 
-```
+There are several ways to configure Docker container networking depending on the deployment scenario. Therefore, it is up to the user to choose the network settings that best fit their needs. However, Fed-BioMed provides two important environment variables for configuring the Researcher container:
+
+
+* `FBM_SERVER_HOST`
+* `FBM_SERVER_PORT`
+
+These correspond to the `host` and `port` entries in the `server` section of the Researcher’s configuration file. They **must be set correctly** to ensure that Fed-BioMed Node containers can connect to the Researcher.
+
+By default, the Docker image sets `FBM_SERVER_HOST=0.0.0.0`, which allows the Researcher to **accept connections from any interface**. This is useful when Nodes run on **different machines** or in **separate Docker networks**.
+
+Example: Using `127.0.0.1`
+
+In the following example, the Researcher is configured to bind to `127.0.0.1` (localhost):
+
+```bash
 docker run -it -d \
     -e FBM_SERVER_HOST=127.0.0.1 \
     -v <path-fedbiomed-researcher>:/fbm-researcher \
@@ -223,37 +242,168 @@ docker run -it -d \
     fedbiomed/researcher:latest
 ```
 
+!!! warning "Limitation"
+    With `FBM_SERVER_HOST=127.0.0.1`, the container listens only on its internal loopback interface. As a result, **other Node containers on the same host will not be able to connect**, unless they are attached to the **same Docker network**.
+
+
+You can resolve this by attaching the containers to a user-defined Docker network:
+
+```bash
+# Create the network (only once)
+docker network create fedbiomed-net
+
+# Run the Researcher on that network
+docker run -it -d \
+    --network fedbiomed-net \
+    --name fbm-researcher \
+    -e FBM_SERVER_HOST=0.0.0.0 \
+    -v <path-fedbiomed-researcher>:/fbm-researcher \
+    fedbiomed/researcher:latest
+```
+
+Then launch the Node container using the same network:
+
+```bash
+docker run -it \
+    --network fedbiomed-net \
+    fedbiomed/node
+```
+
+This setup allows the Node container to connect to the Researcher via its container name (`fbm-researcher`), thanks to Docker's internal DNS.
+
+
+It is up to the user to configure Docker networking according to their deployment scenario. For more information about Docker networking and available drivers, refer to the [Docker networking documentation](https://docs.docker.com/engine/network/drivers/).
+
 
 ## Use Docker Compose to Run and Manage Multiple Fed-BioMed Instances
 
-Add docker compose example 
+
+One of the advantages of Docker is that it allows you to define and manage multiple containers using a single **Docker Compose** file. This makes it easy to orchestrate several services at once, rather than launching each container manually.
+
+This is particularly useful for **Fed-BioMed**, where you may want to test or run multiple nodes, Node GUIs, and a Researcher container simultaneously. We highly recommend using Docker Compose to simplify the setup and management of your Fed-BioMed containers.
+
+Below is an example of a Docker Compose file that launches **two nodes**, **two Node GUI instances**, and **one Researcher**, ready to run a federated learning experiment.
 
 
-## Building Images
+```yaml
+version: "3.9"
 
-### Build base image
+services:
+  researcher:
+    image: fedbiomed/researcher:latest
+    container_name: researcher
+    environment:
+      - FBM_SERVER_HOST=0.0.0.0
+      - FBM_SERVER_PORT=50051
+    volumes:
+      - ./my-researcher:/fbm-researcher
+    ports:
+      - "50051:50051"
+    networks:
+      - fedbiomed-net
 
-```bash
-cd <fedbiomed-clone>
-docker build -t fedbiomed/base:<tag> . -f docker/base/Dockerfile 
+  node1:
+    image: fedbiomed/node:latest
+    container_name: node1
+    environment:
+      - RESEARCHER_HOST=researcher
+      - NODE_ID=node1
+    volumes:
+      - ./node1:/fbm-node
+    networks:
+      - fedbiomed-net
+    depends_on:
+      - researcher
+
+  node1-gui:
+    image: fedbiomed/node-gui:latest
+    container_name: node1-gui
+    volumes:
+      - 
+    environment:
+      - SSL_ON=True
+    ports:
+      - "8441:8443"    # SSL GUI
+    depends_on:
+      - node1
+
+  node2:
+    image: fedbiomed/node:latest
+    container_name: node2
+    environment:
+      - RESEARCHER_HOST=researcher
+    volumes:
+      - ./node2:/fbm-node
+    networks:
+      - fedbiomed-net
+    depends_on:
+      - researcher
+
+  node2-gui:
+    image: fedbiomed/node-gui:latest
+    container_name: node2-gui
+    volumes:
+        - ./node2:/fbm-node
+    environment:
+      - SSL_ON=True 
+    ports:
+      - "8482:8484"
+      - "8442:8443"
+    depends_on:
+      - node2
+
+networks:
+  fedbiomed-net:
+    driver: bridge
+
 ```
 
-Define the Fed-BioMed user while building the image:
+
+After creating the `docker-compose.yml` file, navigate to the directory where the file is located and run:
 
 ```bash
-docker build \
-    --build-arg FEDBIOMED_USER=<user-name> \
-    --build-arg FEDBIOMED_UID=<user-id> \
-    --build-arg FEDBIOMED_GROUP=<group-name> \
-    --build-arg FEDBIOMED_GID=<group-id> \
-    -t fedbiomed/base:<tag> . -f docker/base/Dockerfile
+docker compose up -d
 ```
 
-### Build node image
+This command will start all defined services in detached mode and mount the directories relative to the current working directory (where the command is executed).
 
-Once the user is created in the base image, there is no need to redefine it for subsequent images:
+You can check status of all lancuehd services using the following command. It will list all active containers, including their names, ports, and uptime.
 
-```bash
-docker build -t fedbiomed/node:<tag> . -f docker/node/Dockerfile
 ```
+docker ps
+```
+
+## Building Docker Images from Source
+
+If desired, it is possible to build Fed-BioMed Docker images from source with custom modifications, such as changing the default user. This process is described in the [building Fed-BioMed Docker image documentation](../../developer/docker-images.md) for developers.
+
+## Extending Docker Images 
+
+As is the nature of Docker, you can always use the **Fed-BioMed Docker images as a base** to extend their capabilities or customize them for specific use cases or deployment scenarios. You can explore the image definitions located in the `docker/` directory of the Fed-BioMed source repository to see what has been installed and configured in the base images.
+
+This makes it easy to tailor the Fed-BioMed setup — for example, by adding additional packages, integrating custom extensions, or embedding Fed-BioMed within a larger framework.
+
+Here is an example of a custom `Dockerfile` that extends the Node image:
+
+```Dockerfile
+FROM fedbiomed/node:<version-tag>
+
+# Install additional Python packages
+RUN pip install <a-package-required-for-your-setup>
+
+# Add your custom Docker instructions here...
+
+ENTRYPOINT ["/entrypoint.bash"] # Optional
+```
+
+Replace `<version-tag>` with the desired image tag (e.g., `latest`) and `<a-package-required-for-your-setup>` with the package(s) you need.
+
+## Torubleshooting
+
+**Fed-BioMed Docker images automatically generate configuration files and continue using them across container restarts.** These configuration files are stored in the mounted host directory corresponding to the container's `/fbm-node` path.
+
+If the node component fails to connect to the researcher, it may be due to issues such as incorrect network configuration. In such cases, please ensure that any changes you make are applied directly to the configuration files located in the mounted directory on the host. Otherwise, the changes will not persist or be reflected inside the container.
+
+
+
 
