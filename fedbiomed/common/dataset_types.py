@@ -88,7 +88,8 @@ DatasetItemShape = Optional[Dict[str, Tuple[DataType, ModalityShape]]]
 DatasetShape = Tuple[int, DatasetItemShape, DatasetItemShape]
 
 
-class DatasetDataModality(_BaseEnum):
+@dataclass
+class DatasetDataModality:
     """Structure and metadata of a dataset's modality"""
 
     modality_name: str
@@ -106,6 +107,7 @@ class DatasetDataModality(_BaseEnum):
 # dataset-specific rules
 #
 # Nota: value depend on DLPs (filter modality, samples)
+@dataclass
 class DatasetData(ABC):
     data: dict[str, DatasetDataModality]
     target: dict[str, DatasetDataModality]
