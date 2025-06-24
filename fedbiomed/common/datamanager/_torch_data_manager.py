@@ -110,8 +110,9 @@ class _DatasetWrapper(TorchDataset):
                             f"from numpy to torch.Tensor (index={index}, modality={k})"
                         ) from e
                 else:
+                    # DataType.TABULAR
                     try:
-                        v = torch.tensor(v.data.values)
+                        v = torch.tensor(v.data.values)  # type: ignore  # v.data is a pd.DataFrame here
                     except Exception as e:
                         raise FedbiomedError(
                             f"{ErrorNumbers.FB632.value}: Bad data sample format, cannot convert "
@@ -225,7 +226,7 @@ class TorchDataManager(FrameworkDataManager):
             and not callable(self._framework_transform)
             and (
                 not isinstance(self._framework_transform, dict)
-                or not all([callable(v) for _, v in self._framework_transform])
+                or not all([callable(v) for _, v in self._framework_transform.items()])
             )
         ):
             raise FedbiomedError(
@@ -240,7 +241,9 @@ class TorchDataManager(FrameworkDataManager):
             and not callable(self._framework_target_transform)
             and (
                 not isinstance(self._framework_target_transform, dict)
-                or not all([callable(v) for _, v in self._framework_target_transform])
+                or not all(
+                    [callable(v) for _, v in self._framework_target_transform.items()]
+                )
             )
         ):
             raise FedbiomedError(
@@ -252,10 +255,9 @@ class TorchDataManager(FrameworkDataManager):
         if hasattr(self._dataset, "to_torch"):
             logger.debug(
                 f"Dataset of type {self._dataset.__class__.__name__} implements "
-                "`to_torch()`. No data conversion needed through intermediate generic format."
+                "`to_torch()`. Can request data directly in PyTorch format."
             )
-            self._dataset.to_torch()
-            self._to_torch = True
+            self._to_torch = self._dataset.to_torch()  # type: ignore  # prevously tested that the method exists
         else:
             logger.debug(
                 f"Dataset of type {self._dataset.__class__.__name__} doesn't implement "
