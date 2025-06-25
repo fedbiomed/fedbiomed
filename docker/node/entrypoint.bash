@@ -17,8 +17,9 @@ fi
 new_run_time_user
 
 # This functions changes path owner to new container user if it defined in run time
-change_path_owner /fedbiomed "/fbm-node /data /home/$FEDBIOMED_USER/log"
+change_path_owner /fedbiomed "/fbm-node /home/$FEDBIOMED_USER/log"
 
+ls -la /home/$FEDBIOMED_USER
 
 cat <<EOF > /tmp/fbm-env.sh
 
@@ -32,7 +33,6 @@ EOF
 
 chmod +x /tmp/fbm-env.sh
 source /tmp/fbm-env.sh
-ls /tmp/
 
 # Create node configuration if not existing yet
 echo "[INFO] Creating "

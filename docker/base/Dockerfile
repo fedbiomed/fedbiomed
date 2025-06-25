@@ -72,7 +72,8 @@ RUN useradd -m --shell /bin/bash -d /home/$FEDBIOMED_USER \
 RUN mkdir -p /home/$FEDBIOMED_USER/log
 
 # Prepare for work in context of alternate account
-RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fedbiomed
+RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fedbiomed /home/$FEDBIOMED_USER/log
+
 
 # Give permission to Fed-BioMed group to allows user in the same group 
 # can user fedbiomed home directory

@@ -18,12 +18,8 @@ VOLUME /certs
 
 # nginx + flask HTTP server for node1
 EXPOSE 8484
-# nginx + flask HTTP server for node2
-EXPOSE 8485
 # nginx + gunicorn HTTPS server for node1
 EXPOSE 8443
-# nginx + gunicorn HTTPS server for node2
-EXPOSE 8444
 
 
 
@@ -41,7 +37,7 @@ RUN apt-get install nginx -y --fix-missing
 
 # Create node directory
 RUN mkdir /certs
-RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fbm-node /certs /fedbiomed /data
+RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /certs 
 
 # Change working directory to fedbiomed
 WORKDIR /fedbiomed
