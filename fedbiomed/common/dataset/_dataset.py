@@ -8,6 +8,7 @@ Base abstract classes for datasets
 from abc import ABC, abstractmethod
 from typing import Tuple
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem, Transform
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -55,16 +56,21 @@ class Dataset(ABC):
         self._framework_target_transform = transform_input
 
     def _validate_transform_input(self, transform_input: Transform) -> None:
-        """Should raise Exception if transform_input is not a valid input"""
+        """Raises FedbiomedError if transform_input is not a valid input"""
         if transform_input is None or callable(transform_input):
             return
         elif isinstance(transform_input, dict):
             if not all(
                 isinstance(k, str) and callable(v) for k, v in transform_input.items()
             ):
-                raise TypeError("Transform dict must map strings to callables")
+                raise FedbiomedError(
+                    ErrorNumbers.FB632.value
+                    + ": Transform dict must map strings to callables"
+                )
         else:
-            raise TypeError("Unexpected Transform input")
+            raise FedbiomedError(
+                ErrorNumbers.FB632.value + ": Unexpected Transform input"
+            )
 
     # Caveat: give explicit user error message when raising exception
     # Also need to wrap with try/except when calling `Reader` Transform (native Transform)
@@ -126,9 +132,6 @@ class StructuredDataset(Dataset):
         # Optional, per dataset: implement reader transforms (argument name may vary)
         **kwargs,
     ) -> None:
-        try:
-            self.framework_transform = framework_transform
-            self.framework_target_transform = framework_target_transform
-        except Exception as e:
-            raise FedbiomedError(e) from e
+        self.framework_transform = framework_transform
+        self.framework_target_transform = framework_target_transform
         super().__init__(**kwargs)
