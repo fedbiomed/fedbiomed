@@ -71,5 +71,5 @@ class MnistDataset(StructuredDataset, MnistController):
             return data, target
 
         raise FedbiomedError(
-            f"{ErrorNumbers.FB632.value}: DataReturnFormat not supported"
+            ErrorNumbers.FB632.value + ": DataReturnFormat not supported"
         )
