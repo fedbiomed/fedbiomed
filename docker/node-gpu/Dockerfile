@@ -50,8 +50,8 @@ RUN mkdir -p /home/$FEDBIOMED_USER/log
 
 # Give permission to Fed-BioMed group to allows user in the same group 
 # can user fedbiomed home directory
-RUN chgrp -R $FEDBIOMED_GROUP /home/$FEDBIOMED_USER
-RUN chmod -R g+rwX /home/$FEDBIOMED_USER
+RUN chgrp -R $FEDBIOMED_GROUP /home/$FEDBIOMED_USER /fbm-node
+RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fbm-node /home/$FEDBIOMED_USER/log
 
 # Restore entrypoint and working directory
 WORKDIR /

@@ -10,14 +10,15 @@ COPY docker/node/supervisord-node.conf.template /etc/supervisor/supervisord.conf
 USER root:root
 
 # Create node directory
-RUN mkdir -p /fbm-node /data
-RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fbm-node /data
+RUN mkdir -p /fbm-node /home/$FEDBIOMED_USER/log
+RUN chgrp -R $FEDBIOMED_GROUP /home/$FEDBIOMED_USER /fbm-node
+RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fbm-node
 
 # Change working directory to fedbiomed
 WORKDIR /fedbiomed
 
 # Globally install fedbiomed
-RUN pip install '.[node, gui]'
+RUN pip install '.[node]'
 
 WORKDIR /
 # Run node
