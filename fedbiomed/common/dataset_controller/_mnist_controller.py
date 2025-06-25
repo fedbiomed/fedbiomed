@@ -54,8 +54,9 @@ class MnistController(Controller):
             - if root is not valid or do not exist (from `Controller`)
             - if `datasets.MNIST` can not be initialized (data and targets)
         """
+        self.root = root
+
         try:
-            self.root = root
             dataset = datasets.MNIST(root=self.root, download=True)
         except Exception as e:
             raise FedbiomedError(ErrorNumbers.FB632.value) from e
