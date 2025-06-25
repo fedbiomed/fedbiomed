@@ -30,6 +30,10 @@ from ._reader import Reader
 
 
 class CsvReader(Reader):
+    _NB_LINES_PARSED_HEADER: int = (
+        5  # parse 5 lines to see whether there is a header or not
+    )
+
     def __init__(
         self,
         root: Path,
@@ -40,6 +44,7 @@ class CsvReader(Reader):
         reader_transform: Transform = None,
         native_target_transform: Transform = None,
         encoding: str = "utf-8",
+        has_header: str | bool = "auto",
         # Any other parameter ?
     ) -> None:
         """Class constructor"""
@@ -47,12 +52,17 @@ class CsvReader(Reader):
         self._offsets = []
         self._is_preparsed = False
         self._delimiter = ""
-        self._header = None
+        self.header = None
         self._header_offset = 0
         self._encoding = encoding
         self._quoting = csv.QUOTE_NONE
+        self._shape: Tuple[int] = None
 
         self._transform_framework = lambda x: x  # change that dpd on to_format arg
+        self._format = to_format
+
+        self._native_transform = native_transform
+        self._native_target_transform = native_target_transform
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
     def read(
@@ -81,23 +91,39 @@ class CsvReader(Reader):
 
         # Optional methods which can be implemented (or not) by some readers
         # Code is specific to each reader
-        with open(self._path, "rb") as file:
-            if not self._is_preparsed:
-                self._pre_parse(file)
-
-            if self._header is None:
+        if self._shape is None:
+            with self._closer(open(self._path, "rb"), get_offset=False) as file:
                 file.seek(0)
+                if not self._is_preparsed:
+                    self._pre_parse(file)
 
-            first_line = csv.reader(
-                codecs.iterdecode(file, self._encoding), delimiter=self._delimiter
-            )  # parse first line for control
-            nb_col = len(
-                next(first_line)
-            )  # get column number from first line of the csv
-            nb_row = max(sum(1 for row in file), 1)
-        return nb_row, nb_col
+                if self.header is None:
+                    file.seek(0)
+
+                first_line = csv.reader(
+                    codecs.iterdecode(file, self._encoding), delimiter=self._delimiter
+                )  # parse first line for control
+                nb_col = len(
+                    next(first_line)
+                )  # get column number from first line of the csv
+                nb_row = max(sum(1 for row in file), 1)
+            self._shape = (
+                nb_row,
+                nb_col,
+            )
+
+        return ReaderShape(dict({"csv": self._shape}))
 
     def read_single_entry(self, indexes: int | Iterable) -> Tuple[np.ndarray]:
+        """Reads a single row or a btach of rows within a csv file. Rows are indexed
+        by an index.
+
+        Args:
+            indexes: index or indexes.
+
+        Returns:
+
+        """
         if not isinstance(indexes, Iterable):
             indexes = [indexes]
         entries = []
@@ -161,15 +187,29 @@ class CsvReader(Reader):
         self._delimiter = sniffer.sniff(_first_line).delimiter
         f.seek(0)
 
-        self._header = 0 if sniffer.has_header(_first_line) else None
-        self._header_offset = len(_first_line) + 1 if self._header is not None else 0
+        # _first_lines = [row.decode(self._encoding).strip() for row in f]
+        # f.seek(0)
+        if self._detect_header(f, sniffer):
+            self.header = next(
+                csv.reader(io.StringIO(_first_line), delimiter=self._delimiter)
+            )
+            # assuming header contains only strings
+        else:
+            self.header = None
+        self._header_offset = len(_first_line) + 1 if self.header is not None else 0
         self._is_preparsed = True
 
     @contextmanager
-    def _closer(self, mm):
+    def _closer(self, mm, get_offset=True):
         if not self._is_preparsed:
-            self._pre_parse(mm)
-        if not self._offsets:
+            try:
+                self._pre_parse(mm)
+            except csv.Error as err:
+                # TODO: add options for that in constructor + cli
+                raise FedbiomedError(
+                    "Cannot detect csv headers and delimiters automatically. This can be due to corrupted file"
+                ) from err
+        if not self._offsets and get_offset:
             self._get_offset(mm)
         try:
             yield mm
@@ -177,6 +217,7 @@ class CsvReader(Reader):
             mm.close()
 
     def _get_offset(self, mm):
+        # get file offset
         # with open(file_path, 'r') as f:
         # mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
         offset = 0
@@ -187,11 +228,32 @@ class CsvReader(Reader):
             line = mm.readline()
 
             offset += len(line)
-            # if first_time:
-            #     offset -= 1
-            #     first_time = False
-        if self._header is not None:
+
+        if self.header is not None:
             self._offsets.pop(0)
+
+    def _detect_header(self, f, sniffer):
+        _first_lines = []
+        i = 0
+        _parse_next_row = True
+        iterable = iter(f)
+        while i < CsvReader._NB_LINES_PARSED_HEADER and _parse_next_row:
+            try:
+                row = next(iterable)
+
+                _first_lines.append(row.decode(self._encoding))
+                i += 1
+            except StopIteration:
+                _parse_next_row = False
+        f.seek(0)
+
+        if len(_first_lines) == 1 and len(_first_lines[0]) == 1:
+            f.seek(0)
+            val = sniffer.has_header(_first_lines[0])
+            f.seek(0)
+            return val
+        else:
+            return sniffer.has_header("".join(_first_lines))
 
     # #@staticmethod
     # def default_auto_cast(self, value) -> str | int | float:
@@ -204,7 +266,7 @@ class CsvReader(Reader):
     #     return value
 
     def set_tranform_framework(self, framework: DataReturnFormat):
-        self._transform_framework = framework
+        self.to_generic()
 
     def to_generic(self):
         self._transform_framework = lambda x: np.array(x)
