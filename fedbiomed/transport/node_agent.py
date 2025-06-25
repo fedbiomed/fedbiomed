@@ -8,15 +8,13 @@ from typing import Awaitable, Callable, Dict, Optional
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import Message, OverlayMessage
 
-# timeout in seconds for server to wait for a new task request from node before assuming node is disconnected
-GRPC_SERVER_TASK_WAIT_TIMEOUT = 10
-
 
 class NodeActiveStatus(Enum):
     """Node active status types
 
     Attributes:
-        WAITING: Corresponds status where researcher server waits another GetTask request after
+        WAITING: Corresponds status where researcher server waits another GetTask
+            request after
             the previous one is completed.
         ACTIVE: Listening for the task with open RPC call
         DISCONNECTED: No GetTask RPC call running from the node
@@ -35,6 +33,7 @@ class NodeAgentAsync:
     def __init__(
         self,
         id: str,
+        node_disconnection_timeout: int,
         loop: asyncio.AbstractEventLoop,
         on_forward: Optional[Awaitable[None]],
     ) -> None:
@@ -61,6 +60,7 @@ class NodeAgentAsync:
         self._status_lock = asyncio.Lock()
         self._replies_lock = asyncio.Lock()
         self._stopped_request_ids_lock = asyncio.Lock()
+        self._node_disconnection_timeout = node_disconnection_timeout
 
     async def status_async(self) -> NodeActiveStatus:
         """Getter for node status.
@@ -230,12 +230,12 @@ class NodeAgentAsync:
     async def _change_node_status_disconnected(self) -> None:
         """Task coroutine to change node status as `DISCONNECTED` after a delay
 
-        Node becomes DISCONNECTED if it doesn't become ACTIVE in GRPC_SERVER_TASK_WAIT_TIMEOUT seconds,
+        Node becomes DISCONNECTED if it doesn't become ACTIVE in SERVER_NODE_DISCONNECTION_TIMEOUT seconds,
         which cancels this task
         """
 
-        # Sleep at least GRPC_SERVER_TASK_WAIT_TIMEOUT seconds in WAITING
-        await asyncio.sleep(GRPC_SERVER_TASK_WAIT_TIMEOUT)
+        # Sleep at least SERVER_NODE_DISCONNECTION_TIMEOUT seconds in WAITING
+        await asyncio.sleep(self._node_disconnection_timeout)
 
         # If the status still WAITING set status to DISCONNECTED
         async with self._status_lock:
@@ -283,7 +283,10 @@ class AgentStore:
     """Stores node agents"""
 
     def __init__(
-        self, loop: asyncio.AbstractEventLoop, on_forward: Optional[Awaitable[None]]
+        self,
+        loop: asyncio.AbstractEventLoop,
+        on_forward: Optional[Awaitable[None]],
+        node_disconnection_timeout: int,
     ) -> None:
         """Constructor of the agent store
 
@@ -293,7 +296,7 @@ class AgentStore:
             on_forward: Coroutine for handling overlay messages to forward unchanged to a node
         """
         self._node_agents: NodeAgent = {}
-
+        self._node_disconnection_timeout = node_disconnection_timeout
         self._loop = loop
         self._on_forward = on_forward
 
@@ -317,7 +320,10 @@ class AgentStore:
             node = self._node_agents.get(node_id)
             if not node:
                 node = NodeAgent(
-                    id=node_id, loop=self._loop, on_forward=self._on_forward
+                    id=node_id,
+                    loop=self._loop,
+                    on_forward=self._on_forward,
+                    node_disconnection_timeout=self._node_disconnection_timeout,
                 )
                 self._node_agents.update({node_id: node})
 

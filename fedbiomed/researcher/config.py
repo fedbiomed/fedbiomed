@@ -42,6 +42,7 @@ class ResearcherConfig(Config):
         self._cfg["server"] = {
             "host": grpc_host,
             "port": grpc_port,
+            "node_disconnection_timeout": 10,
         }
 
         self._cfg["certificate"] = {
@@ -57,6 +58,24 @@ class ResearcherConfig(Config):
                 "FBM_SECURITY_SECAGG_INSECURE_VALIDATION", True
             )
         }
+
+    def migrate(self):
+        """Migrate configuration to newer configuration setting"""
+
+        if "node_disconnection_timeout" not in self._cfg["server"]:
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for researcher. "
+                "Please add 'node_disconnection_timeout' value in `server` section "
+                "of the researcher configuration."
+            )
+
+            self._cfg["server"].update(
+                {
+                    "node_disconnection_timeout": str(
+                        os.getenv("FBM_SERVER_NODE_DISCONNECTION_TIMEOUT", "10")
+                    )
+                }
+            )
 
     def _update_vars(self):
         """Updates component dynamic vars"""

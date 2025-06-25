@@ -8,6 +8,7 @@ import grpc
 from google.protobuf.message import Message as ProtoBufMessage
 
 import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
+from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
     MAX_MESSAGE_BYTES_LENGTH,
     MAX_SEND_RETRIES,
@@ -224,6 +225,7 @@ class _GrpcAsyncServer:
         self,
         host: str,
         port: str,
+        config: Config,
         on_message: Callable,
         ssl: SSLCredentials,
         debug: bool = False,
@@ -243,7 +245,7 @@ class _GrpcAsyncServer:
         self._ssl = ssl
         self._host = host
         self._port = port
-
+        self._config = config
         self._server = None
         self._debug = debug
         self._on_message = on_message
@@ -294,7 +296,13 @@ class _GrpcAsyncServer:
         )
 
         self._loop = asyncio.get_running_loop()
-        self._agent_store = AgentStore(loop=self._loop, on_forward=self._on_forward)
+        self._agent_store = AgentStore(
+            loop=self._loop,
+            on_forward=self._on_forward,
+            node_disconnection_timeout=self._config.getint(
+                "server", "node_disconnection_timeout"
+            ),
+        )
 
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(

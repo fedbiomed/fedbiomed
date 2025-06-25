@@ -135,6 +135,11 @@ class Config(metaclass=ABCMeta):
 
         return self._get(section, key, **kwargs).lower() in ("true", "1")
 
+    def getint(self, section, key, **kwargs) -> int:
+        """Gets int value of a given config"""
+
+        return self._cfg.getint(section, key, **kwargs)
+
     def _get(self, section, key, **kwargs) -> str:
         """ """
         environ_key = f"FBM_{section.upper()}_{key.upper()}"
@@ -199,6 +204,8 @@ class Config(metaclass=ABCMeta):
             self.add_parameters()
         else:
             self.read()
+            # Provide migration
+            self.migrate()
 
         self._update_vars()
 
@@ -219,6 +226,10 @@ class Config(metaclass=ABCMeta):
     @abstractmethod
     def add_parameters(self):
         """ "Component specific argument creation"""
+
+    @abstractmethod
+    def migrate(self):
+        """Provides migration"""
 
 
 class Component:

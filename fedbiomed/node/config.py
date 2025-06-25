@@ -57,6 +57,10 @@ class NodeConfig(Config):
             "port": os.getenv("FBM_RESEARCHER_PORT", "50051"),
         }
 
+    def migrate(self):
+        """Please add migration value for the values that are introduced"""
+        pass
+
 
 component_root = os.environ.get("FBM_NODE_COMPONENT_ROOT", None)
 
