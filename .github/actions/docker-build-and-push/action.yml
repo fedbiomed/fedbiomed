@@ -80,7 +80,7 @@ runs:
       shell: bash -l {0}
     
     - name: Push the image
-      if: ${{ inputs.test == 'false' }}
+      if: ${{ inputs.test == false || inputs.test == 'false' }}
       run: | 
         docker push --all-tags ${{ inputs.image-names }}
       shell: bash -l {0}

@@ -49,32 +49,32 @@ jobs:
         with:
           image-names: fedbiomed/base
           file: docker/base/Dockerfile
-          test: ${{ steps.test.outptus.TEST_BUILD }}
+          test: ${{ steps.test.outputs.TEST_BUILD }}
 
       - name: Build and Publish/Test Fed-BioMed Node Image
         uses: ./.github/actions/docker-build-and-push
         with:
           image-names: fedbiomed/node
           file: docker/node/Dockerfile
-          test: ${{ steps.test.outptus.TEST_BUILD }}
+          test: ${{ steps.test.outputs.TEST_BUILD }}
       
       - name: Build and Publish/Test Node GUI Image
         uses: ./.github/actions/docker-build-and-push
         with:
           image-names: fedbiomed/node-gui
           file: docker/node-gui/Dockerfile
-          test: ${{ steps.test.outptus.TEST_BUILD }}
+          test: ${{ steps.test.outputs.TEST_BUILD }}
 
       - name: Build and Publish/Test Node GPU Image
         uses: ./.github/actions/docker-build-and-push
         with:
           image-names: fedbiomed/node-gpu
           file: docker/node-gpu/Dockerfile
-          test: ${{ github.ref_name == 'master' && github.event_name == 'push' }} 
+          test: ${{ steps.test.outputs.TEST_BUILD }}
 
       - name: Build and Publish/Test Researcher Image
         uses: ./.github/actions/docker-build-and-push
         with:
           image-names: fedbiomed/researcher
           file: docker/researcher/Dockerfile
-          test: ${{ steps.test.outptus.TEST_BUILD }}
+          test: ${{ steps.test.outputs.TEST_BUILD }}
