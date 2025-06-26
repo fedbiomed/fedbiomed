@@ -84,7 +84,7 @@ SERVER_certificate_prefix = "server_certificate"
 
 __version__ = FBM_Component_Version(__version__)  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version(
-    "3"
+    "3.1.0"
 )  # researcher config file version
 __node_config_version__ = FBM_Component_Version("2")  # node config file version
 __node_state_version__ = FBM_Component_Version("2")  # node state version
