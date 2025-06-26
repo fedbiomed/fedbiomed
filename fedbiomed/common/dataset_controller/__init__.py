@@ -6,11 +6,13 @@ Classes that simplify imports from fedbiomed.common.dataset_controller
 """
 
 from ._controller import Controller
+from ._image_folder_controller import ImageFolderController
 from ._medical_folder_controller import NewMedicalFolderController
 from ._mnist_controller import MnistController
 
 __all__ = [
     "Controller",
+    "ImageFolderController",
     "NewMedicalFolderController",
     "MnistController",
 ]
