@@ -58,7 +58,10 @@ class NodeConfig(Config):
         }
 
     def migrate(self):
-        """Please add migration value for the values that are introduced"""
+        """Please add migrated parameters for the new version.
+
+        See [`Config.migrate`][fedbiomed.common.config.Config.migrate] for more information
+        """
         pass
 
 

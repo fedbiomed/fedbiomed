@@ -60,8 +60,10 @@ class ResearcherConfig(Config):
         }
 
     def migrate(self):
-        """Migrate configuration to newer configuration setting"""
+        """Please add migrated parameters for the new version.
 
+        See [`Config.migrate`][fedbiomed.common.config.Config.migrate] for more information
+        """
         if "node_disconnection_timeout" not in self._cfg["server"]:
             logger.warning(
                 "DEPRECATION: You are using an old configuration file for researcher. "

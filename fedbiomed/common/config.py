@@ -229,7 +229,20 @@ class Config(metaclass=ABCMeta):
 
     @abstractmethod
     def migrate(self):
-        """Provides migration"""
+        """Migration method to add configuration parameters
+
+        It is used for introducing  new parameters for in minor version or patch
+        to not break backward compatibility. This method has to updte `self._cfg`
+        direcly.
+
+        An example;
+
+        ```python
+        self._cfg["my-section"].update({"my-new-parameter": "my-new-value"})
+        ```
+        It should update the section only if the parameter is not exsiting to avoid
+        overwriting user defined values.
+        """
 
 
 class Component:
