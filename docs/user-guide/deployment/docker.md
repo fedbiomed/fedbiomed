@@ -163,6 +163,12 @@ For more details, see the full guide on [deploying datasets](../nodes/deploying-
 
 ---
 
+!!! note "GPU Support"
+    Docker containers can utilize GPUs as long as the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) is properly installed and configured. Once the toolkit is set up, you can enable GPU support by using the `--gpus all` flag with the `docker run` command, or by using the `device_requests` section in a Docker [Compose](https://docs.docker.com/compose/how-tos/gpu-support/) file. 
+
+    For systems running older versions of Docker (prior to 19.03), where the `--gpus` flag is not supported, we provide a dedicated image, `fedbiomed/node-gpu`, which is pre-configured to work with NVIDIA GPU support using the legacy `nvidia` runtime. This allows GPU usage without requiring the `--gpus` flag, ensuring compatibility with legacy setups.
+
+
 ### Node GUI
 
 Node GUI can be launched seperated from node as long as the mounted Fed-BioMed Node directory are the same. Node GUI assumes that the Node container has aldeay lancuhed and component is initialized in the directory that is going to be mounted. Therefore, please make sure that the first launch Fed-BioMed docker conitaner in order to initialize Node component with desired configuration. 
@@ -314,6 +320,11 @@ services:
       - fedbiomed-net
     depends_on:
       - researcher
+# GPU Support
+#    devices:
+#      - driver: nvidia
+#        count: 1
+#        capabilities: [gpu]
 
   node1-gui:
     image: fedbiomed/node-gui:latest
@@ -338,6 +349,12 @@ services:
       - fedbiomed-net
     depends_on:
       - researcher
+# GPU Support
+#    devices:
+#      - driver: nvidia
+#        count: 1
+#        capabilities: [gpu]
+
 
   node2-gui:
     image: fedbiomed/node-gui:latest
