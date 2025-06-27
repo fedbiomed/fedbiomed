@@ -14,9 +14,6 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 
 class Dataset(ABC):
-    _framework_transform: Transform = None
-    _framework_target_transform: Transform = None
-
     # Implementation of generic transform (or not) is specific to each dataset
     _generic_transform: Transform = None
     _generic_target_transform: Transform = None
@@ -28,6 +25,8 @@ class Dataset(ABC):
 
     def __init__(
         self,
+        framework_transform: Transform = None,
+        framework_target_transform: Transform = None,
         # See subclass: either `root` or `dataset` + `target`
         # Optional, per-dataset: implement (or not) generic transform (use same argument name)
         # generic_transform : Transform = None,
@@ -35,6 +34,8 @@ class Dataset(ABC):
         # Optional, per dataset: implement native transforms (argument name may vary)
         **kwargs,
     ) -> None:
+        self.framework_transform = framework_transform
+        self.framework_target_transform = framework_target_transform
         super().__init__(**kwargs)
 
     @property
@@ -124,14 +125,10 @@ class Dataset(ABC):
 class StructuredDataset(Dataset):
     def __init__(
         self,
-        framework_transform: Transform = None,
-        framework_target_transform: Transform = None,
         # Optional, per-dataset: implement (or not) generic transform (use same argument name)
         # generic_transform : Transform = None,
         # generic_target_transform : Transform = None,
         # Optional, per dataset: implement reader transforms (argument name may vary)
         **kwargs,
     ) -> None:
-        self.framework_transform = framework_transform
-        self.framework_target_transform = framework_target_transform
         super().__init__(**kwargs)
