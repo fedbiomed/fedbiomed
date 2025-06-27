@@ -9,7 +9,11 @@ import codecs
 import csv
 import io
 import mmap
+import os
+import threading
 from contextlib import contextmanager
+from functools import partial
+from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Iterable, Optional, Tuple, Union
 
@@ -23,7 +27,7 @@ from fedbiomed.common.dataset_types import (
     Transform,
     drf_default,
 )
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedUserInputError
 from fedbiomed.common.logger import logger
 
 from ._reader import Reader
@@ -45,6 +49,7 @@ class CsvReader(Reader):
         native_target_transform: Transform = None,
         encoding: str = "utf-8",
         has_header: str | bool = "auto",
+        delimiter: Optional[str] = None,
         # Any other parameter ?
     ) -> None:
         """Class constructor"""
@@ -57,8 +62,10 @@ class CsvReader(Reader):
         self._encoding = encoding
         self._quoting = csv.QUOTE_NONE
         self._shape: Tuple[int] = None
+        self._len = None
+        self.stop_event = threading.Event()
 
-        self._transform_framework = lambda x: x  # change that dpd on to_format arg
+        # self._transform_framework = lambda x: x  # change that dpd on to_format arg
         self._format = to_format
 
         self._native_transform = native_transform
@@ -82,6 +89,10 @@ class CsvReader(Reader):
 
         Raises exception if coherence issue found
         """
+
+    def _validate_path(self):
+        if not os.path.isfile(self._path):
+            raise FedbiomedUserInputError(f"error: cannot find file {self._path}")
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
     def shape(self) -> ReaderShape:
@@ -107,6 +118,7 @@ class CsvReader(Reader):
                     next(first_line)
                 )  # get column number from first line of the csv
                 nb_row = max(sum(1 for row in file), 1)
+                # nb_row = nb_row - 1 if self.header else nb_row
             self._shape = (
                 nb_row,
                 nb_col,
@@ -122,7 +134,7 @@ class CsvReader(Reader):
             indexes: index or indexes.
 
         Returns:
-
+            Tuple of one or several np.array for each lines of the file requested
         """
         if not isinstance(indexes, Iterable):
             indexes = [indexes]
@@ -138,7 +150,11 @@ class CsvReader(Reader):
             self._closer(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as mm,
         ):
             for idx in indexes:
-                offset = self._offsets[idx]
+                try:
+                    offset = self._offsets[idx]
+                except IndexError as err:
+                    msg = f"Cannot read line {idx}: file only contains {self._len} samples"
+                    raise FedbiomedUserInputError(msg) from err
                 mm.seek(offset)
 
                 # Read until end of line
@@ -162,10 +178,106 @@ class CsvReader(Reader):
 
         return tuple(entries)
 
+    def multithread_read_single_entry(
+        self, indexes: int | Iterable
+    ) -> Tuple[np.ndarray]:
+        """Reads a single row or a btach of rows within a csv file. Rows are indexed
+        by an index.
+
+        Args:
+            indexes: index or indexes.
+
+        Returns:
+            Tuple of one or several np.array for each lines of the file requested
+        """
+        if not isinstance(indexes, Iterable):
+            indexes = [indexes]
+
+        entries = [None] * len(indexes)
+        index_map = {idx: i for i, idx in enumerate(indexes)}
+
+        def rthread(idx: int):
+            with mm_lock:
+                try:
+                    offset = self._offsets[idx]
+                except IndexError as err:
+                    msg = f"Cannot read line {idx}: file only contains {self._len} samples"
+                    raise FedbiomedUserInputError(msg) from err
+                mm.seek(offset)
+
+                # Read until end of line
+                row_bytes = mm.readline()
+
+            # Decode bytes to string
+            row = row_bytes.decode(self._encoding).strip()
+            if not row:
+                msg = f"cannot read csv file {self._path} due to inconsistent lines: see line {idx} "
+                logger.error(msg)
+                raise FedbiomedError(msg)
+
+            # csv_entry = csv.reader(io.StringIO(row), delimiter=self._delimiter, quotechar='|', quoting=csv.QUOTE_NONE)
+            # entries.append(next(csv_entry))
+
+            csv_entry = pd.read_csv(
+                io.StringIO(row), delimiter=self._delimiter, header=None
+            )
+            return index_map[idx], csv_entry.values[0]
+
+        # with (open(self._path, 'rb') as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm):
+        #     if not self._is_preparsed:
+        #         self._pre_parse(mm)
+        #     if not self._offsets:
+        #         self._get_offset(mm)
+
+        try:
+            with (
+                open(self._path, "rb") as f,
+                self._closer(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as mm,
+            ):
+                mm_lock = threading.Lock()
+                thread_func = partial(rthread)
+                # import pdb; pdb.set_trace()
+                with ThreadPool(3) as pool:
+                    for i, entry in pool.map(thread_func, indexes):
+                        entries[i] = entry
+                        if self.stop_event.is_set():
+                            break
+        except KeyboardInterrupt:
+            self.stop_event.set()
+            return
+        return tuple(entries)
+
+    def _read_single_entry(self, idx, mm):
+        try:
+            offset = self._offsets[idx]
+        except IndexError as err:
+            msg = f"Cannot read line {idx}: file only contains {self._len} samples"
+            raise FedbiomedUserInputError(msg) from err
+        mm.seek(offset)
+
+        # Read until end of line
+        row_bytes = mm.readline()
+
+        # Decode bytes to string
+        row = row_bytes.decode(self._encoding).strip()
+        if not row:
+            msg = f"cannot read csv file {self._path} due to inconsistent lines: see line {idx} "
+            logger.error(msg)
+            raise FedbiomedError(msg)
+
+        # csv_entry = csv.reader(io.StringIO(row), delimiter=self._delimiter, quotechar='|', quoting=csv.QUOTE_NONE)
+        # entries.append(next(csv_entry))
+
+        csv_entry = pd.read_csv(
+            io.StringIO(row), delimiter=self._delimiter, header=None
+        )
+        return csv_entry
+
     def get_index(self):
         if not self._offsets:
             self._get_index()
-        return list(range(len(self._offsets)))
+
+        return list(range(self._len))
 
     def _get_index(self):
         with (
@@ -176,6 +288,9 @@ class CsvReader(Reader):
 
     def len(self) -> int:
         """Get number of samples"""
+        if self._len is None:
+            self.get_index()
+        return self._len
 
     # Additional methods for exploring data, depending on Reader
     def _pre_parse(self, f):
@@ -207,7 +322,7 @@ class CsvReader(Reader):
             except csv.Error as err:
                 # TODO: add options for that in constructor + cli
                 raise FedbiomedError(
-                    "Cannot detect csv headers and delimiters automatically. This can be due to corrupted file"
+                    "Cannot detect csv headers and delimiters automatically. It is possible the file is corrupted"
                 ) from err
         if not self._offsets and get_offset:
             self._get_offset(mm)
@@ -231,6 +346,7 @@ class CsvReader(Reader):
 
         if self.header is not None:
             self._offsets.pop(0)
+        self._len = len(self._offsets)
 
     def _detect_header(self, f, sniffer):
         _first_lines = []
@@ -244,13 +360,13 @@ class CsvReader(Reader):
                 _first_lines.append(row.decode(self._encoding))
                 i += 1
             except StopIteration:
+                # raised if file comtains less value then CsvReader._NB_LINES_PARSED_HEADER
                 _parse_next_row = False
         f.seek(0)
 
         if len(_first_lines) == 1 and len(_first_lines[0]) == 1:
-            f.seek(0)
             val = sniffer.has_header(_first_lines[0])
-            f.seek(0)
+
             return val
         else:
             return sniffer.has_header("".join(_first_lines))
