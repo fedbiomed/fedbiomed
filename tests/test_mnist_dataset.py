@@ -37,7 +37,10 @@ def test_getitem_returns_expected_format(
         assert data_item["data"].modality_name == "data"
         assert data_item["data"].type == DataType.IMAGE
         assert np.array_equal(data_item["data"].data, np.zeros((28, 28)))
-        assert np.array_equal(target_item["target"], np.array(0))
+        assert isinstance(target_item["target"], DatasetDataItemModality)
+        assert target_item["target"].modality_name == "target"
+        assert target_item["target"].type == DataType.TABULAR
+        assert np.array_equal(target_item["target"].data, np.array(0))
     else:
         assert isinstance(data_item["data"], torch.Tensor)
         assert torch.equal(data_item["data"], torch.zeros((28, 28)))
