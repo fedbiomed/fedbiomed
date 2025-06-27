@@ -64,7 +64,13 @@ class MnistDataset(StructuredDataset, MnistController):
                     data=data["data"].numpy(),
                 )
             }
-            target_item = {"target": target["target"].numpy()}
+            target_item = {
+                "target": DatasetDataItemModality(
+                    modality_name="target",
+                    type=DataType.TABULAR,
+                    data=target["target"].numpy(),
+                )
+            }
             return data_item, target_item
 
         if self._to_format == DataReturnFormat.TORCH:
@@ -73,3 +79,6 @@ class MnistDataset(StructuredDataset, MnistController):
         raise FedbiomedError(
             ErrorNumbers.FB632.value + ": DataReturnFormat not supported"
         )
+
+    def to_torch(self) -> None:
+        self._to_format = DataReturnFormat.TORCH
