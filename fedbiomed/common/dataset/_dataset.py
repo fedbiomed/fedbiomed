@@ -6,16 +6,14 @@ Base abstract classes for datasets
 """
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Tuple
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem, Transform
+from fedbiomed.common.exceptions import FedbiomedError
 
 
 class Dataset(ABC):
-    _framework_transform: Transform = None
-    _framework_target_transform: Transform = None
-
     # Implementation of generic transform (or not) is specific to each dataset
     _generic_transform: Transform = None
     _generic_target_transform: Transform = None
@@ -27,28 +25,53 @@ class Dataset(ABC):
 
     def __init__(
         self,
-        # See subclass: either `root` or `dataset` + `target`
         framework_transform: Transform = None,
         framework_target_transform: Transform = None,
+        # See subclass: either `root` or `dataset` + `target`
         # Optional, per-dataset: implement (or not) generic transform (use same argument name)
         # generic_transform : Transform = None,
         # generic_target_transform : Transform = None,
         # Optional, per dataset: implement native transforms (argument name may vary)
-        *args,
         **kwargs,
     ) -> None:
-        """Class constructor"""
-        # TODO: check type
-        self._framework_transform = framework_transform
-        self._framework_target_transform = framework_target_transform
+        self.framework_transform = framework_transform
+        self.framework_target_transform = framework_target_transform
+        super().__init__(**kwargs)
 
-    def framework_transform(self) -> Transform:
-        """Getter for framework transform"""
+    @property
+    def framework_transform(self):
         return self._framework_transform
 
-    def framework_target_transform(self) -> Transform:
-        """Getter for framework target transform"""
+    @framework_transform.setter
+    def framework_transform(self, transform_input: Transform):
+        self._validate_transform_input(transform_input)
+        self._framework_transform = transform_input
+
+    @property
+    def framework_target_transform(self):
         return self._framework_target_transform
+
+    @framework_target_transform.setter
+    def framework_target_transform(self, transform_input: Transform):
+        self._validate_transform_input(transform_input)
+        self._framework_target_transform = transform_input
+
+    def _validate_transform_input(self, transform_input: Transform) -> None:
+        """Raises FedbiomedError if transform_input is not a valid input"""
+        if transform_input is None or callable(transform_input):
+            return
+        elif isinstance(transform_input, dict):
+            if not all(
+                isinstance(k, str) and callable(v) for k, v in transform_input.items()
+            ):
+                raise FedbiomedError(
+                    ErrorNumbers.FB632.value
+                    + ": Transform dict must map strings to callables"
+                )
+        else:
+            raise FedbiomedError(
+                ErrorNumbers.FB632.value + ": Unexpected Transform input"
+            )
 
     # Caveat: give explicit user error message when raising exception
     # Also need to wrap with try/except when calling `Reader` Transform (native Transform)
@@ -102,15 +125,10 @@ class Dataset(ABC):
 class StructuredDataset(Dataset):
     def __init__(
         self,
-        root: Path,
-        framework_transform: Transform = None,
-        framework_target_transform: Transform = None,
         # Optional, per-dataset: implement (or not) generic transform (use same argument name)
         # generic_transform : Transform = None,
         # generic_target_transform : Transform = None,
         # Optional, per dataset: implement reader transforms (argument name may vary)
-        *args,
         **kwargs,
     ) -> None:
-        """Class constructor"""
-        super().__init__(framework_transform, *args, **kwargs)
+        super().__init__(**kwargs)

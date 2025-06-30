@@ -6,8 +6,8 @@ Base abstract class for data loaders specific to a training plan's framework
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 from collections.abc import Iterable
+from typing import Any
 
 
 class DataLoader(ABC):

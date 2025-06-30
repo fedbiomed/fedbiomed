@@ -7,11 +7,13 @@ Base abstract classes for controllers
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin
 from fedbiomed.common.dataset_reader import Reader
 from fedbiomed.common.dataset_types import DatasetData, DatasetDataItem, DatasetShape
+from fedbiomed.common.exceptions import FedbiomedError
 
 
 class Controller(ABC, DataLoadingPlanMixin):
@@ -27,8 +29,34 @@ class Controller(ABC, DataLoadingPlanMixin):
     # as some Controller may (eg) filter out incomplete samples
     _dataset_data_meta: DatasetData
 
-    def __init__(self, root: Path, *args, **kwargs) -> None:
-        """Class constructor"""
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+
+    @property
+    def root(self):
+        return self._root
+
+    @root.setter
+    def root(self, path_input: Union[str, Path]):
+        """Root setter
+
+        Raises:
+            FedbiomedError:
+            - if root type is not str or pathlib.Path
+            - if root does not exist
+        """
+        if not isinstance(path_input, (str, Path)):
+            raise FedbiomedError(
+                ErrorNumbers.FB632.value
+                + ": Expected a string or Path, got "
+                + type(path_input).__name__
+            )
+        path = Path(path_input).expanduser().resolve()
+        if not path.exists():
+            raise FedbiomedError(
+                ErrorNumbers.FB632.value + ": Path does not exist, " + str(path)
+            )
+        self._root = path
 
     # Nota: no need to implement `static` method as in current MedicalFolderDataset
     #

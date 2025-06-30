@@ -5,42 +5,80 @@
 Dataset implementation for MNIST
 """
 
-from typing import Tuple
+from pathlib import Path
+from typing import Tuple, Union
 
-from fedbiomed.common.dataset_types import Transform, DatasetDataItem
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.dataset_controller._mnist_controller import MnistController
+from fedbiomed.common.dataset_types import (
+    DataReturnFormat,
+    DatasetDataItem,
+    DatasetDataItemModality,
+    DataType,
+    Transform,
+)
+from fedbiomed.common.exceptions import FedbiomedError
 
-from fedbiomed.common.dataset_controller import MnistController
 from ._dataset import StructuredDataset
 
 
 class MnistDataset(StructuredDataset, MnistController):
+    """Interface of MnistController to return data samples in specific format."""
+
     def __init__(
         self,
+        root: Union[str, Path],
         framework_transform: Transform = None,
         framework_target_transform: Transform = None,
-        # Do we want generic transforms for MNIST ?
-        # generic_transform : Transform = None,
-        # generic_target_transform : Transform = None,
     ) -> None:
-        """Class constructor"""
-
-    # Implement abstract methods
+        """Constructor of the class"""
+        super().__init__(
+            root=root,
+            framework_transform=framework_transform,
+            framework_target_transform=framework_target_transform,
+        )
 
     def __len__(self) -> int:
         """Get number of samples"""
+        return len(self._data)
 
-    # Nota: use Controller._get_nontransformed_item
     def __getitem__(self, index: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
-        """Retrieve a data sample"""
+        """Retrieve a data sample in specific format
 
-    # Support returning samples in format for torch training plan
-    #
-    # Nothing much to do in that case, just call `Reader` ?
-    def to_torch(self) -> None:
-        """Request dataset to return samples for a torch training plan
+        Args:
+            index (int): Index
 
-        Ignore + issue warning if generic transform needs to be applied
+        Raises:
+            FedbiomedError: If data return format is not supported
+
+        Returns:
+            Tuple[DatasetDataItem, DatasetDataItem]: (data, target)
         """
+        data, target = self._get_nontransformed_item(index=index)
 
-    # Additional methods for exploring data (folders, modalities, subjects),
-    # depending on Dataset and Reader
+        if self._to_format == DataReturnFormat.DEFAULT:
+            data_item = {
+                "data": DatasetDataItemModality(
+                    modality_name="data",
+                    type=DataType.IMAGE,
+                    data=data["data"].numpy(),
+                )
+            }
+            target_item = {
+                "target": DatasetDataItemModality(
+                    modality_name="target",
+                    type=DataType.TABULAR,
+                    data=target["target"].numpy(),
+                )
+            }
+            return data_item, target_item
+
+        if self._to_format == DataReturnFormat.TORCH:
+            return data, target
+
+        raise FedbiomedError(
+            ErrorNumbers.FB632.value + ": DataReturnFormat not supported"
+        )
+
+    def to_torch(self) -> None:
+        self._to_format = DataReturnFormat.TORCH
