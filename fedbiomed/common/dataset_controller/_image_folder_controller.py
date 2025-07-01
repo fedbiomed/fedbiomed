@@ -81,6 +81,7 @@ class ImageFolderController(Controller):
         self._class_to_idx = dataset.class_to_idx
         self._samples = dataset.samples
         self._loader = dataset.loader
+        self._dataset_data_meta = self._get_dataset_data_meta()
         super().__init__(**kwargs)
 
     def _get_nontransformed_item(
@@ -92,7 +93,7 @@ class ImageFolderController(Controller):
             index (int): Index
 
         Returns:
-            ({str: ImagePIL}, {str: int})
+            ({"data": ImagePIL}, {"target": int})
 
         Raises:
             FedbiomedError: if is not possible to load image from path in samples[index]
@@ -114,13 +115,18 @@ class ImageFolderController(Controller):
     def _get_dataset_data_meta(self) -> DatasetData:
         """Returns meta data of samples recovered with `_get_nontransformed_item`"""
         data_item, target_item = self._get_nontransformed_item(index=0)
+
+        # shape = (H, W, C) if C!=1 else (H, W)
+        _channels = len(data_item["data"].getbands())
+        _channels = () if _channels == 1 else (_channels,)
         data_meta = {
             "data": DatasetDataModality(
                 modality_name="data",
                 type=DataType.IMAGE,
-                shape=data_item["data"].size,  # (H, W)
+                shape=(data_item["data"].size + _channels),
             )
         }
+
         target_meta = {
             "target": DatasetDataModality(
                 modality_name="target",
@@ -128,6 +134,7 @@ class ImageFolderController(Controller):
                 shape=np.shape(target_item),
             )
         }
+
         return DatasetDataStructured(
             data=data_meta,
             target=target_meta,
