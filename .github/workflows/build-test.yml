@@ -207,3 +207,10 @@ jobs:
           FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
             tox -r -e py${{ matrix.python-version }}-e2e -- e2e_mnist_pytorch.py
         shell: bash -il {0}
+
+      - name: Run pdm e2e test for py3.10
+        if: matrix.python-version == '3.10'
+        run: |
+          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
+            tox -r -e py3.10-e2e-minimal -- e2e_mnist_pytorch.py
+        shell: bash -il {0}
