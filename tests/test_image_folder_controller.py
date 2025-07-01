@@ -41,6 +41,7 @@ def test_get_nontransformed_item_success(tmp_path, mocker, mock_imagefolder):
     data, target = controller._get_nontransformed_item(0)
     assert "data" in data
     assert data["data"].size == (28, 28)
+    assert len(data["data"].getbands()) == 3
     assert "target" in target
     assert isinstance(target["target"], int)
 
@@ -58,7 +59,7 @@ def test_get_dataset_data_meta(tmp_path, mocker, mock_imagefolder):
     assert "data" in meta.data
     assert meta.data["data"].modality_name == "data"
     assert meta.data["data"].type == DataType.IMAGE
-    assert meta.data["data"].shape == (28, 28)
+    assert meta.data["data"].shape == (28, 28, 3)
     assert "target" in meta.target
     assert meta.target["target"].modality_name == "target"
     assert meta.target["target"].type == DataType.TABULAR
