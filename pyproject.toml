@@ -168,7 +168,12 @@ skip-excluded-dirs = true
 distribution = true
 
 [dependency-groups]
-test = ["pytest", "pytest-cov", "tox"]
+test = [
+	"pytest",
+	"pytest-cov",
+	"tox",
+	"pre-commit>=4.2.0",
+]
 dev = [
 	"ruff==0.11.13",
 	"pre-commit>=4.2.0",
