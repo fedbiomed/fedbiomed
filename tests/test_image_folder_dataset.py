@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 from PIL import Image
@@ -24,7 +25,7 @@ def mock_imagefolder(mocker):
         ("/fake/class_0/image_2.jpg", 2),
     ]
     mock_dataset.loader = lambda path: Image.fromarray(
-        np.zeros((28, 28, 3), dtype=np.uint8),
+        np.full((28, 28, 3), 255, dtype=np.uint8),
         mode="RGB",
     )
     return mocker.patch(
@@ -41,7 +42,7 @@ def test_getitem_returns_expected_format_1_channel_image(
 ):
     instance_imagefolder = mock_imagefolder.return_value
     instance_imagefolder.loader = lambda path: Image.fromarray(
-        np.zeros((28, 28), dtype=np.uint8),
+        np.full((28, 28), 255, dtype=np.uint8),
         mode="L",
     )
     dataset = ImageFolderDataset(root=tmp_path)
@@ -52,14 +53,17 @@ def test_getitem_returns_expected_format_1_channel_image(
         assert isinstance(data_item["data"], DatasetDataItemModality)
         assert data_item["data"].modality_name == "data"
         assert data_item["data"].type == DataType.IMAGE
-        assert np.array_equal(data_item["data"].data, np.zeros((28, 28)))
+        assert np.array_equal(
+            data_item["data"].data,
+            np.full((28, 28), 255, dtype=np.uint8),
+        )
         assert isinstance(target_item["target"], DatasetDataItemModality)
         assert target_item["target"].modality_name == "target"
         assert target_item["target"].type == DataType.TABULAR
-        assert np.array_equal(target_item["target"].data, np.array(0))
+        assert pd.DataFrame([0]).equals(target_item["target"].data)
     else:
         assert isinstance(data_item["data"], torch.Tensor)
-        assert torch.equal(data_item["data"], torch.zeros((1, 28, 28)))
+        assert torch.equal(data_item["data"], torch.full((28, 28), 255))
         assert torch.equal(target_item["target"], torch.tensor(0))
 
 
@@ -77,14 +81,17 @@ def test_getitem_returns_expected_format_3_channel_image(
         assert isinstance(data_item["data"], DatasetDataItemModality)
         assert data_item["data"].modality_name == "data"
         assert data_item["data"].type == DataType.IMAGE
-        assert np.array_equal(data_item["data"].data, np.zeros((28, 28, 3)))
+        assert np.array_equal(
+            data_item["data"].data,
+            np.full((28, 28, 3), 255, dtype=np.uint8),
+        )
         assert isinstance(target_item["target"], DatasetDataItemModality)
         assert target_item["target"].modality_name == "target"
         assert target_item["target"].type == DataType.TABULAR
-        assert np.array_equal(target_item["target"].data, np.array(0))
+        assert pd.DataFrame([0]).equals(target_item["target"].data)
     else:
         assert isinstance(data_item["data"], torch.Tensor)
-        assert torch.equal(data_item["data"], torch.zeros((3, 28, 28)))
+        assert torch.equal(data_item["data"], torch.full((28, 28, 3), 255))
         assert torch.equal(target_item["target"], torch.tensor(0))
 
 

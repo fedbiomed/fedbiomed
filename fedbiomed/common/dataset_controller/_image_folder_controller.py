@@ -64,7 +64,9 @@ class ImageFolderController(Controller):
         self.root = root
 
         if is_mednist and self.root.name != "MedNIST":
-            self._download_mednist()
+            # in case last folder in path is not named MedNIST but contains that folder
+            if not (self.root / "MedNIST").exists():
+                self._download_mednist()
             self.root = self.root / "MedNIST"
 
         try:
@@ -90,7 +92,7 @@ class ImageFolderController(Controller):
         """Returns image and target associated to index.
 
         Args:
-            index (int): Index
+            index: Index
 
         Returns:
             ({"data": ImagePIL}, {"target": int})
@@ -113,10 +115,12 @@ class ImageFolderController(Controller):
         return data_item, target_item
 
     def _get_dataset_data_meta(self) -> DatasetData:
-        """Returns meta data of samples recovered with `_get_nontransformed_item`"""
+        """Returns meta data of samples"""
         data_item, target_item = self._get_nontransformed_item(index=0)
 
-        # shape = (H, W, C) if C!=1 else (H, W)
+        # data_shape corresponds to (H, W, C) if C!=1 else (H, W)
+        # e.g. PIL Image mode="L" size=(28, 28) equals array of shape (28, 28)
+        # PIL Image mode="RGB" size=(28, 28) equals array of shape (28, 28, 3)
         _channels = len(data_item["data"].getbands())
         _channels = () if _channels == 1 else (_channels,)
         data_meta = {
@@ -131,7 +135,7 @@ class ImageFolderController(Controller):
             "target": DatasetDataModality(
                 modality_name="target",
                 type=DataType.TABULAR,
-                shape=np.shape(target_item),
+                shape=np.shape(target_item) or (1,),  # (1, ) replaces ()
             )
         }
 
