@@ -44,7 +44,7 @@ def test_dataset_data_meta_structure(mocker, mock_mnist_controller, tmp_path):
     assert "target" in meta.target
     assert meta.target["target"].modality_name == "target"
     assert meta.target["target"].type == DataType.TABULAR
-    assert meta.target["target"].shape == ()
+    assert meta.target["target"].shape == (1,)
     assert meta.len == 10
 
 

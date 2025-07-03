@@ -10,7 +10,7 @@ from typing import Tuple, Union
 
 import numpy as np
 import torch
-from torchvision import transforms
+from pandas import DataFrame
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller._image_folder_controller import (
@@ -46,14 +46,6 @@ class ImageFolderDataset(StructuredDataset, ImageFolderController):
                 to `self.root` if last folder in path is not called MedNIST.
             framework_transform: Functions to transform the input data.
             framework_target_transform: Functions to transform the target data.
-
-        Raises:
-            FedbiomedError:
-            - if root is not valid or do not exist
-            - if MedNIST download fails
-            - if `datasets.ImageFolder` can not be initialized
-                (classes, samples and loader)
-            - if framework-transforms are not valid Transform types
         """
         super().__init__(
             root=root,
@@ -81,9 +73,6 @@ class ImageFolderDataset(StructuredDataset, ImageFolderController):
         data, target = self._get_nontransformed_item(index=index)
 
         if self._to_format == DataReturnFormat.DEFAULT:
-            # data_shape corresponds to (H, W, C) if C!=1 else (H, W)
-            # e.g. PIL Image mode="L" size=(28, 28) equals np.ndarray of shape (28, 28)
-            # PIL Image mode="RGB" size=(28, 28) equals np.ndarray of shape (28, 28, 3)
             data_item = {
                 "data": DatasetDataItemModality(
                     modality_name="data",
@@ -95,15 +84,13 @@ class ImageFolderDataset(StructuredDataset, ImageFolderController):
                 "target": DatasetDataItemModality(
                     modality_name="target",
                     type=DataType.TABULAR,
-                    data=np.array(target["target"]),
+                    data=DataFrame([target["target"]]),
                 )
             }
 
         elif self._to_format == DataReturnFormat.TORCH:
-            # PIL Image or numpy.ndarray (H, W, C) in the range [0, 255] are transformed
-            # into torch.FloatTensor of shape (C, H, W) in the range [0.0, 1.0]
-            # e.g. PIL Image mode=L size=(28, 28) equals Tensor of shape (1, 28, 28)
-            data_item = {"data": transforms.ToTensor()(data["data"])}
+            # values and shape do not change between PIL Image, numpy and torch
+            data_item = {"data": torch.from_numpy(np.array(data["data"]))}
             target_item = {"target": torch.tensor(target["target"])}
 
         else:
