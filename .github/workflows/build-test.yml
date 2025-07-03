@@ -193,7 +193,7 @@ jobs:
       - name: Install Dependencies
         if: steps.filter.outputs.module == 'true'
         run: |
-          pip install tox pdm
+          pip install tox
 
       - name: Verify Tox Config
         if: steps.filter.outputs.module == 'true'
@@ -208,10 +208,57 @@ jobs:
             tox -r -e py${{ matrix.python-version }}-e2e -- e2e_mnist_pytorch.py
         shell: bash -il {0}
 
-      - name: Run pdm e2e test for py3.10
-        if: matrix.python-version == '3.10'
+  e2e-minimal-lock-test:
+    name: E2E Minimal Lock Test
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-22.04
+          - macos-latest
+          - fedora-38
+          - macos-m1
+        python-version:
+          - '3.10'
+    runs-on: ${{ matrix.os }}
+    needs: unit-test
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout to commit
+        uses: actions/checkout@v4
+
+      - name: Filter module related changes
+        uses: dorny/paths-filter@master
+        id: filter
+        with:
+          filters: |
+            module:
+              - 'fedbiomed/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'envs/build/**'
+              - 'modules/**'
+              - '.github/**'
+              - 'pyproject.toml'
+              - 'pdm.lock'
+
+      - name: Setup Fed-BioMed Test Environment
+        uses: ./.github/actions/setup-fbm-env
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Enforce CPU-only torch on MacOS and Fedora
+        if: matrix.os == 'macos-latest' || matrix.os == 'fedora-38' || matrix.os == 'macos-m1'
+        run: echo "PIP_EXTRA_INDEX=https://download.pytorch.org/whl/cpu" >> $GITHUB_ENV
+
+      - name: Install Dependencies
+        run: pip install tox pdm
+
+      - name: Run minimal locked test
         env:
           PDM_IGNORE_SAVED_PYTHON: 1
+          PIP_EXTRA_INDEX_URL: ${{ env.PIP_EXTRA_INDEX }}
         run: |
           FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
             tox -r -e py3.10-e2e-minimal -- e2e_mnist_pytorch.py
