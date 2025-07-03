@@ -55,6 +55,9 @@ class MnistController(Controller):
             - if `datasets.MNIST` can not be initialized (data and targets)
         """
         self.root = root
+        # Update root in case folder MNIST already exists and was selected
+        if self.root.name == "MNIST" and (root / "raw").exists():
+            self.root = self.root.parent
 
         try:
             dataset = datasets.MNIST(root=self.root, download=True)
@@ -73,18 +76,17 @@ class MnistController(Controller):
         """Returns data and target associated to index.
 
         Args:
-            index (int): Index
+            index: Index
 
         Returns:
-            Tuple[dict[str: torch.tensor]] (image: , target)
-                where target tensor corresponds to index of the target class.
+            (image , target) where target corresponds to index of the target class.
         """
         data_item = {"data": self._data[index]}
         target_item = {"target": self._targets[index]}
         return data_item, target_item
 
     def _get_dataset_data_meta(self) -> DatasetData:
-        """Returns meta data of samples recovered with `_get_nontransformed_item`"""
+        """Returns meta data of samples"""
         data_item, target_item = self._get_nontransformed_item(index=0)
         data_meta = {
             "data": DatasetDataModality(
@@ -97,7 +99,7 @@ class MnistController(Controller):
             "target": DatasetDataModality(
                 modality_name="target",
                 type=DataType.TABULAR,
-                shape=tuple(target_item["target"].shape),
+                shape=tuple(target_item["target"].shape) or (1,),  # (1, ) replaces ()
             )
         }
         return DatasetDataStructured(

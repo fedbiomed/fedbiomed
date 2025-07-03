@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 
@@ -40,7 +41,7 @@ def test_getitem_returns_expected_format(
         assert isinstance(target_item["target"], DatasetDataItemModality)
         assert target_item["target"].modality_name == "target"
         assert target_item["target"].type == DataType.TABULAR
-        assert np.array_equal(target_item["target"].data, np.array(0))
+        assert pd.DataFrame([0]).equals(target_item["target"].data)
     else:
         assert isinstance(data_item["data"], torch.Tensor)
         assert torch.equal(data_item["data"], torch.zeros((28, 28)))

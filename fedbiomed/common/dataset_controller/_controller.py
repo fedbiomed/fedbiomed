@@ -78,8 +78,29 @@ class Controller(ABC, DataLoadingPlanMixin):
     # Probably uses content of `DatasetData`
     #
     # Nota: probably common to all datasets, as we scan `DatasetData`
+
     def shape(self) -> DatasetShape:
-        """Returns shape of a dataset"""
+        """Returns shape of a dataset
+
+        Raises:
+            FedbiomedError: if property '_dataset_data_meta' has not been assigned
+
+        Returns:
+            DatasetShape: (len, data_shape: DataItemShape, target_shape: DataItemShape)
+        """
+        if not hasattr(self, "_dataset_data_meta"):
+            raise FedbiomedError(
+                ErrorNumbers.FB632.value
+                + ": Property '_dataset_data_meta' has not been assigned."
+            )
+
+        output = (self._dataset_data_meta.len,)
+        for item in [self._dataset_data_meta.data, self._dataset_data_meta.target]:
+            if item is None:
+                output += (None,)
+            else:
+                output += ({_k: (_v.type, _v.shape) for _k, _v in item.items()},)
+        return output
 
     # Nota: includes filtering of DLP, not of transforms
     #

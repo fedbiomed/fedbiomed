@@ -8,6 +8,8 @@ Dataset implementation for MNIST
 from pathlib import Path
 from typing import Tuple, Union
 
+from pandas import DataFrame
+
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import MnistController
 from fedbiomed.common.dataset_types import (
@@ -31,7 +33,13 @@ class MnistDataset(StructuredDataset, MnistController):
         framework_transform: Transform = None,
         framework_target_transform: Transform = None,
     ) -> None:
-        """Constructor of the class"""
+        """Constructor of the class
+
+        Args:
+            root: Root directory path.
+            framework_transform: Functions to transform the input data.
+            framework_target_transform: Functions to transform the target data.
+        """
         super().__init__(
             root=root,
             framework_transform=framework_transform,
@@ -68,7 +76,7 @@ class MnistDataset(StructuredDataset, MnistController):
                 "target": DatasetDataItemModality(
                     modality_name="target",
                     type=DataType.TABULAR,
-                    data=target["target"].numpy(),
+                    data=DataFrame([target["target"].item()]),  # item() extracts value
                 )
             }
             return data_item, target_item
