@@ -248,9 +248,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Enforce CPU-only torch on MacOS and Fedora
-        if: matrix.os == 'macos-latest' || matrix.os == 'fedora-38' || matrix.os == 'macos-m1'
+      - name: Enforce CPU-only torch on Fedora
+        if: matrix.os == 'fedora-38'
         run: echo "PIP_EXTRA_INDEX=https://download.pytorch.org/whl/cpu" >> $GITHUB_ENV
+
+      - name: Enforce CPU-only torch on MacOS-latest
+        if: matrix.os == 'macos-latest'
+        run: echo "PDM_PLATFORM_ARG=macos_x86_64" >> $GITHUB_ENV
+
+      - name: Enforce CPU-only torch on MacOS M1
+        if: matrix.os == 'macos-m1'
+        run: echo "PDM_PLATFORM_ARG=macos_arm64" >> $GITHUB_ENV
+
+      - name: default platform setup
+        if: matrix.os != 'macos-latest' && matrix.os != 'macos-m1'
+        run: echo "PDM_PLATFORM_ARG=linux" >> $GITHUB_ENV
 
       - name: Install Dependencies
         run: pip install tox pdm
@@ -259,6 +271,7 @@ jobs:
         env:
           PDM_IGNORE_SAVED_PYTHON: 1
           PIP_EXTRA_INDEX_URL: ${{ env.PIP_EXTRA_INDEX }}
+          PDM_PLATFORM_ARG: ${{ env.PDM_PLATFORM_ARG }}
         run: |
           FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
             tox -r -e py3.10-e2e-minimal -- e2e_mnist_pytorch.py
