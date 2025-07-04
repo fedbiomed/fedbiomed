@@ -252,12 +252,8 @@ jobs:
         if: matrix.os == 'fedora-38'
         run: echo "PIP_EXTRA_INDEX=https://download.pytorch.org/whl/cpu" >> $GITHUB_ENV
 
-      - name: Enforce CPU-only torch on MacOS-latest
-        if: matrix.os == 'macos-latest'
-        run: echo "PDM_PLATFORM_ARG=macos_x86_64" >> $GITHUB_ENV
-
-      - name: Enforce CPU-only torch on MacOS M1
-        if: matrix.os == 'macos-m1'
+      - name: Tell PDM to target macOS platform
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-m1'
         run: echo "PDM_PLATFORM_ARG=macos_arm64" >> $GITHUB_ENV
 
       - name: default platform setup
