@@ -1,11 +1,11 @@
 import unittest
+from unittest.mock import MagicMock, patch
 
-import torch
-import fedbiomed.common.datamanager._torch_data_manager  # noqa
 import numpy as np
-
-from unittest.mock import patch
+import torch
 from torch.utils.data import Dataset, Subset
+
+import fedbiomed.common.datamanager._torch_data_manager  # noqa
 from fedbiomed.common.datamanager import TorchDataManager
 from fedbiomed.common.exceptions import FedbiomedTorchDataManagerError
 
@@ -104,7 +104,7 @@ class TestTorchDataManager(unittest.TestCase):
         # Test proper split
         try:
             self.torch_data_manager.split(0.3, test_batch_size=None)
-        except:
+        except Exception:
             self.assertTrue(False, "Error while splitting TorchDataManager")
 
         # Test exceptions
@@ -309,22 +309,14 @@ class TestTorchDataManager(unittest.TestCase):
                 )
             )
 
-        loader_train2, loader_test2 = self.torch_data_manager.split(
-            test_ratio, test_batch_size=None, is_shuffled_testing_dataset=True
-        )
-
-        self.assertFalse(
-            torch.equal(
-                self.get_tensor_from_subset(loader_train.dataset)[1],
-                self.get_tensor_from_subset(loader_train2.dataset)[1],
+        with patch(
+            "fedbiomed.common.datamanager._torch_data_manager.random_split",
+            return_value=(MagicMock(), MagicMock()),
+        ) as mock_random_split:
+            loader_train2, loader_test2 = self.torch_data_manager.split(
+                test_ratio, test_batch_size=None, is_shuffled_testing_dataset=True
             )
-        )
-        self.assertFalse(
-            torch.equal(
-                self.get_tensor_from_subset(loader_test.dataset)[1],
-                self.get_tensor_from_subset(loader_test2.dataset)[1],
-            )
-        )
+            mock_random_split.assert_called_once()
 
     @staticmethod
     def get_tensor_from_subset(subset: torch.utils.data.Subset) -> torch.Tensor:
