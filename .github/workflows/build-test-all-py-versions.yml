@@ -14,7 +14,7 @@ on:
     branches:
       - master
   schedule:
-    - cron: '30 3 * * *'
+    - cron: '0 20 * * 6'  # run every Saturday night
   workflow_dispatch:
 
 jobs:
