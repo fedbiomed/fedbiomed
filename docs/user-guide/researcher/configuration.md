@@ -60,7 +60,7 @@ db = ../var/db_RESEARCHER_2ba562cc-6943-4430-8f79-cb3877b2ea79.json
 [server]
 host = localhost
 port = 50051
-node_disconnection_timeput = 10
+node_disconnection_timeout = 10
 
 [certificate]
 private_key = certs/server_certificate.key

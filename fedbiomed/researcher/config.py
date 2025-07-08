@@ -30,6 +30,9 @@ class ResearcherConfig(Config):
 
         grpc_host = os.getenv("FBM_SERVER_HOST", "localhost")
         grpc_port = os.getenv("FBM_SERVER_PORT", "50051")
+        node_disconnection_timeout = str(
+            os.getenv("FBM_SERVER_NODE_DISCONNECTION_TIMEOUT", "10")
+        )
 
         # Generate certificate for gRPC server
         key_file, pem_file = generate_certificate(
@@ -42,7 +45,7 @@ class ResearcherConfig(Config):
         self._cfg["server"] = {
             "host": grpc_host,
             "port": grpc_port,
-            "node_disconnection_timeout": 10,
+            "node_disconnection_timeout": node_disconnection_timeout,
         }
 
         self._cfg["certificate"] = {
