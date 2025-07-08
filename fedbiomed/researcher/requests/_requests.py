@@ -283,6 +283,7 @@ class Requests(metaclass=SingletonMeta):
         self._grpc_server = GrpcServer(
             host=server_host,
             port=server_port,
+            config=config,
             on_message=self.on_message,
             ssl=SSLCredentials(key=cert_priv, cert=cert_pub),
         )
