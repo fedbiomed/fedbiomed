@@ -171,6 +171,7 @@ distribution = true
 test = [
 	"pytest",
 	"pytest-cov",
+	"pytest-mock",
 	"tox",
 	"pre-commit>=4.2.0",
 ]
