@@ -44,7 +44,7 @@ def test_getitem_returns_expected_format(
         assert pd.DataFrame([0]).equals(target_item["target"].data)
     else:
         assert isinstance(data_item["data"], torch.Tensor)
-        assert torch.equal(data_item["data"], torch.zeros((28, 28)))
+        assert torch.equal(data_item["data"], torch.zeros((1, 28, 28)))
         assert torch.equal(target_item["target"], torch.tensor(0))
 
 
