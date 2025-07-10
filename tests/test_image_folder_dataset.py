@@ -63,7 +63,7 @@ def test_getitem_returns_expected_format_1_channel_image(
         assert pd.DataFrame([0]).equals(target_item["target"].data)
     else:
         assert isinstance(data_item["data"], torch.Tensor)
-        assert torch.equal(data_item["data"], torch.full((28, 28), 255))
+        assert torch.equal(data_item["data"], torch.full((1, 28, 28), 1.0))
         assert torch.equal(target_item["target"], torch.tensor(0))
 
 
@@ -91,7 +91,7 @@ def test_getitem_returns_expected_format_3_channel_image(
         assert pd.DataFrame([0]).equals(target_item["target"].data)
     else:
         assert isinstance(data_item["data"], torch.Tensor)
-        assert torch.equal(data_item["data"], torch.full((28, 28, 3), 255))
+        assert torch.equal(data_item["data"], torch.full((3, 28, 28), 1.0))
         assert torch.equal(target_item["target"], torch.tensor(0))
 
 
