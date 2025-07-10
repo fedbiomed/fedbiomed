@@ -8,7 +8,6 @@ inputs:
   python-version:
     description: 'Python version to install'
     required: true
-    default: '3.10'
 
 runs:
   using: 'composite'
@@ -34,8 +33,7 @@ runs:
       shell: bash -l {0}
       run: |
         brew_install=false
-        if [[ "${{ inputs.python-version }}" == "3.10" && \
-              "${{ runner.environment }}" == "self-hosted" && \
+        if [[ "${{ runner.environment }}" == "self-hosted" && \
               "${{ runner.os }}" == "macOS" ]]; then
           brew_install=true
         fi

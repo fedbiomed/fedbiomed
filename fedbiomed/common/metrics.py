@@ -281,15 +281,7 @@ class Metrics(object):
         Raises:
             FedbiomedMetricError: raised if above sklearn method for computing precision raises
         """
-
-        # Set multiouput as raw_values is it is not defined by researcher
-        if len(y_true.shape) > 1:
-            multi_output = kwargs.get("multioutput", "raw_values")
-        else:
-            multi_output = None
-
-        kwargs.pop("multioutput", None)
-
+        multi_output = Metrics._get_multioutput_with_defaults(kwargs, y_true)
         try:
             return metrics.mean_squared_error(
                 y_true, y_pred, multioutput=multi_output, **kwargs
@@ -319,14 +311,7 @@ class Metrics(object):
         Raises:
             FedbiomedMetricError: raised if above sklearn method for computing precision raises
         """
-        # Set multiouput as raw_values is it is not defined by researcher
-        if len(y_true.shape) > 1:
-            multi_output = kwargs.get("multioutput", "raw_values")
-        else:
-            multi_output = None
-
-        kwargs.pop("multioutput", None)
-
+        multi_output = Metrics._get_multioutput_with_defaults(kwargs, y_true)
         try:
             return metrics.mean_absolute_error(
                 y_true, y_pred, multioutput=multi_output, **kwargs
@@ -357,15 +342,7 @@ class Metrics(object):
         Raises:
             FedbiomedMetricError: raised if above sklearn method for computing precision raises
         """
-
-        # Set multiouput as raw_values is it is not defined by researcher
-        if len(y_true.shape) > 1:
-            multi_output = kwargs.get("multioutput", "raw_values")
-        else:
-            multi_output = None
-
-        kwargs.pop("multioutput", None)
-
+        multi_output = Metrics._get_multioutput_with_defaults(kwargs, y_true)
         try:
             return metrics.explained_variance_score(
                 y_true, y_pred, multioutput=multi_output, **kwargs
@@ -562,3 +539,17 @@ class Metrics(object):
                 pos_label = y_true_copy[0]
 
         return y_true, y_pred, average, pos_label
+
+    @staticmethod
+    def _get_multioutput_with_defaults(kwargs_dict, y_true):
+        """Extracts the multioutput from a kwargs dictionary with sane defaults.
+
+        If y_true is a single-element list, then we set multioutput to `uniform_average` in order to obtain a scalar
+        metric result. Otherwise, we set multioutput to `raw_values` to obtain a list of metric results.
+
+        Note that this function will **remove** the `multioutput` key from the kwargs dictionary
+        """
+        if len(y_true.shape) > 1:
+            return kwargs_dict.pop("multioutput", "raw_values")
+        else:
+            return kwargs_dict.pop("multioutput", "uniform_average")

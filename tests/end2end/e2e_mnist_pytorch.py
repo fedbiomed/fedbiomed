@@ -1,28 +1,27 @@
 import time
+
 import pytest
-
-from helpers import (
-    add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
-    clear_component_data,
-    clear_experiment_data,
-    get_data_folder,
-    create_node,
-    create_researcher,
-)
-
 from experiments.training_plans.mnist_pytorch_training_plan import (
     MnistModelScaffoldDeclearn,
     MyTrainingPlan,
 )
+from helpers import (
+    add_dataset_to_node,
+    clear_component_data,
+    clear_experiment_data,
+    create_node,
+    create_researcher,
+    get_data_folder,
+    kill_subprocesses,
+    start_nodes,
+)
 
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.researcher.federated_workflows import Experiment
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.aggregators.scaffold import Scaffold
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.optimizers.declearn import ScaffoldServerModule
+from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.aggregators.scaffold import Scaffold
+from fedbiomed.researcher.federated_workflows import Experiment
 
 
 # Set up nodes and start
@@ -30,7 +29,7 @@ from fedbiomed.common.optimizers.declearn import ScaffoldServerModule
 def setup(port, post_session, request):
     """Setup fixture for the module"""
 
-    print(f"USING PORT {port} for researcher erver")
+    print(f"USING PORT {port} for researcher server")
     print("Creating components ---------------------------------------------")
 
     node_1 = create_node(port=port)

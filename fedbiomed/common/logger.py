@@ -47,8 +47,6 @@ import logging
 import logging.handlers
 from typing import Any, Callable
 
-from IPython.display import display
-
 from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.singleton import SingletonMeta
 
@@ -144,8 +142,8 @@ class _IpythonConsoleHandler(logging.Handler):
         Args:
             record: message emitted by the logger
         """
+        from IPython.display import display
 
-        # `display` is defined in Ipython context
         display({"text/plain": self.format(record)}, raw=True)
 
 
