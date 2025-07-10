@@ -109,8 +109,7 @@ class _DatasetWrapper(TorchDataset):
                             f"{ErrorNumbers.FB632.value}: Bad data sample format, cannot convert "
                             f"from numpy to torch.Tensor (index={index}, modality={k})"
                         ) from e
-                else:
-                    # DataType.TABULAR
+                elif v.type == DataType.TABULAR:
                     try:
                         v = torch.tensor(v.data.values)  # type: ignore  # v.data is a pd.DataFrame here
                     except Exception as e:
@@ -118,6 +117,10 @@ class _DatasetWrapper(TorchDataset):
                             f"{ErrorNumbers.FB632.value}: Bad data sample format, cannot convert "
                             f"from pandas to torch.Tensor (index={index}, modality={k})"
                         ) from e
+                else:
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB632.value}: Unexpected DataType found."
+                    )
 
             # Find transform function to apply from possible `Transform` cases
             if callable(transform):
@@ -219,7 +222,7 @@ class TorchDataManager(FrameworkDataManager):
         self._loader_arguments = kwargs
         self.rng(self._loader_arguments.get("random_state"))
 
-        self._framework_transform = self._dataset.framework_transform()
+        self._framework_transform = self._dataset.framework_transform
         # check self._framework_transform is a DatasetDataItem
         if (
             self._framework_transform is not None
@@ -234,7 +237,7 @@ class TorchDataManager(FrameworkDataManager):
                 f"Must be a `Transform` not a {type(self._framework_transform)}"
             )
 
-        self._framework_target_transform = self._dataset.framework_target_transform()
+        self._framework_target_transform = self._dataset.framework_target_transform
         # check self._framework_target_transform is a DatasetDataItem
         if (
             self._framework_target_transform is not None

@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Tuple, Union
 
 from pandas import DataFrame
+from PIL import Image
+from torchvision import transforms
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import MnistController
@@ -82,11 +84,16 @@ class MnistDataset(StructuredDataset, MnistController):
             return data_item, target_item
 
         if self._to_format == DataReturnFormat.TORCH:
+            # torch.FloatTensor of shape (C=1, H=28, W=28) in the range [0.0, 1.0]
+            data["data"] = transforms.ToTensor()(
+                Image.fromarray(data["data"].numpy(), mode="L")
+            )
             return data, target
 
         raise FedbiomedError(
             ErrorNumbers.FB632.value + ": DataReturnFormat not supported"
         )
 
-    def to_torch(self) -> None:
+    def to_torch(self) -> bool:
         self._to_format = DataReturnFormat.TORCH
+        return True
