@@ -11,6 +11,7 @@ from typing import Tuple, Union
 import numpy as np
 import torch
 from pandas import DataFrame
+from torchvision import transforms
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller._image_folder_controller import (
@@ -89,8 +90,10 @@ class ImageFolderDataset(StructuredDataset, ImageFolderController):
             }
 
         elif self._to_format == DataReturnFormat.TORCH:
-            # values and shape do not change between PIL Image, numpy and torch
-            data_item = {"data": torch.from_numpy(np.array(data["data"]))}
+            # PIL Image or numpy.ndarray (H, W, C) in the range [0, 255] are transformed
+            # into torch.FloatTensor of shape (C, H, W) in the range [0.0, 1.0]
+            # e.g. PIL Image mode=L size=(28, 28) equals Tensor of shape (1, 28, 28)
+            data_item = {"data": transforms.ToTensor()(data["data"])}
             target_item = {"target": torch.tensor(target["target"])}
 
         else:
@@ -100,5 +103,6 @@ class ImageFolderDataset(StructuredDataset, ImageFolderController):
 
         return data_item, target_item
 
-    def to_torch(self) -> None:
+    def to_torch(self) -> bool:
         self._to_format = DataReturnFormat.TORCH
+        return True
