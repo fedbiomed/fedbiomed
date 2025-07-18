@@ -1,0 +1,4 @@
+Coding	Meaning
+-1	Do not know
+-2	Only had twins
+-3	Prefer not to answer

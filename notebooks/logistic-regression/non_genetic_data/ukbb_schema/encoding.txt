@@ -1,0 +1,651 @@
+encoding_id	title	availability	coded_as	structure	num_members	descript
+0	NOT-ENCODED	0	0	1	1024	null-parent
+1	Flag indicating Yes/True/Presence	0	11	1	1	Simple flag for use when items have value of Yes/True/Present or no value.
+2	Employment	0	11	2	26408	SOC2000 classification used to code employment
+3	Cancer	0	11	2	89	Tree-structured list used by clinic nurses to code cancers
+4	Treatments	0	11	1	6745	List used by clinic nurses to code medical treatments
+5	Operation	0	11	2	270	Tree-structured list used by clinic nurses to code operations
+6	Non-cancer Illness	0	11	2	474	Tree-structured list used by clinic nurses to code non-cancer illness<p>Note that myasthenia gravis appears twice (under codes 1260 and 1437) and both these should be treated identically.
+7	Yes No dichotomous choice	0	11	1	2	Options for basic Yes or No choice
+8	Calendar Month	0	11	1	12	Calendar month within year
+9	Sex	0	11	1	2	Biological sex
+10	Assessment Centre	0	11	1	27	The assessment centre at which a participant consented
+11	Consent statuses	0	11	1	4	Ongoing status/nature of participant consent
+12	ACE boolean	0	11	1	2	True/False boolean value
+13	event-time-exceptions	0	31	1	2	Coding for time unknown
+14	event-time-coding	0	11	1	4	Method of entering time when event occurred
+15	SIN-volumes	0	11	1	5	Percentage of arbitrary maximum volume for sound-in-noise test
+16	PM choices	0	11	1	5	Colour/shape choices for Prospective Memory test
+17	Use of Next button in touchscreen hearing test	0	11	1	1	desc
+18	Prospective memory grouping	0	11	1	3	Describes when participants achieved correct answer
+19	ICD10	0	41	2	19155	ICD10 - WHO International Classification of Diseases<p>ICD-10 codes, terms and text used by permission of WHO, from: International Statistical Classification of Diseases and Related Health Problems, Tenth Revision (ICD-10). Vols 1-3. Geneva, World Health Organization, 1992-2016.
+20	ACE-coding20	0	11	1	2	Artificial coding, generated after data collection
+21	Yes No or Unknown	0	11	1	3	Artificial coding, generated after data collection
+22	ACE-coding22	0	11	1	3	Artificial coding, generated after data collection
+23	ACE-coding23	0	11	1	3	Artificial coding, generated after data collection
+24	ACE-coding24	0	11	1	2	Artificial coding, generated after data collection
+25	ACE-coding25	0	11	1	2	Artificial coding, generated after data collection
+26	ACE-coding26	0	11	1	7	Artificial coding, generated after data collection
+27	Yes No or Unsure (=2)	0	11	1	3	Artificial coding, generated after data collection
+28	ACE-coding28	0	11	1	1	Artificial coding, generated after data collection
+29	Yes No or Abandon	0	11	1	3	Artificial coding, generated after data collection
+30	ACE-coding30	0	11	1	3	Artificial coding, generated after data collection
+31	ACE-coding31	0	11	1	3	Artificial coding, generated after data collection
+32	ACE-coding32	0	11	1	2	Artificial coding, generated after data collection
+33	ACE-coding33	0	11	1	3	Artificial coding, generated after data collection
+34	ACE-coding34	0	11	1	2	Artificial coding, generated after data collection
+35	ACE-coding35	0	11	1	5	Artificial coding, generated after data collection
+36	ACE-coding36	0	11	1	3	Artificial coding, generated after data collection
+37	age-year exceptions	0	11	1	2	Coding for time unknown
+38	Tumour Histology	0	11	2	682	Tumour Histology codings used by UK Cancer Registry
+39	Tumour behaviour	0	11	2	8	Tumour behaviour codings used by UK Cancer Registry
+41	ICD addendum information	0	41	1	2	Addendum information for ICD9 and ICD10
+42	Not-applicable	0	11	1	2	Single option of not-applicable for a numeric question
+45	READ medical codes	0	41	1	6196	Please note that this encoding contains public sector information licensed under the Open Government License v3.0 <p> Anyone interested in mapping the READ codes to another coding system (e.g., ICD-10), then may find the TRUD website helpful: ~Ehttps://isd.digital.nhs.uk/~
+47	Post-hoc coding 47	0	11	2	41	Artificial coding created post-hoc to characterise free-text reasons entered UKB assessments
+49	Post-hoc coding 49	0	11	2	15	Artificial coding created post-hoc to characterise free-text reasons entered UKB assessments
+50	Post-hoc coding 50	0	11	2	14	Artificial coding created post-hoc to characterise free-text reasons entered UKB assessments
+51	Post-hoc coding 51	0	11	2	11	Artificial coding created post-hoc to characterise free-text reasons entered UKB assessments
+54	Post-hoc coding 54	0	11	2	14	Artificial coding created post-hoc to characterise free-text reasons entered UKB assessments
+55	Quality control for carotid ultrasound QC	0	11	1	2	Pass/fail value for tests.
+56	Post-hoc coding 56	0	11	2	14	Artificial coding created post-hoc to characterise free-text reasons entered UKB assessments
+59	Post-hoc coding 59	0	11	2	17	Artificial coding created post-hoc to characterise free-text reasons entered UKB assessments
+60	Post-hoc coding 60	0	11	2	11	Artificial coding created post-hoc to characterise free-text reasons entered UKB assessments
+71	Post-hoc coding 71	0	11	2	11	Artificial coding created post-hoc to characterise free-text reasons entered UKB assessments
+73	Day of Week	0	11	1	7	Day of Week according to calendar
+74	Supplement options	0	11	1	21	Supplement usage identified during 24-hour recall
+75	Reasons for atypical diet	0	11	1	4	Reasons given for atypical diet yesterday
+76	Type of special diet	0	11	1	6	Type of special diet being followed
+77	Types of spread used on bread or crackers	0	11	1	37	Types of spread used on bread or crackers
+78	Types of spreads, sauces, dips etc	0	11	1	19	Types of spreads, sauces, dips etc
+79	Types of meals	0	11	1	5	Types of meals
+80	Types of fat/oil used in cooking	0	11	1	44	Types of fat/oil used in cooking
+81	Type of bread	0	11	1	5	Type/composition of bread
+82	Size of wine glass drunk	0	11	1	3	Size/volume of wine glass drunk
+83	Thickness of spreading butter/margarine	0	11	1	3	Thickness of spreading butter/margarine
+84	Liquid used to make porridge	0	11	1	2	Liquid used to make porridge
+85	Type of yogurt eaten	0	11	1	2	Type (fat content) of yogurt eaten
+86	Ingredients in soup	0	11	1	6	Ingredients in soup
+87	ICD9	0	41	2	13710	ICD9 - WHO International Classification of Diseases
+89	Country (of birth)	0	11	2	201	Tree containing the countries that participants identified as being their birth place.
+90	Status of activity	0	11	1	4	Present/past status of an activity
+91	Urban/rural area definitions	0	11	1	17	Population density descriptions for UK areas.
+92	Card faces used by touchscreen	0	11	1	25	Descriptions of the card faces displayed on the touchscreen at the UK Biobank centres during cognitive testing.
+93	Accelerometer data quality	0	11	1	3	Indicates the perceived quality/usability of the accelerometer datafile.
+96	Scale of liking	0	11	1	11	This scale was record the degree to which a participant liked a particular food, product or experience. Only the values 1, 5 and 9 were assigned explicit meanings - intermediate values should be interpreted as lying between these.
+100	Pass/Fail test result	0	11	1	2	Results of a pass/fail test
+101	Result of a pass/fail/not-tested test	0	11	1	3	Results of a pass/fail test with individuals who were explicitly not-tested indicated.
+102	inclusion status	0	11	1	2	Whether a participant was included in a particular subset
+123	UK Biobank staff	0	11	1	1162	This is a pseudonymised index of the UK Biobank staff who have had authority to sign-off individual-level records which are included in the UK Biobank core repository. UK Biobank will not publish or reveal the actual identiites of staff.
+165	Assay correction level	0	11	1	3	Indicates the type of assay correct that was applied to a biochemistry result.
+169	Blood haplotypes	0	41	1	6	Blood haplotypes
+170	Map co-ordinates	0	11	1	1	Special map co-ordinates
+196	Result flags for sodium in urine assay	0	41	1	2	Result flags returned by sodium in urine assay when outside of device analytical range.
+197	Result flags for potassium in urine assay	0	41	1	2	Result flags returned by potassium in urine assay when outside of device analytical range.
+198	Result flags for microalbumin in urine assay	0	41	1	1	Result flags returned by microalbumin in urine assay when outside of device analytical range.
+199	Result flags for (enzymatic) creatinine in urine assay	0	41	1	1	Result flags returned by (enzymatic) creatinine in urine assay when outside of device analytical range.
+200	Urine analysis devices	0	41	1	1	Serial numbers for devices used in urine analysis.
+201	HES coding for CATEGORY	0	11	1	14	HES coding for CATEGORY
+202	HES coding for ADMIMETH	0	41	1	22	HES coding for ADMIMETH<p>It is included as part of ~C264~.
+203	HES coding for ADMISORC	0	41	1	24	HES coding for ADMISORC<p>It is included as part of ~C265~.
+204	HES coding for FIRSTREG	0	11	1	4	HES coding for FIRSTREG
+205	HES coding for DISDEST	0	41	1	25	HES coding for DISDEST<p>It is included as part of ~C267~.
+206	HES coding for DISMETH	0	41	1	7	HES coding for DISMETH<p>It is included as part of ~C268~.
+207	HES coding for OPERSTAT	0	11	1	3	HES coding for OPERSTAT
+208	HES coding for CLASSPAT	0	41	1	7	HES coding for CLASSPAT<p>It is included as part of ~C266~.
+209	HES coding for INTMANAG	0	41	1	7	HES coding for INTMANAG<p>It is included as part of ~C271~.
+210	HES coding for MAINSPEF	0	41	1	91	HES coding for MAINSPEF<p>It is included as part of ~C270~.
+211	HES coding for TRETSPEF	0	41	1	201	HES coding for TRETSPEF<p>It is included as part of ~C269~.
+212	HES coding for DELPREAN and DELPOSAN	0	11	1	9	HES coding for DELPREAN and DELPOSAN
+213	HES coding for BIRORDR	0	41	1	10	HES coding for BIRORDR
+214	HES coding for BIRWEIT	0	11	1	2	HES coding for BIRWEIT
+215	HES coding for DELCHANG	0	11	1	8	HES coding for DELCHANG
+216	HES coding for DELMETH	0	41	1	11	HES coding for DELMETH
+217	HES coding for DELPLAC and DELINTEN	0	11	1	10	HES coding for DELPLAC and DELINTEN
+218	HES coding for GESTAT	0	11	1	1	HES coding for GESTAT
+219	HES coding for BIRSTAT	0	11	1	5	HES coding for BIRSTAT
+220	HES coding for DELONSET	0	11	1	7	HES coding for DELONSET
+221	HES coding for NUMBABY	0	41	1	8	HES coding for NUMBABY
+222	HES coding for NUMPREG	0	11	1	1	HES coding for NUMPREG
+223	HES coding for BIRESUS	0	11	1	8	HES coding for BIRESUS
+224	HES coding for SEXBABY	0	11	1	5	HES coding for SEXBABY
+225	HES coding for DELSTAT	0	11	1	5	HES coding for DELSTAT
+226	HES coding for NEOCARE	0	11	1	6	HES coding for NEOCARE
+227	HES coding for CARERSI	0	11	1	3	HES coding for CARERSI
+228	HES coding for MENTCAT	0	11	1	7	HES coding for MENTCAT
+229	HES coding for ADMISTAT	0	11	1	5	HES coding for ADMISTAT
+230	HES coding for DETNCAT	0	11	1	4	HES coding for DETNCAT
+231	HES coding for LEGLSTAT	0	11	1	29	HES coding for LEGLSTAT
+234	HES coding for SPELBEGIN	0	11	1	3	HES coding for SPELBEGIN
+235	HES coding for SPELEND	0	41	1	2	HES coding for SPELEND
+236	HES coding for EPIORDER	0	11	1	2	HES coding for EPIORDER
+237	HES coding for EPISTAT	0	11	1	3	HES coding for EPISTAT
+238	HES coding for EPITYPE	0	11	1	6	HES coding for EPITYPE
+239	HES coding for PCTCODE and GPPRPCT	0	41	1	417	HES coding for PCTCODE and GPPRPCT
+240	OPCS4 operation codes	0	41	2	11288	OPCS4 codes used to specify medical procedures and operations in Health Episode Statistics records<p>The OPCS Classification of Interventions and Procedures, codes, terms and text is Crown copyright (2016) published by Health and Social Care Information Centre, also known as NHS Digital and licensed under the Open Government Licence available at www.nationalarchives.gov.uk/doc/open-government-licence/open-government-licence.htm.
+241	SMR1b coding for ADMIMETH	0	41	1	22	SMR1b coding for ADMIMETH<p>It is included as part of ~C264~.
+242	SMR1a coding for ADMIMETH	0	41	1	9	SMR1a coding for ADMIMETH<p>It is included as part of ~C264~.
+243	SMR1b coding for ADMISORC	0	41	1	64	SMR1b coding for ADMISORC<p>It is included as part of ~C265~.
+244	SMR1a coding for ADMISORC	0	41	1	4	SMR1a coding for ADMISORC<p>It is included as part of ~C265~.
+245	SMR1b coding for CLASSPAT	0	41	1	8	SMR1b coding for CLASSPAT<p>It is included as part of ~C266~.
+246	SMR1a coding for CLASSPAT	0	41	1	6	SMR1a coding for CLASSPAT<p>It is included as part of ~C266~.
+247	SMR coding for DISDEST	0	41	1	66	SMR1a and SMR1b coding for DISDEST<p>It is included as part of ~C267~.
+248	SMR1b coding for DISMETH	0	41	1	19	SMR1b coding for DISMETH<p>It is included as part of ~C268~.
+249	SMR1a coding for DISMETH	0	41	1	9	SMR1a coding for DISMETH<p>It is included as part of ~C268~.
+250	SMR1b coding for TRETSPEF	0	41	1	60	SMR1b coding for TRETSPEF<p>It is included as part of ~C269~.
+251	SMR1a coding for TRETSPEF	0	41	1	44	SMR1a coding for TRETSPEF<p>It is included as part of ~C269~.
+252	PEDW coding for ADMIMETH	0	41	1	20	PEDW coding for ADMIMETH<p>It is included as part of ~C264~.
+253	PEDW coding for ADMISORC	0	41	1	22	PEDW coding for ADMISORC<p>It is included as part of ~C265~.
+254	PEDW coding for CLASSPAT	0	41	1	5	PEDW coding for CLASSPAT<p>It is included as part of ~C266~.
+255	PEDW coding for DISDEST	0	41	1	21	PEDW coding for DISDEST<p>It is included as part of ~C267~.
+256	PEDW coding for DISMETH	0	41	1	6	PEDW coding for DISMETH<p>It is included as part of ~C268~.
+257	PEDW coding for TRETSPEF	0	41	1	174	PEDW coding for TRETSPEF<p>It is included as part of ~C269~.
+258	PEDW coding for MAINSPEF	0	41	1	93	PEDW coding for MAINSPEF<p>It is included as part of ~C270~.
+259	OPCS3 operation codes	0	41	2	1902	OPCS3 codes used to specify medical procedures and operations in Health Episode Statistics records.<p>The OPCS Classification of Interventions and Procedures, codes, terms and text is Crown copyright (2016) published by Health and Social Care Information Centre, also known as NHS Digital and licensed under the Open Government Licence available at www.nationalarchives.gov.uk/doc/open-government-licence/open-government-licence.htm.
+260	PEDW coding for INTMANAG	0	41	1	6	PEDW coding for INTMANAG<p>It is included as part of ~C271~.
+261	Death information source	0	11	1	7	Death information is derived from a variety of registries. This encoding identifies the source of particular records.
+262	Cancer information source	0	11	1	8	Cancer information is derived from a variety of registries. This encoding identifies the source of particular records.
+263	HES information source	0	11	1	12	Health episode statistics information is derived from a variety of registries. This encoding identifies the source of particular records.
+264	Unified recoding for ADMIMETH	0	11	2	42	Created by amalgamating members of ~C202~, ~C241~, ~C242~ and ~C252~.
+265	Unified recoding for ADMISORC	0	11	2	50	Created by amalgamating members of ~C203~, ~C243~, ~C244~ and ~C253~.
+266	Unified recoding for CLASSPAT	0	11	2	13	Created by amalgamating members of ~C208~, ~C245~, ~C246~ and ~C254~.
+267	Unified recoding for DISDEST	0	11	2	51	Created by amalgamating members of ~C205~, ~C247~ and ~C255~.
+268	Unified recoding for DISMETH	0	11	2	19	Created by amalgamating members of ~C206~, ~C248~, ~C249~ and ~C256~.
+269	Unified recoding for TRETSPEF	0	11	1	203	Created by amalgamating members of ~C211~, ~C250~, ~C251~ and ~C257~.
+270	Unified recoding for MAINSPEF	0	11	1	95	Created by amalgamating members of ~C210~ and ~C258~.
+271	Unified recoding for INTMANAG	0	11	1	7	Created by amalgamating members of ~C209~ and ~C260~.
+272	Outcome date flags	0	51	1	1	Special date values used to indicate imprecise or unknown data
+300	Source of outcome report	0	11	1	7	Details the sources of data used to create adjudicated health outcomes.
+305	Reason for assay correction level	0	11	1	5	Records the reason that a particular correction level was applied to an aliquot measurement.
+339	Degree bothered	0	11	1	4	Degree of botheredness
+400	Abdominal MRI image quality	0	11	1	9	Abdominal MRI image quality indicator
+401	Thigh measurement error	0	11	1	4	Thigh measurement error indicator
+402	Test status	0	11	1	1	Indicates that a test was abandoned
+403	Abdominal VAT/ASAT error	0	11	1	2	Abdominal VAT/ASAT error indicator
+408	Pain level	0	11	1	12	Pain level scored from 0 to 10.
+439	Not performed	0	61	1	1	Denotes occasions on which there is not a valid time-stamp because the corresponding action was not performed.
+470	Measurement method for automated-only devices	0	11	1	3	Measurement method, or reason for non-performance, for automated-only devices
+479	Completion status with timeout	0	11	1	4	Whether a test was completed by a participant, abandoned part-way through or timed-out.
+480	Device used to enter online occupational questionnaire	0	11	1	7	List of input device types.
+485	Invalid timing flag	0	11	1	1	Due to system problems the Javascript being executed on participants own devices occasionally returned an invalid interval when timing some of the cognitive tests. This coding is used to indicate the values where this occurred.
+486	gapcoding	0	11	1	10	Codes for activity during periods other than full time work.
+487	period over a month	0	11	1	1	Option used to indicate a time period was over a month long
+488	shorter than a year	0	31	1	1	Indicates a period of less than a year
+489	shiftwork state	0	11	1	3	Used to indicate type-of-shiftwork question was not asked
+490	Lung disease conditions	0	11	1	16	Lung disease conditions potentially associated with environmental exposures during work
+491	Pattern of shiftwork	0	11	1	3	Patterns of shiftwork
+492	Shift working patterns	0	11	1	1024	Types of shift working patterns
+493	Occupational exposure choices	0	11	1	4	Grades of workplace exposure to various potential irritants.
+494	Lumped hours worked	0	11	1	4	Categories grouping together time periods
+496	Tobacco smoking	0	11	1	5	Options for tobacco smoking behaviour
+497	Job occupation groupings used for online work questionnaire	0	11	2	995	Participants were asked to self-code their job by making successive choices from this three-level tree.
+498	Completion status	0	11	1	3	Whether a test was completed by a participant or abandoned part-way through.
+499	Position within pattern	0	11	1	8	This field indicates the position of a particular symbol within the pattern displayed
+500	Pattern dictionary used for symbol digit test	0	11	1	34	The symbol digit test contained 33 distinct orderings which could be presented to participants. This coding shows the pattern presented so that (e.g.) if ~F20198~ has the value 7 then the order of the symbols shown would have been [1,4,5,6,0,7,2,3].
+502	TAF answer-set 502	0	11	1	4	Multiple choice answers from Thoughts and Feelings questionnaire
+503	TAF answer-set 503	0	11	1	3	Multiple choice answers from Thoughts and Feelings questionnaire
+504	TAF answer-set 504	0	11	1	5	Multiple choice answers from Thoughts and Feelings questionnaire
+505	TAF answer-set 505	0	11	1	6	Multiple choice answers from Thoughts and Feelings questionnaire
+506	TAF answer-set 506	0	11	1	5	Multiple choice answers from Thoughts and Feelings questionnaire
+507	TAF answer-set 507	0	11	1	6	Multiple choice answers from Thoughts and Feelings questionnaire
+508	TAF answer-set 508	0	11	1	2	Multiple choice answers from Thoughts and Feelings questionnaire
+509	TAF answer-set 509	0	11	1	7	Multiple choice answers from Thoughts and Feelings questionnaire
+510	TAF answer-set 510	0	11	1	5	Multiple choice answers from Thoughts and Feelings questionnaire
+511	TAF answer-set 511	0	11	1	2	Multiple choice answers from Thoughts and Feelings questionnaire
+513	TAF answer-set 513	0	11	1	2	Multiple choice answers from Thoughts and Feelings questionnaire
+514	TAF answer-set 514	0	11	1	5	Multiple choice answers from Thoughts and Feelings questionnaire
+515	TAF answer-set 515	0	11	1	5	Multiple choice answers from Thoughts and Feelings questionnaire
+516	TAF answer-set 516	0	11	1	4	Multiple choice answers from Thoughts and Feelings questionnaire
+517	TAF answer-set 517	0	11	1	1	Multiple choice answers from Thoughts and Feelings questionnaire
+518	TAF answer-set 518	0	11	1	4	Multiple choice answers from Thoughts and Feelings questionnaire
+519	TAF answer-set 519	0	11	1	6	Multiple choice answers from Thoughts and Feelings questionnaire
+520	TAF answer-set 520	0	11	1	3	Multiple choice answers from Thoughts and Feelings questionnaire
+521	TAF answer-set 521	0	11	1	6	Multiple choice answers from Thoughts and Feelings questionnaire
+522	TAF answer-set 522	0	11	1	6	Multiple choice answers from Thoughts and Feelings questionnaire
+523	TAF answer-set 523	0	11	1	6	Multiple choice answers from Thoughts and Feelings questionnaire
+524	TAF answer-set 524	0	11	1	4	Multiple choice answers from Thoughts and Feelings questionnaire
+525	TAF answer-set 525	0	11	1	2	Multiple choice answers from Thoughts and Feelings questionnaire
+526	TAF answer-set 526	0	11	1	6	Multiple choice answers from Thoughts and Feelings questionnaire
+527	TAF answer-set 527	0	11	1	6	Multiple choice answers from Thoughts and Feelings questionnaire
+528	TAF answer-set 528	0	11	1	3	Multiple choice answers from Thoughts and Feelings questionnaire
+529	TAF answer-set 529	0	11	1	6	Multiple choice answers from Thoughts and Feelings questionnaire
+530	TAF answer-set 530	0	11	1	3	Multiple choice answers from Thoughts and Feelings questionnaire
+531	TAF answer-set 531	0	11	1	7	Multiple choice answers from Thoughts and Feelings questionnaire
+532	TAF answer-set 532	0	11	1	6	Multiple choice answers from Thoughts and Feelings questionnaire
+533	TAF answer-set 533	0	11	1	4	Multiple choice answers from Thoughts and Feelings questionnaire
+534	TAF answer-set 534	0	11	1	6	Multiple choice answers from Thoughts and Feelings questionnaire
+535	TAF answer-set 535	0	11	1	4	Multiple choice answers from Thoughts and Feelings questionnaire
+536	TAF answer-set 536	0	11	1	4	Multiple choice answers from Thoughts and Feelings questionnaire
+537	TAF answer-set 537	0	11	1	8	Multiple choice answers from Thoughts and Feelings questionnaire
+538	TAF answer-set 538	0	11	1	7	Multiple choice answers from Thoughts and Feelings questionnaire
+548	Level of interference	0	11	1	12	Level of interference out of 10
+551	TAF answer-set 551	0	11	1	10	Multiple choice answers from Thoughts and Feelings questionnaire
+552	TAF answer-set 552	0	11	1	10	Multiple choice answers from Thoughts and Feelings questionnaire
+555	TAF answer-set 555	0	11	1	5	Multiple choice answers from Thoughts and Feelings questionnaire
+556	TAF answer-set 556	0	11	1	4	Multiple choice answers from Thoughts and Feelings questionnaire
+557	TAF answer-set 557	0	11	1	10	Multiple choice answers from Thoughts and Feelings questionnaire
+562	TAF answer-set 562	0	11	1	5	Multiple choice answers from Thoughts and Feelings questionnaire
+563	TAF answer-set 563	0	11	1	4	Multiple choice answers from Thoughts and Feelings questionnaire
+564	TAF answer-set 564	0	11	1	5	Multiple choice answers from Thoughts and Feelings questionnaire
+565	TAF answer-set 565	0	11	1	3	Multiple choice answers from Thoughts and Feelings questionnaire
+572	TAF answer-set 572	0	11	1	7	Multiple choice answers from Thoughts and Feelings questionnaire
+573	TAF answer-set 573	0	11	1	7	Multiple choice answers from Thoughts and Feelings questionnaire
+584	Prefer not to answer	0	11	1	1	Prefer not to answer scalar question
+586	Special undetermined dates	0	51	1	3	Used to indicate uncertainty in dates when work given up.
+603	COVID-19 antibody study result	0	11	1	3	The results from the self-administered lateral flow devices for detecting COVID-19 antibodies.
+605	Dietary food group	0	11	1	94	Groups nutrients by food
+609	Mapping of self-reported medical conditions to 3-character ICD10	0	11	1	334	Mapping of self-reported medical conditions to 3-character ICD10
+616	Happiness level	0	11	1	12	Happiness level on 10 point scale
+620	Distension	0	11	1	12	Levels of distension
+626	GP data provider	0	11	1	4	Data provider for GP information
+634	Status with uncertain option	0	11	1	3	Status with uncertain option to allow for cases where situation cannot be resolved on available evidence.
+656	Error indicator codes	0	11	1	7	Codes used to indicate different types of error.
+682	Kinship level	0	11	1	4	Indicates the level of genetic kinship an individual appears to have to other participants
+744	Antibiotics	0	11	1	1025	List used by UKB assessment centre nurses to code antibiotic treatments. This is a subset of ~C4~.
+777	Weekday after Monday	0	11	1	7	Day of week, encoded with Monday=0.
+778	Brain MRI acquisition protocol	0	11	1	5	As the imaging clinic progressed, particularly during the early pilot stage, the image acquistion protocols were modified to improve the results. This coding is used to flag the version of the protocol used on particular participants.
+779	Document status	0	11	1	4	Status of an electronic/paper document resource
+782	Reasons for lack of a measurement	0	11	1	8	Reasons for lack of a measurement due to processing or other circumstances.
+783	COVID-19 lateral flow device	0	11	1	2	The type of lateral flow test device that was used to detect antibodies against the SARS-CoV spike protein.
+800	INFO_T1_unusable	0	11	1	1024	INFO_T1_unusable
+801	INFO_T1_imperfect	0	11	1	4	INFO_T1_imperfect
+802	INFO_T2_FLAIR_unusable	0	11	1	6	INFO_T2_FLAIR_unusable
+803	INFO_T2_FLAIR_imperfect	0	11	1	1	INFO_T2_FLAIR_imperfect
+804	INFO_SWI_unusable	0	11	1	7	INFO_SWI_unusable
+805	INFO_SWI_imperfect	0	11	1	1	INFO_SWI_imperfect
+806	INFO_rfMRI_unusable	0	11	1	8	INFO_rfMRI_unusable
+807	INFO_rfMRI_imperfect	0	11	1	1	INFO_rfMRI_imperfect
+808	INFO_tfMRI_unusable	0	11	1	8	INFO_tfMRI_unusable
+809	INFO_tfMRI_imperfect	0	11	1	1	INFO_tfMRI_imperfect
+810	INFO_dMRI_unusable	0	11	1	8	INFO_dMRI_unusable
+811	INFO_dMRI_imperfect	0	11	1	1	INFO_dMRI_imperfect
+819	lumped event dates	0	51	1	5	Pseudo dates used to rebadge erroneous and/or sensitive information.
+831	Prominence of cause of death	0	11	1	2	Distinguishes between main and other causes of death
+871	Frequency within week/month	0	11	1	8	How often an action is carried out
+909	Measurement not returned	0	31	1	1	Used to indicate that an ultrasound measurement was not possible.
+913	Days with pain	0	11	1	12	Days with pain in last 10 day period
+925	HES operations level	0	11	1	2	Differentiates between main and other operations
+926	HES diagnosis level	0	11	1	3	Distinguishes between types of diagnosis
+946	Cigarette smoking amount	0	11	1	3	Non-numeric options for cigarette smoking
+947	Reason for exclusion from genetic relatedness calculation	0	11	1	2	This coding gives the reason that some participants were excluded from calculations estimating the degree of genetic relatedness between persons in the dataset.
+950	Frequency of effects	0	11	1	6	Graduated frequency of effects.
+957	Working status	0	11	1	3	Explanation of non-working status
+1001	initial ethnic background tree	0	11	2	22	ethnic background
+1002	Ethnic Grouping	0	11	1	1	Nearest ethnicity as indicated by genotype.
+1003	Cancer (re-typed)	0	41	2	88	Tree-structured list used by clinic nurses to code cancers - this is derived from encoding=3 with coded_as type changed.
+1004	Treatments (re-typed)	0	41	1	6745	List used by clinic nurses to code medical treatments - this is derived from encoding=4 with coded_as type changed.
+1005	Operation (re-typed)	0	41	2	270	Tree-structured list used by clinic nurses to code operations - this is derived from encoding=5 with coded_as type changed.
+1006	Non-cancer Illness (re-typed)	0	41	2	479	Tree-structured list used by clinic nurses to code non-cancer illness - this is derived from encoding=6 with coded_as type changed.
+1007	Email access status	0	11	1	2	desc
+1010	Illnesses, touchscreen self-entry	0	11	1	18	Amalgamation of Group 1+2 answers for illnesses
+1018	Botheredness	0	11	1	5	Amount that person is bothered by something. Not-applicable meaning that the something doesn't occur.
+1021	Yes/No/NA	0	11	1	3	Yes/No choice
+1022	Yes/No/NA/PNA	0	11	1	4	Yes/No choice with option of not-applicable.
+1101	Genomic data problems	0	11	1	1	Itemizes problems encountered processing genomic data.
+1176	EMIS clinical unit coding	0	41	1	6	Special codes used to redact value units associated with EMIS GP clinical codes.
+1200	ACE-coding1200	0	41	1	23	Artificial coding, generated after data collection
+1201	ACE-coding1201	0	41	1	7	Artificial coding, generated after data collection
+1202	ACE-coding1202	0	41	1	2	Artificial coding, generated after data collection
+1203	ACE-coding1203	0	41	1	1	Artificial coding, generated after data collection
+1204	ACE-coding1204	0	41	1	16	Artificial coding, generated after data collection
+1205	ACE-coding1205	0	41	1	2	Artificial coding, generated after data collection
+1206	ACE-coding1206	0	41	1	2	Artificial coding, generated after data collection
+1207	ACE-coding1207	0	41	1	1	Artificial coding, generated after data collection
+1208	ACE-coding1208	0	41	1	1	Artificial coding, generated after data collection
+1209	ACE-coding1209	0	41	1	1	Artificial coding, generated after data collection
+1210	ACE-coding1210	0	41	1	1	Artificial coding, generated after data collection
+1211	ACE-coding1211	0	41	1	2	Artificial coding, generated after data collection
+1212	UKB Assessment Centre visit	0	11	1	2	Denotes the assessment centre visit at which a particular item of data was produced.
+1220	Main home	0	11	1	7	Options for main home
+1221	Rooms in main home	0	11	1	11	Number of rooms in main home
+1222	Number of individuals	0	11	1	11	Lumped options for number of individual people
+1223	Number of individuals (extended)	0	11	1	13	Options for number of individuals
+1224	Proportion of time	0	11	1	6	Options for proportion of time
+1225	Number of days per week	0	11	1	6	Options for frequency as measured in number of days per week
+1227	Length of time with COVID sufferer	0	11	1	6	Length of time spent with a COVID sufferer
+1228	Employment status	0	11	1	11	Employment status. This is similar, but not identical to, ~C100295~
+1229	Main transportation	0	11	1	12	Mode of main transportation
+1230	Key worker status	0	11	1	10	Types of key worker as identified by UK government for 2020+ COVID purposes.
+1231	Care provided	0	11	1	4	Options for type of care provided
+1273	Date conditions	0	51	1	2	Special date values indicating data problems.
+1313	Masked date for location	0	51	1	1	Used to obscure dates which are near to participant DOB.
+1317	Scanner position issues	0	31	1	1	Identifies problems determining position of MRI scannes.
+1400	Source of test result	0	11	1	4	Indicates the source of a test result.
+1401	Mental health problems	0	11	1	18	List of professionally diagnosed mental health problems
+1405	Depression substances	0	11	1	4	Substances taken to potentially alleviate depressive symptoms.
+1406	Depression therapies	0	11	1	3	Non-drug therapies aimed at alleviating depressive symptoms
+1407	Manifestations of high or irritable state	0	11	1	9	Outward signs exhibited by a participant when in an unusual high or irritable state
+1414	Addiction to medicine	0	11	1	5	Types of medication to which participant became addicted
+1415	Types of addiction	0	11	1	3	Types of item to which addiction happened
+1422	Methods of self-harm	0	11	1	7	Methods of self-harm or endangerment
+1423	Treatment for self-harm	0	11	1	6	Treatments used following self-harm episodes
+1503	Symbol-digit image indexes	0	11	1	8	Describes the images presented to participants for matching.
+1506	Spirometry QC	0	11	1	3	Indicates the esimated of quality of spirometry measurement.
+1529	Biochemistry aliquot	0	11	1	5	Aliquot used for blood biochemistry analysis.
+1543	Levels of myopia	0	11	1	3	Levels of myopia.
+1642	Reason date is uncertain	0	51	1	1	Indicates the reason that a precise data cannot be assigned
+1834	TRUD mapping of Read2 into 3-character ICD10	0	41	1	22340	TRUD mapping of Read2 into 3-character ICD10<p>ICD-10 codes, terms and text used by permission of WHO, from: International Statistical Classification of Diseases and Related Health Problems, Tenth Revision (ICD-10). Vols 1-3. Geneva, World Health Organization, 1992-2016.<p>Contains information from NHS Digital, licenced under the current version of the Open Government Licence available at www.nationalarchives.gov.uk/doc/open-government-licence/open-government-licence.htm.
+1835	TRUD mapping of Read3 into 3-character ICD10	0	41	1	33284	TRUD mapping of Read3 into 3-character ICD10<p>ICD-10 codes, terms and text used by permission of WHO, from: International Statistical Classification of Diseases and Related Health Problems, Tenth Revision (ICD-10). Vols 1-3. Geneva, World Health Organization, 1992-2016.<p>Contains information from NHS Digital, licenced under the current version of the Open Government Licence available at www.nationalarchives.gov.uk/doc/open-government-licence/open-government-licence.htm.
+1836	Partial mapping of ICD9 to ICD10 at 3-character level	0	41	1	2875	This encoding maps ICD9 (~C87~) codes onto the 3-character level of the ICD10 (~C19~) codes. It is not intended to be exhaustive and cases where the mapping is ambiguous have been omitted.<p>ICD-10 codes, terms and text used by permission of WHO, from: International Statistical Classification of Diseases and Related Health Problems, Tenth Revision (ICD-10). Vols 1-3. Geneva, World Health Organization, 1992-2016.
+1853	COVID19 test locations	0	11	1	52	Locations/methods used to generate samples for COVID19 testing.
+1854	Test result	0	11	1	2	Result of a binary test
+1855	Origin of test sample	0	11	1	2	Indicates where a participant was believed to be (or be doing) when their sample was taken.
+1856	COVID19 testing laboratories	0	11	1	228	Laboratories performing tests for COVID19
+1862	Diagnosis route	0	11	1	6	Method of diagnosis
+1965	Lost to follow-up	0	11	1	5	This field indicates the participants for whom it is believed to be impossible to fully complete data collection and the reason for this belief.
+1970	Record providence	0	41	1	6	Indicates the provider/origin of Hes data records.
+1990	Trail completion	0	11	1	1	Indicates that a participant did not complete a trail challenge.
+2171	Source(s) of first reports of health outcomes	0	11	1	8	Data source(s) of each code mapped to 3-character ICD10
+2226	LIMS data transfer route	0	11	1	3	This identifies the route whereby data from laboratory analysers reached the central UK Biobank LIMS (laboratory information management system) database. It's relevance is that it affects the interpretation of the time that an item of data was acquired, since the timestamp reflects the time that the data reached the LIMS system rather than when the actual measurement was done.
+2301	Spectrometer ID	0	11	1	6	This is an arbitrary encoding to all samples analysed on the same spectrometer to be identified.
+2302	QC flags	0	11	1	2	QC flags for Nightingale data
+2310	QC flags (nightingale)	0	11	1	10	Nightingale QC flags
+2360	EMIS clinical value coding	0	31	1	6	Special codes used to redact values associated with EMIS GP clinical codes.<p>Please note that floating-point format appears as scientific notation in the Showcase and obscures small differences between the individual codes. These differences are visible when the encoding is downloaded.
+2380	Sequencing provider	0	11	1	4	Sequencing provider for WGS project.
+2382	WGS Batch	0	11	1	20	Batch number for WGS sample processing
+2730	Onset speed	0	11	1	4	Speed of onset
+3002	Headache pain frequency	0	11	1	5	Frequency of pain when headaches were at their worst with option of prefer not to answer
+3003	Symptoms severity	0	11	1	5	Severity of symptoms over past week with option of prefer not to answer
+3004	Mobility problem severity	0	11	1	5	Severity of problems with walking
+3005	Anxiety severity	0	11	1	5	Severity of anxiety for describing health today
+3006	Depression frequency	0	11	1	5	Frequency of current depression symptoms with option of prefer not to answer
+3008	Location of pain that bothers most	0	11	1	14	Location of pain that bothers most in last three months with option of prefer not to answer
+3012	Level of difficulty experienced with tasks	0	11	1	5	Level of difficulty experienced with tasks with option of prefer not to answer
+3013	Length of time suffering with pain	0	11	1	5	Length of time suffering with pain or discomfort with options of do not know or prefer not to answer
+3014	Scale of pain over last 24 hours	0	11	1	4	Scale of pain over last 24 hours with options of do not know and prefer not to answer
+3015	Level of pain relief provided by treatments or medications	0	11	1	13	Percentage of pain relief received from treatments or medications with option of prefer not to answer
+3017	DNK/PNA	0	11	1	2	Do not know or prefer not to answer
+3018	Length of time since headaches began or ended	0	11	1	3	Length of time since headaches began or ended with option of prefer not to answer
+3019	Self-care problem severity	0	11	1	5	Severity of problems with self-care today
+3020	Usual activities problem severity	0	11	1	5	Severity of problems with usual activities today
+3021	Pain severity	0	11	1	5	Severity of pain or discomfort today
+3022	Location of pain during past week	0	11	1	21	Location of pain or terderness during past week with option of prefer not to answer
+3175	GP code type	0	11	1	11	Coding system used to classify GP clinical and prescription data
+3311	Requesting organisation	0	11	1	17	Organisations responsible for requesting blood tests.
+3432	UKB laboratory analysers	0	41	1	4	Analyser machines used at the UK Biobank laboratories.
+3500	Welsh COVID19 testing laboratories	0	11	1	19	Welsh laboratories performing tests for COVID19
+3501	Welsh COVID19 patient types	0	11	1	21	Descriptions of patient types for Welsh COVID19 testing
+3502	Welsh COVID19 person types	0	11	1	102	Description of person tested for COVID19 (e.g. essential worker, inpatient, healthcare worker, education worker). Also provides additional information on whether the individual was asymptomatic or immunocompromised
+3503	Welsh COVID19 test locations	0	11	1	11	Locations/methods used to generate samples for Welsh COVID19 testing
+3504	Scottish COVID19 testing laboratories	0	41	1	18	Scottish laboratories performing tests for COVID19
+3505	Scottish COVID19 medical facility types	0	11	1	9	Types of Scottish medical facilities performing tests for COVID19
+3506	Scottish COVID19 medical facilities	0	41	1	291	Names of Scottish medical facilities performing tests for COVID19
+3510	QC flag	0	11	1	10	QC flag for Nightgale data
+4214	dm+d special codes	0	41	1	2	Special values used to recode missing dm+d codes
+4917	Reportability	0	11	1	5	Reportability of assay results
+4982	Block count exception	0	11	1	1	Used to indicate cases where block count is not known.
+5001	Answer to FI1	0	11	1	5	List of possible answers to online fluid intelligence question FI1.
+5002	Answers to FI2	0	11	1	5	List of possible answers to online fluid intelligence question FI2.
+5003	Answers to FI3	0	11	1	5	List of possible answers to online fluid intelligence question FI3.
+5004	Answers to FI4	0	11	1	5	List of possible answers to online fluid intelligence question FI4.
+5005	Answers to FI5	0	11	1	5	List of possible answers to online fluid intelligence question FI5.
+5006	Answers to FI6	0	11	1	5	List of possible answers to online fluid intelligence question FI6.
+5007	Answers to FI7	0	11	1	5	List of possible answers to online fluid intelligence question FI7.
+5008	Answers to FI8	0	11	1	5	List of possible answers to online fluid intelligence question FI8.
+5009	Answers to FI9	0	11	1	5	List of possible answers to online fluid intelligence question FI9.
+5010	Answers to FI10	0	11	1	5	List of possible answers to online fluid intelligence question FI10.
+5011	Answers to FI11	0	11	1	5	List of possible answers to online fluid intelligence question FI11.
+5012	Answers to FI12	0	11	1	5	List of possible answers to online fluid intelligence question FI12.
+5013	Answers to FI13	0	11	1	5	List of possible answers to online fluid intelligence question FI13.
+5014	Answers to FI14	0	11	1	5	List of possible answers to online fluid intelligence question FI14.
+5159	Mood scale	0	11	1	5	Scale of answers to mood questions.
+5160	Input device/method	0	11	1	5	Method of data input used by participant
+5178	Pointing method	0	11	1	5	Method used by participants to point-to/select/click a control on a screen.
+5702	TPP GP clinical value coding	0	31	1	5	Special codes used to redact values associated with sensitive TPP GP clinical codes.
+6312	Tower responses	0	11	1	6	Responses were integers in the range 1-6.
+6314	Word/picture groups	0	11	1	340	Relates indices of word/picture groups to the actual words displayed
+6315	Position of picture on screen	0	11	1	4	Index relating each picture to their position on screen
+6332	Pattern selection	0	11	1	8	This coding indicates the candidated pattern selected from a grid of options. The 0 value is a the top-left.
+6361	Symbol digit failure	0	11	1	1	This indicates that a participant did not make any correct matches, either due to entering only incorrect matches or abandoning before making a correct match.
+6448	Paired associates for "huge"	0	11	1	5	Paired associates for "huge"
+6451	Laboratory performing COVID analysis	0	11	1	2	Identifies the laboratory performing the COVID19 assay.
+6459	Paired associates for "happy"	0	11	1	5	Paired associates for "happy"
+6470	Paired associates for "tattered"	0	11	1	5	Paired associates for "tattered"
+6481	Paired associates for "old"	0	11	1	5	Paired associates for "old"
+6492	Paired associates for "long"	0	11	1	5	Paired associates for "long"
+6503	Paired associates for "red"	0	11	1	5	Paired associates for "red"
+6514	Paired associates for "sulking"	0	11	1	5	Paired associates for "sulking"
+6525	Paired associates for "pretty"	0	11	1	5	Paired associates for "pretty"
+6536	Paired associates for "tiny"	0	11	1	5	Paired associates for "tiny"
+6547	Paired associates for "new"	0	11	1	5	Paired associates for "new"
+7001	Critical care unit function	0	11	1	13	Critical care unit function
+7002	Critical care unit bed configuration	0	11	1	4	Critical care unit bed configuration
+7003	Critical care adult admission type	0	11	1	6	Critical care adult admission type
+7004	Critical care adult admission source	0	11	1	5	Critical care adult admission source
+7005	Critical care source location	0	11	1	11	Critical care source location
+7006	Critical care days	0	11	1	2	Critical care days
+7009	Critical care discharge status	0	11	1	11	Critical care discharge status
+7010	Critical care discharge destination	0	11	1	6	Critical care discharge destination
+7011	Critical care discharge destination location	0	11	1	9	Critical care discharge destination location
+7012	Critical care APC relationship	0	11	1	14	Critical care APC relationship
+7128	CTV3 clinical codes	0	41	1	332115	CTV3 clinical codes and redaction values, for use in TPP GP clinical data (COVID-19 research only; please see ~R3151~). Redacted sensitive/potentially identifying codes are represented by negative values. CTV3 codes are also employed in general-use GP clinical data (~F42040~). Please see the resources in ~L3000~ for more information and code lookups.
+7310	Initial infection	0	11	1	7	Infections diagnosed alongside IBS
+7618	Antigen QC	0	11	1	2	Description of antigen quality control observation.
+7667	Signal to noise ratio exclusion	0	31	1	1	Used to flag the value -99999 as not a valid result
+7678	EMIS local script codes	0	41	1	7234	Local codes created by EMIS for use in GP prescription data. Codes that have been redacted are represented by negative values.
+7689	EMIS local clinical codes	0	41	1	20573	Local codes created by EMIS for use in GP clinical data. Codes that have been redacted are represented by negative values.
+8708	TPP local codes	0	41	1	6038	Codes created by TPP for use in GP clinical data. Redacted sensitive/potentially identifying codes are represented by negative values.
+9564	Method of returning results to UK Biobank	0	11	1	3	Identifies the method that participants used to return their test result to UK Biobank.
+22000	Genotyping array	0	11	2	108	This encoding categorises the particular types of arrays used to measure genotypes in UK Biobank participants.
+100001	WEBDIET-coding100000001	0	11	1	3	Coding for online diet questionnaire
+100002	WEBDIET-coding100000002	0	11	1	5	Coding for online diet questionnaire
+100003	WEBDIET-coding100000003	0	11	1	4	Coding for online diet questionnaire
+100004	WEBDIET-coding100000004	0	11	1	5	Coding for online diet questionnaire
+100005	WEBDIET-coding100000005	0	11	1	7	Coding for online diet questionnaire
+100006	WEBDIET-coding100000006	0	11	1	7	Coding for online diet questionnaire
+100007	WEBDIET-coding100000007	0	11	1	6	Coding for online diet questionnaire
+100008	WEBDIET-coding100000008	0	11	1	5	Coding for online diet questionnaire
+100009	WEBDIET-coding100000009	0	11	1	2	Coding for online diet questionnaire
+100010	WEBDIET-coding100000010	0	11	1	2	Coding for online diet questionnaire
+100011	WEBDIET-coding100000011	0	11	1	8	Coding for online diet questionnaire
+100012	WEBDIET-coding100000012	0	11	1	8	Coding for online diet questionnaire
+100013	WEBDIET-coding100000013	0	11	1	2	Coding for online diet questionnaire
+100014	WEBDIET-coding100000014	0	11	1	3	Coding for online diet questionnaire
+100015	WEBDIET-coding100000015	0	11	1	12	Coding for online diet questionnaire
+100016	WEBDIET-coding100000016	0	11	1	6	Coding for online diet questionnaire
+100017	WEBDIET-coding100000017	0	11	1	5	Coding for online diet questionnaire
+100256	Tfm_ex_ecg::opt_ecg_meth	0	11	1	4	Tfm_ex_ecg::opt_ecg_meth
+100257	Tfm_ex_ecg::opt_ecg_complete	0	11	1	5	Tfm_ex_ecg::opt_ecg_complete
+100258	Tfm_i_birth::opt_bunit	0	11	1	3	Tfm_i_birth::opt_bunit
+100259	Tfm_i_bp::opt_bmeth	0	11	1	5	Tfm_i_bp::opt_bmeth
+100260	Tfm_m_bones::opt_bmeth	0	11	1	5	Tfm_m_bones::opt_bmeth
+100261	Tfm_m_imped::opt_wmeth	0	11	1	5	Tfm_m_imped::opt_wmeth
+100262	Tfm_m_manual::opt_hbox	0	11	1	3	Tfm_m_manual::opt_hbox
+100263	Tfm_m_stiff::opt_stiff_meth	0	11	1	4	Tfm_m_stiff::opt_stiff_meth
+100264	Yes or No	0	11	1	2	STD_CTRL::rg_opt_yesno
+100267	Yes No or Unsure	0	11	1	3	STD_CTRL::rg_opt_ynx
+100269	Tfm_s_safe::opt_sp_whynot	0	11	1	7	Tfm_s_safe::opt_sp_whynot
+100270	Tfm_s_spiro::opt_smeth/main	0	11	1	5	Tfm_s_spiro::opt_smeth/main
+100271	Tfm_u_eyes::opt_sur_any	0	11	1	4	Tfm_u_eyes::opt_sur_any
+100272	Tfm_u_eyes::opt_sur_side	0	11	1	5	Tfm_u_eyes::opt_sur_side
+100273	Tfm_u_eyes::opt_eye_miss	0	11	1	4	Tfm_u_eyes::opt_eye_miss
+100274	U_OPTION::opt_meth	0	11	1	3	U_OPTION::opt_meth
+100275	U_OPTION::opt_va_whynot	0	11	1	5	U_OPTION::opt_va_whynot
+100279	Tfm_i_parent::opt_month	0	11	1	13	Tfm_i_parent::opt_month
+100280	Tfm_i_psy::opt_words	0	11	1	3	Tfm_i_psy::opt_words
+100281	Tfm_i_psy::opt_whynot	0	11	1	3	Tfm_i_psy::opt_whynot
+100282	Tfm_s_spiro::opt_smeth/pilot	0	11	1	3	Tfm_s_spiro::opt_smeth/pilot
+100286	g22.i.answer.a.D4.ans	0	11	1	7	g22.i.answer.a.D4.ans
+100287	g22.i.answer.a.D5.ans	0	11	1	8	g22.i.answer.a.D5.ans
+100288	g22.i.answer.a.D5A.ans/main	0	11	1	6	g22.i.answer.a.D5A.ans/main
+100289	g22.i.answer.a.D5A1.ans	0	11	1	9	g22.i.answer.a.D5A1.ans
+100290	g22.i.answer.a.D5B.ans	0	11	1	3	g22.i.answer.a.D5B.ans
+100291	g22.i.answer.a.D7.ans	0	11	1	2	g22.i.answer.a.D7.ans
+100292	g22.i.answer.a.D7A.ans	0	11	1	9	g22.i.answer.a.D7A.ans
+100293	g22.i.answer.a.D8.ans	0	11	1	7	g22.i.answer.a.D8.ans
+100294	g22.i.answer.a.D10.ans/main	0	11	1	7	g22.i.answer.a.D10.ans/main
+100295	g22.i.answer.a.D9.ans	0	11	1	9	g22.i.answer.a.D9.ans
+100298	g22.i.answer.a.D9G.ans	0	11	1	3	g22.i.answer.a.D9G.ans
+100299	g22.i.answer.a.D9E.ans	0	11	1	6	g22.i.answer.a.D9E.ans
+100300	g22.i.answer.a.D9F.ans	0	11	1	3	g22.i.answer.a.D9F.ans
+100301	g22.i.answer.a.D9B.ans	0	11	1	6	g22.i.answer.a.D9B.ans
+100305	g22.i.answer.a.D12.ans/main	0	11	1	8	g22.i.answer.a.D12.ans/main
+100306	g22.i.answer.a.D11.ans	0	11	1	3	g22.i.answer.a.D11.ans
+100307	g22.i.answer.a.WP1.ans	0	11	1	3	g22.i.answer.a.WP1.ans
+100313	g22.i.answer.a.WP4.ans	0	11	1	5	g22.i.answer.a.WP4.ans
+100314	g22.i.answer.a.WP4A.ans	0	11	1	8	g22.i.answer.a.WP4A.ans
+100316	g22.i.answer.a.WP4B1.ans	0	11	1	7	g22.i.answer.a.WP4B1.ans
+100317	g22.i.answer.a.WP4C1.ans	0	11	1	8	g22.i.answer.a.WP4C1.ans
+100318	g22.i.answer.a.WP4E1.ans	0	11	1	9	g22.i.answer.a.WP4E1.ans
+100327	g22.i.answer.a.WP11.ans/main	0	11	1	9	g22.i.answer.a.WP11.ans/main
+100328	g22.i.answer.a.WP12.ans	0	11	1	7	g22.i.answer.a.WP12.ans
+100329	g22.i.answer.a.WP12A.ans	0	11	1	3	g22.i.answer.a.WP12A.ans
+100334	g22.i.answer.a.WP8.ans	0	11	1	7	g22.i.answer.a.WP8.ans
+100335	g22.i.answer.a.MB1.ans	0	11	1	7	g22.i.answer.a.MB1.ans
+100336	g22.i.answer.a.MB2.ans/main	0	11	1	8	g22.i.answer.a.MB2.ans/main
+100337	g22.i.answer.a.MB2A.ans	0	11	1	7	g22.i.answer.a.MB2A.ans
+100338	g22.i.answer.a.MB3.ans/main	0	11	1	6	g22.i.answer.a.MB3.ans/main
+100339	g22.i.answer.a.MB3A.ans	0	11	1	5	g22.i.answer.a.MB3A.ans
+100341	g22.i.answer.a.SL1AA.ans	0	11	1	6	g22.i.answer.a.SL1AA.ans
+100342	g22.i.answer.a.SL1AB.ans	0	11	1	6	g22.i.answer.a.SL1AB.ans
+100343	g22.i.answer.a.SL1A.ans	0	11	1	4	g22.i.answer.a.SL1A.ans
+100345	g22.i.answer.a.SL3.ans	0	11	1	4	g22.i.answer.a.SL3.ans
+100346	g22.i.answer.a.SL4.ans/main	0	11	1	6	g22.i.answer.a.SL4.ans/main
+100347	g22.i.answer.a.S1.ans	0	11	1	4	g22.i.answer.a.S1.ans
+100348	g22.i.answer.a.S2.ans	0	11	1	5	g22.i.answer.a.S2.ans
+100349	g22.i.answer.a.S2A.ans/main	0	11	1	4	g22.i.answer.a.S2A.ans/main
+100351	g22.i.answer.a.S4.ans	0	11	1	5	g22.i.answer.a.S4.ans
+100352	g22.i.answer.a.S4AA.ans	0	11	1	3	g22.i.answer.a.S4AA.ans
+100353	g22.i.answer.a.S4AB.ans	0	11	1	2	g22.i.answer.a.S4AB.ans
+100355	g22.i.answer.a.S4A.ans	0	11	1	3	g22.i.answer.a.S4A.ans
+100356	g22.i.answer.a.S4B.ans	0	11	1	7	g22.i.answer.a.S4B.ans
+100357	g22.i.answer.a.S4C.ans	0	11	1	5	g22.i.answer.a.S4C.ans
+100358	g22.i.answer.a.S5.ans	0	11	1	4	g22.i.answer.a.S5.ans
+100359	g22.i.answer.a.S5AA.ans	0	11	1	5	g22.i.answer.a.S5AA.ans
+100360	g22.i.answer.a.S5A.ans	0	11	1	4	g22.i.answer.a.S5A.ans
+100361	g22.i.answer.a.S5B.ans	0	11	1	7	g22.i.answer.a.S5B.ans
+100369	g22.i.answer.a.S10B.ans	0	11	1	6	g22.i.answer.a.S10B.ans
+100370	g22.i.answer.a.S11.ans	0	11	1	4	g22.i.answer.a.S11.ans
+100373	g22.i.answer.a.DT1.ans	0	11	1	3	g22.i.answer.a.DT1.ans
+100377	g22.i.answer.a.DT4.ans	0	11	1	8	g22.i.answer.a.DT4.ans
+100385	g22.i.answer.a.DT8B.ans/main	0	11	1	6	g22.i.answer.a.DT8B.ans/main
+100387	g22.i.answer.a.DT10.ans	0	11	1	8	g22.i.answer.a.DT10.ans
+100388	g22.i.answer.a.DT10A.ans/main	0	11	1	6	g22.i.answer.a.DT10A.ans/main
+100389	g22.i.answer.a.DT10AA.ans	0	11	1	9	g22.i.answer.a.DT10AA.ans
+100391	g22.i.answer.a.DT11.ans/main	0	11	1	6	g22.i.answer.a.DT11.ans/main
+100393	g22.i.answer.a.DT11A.ans	0	11	1	7	g22.i.answer.a.DT11A.ans
+100394	g22.i.answer.a.DT11B.ans	0	11	1	5	g22.i.answer.a.DT11B.ans
+100397	g22.i.answer.a.DT13AA.ans	0	11	1	6	g22.i.answer.a.DT13AA.ans
+100398	g22.i.answer.a.DT13A.ans	0	11	1	5	g22.i.answer.a.DT13A.ans
+100400	g22.i.answer.a.DT15.ans	0	11	1	4	g22.i.answer.a.DT15.ans
+100401	g22.i.answer.a.DT16.ans/main	0	11	1	5	g22.i.answer.a.DT16.ans/main
+100402	g22.i.answer.a.A1.ans	0	11	1	7	g22.i.answer.a.A1.ans
+100416	g22.i.answer.a.A5.ans	0	11	1	5	g22.i.answer.a.A5.ans
+100417	g22.i.answer.a.A6.ans	0	11	1	5	g22.i.answer.a.A6.ans
+100418	g22.i.answer.a.A7.ans/main	0	11	1	7	g22.i.answer.a.A7.ans/main
+100420	g22.i.answer.a.D2.ans	0	11	1	8	g22.i.answer.a.D2.ans
+100422	g22.i.answer.a.YE1.ans	0	11	1	8	g22.i.answer.a.YE1.ans
+100423	g22.i.answer.a.YE1A.ans	0	11	1	4	g22.i.answer.a.YE1A.ans
+100424	g22.i.answer.a.YE1B.ans	0	11	1	5	g22.i.answer.a.YE1B.ans
+100425	g22.i.answer.a.YE1C.ans	0	11	1	5	g22.i.answer.a.YE1C.ans
+100426	g22.i.answer.a.YE1D.ans	0	11	1	4	g22.i.answer.a.YE1D.ans
+100428	g22.i.answer.a.Y4.ans	0	11	1	5	g22.i.answer.a.Y4.ans
+100429	g22.i.answer.a.Y5.ans	0	11	1	5	g22.i.answer.a.Y5.ans
+100430	g22.i.answer.a.Y6.ans	0	11	1	4	g22.i.answer.a.Y6.ans
+100431	g22.i.answer.a.Y6A.ans	0	11	1	8	g22.i.answer.a.Y6A.ans
+100432	g22.i.answer.a.Y6AA.ans	0	11	1	6	g22.i.answer.a.Y6AA.ans
+100434	g22.i.answer.a.Y6B.ans	0	11	1	8	g22.i.answer.a.Y6B.ans
+100435	g22.i.answer.a.Y6C.ans	0	11	1	5	g22.i.answer.a.Y6C.ans
+100443	g22.i.answer.a.Y13D.ans/main	0	11	1	9	g22.i.answer.a.Y13D.ans/main
+100445	g22.i.answer.a.Y13E.ans	0	11	1	8	g22.i.answer.a.Y13E.ans
+100453	g22.i.answer.a.Y16E.ans	0	11	1	8	g22.i.answer.a.Y16E.ans
+100461	g22.i.answer.a.Y20.ans	0	11	1	9	g22.i.answer.a.Y20.ans
+100478	g22.i.answer.a.P31.ans	0	11	1	8	g22.i.answer.a.P31.ans
+100479	g22.i.answer.a.P31A.ans	0	11	1	9	g22.i.answer.a.P31A.ans
+100484	g22.i.answer.a.P1.ans	0	11	1	6	g22.i.answer.a.P1.ans
+100498	g22.i.answer.a.P8A.ans	0	11	1	6	g22.i.answer.a.P8A.ans
+100499	g22.i.answer.a.P8B.ans	0	11	1	5	g22.i.answer.a.P8B.ans
+100500	g22.i.answer.a.P8C.ans	0	11	1	4	g22.i.answer.a.P8C.ans
+100501	g22.i.answer.a.E1.ans	0	11	1	8	g22.i.answer.a.E1.ans
+100502	g22.i.answer.a.E2.ans/main	0	11	1	8	g22.i.answer.a.E2.ans/main
+100503	g22.i.answer.a.INTRO7.ans	0	11	1	2	g22.i.answer.a.INTRO7.ans
+100504	g22.i.answer.a.SE1.ans	0	11	1	3	g22.i.answer.a.SE1.ans
+100508	g22.i.answer.a.H3.ans	0	11	1	6	g22.i.answer.a.H3.ans
+100510	g22.i.answer.a.H4A.ans	0	11	1	6	g22.i.answer.a.H4A.ans
+100511	g22.i.answer.a.H4B.ans	0	11	1	6	g22.i.answer.a.H4B.ans
+100514	g22.i.answer.a.H5AB.ans	0	11	1	9	g22.i.answer.a.H5AB.ans
+100515	g22.i.answer.a.H5AB1.ans	0	11	1	3	g22.i.answer.a.H5AB1.ans
+100523	g22.i.answer.a.H5C.ans	0	11	1	9	g22.i.answer.a.H5C.ans
+100536	g22.i.answer.a.Y6AB.ans	0	11	1	7	g22.i.answer.a.Y6AB.ans
+100537	g22.i.answer.a.Y6AC.ans	0	11	1	3	g22.i.answer.a.Y6AC.ans
+100538	g22.i.answer.a.H7C.ans	0	11	1	8	g22.i.answer.a.H7C.ans
+100539	g22.i.answer.a.H8.ans	0	11	1	4	g22.i.answer.a.H8.ans
+100540	g22.i.answer.a.H9.ans	0	11	1	5	g22.i.answer.a.H9.ans
+100549	g22.i.answer.a.SY4F.ans	0	11	1	5	g22.i.answer.a.SY4F.ans
+100550	g22.i.answer.a.SY4G.ans	0	11	1	4	g22.i.answer.a.SY4G.ans
+100552	g22.i.answer.a.SY4I.ans	0	11	1	6	g22.i.answer.a.SY4I.ans
+100553	g22.i.answer.a.SY5.ans	0	11	1	10	g22.i.answer.a.SY5.ans
+100563	g22.i.answer.a.SY1A.ans	0	11	1	4	g22.i.answer.a.SY1A.ans
+100564	g22.i.answer.a.SY1B.ans	0	11	1	4	g22.i.answer.a.SY1B.ans
+100567	g22.i.answer.a.H10A.ans	0	11	1	3	g22.i.answer.a.H10A.ans
+100569	g22.i.answer.a.MH3.ans	0	11	1	3	g22.i.answer.a.MH3.ans
+100570	g22.i.answer.a.MH4.ans	0	11	1	5	g22.i.answer.a.MH4.ans
+100572	g22.i.answer.a.MH6.ans	0	11	1	6	g22.i.answer.a.MH6.ans
+100579	g22.i.answer.a.FH2.ans	0	11	1	5	g22.i.answer.a.FH2.ans
+100582	g22.i.answer.a.FH2C.ans	0	11	1	3	g22.i.answer.a.FH2C.ans
+100584	g22.i.answer.a.FH3.ans	0	11	1	1	g22.i.answer.a.FH3.ans
+100585	g22.i.answer.a.FH3A.ans	0	11	1	3	g22.i.answer.a.FH3A.ans
+100586	g22.i.answer.a.FH3B.ans	0	11	1	2	g22.i.answer.a.FH3B.ans
+100595	g22.i.answer.a.FH5B.ans	0	11	1	3	g22.i.answer.a.FH5B.ans
+100598	g22.i.answer.a.FH6B.ans	0	11	1	3	g22.i.answer.a.FH6B.ans
+100599	g22.i.answer.a.FH9.ans	0	11	1	4	g22.i.answer.a.FH9.ans
+100603	g22.i.answer.a.OP1M.ans	0	11	1	4	g22.i.answer.a.OP1M.ans
+100605	g22.i.answer.a.L1.ans	0	11	1	6	g22.i.answer.a.L1.ans
+100610	g22.i.answer.a.L2.ans	0	11	1	7	g22.i.answer.a.L2.ans
+100617	g22.i.answer.a.L3A.ans/main	0	11	1	5	g22.i.answer.a.L3A.ans/main
+100622	g22.i.answer.a.L5A.ans	0	11	1	9	g22.i.answer.a.L5A.ans
+100625	g22.i.answer.a.L5DM.ans	0	11	1	6	g22.i.answer.a.L5DM.ans
+100626	g22.i.answer.a.L5DF.ans	0	11	1	8	g22.i.answer.a.L5DF.ans
+100628	g22.i.answer.a.L6C.ans	0	11	1	9	g22.i.answer.a.L6C.ans
+100629	g22.i.answer.a.L7.ans/main	0	11	1	9	g22.i.answer.a.L7.ans/main
+100630	g22.i.answer.a.L7A.ans/main	0	11	1	8	g22.i.answer.a.L7A.ans/main
+100631	g22.i.answer.a.H6.ans/main	0	11	1	5	g22.i.answer.a.H6.ans/main
+100635	g22.i.answer.a.H11.ans	0	11	1	7	g22.i.answer.a.H11.ans
+100636	g22.i.answer.a.H11A.ans	0	11	1	6	g22.i.answer.a.H11A.ans
+100637	g22.i.answer.a.H12.ans	0	11	1	6	g22.i.answer.a.H12.ans
+100639	g22.i.answer.a.F1.ans	0	11	1	4	g22.i.answer.a.F1.ans
+100640	g22.i.answer.a.HT_CANDO.ans	0	11	1	4	g22.i.answer.a.HT_CANDO.ans
+100641	g22.i.answer.a.COG_INIT.ans	0	11	1	2	g22.i.answer.a.COG_INIT.ans
+100642	g22.i.answer.a.FI_INTRO.ans	0	11	1	2	g22.i.answer.a.FI_INTRO.ans
+100643	g22.i.answer.a.FI_1.ans	0	11	1	7	g22.i.answer.a.FI_1.ans
+100644	g22.i.answer.a.FI_2.ans	0	11	1	7	g22.i.answer.a.FI_2.ans
+100645	g22.i.answer.a.FI_3.ans	0	11	1	7	g22.i.answer.a.FI_3.ans
+100646	g22.i.answer.a.FI_4.ans	0	11	1	6	g22.i.answer.a.FI_4.ans
+100647	g22.i.answer.a.FI_5.ans	0	11	1	7	g22.i.answer.a.FI_5.ans
+100648	g22.i.answer.a.FI_6.ans	0	11	1	7	g22.i.answer.a.FI_6.ans
+100649	g22.i.answer.a.FI_7.ans	0	11	1	7	g22.i.answer.a.FI_7.ans
+100650	g22.i.answer.a.FI_8.ans	0	11	1	7	g22.i.answer.a.FI_8.ans
+100651	g22.i.answer.a.FI_9.ans	0	11	1	7	g22.i.answer.a.FI_9.ans
+100652	g22.i.answer.a.FI_10.ans	0	11	1	7	g22.i.answer.a.FI_10.ans
+100653	g22.i.answer.a.FI_11.ans	0	11	1	7	g22.i.answer.a.FI_11.ans
+100654	g22.i.answer.a.FI_12.ans	0	11	1	8	g22.i.answer.a.FI_12.ans
+100655	g22.i.answer.a.FI_13.ans	0	11	1	6	g22.i.answer.a.FI_13.ans
+100656	g22.i.answer.a.D5A.ans/pilot	0	11	1	6	g22.i.answer.a.D5A.ans/pilot
+100657	g22.i.answer.a.D10.ans/pilot	0	11	1	7	g22.i.answer.a.D10.ans/pilot
+100658	g22.i.answer.a.D12.ans/pilot	0	11	1	7	g22.i.answer.a.D12.ans/pilot
+100659	g22.i.answer.a.WP1A.ans/pilot	0	11	1	7	g22.i.answer.a.WP1A.ans/pilot
+100662	g22.i.answer.a.WP11.ans/pilot	0	11	1	8	g22.i.answer.a.WP11.ans/pilot
+100663	g22.i.answer.a.MB2.ans/pilot	0	11	1	6	g22.i.answer.a.MB2.ans/pilot
+100664	g22.i.answer.a.MB3.ans/pilot	0	11	1	6	g22.i.answer.a.MB3.ans/pilot
+100668	g22.i.answer.a.S9.ans/pilot	0	11	1	3	g22.i.answer.a.S9.ans/pilot
+100669	g22.i.answer.a.S10.ans/pilot	0	11	1	5	g22.i.answer.a.S10.ans/pilot
+100672	g22.i.answer.a.DT8B.ans/pilot	0	11	1	6	g22.i.answer.a.DT8B.ans/pilot
+100673	g22.i.answer.a.DT10A.ans/pilot	0	11	1	8	g22.i.answer.a.DT10A.ans/pilot
+100674	g22.i.answer.a.DT11.ans/pilot	0	11	1	7	g22.i.answer.a.DT11.ans/pilot
+100676	g22.i.answer.a.Y13D.ans/pilot	0	11	1	9	g22.i.answer.a.Y13D.ans/pilot
+100683	g22.i.answer.a.E2.ans/pilot	0	11	1	9	g22.i.answer.a.E2.ans/pilot
+100685	g22.i.answer.a.H7B.ans/pilot	0	11	1	6	g22.i.answer.a.H7B.ans/pilot
+100686	g22.i.answer.a.FH5C.ans	0	11	1	8	g22.i.answer.a.FH5C.ans
+100688	g22.i.answer.a.L6A.ans	0	11	1	8	g22.i.answer.a.L6A.ans
+100689	g22.i.answer.a.L6B.ans	0	11	1	7	g22.i.answer.a.L6B.ans
+100690	g22.i.answer.a.L7A.ans/pilot	0	11	1	8	g22.i.answer.a.L7A.ans/pilot
+100691	g22.i.answer.a.L7.ans/pilot	0	11	1	8	g22.i.answer.a.L7.ans/pilot
+100692	g22.i.answer.a.L8.ans	0	11	1	8	g22.i.answer.a.L8.ans
+100693	Responses to invitations	0	11	1	3	This coding describes the response (if any) that occurred following an invitation being sent to a participant to take part in one of UK Biobanks extension studies.
+100694	Bipolar type	0	11	1	2	Type of bipolar episode
+100695	Depressive episode	0	11	1	6	Type of depressive episode(s)
+100696	Test abandoned flag	0	11	1	1	Flag which indicates that the test was abandoned before completion.
+100697	Allowed answers to FI14	0	11	1	5	The set of allowed answers to Fluid Intelligence question 14.
+100698	Status of role	0	11	1	1	Ongoing when data entered
+100699	Eprime failure	0	11	1	2	Indicates failure mode preventing acquisition of eprime data.
+100700	Level	0	11	1	3	Divides group into Low, Moderate and High values.

@@ -1,0 +1,7 @@
+Coding	Meaning
+1	Eggs or foods containing eggs
+2	Dairy products
+3	Wheat products
+4	Sugar or foods/drinks containing sugar
+5	I eat all of the above
+-3	Prefer not to answer

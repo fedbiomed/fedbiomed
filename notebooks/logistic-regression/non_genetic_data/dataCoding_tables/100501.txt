@@ -1,0 +1,9 @@
+Coding	Meaning
+5	Almost daily
+4	2-4 times a week
+3	About once a week
+2	About once a month
+1	Once every few months
+0	Never or almost never
+-1	Do not know
+-3	Prefer not to answer

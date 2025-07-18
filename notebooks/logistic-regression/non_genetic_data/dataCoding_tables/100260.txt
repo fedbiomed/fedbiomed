@@ -1,0 +1,6 @@
+Coding	Meaning
+1	Direct entry
+2	Manual entry
+6	Not performed - equipment failure
+7	Not performed - other reason
+3	Not performed

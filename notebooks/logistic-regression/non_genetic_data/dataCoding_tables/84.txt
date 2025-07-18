@@ -1,0 +1,3 @@
+Coding	Meaning
+78	Porridge with water
+79	Porridge with milk

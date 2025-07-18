@@ -1,0 +1,9 @@
+data_field	col_start	col_end	data_type	data_coding	field_name
+31	22	22	Categorical (single)	9	Sex
+21003	9758	9761	Integer	0	Age when attended assessment centre
+34	23	23	Integer	0	Year of birth
+52	88	88	Categorical (single)	8	Month of birth
+54	93	96	Categorical (single)	10	UK Biobank assessment centre
+53	89	92	Date	0	Date of attending assessment centre
+21000	9747	9749	Categorical (single)	1001	Ethnic background
+189	456	456	Continuous	0	Townsend deprivation index at recruitment

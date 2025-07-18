@@ -1,0 +1,7 @@
+Coding	Meaning
+1	Not at all easy
+2	Not very easy
+3	Fairly easy
+4	Very easy
+-1	Do not know
+-3	Prefer not to answer

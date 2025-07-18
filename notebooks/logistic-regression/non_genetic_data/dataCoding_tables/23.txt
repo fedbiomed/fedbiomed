@@ -1,0 +1,4 @@
+Coding	Meaning
+1	earliest
+2	second earliest
+3	third earliest (i.e. latest)

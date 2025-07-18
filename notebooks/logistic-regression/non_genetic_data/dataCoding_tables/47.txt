@@ -1,0 +1,42 @@
+Coding	Meaning	Node	Parent
+100	Declined	100	Top
+101	Against participant wishes	101	100
+102	Lack of time	102	100
+103	Feeling unwell	103	100
+104	Other health reason	104	100
+200	Equipment failure	200	Top
+201	Malfunction	201	200
+202	Not available	202	200
+300	Reason not known	300	Top
+400	Unable	400	Top
+401	Above max weight	401	400
+402	Amputee	402	400
+403	Feeling unwell	403	400
+404	Limb injury	404	400
+405	Other health reason	405	400
+406	Pregnant	406	400
+407	Reason not stated	407	400
+408	Unable to grip	408	400
+409	Unable to remove shoes/socks	409	400
+410	Wheelchair user/unable to stand	410	400
+411	Asthma/lung disease	411	400
+412	Unable to understand instructions	412	400
+413	Physically unable	413	400
+414	Previous measures unavailable	414	400
+415	Arthritis	415	400
+416	Recent surgery	416	400
+417	Stroke/weakness/paralysis	417	400
+418	Above max measurement	418	400
+419	Colostomy bag	419	400
+420	Below minimum height scale	420	400
+421	Unable to sit	421	400
+500	Nurse Advised not to perform	500	Top
+501	Chest infection	501	500
+502	Collapsed lung	502	500
+503	Heart problems	503	500
+504	High BP	504	500
+505	Pregnant	505	500
+506	Reason not known	506	500
+507	Recent surgery	507	500
+508	Retinal detachment/eye problems	508	500
+509	Tuberculosis	509	500

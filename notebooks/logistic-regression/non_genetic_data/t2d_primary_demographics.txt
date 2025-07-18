@@ -1,0 +1,3 @@
+data_field	col_start	col_end	data_type	data_coding	field_name
+21003	9758	9761	Integer	0	Age when attended assessment centre
+31	22	22	Categorical (single)	9	Sex

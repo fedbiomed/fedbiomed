@@ -1,0 +1,4 @@
+Coding	Meaning
+1	Yes
+2	Unsure
+0	No

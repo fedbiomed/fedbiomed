@@ -1,0 +1,6 @@
+Coding	Meaning
+1	Manufactured cigarettes
+2	Hand-rolled cigarettes
+3	Cigars or pipes
+-7	None of the above
+-3	Prefer not to answer

@@ -1,0 +1,4 @@
+Coding	Meaning
+-1	Do not know
+-11	Still taking HRT
+-3	Prefer not to answer

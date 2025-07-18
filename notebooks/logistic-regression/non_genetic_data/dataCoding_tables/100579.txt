@@ -1,0 +1,6 @@
+Coding	Meaning
+1	Yes
+0	No
+2	Not sure - had a hysterectomy
+3	Not sure - other reason
+-3	Prefer not to answer

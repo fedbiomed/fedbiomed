@@ -1,0 +1,4 @@
+Coding	Meaning
+0	no
+1	yes
+9	abandon

@@ -1,0 +1,9 @@
+data_field	col_start	col_end	data_type	data_coding	field_name
+924	542	545	Categorical (single)	100313	Usual walking pace
+2237	983	986	Categorical (single)	100639	Plays computer games
+1200	638	641	Categorical (single)	100343	Sleeplessness / insomnia
+1408	714	717	Categorical (single)	100377	Cheese intake
+1548	766	769	Categorical (single)	100401	Variation in diet
+1070	586	589	Integer	100329	Time spent watching television (TV)
+1239	650	653	Categorical (single)	100347	Current tobacco smoking
+1359	698	701	Categorical (single)	100377	Poultry intake

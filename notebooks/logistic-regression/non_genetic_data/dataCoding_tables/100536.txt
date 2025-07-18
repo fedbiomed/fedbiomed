@@ -1,0 +1,8 @@
+Coding	Meaning
+1	Never/rarely
+2	Sometimes
+3	Most of the time
+4	Always
+5	Do not go out in sunshine
+-1	Do not know
+-3	Prefer not to answer

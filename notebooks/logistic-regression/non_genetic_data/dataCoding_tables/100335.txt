@@ -1,0 +1,8 @@
+Coding	Meaning
+0	Never used mobile phone at least once per week
+1	One year or less
+2	Two to four years
+3	Five to eight years
+4	More than eight years
+-1	Do not know
+-3	Prefer not to answer

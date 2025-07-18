@@ -1,0 +1,6 @@
+Coding	Meaning
+1	Younger than you are
+2	Older than you are
+3	About your age
+-1	Do not know
+-3	Prefer not to answer

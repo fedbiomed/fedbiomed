@@ -1,0 +1,462 @@
+Field ID	Description
+20117	Alcohol drinker status
+1558	Alcohol intake frequency.
+1628	Alcohol intake versus 10 years previously
+1618	Alcohol usually taken with meals
+4429	Average monthly beer plus cider intake
+4418	Average monthly champagne plus white wine intake
+4451	Average monthly fortified wine intake
+4462	Average monthly intake of other alcoholic drinks
+4407	Average monthly red wine intake
+4440	Average monthly spirits intake
+1588	Average weekly beer plus cider intake
+1578	Average weekly champagne plus white wine intake
+1608	Average weekly fortified wine intake
+5364	Average weekly intake of other alcoholic drinks
+1568	Average weekly red wine intake
+1598	Average weekly spirits intake
+3731	Former alcohol drinker
+2664	Reason for reducing amount of alcohol drunk
+10818	Reason for reducing amount of alcohol drunk (pilot)
+3859	Reason former drinker stopped drinking alcohol
+10853	Reason former drinker stopped drinking alcohol (pilot)
+100580	Alcohol consumed
+100710	Beer/cider intake
+100720	Fortified wine intake
+100740	Other alcohol intake
+100590	Red wine intake
+100630	Rose wine intake
+20096	Size of red wine glass drunk
+20097	Size of rose wine glass drunk
+20095	Size of white wine glass drunk
+100730	Spirits intake
+100670	White wine intake
+101020	Baguette intake
+101090	Bap intake
+100940	Bread consumed
+101160	Bread roll intake
+102740	Brown rice intake
+101300	Butter/margarine on bread/crackers
+102770	Couscous intake
+101250	Crispbread intake
+101240	Garlic bread intake
+101230	Naan bread intake
+101350	Number of baguettes with butter/margarine
+101390	Number of baps with butter/margarine
+101430	Number of bread rolls with butter/margarine
+101310	Number of bread slices with butter/margarine
+101470	Number of crackers/crispbreads with butter/margarine
+101510	Number of oatcakes with butter/margarine
+101550	Number of other bread types with butter/margarine
+101260	Oatcakes intake
+101270	Other bread intake
+102780	Other grain intake
+100950	Sliced bread intake
+102760	Snackpot intake
+102700	Starchy food consumers
+102750	Sushi intake
+20099	Thickness of butter/margarine spread on baguettes
+20101	Thickness of butter/margarine spread on bread rolls
+20102	Thickness of butter/margarine spread on crackers/crispbreads
+20100	Thickness of butter/margarine spread on large baps
+20103	Thickness of butter/margarine spread on oatcakes
+20104	Thickness of butter/margarine spread on other bread
+20098	Thickness of butter/margarine spread on sliced bread
+20092	Type of baguette eaten
+20094	Type of bread roll eaten
+20093	Type of large bap eaten
+20091	Type of sliced bread eaten
+20087	Types of spread used on bread/crackers
+102710	White pasta intake
+102730	White rice intake
+102720	Wholemeal pasta intake
+100840	Bran cereal intake
+100760	Breakfast cereal consumed
+100880	Dried fruit added to cereal
+100910	Intake of artificial sweetener added to cereal
+100900	Intake of sugar added to cereal
+20105	Liquid used to make porridge
+100890	Milk added to cereal
+100800	Muesli intake
+100810	Oat crunch intake
+100860	Other cereal intake
+100830	Plain cereal intake
+100770	Porridge intake
+100820	Sweetened cereal intake
+100850	Whole-wheat cereal intake
+3680	Age when last ate meat
+1369	Beef intake
+1438	Bread intake
+1448	Bread type
+10776	Bread type/intake (pilot)
+1458	Cereal intake
+1468	Cereal type
+1408	Cheese intake
+1508	Coffee type
+1289	Cooked vegetable intake
+1319	Dried fruit intake
+1309	Fresh fruit intake
+1518	Hot drink temperature
+1379	Lamb/mutton intake
+1538	Major dietary changes in the last 5 years
+1418	Milk type used
+6144	Never eat eggs, dairy, wheat, sugar
+10855	Never eat eggs, dairy, wheat, sugar (pilot)
+2654	Non-butter spread type details
+1339	Non-oily fish intake
+1329	Oily fish intake
+1389	Pork intake
+1359	Poultry intake
+1349	Processed meat intake
+1299	Salad / raw vegetable intake
+1478	Salt added to food
+1428	Spread type
+10767	Spread type (pilot)
+1488	Tea intake
+1548	Variation in diet
+10912	Variation in diet (pilot)
+1528	Water intake
+20080	Day-of-week questionnaire completed
+20079	Day-of-week questionnaire completion requested
+20083	Delay between questionnaire request and completion
+20082	Duration of questionnaire
+20081	Hour-of-day questionnaire completed
+20077	Number of diet questionnaires completed
+105010	When diet questionnaire completed
+20078	When diet questionnaire completion requested
+105030	When diet questionnaire started
+10886	Difference in mobile phone use compared to one year previously (pilot)
+1140	Difference in mobile phone use compared to two years previously
+1130	Hands-free device/speakerphone use with mobile phone in last 3 month
+10105	Internet user (pilot)
+1110	Length of mobile phone use
+2237	Plays computer games
+10016	Regular use of hands-free device/speakerphone with mobile phone (pilot)
+10749	Time using mobile phone in last 3 months (pilot)
+1150	Usual side of head for mobile phone use
+1120	Weekly usage of mobile phone in last 3 months
+10114	Willing to be contacted by email (pilot)
+100022	Alcohol
+100024	Calcium
+100005	Carbohydrate
+100019	Carotene
+100002	Energy
+100009	Englyst dietary fibre
+100004	Fat
+100014	Folate
+100001	Food weight
+100011	Iron
+100017	Magnesium
+100007	Polyunsaturated fat
+100016	Potassium
+100003	Protein
+100018	Retinol
+100006	Saturated fat
+100023	Starch
+100008	Total sugars
+100013	Vitamin B12
+100012	Vitamin B6
+100015	Vitamin C
+100021	Vitamin D
+100025	Vitamin E
+104450	Apple intake
+104100	Avocado intake
+104000	Baked bean intake
+104460	Banana intake
+104130	Beetroot intake
+104470	Berry intake
+104030	Boiled/baked potatoes intake
+104110	Broad bean intake
+104140	Broccoli intake
+104040	Butter/margarine added to potatoes
+104150	Butternut squash intake
+104160	Cabbage/kale intake
+104170	Carrot intake
+104180	Cauliflower intake
+104190	Celery intake
+104480	Cherry intake
+104080	Coleslaw intake
+104200	Courgette intake
+104210	Cucumber intake
+104430	Dried fruit intake
+104340	Fresh tomato intake
+104020	Fried potatoes intake
+104400	Fruit consumers
+104220	Garlic intake
+104500	Grape intake
+104490	Grapefruit intake
+104120	Green bean intake
+104230	Leek intake
+104240	Lettuce intake
+104510	Mango intake
+104050	Mashed potato intake
+104520	Melon intake
+104440	Mixed fruit intake
+104060	Mixed vegetable intake
+104250	Mushroom intake
+104260	Onion intake
+104530	Orange intake
+104590	Other fruit intake
+104380	Other vegetables intake
+104270	Parsnip intake
+104280	Pea intake
+104550	Peach/nectarine intake
+104560	Pear intake
+104570	Pineapple intake
+104580	Plum intake
+104420	Prune intake
+104010	Pulses intake
+104540	Satsuma intake
+104090	Side salad intake
+104300	Spinach intake
+104310	Sprouts intake
+104410	Stewed fruit intake
+104290	Sweet pepper intake
+104330	Sweet potato intake
+104320	Sweetcorn intake
+104350	Tinned tomato intake
+104360	Turnip/swede intake
+103990	Vegetable consumers
+104070	Vegetable pieces intake
+104370	Watercress intake
+100320	Added milk to espresso
+100280	Added milk to filtered coffee
+100260	Added milk to instant coffee
+100350	Added milk to other coffee type
+100480	Added milk to rooibos tea
+100460	Added milk to standard tea
+100290	Cappuccino intake
+100240	Coffee consumed
+100230	Dairy smoothie intake
+100360	Decaffeinated coffee
+100470	Decaffeinated tea
+100150	Drinking water intake
+100310	Espresso intake
+100270	Filtered coffee intake
+100170	Fizzy drink intake
+100530	Flavoured milk intake
+100220	Fruit smoothie intake
+100200	Grapefruit juice intake
+100420	Green tea intake
+100430	Herbal tea intake
+100550	Hot chocolate intake
+100250	Instant coffee intake
+100380	Intake of artificial sweetener added to coffee
+100500	Intake of artificial sweetener added to tea
+100370	Intake of sugar added to coffee
+100490	Intake of sugar added to tea
+100300	Latte intake
+100160	Low calorie drink intake
+100540	Low calorie hot chocolate intake
+100520	Milk intake
+100190	Orange juice intake
+100330	Other coffee type
+100560	Other drink intake
+100510	Other non-alcoholic drinks
+100440	Other tea intake
+100210	Pure fruit/vegetable juice intake
+100410	Rooibos tea intake
+100180	Squash intake
+100400	Standard tea intake
+100390	Tea consumed
+22035	Above moderate/vigorous recommendation
+22036	Above moderate/vigorous/walking recommendation
+22032	IPAQ activity group
+22038	MET minutes per week for moderate activity
+22039	MET minutes per week for vigorous activity
+22037	MET minutes per week for walking
+22033	Summed days activity
+22034	Summed minutes activity
+20089	Type of meals eaten
+103070	Bacon intake
+103180	Battered fish intake
+103020	Beef intake
+103170	Breaded fish intake
+103050	Crumbed or deep-fried poultry intake
+103120	Fat removed from meat
+103140	Fish consumer
+103080	Ham intake
+103040	Lamb intake
+103090	Liver intake
+103210	Lobster/crab intake
+103000	Meat consumers
+103160	Oily fish intake
+103230	Other fish intake
+103100	Other meat intake
+103030	Pork intake
+103060	Poultry intake
+103200	Prawns intake
+103010	Sausage intake
+103220	Shellfish intake
+103130	Skin removed from poultry
+103150	Tinned tuna intake
+103190	White fish intake
+102840	Blue cheese intake
+102800	Cheese consumers
+102860	Cheese spread intake
+102870	Cottage cheese intake
+102930	Egg consumers
+102960	Eggs in sandwiches intake
+102880	Feta intake
+102900	Goat's cheese intake
+102820	Hard cheese intake
+102850	Low fat cheese spread intake
+102810	Low fat hard cheese intake
+102890	Mozzarella intake
+102950	Omelette intake
+102910	Other cheese intake
+102980	Other egg intake
+102970	Scotch egg intake
+102830	Soft cheese intake
+100920	Type milk consumed
+102940	Whole egg intake
+1100	Drive faster than motorway speed limit
+2634	Duration of heavy DIY
+1021	Duration of light DIY
+894	Duration of moderate activity
+10962	Duration of moderate physical activity (pilot)
+3647	Duration of other exercises
+1001	Duration of strenuous sports
+914	Duration of vigorous activity
+10971	Duration of vigorous physical activity (pilot)
+874	Duration of walks
+10953	Duration of walks (pilot)
+981	Duration walking for pleasure
+2624	Frequency of heavy DIY in last 4 weeks
+1011	Frequency of light DIY in last 4 weeks
+3637	Frequency of other exercises in last 4 weeks
+943	Frequency of stair climbing in last 4 weeks
+991	Frequency of strenuous sports in last 4 weeks
+971	Frequency of walking for pleasure in last 4 weeks
+884	Number of days/week of moderate physical activity 10+ minutes
+904	Number of days/week of vigorous physical activity 10+ minutes
+864	Number of days/week walked 10+ minutes
+1090	Time spent driving
+1080	Time spent using computer
+1070	Time spent watching television (TV)
+6164	Types of physical activity in last 4 weeks
+6162	Types of transport used (excluding work)
+924	Usual walking pace
+104920	Time spent doing light physical activity
+104910	Time spent doing moderate physical activity
+104900	Time spent doing vigorous physical activity
+2139	Age first had sexual intercourse
+2129	Answered sexual history questions
+2159	Ever had same-sex intercourse
+3669	Lifetime number of same-sex sexual partners
+2149	Lifetime number of sexual partners
+1220	Daytime dozing / sleeping (narcolepsy)
+1170	Getting up in morning
+1180	Morning/evening person (chronotype)
+1190	Nap during day
+1160	Sleep duration
+1200	Sleeplessness / insomnia
+1210	Snoring
+3436	Age started smoking in current smokers
+2867	Age started smoking in former smokers
+2897	Age stopped smoking
+6194	Age stopped smoking cigarettes (current cigar/pipe or previous cigarette smoker)
+1239	Current tobacco smoking
+20160	Ever smoked
+2907	Ever stopped smoking for 6+ months
+10827	Ever stopped smoking for 6+ months (pilot)
+1269	Exposure to tobacco smoke at home
+1279	Exposure to tobacco smoke outside home
+2644	Light smokers, at least 100 smokes in lifetime
+10895	Light smokers, at least 100 smokes in lifetime (pilot)
+3456	Number of cigarettes currently smoked daily (current cigarette smokers)
+2887	Number of cigarettes previously smoked daily
+6183	Number of cigarettes previously smoked daily (current cigar/pipe smokers)
+2926	Number of unsuccessful stop-smoking attempts
+20162	Pack years adult smoking as proportion of life span exposed to smoking
+20161	Pack years of smoking
+1249	Past tobacco smoking
+5959	Previously smoked cigarettes on most/all days
+3506	Smoking compared to 10 years previous
+20116	Smoking status
+1259	Smoking/smokers in household
+3466	Time from waking to first cigarette
+3446	Type of tobacco currently smoked
+2877	Type of tobacco previously smoked
+6158	Why reduced smoking
+6157	Why stopped smoking
+10115	Why stopped smoking (pilot)
+2110	Able to confide
+1031	Frequency of friend/family visits
+10740	Frequency of friend/family visits (pilot)
+6160	Leisure/social activities
+102190	Cake intake
+102540	Canned soup intake
+102370	Cereal bar intake
+102220	Cheesecake intake
+102480	Cheesy biscuits intake
+102260	Chocolate bar intake
+102350	Chocolate biscuits intake
+102310	Chocolate sweet intake
+102340	Chocolate-covered biscuits intake
+102300	Chocolate-covered raisin intake
+102460	Crisp intake
+102050	Croissant intake
+101990	Crumble intake
+102060	Danish pastry intake
+102290	Dark chocolate intake
+102130	Dessert consumers
+102320	Diet sweets intake
+101970	Double crust pastry intake
+102200	Doughnut intake
+102180	Fruitcake intake
+102620	Homemade soup intake
+102120	Ice-cream intake
+102040	Indian snacks intake
+20108	Ingredients in canned soup
+20109	Ingredients in homemade soup
+102280	Milk chocolate intake
+102140	Milk-based pudding intake
+102490	Olives intake
+102230	Other dessert intake
+102150	Other milk-based pudding intake
+102500	Other savoury snack intake
+102380	Other sweets intake
+102010	Pancake intake
+102000	Pizza intake
+102530	Powdered/instant soup intake
+102430	Salted nuts intake
+102410	Salted peanuts intake
+102470	Savoury biscuits intake
+102400	Savoury snack consumers
+102070	Scone intake
+102020	Scotch pancake intake
+102450	Seeds intake
+101980	Single crust pastry intake
+102520	Soup consumers
+102170	Soya dessert intake
+102210	Sponge pudding intake
+102360	Sweet biscuits intake
+102250	Sweet snack consumers
+102330	Sweets intake
+20106	Type of yogurt eaten
+102440	Unsalted nuts intake
+102420	Unsalted peanuts intake
+102270	White chocolate intake
+102090	Yogurt intake
+102080	Yogurt/ice-cream consumers
+102030	Yorkshire pudding intake
+1737	Childhood sunburn occasions
+1727	Ease of skin tanning
+1757	Facial ageing
+2277	Frequency of solarium/sunlamp use
+1747	Hair colour (natural, before greying)
+1717	Skin colour
+1050	Time spend outdoors in summer
+1060	Time spent outdoors in winter
+2267	Use of sun/uv protection
+100010	Portion size
+20085	Reason for not eating or drinking normally
+20086	Type of special diet followed
+100020	Typical diet yesterday
+103290	Other vegetarian alternative intake
+103280	Quorn intake
+103270	Tofu intake
+103260	Vegetarian sausages/burgers intake
+20084	Vitamin and/or mineral supplement use
+104670	Vitamin supplement user

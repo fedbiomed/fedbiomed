@@ -1,0 +1,3 @@
+Coding	Meaning
+0	No, not ticked
+1	Yes, ticked

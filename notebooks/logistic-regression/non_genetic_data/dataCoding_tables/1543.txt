@@ -1,0 +1,4 @@
+Coding	Meaning
+2	highly myopic
+1	moderate/low myopia
+0	non-myopic

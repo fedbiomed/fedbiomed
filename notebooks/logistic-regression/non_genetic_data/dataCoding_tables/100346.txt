@@ -1,0 +1,7 @@
+Coding	Meaning
+0	Never/rarely
+1	Sometimes
+2	Often
+-1	Do not know
+-3	Prefer not to answer
+3	All of the time

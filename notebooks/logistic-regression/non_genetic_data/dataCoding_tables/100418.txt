@@ -1,0 +1,8 @@
+Coding	Meaning
+1	Illness or ill health
+2	Doctor's advice
+3	Health precaution
+4	Financial reasons
+5	Other reason
+-1	Do not know
+-3	Prefer not to answer

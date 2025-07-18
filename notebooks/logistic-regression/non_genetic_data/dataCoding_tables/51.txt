@@ -1,0 +1,12 @@
+Coding	Meaning	Node	Parent
+100	Declined	100	Top
+101	Against participant wishes	101	100
+102	Lack of time	102	100
+103	Feeling unwell	103	100
+200	Equipment failure	200	Top
+201	Malfunction	201	200
+202	Not available	202	200
+400	Unable	400	Top
+405	Other health reason	405	400
+422	False Nails/varnish	422	400
+423	Insuffient pulse/signal	423	400

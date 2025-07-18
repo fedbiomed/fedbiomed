@@ -1,0 +1,8 @@
+Coding	Meaning
+1	Never/rarely
+2	Sometimes
+3	Often
+4	Most of the time
+5	Do not drive on the motorway
+-1	Do not know
+-3	Prefer not to answer

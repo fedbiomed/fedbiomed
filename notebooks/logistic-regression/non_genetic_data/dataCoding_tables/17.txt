@@ -1,0 +1,2 @@
+Coding	Meaning
+-1	Next button not pressed

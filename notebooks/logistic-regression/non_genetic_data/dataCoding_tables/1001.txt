@@ -1,0 +1,23 @@
+Coding	Meaning	Node	Parent
+1	White	1	Top
+1001	British	1001	1
+2001	White and Black Caribbean	2001	2
+3001	Indian	3001	3
+4001	Caribbean	4001	4
+2	Mixed	2	Top
+1002	Irish	1002	1
+2002	White and Black African	2002	2
+3002	Pakistani	3002	3
+4002	African	4002	4
+3	Asian or Asian British	3	Top
+1003	Any other white background	1003	1
+2003	White and Asian	2003	2
+3003	Bangladeshi	3003	3
+4003	Any other Black background	4003	4
+4	Black or Black British	4	Top
+2004	Any other mixed background	2004	2
+3004	Any other Asian background	3004	3
+5	Chinese	5	Top
+6	Other ethnic group	6	Top
+-1	Do not know	-1	Top
+-3	Prefer not to answer	-3	Top

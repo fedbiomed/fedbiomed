@@ -1,0 +1,575 @@
+data_field	col_start	col_end	data_type	data_coding	field_name
+90027	16554	16554	Continuous	0	Average acceleration 00:00 - 00:59
+90028	16555	16555	Continuous	0	Average acceleration 01:00 - 01:59
+90029	16556	16556	Continuous	0	Average acceleration 02:00 - 02:59
+90030	16557	16557	Continuous	0	Average acceleration 03:00 - 03:59
+90031	16558	16558	Continuous	0	Average acceleration 04:00 - 04:59
+90032	16559	16559	Continuous	0	Average acceleration 05:00 - 05:59
+90033	16560	16560	Continuous	0	Average acceleration 06:00 - 06:59
+90034	16561	16561	Continuous	0	Average acceleration 07:00 - 07:59
+90035	16562	16562	Continuous	0	Average acceleration 08:00 - 08:59
+90036	16563	16563	Continuous	0	Average acceleration 09:00 - 09:59
+90037	16564	16564	Continuous	0	Average acceleration 10:00 - 10:59
+90038	16565	16565	Continuous	0	Average acceleration 11:00 - 11:59
+90039	16566	16566	Continuous	0	Average acceleration 12:00 - 12:59
+90040	16567	16567	Continuous	0	Average acceleration 13:00 - 13:59
+90041	16568	16568	Continuous	0	Average acceleration 14:00 - 14:59
+90042	16569	16569	Continuous	0	Average acceleration 15:00 - 15:59
+90043	16570	16570	Continuous	0	Average acceleration 16:00 - 16:59
+90044	16571	16571	Continuous	0	Average acceleration 17:00 - 17:59
+90045	16572	16572	Continuous	0	Average acceleration 18:00 - 18:59
+90046	16573	16573	Continuous	0	Average acceleration 19:00 - 19:59
+90047	16574	16574	Continuous	0	Average acceleration 20:00 - 20:59
+90048	16575	16575	Continuous	0	Average acceleration 21:00 - 21:59
+90049	16576	16576	Continuous	0	Average acceleration 22:00 - 22:59
+90050	16577	16577	Continuous	0	Average acceleration 23:00 - 23:59
+90023	16550	16550	Continuous	0	Friday average acceleration
+90019	16546	16546	Continuous	0	Monday average acceleration
+90091	16618	16618	Continuous	0	No-wear time bias adjusted acceleration maximum
+90089	16616	16616	Continuous	0	No-wear time bias adjusted acceleration median
+90090	16617	16617	Continuous	0	No-wear time bias adjusted acceleration minimum
+90088	16615	16615	Continuous	0	No-wear time bias adjusted acceleration standard deviation
+90087	16614	16614	Continuous	0	No-wear time bias adjusted average acceleration
+90012	16540	16540	Continuous	0	Overall acceleration average
+90024	16551	16551	Continuous	0	Saturday average acceleration
+90013	16541	16541	Continuous	0	Standard deviation of acceleration
+90025	16552	16552	Continuous	0	Sunday average acceleration
+90022	16549	16549	Continuous	0	Thursday average acceleration
+90020	16547	16547	Continuous	0	Tuesday average acceleration
+90021	16548	16548	Continuous	0	Wednesday average acceleration
+90092	16619	16619	Continuous	0	Fraction acceleration <= 1 milli-gravities
+90101	16628	16628	Continuous	0	Fraction acceleration <= 10 milli-gravities
+90127	16654	16654	Continuous	0	Fraction acceleration <= 100 milli-gravities
+90148	16675	16675	Continuous	0	Fraction acceleration <= 1000 milli-gravities
+90102	16629	16629	Continuous	0	Fraction acceleration <= 11 milli-gravities
+90149	16676	16676	Continuous	0	Fraction acceleration <= 1100 milli-gravities
+90103	16630	16630	Continuous	0	Fraction acceleration <= 12 milli-gravities
+90150	16677	16677	Continuous	0	Fraction acceleration <= 1200 milli-gravities
+90128	16655	16655	Continuous	0	Fraction acceleration <= 125 milli-gravities
+90104	16631	16631	Continuous	0	Fraction acceleration <= 13 milli-gravities
+90151	16678	16678	Continuous	0	Fraction acceleration <= 1300 milli-gravities
+90105	16632	16632	Continuous	0	Fraction acceleration <= 14 milli-gravities
+90152	16679	16679	Continuous	0	Fraction acceleration <= 1400 milli-gravities
+90106	16633	16633	Continuous	0	Fraction acceleration <= 15 milli-gravities
+90129	16656	16656	Continuous	0	Fraction acceleration <= 150 milli-gravities
+90153	16680	16680	Continuous	0	Fraction acceleration <= 1500 milli-gravities
+90107	16634	16634	Continuous	0	Fraction acceleration <= 16 milli-gravities
+90154	16681	16681	Continuous	0	Fraction acceleration <= 1600 milli-gravities
+90108	16635	16635	Continuous	0	Fraction acceleration <= 17 milli-gravities
+90155	16682	16682	Continuous	0	Fraction acceleration <= 1700 milli-gravities
+90130	16657	16657	Continuous	0	Fraction acceleration <= 175 milli-gravities
+90109	16636	16636	Continuous	0	Fraction acceleration <= 18 milli-gravities
+90156	16683	16683	Continuous	0	Fraction acceleration <= 1800 milli-gravities
+90110	16637	16637	Continuous	0	Fraction acceleration <= 19 milli-gravities
+90157	16684	16684	Continuous	0	Fraction acceleration <= 1900 milli-gravities
+90093	16620	16620	Continuous	0	Fraction acceleration <= 2 milli-gravities
+90111	16638	16638	Continuous	0	Fraction acceleration <= 20 milli-gravities
+90131	16658	16658	Continuous	0	Fraction acceleration <= 200 milli-gravities
+90158	16685	16685	Continuous	0	Fraction acceleration <= 2000 milli-gravities
+90132	16659	16659	Continuous	0	Fraction acceleration <= 225 milli-gravities
+90112	16639	16639	Continuous	0	Fraction acceleration <= 25 milli-gravities
+90133	16660	16660	Continuous	0	Fraction acceleration <= 250 milli-gravities
+90134	16661	16661	Continuous	0	Fraction acceleration <= 275 milli-gravities
+90094	16621	16621	Continuous	0	Fraction acceleration <= 3 milli-gravities
+90113	16640	16640	Continuous	0	Fraction acceleration <= 30 milli-gravities
+90135	16662	16662	Continuous	0	Fraction acceleration <= 300 milli-gravities
+90136	16663	16663	Continuous	0	Fraction acceleration <= 325 milli-gravities
+90114	16641	16641	Continuous	0	Fraction acceleration <= 35 milli-gravities
+90137	16664	16664	Continuous	0	Fraction acceleration <= 350 milli-gravities
+90138	16665	16665	Continuous	0	Fraction acceleration <= 375 milli-gravities
+90095	16622	16622	Continuous	0	Fraction acceleration <= 4 milli-gravities
+90115	16642	16642	Continuous	0	Fraction acceleration <= 40 milli-gravities
+90139	16666	16666	Continuous	0	Fraction acceleration <= 400 milli-gravities
+90140	16667	16667	Continuous	0	Fraction acceleration <= 425 milli-gravities
+90116	16643	16643	Continuous	0	Fraction acceleration <= 45 milli-gravities
+90141	16668	16668	Continuous	0	Fraction acceleration <= 450 milli-gravities
+90142	16669	16669	Continuous	0	Fraction acceleration <= 475 milli-gravities
+90096	16623	16623	Continuous	0	Fraction acceleration <= 5 milli-gravities
+90117	16644	16644	Continuous	0	Fraction acceleration <= 50 milli-gravities
+90143	16670	16670	Continuous	0	Fraction acceleration <= 500 milli-gravities
+90118	16645	16645	Continuous	0	Fraction acceleration <= 55 milli-gravities
+90097	16624	16624	Continuous	0	Fraction acceleration <= 6 milli-gravities
+90119	16646	16646	Continuous	0	Fraction acceleration <= 60 milli-gravities
+90144	16671	16671	Continuous	0	Fraction acceleration <= 600 milli-gravities
+90120	16647	16647	Continuous	0	Fraction acceleration <= 65 milli-gravities
+90098	16625	16625	Continuous	0	Fraction acceleration <= 7 milli-gravities
+90121	16648	16648	Continuous	0	Fraction acceleration <= 70 milli-gravities
+90145	16672	16672	Continuous	0	Fraction acceleration <= 700 milli-gravities
+90122	16649	16649	Continuous	0	Fraction acceleration <= 75 milli-gravities
+90099	16626	16626	Continuous	0	Fraction acceleration <= 8 milli-gravities
+90123	16650	16650	Continuous	0	Fraction acceleration <= 80 milli-gravities
+90146	16673	16673	Continuous	0	Fraction acceleration <= 800 milli-gravities
+90124	16651	16651	Continuous	0	Fraction acceleration <= 85 milli-gravities
+90100	16627	16627	Continuous	0	Fraction acceleration <= 9 milli-gravities
+90125	16652	16652	Continuous	0	Fraction acceleration <= 90 milli-gravities
+90147	16674	16674	Continuous	0	Fraction acceleration <= 900 milli-gravities
+90126	16653	16653	Continuous	0	Fraction acceleration <= 95 milli-gravities
+90173	16700	16700	Continuous	0	Calibration - maximum x stationary value
+90175	16702	16702	Continuous	0	Calibration - maximum y stationary value
+90177	16704	16704	Continuous	0	Calibration - maximum z stationary value
+90172	16699	16699	Continuous	0	Calibration - minimum x stationary value
+90174	16701	16701	Continuous	0	Calibration - minimum y stationary value
+90176	16703	16703	Continuous	0	Calibration - minimum z stationary value
+90171	16698	16698	Integer	0	Calibration - number of static points
+90170	16697	16697	Continuous	0	Calibration coefficients - mean temperature
+90161	16688	16688	Continuous	0	Calibration coefficients - x offset
+90164	16691	16691	Continuous	0	Calibration coefficients - x slope
+90167	16694	16694	Continuous	0	Calibration coefficients - x temp
+90162	16689	16689	Continuous	0	Calibration coefficients - y offset
+90165	16692	16692	Continuous	0	Calibration coefficients - y slope
+90168	16695	16695	Continuous	0	Calibration coefficients - y temp
+90163	16690	16690	Continuous	0	Calibration coefficients - z offset
+90166	16693	16693	Continuous	0	Calibration coefficients - z slope
+90169	16696	16696	Continuous	0	Calibration coefficients - z temp
+90017	16544	16544	Categorical (single)	7	Data quality, calibrated on own data
+90016	16543	16543	Categorical (single)	7	Data quality, good calibration
+90160	16687	16687	Continuous	0	Error tolerance after calibration
+90159	16686	16686	Continuous	0	Error tolerance before calibration
+90015	16542	16542	Categorical (single)	7	Data quality, good wear time
+90018	16545	16545	Categorical (single)	7	Daylight savings crossover
+90011	16539	16539	Time	0	End time of wear
+90026	16553	16553	Categorical (single)	777	First weekday of wear
+90052	16579	16579	Continuous	0	Non wear duration overall
+90086	16613	16613	Integer	0	Non wear episodes over 1 hour duration
+90003	16536	16536	Time	0	Start of requested wear period
+90010	16538	16538	Time	0	Start time of wear
+90084	16611	16611	Integer	0	Unique hours of wear in a 24 hour cycle (scattered over multiple days)
+90085	16612	16612	Integer	0	Unique minutes of wear in a 24 hour cycle (scattered over multiple days)
+90060	16587	16587	Continuous	0	Wear duration during 00:00 - 00:59
+90061	16588	16588	Continuous	0	Wear duration during 01:00 - 01:59
+90062	16589	16589	Continuous	0	Wear duration during 02:00 - 02:59
+90063	16590	16590	Continuous	0	Wear duration during 03:00 - 03:59
+90064	16591	16591	Continuous	0	Wear duration during 04:00 - 04:59
+90065	16592	16592	Continuous	0	Wear duration during 05:00 - 05:59
+90066	16593	16593	Continuous	0	Wear duration during 06:00 - 06:59
+90067	16594	16594	Continuous	0	Wear duration during 07:00 - 07:59
+90068	16595	16595	Continuous	0	Wear duration during 08:00 - 08:59
+90069	16596	16596	Continuous	0	Wear duration during 09:00 - 09:59
+90070	16597	16597	Continuous	0	Wear duration during 10:00 - 10:59
+90071	16598	16598	Continuous	0	Wear duration during 11:00 - 11:59
+90072	16599	16599	Continuous	0	Wear duration during 12:00 - 12:59
+90073	16600	16600	Continuous	0	Wear duration during 13:00 - 13:59
+90074	16601	16601	Continuous	0	Wear duration during 14:00 - 14:59
+90075	16602	16602	Continuous	0	Wear duration during 15:00 - 15:59
+90076	16603	16603	Continuous	0	Wear duration during 16:00 - 16:59
+90077	16604	16604	Continuous	0	Wear duration during 17:00 - 17:59
+90078	16605	16605	Continuous	0	Wear duration during 18:00 - 18:59
+90079	16606	16606	Continuous	0	Wear duration during 19:00 - 19:59
+90080	16607	16607	Continuous	0	Wear duration during 20:00 - 20:59
+90081	16608	16608	Continuous	0	Wear duration during 21:00 - 21:59
+90082	16609	16609	Continuous	0	Wear duration during 22:00 - 22:59
+90083	16610	16610	Continuous	0	Wear duration during 23:00 - 23:59
+90057	16584	16584	Continuous	0	Wear duration during Friday
+90053	16580	16580	Continuous	0	Wear duration during Monday
+90058	16585	16585	Continuous	0	Wear duration during Saturday
+90059	16586	16586	Continuous	0	Wear duration during Sunday
+90056	16583	16583	Continuous	0	Wear duration during Thursday
+90054	16581	16581	Continuous	0	Wear duration during Tuesday
+90055	16582	16582	Continuous	0	Wear duration during Wednesday
+90051	16578	16578	Continuous	0	Wear duration overall
+4204	1711	1714	Categorical (single)	12	Absence of notch position in the pulse waveform
+4136	1639	1642	Text	0	Arterial pulse-wave stiffness device ID
+4206	1719	1722	Text	0	Arterial stiffness device ID
+4199	1703	1706	Integer	0	Position of pulse wave notch
+4198	1699	1702	Integer	0	Position of the pulse wave peak
+4200	1707	1710	Integer	0	Position of the shoulder on the pulse waveform
+4194	1687	1690	Integer	0	Pulse rate
+21021	9794	9797	Continuous	0	Pulse wave Arterial Stiffness index
+4196	1695	1698	Integer	0	Pulse wave peak to peak time
+4205	1715	1718	Curve	0	Pulse wave pressure versus time response curve
+4195	1691	1694	Integer	0	Pulse wave reflection index
+4207	1723	1726	Continuous	0	Pulse wave velocity (manual entry)
+20051	8056	8056	Categorical (single)	51	Reason for skipping arterial stiffness
+4186	1683	1686	Categorical (single)	100263	Stiffness method
+5111	3699	3710	Integer	0	3mm asymmetry angle (left)
+5108	3663	3674	Integer	0	3mm asymmetry angle (right)
+5156	4035	4046	Continuous	0	3mm asymmetry index (left)
+5159	4071	4082	Continuous	0	3mm asymmetry index (right)
+5155	4023	4034	Categorical (single)	33	3mm asymmetry index for irregular astigmatism level (left)
+5152	4011	4022	Categorical (single)	33	3mm asymmetry index for irregular astigmatism level (right)
+5141	3903	3914	Categorical (single)	1207	3mm asymmetry index unreliable (left)
+5144	3939	3950	Categorical (single)	1207	3mm asymmetry index unreliable (right)
+5119	3795	3806	Continuous	0	3mm cylindrical power (left)
+5116	3759	3770	Continuous	0	3mm cylindrical power (right)
+5112	3711	3722	Integer	0	3mm cylindrical power angle (left)
+5115	3747	3758	Integer	0	3mm cylindrical power angle (right)
+5292	4239	4240	Integer	0	3mm index of best keratometry results (left)
+5237	4201	4202	Integer	0	3mm index of best keratometry results (right)
+5136	3855	3866	Categorical (single)	1205	3mm keratometry result unreliable (left)
+5140	3891	3902	Categorical (single)	1205	3mm keratometry result unreliable (right)
+5163	4119	4130	Continuous	0	3mm regularity index (left)
+5160	4083	4094	Continuous	0	3mm regularity index (right)
+5149	3999	4010	Categorical (single)	33	3mm regularity index for irregular astigmatism level (left)
+5164	4131	4142	Categorical (single)	33	3mm regularity index for irregular astigmatism level (right)
+5148	3987	3998	Categorical (single)	1210	3mm regularity index unreliable (left)
+5145	3951	3962	Categorical (single)	1209	3mm regularity index unreliable (right)
+5135	3843	3854	Continuous	0	3mm strong meridian (left)
+5132	3807	3818	Continuous	0	3mm strong meridian (right)
+5104	3627	3638	Integer	0	3mm strong meridian angle (left)
+5107	3651	3662	Integer	0	3mm strong meridian angle (right)
+5096	3531	3542	Continuous	0	3mm weak meridian (left)
+5099	3567	3578	Continuous	0	3mm weak meridian (right)
+5103	3615	3626	Integer	0	3mm weak meridian angle (left)
+5100	3579	3590	Integer	0	3mm weak meridian angle (right)
+5110	3687	3698	Integer	0	6mm asymmetry angle (left)
+5109	3675	3686	Integer	0	6mm asymmetry angle (right)
+5157	4047	4058	Continuous	0	6mm asymmetry index (left)
+5158	4059	4070	Continuous	0	6mm asymmetry index (right)
+5142	3915	3926	Categorical (single)	1208	6mm asymmetry index unreliable (left)
+5143	3927	3938	Categorical (single)	1208	6mm asymmetry index unreliable (right)
+5118	3783	3794	Continuous	0	6mm cylindrical power (left)
+5117	3771	3782	Continuous	0	6mm cylindrical power (right)
+5113	3723	3734	Integer	0	6mm cylindrical power angle (left)
+5114	3735	3746	Integer	0	6mm cylindrical power angle (right)
+5306	4241	4242	Integer	0	6mm index of best keratometry results (left)
+5251	4203	4204	Integer	0	6mm index of best keratometry results (right)
+5138	3867	3878	Categorical (single)	1206	6mm keratometry result unreliable (left)
+5139	3879	3890	Categorical (single)	1206	6mm keratometry result unreliable (right)
+5162	4107	4118	Continuous	0	6mm regularity index (left)
+5161	4095	4106	Continuous	0	6mm regularity index (right)
+5147	3975	3986	Categorical (single)	1210	6mm regularity index unreliable (left)
+5146	3963	3974	Categorical (single)	1209	6mm regularity index unreliable (right)
+5134	3831	3842	Continuous	0	6mm strong meridian (left)
+5133	3819	3830	Continuous	0	6mm strong meridian (right)
+5106	3639	3650	Integer	0	6mm strong meridian angle (right)
+5097	3543	3554	Continuous	0	6mm weak meridian (left)
+5098	3555	3566	Continuous	0	6mm weak meridian (right)
+5102	3603	3614	Integer	0	6mm weak meridian angle (left)
+5101	3591	3602	Integer	0	6mm weak meridian angle (right)
+5089	3479	3498	Integer	0	Astigmatism angle (left)
+5088	3459	3478	Integer	0	Astigmatism angle (right)
+5191	4161	4162	Categorical (single)	100274	Auto-refraction method (left)
+5189	4157	4158	Categorical (single)	100274	Auto-refraction method (right)
+5273	4233	4234	Text	0	Auto-refractor device ID (left)
+5214	4195	4196	Text	0	Auto-refractor device ID (right)
+5086	3419	3438	Continuous	0	Cylindrical power (left)
+5087	3439	3458	Continuous	0	Cylindrical power (right)
+5193	4163	4164	Integer	0	Duration at which refractometer first shown (left)
+5190	4159	4160	Integer	0	Duration at which refractometer first shown (right)
+5276	4237	4238	Integer	0	Index of best refractometry result (left)
+5221	4199	4200	Integer	0	Index of best refractometry result (right)
+20052	8057	8057	Categorical (single)	54	Reason for skipping refractometry (left)
+20055	8060	8060	Categorical (single)	54	Reason for skipping refractometry (right)
+5090	3499	3516	Categorical (single)	1204	Refractometry result unreliable (left)
+5091	3517	3530	Categorical (single)	1204	Refractometry result unreliable (right)
+5085	3399	3418	Continuous	0	Spherical power (left)
+5084	3379	3398	Continuous	0	Spherical power (right)
+5274	4235	4236	Continuous	0	Vertex distance (left)
+5215	4197	4198	Continuous	0	Vertex distance (right)
+36	24	27	Text	0	Blood pressure device ID
+37	28	31	Text	0	Blood pressure manual sphygmomanometer device ID
+4079	1551	1558	Integer	0	Diastolic blood pressure, automated reading
+94	399	406	Integer	0	Diastolic blood pressure, manual reading
+4081	1567	1574	Categorical (single)	100259	Method of measuring blood pressure
+95	407	414	Integer	0	Pulse rate (during blood-pressure measurement)
+102	423	430	Integer	0	Pulse rate, automated reading
+4080	1559	1566	Integer	0	Systolic blood pressure, automated reading
+93	391	398	Integer	0	Systolic blood pressure, manual reading
+96	415	422	Integer	0	Time since interview start at which blood pressure screen(s) shown
+23124	11715	11718	Continuous	0	Arm fat mass (left)
+23120	11699	11702	Continuous	0	Arm fat mass (right)
+23123	11711	11714	Continuous	0	Arm fat percentage (left)
+23119	11695	11698	Continuous	0	Arm fat percentage (right)
+23125	11719	11722	Continuous	0	Arm fat-free mass (left)
+23121	11703	11706	Continuous	0	Arm fat-free mass (right)
+23126	11723	11726	Continuous	0	Arm predicted mass (left)
+23122	11707	11710	Continuous	0	Arm predicted mass (right)
+23099	11623	11626	Continuous	0	Body fat percentage
+23104	11639	11642	Continuous	0	Body mass index (BMI)
+43	52	55	Text	0	Impedance device ID
+23110	11659	11662	Continuous	0	Impedance of arm (left)
+23109	11655	11658	Continuous	0	Impedance of arm (right)
+6222	6351	6353	Integer	0	Impedance of arm, manual entry (left)
+6221	6348	6350	Integer	0	Impedance of arm, manual entry (right)
+23108	11651	11654	Continuous	0	Impedance of leg (left)
+23107	11647	11650	Continuous	0	Impedance of leg (right)
+6220	6345	6347	Integer	0	Impedance of leg, manual entry (left)
+6219	6342	6344	Integer	0	Impedance of leg, manual entry (right)
+23106	11643	11646	Continuous	0	Impedance of whole body
+6218	6339	6341	Integer	0	Impedance of whole body, manual entry
+23116	11683	11686	Continuous	0	Leg fat mass (left)
+23112	11667	11670	Continuous	0	Leg fat mass (right)
+23115	11679	11682	Continuous	0	Leg fat percentage (left)
+23111	11663	11666	Continuous	0	Leg fat percentage (right)
+23117	11687	11690	Continuous	0	Leg fat-free mass (left)
+23113	11671	11674	Continuous	0	Leg fat-free mass (right)
+23118	11691	11694	Continuous	0	Leg predicted mass (left)
+23114	11675	11678	Continuous	0	Leg predicted mass (right)
+23128	11731	11734	Continuous	0	Trunk fat mass
+23127	11727	11730	Continuous	0	Trunk fat percentage
+23129	11735	11738	Continuous	0	Trunk fat-free mass
+23130	11739	11742	Continuous	0	Trunk predicted mass
+23098	11619	11622	Continuous	0	Weight
+23100	11627	11630	Continuous	0	Whole body fat mass
+23101	11631	11634	Continuous	0	Whole body fat-free mass
+23102	11635	11638	Continuous	0	Whole body water mass
+21001	9750	9753	Continuous	0	Body mass index (BMI)
+12144	6459	6460	Integer	0	Height
+39	36	39	Text	0	Height measure device ID
+49	76	79	Continuous	0	Hip circumference
+40	40	43	Text	0	Manual scales device ID
+20046	8053	8053	Categorical (single)	47	Reason for skipping hip measurement
+20048	8055	8055	Categorical (single)	47	Reason for skipping sitting height
+20047	8054	8054	Categorical (single)	47	Reason for skipping standing height
+20045	8052	8052	Categorical (single)	47	Reason for skipping waist
+20041	8048	8048	Categorical (single)	47	Reason for skipping weight
+51	84	87	Continuous	0	Seated height
+41	44	47	Text	0	Seating box device ID
+3077	1301	1304	Categorical (single)	100262	Seating box height
+20015	8017	8020	Continuous	0	Sitting height
+50	80	83	Continuous	0	Standing height
+44	56	59	Text	0	Tape measure device ID
+48	72	75	Continuous	0	Waist circumference
+21002	9754	9757	Continuous	0	Weight
+12143	6457	6458	Integer	0	Weight (pre-imaging)
+21	18	21	Categorical (single)	100261	Weight method
+3160	1348	1351	Continuous	0	Weight, manual entry
+3143	1339	1339	Continuous	0	Ankle spacing width
+4100	1591	1594	Continuous	0	Ankle spacing width (left)
+4119	1615	1618	Continuous	0	Ankle spacing width (right)
+3081	1309	1309	Categorical (single)	24	Foot measured for bone density
+3082	1310	1310	Categorical (single)	100267	Fractured heel
+4093	1579	1582	Categorical (single)	27	Fractured heel (left)
+4096	1587	1590	Categorical (single)	27	Fractured heel (right)
+3085	1313	1313	Continuous	0	Heel Broadband ultrasound attenuation (BUA), manual entry
+3144	1340	1340	Continuous	0	Heel Broadband ultrasound attenuation, direct entry
+3148	1343	1343	Continuous	0	Heel bone mineral density (BMD)
+4105	1607	1610	Continuous	0	Heel bone mineral density (BMD) (left)
+4124	1631	1634	Continuous	0	Heel bone mineral density (BMD) (right)
+78	102	102	Continuous	0	Heel bone mineral density (BMD) T-score, automated
+4106	1611	1614	Continuous	0	Heel bone mineral density (BMD) T-score, automated (left)
+4125	1635	1638	Continuous	0	Heel bone mineral density (BMD) T-score, automated (right)
+4138	1643	1646	Continuous	0	Heel bone mineral density (BMD) T-score, manual entry (left)
+4143	1663	1666	Continuous	0	Heel bone mineral density (BMD) T-score, manual entry (right)
+3084	1312	1312	Continuous	0	Heel bone mineral density (BMD), manual entry
+4140	1651	1654	Continuous	0	Heel bone mineral density (BMD), manual entry (left)
+4145	1671	1674	Continuous	0	Heel bone mineral density (BMD), manual entry (right)
+77	101	101	Continuous	0	Heel bone ultrasound T-score, manual entry
+4141	1655	1658	Continuous	0	Heel broadband ultrasound attenuation (BUA), manual entry (left)
+4146	1675	1678	Continuous	0	Heel broadband ultrasound attenuation (BUA), manual entry (right)
+4101	1595	1598	Continuous	0	Heel broadband ultrasound attenuation (left)
+4120	1619	1622	Continuous	0	Heel broadband ultrasound attenuation (right)
+3147	1342	1342	Continuous	0	Heel quantitative ultrasound index (QUI), direct entry
+4104	1603	1606	Continuous	0	Heel quantitative ultrasound index (QUI), direct entry (left)
+4123	1627	1630	Continuous	0	Heel quantitative ultrasound index (QUI), direct entry (right)
+3083	1311	1311	Continuous	0	Heel quantitative ultrasound index (QUI), manual entry
+4139	1647	1650	Continuous	0	Heel quantitative ultrasound index (QUI), manual entry (left)
+4144	1667	1670	Continuous	0	Heel quantitative ultrasound index (QUI), manual entry (right)
+45	60	63	Text	0	Heel ultrasound device id
+19	17	17	Categorical (single)	100260	Heel ultrasound method
+4092	1575	1578	Categorical (single)	100260	Heel ultrasound method (left)
+4095	1583	1586	Categorical (single)	100260	Heel ultrasound method (right)
+3146	1341	1341	Continuous	0	Speed of sound through heel
+4103	1599	1602	Continuous	0	Speed of sound through heel (left)
+4122	1623	1626	Continuous	0	Speed of sound through heel (right)
+3086	1314	1314	Continuous	0	Speed of sound through heel, manual entry
+4142	1659	1662	Continuous	0	Speed of sound through heel, manual entry (left)
+4147	1679	1682	Continuous	0	Speed of sound through heel, manual entry (right)
+12292	6475	6476	Categorical (single)	7	Carotid ultrasound measurement completed
+12291	6473	6474	Categorical (single)	470	Carotid ultrasound measuring method
+22672	11406	11407	Continuous	909	Maximum carotid IMT (intima-medial thickness) at 120 degrees
+22675	11412	11413	Continuous	909	Maximum carotid IMT (intima-medial thickness) at 150 degrees
+22678	11418	11419	Continuous	909	Maximum carotid IMT (intima-medial thickness) at 210 degrees
+22681	11424	11425	Continuous	909	Maximum carotid IMT (intima-medial thickness) at 240 degrees
+22671	11404	11405	Continuous	909	Mean carotid IMT (intima-medial thickness) at 120 degrees
+22674	11410	11411	Continuous	909	Mean carotid IMT (intima-medial thickness) at 150 degrees
+22677	11416	11417	Continuous	909	Mean carotid IMT (intima-medial thickness) at 210 degrees
+22680	11422	11423	Continuous	909	Mean carotid IMT (intima-medial thickness) at 240 degrees
+22670	11402	11403	Continuous	909	Minimum carotid IMT (intima-medial thickness) at 120 degrees
+22673	11408	11409	Continuous	909	Minimum carotid IMT (intima-medial thickness) at 150 degrees
+22676	11414	11415	Continuous	909	Minimum carotid IMT (intima-medial thickness) at 210 degrees
+22679	11420	11421	Continuous	909	Minimum carotid IMT (intima-medial thickness) at 240 degrees
+22682	11426	11426	Categorical (single)	55	Quality control indicator for IMT at 120 degrees
+22683	11427	11427	Categorical (single)	55	Quality control indicator for IMT at 150 degrees
+22684	11428	11428	Categorical (single)	55	Quality control indicator for IMT at 210 degrees
+22685	11429	11429	Categorical (single)	55	Quality control indicator for IMT at 240 degrees
+12323	6477	6478	Categorical (single)	470	12-lead ECG measuring method
+12653	6489	6518	Text	0	ECG automated diagnoses
+12658	6522	6523	Text	0	Identifier for 12-lead ECG device
+12654	6519	6520	Integer	0	Number of automated diagnostic comments recorded during 12-lead ECG
+22335	10106	10106	Integer	0	P axis
+12338	6481	6482	Integer	0	P duration
+22334	10105	10105	Integer	0	PP interval
+22330	10101	10101	Integer	0	PQ interval
+12340	6483	6484	Integer	0	QRS duration
+22338	10109	10109	Integer	0	QRS num
+22331	10102	10102	Integer	0	QT interval
+22332	10103	10103	Integer	0	QTC interval
+22336	10107	10107	Integer	0	R axis
+22333	10104	10104	Integer	0	RR interval
+12657	6521	6521	Integer	0	Suspicious flag for 12-lead ECG
+22337	10108	10108	Integer	0	T axis
+12336	6479	6480	Integer	0	Ventricular rate
+6017	5761	5762	Categorical (single)	100267	Able to walk or cycle unaided for 10 minutes
+5985	4825	5052	Integer	0	Bicycle speed
+6015	5757	5758	Categorical (single)	100267	Chest pain felt during physical activity
+6016	5759	5760	Categorical (single)	100267	Chest pain felt outside physical activity
+6020	5765	5766	Categorical (single)	100257	Completion status of test
+6023	5769	5770	Text	0	Description of exercise protocol recommended
+6014	5755	5756	Categorical (single)	100267	Doctor restricts physical activity due to heart condition
+6039	5781	5782	Integer	0	Duration of fitness test
+5983	4373	4596	Integer	0	ECG, heart rate
+5984	4597	4824	Integer	0	ECG, load
+5993	5749	5754	Integer	0	ECG, number of stages in a phase
+5992	5743	5748	Integer	0	ECG, phase duration
+5991	5737	5742	Text	0	ECG, phase name
+5986	5053	5280	Integer	0	ECG, phase time
+5988	5509	5736	Text	0	ECG, stage name
+5987	5281	5508	Text	0	ECG, trend phase name
+6019	5763	5764	Categorical (single)	100256	ECG/bike method for fitness test
+6033	5775	5776	Integer	0	Maximum heart rate during fitness test
+6032	5773	5774	Integer	0	Maximum workload during fitness test
+6038	5779	5780	Integer	0	Number of trend entries
+20059	8064	8064	Categorical (single)	59	Reason ECG not completed
+20060	8065	8065	Categorical (single)	60	Reason at-rest ECG performed without bicycle
+20058	8063	8063	Categorical (single)	47	Reason for skipping ECG
+6034	5777	5778	Categorical (single)	12	Target heart rate achieved
+38	32	35	Text	0	Hand grip dynamometer device ID
+46	64	67	Integer	0	Hand grip strength (left)
+47	68	71	Integer	0	Hand grip strength (right)
+20044	8051	8051	Categorical (single)	47	Reason for skipping grip strength (left)
+20043	8050	8050	Categorical (single)	47	Reason for skipping grip strength (right)
+4268	2927	2930	Categorical (single)	30	Completion status (left)
+4275	2943	2946	Categorical (single)	30	Completion status (right)
+4272	2939	2942	Integer	0	Duration of hearing test (left)
+4279	2955	2958	Integer	0	Duration of hearing test (right)
+4849	3051	3054	Categorical (single)	100640	Hearing test done
+4238	2207	2266	Text	0	Keystroke history (left)
+4248	2807	2866	Text	0	Keystroke history (right)
+4233	1907	1966	Continuous	0	Mean signal-to-noise ratio (SNR), (left)
+4244	2567	2626	Continuous	0	Mean signal-to-noise ratio (SNR), (right)
+4239	2267	2326	Integer	0	Number of times 'clear' was pressed (left)
+4249	2867	2926	Integer	0	Number of times 'clear' was pressed (right)
+4269	2931	2934	Integer	0	Number of triplets attempted (left)
+4276	2947	2950	Integer	0	Number of triplets attempted (right)
+4230	1787	1846	Integer	0	Signal-to-noise-ratio (SNR) of triplet (left)
+4241	2387	2446	Integer	0	Signal-to-noise-ratio (SNR) of triplet (right)
+20019	8021	8024	Continuous	0	Speech-reception-threshold (SRT) estimate (left)
+20021	8025	8028	Continuous	0	Speech-reception-threshold (SRT) estimate (right)
+4237	2147	2206	Integer	17	Time to press 'next' (left)
+4247	2747	2806	Integer	17	Time to press 'next' (right)
+4234	1967	2026	Integer	0	Time to press first digit (left)
+4245	2627	2686	Integer	0	Time to press first digit (right)
+4235	2027	2086	Integer	0	Time to press last digit (left)
+4246	2687	2746	Integer	0	Time to press last digit (right)
+4232	1847	1906	Categorical (single)	29	Triplet correct (left)
+4243	2507	2566	Categorical (single)	29	Triplet correct (right)
+4236	2087	2146	Text	0	Triplet entered (left)
+4242	2447	2506	Text	0	Triplet entered (right)
+4229	1727	1786	Text	0	Triplet played (left)
+4240	2327	2386	Text	0	Triplet played (right)
+4270	2935	2938	Categorical (single)	15	Volume level set by participant (left)
+4277	2951	2954	Categorical (single)	15	Volume level set by participant (right)
+5266	4227	4228	Curve	0	Applanation curve (left)
+5258	4214	4215	Curve	0	Applanation curve (right)
+5264	4223	4224	Continuous	0	Corneal hysteresis (left)
+5256	4210	4211	Continuous	0	Corneal hysteresis (right)
+5265	4225	4226	Continuous	0	Corneal resistance factor (left)
+5257	4212	4213	Continuous	0	Corneal resistance factor (right)
+5196	4167	4168	Categorical (single)	100274	Intra-ocular pressure (IOP) method (left)
+5194	4165	4166	Categorical (single)	100274	Intra-ocular pressure (IOP) method (right)
+5261	4218	4218	Text	0	Intra-ocular pressure device ID (left)
+5253	4205	4205	Text	0	Intra-ocular pressure device ID (right)
+5263	4221	4222	Continuous	0	Intra-ocular pressure, Goldmann-correlated (left)
+5255	4208	4209	Continuous	0	Intra-ocular pressure, Goldmann-correlated (right)
+5262	4219	4220	Continuous	0	Intra-ocular pressure, corneal-compensated (left)
+5254	4206	4207	Continuous	0	Intra-ocular pressure, corneal-compensated (right)
+5267	4229	4230	Curve	0	Pressure curve (left)
+5259	4216	4217	Curve	0	Pressure curve (right)
+20054	8059	8059	Categorical (single)	54	Reason for skipping IOP (left)
+20053	8058	8058	Categorical (single)	54	Reason for skipping IOP (right)
+110005	18112	18112	Categorical (single)	100693	Invitation to physical activity study, acceptance
+110006	18113	18113	Date	0	Invitation to physical activity study, date sent
+90002	16535	16535	Categorical (single)	93	Data problem indicator
+90182	16708	16708	Integer	0	Data recording errors
+90179	16705	16705	Integer	0	Device ID
+90181	16707	16707	Continuous	0	Duration of interrupted recording periods
+90180	16706	16706	Integer	0	Interrupted recording periods
+90186	16712	16712	Integer	0	Maximum readings exceeding +/-8 gravities after calibration in a 5 second epoch
+90184	16710	16710	Integer	0	Maximum readings exceeding +/-8 gravities before calibration in a 5 second epoch
+90185	16711	16711	Integer	0	Readings exceeding +/-8 gravities after calibration
+90183	16709	16709	Integer	0	Readings exceeding +/-8 gravities before calibration
+90188	16714	16714	Continuous	0	Sample rate average
+90191	16717	16717	Continuous	0	Sample rate maximum
+90190	16716	16716	Continuous	0	Sample rate minimum
+90189	16715	16715	Continuous	0	Sample rate standard deviation
+90192	16718	16718	Continuous	0	Temperature average
+90195	16721	16721	Continuous	0	Temperature maximum
+90194	16720	16720	Continuous	0	Temperature minimum
+90193	16719	16719	Continuous	0	Temperature standard deviation
+90187	16713	16713	Integer	0	Total data readings
+6073	5789	5790	Integer	0	Duration at which OCT screen shown (left)
+6071	5785	5786	Integer	0	Duration at which OCT screen shown (right)
+6072	5787	5788	Categorical (single)	100274	OCT measured (left)
+6070	5783	5784	Categorical (single)	100274	OCT measured (right)
+5270	4231	4232	Text	0	Optical-coherence tomography device ID
+20062	8067	8067	Categorical (single)	54	Reason for skipping OCT (left)
+20061	8066	8066	Categorical (single)	54	Reason for skipping OCT (right)
+3061	1229	1240	Integer	0	Acceptability of each blow result
+10693	6383	6386	Integer	0	Acceptability of each blow result (pilot)
+20031	8032	8043	Text	0	Acceptability of each blow result (text)
+20032	8044	8047	Text	0	Acceptability of each blow result (text) (pilot)
+3089	1319	1322	Categorical (single)	7	Caffeine drink within last hour
+3088	1315	1318	Categorical (single)	100267	Contra-indications for spirometry
+3066	1289	1300	Curve	0	Data points for blow
+10697	6399	6402	Curve	0	Data points for blow (pilot)
+20258	9565	9565	Continuous	0	FEV1/ FVC ratio Z-score
+3063	1253	1264	Continuous	0	Forced expiratory volume in 1-second (FEV1)
+10695	6391	6394	Continuous	0	Forced expiratory volume in 1-second (FEV1) (pilot)
+20256	9563	9563	Continuous	0	Forced expiratory volume in 1-second (FEV1) Z-score
+20150	8960	8960	Continuous	0	Forced expiratory volume in 1-second (FEV1), Best measure
+20153	8963	8963	Continuous	0	Forced expiratory volume in 1-second (FEV1), predicted
+20154	8964	8964	Continuous	0	Forced expiratory volume in 1-second (FEV1), predicted percentage
+3062	1241	1252	Continuous	0	Forced vital capacity (FVC)
+10694	6387	6390	Continuous	0	Forced vital capacity (FVC) (pilot)
+20257	9564	9564	Continuous	0	Forced vital capacity (FVC) Z-score
+20151	8961	8961	Continuous	0	Forced vital capacity (FVC), Best measure
+3137	1331	1334	Integer	0	Number of measurements made
+10717	6405	6405	Integer	0	Number of measurements made (pilot)
+3065	1277	1288	Categorical (single)	23	Ordering of blows
+3064	1265	1276	Integer	0	Peak expiratory flow (PEF)
+10696	6395	6398	Integer	0	Peak expiratory flow (PEF) (pilot)
+20042	8049	8049	Categorical (single)	47	Reason for skipping spirometry
+20152	8962	8962	Categorical (single)	7	Reproduciblity of spirometry measurement using ERS/ATS criteria
+3059	1205	1216	Categorical (single)	22	Result ranking
+10691	6379	6382	Categorical (single)	22	Result ranking (pilot)
+3159	1344	1347	Categorical (single)	7	Smoked cigarette or pipe within last hour
+42	48	51	Text	0	Spirometer device ID
+20255	9562	9562	Categorical (single)	1506	Spirometry QC measure
+3132	1327	1330	Text	0	Spirometry device serial number
+10714	6404	6404	Text	0	Spirometry device serial number (pilot)
+10711	6403	6403	Categorical (single)	100282	Spirometry method (pilot)
+3060	1217	1228	Time	0	Time of blow measurement
+3090	1323	1326	Categorical (single)	7	Used an inhaler for chest within last hour
+5212	4193	4194	Categorical (single)	34	Direct or mirror view (left)
+5205	4181	4182	Categorical (single)	34	Direct or mirror view (right)
+5081	3283	3314	Text	0	Displayed letters in round (left)
+5080	3251	3282	Text	0	Displayed letters in round (right)
+5211	4191	4192	Continuous	0	Distance of viewer to screen (left)
+5204	4179	4180	Continuous	0	Distance of viewer to screen (right)
+5188	4155	4156	Integer	0	Duration visual-acuity screen displayed (left)
+5186	4151	4152	Integer	0	Duration visual-acuity screen displayed (right)
+5207	4185	4186	Integer	0	Final number of letters displayed (left)
+5200	4173	4174	Integer	0	Final number of letters displayed (right)
+6075	5793	5794	Categorical (single)	36	Glasses worn/required (left)
+6074	5791	5792	Categorical (single)	36	Glasses worn/required (right)
+20262	9571	9571	Categorical (single)	1543	Myopia diagnosis
+5077	3155	3186	Integer	0	Number of letters correct in round (left)
+5076	3123	3154	Integer	0	Number of letters correct in round (right)
+5074	3059	3090	Integer	0	Number of letters shown in round (left)
+5075	3091	3122	Integer	0	Number of letters shown in round (right)
+5209	4189	4190	Integer	0	Number of rounds to result (left)
+5202	4177	4178	Integer	0	Number of rounds to result (right)
+20057	8062	8062	Categorical (single)	56	Reason for skipping visual acuity (left)
+20056	8061	8061	Categorical (single)	56	Reason for skipping visual acuity (right)
+5187	4153	4154	Categorical (single)	100274	Visual acuity measured (left)
+5185	4149	4150	Categorical (single)	100274	Visual acuity measured (right)
+5082	3315	3346	Text	0	Visual acuity result in round (left)
+5083	3347	3378	Text	0	Visual acuity result in round (right)
+20261	9570	9570	Continuous	0	avMSE
+5078	3187	3218	Continuous	0	logMAR in round (left)
+5079	3219	3250	Continuous	0	logMAR in round (right)
+5208	4187	4188	Continuous	0	logMAR, final (left)
+5201	4175	4176	Continuous	0	logMAR, final (right)
+5206	4183	4184	Continuous	0	logMAR, initial (left)
+5199	4171	4172	Continuous	0	logMAR, initial (right)

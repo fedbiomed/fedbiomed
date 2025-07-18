@@ -1,0 +1,4 @@
+Coding	Meaning
+0	best
+1	second best
+2	third best (i.e. worst)

@@ -1,0 +1,4 @@
+Coding	Meaning
+9	abandoned
+-1	error
+2	completed

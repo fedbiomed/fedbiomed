@@ -1,0 +1,4 @@
+Coding	Meaning
+-1	Do not know
+-3	Prefer not to answer
+-11	Still taking the pill

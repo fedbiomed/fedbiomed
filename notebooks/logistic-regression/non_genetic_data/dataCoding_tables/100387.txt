@@ -1,0 +1,9 @@
+Coding	Meaning
+1	Full cream
+2	Semi-skimmed
+3	Skimmed
+4	Soya
+5	Other type of milk
+6	Never/rarely have milk
+-1	Do not know
+-3	Prefer not to answer

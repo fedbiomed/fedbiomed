@@ -1,0 +1,576 @@
+Field ID	Description	Category
+90027	Average acceleration 00:00 - 00:59	Acceleration averages
+90028	Average acceleration 01:00 - 01:59	Acceleration averages
+90029	Average acceleration 02:00 - 02:59	Acceleration averages
+90030	Average acceleration 03:00 - 03:59	Acceleration averages
+90031	Average acceleration 04:00 - 04:59	Acceleration averages
+90032	Average acceleration 05:00 - 05:59	Acceleration averages
+90033	Average acceleration 06:00 - 06:59	Acceleration averages
+90034	Average acceleration 07:00 - 07:59	Acceleration averages
+90035	Average acceleration 08:00 - 08:59	Acceleration averages
+90036	Average acceleration 09:00 - 09:59	Acceleration averages
+90037	Average acceleration 10:00 - 10:59	Acceleration averages
+90038	Average acceleration 11:00 - 11:59	Acceleration averages
+90039	Average acceleration 12:00 - 12:59	Acceleration averages
+90040	Average acceleration 13:00 - 13:59	Acceleration averages
+90041	Average acceleration 14:00 - 14:59	Acceleration averages
+90042	Average acceleration 15:00 - 15:59	Acceleration averages
+90043	Average acceleration 16:00 - 16:59	Acceleration averages
+90044	Average acceleration 17:00 - 17:59	Acceleration averages
+90045	Average acceleration 18:00 - 18:59	Acceleration averages
+90046	Average acceleration 19:00 - 19:59	Acceleration averages
+90047	Average acceleration 20:00 - 20:59	Acceleration averages
+90048	Average acceleration 21:00 - 21:59	Acceleration averages
+90049	Average acceleration 22:00 - 22:59	Acceleration averages
+90050	Average acceleration 23:00 - 23:59	Acceleration averages
+90023	Friday average acceleration	Acceleration averages
+90019	Monday average acceleration	Acceleration averages
+90091	No-wear time bias adjusted acceleration maximum	Acceleration averages
+90089	No-wear time bias adjusted acceleration median	Acceleration averages
+90090	No-wear time bias adjusted acceleration minimum	Acceleration averages
+90088	No-wear time bias adjusted acceleration standard deviation	Acceleration averages
+90087	No-wear time bias adjusted average acceleration	Acceleration averages
+90012	Overall acceleration average	Acceleration averages
+90024	Saturday average acceleration	Acceleration averages
+90013	Standard deviation of acceleration	Acceleration averages
+90025	Sunday average acceleration	Acceleration averages
+90022	Thursday average acceleration	Acceleration averages
+90020	Tuesday average acceleration	Acceleration averages
+90021	Wednesday average acceleration	Acceleration averages
+90092	Fraction acceleration <= 1 milli-gravities	Acceleration intensity distribution
+90101	Fraction acceleration <= 10 milli-gravities	Acceleration intensity distribution
+90127	Fraction acceleration <= 100 milli-gravities	Acceleration intensity distribution
+90148	Fraction acceleration <= 1000 milli-gravities	Acceleration intensity distribution
+90102	Fraction acceleration <= 11 milli-gravities	Acceleration intensity distribution
+90149	Fraction acceleration <= 1100 milli-gravities	Acceleration intensity distribution
+90103	Fraction acceleration <= 12 milli-gravities	Acceleration intensity distribution
+90150	Fraction acceleration <= 1200 milli-gravities	Acceleration intensity distribution
+90128	Fraction acceleration <= 125 milli-gravities	Acceleration intensity distribution
+90104	Fraction acceleration <= 13 milli-gravities	Acceleration intensity distribution
+90151	Fraction acceleration <= 1300 milli-gravities	Acceleration intensity distribution
+90105	Fraction acceleration <= 14 milli-gravities	Acceleration intensity distribution
+90152	Fraction acceleration <= 1400 milli-gravities	Acceleration intensity distribution
+90106	Fraction acceleration <= 15 milli-gravities	Acceleration intensity distribution
+90129	Fraction acceleration <= 150 milli-gravities	Acceleration intensity distribution
+90153	Fraction acceleration <= 1500 milli-gravities	Acceleration intensity distribution
+90107	Fraction acceleration <= 16 milli-gravities	Acceleration intensity distribution
+90154	Fraction acceleration <= 1600 milli-gravities	Acceleration intensity distribution
+90108	Fraction acceleration <= 17 milli-gravities	Acceleration intensity distribution
+90155	Fraction acceleration <= 1700 milli-gravities	Acceleration intensity distribution
+90130	Fraction acceleration <= 175 milli-gravities	Acceleration intensity distribution
+90109	Fraction acceleration <= 18 milli-gravities	Acceleration intensity distribution
+90156	Fraction acceleration <= 1800 milli-gravities	Acceleration intensity distribution
+90110	Fraction acceleration <= 19 milli-gravities	Acceleration intensity distribution
+90157	Fraction acceleration <= 1900 milli-gravities	Acceleration intensity distribution
+90093	Fraction acceleration <= 2 milli-gravities	Acceleration intensity distribution
+90111	Fraction acceleration <= 20 milli-gravities	Acceleration intensity distribution
+90131	Fraction acceleration <= 200 milli-gravities	Acceleration intensity distribution
+90158	Fraction acceleration <= 2000 milli-gravities	Acceleration intensity distribution
+90132	Fraction acceleration <= 225 milli-gravities	Acceleration intensity distribution
+90112	Fraction acceleration <= 25 milli-gravities	Acceleration intensity distribution
+90133	Fraction acceleration <= 250 milli-gravities	Acceleration intensity distribution
+90134	Fraction acceleration <= 275 milli-gravities	Acceleration intensity distribution
+90094	Fraction acceleration <= 3 milli-gravities	Acceleration intensity distribution
+90113	Fraction acceleration <= 30 milli-gravities	Acceleration intensity distribution
+90135	Fraction acceleration <= 300 milli-gravities	Acceleration intensity distribution
+90136	Fraction acceleration <= 325 milli-gravities	Acceleration intensity distribution
+90114	Fraction acceleration <= 35 milli-gravities	Acceleration intensity distribution
+90137	Fraction acceleration <= 350 milli-gravities	Acceleration intensity distribution
+90138	Fraction acceleration <= 375 milli-gravities	Acceleration intensity distribution
+90095	Fraction acceleration <= 4 milli-gravities	Acceleration intensity distribution
+90115	Fraction acceleration <= 40 milli-gravities	Acceleration intensity distribution
+90139	Fraction acceleration <= 400 milli-gravities	Acceleration intensity distribution
+90140	Fraction acceleration <= 425 milli-gravities	Acceleration intensity distribution
+90116	Fraction acceleration <= 45 milli-gravities	Acceleration intensity distribution
+90141	Fraction acceleration <= 450 milli-gravities	Acceleration intensity distribution
+90142	Fraction acceleration <= 475 milli-gravities	Acceleration intensity distribution
+90096	Fraction acceleration <= 5 milli-gravities	Acceleration intensity distribution
+90117	Fraction acceleration <= 50 milli-gravities	Acceleration intensity distribution
+90143	Fraction acceleration <= 500 milli-gravities	Acceleration intensity distribution
+90118	Fraction acceleration <= 55 milli-gravities	Acceleration intensity distribution
+90097	Fraction acceleration <= 6 milli-gravities	Acceleration intensity distribution
+90119	Fraction acceleration <= 60 milli-gravities	Acceleration intensity distribution
+90144	Fraction acceleration <= 600 milli-gravities	Acceleration intensity distribution
+90120	Fraction acceleration <= 65 milli-gravities	Acceleration intensity distribution
+90098	Fraction acceleration <= 7 milli-gravities	Acceleration intensity distribution
+90121	Fraction acceleration <= 70 milli-gravities	Acceleration intensity distribution
+90145	Fraction acceleration <= 700 milli-gravities	Acceleration intensity distribution
+90122	Fraction acceleration <= 75 milli-gravities	Acceleration intensity distribution
+90099	Fraction acceleration <= 8 milli-gravities	Acceleration intensity distribution
+90123	Fraction acceleration <= 80 milli-gravities	Acceleration intensity distribution
+90146	Fraction acceleration <= 800 milli-gravities	Acceleration intensity distribution
+90124	Fraction acceleration <= 85 milli-gravities	Acceleration intensity distribution
+90100	Fraction acceleration <= 9 milli-gravities	Acceleration intensity distribution
+90125	Fraction acceleration <= 90 milli-gravities	Acceleration intensity distribution
+90147	Fraction acceleration <= 900 milli-gravities	Acceleration intensity distribution
+90126	Fraction acceleration <= 95 milli-gravities	Acceleration intensity distribution
+90173	Calibration - maximum x stationary value	Accelerometer calibration
+90175	Calibration - maximum y stationary value	Accelerometer calibration
+90177	Calibration - maximum z stationary value	Accelerometer calibration
+90172	Calibration - minimum x stationary value	Accelerometer calibration
+90174	Calibration - minimum y stationary value	Accelerometer calibration
+90176	Calibration - minimum z stationary value	Accelerometer calibration
+90171	Calibration - number of static points	Accelerometer calibration
+90170	Calibration coefficients - mean temperature	Accelerometer calibration
+90161	Calibration coefficients - x offset	Accelerometer calibration
+90164	Calibration coefficients - x slope	Accelerometer calibration
+90167	Calibration coefficients - x temp	Accelerometer calibration
+90162	Calibration coefficients - y offset	Accelerometer calibration
+90165	Calibration coefficients - y slope	Accelerometer calibration
+90168	Calibration coefficients - y temp	Accelerometer calibration
+90163	Calibration coefficients - z offset	Accelerometer calibration
+90166	Calibration coefficients - z slope	Accelerometer calibration
+90169	Calibration coefficients - z temp	Accelerometer calibration
+90017	Data quality, calibrated on own data	Accelerometer calibration
+90016	Data quality, good calibration	Accelerometer calibration
+90160	Error tolerance after calibration	Accelerometer calibration
+90159	Error tolerance before calibration	Accelerometer calibration
+90015	Data quality, good wear time	Accelerometer wear time duration
+90018	Daylight savings crossover	Accelerometer wear time duration
+90011	End time of wear	Accelerometer wear time duration
+90026	First weekday of wear	Accelerometer wear time duration
+90052	Non wear duration overall	Accelerometer wear time duration
+90086	Non wear episodes over 1 hour duration	Accelerometer wear time duration
+90003	Start of requested wear period	Accelerometer wear time duration
+90010	Start time of wear	Accelerometer wear time duration
+90084	Unique hours of wear in a 24 hour cycle (scattered over multiple days)	Accelerometer wear time duration
+90085	Unique minutes of wear in a 24 hour cycle (scattered over multiple days)	Accelerometer wear time duration
+90060	Wear duration during 00:00 - 00:59	Accelerometer wear time duration
+90061	Wear duration during 01:00 - 01:59	Accelerometer wear time duration
+90062	Wear duration during 02:00 - 02:59	Accelerometer wear time duration
+90063	Wear duration during 03:00 - 03:59	Accelerometer wear time duration
+90064	Wear duration during 04:00 - 04:59	Accelerometer wear time duration
+90065	Wear duration during 05:00 - 05:59	Accelerometer wear time duration
+90066	Wear duration during 06:00 - 06:59	Accelerometer wear time duration
+90067	Wear duration during 07:00 - 07:59	Accelerometer wear time duration
+90068	Wear duration during 08:00 - 08:59	Accelerometer wear time duration
+90069	Wear duration during 09:00 - 09:59	Accelerometer wear time duration
+90070	Wear duration during 10:00 - 10:59	Accelerometer wear time duration
+90071	Wear duration during 11:00 - 11:59	Accelerometer wear time duration
+90072	Wear duration during 12:00 - 12:59	Accelerometer wear time duration
+90073	Wear duration during 13:00 - 13:59	Accelerometer wear time duration
+90074	Wear duration during 14:00 - 14:59	Accelerometer wear time duration
+90075	Wear duration during 15:00 - 15:59	Accelerometer wear time duration
+90076	Wear duration during 16:00 - 16:59	Accelerometer wear time duration
+90077	Wear duration during 17:00 - 17:59	Accelerometer wear time duration
+90078	Wear duration during 18:00 - 18:59	Accelerometer wear time duration
+90079	Wear duration during 19:00 - 19:59	Accelerometer wear time duration
+90080	Wear duration during 20:00 - 20:59	Accelerometer wear time duration
+90081	Wear duration during 21:00 - 21:59	Accelerometer wear time duration
+90082	Wear duration during 22:00 - 22:59	Accelerometer wear time duration
+90083	Wear duration during 23:00 - 23:59	Accelerometer wear time duration
+90057	Wear duration during Friday	Accelerometer wear time duration
+90053	Wear duration during Monday	Accelerometer wear time duration
+90058	Wear duration during Saturday	Accelerometer wear time duration
+90059	Wear duration during Sunday	Accelerometer wear time duration
+90056	Wear duration during Thursday	Accelerometer wear time duration
+90054	Wear duration during Tuesday	Accelerometer wear time duration
+90055	Wear duration during Wednesday	Accelerometer wear time duration
+90051	Wear duration overall	Accelerometer wear time duration
+4204	Absence of notch position in the pulse waveform	Arterial stiffness
+4136	Arterial pulse-wave stiffness device ID	Arterial stiffness
+4206	Arterial stiffness device ID	Arterial stiffness
+4199	Position of pulse wave notch	Arterial stiffness
+4198	Position of the pulse wave peak	Arterial stiffness
+4200	Position of the shoulder on the pulse waveform	Arterial stiffness
+4194	Pulse rate	Arterial stiffness
+21021	Pulse wave Arterial Stiffness index	Arterial stiffness
+4196	Pulse wave peak to peak time	Arterial stiffness
+4205	Pulse wave pressure versus time response curve	Arterial stiffness
+4195	Pulse wave reflection index	Arterial stiffness
+4207	Pulse wave velocity (manual entry)	Arterial stiffness
+20051	Reason for skipping arterial stiffness	Arterial stiffness
+4186	Stiffness method	Arterial stiffness
+5111	3mm asymmetry angle (left)	Autorefraction
+5108	3mm asymmetry angle (right)	Autorefraction
+5156	3mm asymmetry index (left)	Autorefraction
+5159	3mm asymmetry index (right)	Autorefraction
+5155	3mm asymmetry index for irregular astigmatism level (left)	Autorefraction
+5152	3mm asymmetry index for irregular astigmatism level (right)	Autorefraction
+5141	3mm asymmetry index unreliable (left)	Autorefraction
+5144	3mm asymmetry index unreliable (right)	Autorefraction
+5119	3mm cylindrical power (left)	Autorefraction
+5116	3mm cylindrical power (right)	Autorefraction
+5112	3mm cylindrical power angle (left)	Autorefraction
+5115	3mm cylindrical power angle (right)	Autorefraction
+5292	3mm index of best keratometry results (left)	Autorefraction
+5237	3mm index of best keratometry results (right)	Autorefraction
+5136	3mm keratometry result unreliable (left)	Autorefraction
+5140	3mm keratometry result unreliable (right)	Autorefraction
+5163	3mm regularity index (left)	Autorefraction
+5160	3mm regularity index (right)	Autorefraction
+5149	3mm regularity index for irregular astigmatism level (left)	Autorefraction
+5164	3mm regularity index for irregular astigmatism level (right)	Autorefraction
+5148	3mm regularity index unreliable (left)	Autorefraction
+5145	3mm regularity index unreliable (right)	Autorefraction
+5135	3mm strong meridian (left)	Autorefraction
+5132	3mm strong meridian (right)	Autorefraction
+5104	3mm strong meridian angle (left)	Autorefraction
+5107	3mm strong meridian angle (right)	Autorefraction
+5096	3mm weak meridian (left)	Autorefraction
+5099	3mm weak meridian (right)	Autorefraction
+5103	3mm weak meridian angle (left)	Autorefraction
+5100	3mm weak meridian angle (right)	Autorefraction
+5110	6mm asymmetry angle (left)	Autorefraction
+5109	6mm asymmetry angle (right)	Autorefraction
+5157	6mm asymmetry index (left)	Autorefraction
+5158	6mm asymmetry index (right)	Autorefraction
+5142	6mm asymmetry index unreliable (left)	Autorefraction
+5143	6mm asymmetry index unreliable (right)	Autorefraction
+5118	6mm cylindrical power (left)	Autorefraction
+5117	6mm cylindrical power (right)	Autorefraction
+5113	6mm cylindrical power angle (left)	Autorefraction
+5114	6mm cylindrical power angle (right)	Autorefraction
+5306	6mm index of best keratometry results (left)	Autorefraction
+5251	6mm index of best keratometry results (right)	Autorefraction
+5138	6mm keratometry result unreliable (left)	Autorefraction
+5139	6mm keratometry result unreliable (right)	Autorefraction
+5162	6mm regularity index (left)	Autorefraction
+5161	6mm regularity index (right)	Autorefraction
+5147	6mm regularity index unreliable (left)	Autorefraction
+5146	6mm regularity index unreliable (right)	Autorefraction
+5134	6mm strong meridian (left)	Autorefraction
+5133	6mm strong meridian (right)	Autorefraction
+5106	6mm strong meridian angle (right)	Autorefraction
+5097	6mm weak meridian (left)	Autorefraction
+5098	6mm weak meridian (right)	Autorefraction
+5102	6mm weak meridian angle (left)	Autorefraction
+5101	6mm weak meridian angle (right)	Autorefraction
+5089	Astigmatism angle (left)	Autorefraction
+5088	Astigmatism angle (right)	Autorefraction
+5191	Auto-refraction method (left)	Autorefraction
+5189	Auto-refraction method (right)	Autorefraction
+5273	Auto-refractor device ID (left)	Autorefraction
+5214	Auto-refractor device ID (right)	Autorefraction
+5086	Cylindrical power (left)	Autorefraction
+5087	Cylindrical power (right)	Autorefraction
+5193	Duration at which refractometer first shown (left)	Autorefraction
+5190	Duration at which refractometer first shown (right)	Autorefraction
+5276	Index of best refractometry result (left)	Autorefraction
+5221	Index of best refractometry result (right)	Autorefraction
+20052	Reason for skipping refractometry (left)	Autorefraction
+20055	Reason for skipping refractometry (right)	Autorefraction
+5090	Refractometry result unreliable (left)	Autorefraction
+5091	Refractometry result unreliable (right)	Autorefraction
+5085	Spherical power (left)	Autorefraction
+5084	Spherical power (right)	Autorefraction
+5274	Vertex distance (left)	Autorefraction
+5215	Vertex distance (right)	Autorefraction
+36	Blood pressure device ID	Blood pressure
+37	Blood pressure manual sphygmomanometer device ID	Blood pressure
+4079	Diastolic blood pressure, automated reading	Blood pressure
+94	Diastolic blood pressure, manual reading	Blood pressure
+4081	Method of measuring blood pressure	Blood pressure
+95	Pulse rate (during blood-pressure measurement)	Blood pressure
+102	Pulse rate, automated reading	Blood pressure
+4080	Systolic blood pressure, automated reading	Blood pressure
+93	Systolic blood pressure, manual reading	Blood pressure
+96	Time since interview start at which blood pressure screen(s) shown	Blood pressure
+23124	Arm fat mass (left)	Body composition by impedance
+23120	Arm fat mass (right)	Body composition by impedance
+23123	Arm fat percentage (left)	Body composition by impedance
+23119	Arm fat percentage (right)	Body composition by impedance
+23125	Arm fat-free mass (left)	Body composition by impedance
+23121	Arm fat-free mass (right)	Body composition by impedance
+23126	Arm predicted mass (left)	Body composition by impedance
+23122	Arm predicted mass (right)	Body composition by impedance
+23099	Body fat percentage	Body composition by impedance
+23104	Body mass index (BMI)	Body composition by impedance
+43	Impedance device ID	Body composition by impedance
+23110	Impedance of arm (left)	Body composition by impedance
+23109	Impedance of arm (right)	Body composition by impedance
+6222	Impedance of arm, manual entry (left)	Body composition by impedance
+6221	Impedance of arm, manual entry (right)	Body composition by impedance
+23108	Impedance of leg (left)	Body composition by impedance
+23107	Impedance of leg (right)	Body composition by impedance
+6220	Impedance of leg, manual entry (left)	Body composition by impedance
+6219	Impedance of leg, manual entry (right)	Body composition by impedance
+23106	Impedance of whole body	Body composition by impedance
+6218	Impedance of whole body, manual entry	Body composition by impedance
+23116	Leg fat mass (left)	Body composition by impedance
+23112	Leg fat mass (right)	Body composition by impedance
+23115	Leg fat percentage (left)	Body composition by impedance
+23111	Leg fat percentage (right)	Body composition by impedance
+23117	Leg fat-free mass (left)	Body composition by impedance
+23113	Leg fat-free mass (right)	Body composition by impedance
+23118	Leg predicted mass (left)	Body composition by impedance
+23114	Leg predicted mass (right)	Body composition by impedance
+23128	Trunk fat mass	Body composition by impedance
+23127	Trunk fat percentage	Body composition by impedance
+23129	Trunk fat-free mass	Body composition by impedance
+23130	Trunk predicted mass	Body composition by impedance
+23098	Weight	Body composition by impedance
+23100	Whole body fat mass	Body composition by impedance
+23101	Whole body fat-free mass	Body composition by impedance
+23102	Whole body water mass	Body composition by impedance
+21001	Body mass index (BMI)	Body size measures
+12144	Height	Body size measures
+39	Height measure device ID	Body size measures
+49	Hip circumference	Body size measures
+40	Manual scales device ID	Body size measures
+20046	Reason for skipping hip measurement	Body size measures
+20048	Reason for skipping sitting height	Body size measures
+20047	Reason for skipping standing height	Body size measures
+20045	Reason for skipping waist	Body size measures
+20041	Reason for skipping weight	Body size measures
+51	Seated height	Body size measures
+41	Seating box device ID	Body size measures
+3077	Seating box height	Body size measures
+20015	Sitting height	Body size measures
+50	Standing height	Body size measures
+44	Tape measure device ID	Body size measures
+48	Waist circumference	Body size measures
+21002	Weight	Body size measures
+12143	Weight (pre-imaging)	Body size measures
+21	Weight method	Body size measures
+3160	Weight, manual entry	Body size measures
+3143	Ankle spacing width	Bone-densitometry of heel
+4100	Ankle spacing width (left)	Bone-densitometry of heel
+4119	Ankle spacing width (right)	Bone-densitometry of heel
+3081	Foot measured for bone density	Bone-densitometry of heel
+3082	Fractured heel	Bone-densitometry of heel
+4093	Fractured heel (left)	Bone-densitometry of heel
+4096	Fractured heel (right)	Bone-densitometry of heel
+3085	Heel Broadband ultrasound attenuation (BUA), manual entry	Bone-densitometry of heel
+3144	Heel Broadband ultrasound attenuation, direct entry	Bone-densitometry of heel
+3148	Heel bone mineral density (BMD)	Bone-densitometry of heel
+4105	Heel bone mineral density (BMD) (left)	Bone-densitometry of heel
+4124	Heel bone mineral density (BMD) (right)	Bone-densitometry of heel
+78	Heel bone mineral density (BMD) T-score, automated	Bone-densitometry of heel
+4106	Heel bone mineral density (BMD) T-score, automated (left)	Bone-densitometry of heel
+4125	Heel bone mineral density (BMD) T-score, automated (right)	Bone-densitometry of heel
+4138	Heel bone mineral density (BMD) T-score, manual entry (left)	Bone-densitometry of heel
+4143	Heel bone mineral density (BMD) T-score, manual entry (right)	Bone-densitometry of heel
+3084	Heel bone mineral density (BMD), manual entry	Bone-densitometry of heel
+4140	Heel bone mineral density (BMD), manual entry (left)	Bone-densitometry of heel
+4145	Heel bone mineral density (BMD), manual entry (right)	Bone-densitometry of heel
+77	Heel bone ultrasound T-score, manual entry	Bone-densitometry of heel
+4141	Heel broadband ultrasound attenuation (BUA), manual entry (left)	Bone-densitometry of heel
+4146	Heel broadband ultrasound attenuation (BUA), manual entry (right)	Bone-densitometry of heel
+4101	Heel broadband ultrasound attenuation (left)	Bone-densitometry of heel
+4120	Heel broadband ultrasound attenuation (right)	Bone-densitometry of heel
+3147	Heel quantitative ultrasound index (QUI), direct entry	Bone-densitometry of heel
+4104	Heel quantitative ultrasound index (QUI), direct entry (left)	Bone-densitometry of heel
+4123	Heel quantitative ultrasound index (QUI), direct entry (right)	Bone-densitometry of heel
+3083	Heel quantitative ultrasound index (QUI), manual entry	Bone-densitometry of heel
+4139	Heel quantitative ultrasound index (QUI), manual entry (left)	Bone-densitometry of heel
+4144	Heel quantitative ultrasound index (QUI), manual entry (right)	Bone-densitometry of heel
+45	Heel ultrasound device id	Bone-densitometry of heel
+19	Heel ultrasound method	Bone-densitometry of heel
+4092	Heel ultrasound method (left)	Bone-densitometry of heel
+4095	Heel ultrasound method (right)	Bone-densitometry of heel
+3146	Speed of sound through heel	Bone-densitometry of heel
+4103	Speed of sound through heel (left)	Bone-densitometry of heel
+4122	Speed of sound through heel (right)	Bone-densitometry of heel
+3086	Speed of sound through heel, manual entry	Bone-densitometry of heel
+4142	Speed of sound through heel, manual entry (left)	Bone-densitometry of heel
+4147	Speed of sound through heel, manual entry (right)	Bone-densitometry of heel
+12292	Carotid ultrasound measurement completed	Carotid ultrasound
+12291	Carotid ultrasound measuring method	Carotid ultrasound
+22672	Maximum carotid IMT (intima-medial thickness) at 120 degrees	Carotid ultrasound
+22675	Maximum carotid IMT (intima-medial thickness) at 150 degrees	Carotid ultrasound
+22678	Maximum carotid IMT (intima-medial thickness) at 210 degrees	Carotid ultrasound
+22681	Maximum carotid IMT (intima-medial thickness) at 240 degrees	Carotid ultrasound
+22671	Mean carotid IMT (intima-medial thickness) at 120 degrees	Carotid ultrasound
+22674	Mean carotid IMT (intima-medial thickness) at 150 degrees	Carotid ultrasound
+22677	Mean carotid IMT (intima-medial thickness) at 210 degrees	Carotid ultrasound
+22680	Mean carotid IMT (intima-medial thickness) at 240 degrees	Carotid ultrasound
+22670	Minimum carotid IMT (intima-medial thickness) at 120 degrees	Carotid ultrasound
+22673	Minimum carotid IMT (intima-medial thickness) at 150 degrees	Carotid ultrasound
+22676	Minimum carotid IMT (intima-medial thickness) at 210 degrees	Carotid ultrasound
+22679	Minimum carotid IMT (intima-medial thickness) at 240 degrees	Carotid ultrasound
+22682	Quality control indicator for IMT at 120 degrees	Carotid ultrasound
+22683	Quality control indicator for IMT at 150 degrees	Carotid ultrasound
+22684	Quality control indicator for IMT at 210 degrees	Carotid ultrasound
+22685	Quality control indicator for IMT at 240 degrees	Carotid ultrasound
+12323	12-lead ECG measuring method	ECG at rest, 12-lead
+12653	ECG automated diagnoses	ECG at rest, 12-lead
+12658	Identifier for 12-lead ECG device	ECG at rest, 12-lead
+12654	Number of automated diagnostic comments recorded during 12-lead ECG	ECG at rest, 12-lead
+22335	P axis	ECG at rest, 12-lead
+12338	P duration	ECG at rest, 12-lead
+22334	PP interval	ECG at rest, 12-lead
+22330	PQ interval	ECG at rest, 12-lead
+12340	QRS duration	ECG at rest, 12-lead
+22338	QRS num	ECG at rest, 12-lead
+22331	QT interval	ECG at rest, 12-lead
+22332	QTC interval	ECG at rest, 12-lead
+22336	R axis	ECG at rest, 12-lead
+22333	RR interval	ECG at rest, 12-lead
+12657	Suspicious flag for 12-lead ECG	ECG at rest, 12-lead
+22337	T axis	ECG at rest, 12-lead
+12336	Ventricular rate	ECG at rest, 12-lead
+6017	Able to walk or cycle unaided for 10 minutes	ECG during exercise
+5985	Bicycle speed	ECG during exercise
+6015	Chest pain felt during physical activity	ECG during exercise
+6016	Chest pain felt outside physical activity	ECG during exercise
+6020	Completion status of test	ECG during exercise
+6023	Description of exercise protocol recommended	ECG during exercise
+6014	Doctor restricts physical activity due to heart condition	ECG during exercise
+6039	Duration of fitness test	ECG during exercise
+5983	ECG, heart rate	ECG during exercise
+5984	ECG, load	ECG during exercise
+5993	ECG, number of stages in a phase	ECG during exercise
+5992	ECG, phase duration	ECG during exercise
+5991	ECG, phase name	ECG during exercise
+5986	ECG, phase time	ECG during exercise
+5990	ECG, stage duration	ECG during exercise
+5988	ECG, stage name	ECG during exercise
+5987	ECG, trend phase name	ECG during exercise
+6019	ECG/bike method for fitness test	ECG during exercise
+6033	Maximum heart rate during fitness test	ECG during exercise
+6032	Maximum workload during fitness test	ECG during exercise
+6038	Number of trend entries	ECG during exercise
+20059	Reason ECG not completed	ECG during exercise
+20060	Reason at-rest ECG performed without bicycle	ECG during exercise
+20058	Reason for skipping ECG	ECG during exercise
+6034	Target heart rate achieved	ECG during exercise
+38	Hand grip dynamometer device ID	Hand grip strength
+46	Hand grip strength (left)	Hand grip strength
+47	Hand grip strength (right)	Hand grip strength
+20044	Reason for skipping grip strength (left)	Hand grip strength
+20043	Reason for skipping grip strength (right)	Hand grip strength
+4268	Completion status (left)	Hearing test
+4275	Completion status (right)	Hearing test
+4272	Duration of hearing test (left)	Hearing test
+4279	Duration of hearing test (right)	Hearing test
+4849	Hearing test done	Hearing test
+4238	Keystroke history (left)	Hearing test
+4248	Keystroke history (right)	Hearing test
+4233	Mean signal-to-noise ratio (SNR), (left)	Hearing test
+4244	Mean signal-to-noise ratio (SNR), (right)	Hearing test
+4239	Number of times 'clear' was pressed (left)	Hearing test
+4249	Number of times 'clear' was pressed (right)	Hearing test
+4269	Number of triplets attempted (left)	Hearing test
+4276	Number of triplets attempted (right)	Hearing test
+4230	Signal-to-noise-ratio (SNR) of triplet (left)	Hearing test
+4241	Signal-to-noise-ratio (SNR) of triplet (right)	Hearing test
+20019	Speech-reception-threshold (SRT) estimate (left)	Hearing test
+20021	Speech-reception-threshold (SRT) estimate (right)	Hearing test
+4237	Time to press 'next' (left)	Hearing test
+4247	Time to press 'next' (right)	Hearing test
+4234	Time to press first digit (left)	Hearing test
+4245	Time to press first digit (right)	Hearing test
+4235	Time to press last digit (left)	Hearing test
+4246	Time to press last digit (right)	Hearing test
+4232	Triplet correct (left)	Hearing test
+4243	Triplet correct (right)	Hearing test
+4236	Triplet entered (left)	Hearing test
+4242	Triplet entered (right)	Hearing test
+4229	Triplet played (left)	Hearing test
+4240	Triplet played (right)	Hearing test
+4270	Volume level set by participant (left)	Hearing test
+4277	Volume level set by participant (right)	Hearing test
+5266	Applanation curve (left)	Intraocular pressure
+5258	Applanation curve (right)	Intraocular pressure
+5264	Corneal hysteresis (left)	Intraocular pressure
+5256	Corneal hysteresis (right)	Intraocular pressure
+5265	Corneal resistance factor (left)	Intraocular pressure
+5257	Corneal resistance factor (right)	Intraocular pressure
+5196	Intra-ocular pressure (IOP) method (left)	Intraocular pressure
+5194	Intra-ocular pressure (IOP) method (right)	Intraocular pressure
+5261	Intra-ocular pressure device ID (left)	Intraocular pressure
+5253	Intra-ocular pressure device ID (right)	Intraocular pressure
+5263	Intra-ocular pressure, Goldmann-correlated (left)	Intraocular pressure
+5255	Intra-ocular pressure, Goldmann-correlated (right)	Intraocular pressure
+5262	Intra-ocular pressure, corneal-compensated (left)	Intraocular pressure
+5254	Intra-ocular pressure, corneal-compensated (right)	Intraocular pressure
+5267	Pressure curve (left)	Intraocular pressure
+5259	Pressure curve (right)	Intraocular pressure
+20054	Reason for skipping IOP (left)	Intraocular pressure
+20053	Reason for skipping IOP (right)	Intraocular pressure
+110005	Invitation to physical activity study, acceptance	Physical activity measurement
+110006	Invitation to physical activity study, date sent	Physical activity measurement
+90002	Data problem indicator	Raw accelerometer statistics
+90182	Data recording errors	Raw accelerometer statistics
+90179	Device ID	Raw accelerometer statistics
+90181	Duration of interrupted recording periods	Raw accelerometer statistics
+90180	Interrupted recording periods	Raw accelerometer statistics
+90186	Maximum readings exceeding +/-8 gravities after calibration in a 5 second epoch	Raw accelerometer statistics
+90184	Maximum readings exceeding +/-8 gravities before calibration in a 5 second epoch	Raw accelerometer statistics
+90185	Readings exceeding +/-8 gravities after calibration	Raw accelerometer statistics
+90183	Readings exceeding +/-8 gravities before calibration	Raw accelerometer statistics
+90188	Sample rate average	Raw accelerometer statistics
+90191	Sample rate maximum	Raw accelerometer statistics
+90190	Sample rate minimum	Raw accelerometer statistics
+90189	Sample rate standard deviation	Raw accelerometer statistics
+90192	Temperature average	Raw accelerometer statistics
+90195	Temperature maximum	Raw accelerometer statistics
+90194	Temperature minimum	Raw accelerometer statistics
+90193	Temperature standard deviation	Raw accelerometer statistics
+90187	Total data readings	Raw accelerometer statistics
+6073	Duration at which OCT screen shown (left)	Retinal optical coherence tomography
+6071	Duration at which OCT screen shown (right)	Retinal optical coherence tomography
+6072	OCT measured (left)	Retinal optical coherence tomography
+6070	OCT measured (right)	Retinal optical coherence tomography
+5270	Optical-coherence tomography device ID	Retinal optical coherence tomography
+20062	Reason for skipping OCT (left)	Retinal optical coherence tomography
+20061	Reason for skipping OCT (right)	Retinal optical coherence tomography
+3061	Acceptability of each blow result	Spirometry
+10693	Acceptability of each blow result (pilot)	Spirometry
+20031	Acceptability of each blow result (text)	Spirometry
+20032	Acceptability of each blow result (text) (pilot)	Spirometry
+3089	Caffeine drink within last hour	Spirometry
+3088	Contra-indications for spirometry	Spirometry
+3066	Data points for blow	Spirometry
+10697	Data points for blow (pilot)	Spirometry
+20258	FEV1/ FVC ratio Z-score	Spirometry
+3063	Forced expiratory volume in 1-second (FEV1)	Spirometry
+10695	Forced expiratory volume in 1-second (FEV1) (pilot)	Spirometry
+20256	Forced expiratory volume in 1-second (FEV1) Z-score	Spirometry
+20150	Forced expiratory volume in 1-second (FEV1), Best measure	Spirometry
+20153	Forced expiratory volume in 1-second (FEV1), predicted	Spirometry
+20154	Forced expiratory volume in 1-second (FEV1), predicted percentage	Spirometry
+3062	Forced vital capacity (FVC)	Spirometry
+10694	Forced vital capacity (FVC) (pilot)	Spirometry
+20257	Forced vital capacity (FVC) Z-score	Spirometry
+20151	Forced vital capacity (FVC), Best measure	Spirometry
+3137	Number of measurements made	Spirometry
+10717	Number of measurements made (pilot)	Spirometry
+3065	Ordering of blows	Spirometry
+3064	Peak expiratory flow (PEF)	Spirometry
+10696	Peak expiratory flow (PEF) (pilot)	Spirometry
+20042	Reason for skipping spirometry	Spirometry
+20152	Reproduciblity of spirometry measurement using ERS/ATS criteria	Spirometry
+3059	Result ranking	Spirometry
+10691	Result ranking (pilot)	Spirometry
+3159	Smoked cigarette or pipe within last hour	Spirometry
+42	Spirometer device ID	Spirometry
+20255	Spirometry QC measure	Spirometry
+3132	Spirometry device serial number	Spirometry
+10714	Spirometry device serial number (pilot)	Spirometry
+10711	Spirometry method (pilot)	Spirometry
+3060	Time of blow measurement	Spirometry
+3090	Used an inhaler for chest within last hour	Spirometry
+5212	Direct or mirror view (left)	Visual acuity
+5205	Direct or mirror view (right)	Visual acuity
+5081	Displayed letters in round (left)	Visual acuity
+5080	Displayed letters in round (right)	Visual acuity
+5211	Distance of viewer to screen (left)	Visual acuity
+5204	Distance of viewer to screen (right)	Visual acuity
+5188	Duration visual-acuity screen displayed (left)	Visual acuity
+5186	Duration visual-acuity screen displayed (right)	Visual acuity
+5207	Final number of letters displayed (left)	Visual acuity
+5200	Final number of letters displayed (right)	Visual acuity
+6075	Glasses worn/required (left)	Visual acuity
+6074	Glasses worn/required (right)	Visual acuity
+20262	Myopia diagnosis	Visual acuity
+5077	Number of letters correct in round (left)	Visual acuity
+5076	Number of letters correct in round (right)	Visual acuity
+5074	Number of letters shown in round (left)	Visual acuity
+5075	Number of letters shown in round (right)	Visual acuity
+5209	Number of rounds to result (left)	Visual acuity
+5202	Number of rounds to result (right)	Visual acuity
+20057	Reason for skipping visual acuity (left)	Visual acuity
+20056	Reason for skipping visual acuity (right)	Visual acuity
+5187	Visual acuity measured (left)	Visual acuity
+5185	Visual acuity measured (right)	Visual acuity
+5082	Visual acuity result in round (left)	Visual acuity
+5083	Visual acuity result in round (right)	Visual acuity
+20261	avMSE	Visual acuity
+5078	logMAR in round (left)	Visual acuity
+5079	logMAR in round (right)	Visual acuity
+5208	logMAR, final (left)	Visual acuity
+5201	logMAR, final (right)	Visual acuity
+5206	logMAR, initial (left)	Visual acuity
+5199	logMAR, initial (right)	Visual acuity

@@ -1,0 +1,5 @@
+Coding	Meaning
+1	Yes
+0	No
+-5	Not sure
+-3	Prefer not to answer

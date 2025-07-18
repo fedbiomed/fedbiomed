@@ -1,0 +1,4 @@
+Coding	Meaning
+-2	Never had sex
+-3	Prefer not to answer
+-1	Do not know

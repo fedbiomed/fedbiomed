@@ -1,0 +1,4 @@
+Coding	Meaning
+-10	Less than once a year
+-1	Do not know
+-3	Prefer not to answer

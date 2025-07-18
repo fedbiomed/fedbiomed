@@ -1,0 +1,6 @@
+Coding	Meaning
+1	More nowadays
+2	About the same
+3	Less nowadays
+-1	Do not know
+-3	Prefer not to answer

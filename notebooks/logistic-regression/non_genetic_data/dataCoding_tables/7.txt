@@ -1,0 +1,3 @@
+Coding	Meaning
+1	Yes
+0	No

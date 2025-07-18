@@ -1,0 +1,9 @@
+Field ID	Description
+31	Sex
+21003	Age when attended assessment centre
+34	Year of birth
+52	Month of birth
+54	UK Biobank assessment centre
+53	Date of attending assessment centre
+21000	Ethnic background
+189	Townsend deprivation index at recruitment

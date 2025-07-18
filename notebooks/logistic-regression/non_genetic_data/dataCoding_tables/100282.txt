@@ -1,0 +1,4 @@
+Coding	Meaning
+0	Direct entry
+1	Manual
+9	Cannot be measured

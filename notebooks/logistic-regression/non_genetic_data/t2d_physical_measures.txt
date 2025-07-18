@@ -1,0 +1,26 @@
+data_field	col_start	col_end	data_type	data_coding	field_name
+48	72	75	Continuous	0	Waist circumference
+23098	11619	11622	Continuous	0	Weight
+23100	11627	11630	Continuous	0	Whole body fat mass
+23124	11715	11718	Continuous	0	Arm fat mass (left)
+23111	11663	11666	Continuous	0	Leg fat percentage (right)
+23120	11699	11702	Continuous	0	Arm fat mass (right)
+23104	11639	11642	Continuous	0	Body mass index (BMI)
+23112	11667	11670	Continuous	0	Leg fat mass (right)
+23119	11695	11698	Continuous	0	Arm fat percentage (right)
+23116	11683	11686	Continuous	0	Leg fat mass (left)
+23099	11623	11626	Continuous	0	Body fat percentage
+23123	11711	11714	Continuous	0	Arm fat percentage (left)
+23128	11731	11734	Continuous	0	Trunk fat mass
+23127	11727	11730	Continuous	0	Trunk fat percentage
+23106	11643	11646	Continuous	0	Impedance of whole body
+49	76	79	Continuous	0	Hip circumference
+23102	11635	11638	Continuous	0	Whole body water mass
+23110	11659	11662	Continuous	0	Impedance of arm (left)
+3062	1241	1252	Continuous	0	Forced vital capacity (FVC)
+23117	11687	11690	Continuous	0	Leg fat-free mass (left)
+23126	11723	11726	Continuous	0	Arm predicted mass (left)
+23101	11631	11634	Continuous	0	Whole body fat-free mass
+23118	11691	11694	Continuous	0	Leg predicted mass (left)
+4080	1559	1566	Integer	0	Systolic blood pressure, automated reading
+23114	11675	11678	Continuous	0	Leg predicted mass (right)

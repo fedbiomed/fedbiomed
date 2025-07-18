@@ -1,0 +1,7 @@
+Coding	Meaning
+0	No
+1	Yes, use is now less frequent
+2	Yes, use is now more frequent
+3	I didn't use a mobile phone one year ago
+-1	Do not know
+-3	Prefer not to answer

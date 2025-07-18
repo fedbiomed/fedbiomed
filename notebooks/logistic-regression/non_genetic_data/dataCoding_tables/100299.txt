@@ -1,0 +1,7 @@
+Coding	Meaning
+1	Car/motor vehicle
+2	Walk
+3	Public transport
+4	Cycle
+-7	None of the above
+-3	Prefer not to answer

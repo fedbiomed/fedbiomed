@@ -1,0 +1,6 @@
+data_field	col_start	col_end	data_type	data_coding	field_name
+924	542	545	Categorical (single)	100313	Usual walking pace
+1408	714	717	Categorical (single)	100377	Cheese intake
+1628	798	801	Categorical (single)	100417	Alcohol intake versus 10 years previously
+2237	983	986	Categorical (single)	100639	Plays computer games
+1349	694	697	Categorical (single)	100377	Processed meat intake

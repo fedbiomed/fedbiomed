@@ -1,0 +1,5 @@
+Coding	Meaning
+1	Yes, on most or all days
+2	Only occasionally
+0	No
+-3	Prefer not to answer

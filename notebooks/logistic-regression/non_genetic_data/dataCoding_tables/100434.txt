@@ -1,0 +1,9 @@
+Coding	Meaning
+1	Blonde
+2	Red
+3	Light brown
+4	Dark brown
+5	Black
+6	Other
+-1	Do not know
+-3	Prefer not to answer

@@ -1,0 +1,6 @@
+Coding	Meaning
+10	10&percnt;
+20	20&percnt;
+40	40&percnt;
+70	70&percnt;
+100	100&percnt; (max)

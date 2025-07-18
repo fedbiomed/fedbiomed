@@ -1,0 +1,12 @@
+Coding	Meaning	Node	Parent
+100	Declined	100	Top
+101	Against participant wishes	101	100
+102	Lack of time	102	100
+200	Equipment failure	200	Top
+201	Malfunction	201	200
+300	Reason not known	300	Top
+400	Unable	400	Top
+405	Other health reason	405	400
+428	High BP	428	400
+430	Unsuitable clothing	430	400
+431	Heart rate > safety level	431	400

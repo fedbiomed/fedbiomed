@@ -1,0 +1,5 @@
+Coding	Meaning
+-3	Prefer not to answer
+0	Never
+1	Previous
+2	Current

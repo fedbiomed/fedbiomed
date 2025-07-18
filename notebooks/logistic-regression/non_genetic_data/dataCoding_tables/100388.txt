@@ -1,0 +1,7 @@
+Coding	Meaning
+1	Butter/spreadable butter
+3	Other type of spread/margarine
+0	Never/rarely use spread
+-1	Do not know
+-3	Prefer not to answer
+2	Flora Pro-Active/Benecol

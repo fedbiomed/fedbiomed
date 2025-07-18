@@ -1,0 +1,462 @@
+data_field	col_start	col_end	data_type	data_coding	field_name
+20117	8847	8850	Categorical (single)	90	Alcohol drinker status
+1558	770	773	Categorical (single)	100402	Alcohol intake frequency.
+1628	798	801	Categorical (single)	100417	Alcohol intake versus 10 years previously
+1618	794	797	Categorical (single)	100416	Alcohol usually taken with meals
+4429	2967	2970	Integer	100291	Average monthly beer plus cider intake
+4418	2963	2966	Integer	100291	Average monthly champagne plus white wine intake
+4451	2975	2978	Integer	100291	Average monthly fortified wine intake
+4462	2979	2982	Integer	100291	Average monthly intake of other alcoholic drinks
+4407	2959	2962	Integer	100291	Average monthly red wine intake
+4440	2971	2974	Integer	100291	Average monthly spirits intake
+1588	782	785	Integer	100291	Average weekly beer plus cider intake
+1578	778	781	Integer	100291	Average weekly champagne plus white wine intake
+1608	790	793	Integer	100291	Average weekly fortified wine intake
+5364	4253	4256	Integer	100291	Average weekly intake of other alcoholic drinks
+1568	774	777	Integer	100291	Average weekly red wine intake
+1598	786	789	Integer	100291	Average weekly spirits intake
+3731	1451	1454	Categorical (single)	100352	Former alcohol drinker
+2664	1085	1088	Categorical (single)	100418	Reason for reducing amount of alcohol drunk
+10818	6427	6427	Categorical (single)	100669	Reason for reducing amount of alcohol drunk (pilot)
+3859	1495	1498	Categorical (single)	100418	Reason former drinker stopped drinking alcohol
+10853	6430	6430	Categorical (single)	100669	Reason former drinker stopped drinking alcohol (pilot)
+100580	17047	17051	Categorical (single)	100010	Alcohol consumed
+100710	17067	17071	Categorical (single)	100006	Beer/cider intake
+100720	17072	17076	Categorical (single)	100006	Fortified wine intake
+100740	17082	17086	Categorical (single)	100006	Other alcohol intake
+100590	17052	17056	Categorical (single)	100006	Red wine intake
+100630	17057	17061	Categorical (single)	100006	Rose wine intake
+20096	8460	8469	Categorical (multiple)	82	Size of red wine glass drunk
+20097	8470	8479	Categorical (multiple)	82	Size of rose wine glass drunk
+20095	8445	8459	Categorical (multiple)	82	Size of white wine glass drunk
+100730	17077	17081	Categorical (single)	100006	Spirits intake
+100670	17062	17066	Categorical (single)	100006	White wine intake
+101020	17167	17171	Categorical (single)	100006	Baguette intake
+101090	17172	17176	Categorical (single)	100006	Bap intake
+100940	17157	17161	Categorical (single)	100010	Bread consumed
+101160	17177	17181	Categorical (single)	100006	Bread roll intake
+102740	17532	17536	Categorical (single)	100001	Brown rice intake
+101300	17207	17211	Categorical (single)	100010	Butter/margarine on bread/crackers
+102770	17547	17551	Categorical (single)	100001	Couscous intake
+101250	17192	17196	Categorical (single)	100006	Crispbread intake
+101240	17187	17191	Categorical (single)	100006	Garlic bread intake
+101230	17182	17186	Categorical (single)	100006	Naan bread intake
+101350	17217	17221	Categorical (single)	100006	Number of baguettes with butter/margarine
+101390	17222	17226	Categorical (single)	100006	Number of baps with butter/margarine
+101430	17227	17231	Categorical (single)	100006	Number of bread rolls with butter/margarine
+101310	17212	17216	Categorical (single)	100006	Number of bread slices with butter/margarine
+101470	17232	17236	Categorical (single)	100006	Number of crackers/crispbreads with butter/margarine
+101510	17237	17241	Categorical (single)	100006	Number of oatcakes with butter/margarine
+101550	17242	17246	Categorical (single)	100006	Number of other bread types with butter/margarine
+101260	17197	17201	Categorical (single)	100006	Oatcakes intake
+101270	17202	17206	Categorical (single)	100006	Other bread intake
+102780	17552	17556	Categorical (single)	100001	Other grain intake
+100950	17162	17166	Categorical (single)	100006	Sliced bread intake
+102760	17542	17546	Categorical (single)	100001	Snackpot intake
+102700	17512	17516	Categorical (single)	100010	Starchy food consumers
+102750	17537	17541	Categorical (single)	100001	Sushi intake
+20099	8495	8504	Categorical (multiple)	83	Thickness of butter/margarine spread on baguettes
+20101	8515	8524	Categorical (multiple)	83	Thickness of butter/margarine spread on bread rolls
+20102	8525	8534	Categorical (multiple)	83	Thickness of butter/margarine spread on crackers/crispbreads
+20100	8505	8514	Categorical (multiple)	83	Thickness of butter/margarine spread on large baps
+20103	8535	8544	Categorical (multiple)	83	Thickness of butter/margarine spread on oatcakes
+20104	8545	8554	Categorical (multiple)	83	Thickness of butter/margarine spread on other bread
+20098	8480	8494	Categorical (multiple)	83	Thickness of butter/margarine spread on sliced bread
+20092	8375	8399	Categorical (multiple)	81	Type of baguette eaten
+20094	8420	8444	Categorical (multiple)	81	Type of bread roll eaten
+20093	8400	8419	Categorical (multiple)	81	Type of large bap eaten
+20091	8350	8374	Categorical (multiple)	81	Type of sliced bread eaten
+20087	8260	8324	Categorical (multiple)	77	Types of spread used on bread/crackers
+102710	17517	17521	Categorical (single)	100001	White pasta intake
+102730	17527	17531	Categorical (single)	100001	White rice intake
+102720	17522	17526	Categorical (single)	100001	Wholemeal pasta intake
+100840	17117	17121	Categorical (single)	100001	Bran cereal intake
+100760	17087	17091	Categorical (single)	100010	Breakfast cereal consumed
+100880	17132	17136	Categorical (single)	100009	Dried fruit added to cereal
+100910	17147	17151	Categorical (single)	100002	Intake of artificial sweetener added to cereal
+100900	17142	17146	Categorical (single)	100002	Intake of sugar added to cereal
+20105	8555	8564	Categorical (multiple)	84	Liquid used to make porridge
+100890	17137	17141	Categorical (single)	100009	Milk added to cereal
+100800	17097	17101	Categorical (single)	100001	Muesli intake
+100810	17102	17106	Categorical (single)	100001	Oat crunch intake
+100860	17127	17131	Categorical (single)	100001	Other cereal intake
+100830	17112	17116	Categorical (single)	100001	Plain cereal intake
+100770	17092	17096	Categorical (single)	100001	Porridge intake
+100820	17107	17111	Categorical (single)	100001	Sweetened cereal intake
+100850	17122	17126	Categorical (single)	100001	Whole-wheat cereal intake
+3680	1435	1438	Integer	100291	Age when last ate meat
+1369	702	705	Categorical (single)	100377	Beef intake
+1438	726	729	Integer	100373	Bread intake
+1448	730	733	Categorical (single)	100391	Bread type
+10776	6425	6425	Categorical (single)	100674	Bread type/intake (pilot)
+1458	734	737	Integer	100373	Cereal intake
+1468	738	741	Categorical (single)	100393	Cereal type
+1408	714	717	Categorical (single)	100377	Cheese intake
+1508	750	753	Categorical (single)	100397	Coffee type
+1289	670	673	Integer	100373	Cooked vegetable intake
+1319	682	685	Integer	100373	Dried fruit intake
+1309	678	681	Integer	100373	Fresh fruit intake
+1518	754	757	Categorical (single)	100398	Hot drink temperature
+1379	706	709	Categorical (single)	100377	Lamb/mutton intake
+1538	762	765	Categorical (single)	100400	Major dietary changes in the last 5 years
+1418	718	721	Categorical (single)	100387	Milk type used
+6144	5911	5926	Categorical (multiple)	100385	Never eat eggs, dairy, wheat, sugar
+10855	6437	6440	Categorical (multiple)	100672	Never eat eggs, dairy, wheat, sugar (pilot)
+2654	1081	1084	Categorical (single)	100389	Non-butter spread type details
+1339	690	693	Categorical (single)	100377	Non-oily fish intake
+1329	686	689	Categorical (single)	100377	Oily fish intake
+1389	710	713	Categorical (single)	100377	Pork intake
+1359	698	701	Categorical (single)	100377	Poultry intake
+1349	694	697	Categorical (single)	100377	Processed meat intake
+1299	674	677	Integer	100373	Salad / raw vegetable intake
+1478	742	745	Categorical (single)	100394	Salt added to food
+1428	722	725	Categorical (single)	100388	Spread type
+10767	6424	6424	Categorical (single)	100673	Spread type (pilot)
+1488	746	749	Integer	100373	Tea intake
+1548	766	769	Categorical (single)	100401	Variation in diet
+10912	6447	6447	Categorical (single)	100394	Variation in diet (pilot)
+1528	758	761	Integer	100373	Water intake
+20080	8085	8089	Categorical (single)	73	Day-of-week questionnaire completed
+20079	8080	8084	Categorical (single)	73	Day-of-week questionnaire completion requested
+20083	8100	8104	Integer	0	Delay between questionnaire request and completion
+20082	8095	8099	Integer	0	Duration of questionnaire
+20081	8090	8094	Integer	0	Hour-of-day questionnaire completed
+20077	8074	8074	Integer	0	Number of diet questionnaires completed
+105010	18102	18106	Time	0	When diet questionnaire completed
+20078	8075	8079	Date	0	When diet questionnaire completion requested
+105030	18107	18111	Time	0	When diet questionnaire started
+10886	6445	6445	Categorical (single)	100664	Difference in mobile phone use compared to one year previously (pilot)
+1140	614	617	Categorical (single)	100338	Difference in mobile phone use compared to two years previously
+1130	610	613	Categorical (single)	100337	Hands-free device/speakerphone use with mobile phone in last 3 month
+10105	6375	6375	Categorical (single)	100352	Internet user (pilot)
+1110	602	605	Categorical (single)	100335	Length of mobile phone use
+2237	983	986	Categorical (single)	100639	Plays computer games
+10016	6374	6374	Categorical (single)	100349	Regular use of hands-free device/speakerphone with mobile phone (pilot)
+10749	6423	6423	Categorical (single)	100663	Time using mobile phone in last 3 months (pilot)
+1150	618	621	Categorical (single)	100339	Usual side of head for mobile phone use
+1120	606	609	Categorical (single)	100336	Weekly usage of mobile phone in last 3 months
+10114	6376	6376	Categorical (single)	100352	Willing to be contacted by email (pilot)
+100022	16827	16831	Continuous	0	Alcohol
+100024	16837	16841	Continuous	0	Calcium
+100005	16742	16746	Continuous	0	Carbohydrate
+100019	16812	16816	Continuous	0	Carotene
+100002	16727	16731	Continuous	0	Energy
+100009	16762	16766	Continuous	0	Englyst dietary fibre
+100004	16737	16741	Continuous	0	Fat
+100014	16787	16791	Continuous	0	Folate
+100001	16722	16726	Continuous	0	Food weight
+100011	16772	16776	Continuous	0	Iron
+100017	16802	16806	Continuous	0	Magnesium
+100007	16752	16756	Continuous	0	Polyunsaturated fat
+100016	16797	16801	Continuous	0	Potassium
+100003	16732	16736	Continuous	0	Protein
+100018	16807	16811	Continuous	0	Retinol
+100006	16747	16751	Continuous	0	Saturated fat
+100023	16832	16836	Continuous	0	Starch
+100008	16757	16761	Continuous	0	Total sugars
+100013	16782	16786	Continuous	0	Vitamin B12
+100012	16777	16781	Continuous	0	Vitamin B6
+100015	16792	16796	Continuous	0	Vitamin C
+100021	16822	16826	Continuous	0	Vitamin D
+100025	16842	16846	Continuous	0	Vitamin E
+104450	18007	18011	Categorical (single)	100004	Apple intake
+104100	17837	17841	Categorical (single)	100017	Avocado intake
+104000	17787	17791	Categorical (single)	100017	Baked bean intake
+104460	18012	18016	Categorical (single)	100004	Banana intake
+104130	17852	17856	Categorical (single)	100017	Beetroot intake
+104470	18017	18021	Categorical (single)	100004	Berry intake
+104030	17802	17806	Categorical (single)	100017	Boiled/baked potatoes intake
+104110	17842	17846	Categorical (single)	100017	Broad bean intake
+104140	17857	17861	Categorical (single)	100017	Broccoli intake
+104040	17807	17811	Categorical (single)	100013	Butter/margarine added to potatoes
+104150	17862	17866	Categorical (single)	100017	Butternut squash intake
+104160	17867	17871	Categorical (single)	100017	Cabbage/kale intake
+104170	17872	17876	Categorical (single)	100017	Carrot intake
+104180	17877	17881	Categorical (single)	100017	Cauliflower intake
+104190	17882	17886	Categorical (single)	100017	Celery intake
+104480	18022	18026	Categorical (single)	100004	Cherry intake
+104080	17827	17831	Categorical (single)	100017	Coleslaw intake
+104200	17887	17891	Categorical (single)	100017	Courgette intake
+104210	17892	17896	Categorical (single)	100017	Cucumber intake
+104430	17997	18001	Categorical (single)	100004	Dried fruit intake
+104340	17957	17961	Categorical (single)	100017	Fresh tomato intake
+104020	17797	17801	Categorical (single)	100017	Fried potatoes intake
+104400	17982	17986	Categorical (single)	100010	Fruit consumers
+104220	17897	17901	Categorical (single)	100017	Garlic intake
+104500	18032	18036	Categorical (single)	100004	Grape intake
+104490	18027	18031	Categorical (single)	100004	Grapefruit intake
+104120	17847	17851	Categorical (single)	100017	Green bean intake
+104230	17902	17906	Categorical (single)	100017	Leek intake
+104240	17907	17911	Categorical (single)	100017	Lettuce intake
+104510	18037	18041	Categorical (single)	100004	Mango intake
+104050	17812	17816	Categorical (single)	100017	Mashed potato intake
+104520	18042	18046	Categorical (single)	100004	Melon intake
+104440	18002	18006	Categorical (single)	100004	Mixed fruit intake
+104060	17817	17821	Categorical (single)	100017	Mixed vegetable intake
+104250	17912	17916	Categorical (single)	100017	Mushroom intake
+104260	17917	17921	Categorical (single)	100017	Onion intake
+104530	18047	18051	Categorical (single)	100004	Orange intake
+104590	18077	18081	Categorical (single)	100004	Other fruit intake
+104380	17977	17981	Categorical (single)	100017	Other vegetables intake
+104270	17922	17926	Categorical (single)	100017	Parsnip intake
+104280	17927	17931	Categorical (single)	100017	Pea intake
+104550	18057	18061	Categorical (single)	100004	Peach/nectarine intake
+104560	18062	18066	Categorical (single)	100004	Pear intake
+104570	18067	18071	Categorical (single)	100004	Pineapple intake
+104580	18072	18076	Categorical (single)	100004	Plum intake
+104420	17992	17996	Categorical (single)	100004	Prune intake
+104010	17792	17796	Categorical (single)	100017	Pulses intake
+104540	18052	18056	Categorical (single)	100004	Satsuma intake
+104090	17832	17836	Categorical (single)	100017	Side salad intake
+104300	17937	17941	Categorical (single)	100017	Spinach intake
+104310	17942	17946	Categorical (single)	100017	Sprouts intake
+104410	17987	17991	Categorical (single)	100004	Stewed fruit intake
+104290	17932	17936	Categorical (single)	100017	Sweet pepper intake
+104330	17952	17956	Categorical (single)	100017	Sweet potato intake
+104320	17947	17951	Categorical (single)	100017	Sweetcorn intake
+104350	17962	17966	Categorical (single)	100017	Tinned tomato intake
+104360	17967	17971	Categorical (single)	100017	Turnip/swede intake
+103990	17782	17786	Categorical (single)	100010	Vegetable consumers
+104070	17822	17826	Categorical (single)	100017	Vegetable pieces intake
+104370	17972	17976	Categorical (single)	100017	Watercress intake
+100320	16932	16936	Categorical (single)	100009	Added milk to espresso
+100280	16912	16916	Categorical (single)	100009	Added milk to filtered coffee
+100260	16902	16906	Categorical (single)	100009	Added milk to instant coffee
+100350	16942	16946	Categorical (single)	100009	Added milk to other coffee type
+100480	17002	17006	Categorical (single)	100009	Added milk to rooibos tea
+100460	16992	16996	Categorical (single)	100009	Added milk to standard tea
+100290	16917	16921	Categorical (single)	100006	Cappuccino intake
+100240	16892	16896	Categorical (single)	100010	Coffee consumed
+100230	16887	16891	Categorical (single)	100006	Dairy smoothie intake
+100360	16947	16951	Categorical (single)	100009	Decaffeinated coffee
+100470	16997	17001	Categorical (single)	100009	Decaffeinated tea
+100150	16847	16851	Categorical (single)	100006	Drinking water intake
+100310	16927	16931	Categorical (single)	100006	Espresso intake
+100270	16907	16911	Categorical (single)	100006	Filtered coffee intake
+100170	16857	16861	Categorical (single)	100006	Fizzy drink intake
+100530	17027	17031	Categorical (single)	100006	Flavoured milk intake
+100220	16882	16886	Categorical (single)	100006	Fruit smoothie intake
+100200	16872	16876	Categorical (single)	100006	Grapefruit juice intake
+100420	16977	16981	Categorical (single)	100007	Green tea intake
+100430	16982	16986	Categorical (single)	100007	Herbal tea intake
+100550	17037	17041	Categorical (single)	100006	Hot chocolate intake
+100250	16897	16901	Categorical (single)	100006	Instant coffee intake
+100380	16957	16961	Categorical (single)	100002	Intake of artificial sweetener added to coffee
+100500	17012	17016	Categorical (single)	100002	Intake of artificial sweetener added to tea
+100370	16952	16956	Categorical (single)	100002	Intake of sugar added to coffee
+100490	17007	17011	Categorical (single)	100002	Intake of sugar added to tea
+100300	16922	16926	Categorical (single)	100006	Latte intake
+100160	16852	16856	Categorical (single)	100006	Low calorie drink intake
+100540	17032	17036	Categorical (single)	100006	Low calorie hot chocolate intake
+100520	17022	17026	Categorical (single)	100006	Milk intake
+100190	16867	16871	Categorical (single)	100006	Orange juice intake
+100330	16937	16941	Categorical (single)	100006	Other coffee type
+100560	17042	17046	Categorical (single)	100006	Other drink intake
+100510	17017	17021	Categorical (single)	100010	Other non-alcoholic drinks
+100440	16987	16991	Categorical (single)	100007	Other tea intake
+100210	16877	16881	Categorical (single)	100006	Pure fruit/vegetable juice intake
+100410	16972	16976	Categorical (single)	100007	Rooibos tea intake
+100180	16862	16866	Categorical (single)	100006	Squash intake
+100400	16967	16971	Categorical (single)	100007	Standard tea intake
+100390	16962	16966	Categorical (single)	100010	Tea consumed
+22035	10020	10020	Categorical (single)	7	Above moderate/vigorous recommendation
+22036	10021	10021	Categorical (single)	7	Above moderate/vigorous/walking recommendation
+22032	10017	10017	Categorical (single)	100700	IPAQ activity group
+22038	10023	10023	Continuous	0	MET minutes per week for moderate activity
+22039	10024	10024	Continuous	0	MET minutes per week for vigorous activity
+22037	10022	10022	Continuous	0	MET minutes per week for walking
+22033	10018	10018	Integer	0	Summed days activity
+22034	10019	10019	Integer	0	Summed minutes activity
+20089	8325	8349	Categorical (multiple)	79	Type of meals eaten
+103070	17682	17686	Categorical (single)	100016	Bacon intake
+103180	17732	17736	Categorical (single)	100004	Battered fish intake
+103020	17657	17661	Categorical (single)	100016	Beef intake
+103170	17727	17731	Categorical (single)	100004	Breaded fish intake
+103050	17672	17676	Categorical (single)	100016	Crumbed or deep-fried poultry intake
+103120	17702	17706	Categorical (single)	100008	Fat removed from meat
+103140	17712	17716	Categorical (single)	100010	Fish consumer
+103080	17687	17691	Categorical (single)	100016	Ham intake
+103040	17667	17671	Categorical (single)	100016	Lamb intake
+103090	17692	17696	Categorical (single)	100016	Liver intake
+103210	17747	17751	Categorical (single)	100004	Lobster/crab intake
+103000	17647	17651	Categorical (single)	100010	Meat consumers
+103160	17722	17726	Categorical (single)	100004	Oily fish intake
+103230	17757	17761	Categorical (single)	100004	Other fish intake
+103100	17697	17701	Categorical (single)	100016	Other meat intake
+103030	17662	17666	Categorical (single)	100016	Pork intake
+103060	17677	17681	Categorical (single)	100016	Poultry intake
+103200	17742	17746	Categorical (single)	100004	Prawns intake
+103010	17652	17656	Categorical (single)	100016	Sausage intake
+103220	17752	17756	Categorical (single)	100004	Shellfish intake
+103130	17707	17711	Categorical (single)	100008	Skin removed from poultry
+103150	17717	17721	Categorical (single)	100004	Tinned tuna intake
+103190	17737	17741	Categorical (single)	100004	White fish intake
+102840	17577	17581	Categorical (single)	100003	Blue cheese intake
+102800	17557	17561	Categorical (single)	100010	Cheese consumers
+102860	17587	17591	Categorical (single)	100003	Cheese spread intake
+102870	17592	17596	Categorical (single)	100003	Cottage cheese intake
+102930	17617	17621	Categorical (single)	100010	Egg consumers
+102960	17632	17636	Categorical (single)	100003	Eggs in sandwiches intake
+102880	17597	17601	Categorical (single)	100003	Feta intake
+102900	17607	17611	Categorical (single)	100003	Goat's cheese intake
+102820	17567	17571	Categorical (single)	100003	Hard cheese intake
+102850	17582	17586	Categorical (single)	100003	Low fat cheese spread intake
+102810	17562	17566	Categorical (single)	100003	Low fat hard cheese intake
+102890	17602	17606	Categorical (single)	100003	Mozzarella intake
+102950	17627	17631	Categorical (single)	100003	Omelette intake
+102910	17612	17616	Categorical (single)	100003	Other cheese intake
+102980	17642	17646	Categorical (single)	100003	Other egg intake
+102970	17637	17641	Categorical (single)	100003	Scotch egg intake
+102830	17572	17576	Categorical (single)	100003	Soft cheese intake
+100920	17152	17156	Categorical (single)	100015	Type milk consumed
+102940	17622	17626	Categorical (single)	100003	Whole egg intake
+1100	598	601	Categorical (single)	100334	Drive faster than motorway speed limit
+2634	1073	1076	Categorical (single)	100318	Duration of heavy DIY
+1021	570	573	Categorical (single)	100318	Duration of light DIY
+894	530	533	Integer	100291	Duration of moderate activity
+10962	6449	6449	Categorical (single)	100659	Duration of moderate physical activity (pilot)
+3647	1424	1427	Categorical (single)	100318	Duration of other exercises
+1001	562	565	Categorical (single)	100318	Duration of strenuous sports
+914	538	541	Integer	100291	Duration of vigorous activity
+10971	6450	6450	Categorical (single)	100659	Duration of vigorous physical activity (pilot)
+874	522	525	Integer	100291	Duration of walks
+10953	6448	6448	Categorical (single)	100659	Duration of walks (pilot)
+981	554	557	Categorical (single)	100318	Duration walking for pleasure
+2624	1069	1072	Categorical (single)	100317	Frequency of heavy DIY in last 4 weeks
+1011	566	569	Categorical (single)	100317	Frequency of light DIY in last 4 weeks
+3637	1420	1423	Categorical (single)	100317	Frequency of other exercises in last 4 weeks
+943	546	549	Categorical (single)	100314	Frequency of stair climbing in last 4 weeks
+991	558	561	Categorical (single)	100317	Frequency of strenuous sports in last 4 weeks
+971	550	553	Categorical (single)	100317	Frequency of walking for pleasure in last 4 weeks
+884	526	529	Integer	100291	Number of days/week of moderate physical activity 10+ minutes
+904	534	537	Integer	100291	Number of days/week of vigorous physical activity 10+ minutes
+864	518	521	Integer	100307	Number of days/week walked 10+ minutes
+1090	594	597	Integer	100329	Time spent driving
+1080	590	593	Integer	100329	Time spent using computer
+1070	586	589	Integer	100329	Time spent watching television (TV)
+6164	6271	6290	Categorical (multiple)	100316	Types of physical activity in last 4 weeks
+6162	6255	6270	Categorical (multiple)	100299	Types of transport used (excluding work)
+924	542	545	Categorical (single)	100313	Usual walking pace
+104920	18097	18101	Categorical (single)	100012	Time spent doing light physical activity
+104910	18092	18096	Categorical (single)	100011	Time spent doing moderate physical activity
+104900	18087	18091	Categorical (single)	100011	Time spent doing vigorous physical activity
+2139	951	954	Integer	100504	Age first had sexual intercourse
+2129	947	950	Categorical (single)	100503	Answered sexual history questions
+2159	959	962	Categorical (single)	100352	Ever had same-sex intercourse
+3669	1431	1434	Integer	100291	Lifetime number of same-sex sexual partners
+2149	955	958	Integer	100291	Lifetime number of sexual partners
+1220	646	649	Categorical (single)	100346	Daytime dozing / sleeping (narcolepsy)
+1170	626	629	Categorical (single)	100341	Getting up in morning
+1180	630	633	Categorical (single)	100342	Morning/evening person (chronotype)
+1190	634	637	Categorical (single)	100343	Nap during day
+1160	622	625	Integer	100291	Sleep duration
+1200	638	641	Categorical (single)	100343	Sleeplessness / insomnia
+1210	642	645	Categorical (single)	100345	Snoring
+3436	1368	1371	Integer	100291	Age started smoking in current smokers
+2867	1161	1164	Integer	100291	Age started smoking in former smokers
+2897	1173	1176	Integer	100291	Age stopped smoking
+6194	6331	6334	Integer	100291	Age stopped smoking cigarettes (current cigar/pipe or previous cigarette smoker)
+1239	650	653	Categorical (single)	100347	Current tobacco smoking
+20160	8995	8998	Categorical (single)	7	Ever smoked
+2907	1177	1180	Categorical (single)	100349	Ever stopped smoking for 6+ months
+10827	6428	6428	Categorical (single)	100668	Ever stopped smoking for 6+ months (pilot)
+1269	662	665	Integer	100291	Exposure to tobacco smoke at home
+1279	666	669	Integer	100291	Exposure to tobacco smoke outside home
+2644	1077	1080	Categorical (single)	100349	Light smokers, at least 100 smokes in lifetime
+10895	6446	6446	Categorical (single)	100352	Light smokers, at least 100 smokes in lifetime (pilot)
+3456	1376	1379	Integer	100355	Number of cigarettes currently smoked daily (current cigarette smokers)
+2887	1169	1172	Integer	100353	Number of cigarettes previously smoked daily
+6183	6327	6330	Integer	100353	Number of cigarettes previously smoked daily (current cigar/pipe smokers)
+2926	1181	1184	Integer	100291	Number of unsuccessful stop-smoking attempts
+20162	9003	9006	Continuous	0	Pack years adult smoking as proportion of life span exposed to smoking
+20161	8999	9002	Continuous	0	Pack years of smoking
+1249	654	657	Categorical (single)	100348	Past tobacco smoking
+5959	4369	4372	Categorical (single)	100352	Previously smoked cigarettes on most/all days
+3506	1384	1387	Categorical (single)	100360	Smoking compared to 10 years previous
+20116	8843	8846	Categorical (single)	90	Smoking status
+1259	658	661	Categorical (single)	100370	Smoking/smokers in household
+3466	1380	1383	Categorical (single)	100356	Time from waking to first cigarette
+3446	1372	1375	Categorical (single)	100351	Type of tobacco currently smoked
+2877	1165	1168	Categorical (single)	100351	Type of tobacco previously smoked
+6158	6191	6206	Categorical (multiple)	100361	Why reduced smoking
+6157	6175	6190	Categorical (multiple)	100361	Why stopped smoking
+10115	6377	6377	Categorical (single)	100669	Why stopped smoking (pilot)
+2110	943	946	Categorical (single)	100501	Able to confide
+1031	574	577	Categorical (single)	100327	Frequency of friend/family visits
+10740	6422	6422	Categorical (single)	100662	Frequency of friend/family visits (pilot)
+6160	6235	6254	Categorical (multiple)	100328	Leisure/social activities
+102190	17342	17346	Categorical (single)	100003	Cake intake
+102540	17502	17506	Categorical (single)	100004	Canned soup intake
+102370	17427	17431	Categorical (single)	100005	Cereal bar intake
+102220	17357	17361	Categorical (single)	100003	Cheesecake intake
+102480	17477	17481	Categorical (single)	100003	Cheesy biscuits intake
+102260	17372	17376	Categorical (single)	100005	Chocolate bar intake
+102350	17417	17421	Categorical (single)	100005	Chocolate biscuits intake
+102310	17397	17401	Categorical (single)	100005	Chocolate sweet intake
+102340	17412	17416	Categorical (single)	100005	Chocolate-covered biscuits intake
+102300	17392	17396	Categorical (single)	100005	Chocolate-covered raisin intake
+102460	17467	17471	Categorical (single)	100003	Crisp intake
+102050	17287	17291	Categorical (single)	100004	Croissant intake
+101990	17257	17261	Categorical (single)	100004	Crumble intake
+102060	17292	17296	Categorical (single)	100004	Danish pastry intake
+102290	17387	17391	Categorical (single)	100005	Dark chocolate intake
+102130	17317	17321	Categorical (single)	100010	Dessert consumers
+102320	17402	17406	Categorical (single)	100005	Diet sweets intake
+101970	17247	17251	Categorical (single)	100004	Double crust pastry intake
+102200	17347	17351	Categorical (single)	100003	Doughnut intake
+102180	17337	17341	Categorical (single)	100003	Fruitcake intake
+102620	17507	17511	Categorical (single)	100004	Homemade soup intake
+102120	17312	17316	Categorical (single)	100003	Ice-cream intake
+102040	17282	17286	Categorical (single)	100004	Indian snacks intake
+20108	8615	8639	Categorical (multiple)	86	Ingredients in canned soup
+20109	8640	8669	Categorical (multiple)	86	Ingredients in homemade soup
+102280	17382	17386	Categorical (single)	100005	Milk chocolate intake
+102140	17322	17326	Categorical (single)	100003	Milk-based pudding intake
+102490	17482	17486	Categorical (single)	100003	Olives intake
+102230	17362	17366	Categorical (single)	100003	Other dessert intake
+102150	17327	17331	Categorical (single)	100003	Other milk-based pudding intake
+102500	17487	17491	Categorical (single)	100003	Other savoury snack intake
+102380	17432	17436	Categorical (single)	100005	Other sweets intake
+102010	17267	17271	Categorical (single)	100004	Pancake intake
+102000	17262	17266	Categorical (single)	100004	Pizza intake
+102530	17497	17501	Categorical (single)	100004	Powdered/instant soup intake
+102430	17452	17456	Categorical (single)	100003	Salted nuts intake
+102410	17442	17446	Categorical (single)	100003	Salted peanuts intake
+102470	17472	17476	Categorical (single)	100003	Savoury biscuits intake
+102400	17437	17441	Categorical (single)	100010	Savoury snack consumers
+102070	17297	17301	Categorical (single)	100004	Scone intake
+102020	17272	17276	Categorical (single)	100004	Scotch pancake intake
+102450	17462	17466	Categorical (single)	100003	Seeds intake
+101980	17252	17256	Categorical (single)	100004	Single crust pastry intake
+102520	17492	17496	Categorical (single)	100010	Soup consumers
+102170	17332	17336	Categorical (single)	100003	Soya dessert intake
+102210	17352	17356	Categorical (single)	100003	Sponge pudding intake
+102360	17422	17426	Categorical (single)	100005	Sweet biscuits intake
+102250	17367	17371	Categorical (single)	100010	Sweet snack consumers
+102330	17407	17411	Categorical (single)	100005	Sweets intake
+20106	8565	8574	Categorical (multiple)	85	Type of yogurt eaten
+102440	17457	17461	Categorical (single)	100003	Unsalted nuts intake
+102420	17447	17451	Categorical (single)	100003	Unsalted peanuts intake
+102270	17377	17381	Categorical (single)	100005	White chocolate intake
+102090	17307	17311	Categorical (single)	100003	Yogurt intake
+102080	17302	17306	Categorical (single)	100010	Yogurt/ice-cream consumers
+102030	17277	17281	Categorical (single)	100004	Yorkshire pudding intake
+1737	823	825	Integer	100291	Childhood sunburn occasions
+1727	820	822	Categorical (single)	100432	Ease of skin tanning
+1757	829	832	Categorical (single)	100435	Facial ageing
+2277	999	1002	Integer	100537	Frequency of solarium/sunlamp use
+1747	826	828	Categorical (single)	100434	Hair colour (natural, before greying)
+1717	817	819	Categorical (single)	100431	Skin colour
+1050	578	581	Integer	100329	Time spend outdoors in summer
+1060	582	585	Integer	100329	Time spent outdoors in winter
+2267	995	998	Categorical (single)	100536	Use of sun/uv protection
+100010	16767	16771	Categorical (single)	100014	Portion size
+20085	8210	8229	Categorical (multiple)	75	Reason for not eating or drinking normally
+20086	8230	8259	Categorical (multiple)	76	Type of special diet followed
+100020	16817	16821	Categorical (single)	100010	Typical diet yesterday
+103290	17777	17781	Categorical (single)	100004	Other vegetarian alternative intake
+103280	17772	17776	Categorical (single)	100004	Quorn intake
+103270	17767	17771	Categorical (single)	100004	Tofu intake
+103260	17762	17766	Categorical (single)	100004	Vegetarian sausages/burgers intake
+20084	8105	8209	Categorical (multiple)	74	Vitamin and/or mineral supplement use
+104670	18082	18086	Categorical (single)	100010	Vitamin supplement user

@@ -1,0 +1,18 @@
+Coding	Meaning	Node	Parent
+100	Declined	100	Top
+101	Against participant wishes	101	100
+102	Lack of time	102	100
+103	Feeling unwell	103	100
+200	Equipment failure	200	Top
+201	Malfunction	201	200
+300	Reason not known	300	Top
+400	Unable	400	Top
+405	Other health reason	405	400
+412	Unable to understand instructions	412	400
+427	Chest pain	427	400
+428	High BP	428	400
+429	High heart rate	429	400
+430	Unsuitable clothing	430	400
+600	Abandoned	600	Top
+601	Feeling unwell/pain	601	600
+602	Unable to maintain recommended speed	602	600

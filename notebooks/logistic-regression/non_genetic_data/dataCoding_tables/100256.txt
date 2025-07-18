@@ -1,0 +1,5 @@
+Coding	Meaning
+1	Bicycle
+2	Resting only
+6	Not performed - equipment failure
+7	Not performed - other reason

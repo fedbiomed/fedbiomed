@@ -1,0 +1,8 @@
+Coding	Meaning
+0	Never or almost never
+1	Less than half the time
+2	About half the time
+3	More than half the time
+4	Always or almost always
+-1	Do not know
+-3	Prefer not to answer

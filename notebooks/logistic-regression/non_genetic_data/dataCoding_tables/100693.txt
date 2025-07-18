@@ -1,0 +1,4 @@
+Coding	Meaning
+0	No response
+1	Partial
+2	Completed

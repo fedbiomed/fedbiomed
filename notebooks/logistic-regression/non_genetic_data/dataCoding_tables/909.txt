@@ -1,0 +1,2 @@
+Coding	Meaning
+0	Measure invalid
