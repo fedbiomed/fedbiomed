@@ -66,12 +66,18 @@ class CsvReader(Reader):
         # self._transform_framework = lambda x: x  # change that dpd on to_format arg
         self._format = to_format
 
-        self._native_transform = (
-            lambda x: x if native_transform is None else native_transform
-        )
-        self._native_target_transform = (
-            lambda x: x if native_target_transform is None else native_target_transform
-        )
+        # self._native_transform = lambda x: x if native_transform is None else native_transform
+
+        if native_transform is None:
+            self._native_transform = lambda x: x
+        else:
+            self._native_transform = native_transform
+
+        if native_target_transform is None:
+            self._native_target_transform = lambda x: None
+        else:
+            self._native_target_transform = native_target_transform
+
         self._reader = None
         self._n_thread = n_thread
         self._index_col_name: int = 0
@@ -81,7 +87,7 @@ class CsvReader(Reader):
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
     def read(
-        self, index_col: Optional[int] = None, index_max: Optional[int] = None, **kwargs
+        self, index_col: Optional[int] = None, **kwargs
     ) -> Union[pd.DataFrame, torch.Tensor, np.ndarray]:
         """Retrieve data: read all dataset"""
         if not self._is_preparsed:
@@ -96,7 +102,7 @@ class CsvReader(Reader):
         )
         # TODO: add header + delimiter into the read_csv
 
-        return file_content
+        return self._native_transform(file_content)
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
     def validate(self) -> None:
@@ -154,11 +160,14 @@ class CsvReader(Reader):
             )
 
         res = res.drop(col_name)
-        return tuple(
-            self._transform_framework(self._native_transform(res.row(e)))
-            for e in range(len(res))
-        )
-        # TODO: stack row if batch of data[]
+        # res = tuple(
+        #     self._transform_framework(self._native_transform(res).row(e))
+        #     for e in range(len(res))
+        # )
+        res = self._transform_framework(self._native_transform(res))
+        target = self._transform_framework(self._native_target_transform(res))
+        # return self._transform_batch_framework(res)
+        return res, target
 
     def read_single_entry(self, indexes: int | Iterable) -> Tuple[Any]:
         """Reads a single row or a btach of rows within a csv file. Rows are indexed
@@ -174,40 +183,27 @@ class CsvReader(Reader):
         """
         if not isinstance(indexes, Iterable):
             indexes = [indexes]
-        # if:
-        #     indexes = (idx + 1 for idx in indexes)
-
-        # if self._reader is None:
-        #     try:
-        #         self._reader = pl.read_csv(
-        #             self._path,
-        #             has_header=bool(self.header),
-        #             truncate_ragged_lines=self._force_read,
-        #         )
-        #     except pl.exceptions.ComputeError as err:
-        #         msg = f"cannot read csv file {self._path} due to inconsistent lines: see details"
-        #         raise FedbiomedUserInputError(msg) from err
 
         if not self._is_preparsed:
             self._pre_parse()
         entries = []
 
-        for idx in indexes:
-            # if self.header and idx == 0:
-            #     # at this stage, dataset header is [column_1, column_2, column_3, ...]
-            #     csv_entry = self._get_first_line()
-            # else:
-            try:
-                # if not self.header:
-                #     idx -= 1
-                csv_entry = self._reader.row(idx)
-            except pl.exceptions.OutOfBoundsError as err:
-                msg = f"Cannot read line {idx}: file only contains {self._len} samples"
-                raise FedbiomedUserInputError(msg) from err
+        row_nb = pl.int_range(0, pl.len())
 
-        entries.append(self._transform_framework(self._native_transform(csv_entry)))
+        csv_entry = self._reader.filter(row_nb.is_in(indexes))
+        if csv_entry.is_empty():
+            msg = f"Cannot read lines {indexes}: file only contains {self._len} samples"
+            raise FedbiomedUserInputError(msg)
+        # entries.append(self._transform_framework(csv_entry))
+        # TODO: implement logic here
 
-        return tuple(entries)
+        data, target = (
+            self._native_transform(csv_entry),
+            self._native_target_transform(csv_entry),
+        )
+        return self._transform_framework(data), self._transform_framework(target)
+        return self._transform_batch_framework(tuple(entries))
+        return entries
 
     def _random_sample(self, n_entries: int, seed: Optional[int] = None):
         entries = self._reader.sample(n_entries, seed)
@@ -240,6 +236,11 @@ class CsvReader(Reader):
         self._reader.shrink_to_fit()  # .lazy()
 
     def _gpu_reader(self, **reader_kwrags):
+        # polar provides a GPU support but still in beta
+        # availabile in JAX
+        # eg `a = df.to_jax(device="gpu")  `
+        # or using https://docs.pola.rs/user-guide/gpu-support/
+
         import cudf
 
         #  Read CSV into cuDF DataFrame on GPU
@@ -264,6 +265,7 @@ class CsvReader(Reader):
         # only rertieve info from the first line of csv
         if self._reader is None:
             self._cpu_reader()
+
         sniffer = csv.Sniffer()
         _first_line = self._reader.row(0)
 
@@ -283,17 +285,10 @@ class CsvReader(Reader):
                 _first_line = _first_line[0].split(self._delimiter)
 
         if not self.header and self._detect_header(sniffer):
-            # in polar dataframe we canot assign a row as a header (see feature request https://github.com/pola-rs/polars/issues/23170)
-            # as a workaround:
-            self._reader = self._reader.rename(
-                {
-                    prev: new
-                    for prev, new in zip(self._reader.columns, _first_line, strict=True)
-                }
-            )
-
+            self.header = True  # temporary
+            self._cpu_reader()  # needed to re-asses values of each columns
             self.header = self._reader.columns
-            self._reader = self._reader[1:]
+            # self._reader = self._reader[1:]
 
             # assuming header contains only strings
         else:
@@ -301,6 +296,9 @@ class CsvReader(Reader):
         # self._header_offset = len(_first_line) + 1 if self.header is not None else 0
         self._reader.lazy()
         self._is_preparsed = True
+
+    def _post_parse(self, x):
+        x.collect()
 
     def _get_first_line(self):
         _header = [x for x in self._reader.schema.items()]
@@ -341,14 +339,25 @@ class CsvReader(Reader):
         storage = []
         for item in t:
             storage.append(",".join((str(c) for c in item)))
-        # import pdb; pdb.set_trace()
         return "\n".join(storage)
 
     def set_tranform_framework(self, framework: DataReturnFormat):
         self.to_generic()
 
     def to_generic(self):
-        self._transform_framework = lambda x: np.array(x)
+        def to_numpy(x):
+            val = (
+                np.array(x)
+                if isinstance(x, (np.ndarray, tuple, type(None)))
+                else x.to_numpy()
+            )
+            return val
+
+        self._transform_framework = to_numpy
+        # self._transform_framework = lambda x: np.array(x()) if isinstance(x(), (np.ndarray, tuple)) else x().to_numpy()
+        self._transform_batch_framework = lambda x: np.stack(x)
 
     def to_pytorch(self):
+        # TODO; implement lazy transform?
+        self._transform_batch_framework = lambda x: torch.stack(x, dim=1).squeeze()
         pass

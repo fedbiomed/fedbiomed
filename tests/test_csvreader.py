@@ -2,6 +2,7 @@ import csv
 import inspect
 import os
 import random
+import string
 import unittest
 import uuid
 
@@ -11,7 +12,7 @@ from fedbiomed.common.dataset_reader._csv_reader import CsvReader
 from fedbiomed.common.exceptions import FedbiomedUserInputError
 
 
-class TestCSVReader(unittest.TestCase):
+class TestCsvReader(unittest.TestCase):
     def setUp(self):
         self.testdir = os.path.join(
             os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))),
@@ -30,10 +31,41 @@ class TestCSVReader(unittest.TestCase):
                 ",",
             ),
             ("../../../dataset/CSV/pseudo_adni_mod.csv", True, ";"),
+            ("test_csv_no_header.tsv", False, "\t"),
+            ("test_csv_header.tsv", True, "\t"),
+            ("test_csv_without_header_delimiter_semicolumn.csv", False, ";"),
+            ("test_csv_header.csv", True, ","),
         )
         self.error_files = ("toto-error.csv",)
 
         # idea : load more files (tsv, other delimiters, 2 headers)
+
+    @staticmethod
+    def numpy_transform(df):
+        head = ["CDRSB.bl", "ADAS11.bl", "Hippocampus.bl", "RAVLT.immediate.bl"]
+        normalized = (df[head].to_numpy() - np.array([0.0, 0.0, 0.0, 0.0])) / np.array(
+            [0.1, 1.0, 1.0, 1.0]
+        )
+
+        return normalized
+
+    @staticmethod
+    def numpy_transform_2(df):
+        import polars as pl
+
+        head = ["CDRSB.bl", "ADAS11.bl", "Hippocampus.bl", "RAVLT.immediate.bl"]
+        min_v = df["CDRSB.bl"].min()
+        max_v = df["CDRSB.bl"].max()
+        df = df.with_columns(
+            ((pl.col("CDRSB.bl") - min_v) / (max_v - min_v)).alias("new_variable")
+        )
+        head.append("new_variable")
+        return df[head]
+
+    @staticmethod
+    def numpy_target_transform(df):
+        target_col = ["MMSE.bl"]
+        return df[target_col]
 
     def tearDown(self):
         return super().tearDown()
@@ -65,7 +97,7 @@ class TestCSVReader(unittest.TestCase):
             storage = ()
             path1 = os.path.join(self.testdir, "csv", file)
 
-            csvreader = CsvReader(path1)
+            csvreader = CsvReader(path1, force_read=True)
 
             shape1 = csvreader.shape()
             # compare with pandas
@@ -73,11 +105,12 @@ class TestCSVReader(unittest.TestCase):
             self.assertEqual(shape1["csv"], shape2, "error in file " + file)
 
             iterator_comp = self._iterate_through_pandas(path1)
+
             # test an entry at a time
             for i, p_row in zip(
                 range(min(shape1["csv"][0], 20)), iterator_comp, strict=False
             ):
-                row = csvreader.read_single_entry(i)
+                row, _ = csvreader.read_single_entry(i)
                 # csvreader.multithread_read_single_entry(i)
                 storage = (*storage, *row)
 
@@ -123,49 +156,85 @@ class TestCSVReader(unittest.TestCase):
                 # go beyond size of dataset
                 csvreader.read_single_entry(4)
 
+            with self.assertRaises(FedbiomedUserInputError):
+                csvreader = CsvReader("/some/non/existing/path")
+                csvreader.validate()
+
+    def test_csvreader_05_read_single_entry_from_column(self):
+        pass
+
     def test_csvreader_05_convert_to_framework(self):
         pass
 
-    def test_csvreader_06_(self):
-        pass
+    def test_csvreader_06_transforms(self):
+        path = os.path.join(
+            self.testdir, "csv", "../../../dataset/CSV/pseudo_adni_mod.csv"
+        )
+        csvreader = CsvReader(
+            path,
+            native_transform=self.numpy_transform,
+            native_target_transform=self.numpy_target_transform,
+        )
+        csvreader.read_single_entry([1, 5, 6, 7])
+
+        csvreader = CsvReader(
+            path,
+            native_transform=self.numpy_transform_2,
+            native_target_transform=self.numpy_target_transform,
+        )
+        csvreader.read_single_entry([1, 5, 6, 7])
 
     def test_csvreader_xx_huge_dataset(self):
         # stress test
 
-        # self.skipTest('stress test too long to execute')  # test is skipped because too long to execute
+        self.skipTest(
+            "stress test too long to execute"
+        )  # test is skipped because too long to execute
         import time
 
-        path = "./notebooks/data/test_csv_indx_col.csv"
-        # path = "./notebooks/data/test_csv.csv"
+        # path = "./notebooks/data/test_csv_indx_col.csv"
+        path = "./notebooks/data/test_csv2.csv"
         # if not os.path.exists(path):
         values = generate_huge_csv(path)
         t = time.time()
         reader = CsvReader(path)
         s = reader.shape()
         print(s)
-        v = reader.read_single_entry([1, 3, 2345, 567])
+        v, _ = reader.read_single_entry([1, 3, 2345, 567])
         # v = reader.multithread_read_single_entry([1, 3, 2345, 567, 8, 45, 6789, 2345678, 34567,2345])
-        v = reader.read_single_entry_from_column(21 + 2, values)
+        v, _ = reader.read_single_entry_from_column(21 + 2, values)
         print(v[0].shape)
         t2 = time.time()
         print("time", t2 - t)
         # lasts for approx 15 sec on my computer, with a file of size 37GB
 
 
-def generate_huge_csv(path: str):
+def id_generator(size=6, chars=string.ascii_uppercase + string.digits + "-_()"):
+    return "".join(random.choice(chars) for _ in range(size))
+
+
+def generate_huge_csv(path: str, delimiter: str = ",", with_header: bool = False):
     # 1000000 and 52 == roughly 1GB (WARNING TAKES a while, 30s+)
     rows = 1e5
     columns = 52
     print_after_rows = 100000
     index_col = 21
+    index_col_cat_var = 4
     values = []
-    with open(path, "a+") as f:
-        w = csv.writer(f, lineterminator="\n")
+    if with_header:
+        _header = []
+        for _ in range(columns):
+            _header.append(id_generator())
+        print(_header)
 
+    with open(path, "a+") as f:
+        w = csv.writer(f, delimiter=delimiter, lineterminator="\n")
+        if with_header:
+            w.writerows([_header])
         for i in range(int(rows)):
             if i % print_after_rows == 0:
                 print(".", end="", flush=True)
-            row, val = generate_random_row(columns, i, index_col)
+            row, val = generate_random_row(columns, i, index_col, index_col_cat_var)
             w.writerows(row)
             if i < 10:
                 values.append(val)
@@ -173,14 +242,18 @@ def generate_huge_csv(path: str):
 
 
 # TODO: add delimiter
-def generate_random_row(col, row, index_col=-1):
+def generate_random_row(col, row, index_col=-1, cat_var_col=-1, cat_var_choices=None):
     a = []
     line = [row]
     val = ""
+    if cat_var_choices is None:
+        cat_var_choices = ["AAA", "BBB", "CCC", "DDD"]
     for i in range(col):
         if i == index_col:
             val = uuid.uuid4().hex
             line.append(val)
+        elif i == cat_var_col:
+            line.append(cat_var_choices[random.randint(0, len(cat_var_choices) - 1)])
         else:
             line.append(random.random())
 

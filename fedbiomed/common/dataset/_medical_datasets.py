@@ -21,6 +21,7 @@ from monai.transforms import Compose, LoadImage, ToTensor
 
 from fedbiomed.common.constants import DataLoadingBlockTypes, DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin
+from fedbiomed.common.dataset_reader._csv_reader import CsvReader
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
 
 
@@ -49,6 +50,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             root = self.validate_MedicalFolder_root_folder(root)
 
         self._root = root
+        self._demographics_reader = CsvReader
 
     @property
     def root(self):
