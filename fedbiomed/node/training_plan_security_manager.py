@@ -48,7 +48,7 @@ class TrainingPlanSecurityManager:
     """Manages training plan approval for a node."""
 
     def __init__(
-        self, db: str, node_id: str, hashing: str, tp_approval: bool = False
+        self, db: str, node_id: str, node_name: str, hashing: str, tp_approval: bool = False
     ) -> None:
         """Class constructor for TrainingPlanSecurityManager.
 
@@ -63,6 +63,8 @@ class TrainingPlanSecurityManager:
         """
 
         self._node_id = node_id
+        self._node_name = node_name
+
         self._tp_approval = tp_approval
         self._default_tps = os.path.join(
             SHARE_DIR, "envs", "common", "default_training_plans"
@@ -510,6 +512,7 @@ class TrainingPlanSecurityManager:
             "researcher_id": request.researcher_id,
             "request_id": request.request_id,
             "node_id": self._node_id,
+            "node_name": self._node_name,
             "message": "",
             "status": 0,  # HTTP status (set by default to 0, non-existing HTTP status code)
         }
@@ -622,6 +625,7 @@ class TrainingPlanSecurityManager:
             "researcher_id": request.researcher_id,
             "request_id": request.request_id,
             "node_id": self._node_id,
+            "node_name": self._node_name,
             "experiment_id": request.experiment_id,
             "approval_obligation": True,
             "training_plan": request.training_plan,

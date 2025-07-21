@@ -543,7 +543,7 @@ class ApprovalRequest(RequestReply, RequiresProtocolVersion):
 @catch_dataclass_exception
 @dataclass
 class ApprovalReply(RequestReply, RequiresProtocolVersion):
-    """Describes the TrainingPlan approval reply (acknoledge) from node to researcher.
+    """Describes the TrainingPlan approval reply (acknowledge) from node to researcher.
 
     Attributes:
         researcher_id: Id of the researcher that will receive the reply
@@ -551,6 +551,7 @@ class ApprovalReply(RequestReply, RequiresProtocolVersion):
             success false.
         message: currently unused (empty string)
         node_id: Node id that replys the request
+        node_name: Node Name that replies the request
         status: status code for the request (obsolete, always 0)
         success: Request was successfully sumbitted to node (not yet approved)
 
@@ -562,6 +563,7 @@ class ApprovalReply(RequestReply, RequiresProtocolVersion):
     training_plan_id: str | None
     message: str
     node_id: str
+    node_name: str
     status: int
     success: bool
 
@@ -577,6 +579,7 @@ class ErrorMessage(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: ID of the researcher that receives the error message
         node_id: ID of the node that sends error message
+        node_name: Node Name that replies the request
         errnum: Error ID/Number
         extra_msg: Additional message regarding the error
 
@@ -586,6 +589,7 @@ class ErrorMessage(RequestReply, RequiresProtocolVersion):
 
     researcher_id: str
     node_id: str
+    node_name: str
     extra_msg: str
     errnum: Optional[str] = None
 
@@ -617,6 +621,7 @@ class ListReply(RequestReply, RequiresProtocolVersion):
         succes: True if the node process the request as expected, false if any exception occurs
         databases: List of datasets
         node_id: Node id that replys the request
+        node_name: Node Name that replies the request
         count: Number of datasets
 
     Raises:
@@ -627,6 +632,7 @@ class ListReply(RequestReply, RequiresProtocolVersion):
     success: bool
     databases: list
     node_id: str
+    node_name: str
     count: int
 
 
@@ -656,6 +662,7 @@ class PingReply(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: Id of the researcher that will receive the reply
         node_id: Node id that replys the request
+        node_name: Node Name that replies the request
         succes: True if the node process the request as expected, false if any exception occurs
 
     Raises:
@@ -664,6 +671,7 @@ class PingReply(RequestReply, RequiresProtocolVersion):
 
     researcher_id: str
     node_id: str
+    node_name: str
 
 
 # Search messages
@@ -696,6 +704,7 @@ class SearchReply(RequestReply, RequiresProtocolVersion):
         succes: True if the node process the request as expected, false if any exception occurs
         databases: List of datasets
         node_id: Node id that replys the request
+        node_name: Node Name that replies the request
         count: Number of datasets
 
     Raises:
@@ -705,6 +714,7 @@ class SearchReply(RequestReply, RequiresProtocolVersion):
     researcher_id: str
     databases: list
     node_id: str
+    node_name: str
     count: int
 
 
@@ -742,6 +752,7 @@ class SecaggDeleteReply(RequestReply, RequiresProtocolVersion):
         secagg_id: ID of secagg context element that is sent by researcher
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies to the request
+        node_name: Node Name that replies the request
         msg: Custom message
 
     Raises:
@@ -752,6 +763,7 @@ class SecaggDeleteReply(RequestReply, RequiresProtocolVersion):
     secagg_id: str
     success: bool
     node_id: str
+    node_name: str
     msg: Optional[str] = None
 
 
@@ -788,6 +800,7 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
         secagg_id: ID of secagg context element that is sent by researcher
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies to the request
+        node_name: Node Name that replies the request
         msg: Custom message
 
     Raises:
@@ -798,6 +811,7 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
     secagg_id: str
     success: bool
     node_id: str
+    node_name: str
     msg: Optional[str] = None
     msg: str
 
@@ -843,6 +857,7 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: Id of the researcher that sends the request
         node_id: Node id that replies the request
+        node_name: Node Name that replies the request
         experiment_id: experiment id related to the experiment
         success: True if the node process the request as expected, false
             if any exception occurs
@@ -861,6 +876,7 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
 
     researcher_id: str
     node_id: str
+    node_name: str
     experiment_id: str
     success: bool
     approval_obligation: bool
@@ -923,6 +939,7 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
         experiment_id: Id of the experiment that is sent by researcher
         success: True if the node process the request as expected, false if any exception occurs
         node_id: Node id that replies the request
+        node_name: Node Name that replies the request
         dataset_id: id of the dataset that is used for training
         params_url: URL of parameters uploaded by node
         timing: Timing statistics
@@ -936,6 +953,7 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
     experiment_id: str
     success: bool
     node_id: str
+    node_name: str
     dataset_id: str
     timing: dict
     msg: str
