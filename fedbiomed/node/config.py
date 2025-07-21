@@ -22,6 +22,11 @@ class NodeConfig(Config):
     def add_parameters(self):
         """Generate `Node` config"""
 
+        # Custom variables for Node
+        self._cfg["custom"] = {
+            "name": "Default Hospital",
+        }
+
         # Security variables
         self._cfg["security"] = {
             "hashing_algorithm": HashingAlgorithms.SHA256.value,

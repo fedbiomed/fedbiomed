@@ -81,7 +81,7 @@ def start_node(config, node_args):
     print(_node)
 
     ### TODO <alitolga>: Remove this if it is not needed
-    print("\t- The active hospital name is: ", _node.config.get("default", "name"), "\n")
+    print("\t- The active hospital name is: ", _node.config.get("custom", "name"), "\n")
 
     def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
         """Signal handler that terminates the process.
