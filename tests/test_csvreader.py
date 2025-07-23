@@ -3,56 +3,59 @@ import inspect
 import os
 import random
 import string
-import unittest
 import uuid
 
 import numpy as np
+import pandas as pd
+import pytest
 
 from fedbiomed.common.dataset_reader._csv_reader import CsvReader
 from fedbiomed.common.exceptions import FedbiomedUserInputError
 
 
-class TestCsvReader(unittest.TestCase):
-    def setUp(self):
-        self.testdir = os.path.join(
-            os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))),
-            "test-data",
-        )
+@pytest.fixture
+def testdir():
+    return os.path.join(
+        os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))),
+        "test-data",
+    )
 
-        self.csv_files = (
-            (
-                "tata-header.csv",
-                True,
-                ",",
-            ),
-            (
-                "titi-normal.csv",
-                False,
-                ",",
-            ),
-            ("../../../dataset/CSV/pseudo_adni_mod.csv", True, ";"),
-            ("test_csv_no_header.tsv", False, "\t"),
-            ("test_csv_header.tsv", True, "\t"),
-            ("test_csv_without_header_delimiter_semicolumn.csv", False, ";"),
-            ("test_csv_header.csv", True, ","),
-        )
-        self.error_files = ("toto-error.csv",)
 
-        # idea : load more files (tsv, other delimiters, 2 headers)
+@pytest.fixture
+def csv_files():
+    return (
+        ("tata-header.csv", True, ","),
+        ("titi-normal.csv", False, ","),
+        ("../../../dataset/CSV/pseudo_adni_mod.csv", True, ";"),
+        ("test_csv_no_header.tsv", False, "\t"),
+        ("test_csv_header.tsv", True, "\t"),
+        ("test_csv_without_header_delimiter_semicolumn.csv", False, ";"),
+        ("test_csv_header.csv", True, ","),
+    )
 
-    @staticmethod
-    def numpy_transform(df):
+
+@pytest.fixture
+def error_files():
+    return ("toto-error.csv",)
+
+
+@pytest.fixture
+def numpy_transform():
+    def _numpy_transform(df):
         head = ["CDRSB.bl", "ADAS11.bl", "Hippocampus.bl", "RAVLT.immediate.bl"]
         normalized = (df[head].to_numpy() - np.array([0.0, 0.0, 0.0, 0.0])) / np.array(
             [0.1, 1.0, 1.0, 1.0]
         )
-
         return normalized
 
-    @staticmethod
-    def numpy_transform_2(df):
-        import polars as pl
+    return _numpy_transform
 
+
+@pytest.fixture
+def numpy_transform_2():
+    import polars as pl
+
+    def _numpy_transform_2(df):
         head = ["CDRSB.bl", "ADAS11.bl", "Hippocampus.bl", "RAVLT.immediate.bl"]
         min_v = df["CDRSB.bl"].min()
         max_v = df["CDRSB.bl"].max()
@@ -62,159 +65,206 @@ class TestCsvReader(unittest.TestCase):
         head.append("new_variable")
         return df[head]
 
-    @staticmethod
-    def numpy_target_transform(df):
+    return _numpy_transform_2
+
+
+@pytest.fixture
+def numpy_target_transform():
+    def _numpy_target_transform(df):
         target_col = ["MMSE.bl"]
         return df[target_col]
 
-    def tearDown(self):
-        return super().tearDown()
+    return _numpy_target_transform
 
-    def _get_shape_through_pandas(self, file: str, is_header: bool, delimiter: str):
-        import pandas as pd
 
-        is_header = None if not is_header else 0
+@pytest.fixture
+def convert_to_float():
+    def _convert_to_float(x):
+        fct = np.frompyfunc(
+            lambda x: np.round(float(x), 7) if not isinstance(x, str) else x, 1, 1
+        )
+        return fct(x)
 
-        return pd.read_csv(file, header=is_header, delimiter=delimiter).shape
+    return _convert_to_float
 
-    def _get_dataset_header(self, file: str, delimiter: str):
-        import pandas as pd
 
+@pytest.fixture
+def get_shape_through_pandas():
+    def _get_shape_through_pandas(file: str, is_header: bool, delimiter: str):
+        return pd.read_csv(
+            file, header=None if not is_header else 0, delimiter=delimiter
+        ).shape
+
+    return _get_shape_through_pandas
+
+
+@pytest.fixture
+def get_dataset_header():
+    def _get_dataset_header(file: str, delimiter: str):
         return pd.read_csv(file, delimiter=delimiter).columns
 
-    def _iterate_through_pandas(self, file: str):
-        import pandas as pd
+    return _get_dataset_header
 
-        csv = pd.read_csv(file)
+
+@pytest.fixture
+def iterate_through_pandas():
+    def _iterate_through_pandas(file: str, is_header: bool, delimiter: str):
+        csv = pd.read_csv(
+            file, header=None if not is_header else 0, delimiter=delimiter
+        )
         csv.reset_index()
         for _index, row in csv.iterrows():
             yield row
 
-    def test_csvreader_01_load_iter_csv(self):
-        for file, is_header, d in self.csv_files:
-            print(file)
+    return _iterate_through_pandas
 
-            storage = ()
-            path1 = os.path.join(self.testdir, "csv", file)
 
-            csvreader = CsvReader(path1, force_read=True)
+def test_csvreader_01_load_iter_csv(
+    testdir,
+    csv_files,
+    get_shape_through_pandas,
+    get_dataset_header,
+    iterate_through_pandas,
+    convert_to_float,
+):
+    for file, is_header, d in csv_files:
+        print(file)
 
-            shape1 = csvreader.shape()
-            # compare with pandas
-            shape2 = self._get_shape_through_pandas(path1, is_header, d)
-            self.assertEqual(shape1["csv"], shape2, "error in file " + file)
+        storage = ()
+        path1 = os.path.join(testdir, "csv", file)
 
-            iterator_comp = self._iterate_through_pandas(path1)
+        csvreader = CsvReader(path1, force_read=True)
 
-            # test an entry at a time
-            for i, p_row in zip(
-                range(min(shape1["csv"][0], 20)), iterator_comp, strict=False
-            ):
-                row, _ = csvreader.read_single_entry(i)
-                # csvreader.multithread_read_single_entry(i)
-                storage = (*storage, *row)
+        shape1 = csvreader.shape()
+        # compare with pandas
+        shape2 = get_shape_through_pandas(path1, is_header, d)
+        assert shape1["csv"] == shape2, f"error in file {file}"
 
-                np.array_equal(p_row.tolist(), row[0])
+        iterator_comp = iterate_through_pandas(path1, is_header, d)
 
-            # test bacth of indexes
-            row = csvreader.read_single_entry(list(range(min(shape1["csv"][0], 20))))
-            # csvreader.multithread_read_single_entry(list(range(min(shape1['csv'][0], 20))))
-            for _i, _j in zip(row, storage, strict=False):
-                np.array_equal(_i, _j)
+        # test an entry at a time
 
-            # check header
-            h1 = csvreader.header
-            h2 = self._get_dataset_header(path1, d)
+        for i, p_row in zip(
+            range(min(shape1["csv"][0], 20)), iterator_comp, strict=False
+        ):
+            row, _ = csvreader.read_single_entry(i)
+            storage = (*storage, *row)
 
-            if h1:
-                self.assertListEqual(h1, h2.tolist())
-        # print(d, shape1)
+            # np.testing.assert_array_equal(p_row.to_numpy(), row[0])
+            np.testing.assert_array_equal(
+                convert_to_float(p_row.to_numpy()), convert_to_float(row[0])
+            )
 
-    def test_csvreader_02_read(self):
-        # here select column before reading
-        pass
+        # test batch of indexes
+        row, _ = csvreader.read_single_entry(list(range(min(shape1["csv"][0], 20))))
+        # for _i, _j in zip(row, storage):
+        #     import pdb; pdb.set_trace()
+        np.testing.assert_array_equal(row, np.stack(storage))
 
-    def test_csvreader_03_index(self):
-        pass
-        # test get_index
+        # check header
+        h1 = csvreader.header
+        h2 = get_dataset_header(path1, d)
 
-    def test_csvreader_04_error(self):
-        for file in self.error_files:
-            path1 = os.path.join(self.testdir, "csv", file)
-            csvreader = CsvReader(path1)
+        if h1:
+            assert h1 == h2.tolist()
 
-            # with self.assertRaises(FedbiomedUserInputError):
-            #     csvreader.read_single_entry(0)
 
-            # csvreader = CsvReader(path1, force_read=True)
-            # csvreader.read_single_entry(0)
-            # with self.assertRaises(FedbiomedError):
+def test_csvreader_02_read():
+    # Select column before reading
+    pass
 
-            #     csvreader.read_single_entry(2)
 
-            with self.assertRaises(FedbiomedUserInputError):
-                # go beyond size of dataset
-                csvreader.read_single_entry(4)
+def test_csvreader_03_index():
+    # Test get_index
+    # here: try to split dataset using sklearn/pytorch methods
+    pass
 
-            with self.assertRaises(FedbiomedUserInputError):
-                csvreader = CsvReader("/some/non/existing/path")
-                csvreader.validate()
 
-    def test_csvreader_05_read_single_entry_from_column(self):
-        pass
+def test_csvreader_04_error(testdir, error_files):
+    for file in error_files:
+        path1 = os.path.join(testdir, "csv", file)
+        csvreader = CsvReader(path1)
 
-    def test_csvreader_05_convert_to_framework(self):
-        pass
+        with pytest.raises(FedbiomedUserInputError):
+            csvreader.read_single_entry(4)
 
-    def test_csvreader_06_transforms(self):
-        path = os.path.join(
-            self.testdir, "csv", "../../../dataset/CSV/pseudo_adni_mod.csv"
-        )
+        with pytest.raises(FedbiomedUserInputError):
+            csvreader = CsvReader("/some/non/existing/path")
+            csvreader.validate()
+
+
+def test_csvreader_05_read_from_column(testdir, convert_to_float):
+    file_with_col_name = (("test_csv_header.csv", True, ","),)
+    for file, _, d in file_with_col_name:
+        path = os.path.join(testdir, "csv", file)
+        df = pd.read_csv(path, header=0, delimiter=d)
+
+        values = np.random.choice(df.iloc[:, 12], size=10)
+
+        df.set_index(df.iloc[:, 12], inplace=True)
         csvreader = CsvReader(
             path,
-            native_transform=self.numpy_transform,
-            native_target_transform=self.numpy_target_transform,
         )
-        csvreader.read_single_entry([1, 5, 6, 7])
+        # test with one entry
+        res1, _ = csvreader.read_single_entry(values[0], 12)
+        res2 = df.loc[values[0]].drop(df.columns[12]).to_numpy()
 
-        csvreader = CsvReader(
-            path,
-            native_transform=self.numpy_transform_2,
-            native_target_transform=self.numpy_target_transform,
+        np.testing.assert_array_equal(convert_to_float(res2), convert_to_float(res1[0]))
+
+        # test with several entries
+        res1, _ = csvreader.read_single_entry(values, 12)
+
+        res2 = (
+            df.loc[values]
+            .loc[~df.loc[values].index.duplicated(keep="first")]
+            .drop(df.columns[12], axis=1)
+            .to_numpy()
         )
-        csvreader.read_single_entry([1, 5, 6, 7])
-
-    def test_csvreader_xx_huge_dataset(self):
-        # stress test
-
-        self.skipTest(
-            "stress test too long to execute"
-        )  # test is skipped because too long to execute
-        import time
-
-        # path = "./notebooks/data/test_csv_indx_col.csv"
-        path = "./notebooks/data/test_csv2.csv"
-        # if not os.path.exists(path):
-        values = generate_huge_csv(path)
-        t = time.time()
-        reader = CsvReader(path)
-        s = reader.shape()
-        print(s)
-        v, _ = reader.read_single_entry([1, 3, 2345, 567])
-        # v = reader.multithread_read_single_entry([1, 3, 2345, 567, 8, 45, 6789, 2345678, 34567,2345])
-        v, _ = reader.read_single_entry_from_column(21 + 2, values)
-        print(v[0].shape)
-        t2 = time.time()
-        print("time", t2 - t)
-        # lasts for approx 15 sec on my computer, with a file of size 37GB
+        np.testing.assert_array_equal(
+            convert_to_float(res2[res2[:, 0].argsort()]),
+            convert_to_float(res1[res1[:, 0].argsort()]),
+        )
 
 
-def id_generator(size=6, chars=string.ascii_uppercase + string.digits + "-_()"):
-    return "".join(random.choice(chars) for _ in range(size))
+def test_csvreader_06_transforms(
+    testdir, numpy_transform, numpy_target_transform, numpy_transform_2
+):
+    path = os.path.join(testdir, "csv", "../../../dataset/CSV/pseudo_adni_mod.csv")
+
+    csvreader = CsvReader(
+        path,
+        reader_transform=numpy_transform,
+        reader_target_transform=numpy_target_transform,
+    )
+    csvreader.read_single_entry([1, 5, 6, 7])
+
+    csvreader = CsvReader(
+        path,
+        reader_transform=numpy_transform_2,
+        reader_target_transform=numpy_target_transform,
+    )
+    csvreader.read_single_entry([1, 5, 6, 7])
+
+
+@pytest.mark.skip("stress test too long to execute")
+def test_csvreader_xx_huge_dataset():
+    # Stress test
+    import time
+
+    path = "./notebooks/data/test_csv2.csv"
+    values = generate_huge_csv(path)
+    t = time.time()
+    reader = CsvReader(path)
+    s = reader.shape()
+    print(s)
+    v, _ = reader.read_single_entry([1, 3, 2345, 567])
+    v, _ = reader.read_single_entry(values, 21 + 2)
+    print(v[0].shape)
+    t2 = time.time()
+    print("time", t2 - t)
 
 
 def generate_huge_csv(path: str, delimiter: str = ",", with_header: bool = False):
-    # 1000000 and 52 == roughly 1GB (WARNING TAKES a while, 30s+)
     rows = 1e5
     columns = 52
     print_after_rows = 100000
@@ -222,9 +272,7 @@ def generate_huge_csv(path: str, delimiter: str = ",", with_header: bool = False
     index_col_cat_var = 4
     values = []
     if with_header:
-        _header = []
-        for _ in range(columns):
-            _header.append(id_generator())
+        _header = [id_generator() for _ in range(columns + 1)]
         print(_header)
 
     with open(path, "a+") as f:
@@ -241,7 +289,6 @@ def generate_huge_csv(path: str, delimiter: str = ",", with_header: bool = False
     return values
 
 
-# TODO: add delimiter
 def generate_random_row(col, row, index_col=-1, cat_var_col=-1, cat_var_choices=None):
     a = []
     line = [row]
@@ -259,3 +306,7 @@ def generate_random_row(col, row, index_col=-1, cat_var_col=-1, cat_var_choices=
 
     a.append(line)
     return a, val
+
+
+def id_generator(size=6, chars=string.ascii_uppercase + string.digits + "-_()"):
+    return "".join(random.choice(chars) for _ in range(size))

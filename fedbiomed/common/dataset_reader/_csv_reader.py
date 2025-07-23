@@ -39,8 +39,6 @@ class CsvReader(Reader):
         to_format: DataReturnFormat = drf_default,
         reader_transform: Transform = None,
         reader_target_transform: Transform = None,
-        reader_transform: Transform = None,
-        native_target_transform: Transform = None,
         encoding: str = "utf-8",
         has_header: str | bool = "auto",
         delimiter: Optional[str] = ",",
@@ -66,17 +64,17 @@ class CsvReader(Reader):
         # self._transform_framework = lambda x: x  # change that dpd on to_format arg
         self._format = to_format
 
-        # self._native_transform = lambda x: x if native_transform is None else native_transform
+        # self._reader_transform = lambda x: x if reader_transform is None else reader_transform
 
-        if native_transform is None:
-            self._native_transform = lambda x: x
+        if reader_transform is None:
+            self._reader_transform = lambda x: x
         else:
-            self._native_transform = native_transform
+            self._reader_transform = reader_transform
 
-        if native_target_transform is None:
-            self._native_target_transform = lambda x: None
+        if reader_target_transform is None:
+            self._reader_target_transform = lambda x: None
         else:
-            self._native_target_transform = native_target_transform
+            self._reader_target_transform = reader_target_transform
 
         self._reader = None
         self._n_thread = n_thread
@@ -102,7 +100,7 @@ class CsvReader(Reader):
         )
         # TODO: add header + delimiter into the read_csv
 
-        return self._native_transform(file_content)
+        return self._reader_transform(file_content)
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
     def validate(self) -> None:
@@ -137,39 +135,37 @@ class CsvReader(Reader):
 
         return ReaderShape(dict({"csv": self._shape}))
 
-    def read_single_entry_from_column(
+    def _read_single_entry_from_column(
         self, index_col: int | str, indexes: Any | Iterable
     ):
-        self._index_col_name = index_col
-
         if isinstance(index_col, int):
             col_name = (
                 self.header[index_col] if self.header else "column_" + str(index_col)
             )
-
-        if not isinstance(indexes, Iterable):
-            indexes = [indexes]
-
-        if not self._is_preparsed:
-            self._pre_parse()
-
-        res = self._reader.filter(pl.col(col_name).is_in(indexes))  #  .collect()
+        try:
+            res = self._reader.filter(pl.col(col_name).is_in(indexes))  #  .collect()
+        except pl.exceptions.ColumnNotFoundError as err:
+            raise FedbiomedUserInputError("column not found") from err
         if res.is_empty():
             raise FedbiomedUserInputError(
                 "cannot find any entry matching " + " ".join(indexes)
             )
 
-        res = res.drop(col_name)
+        res = res.drop(col_name)  # is it useful?
         # res = tuple(
-        #     self._transform_framework(self._native_transform(res).row(e))
+        #     self._transform_framework(self._reader_transform(res).row(e))
         #     for e in range(len(res))
         # )
-        res = self._transform_framework(self._native_transform(res))
-        target = self._transform_framework(self._native_target_transform(res))
+        res = self._transform_framework(self._reader_transform(res))
+        target = self._transform_framework(self._reader_target_transform(res))
         # return self._transform_batch_framework(res)
         return res, target
 
-    def read_single_entry(self, indexes: int | Iterable) -> Tuple[Any]:
+    def read_single_entry(
+        self,
+        indexes: int | str | Iterable,
+        index_col: Optional[int | str] = None,
+    ) -> Tuple[Any]:
         """Reads a single row or a btach of rows within a csv file. Rows are indexed
         by an index.
 
@@ -181,29 +177,29 @@ class CsvReader(Reader):
               of the file requested. If no framework specified format has been defined, convert
               into np.array.
         """
-        if not isinstance(indexes, Iterable):
+        if not isinstance(indexes, Iterable) or isinstance(indexes, str):
             indexes = [indexes]
 
         if not self._is_preparsed:
             self._pre_parse()
-        entries = []
 
-        row_nb = pl.int_range(0, pl.len())
+        if index_col is not None:
+            return self._read_single_entry_from_column(index_col, indexes)
+        else:
+            row_nb = pl.int_range(0, pl.len())
 
-        csv_entry = self._reader.filter(row_nb.is_in(indexes))
-        if csv_entry.is_empty():
-            msg = f"Cannot read lines {indexes}: file only contains {self._len} samples"
-            raise FedbiomedUserInputError(msg)
-        # entries.append(self._transform_framework(csv_entry))
-        # TODO: implement logic here
+            csv_entry = self._reader.filter(row_nb.is_in(indexes))
+            if csv_entry.is_empty():
+                msg = f"Cannot read lines {indexes}: file only contains {self._len} samples"
+                raise FedbiomedUserInputError(msg)
+            # entries.append(self._transform_framework(csv_entry))
+            # TODO: implement logic here
 
-        data, target = (
-            self._native_transform(csv_entry),
-            self._native_target_transform(csv_entry),
-        )
-        return self._transform_framework(data), self._transform_framework(target)
-        return self._transform_batch_framework(tuple(entries))
-        return entries
+            data, target = (
+                self._reader_transform(csv_entry),
+                self._reader_target_transform(csv_entry),
+            )
+            return self._transform_framework(data), self._transform_framework(target)
 
     def _random_sample(self, n_entries: int, seed: Optional[int] = None):
         entries = self._reader.sample(n_entries, seed)
