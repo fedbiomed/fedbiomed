@@ -62,6 +62,7 @@ nav:
           - 'End-to-end Privacy Preserving Training and Inference on Medical Data': './tutorials/concrete-ml/concrete-ml.ipynb'
       - Biomedical data:
           - 'Brain image segmentation using IXI dataset': './tutorials/medical/medical-image-segmentation-unet-library.ipynb'
+          - 'Multi-channel Variational Auto Encoder example using ADNI dataset': './tutorials/medical/mcvae_using_adni_data.ipynb'
     - 'User Guide':
       - Glossary: './user-guide/glossary.md'
       - Deployment:
