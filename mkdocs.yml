@@ -22,6 +22,7 @@ nav:
         - 'Contributors': './#contributors'
         - 'Users': './#users'
         - 'Roadmap': './pages/roadmap.md'
+        - 'How to Cite Us' : './#citation'
         - 'Contact Us' : './#contact-us'
   - Docs:
     - 'Getting Started':
