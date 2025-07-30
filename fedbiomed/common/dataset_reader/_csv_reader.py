@@ -168,7 +168,7 @@ class CsvReader(Reader):
         indexes: int | str | Iterable,
         index_col: Optional[int | str] = None,
     ) -> Tuple[Any]:
-        """Reads a single row or a btach of rows within a csv file. Rows are indexed
+        """Reads a single row or a batch of rows within a csv file. Rows are indexed
         by an index.
 
         Args:
