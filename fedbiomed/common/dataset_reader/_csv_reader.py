@@ -142,6 +142,8 @@ class CsvReader(Reader):
             col_name = (
                 self.header[index_col] if self.header else "column_" + str(index_col)
             )
+        else:
+            col_name = index_col
         try:
             res = self._reader.filter(pl.col(col_name).is_in(indexes))  #  .collect()
         except pl.exceptions.ColumnNotFoundError as err:
