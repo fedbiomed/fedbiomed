@@ -787,7 +787,7 @@ class TestDatasetManager(unittest.TestCase):
         # checks
         query_all_patch.assert_called_once()
         # check that none of the database contained on the node
-        # doesnot contain `dtype`entry
+        # doesn't contain `dtype`entry
         self.assertNotIn("dtypes", all_data[0].keys())
         self.assertNotIn("dtypes", all_data[1].keys())
 

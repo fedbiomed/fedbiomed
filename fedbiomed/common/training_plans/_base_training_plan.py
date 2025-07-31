@@ -404,7 +404,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         if len(argspec) != 1:
             msg = (
                 f"{ErrorNumbers.FB605.value}: preprocess method of type "
-                "`PreprocessType.DATA_LOADER` sould expect one argument: "
+                "`PreprocessType.DATA_LOADER` should expect one argument: "
                 "the data loader wrapping the training dataset."
             )
             logger.critical(msg)

@@ -594,7 +594,7 @@ class TrainingArgs:
         """Mimics the get() method of dict, provided for backward compatibility.
 
         Args:
-            key: a key for retrieving data fro the dictionary
+            key: a key for retrieving data from the dictionary
             default: default value to return if key does not belong to dictionary
         """
         try:

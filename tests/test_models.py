@@ -197,7 +197,7 @@ class TestSkLearnModel(unittest.TestCase):
     def test_sklearnmodel_06_sklearn_training_01_plain_sklearn(self):
         # FIXME: this is an more an integration test, but I feel it is quite useful
         # to test the correct execution of the whole training process
-        # Goal fo the test: checking that plain sklearn model has been updated when trained
+        # Goal for the test: checking that plain sklearn model has been updated when trained
         # using `Model` interface
         _n_classes = 3
 
@@ -476,7 +476,7 @@ class TestSklearnClassification(unittest.TestCase):
             for key in sk_model.param_list:
                 self.assertTrue(
                     np.all(getattr(sk_model.model, key) == 0.0),
-                    f"{model.__class__.__name__} Multiclass did not initialize all parms to 0.",
+                    f"{model.__class__.__name__} Multiclass did not initialize all params to 0.",
                 )
                 self.assertEqual(
                     getattr(sk_model.model, key).shape[0],
@@ -609,7 +609,7 @@ class TestTorchModel(unittest.TestCase):
             self.assertTrue(torch.all(values))
 
     def test_torchmodel_02_get_weights(self):
-        # test case where model_wweitghs is retunred as a dict
+        # test case where model_wweitghs is returned as a dict
         model_weights = self.model.get_weights()
         for layer, wrapped_model_weight in model_weights.items():
             self.assertTrue(

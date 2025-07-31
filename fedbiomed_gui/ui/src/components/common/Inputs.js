@@ -93,7 +93,7 @@ export const Tag = (props) => {
                 setCurrentTagText('');
                 
                 // Let parent component know that the 
-                // tags has been chaged or new one added
+                // tags has been changed or new one added
                 if(props.onTagsChange){
                     props.onTagsChange(props.name, tags_update)
                 }

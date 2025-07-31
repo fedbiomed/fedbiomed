@@ -286,7 +286,7 @@ class NodeStateManager:
             new state_id
         """
         self._state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
-        # TODO: would be better to check if state_id doesnot belong to the database
+        # TODO: would be better to check if state_id doesn't belong to the database
         return self._state_id
 
     def _check_version(self, version: str):

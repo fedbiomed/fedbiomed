@@ -1,7 +1,7 @@
 ---
 title: Deploying Datasets in Nodes
 description: Deploying datasets in nodes makes the datasets ready for federated training with Fed-BioMed.
-keywords: fedbiomed configuration,node configuration,deployin datasets
+keywords: fedbiomed configuration,node configuration,deploying datasets
 ---
 
 # Deploying Datasets in Nodes

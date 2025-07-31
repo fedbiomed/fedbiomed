@@ -194,7 +194,7 @@ def test_XXX_02_other_description(self):
 
 If a test relies on an input file, the input file is stored in the **test-data** subdiretory and is part of the git repository.
 
-Be carefull with the input file size, specially in case of binary files (images,...) since git has trouble handling them.
+Be careful with the input file size, specially in case of binary files (images,...) since git has trouble handling them.
 
 
 ### output

@@ -124,7 +124,7 @@ class TestLogger(unittest.TestCase):
         # initial DEFAULT_LOG_LEVEL
         self.assertEqual(logger.getEffectiveLevel(), DEFAULT_LOG_LEVEL)
 
-        # chech setLevel
+        # check setLevel
         for lvl in [
             logging.DEBUG,
             logging.INFO,

@@ -211,7 +211,7 @@ Error --> fatal: could not set 'core.filemode' to 'false'
 
 If the problem still persists, you may try restarting the machine and then execute git clone command.
 
-We detail here two common issues encountered when instlling and running `Fed-BioMed`.
+We detail here two common issues encountered when installing and running `Fed-BioMed`.
 
 - If launching Fed-BioMed researcher fails with a message mentioning a display error, you may need to use an alternate IP address. There are two ways of fixing this:
 

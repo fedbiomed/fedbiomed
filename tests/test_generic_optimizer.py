@@ -989,7 +989,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
         lr_1, lr_block, lr = 0.1, 0.2, 0.3
 
         class ComplexModel(nn.Module):
-            """a complex model with batchnorms (trainable layers that doesnot requoere learning rates)
+            """a complex model with batchnorms (trainable layers that doesn't requoere learning rates)
             data input example for using such model
             ```
             batch_size = 5
@@ -1214,7 +1214,7 @@ class TestOptimizerBuilder(unittest.TestCase):
                 parent_obj : highest parent class from which `obj` object has been built
 
             Raises:
-                AssertionError: raised if function `get_parent_class` doesnot return the expected type
+                AssertionError: raised if function `get_parent_class` doesn't return the expected type
             """
             res = optim_builder.get_parent_class(obj)
             self.assertEqual(res, type(parent_obj))

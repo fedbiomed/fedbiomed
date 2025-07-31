@@ -411,7 +411,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
             dummy_yield()
         training_plan.set_model_params.assert_called_once()
 
-        # Check set_model_params raises an expection
+        # Check set_model_params raises an exception
 
         training_plan.set_model_params.side_effect = Exception
         with self.assertRaises(FedbiomedExperimentError):

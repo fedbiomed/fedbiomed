@@ -77,7 +77,7 @@ class CelebaTrainingPlan(TorchTrainingPlan):
         """Custom Dataset for loading CelebA face images"""
         
         # we dont load the full data of the images, we retrieve the image with the get item. 
-        # in our case, each image is 218*178 * 3colors. there is 67533 images. this take at leas 7G of ram
+        # in our case, each image is 218*178 * 3colors. there is 67533 images. this take at least 7G of ram
         # loading images when needed takes more time during training but it won't impact the ram usage as much as loading everything
         def __init__(self, txt_path, img_dir, transform=None):
             df = pd.read_csv(txt_path, sep="\t", index_col=0)

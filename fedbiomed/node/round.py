@@ -489,7 +489,7 @@ class Round:
 
         Returns:
             encrypted_weights: Encrypted model parameters, as a list of int.
-            encryption_factor: Encryptiong factor (based on a secagg argument).
+            encryption_factor: Encryption factor (based on a secagg argument).
             encrypted_aux_var: Optional `EncryptedAuxVar` instance storing
                 encrypted optimizer auxiliary variables, if any.
         """
@@ -642,7 +642,7 @@ class Round:
             state_id: state_id from which to recover `Node`'s state
 
         Raises:
-            FedbiomedRoundError: raised if `Round` doesnot have any `experiment_id` attribute.
+            FedbiomedRoundError: raised if `Round` doesn't have any `experiment_id` attribute.
 
         Returns:
             True

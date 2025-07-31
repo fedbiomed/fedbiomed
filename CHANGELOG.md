@@ -227,7 +227,7 @@
 - fix mqtt logger loop then mqqt not reachable
 - replace @property getters/setters by proper getters() setters(), still in progress
 - a lot of new unit tests and increase test coverage
-- refactor of Message() class, simplication of Messages description (purely declarative now)
+- refactor of Message() class, simplification of Messages description (purely declarative now)
 - add more ErrorNumbers + associated messages
 - check user input (mainly in Experiment() for now)
 - rename Exceptions as Errors, add FedbiomedError as top class of our errors

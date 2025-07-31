@@ -216,7 +216,7 @@ class TestSecaggCrypter(unittest.TestCase):
                     total_sample_size=8,
                 )
 
-        # Raise if num nodes not equal to number fo parameters
+        # Raise if num nodes not equal to number of parameters
         with self.assertRaises(FedbiomedSecaggCrypterError):
             params = [[1, 1, 1], [2, 2, 2], [3, 3, 3]]
             self.secagg_crypter.aggregate(

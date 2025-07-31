@@ -342,7 +342,7 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
 
         register = training_plan_suparsers.add_parser(
             "register",
-            help="Registers training plans manually by selected file thorugh interactive browser.",
+            help="Registers training plans manually by selected file through interactive browser.",
         )
         register.set_defaults(func=self.register)
 
@@ -704,7 +704,7 @@ class NodeCLI(CommonCLI):
             action=ComponentDirectoryActionNode,
             default="fbm-node",
             help="The path were component is located. It can be absolute or "
-            "realtive to the path where CLI is executed.",
+            "relative to the path where CLI is executed.",
         )
 
 
