@@ -536,7 +536,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Args:
             metric: The metric used for validation.
                 If None, use MetricTypes.ACCURACY.
-            metric_args: dicitonary containing additinal arguments for setting up metric,
+            metric_args: dictionary containing additional arguments for setting up metric,
                 that maps <argument_name; argument_value> ad that will be passed to the
                 metric function as positinal arguments.
             history_monitor: HistoryMonitor instance,
@@ -680,7 +680,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         !!! info "Notes":
             This method is designed to save the model to a local dump
-            file for easy re-use by the same user, possibly outside of
+            file for easy reuse by the same user, possibly outside of
             Fed-BioMed. It is not designed to produce trustworthy data
             dumps and is not used to exchange models and their weights
             as part of the federated learning process.

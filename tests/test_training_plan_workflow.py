@@ -397,7 +397,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         self.assertTrue(result)
 
     def test_training_plan_workflow_13_keep_weights(self):
-        """Tests training plan keep weigths functionality"""
+        """Tests training plan keep weights functionality"""
 
         exp = TrainingPlanWorkflow()
         training_plan = MagicMock(spec=BaseTrainingPlan)

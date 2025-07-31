@@ -6,7 +6,7 @@ This file explains how to deploy and use Fed-BioMed with VPN encapsulation. Each
 
 Which identity to use ?
 
-- outside of containers : work with the user account used for launching the containers (eg `[user@node $]`), unless this is explicitely written to work as root (eg `[root@node #]`). This is also the account used by the containers when they drop privileges.
+- outside of containers : work with the user account used for launching the containers (eg `[user@node $]`), unless this is explicitly written to work as root (eg `[root@node #]`). This is also the account used by the containers when they drop privileges.
 - inside containers : follow instructions, work as root for managing vpn (eg `[root@vpnserver-container #]`), work as user for managing experiments (eg `[user@node-container $]`)
 
 Which machine to use ?
@@ -32,7 +32,7 @@ Pre-requisites for using containers :
   - If no suitable package exist for your system, you can use the [docker compose plugin install page](https://docs.docker.com/compose/install/linux/).
 
 Installation notes for Windows 11 with WSL2 Ubuntu-22.04:
-* build of containers may fail in `cargo install` step with error `spurious network error [...] Timeout was reached`. This is due to bad name resolution of `crates.io` package respository with default WSL2 DNS configuration. If this happens connect to wsl (`wsl` from Windows command line tool), get admin privileges (`sudo bash`) and create a [`/etc/wsl.conf`](https://docs.microsoft.com/fr-fr/windows/wsl/wsl-config) file containing:
+* build of containers may fail in `cargo install` step with error `spurious network error [...] Timeout was reached`. This is due to bad name resolution of `crates.io` package repository with default WSL2 DNS configuration. If this happens connect to wsl (`wsl` from Windows command line tool), get admin privileges (`sudo bash`) and create a [`/etc/wsl.conf`](https://docs.microsoft.com/fr-fr/windows/wsl/wsl-config) file containing:
 ```bash
 [network]
 generateResolvConf = false

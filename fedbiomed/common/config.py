@@ -173,7 +173,7 @@ class Config(metaclass=ABCMeta):
         """ "Generate configuration file
 
         Args:
-            force: Overwrites existing configration file
+            force: Overwrites existing configuration file
             id: Component ID
         """
 

@@ -23,7 +23,7 @@ class TrainingPlanApproveJob(Job):
         Args:
             training_plan: an instance of a TrainingPlan object
             description: human-readable description of the TrainingPlan for the reviewer on the node
-            *args: Positonal argument of parent class
+            *args: Positional argument of parent class
                 [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]
             **kwargs: Named arguments of parent class. Please see
                 [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]

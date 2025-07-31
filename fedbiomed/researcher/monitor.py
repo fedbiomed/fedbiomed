@@ -240,7 +240,7 @@ class Monitor:
         self._tensorboard = False
 
     def set_round(self, round_: int) -> int:
-        """Setts round number that metric results will be received for.
+        """Sets round number that metric results will be received for.
 
         By default, at the beginning round is equal to 1 which stands for the first round. T
         his method should be called by experiment `run_once` after each round completed, and round should be set

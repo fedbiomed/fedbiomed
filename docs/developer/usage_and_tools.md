@@ -225,11 +225,11 @@ Modifications of the product backlog include:
 
 - adding new entries (issues/milestones) to the *product backlog*
 - during sprint planning, moving issues from the *product backlog* to the new sprint's *sprint backlog* (they are selected for next sprint)
-- during sprint planning, moving back uncomplete issues from the previous sprint's *sprint backlog* to the *product backlog* (they won't be continued during next sprint)
+- during sprint planning, moving back incomplete issues from the previous sprint's *sprint backlog* to the *product backlog* (they won't be continued during next sprint)
 - moving *product backlog* issues to *attic* (they are now considered obsolete)
 - closing product backlog milestones
 
-Note: product backlog entries and sprint backlog entries can mention "priority 1", etc. in their description to explicitely link to a product goal priority.
+Note: product backlog entries and sprint backlog entries can mention "priority 1", etc. in their description to explicitly link to a product goal priority.
 
 
 ### Sprint backlog
@@ -245,7 +245,7 @@ Sprint backlog entries are:
 
 Sprint backlog is created by the development team during the sprint planning. It can be updated and refined during the sprint (new issues, tasks and functional requirements rewriting) in accordance with the sprint goal.
 
-During the sprint planning, all uncomplete entries remaining from the previous sprint's *sprint backlog* can be:
+During the sprint planning, all incomplete entries remaining from the previous sprint's *sprint backlog* can be:
 
 - kept in the *sprint backlog* (they will be continued during next sprint)
 - moved back to the *product backlog* (they won't be continued during next sprint)

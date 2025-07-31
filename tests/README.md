@@ -152,7 +152,7 @@ if __name__ == '__main__':  # pragma: no cover
 
 Remark: a test file may implement more than one class (we may for example create a **TestMessagingResearcher** and a **TestMessagingNode** in the same **test\_messaging.py** file.
 
-We may also provide two test file for the same purpose. The choice depend on the content of the tests and on the code which can be shared between these files (for example, we may implement a connexion to a gRPC server in a setupMethod() if we include the two classes in a single test file.
+We may also provide two test file for the same purpose. The choice depend on the content of the tests and on the code which can be shared between these files (for example, we may implement a connection to a gRPC server in a setupMethod() if we include the two classes in a single test file.
 
 
 ### setUp/tearDown
@@ -167,7 +167,7 @@ These method are class methods (the decorator is mandatory), and takes **cls** (
 
 These classes are usually used to:
 - install mocking/patch mechanism if several tests use the same mock or patch.
-- concentrate all costly initialization (huge file reading, initialize a connexion with an external server, etc..) . Be careful that the test do not break this initialization.
+- concentrate all costly initialization (huge file reading, initialize a connection with an external server, etc..) . Be careful that the test do not break this initialization.
 
 More info: https://docs.python.org/3/library/unittest.html#class-and-module-fixtures
 
@@ -206,7 +206,7 @@ You can use the python **tempfile** package for this purpose.
 
 ### mock / patch
 
-To test some of our module, we need to simulate input/ouput of other fedbiomed modules.
+To test some of our module, we need to simulate input/output of other fedbiomed modules.
 
 #### mock / patch location
 
@@ -217,7 +217,7 @@ The mock/patch code may be mutualized between tests, we propose to store this co
 
 ...to be continued...
 
-### some usefull tricks
+### some useful tricks
 
 #### provide a \_\_main\_\_ entry to a test file
 

@@ -208,7 +208,7 @@ class NodeStateManager:
         """Initializes NodeStateManager, by creating folder that will contains Node state folders.
 
         Args:
-            previous_state_id: state_id from previous Round, from whch to reload a Node state
+            previous_state_id: state_id from previous Round, from which to reload a Node state
             testing: only doing testing, not training
         """
 

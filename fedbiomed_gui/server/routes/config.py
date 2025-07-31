@@ -5,7 +5,7 @@ from ..config import config
 
 @api.route("/config/node-id", methods=["GET"])
 def node_id():
-    """API enpoint to get node id which GUI will be working for
+    """API endpoint to get node id which GUI will be working for
 
     Request GET {any}:
         - No request data

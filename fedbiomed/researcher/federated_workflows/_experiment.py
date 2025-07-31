@@ -319,7 +319,7 @@ class Experiment(TrainingPlanWorkflow):
     def training_replies(self) -> Union[dict, None]:
         """Retrieves training replies of each round of training.
 
-        Training replies contains timing statistics and the files parth/URLs that has been received after each round.
+        Training replies contains timing statistics and the files path/URLs that has been received after each round.
 
         Returns:
             Dictionary of training replies with format {round (int) : replies (dict)}
@@ -401,7 +401,7 @@ class Experiment(TrainingPlanWorkflow):
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
         else:
-            # at this point, `agregator` is an instance / inheriting of `Aggregator`
+            # at this point, `aggregator` is an instance / inheriting of `Aggregator`
             self._aggregator = aggregator
         self.aggregator_args["aggregator_name"] = self._aggregator.aggregator_name
         # ensure consistency with federated dataset
@@ -667,7 +667,7 @@ class Experiment(TrainingPlanWorkflow):
         Sets the tensorboard flag
 
         Args:
-            tensorboard: If `True` tensorboard log files will be writen after receiving training feedbacks
+            tensorboard: If `True` tensorboard log files will be written after receiving training feedbacks
 
         Returns:
             Status of tensorboard
@@ -1470,7 +1470,7 @@ class Experiment(TrainingPlanWorkflow):
         [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet].
 
         Args:
-            before_training: whether to update `NodeStateAgent` at the begining or at the end of a `Round`:
+            before_training: whether to update `NodeStateAgent` at the beginning or at the end of a `Round`:
                 - if before, only updates `NodeStateAgent` wrt `FederatedDataset`, otherwise
                 - if after, updates `NodeStateAgent` wrt the latest reply
             training_replies: the node replies from the latest round. Required when before_training=False. Defaults to
@@ -1488,7 +1488,7 @@ class Experiment(TrainingPlanWorkflow):
         if training_replies is None:
             raise FedbiomedValueError(
                 f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
-                "replies form Node(s) has(ve) been recieved!"
+                "replies form Node(s) has(ve) been received!"
             )
         self._node_state_agent.update_node_states(node_ids, training_replies)
 

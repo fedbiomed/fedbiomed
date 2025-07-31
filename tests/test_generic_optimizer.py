@@ -119,12 +119,12 @@ class TestDeclearnOptimizer(unittest.TestCase):
         current_round_optim: DeclearnOptimizer,
         is_same_optimizer: bool,
     ):
-        """Checks that states of `previous_round_optim` (that mimicks the optimizer of previous round)is different
-        from state of `current_round_optim` (that mimicks optimizer of the current round).
+        """Checks that states of `previous_round_optim` (that mimics the optimizer of previous round)is different
+        from state of `current_round_optim` (that mimics optimizer of the current round).
 
         Args:
-            previous_round_optim (DeclearnOptimizer): mimicks optimizer of previous round
-            current_round_optim (DeclearnOptimizer): mimicks optimizer of current round
+            previous_round_optim (DeclearnOptimizer): mimics optimizer of previous round
+            current_round_optim (DeclearnOptimizer): mimics optimizer of current round
             is_same_optimizer (bool): set `True` to perform an additional test, that checks if optimizers states
                 are equal.
 
@@ -180,7 +180,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
     def test_declearnoptimizer_03_step_method_1_TorchOptimizer(self):
         optim = FedOptimizer(lr=1.0)
 
-        # initilise optimizer wrappers
+        # initialise optimizer wrappers
         initialized_torch_optim_wrappers = (
             DeclearnOptimizer(copy.deepcopy(model), optim)
             for model in self._torch_zero_model_wrappers
@@ -883,7 +883,7 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
             model.set_init_params(
                 {"n_features": num_features, "n_classes": num_classes}
             )
-            model.model.penality = None  # disable penality
+            model.model.penalty = None  # disable penalty
             init_optim_hyperparameters = copy.deepcopy(model.get_params())
 
             with optim_wrapper.optimizer_processing():
@@ -946,7 +946,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
         """test_torch_nn_08_get_learning_rate: test we retrieve the appropriate
         learning rate
         """
-        # first test wih basic optimizer (eg without learning rate scheduler)
+        # first test with basic optimizer (eg without learning rate scheduler)
 
         model = TorchModel(torch.nn.Linear(2, 3))
         lr = 0.1
@@ -1179,7 +1179,7 @@ class TestOptimizerBuilder(unittest.TestCase):
         random_declearn_optim = [
             self.create_random_fedoptimizer() for _ in range(nb_tests)
         ]
-        # check that NativeTorchOptimizer and DeclearnOptimizer are correclty built
+        # check that NativeTorchOptimizer and DeclearnOptimizer are correctly built
         for torch_model in self.torch_models:
             for optim in self.native_torch_optimizers:
                 optim_wrapper = optim_builder.build(
@@ -1206,7 +1206,7 @@ class TestOptimizerBuilder(unittest.TestCase):
 
     def test_02_get_parent_class(self):
         def check_type(obj, parent_obj):
-            """Tests that function `get_parent_class` retruns
+            """Tests that function `get_parent_class` returns
             the appropriate type of the highest parent class (just after `object`)
 
             Args:

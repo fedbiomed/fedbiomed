@@ -183,7 +183,7 @@ def test_experiment_run_01():
         "optimizer_args": {"lr": 1e-3},
         "num_updates": 30,
     }
-    print("Instatiating experiment object -----------------------------------")
+    print("Instantiating experiment object -----------------------------------")
     tags = ["ixi-train"]
     rounds = 3
     exp = Experiment(

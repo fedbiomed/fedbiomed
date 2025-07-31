@@ -67,7 +67,7 @@ class TestSkLearnModelBuilder(unittest.TestCase):
                 self.assertNotEqual(
                     id(getattr(model._instance, attribute)),
                     id(getattr(copied_model._instance, copied_attribute)),
-                    f"deep copy failed, attribute {attribute} {copied_attribute} have shared refrences!",
+                    f"deep copy failed, attribute {attribute} {copied_attribute} have shared references!",
                 )
 
             # check that model parameters are not the same
@@ -221,7 +221,7 @@ class TestSkLearnModel(unittest.TestCase):
 
         for data in (data_1d, data_2d):
             for model in self.models:
-                # disable learning rate evolution, penality
+                # disable learning rate evolution, penalty
                 model = SkLearnModel(model)
                 model.set_init_params(
                     model_args={"n_classes": _n_classes, "n_features": data.shape[1]}
@@ -249,7 +249,7 @@ class TestSkLearnModel(unittest.TestCase):
                     )
 
     def test_sklearnmodel_06_sklearn_training_02_plain_sklearn_grad_descent(self):
-        #  checks plain sklearn is effectivly doing a gradient descent
+        #  checks plain sklearn is effectively doing a gradient descent
         data = np.array(
             [
                 [

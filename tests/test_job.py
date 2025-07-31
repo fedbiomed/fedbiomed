@@ -176,7 +176,7 @@ class TestJob(unittest.TestCase):
                         training_replies, aux_vars = job.execute()
 
                     # Following line tests if aux_vars from training replies extracted correctly
-                    # aux_vars are set only if traning is done
+                    # aux_vars are set only if training is done
                     if do_training:
                         self.assertDictEqual(
                             aux_vars,
@@ -343,7 +343,7 @@ class TestJob(unittest.TestCase):
                         training_replies, aux_vars = job.execute()
 
                     # Following line tests if aux_vars from training replies extracted correctly
-                    # aux_vars are set only if traning is done
+                    # aux_vars are set only if training is done
                     expected_aux_vars = {}
                     for node in ["alice", "bob"]:
                         if not error_status[node]:
@@ -638,11 +638,11 @@ class TestJob(unittest.TestCase):
                 with patch("time.perf_counter") as mock_perf_counter:
                     mock_perf_counter.return_value = 0
                     _, aux_var = job.execute()
-        # Verify that ouput auxiliary variables match expectations.
+        # Verify that output auxiliary variables match expectations.
         expected = {"node-1": aux_var_1, "node-2": aux_var_2}
         assert aux_var == expected
         # self.assertDictEqual(aux_var, expected)
-        # Verify that expected calls occured.
+        # Verify that expected calls occurred.
         patch_encrypted_auxvar_from_dict.assert_has_calls(
             [call(reply_1["optim_aux_var"]), call(reply_2["optim_aux_var"])]
         )

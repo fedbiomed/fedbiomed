@@ -52,7 +52,7 @@ class TestDatasetManager(unittest.TestCase):
 
     def setUp(self):
         """
-        run this at the begining of each test
+        run this at the beginning of each test
 
         get the path of the test data folder (containing real data
         for the test)
@@ -68,7 +68,7 @@ class TestDatasetManager(unittest.TestCase):
         self.dataset_manager = DatasetManager(self.db)
 
         # fake arguments
-        # fake_database attribute fakes the resut of query over
+        # fake_database attribute fakes the result of query over
         # a database (eg `tinydb.queries.Query.all`)
         self.fake_database = {
             "1": {
@@ -509,7 +509,7 @@ class TestDatasetManager(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.dataset_manager.add_database(
                 name="test",
-                data_type="unknwon format",
+                data_type="unknown format",
                 tags=["test"],
                 description="this is a test",
                 path="/a/path/to/some/data",

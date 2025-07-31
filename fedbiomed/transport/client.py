@@ -117,7 +117,7 @@ class Channels:
             return None
 
     async def connect(self, stub_type: _StubType = _StubType.ANY_STUB):
-        """Connects gRPC server and instatiates stubs.
+        """Connects gRPC server and instantiates stubs.
 
         Args:
             stub_type: only (re)connect for matching stub type(s)
@@ -152,7 +152,7 @@ class Channels:
         Args:
             ip: IP address of the channel
             port: TCP port of the channel
-            certificate: certificate for secure channel, or None for unsecure channel
+            certificate: certificate for secure channel, or None for insecure channel
 
         Returns:
             gRPC connection channel
@@ -404,7 +404,7 @@ class Listener:
         """
 
     async def _post_handle_raise(self, exp: BaseException):
-        """Raise a tansformed exception from a base exception.
+        """Raise a transformed exception from a base exception.
 
         To be called as final function after handling process in a listener task
 

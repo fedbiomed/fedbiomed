@@ -316,7 +316,7 @@ def test_06_sklearn_mnist_perceptron_with_declearn_optimizer_on_researcher_side(
     clear_experiment_data(exp)
 
 
-# Define paramters
+# Define parameters
 regressor_training_args = {
     "epochs": 5,
     "loader_args": {

@@ -74,7 +74,7 @@ class TestSecaggRound(unittest.TestCase):
                 experiment_id="test-id",
             )
 
-        self.secagg_arguments["secagg_scheme"] = "opps"
+        self.secagg_arguments["secagg_scheme"] = "oops"
         with self.assertRaises(FedbiomedError):
             SecaggRound(
                 db=self.db,

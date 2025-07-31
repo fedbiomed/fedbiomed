@@ -700,7 +700,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Invalid type
         with self.assertRaises(SystemExit):
-            exp.set_tensorboard("opps")
+            exp.set_tensorboard("oops")
 
     def test_experiment_16_set_retain_full_history(self):
         """Tests setting retain full history"""
@@ -791,7 +791,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertIsInstance(aggregated_params[1]["params_path"], str)
 
     def test_experiment_20_load_aggregated_params(self):
-        """Tests loading aggregated paramaters"""
+        """Tests loading aggregated parameters"""
 
         exp = Experiment()
 
@@ -813,7 +813,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         """Tests saving optimizer"""
 
         exp = Experiment()
-        # Check if agg optimzer is None
+        # Check if agg optimizer is None
         result = exp.save_optimizer("my-path")
         self.assertIsNone(result)
 

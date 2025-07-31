@@ -40,7 +40,7 @@ from fedbiomed.node.cli_utils import (
 from fedbiomed.node.config import node_component
 from fedbiomed.node.node import Node
 
-# Please use following code genereate similar intro
+# Please use following code generate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
 #
 __intro__ = """
@@ -469,7 +469,7 @@ class NodeControl(CLIArgumentParser):
             name=f"node-{self._node.config.get('default', 'id')}",
             args=(self._node.config, node_args),
         )
-        p.deamon = True
+        p.daemon = True
         p.start()
 
         logger.info("Node started as process with pid = " + str(p.pid))

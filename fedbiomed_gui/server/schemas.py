@@ -246,7 +246,7 @@ class TrainingPlanPreviewRequest(Validator):
 
 
 class AddDataSetRequest(Validator):
-    """Json Schema for reqeust of adding new datasets"""
+    """Json Schema for request of adding new datasets"""
 
     type = "json"
     schema = JsonSchema(

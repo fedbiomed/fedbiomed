@@ -23,7 +23,7 @@ def create_exp_folder(experiments_dir, experimentation_folder: str = None) -> st
 
     Args:
         experiments_dir: Base directory for storing experiments files
-        experimentation_folder (str, optional): optionaly provide an experimentation
+        experimentation_folder (str, optional): optionally provide an experimentation
             folder name. This should just contain the name of the folder not a path.
             default; if no folder name is given, generate a `Experiment_x` name where `x-1`
             is the number of experiments already run (`x`=0 for the first experiment)
@@ -237,7 +237,7 @@ def _get_latest_file(
     for exp_folder in list_name_file:
         exp_match = re.search(r"[0-9]*$", exp_folder)
 
-        # folder name ends with numeric caracters
+        # folder name ends with numeric characters
         if len(exp_folder) != exp_match.span()[0]:
             dir_path = os.path.join(pathfile, exp_folder)
             if not only_folder or os.path.isdir(dir_path):

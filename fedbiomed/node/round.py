@@ -76,7 +76,7 @@ class Round:
             training_plan_class: class name of the training plan
             model_kwargs: contains model args. Defaults to None.
             training_kwargs: contains training arguments. Defaults to None.
-            training: whether to perform a model training or just to perform a validation check (model infering)
+            training: whether to perform a model training or just to perform a validation check (model inferring)
             dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
                 data path, its shape, its description... . Defaults to None.
             params: parameters of the model
@@ -635,7 +635,7 @@ class Round:
 
         Loads optimizer with default values if optimizer entry has not been found
         or if Optimizer type has changed between current and previous `Round`. Should
-        be called at the begining of a `Round`, before training a model.
+        be called at the beginning of a `Round`, before training a model.
         If loading fails, skip the loading part and loads `Optimizer` with default values.
 
         Args:
@@ -862,7 +862,7 @@ class Round:
         try:
             data_manager = self.training_plan.training_data()
         except TypeError as e:
-            # FIXME; TypeError could occur whithin the training_data method.
+            # FIXME; TypeError could occur within the training_data method.
             raise FedbiomedRoundError(
                 f"{ErrorNumbers.FB314.value}, `The method `training_data` of the "
                 f"{str(training_plan_type)} should not take any arguments."

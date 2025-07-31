@@ -138,7 +138,7 @@ class TestCommonSynchro(unittest.TestCase):
                 # test
                 exchange.wait(["dummy_id"], timeout)
 
-                # no speficic check
+                # no specific check
 
         # prepare
         timeouts = [

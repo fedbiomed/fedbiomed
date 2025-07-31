@@ -169,7 +169,7 @@ Then restart Linux distribution installation.
 
 #### Error 2: ```failed with error: 0x80004005```
 
-If this error happen when installing a Linux disribution:
+If this error happen when installing a Linux distribution:
 
 ```
 WSLRegisterDistribution failed with error: 0x80004005

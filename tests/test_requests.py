@@ -330,7 +330,7 @@ class TestRequests(unittest.TestCase):
     @patch("tabulate.tabulate")
     @patch("fedbiomed.researcher.requests.Requests.send")
     def test_request_10_list(self, send, mock_tabulate):
-        """Testing list reqeust"""
+        """Testing list request"""
 
         mock_tabulate.return_value = "Test"
 
