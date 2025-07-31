@@ -268,7 +268,8 @@ unfixable = [
 
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
-skip = '.git*,*.pdf,*.svg,*.lock,*.css'
+skip = '.git*,*.pdf,*.svg,*.lock,*.css,assets'
 check-hidden = true
-ignore-regex = '^\s*"image/\S+": ".*'
-# ignore-words-list = ''
+# ignore images in notebooks and regex specifications
+ignore-regex = '^\s*"image/\S+": ".*|\(^\S+\)'
+ignore-words-list = 'ser'
