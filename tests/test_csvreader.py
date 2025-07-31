@@ -25,6 +25,7 @@ def testdir():
 def csv_files():
     return (
         ("tata-header.csv", True, ","),
+        ("participants.csv", True, ","),
         ("titi-normal.csv", False, ","),
         ("../../../dataset/CSV/pseudo_adni_mod.csv", True, ";"),
         ("test_csv_no_header.tsv", False, "\t"),
@@ -81,7 +82,16 @@ def numpy_target_transform():
 def convert_to_float():
     def _convert_to_float(x):
         fct = np.frompyfunc(
-            lambda x: np.round(float(x), 7) if not isinstance(x, str) else x, 1, 1
+            # lambda x: np.round(float(x), 7) if not isinstance(x, str) else x,
+            lambda x: (
+                None
+                if pd.isna(x)
+                else x
+                if isinstance(x, str)
+                else np.round(float(x), 7)
+            ),
+            1,
+            1,
         )
         return fct(x)
 
@@ -175,7 +185,7 @@ def test_csvreader_02_read(testdir, convert_to_float):
     This test verifies that CsvReader can select specific columns by name or index
     """
     # Test with header file that has column names
-    file_path = os.path.join(testdir, "csv", "test_csv_header.csv")
+    file_path = os.path.join(testdir, "csv", "participants.csv")
 
     # Read the file with pandas to get reference data
     df_pandas = pd.read_csv(file_path, header=0, delimiter=",")
@@ -230,8 +240,10 @@ def test_csvreader_03_index(testdir, convert_to_float):
     """
     from sklearn.model_selection import train_test_split
 
+    np.set_printoptions(threshold=np.inf)
+
     # Use a file with enough data for splitting
-    file_path = os.path.join(testdir, "csv", "test_csv_header.csv")
+    file_path = os.path.join(testdir, "csv", "participants.csv")
     csvreader = CsvReader(file_path)
     df = pd.read_csv(file_path)
 
@@ -255,6 +267,11 @@ def test_csvreader_03_index(testdir, convert_to_float):
     # Compare with pandas
     expected_train = df.iloc[train_idx].to_numpy()
     expected_test = df.iloc[test_idx].to_numpy()
+
+    # mismatch = convert_to_float(expected_train) != convert_to_float(train_data)
+    # print("Mismatch at positions:", np.where(mismatch))
+    # print("train_data:", convert_to_float(train_data)[mismatch])
+    # print("expected_train:", convert_to_float(expected_train)[mismatch])
 
     np.testing.assert_array_equal(
         convert_to_float(expected_train), convert_to_float(train_data)
