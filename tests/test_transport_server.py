@@ -28,6 +28,7 @@ example_task = SearchRequest(
 reply = SearchReply(
     researcher_id="researcher-id",
     node_id="node-id",
+    node_name="node-name",
     databases=[],
     count=0,
 )

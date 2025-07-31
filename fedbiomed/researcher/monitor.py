@@ -325,10 +325,12 @@ class Monitor:
         logger.info(
             "\033[1m{}\033[0m \n"
             "\t\t\t\t\t NODE_ID: {} \n"
+            "\t\t\t\t\t Node Name: {} \n"
             "\t\t\t\t\t Round {}{} Iteration: {}/{} ({:.0f}%) | Samples: {}/{}\n {}"
             "\t\t\t\t\t ---------".format(
                 header.upper(),
                 message["node_id"],
+                message["node_name"],
                 self._round,
                 " |" if message["epoch"] is None else f" Epoch: {message['epoch']} |",
                 message["iteration"],

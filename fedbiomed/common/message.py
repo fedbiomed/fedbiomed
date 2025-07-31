@@ -388,6 +388,7 @@ class Scalar(ProtoSerializableMessage):
     __PROTO_TYPE__ = r_pb2.FeedbackMessage.Scalar
 
     node_id: str
+    node_name: str
     experiment_id: str
     train: bool
     test: bool

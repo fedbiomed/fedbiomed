@@ -71,7 +71,7 @@ class Node:
         self._config = config
         self._node_id = self._config.get("default", "id")
         self._node_name = self._config.get("custom", "name")
-        
+
         self._tasks_queue = TasksQueue(
             os.path.join(self._config.root, "var", f"queue_{self._node_id}"),
             str(os.path.join(self._config.root, "var", "tmp")),
@@ -121,7 +121,7 @@ class Node:
     def node_id(self):
         """Returns id of the node"""
         return self._node_id
-    
+
     @property
     def node_name(self):
         """Returns id of the node"""
@@ -346,6 +346,7 @@ class Node:
         round_ = None
         hist_monitor = HistoryMonitor(
             node_id=self._node_id,
+            node_name=self._node_name,
             experiment_id=msg.experiment_id,
             researcher_id=msg.researcher_id,
             send=self._grpc_client.send,

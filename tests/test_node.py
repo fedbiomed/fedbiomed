@@ -1,9 +1,8 @@
-import unittest
 import configparser
-from unittest.mock import MagicMock, patch, ANY
-import tempfile
 import os
-
+import tempfile
+import unittest
+from unittest.mock import ANY, MagicMock, patch
 
 from fedbiomed.common.constants import (
     ErrorNumbers,
@@ -22,7 +21,6 @@ from fedbiomed.common.message import (
     TrainingPlanStatusRequest,
     TrainRequest,
 )
-
 from fedbiomed.node.node import Node, NodeConfig
 from fedbiomed.node.round import Round
 
@@ -180,6 +178,7 @@ class TestNode(unittest.TestCase):
         self.node_config = NodeConfig(self.temp_dir.name)
         self.config = configparser.ConfigParser()
         self.config["default"] = {"id": "test-id", "db": self.db}
+        self.config["custom"] = {"name": "test-name", "db": self.db}
         self.config["researcher"] = {"ip": "test", "port": "5151"}
         self.config["security"] = {
             "hashing_algorithm": "SHA256",
@@ -272,7 +271,7 @@ class TestNode(unittest.TestCase):
     def test_node_08_on_message_unknown_command(self):
         """Tests Exception is handled if command is not a known command
         (in `on_message` method)"""
-        ping_reply = PingReply(researcher_id="r1", node_id="n1")
+        ping_reply = PingReply(researcher_id="r1", node_id="n1", node_name="n1_name")
 
         # action
         self.n1.on_message(ping_reply.to_dict())
@@ -373,6 +372,7 @@ class TestNode(unittest.TestCase):
             root_dir=self.node_config.root,
             db=self.node_config.get("default", "db"),
             node_id=self.node_config.get("default", "id"),
+            node_name=self.node_config.get("custom", "name"),
             training_plan=dict_msg_1_dataset["training_plan"],
             training_plan_class=dict_msg_1_dataset["training_plan_class"],
             model_kwargs=dict_msg_1_dataset["model_args"],
@@ -434,6 +434,7 @@ class TestNode(unittest.TestCase):
             root_dir=self.node_config.root,
             db=self.node_config.get("default", "db"),
             node_id=self.node_config.get("default", "id"),
+            node_name=self.node_config.get("custom", "name"),
             training_plan=dict_msg_1_dataset["training_plan"],
             training_plan_class=dict_msg_1_dataset["training_plan_class"],
             model_kwargs=dict_msg_1_dataset["model_args"],

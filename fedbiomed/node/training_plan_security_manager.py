@@ -48,7 +48,12 @@ class TrainingPlanSecurityManager:
     """Manages training plan approval for a node."""
 
     def __init__(
-        self, db: str, node_id: str, node_name: str, hashing: str, tp_approval: bool = False
+        self,
+        db: str,
+        node_id: str,
+        node_name: str,
+        hashing: str,
+        tp_approval: bool = False,
     ) -> None:
         """Class constructor for TrainingPlanSecurityManager.
 

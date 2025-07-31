@@ -1,24 +1,24 @@
-import unittest
 import asyncio
+import unittest
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import grpc
+from testsupport.mock import AsyncMock
 
-
-from unittest.mock import patch, MagicMock, AsyncMock
-from fedbiomed.transport.client import (
-    GrpcClient,
-    ClientStatus,
-    ResearcherCredentials,
-    TaskListener,
-    Sender,
-    Channels,
-    _StubType,
-)
 from fedbiomed.common.constants import MAX_RETRIEVE_ERROR_RETRIES, MAX_SEND_RETRIES
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
-from fedbiomed.common.message import SearchReply, FeedbackMessage, Log, Scalar
+from fedbiomed.common.message import FeedbackMessage, Log, Scalar, SearchReply
+from fedbiomed.transport.client import (
+    Channels,
+    ClientStatus,
+    GrpcClient,
+    ResearcherCredentials,
+    Sender,
+    TaskListener,
+    _StubType,
+)
 from fedbiomed.transport.protocols.researcher_pb2 import TaskResponse
 from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
-from testsupport.mock import AsyncMock
 
 
 class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
@@ -290,6 +290,7 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
         researcher_id="test",
         databases=[],
         node_id="node-id",
+        node_name="node-name",
         count=1,
     )
 
@@ -302,6 +303,7 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
         researcher_id="test",
         scalar=Scalar(
             node_id="test",
+            node_name="test-name",
             experiment_id="my_exp",
             train=True,
             test=False,

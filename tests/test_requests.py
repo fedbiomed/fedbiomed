@@ -1,43 +1,41 @@
 import inspect
 import os.path
-import unittest
-import time
 import tempfile
-
-from unittest.mock import patch, PropertyMock, MagicMock, ANY
+import time
+import unittest
 from threading import Semaphore
+from unittest.mock import ANY, MagicMock, PropertyMock, patch
 
-from fedbiomed.common.training_plans import TorchTrainingPlan
+from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
+from testsupport.fake_training_plan import FakeTorchTrainingPlan2
+
 from fedbiomed.common.constants import MessageType
 from fedbiomed.common.message import (
+    ApprovalReply,
+    ErrorMessage,
     Log,
     Scalar,
     SearchReply,
     SearchRequest,
-    ErrorMessage,
-    ApprovalReply,
 )
-
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.config import config
+from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.requests import (
-    Requests,
-    FederatedRequest,
-    Request,
-    RequestStatus,
-    RequestPolicy,
-    PolicyStatus,
-    PolicyController,
     DiscardOnTimeout,
-    StopOnTimeout,
+    FederatedRequest,
+    MessagesByNode,
+    PolicyController,
+    PolicyStatus,
+    Request,
+    RequestPolicy,
+    Requests,
+    RequestStatus,
     StopOnDisconnect,
     StopOnError,
-    MessagesByNode,
+    StopOnTimeout,
 )
-from fedbiomed.researcher.monitor import Monitor
-
-from fedbiomed.transport.node_agent import NodeAgent, NodeActiveStatus
-from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
-from testsupport.fake_training_plan import FakeTorchTrainingPlan2
+from fedbiomed.transport.node_agent import NodeActiveStatus, NodeAgent
 
 
 # for test_request_13_model_approve
@@ -192,6 +190,7 @@ class TestRequests(unittest.TestCase):
 
         msg_monitor = {
             "node_id": "DummyNodeID",
+            "node_name": "DummyNodeName",
             "experiment_id": "DummyExperimentID",
             "metric": {"loss": 12},
             "train": True,
@@ -267,6 +266,7 @@ class TestRequests(unittest.TestCase):
             "node-1": SearchReply(
                 **{
                     "node_id": "node-1",
+                    "node_name": "test-node1",
                     "researcher_id": "r-xxx",
                     "databases": [
                         {
@@ -288,6 +288,7 @@ class TestRequests(unittest.TestCase):
             "node-2": SearchReply(
                 **{
                     "node_id": "node-2",
+                    "node_name": "test-node2",
                     "researcher_id": "r-xxx",
                     "databases": [
                         {
@@ -314,6 +315,7 @@ class TestRequests(unittest.TestCase):
             "node-3": ErrorMessage(
                 researcher_id="r",
                 node_id="node-3",
+                node_name="test-node3",
                 errnum="x",
                 extra_msg="x",
             )
@@ -340,6 +342,7 @@ class TestRequests(unittest.TestCase):
             "node-1": SearchReply(
                 **{
                     "node_id": "node-1",
+                    "node_name": "test-node1",
                     "researcher_id": "r-xxx",
                     "databases": [
                         {
@@ -361,6 +364,7 @@ class TestRequests(unittest.TestCase):
             "node-2": SearchReply(
                 **{
                     "node_id": "node-2",
+                    "node_name": "test-node2",
                     "researcher_id": "r-xxx",
                     "databases": [],
                     "count": 0,
@@ -372,7 +376,11 @@ class TestRequests(unittest.TestCase):
         fed_req.replies.return_value = replies
         fed_req.errors.return_value = {
             "node-3": ErrorMessage(
-                researcher_id="r", node_id="node-3", errnum="x", extra_msg="x"
+                researcher_id="r",
+                node_id="node-3",
+                node_name="test-node-3",
+                errnum="x",
+                extra_msg="x",
             )
         }
 
@@ -429,7 +437,11 @@ class TestRequests(unittest.TestCase):
         send.return_value.__enter__.return_value = fed_req
         fed_req.errors.return_value = {
             "node-3": ErrorMessage(
-                researcher_id="r", node_id="node-3", errnum="x", extra_msg="x"
+                researcher_id="r",
+                node_id="node-3",
+                node_name="test-node-3",
+                errnum="x",
+                extra_msg="x",
             )
         }
 
@@ -437,6 +449,7 @@ class TestRequests(unittest.TestCase):
             "dummy-id-1": ApprovalReply(
                 **{
                     "node_id": "dummy-id-1",
+                    "node_name": "test-node-1",
                     "success": True,
                     "training_plan_id": "id-xx",
                     "message": "hello",

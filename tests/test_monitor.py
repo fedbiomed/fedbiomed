@@ -1,8 +1,8 @@
-import unittest
 import tempfile
-from unittest.mock import patch, MagicMock
+import unittest
+from unittest.mock import MagicMock, patch
 
-from fedbiomed.researcher.monitor import Monitor, MetricStore  # noqa
+from fedbiomed.researcher.monitor import MetricStore, Monitor  # noqa
 
 
 def create_file(file_name: str):
@@ -69,6 +69,7 @@ class TestMonitor(unittest.TestCase):
             {
                 "researcher_id": "123123",
                 "node_id": "asd123",
+                "node_name": "test-node",
                 "experiment_id": "1233",
                 "train": False,
                 "test": True,
@@ -97,6 +98,7 @@ class TestMonitor(unittest.TestCase):
             {
                 "researcher_id": "123123",
                 "node_id": "asd123",
+                "node_name": "test-node",
                 "experiment_id": "1233",
                 "train": True,
                 "test": False,
@@ -125,6 +127,7 @@ class TestMonitor(unittest.TestCase):
             {
                 "researcher_id": "123123",
                 "node_id": "asd123",
+                "node_name": "test-node",
                 "experiment_id": "1233",
                 "train": False,
                 "test": True,
@@ -151,6 +154,7 @@ class TestMonitor(unittest.TestCase):
             {
                 "researcher_id": "123123",
                 "node_id": "asd123",
+                "node_name": "test-node",
                 "experiment_id": "1233",
                 "train": False,
                 "test": True,
