@@ -23,9 +23,9 @@ class NodeConfig(Config):
         """Generate `Node` config"""
 
         # Custom variables for Node
-        self._cfg["custom"] = {
-            "name": "Default Hospital",
-        }
+        # self._cfg["custom"] = {
+        #     "name": "Default Hospital",
+        # }
 
         # Security variables
         self._cfg["security"] = {
@@ -83,8 +83,10 @@ class NodeComponent(Component):
     config_cls = NodeConfig
     _default_component_name = DEFAULT_NODE_NAME
 
-    def initiate(self, root: Optional[str] = None) -> NodeConfig:
-        config = super().initiate(root)
+    def initiate(
+        self, root: Optional[str] = None, component_name: Optional[str] = None
+    ) -> NodeConfig:
+        config = super().initiate(root, component_name=component_name)
         node_data_path = os.path.join(config.root, NODE_DATA_FOLDER)
         os.makedirs(node_data_path, exist_ok=True)
         return config

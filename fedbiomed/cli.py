@@ -45,7 +45,7 @@ class ComponentParser(CLIArgumentParser):
             type=str,
             nargs="?",
             required=False,
-            help="Path to specificy where Fed-BioMed component will be intialized.",
+            help="Path to specify where Fed-BioMed component will be intialized.",
         )
 
         common_parser.add_argument(
@@ -56,6 +56,15 @@ class ComponentParser(CLIArgumentParser):
             nargs="?",
             required=True,
             help="Component type NODE or RESEARCHER",
+        )
+
+        common_parser.add_argument(
+            "-n",
+            "--name",
+            type=str,
+            nargs="?",
+            default="Default Node Name",
+            help="Name of the node (required for identification)",
         )
 
         # Create sub parser under `configuration` command
@@ -96,6 +105,8 @@ class ComponentParser(CLIArgumentParser):
         """CLI Handler for creating configuration file and assets for given component"""
         if args.component is None:
             CommonCLI.error("Error: bad command line syntax")
+
+        print(args)
 
         if not args.path:
             if args.component.lower() == "researcher":
@@ -141,7 +152,18 @@ class ComponentParser(CLIArgumentParser):
                     )
                     return
 
-            component.initiate(component_path)
+            # node_name = getattr(self._this._args, "name", None)
+            # if not node_name:
+            #     print("Node name: ", node_name)
+            #     raise ValueError("Node name is required but missing")
+
+            # config._cfg["custom"] = {
+            #     "name": node_name ,  # Default name, can be updated by user
+            # }
+            # with open(os.path.join(component_dir, "etc/config.ini"), "w") as configfile:
+            #     config._cfg.write(configfile)
+
+            component.initiate(component_path, component_name=args.name)
 
         CommonCLI.success(f"Component has been initialized in {component_path}")
 

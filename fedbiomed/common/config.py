@@ -63,14 +63,14 @@ class Config(metaclass=ABCMeta):
 
     vars: Dict[str, Any] = {}
 
-    def __init__(self, root: str) -> None:
+    def __init__(self, root: str, component_name: str) -> None:
         """Initializes configuration
 
         Args:
             root: Root directory for the component
         """
         self._cfg = configparser.ConfigParser()
-        self.load(root)
+        self.load(root, component_name)
 
     @classmethod
     @abstractmethod
@@ -85,6 +85,7 @@ class Config(metaclass=ABCMeta):
     def load(
         self,
         root: str,
+        component_name: str = None,  # pylint: disable=W0622
     ) -> None:
         """Load configuration from given name and root
 
@@ -98,7 +99,7 @@ class Config(metaclass=ABCMeta):
 
         self.root = root
         self.config_path = os.path.join(self.root, "etc", self._CONFIG_FILE_NAME)
-        self.generate()
+        self.generate(component_name=component_name)
 
     def is_config_existing(self) -> bool:
         """Checks if config file exists
@@ -174,7 +175,7 @@ class Config(metaclass=ABCMeta):
                 f"{ErrorNumbers.FB600.value}: cannot save config file:  {self.path}"
             ) from exp
 
-    def generate(self, id: Optional[str] = None) -> None:
+    def generate(self, component_name: str, id: Optional[str] = None) -> None:
         """ "Generate configuration file
 
         Args:
@@ -189,6 +190,7 @@ class Config(metaclass=ABCMeta):
 
             self._cfg["default"] = {
                 "id": component_id,
+                "name": component_name,
                 "component": self.COMPONENT_TYPE,
                 "version": str(self._CONFIG_VERSION),
             }
@@ -255,21 +257,24 @@ class Component:
         self._reference = ".fedbiomed"
 
     def initiate(
-        self, root: Optional[str] = None
+        self, root: Optional[str] = None, component_name: str = None
     ) -> Union["NodeConfig", "ResearcherConfig"]:
         """Creates or initiates existing component"""
 
+        if component_name is None:
+            component_name = self._default_component_name
+
         if not root:
-            root = os.path.join(os.getcwd(), self._default_component_name)
+            root = os.path.join(os.getcwd(), component_name)
 
         reference = self.validate(root)
-        config = self.config_cls(root)
+        config = self.config_cls(root, component_name=component_name)
 
         if not os.path.isfile(reference):
             create_fedbiomed_setup_folders(root)
             with open(os.path.join(root, ".fedbiomed"), "w", encoding="UTF-8") as file_:
                 file_.write(self.config_cls.COMPONENT_TYPE)
-            config.generate()
+            config.generate(component_name=component_name)
             config.write()
         else:
             config.read()
