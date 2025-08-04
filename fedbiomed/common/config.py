@@ -63,7 +63,7 @@ class Config(metaclass=ABCMeta):
 
     vars: Dict[str, Any] = {}
 
-    def __init__(self, root: str, component_name: str) -> None:
+    def __init__(self, root: str, component_name: str = "Default Node Name") -> None:
         """Initializes configuration
 
         Args:
@@ -85,7 +85,7 @@ class Config(metaclass=ABCMeta):
     def load(
         self,
         root: str,
-        component_name: str = None,  # pylint: disable=W0622
+        component_name: str = "Default Node Name",  # pylint: disable=W0622
     ) -> None:
         """Load configuration from given name and root
 
@@ -175,7 +175,9 @@ class Config(metaclass=ABCMeta):
                 f"{ErrorNumbers.FB600.value}: cannot save config file:  {self.path}"
             ) from exp
 
-    def generate(self, component_name: str, id: Optional[str] = None) -> None:
+    def generate(
+        self, component_name: str = "Default Node Name", id: Optional[str] = None
+    ) -> None:
         """ "Generate configuration file
 
         Args:

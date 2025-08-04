@@ -177,8 +177,7 @@ class TestNode(unittest.TestCase):
         # creating Node objects
         self.node_config = NodeConfig(self.temp_dir.name)
         self.config = configparser.ConfigParser()
-        self.config["default"] = {"id": "test-id", "db": self.db}
-        self.config["custom"] = {"name": "test-name", "db": self.db}
+        self.config["default"] = {"id": "test-id", "name": "test-name", "db": self.db}
         self.config["researcher"] = {"ip": "test", "port": "5151"}
         self.config["security"] = {
             "hashing_algorithm": "SHA256",
@@ -372,7 +371,7 @@ class TestNode(unittest.TestCase):
             root_dir=self.node_config.root,
             db=self.node_config.get("default", "db"),
             node_id=self.node_config.get("default", "id"),
-            node_name=self.node_config.get("custom", "name"),
+            node_name=self.node_config.get("default", "name"),
             training_plan=dict_msg_1_dataset["training_plan"],
             training_plan_class=dict_msg_1_dataset["training_plan_class"],
             model_kwargs=dict_msg_1_dataset["model_args"],
@@ -434,7 +433,7 @@ class TestNode(unittest.TestCase):
             root_dir=self.node_config.root,
             db=self.node_config.get("default", "db"),
             node_id=self.node_config.get("default", "id"),
-            node_name=self.node_config.get("custom", "name"),
+            node_name=self.node_config.get("default", "name"),
             training_plan=dict_msg_1_dataset["training_plan"],
             training_plan_class=dict_msg_1_dataset["training_plan_class"],
             model_kwargs=dict_msg_1_dataset["model_args"],

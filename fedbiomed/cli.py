@@ -152,17 +152,6 @@ class ComponentParser(CLIArgumentParser):
                     )
                     return
 
-            # node_name = getattr(self._this._args, "name", None)
-            # if not node_name:
-            #     print("Node name: ", node_name)
-            #     raise ValueError("Node name is required but missing")
-
-            # config._cfg["custom"] = {
-            #     "name": node_name ,  # Default name, can be updated by user
-            # }
-            # with open(os.path.join(component_dir, "etc/config.ini"), "w") as configfile:
-            #     config._cfg.write(configfile)
-
             component.initiate(component_path, component_name=args.name)
 
         CommonCLI.success(f"Component has been initialized in {component_path}")

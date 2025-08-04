@@ -70,7 +70,7 @@ class Node:
 
         self._config = config
         self._node_id = self._config.get("default", "id")
-        self._node_name = self._config.get("custom", "name")
+        self._node_name = self._config.get("default", "name")
 
         self._tasks_queue = TasksQueue(
             os.path.join(self._config.root, "var", f"queue_{self._node_id}"),
