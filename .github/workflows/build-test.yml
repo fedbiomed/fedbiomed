@@ -158,7 +158,6 @@ jobs:
           - ubuntu-latest
           - ubuntu-22.04
           - macos-latest
-          - fedora-38
           - macos-m1
         python-version:
           - '3.11'

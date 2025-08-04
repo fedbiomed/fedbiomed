@@ -1,11 +1,11 @@
+import shutil
 import unittest
-
 from unittest.mock import patch
 
 from fedbiomed.common.config import Config
-from fedbiomed.researcher.config import ResearcherConfig
-from fedbiomed.node.config import NodeConfig
 from fedbiomed.common.exceptions import FedbiomedVersionError
+from fedbiomed.node.config import NodeConfig
+from fedbiomed.researcher.config import ResearcherConfig
 
 
 class BaseConfigTest(unittest.TestCase):
@@ -22,6 +22,11 @@ class BaseConfigTest(unittest.TestCase):
         self.patch_open.stop()
         self.patch_fed_folders.stop()
 
+        # Clean up any created folders
+        shutil.rmtree("dummy-root", ignore_errors=True)
+        shutil.rmtree("etc", ignore_errors=True)
+        return super().tearDown()
+
 
 class TestConfig(BaseConfigTest):
     """Tests base methods of Config class"""
@@ -36,7 +41,6 @@ class TestConfig(BaseConfigTest):
 
     def tearDown(self):
         self.patch_.stop()
-
         return super().tearDown()
 
     @patch("fedbiomed.common.config.configparser.ConfigParser")
