@@ -75,7 +75,7 @@ jobs:
           - self-ubuntu-latest
           - ubuntu-22.04
           - macos-latest
-          - fedora-38
+          # - fedora-38
           - macos-m1
         python-version:
           - '3.11'
