@@ -82,7 +82,7 @@ def start_node(config, node_args):
 
     ### TODO <alitolga>: Remove this if it is not needed
     print(
-        "\t- The active hospital name is: ", _node.config.get("default", "name"), "\n"
+        "\t- Node name: ", _node.config.get("default", "name"), "\n"
     )
 
     def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
