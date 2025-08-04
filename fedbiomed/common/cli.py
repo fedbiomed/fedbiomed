@@ -80,9 +80,6 @@ class ComponentDirectoryAction(ABC, argparse.Action):
         """When argument is called"""
 
         if not set(["--help", "-h"]).intersection(set(sys.argv)):
-            print("parser: ", parser)
-            print("namespace: ", namespace)
-            print("values: ", values)
             self._create_config(values)
 
         setattr(namespace, self.dest, values)

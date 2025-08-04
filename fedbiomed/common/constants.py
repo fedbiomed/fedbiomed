@@ -95,7 +95,7 @@ __node_config_version__ = FBM_Component_Version("2")  # node config file version
 
 __node_state_version__ = FBM_Component_Version("2")  # node state version
 __breakpoints_version__ = FBM_Component_Version("3")  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version("5")  # format of gRPC messages.
+__messaging_protocol_version__ = FBM_Component_Version("6")  # format of gRPC messages.
 __secagg_element_version__ = FBM_Component_Version(
     "2"
 )  # format of secagg database elements
