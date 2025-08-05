@@ -45,5 +45,6 @@ jobs:
       - name: Run end-to-end tests
         id: e2e-tests-with-pytest
         run: |
-          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed tox -r -m e2e -- e2e_mnist_pytorch.py
+          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed tox \
+            -r -m e2e -- e2e_ixi_brain_segmentation.py e2e_mnist_pytorch.py
         shell: bash -il {0}

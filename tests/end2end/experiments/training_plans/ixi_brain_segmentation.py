@@ -22,7 +22,7 @@ class UNetTrainingPlan(TorchTrainingPlan):
     def init_dependencies(self):
         # Here we define the custom dependencies that will be needed by our custom Dataloader
         deps = [
-            "from monai.transforms import (Compose, NormalizeIntensity, AddChannel, Resize, AsDiscrete)",
+            "from monai.transforms import (Compose, NormalizeIntensity, EnsureChannelFirst, Resize, AsDiscrete)",
             "import torch.nn as nn",
             "import torch.nn.functional as F",
             "from fedbiomed.common.dataset import MedicalFolderDataset",
@@ -38,13 +38,13 @@ class UNetTrainingPlan(TorchTrainingPlan):
         common_shape = (48, 64, 48)
         training_transform = Compose(
             [
-                AddChannel(),
+                EnsureChannelFirst(),
                 Resize(common_shape),
                 NormalizeIntensity(),
             ]
         )
         target_transform = Compose(
-            [AddChannel(), Resize(common_shape), AsDiscrete(to_onehot=2)]
+            [EnsureChannelFirst(), Resize(common_shape), AsDiscrete(to_onehot=2)]
         )
         dataset = MedicalFolderDataset(
             root=self.dataset_path,
