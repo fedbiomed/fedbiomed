@@ -63,16 +63,12 @@ class Config(metaclass=ABCMeta):
 
     vars: Dict[str, Any] = {}
 
-    def __init__(self, root: str, component_alias: str = "Default Node Name") -> None:
+    def __init__(self, root: str) -> None:
         """Initializes configuration
 
         Args:
-            root: Root directory for the component
-            component_alias: Name of the component, used for outputting the
-                component in a user-friendly way.
-                Defaults to "Default Node Name".
+            root: Root directory for the component.
         """
-        self._component_alias = component_alias
         self._cfg = configparser.ConfigParser()
         self.load(root)
 
@@ -193,7 +189,6 @@ class Config(metaclass=ABCMeta):
 
             self._cfg["default"] = {
                 "id": component_id,
-                "name": self._component_alias,
                 "component": self.COMPONENT_TYPE,
                 "version": str(self._CONFIG_VERSION),
             }
@@ -260,7 +255,7 @@ class Component:
         self._reference = ".fedbiomed"
 
     def initiate(
-        self, root: Optional[str] = None, component_alias: str = None
+        self, root: Optional[str] = None
     ) -> Union["NodeConfig", "ResearcherConfig"]:
         """Creates or initiates existing component
 
@@ -271,14 +266,11 @@ class Component:
                 Defaults to default component name. (fbm-node or fbm-researcher)
         """
 
-        if component_alias is None:
-            component_alias = self._default_component_name
-
         if not root:
-            root = os.path.join(os.getcwd(), component_alias)
+            root = os.path.join(os.getcwd(), self._default_component_name)
 
         reference = self.validate(root)
-        config = self.config_cls(root, component_alias=component_alias)
+        config = self.config_cls(root)
 
         if not os.path.isfile(reference):
             create_fedbiomed_setup_folders(root)

@@ -63,14 +63,14 @@ class NodeConfig(Config):
 
         See [`Config.migrate`][fedbiomed.common.config.Config.migrate] for more information
         """
-        if "name" not in self._cfg["default"]:
+        if not self._cfg["default"]["name"]:
             logger.warning(
                 "DEPRECATION: You are using an old configuration file for the node. "
                 "Please add 'name' value in `default` section "
                 "of the node configuration to define a name."
             )
 
-            self._cfg["default"].update({"name": "Default Node Name"})
+            self._cfg["default"].update({"name": "Migrated Node Name"})
 
 
 component_root = os.environ.get("FBM_NODE_COMPONENT_ROOT", None)
@@ -87,9 +87,12 @@ class NodeComponent(Component):
     _default_component_name = DEFAULT_NODE_NAME
 
     def initiate(
-        self, root: Optional[str] = None, component_alias: Optional[str] = None
+        self, node_name: Optional[str], root: Optional[str] = None
     ) -> NodeConfig:
-        config = super().initiate(root, component_alias=component_alias)
+        config = super().initiate(root)
+        print("Node name:", node_name)
+        config._cfg["default"]["name"] = node_name
+        config.write()
         node_data_path = os.path.join(config.root, NODE_DATA_FOLDER)
         os.makedirs(node_data_path, exist_ok=True)
         return config

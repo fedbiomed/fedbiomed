@@ -152,7 +152,8 @@ class ComponentParser(CLIArgumentParser):
                     )
                     return
 
-            component.initiate(component_path, component_alias=args.name)
+            print("args.name", args.name)
+            component.initiate(node_name=args.name, root=component_path)
 
         CommonCLI.success(f"Component has been initialized in {component_path}")
 
