@@ -1,19 +1,22 @@
 from os import PathLike
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, Optional, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 import pandas as pd
 from monai.data import ITKReader
-from monai.transforms import Compose, LoadImage, ToTensor
+from monai.transforms import LoadImage
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
-from ._dataset import Dataset
+from ._controller import Controller
 
 
-class MedicalFolderDataset(Dataset):
+class MedicalFolderController(Controller):
+    _extensions: Tuple[str, ...] = (".nii", ".nii.gz")
+    _reader: Callable[[str], Any] = LoadImage(ITKReader(), image_only=True)
+
     """MedicalFolder where data is arranged like this:
     root
     ├── sub-01
@@ -30,69 +33,42 @@ class MedicalFolderDataset(Dataset):
     └── demographics.csv
     """
 
-    # CONSTANTS ===============================================================
-    EXTENSIONS = (".nii", ".nii.gz")
-    # DEFAULT PROPERTIES VALUES ===============================================
-    _reader: Callable[[str], Any] = Compose(
-        [LoadImage(ITKReader(), image_only=True), ToTensor()]
-    )
-
-    # =========================================================================
     def __init__(
         self,
         root: Union[str, Path],
         tabular_file: Optional[Union[str, PathLike, Path]] = None,
         index_col: Optional[Union[int, str]] = None,
-        data_modalities: Optional[Union[str, Iterable[str]]] = None,
-        target_modalities: Optional[Union[str, Iterable[str]]] = None,
-        transform: Optional[Union[Callable, Dict[str, Callable]]] = None,
-        target_transform: Optional[Union[Callable, Dict[str, Callable]]] = None,
-        demographics_transform: Optional[Callable] = None,
+        modalities: Optional[Union[str, Iterable[str]]] = None,
     ):
-        """Constructor for class `MedicalFolderDataset`.
+        """Constructor for class `MedicalFolder`
 
         Args:
-            transform: A function or dict of function transform(s) that preprocess each data source.
-            target_transform: A function or dict of function transform(s) that preprocess each target source.
-            demographics_transform: TODO
-            tabular_file: Path to a CSV or Excel file containing the demographic information from the patients.
-            index_col: Column name in the tabular file containing the subject ids which mush match the folder names.
+            root: Root directory path
+            tabular_file: Path to CSV file containing the demographic information
+            index_col: Column name in tabular file containing the subjects names
         """
         self.root = root
-        self.data_modalities = data_modalities
-        self.target_modalities = target_modalities
         self.tabular_file = tabular_file
         self.index_col = index_col
-        self.transform = transform
 
-        self._samples = self._make_dataset(
+        self._modalities, self._samples = self._make_dataset(
             root=self.root,
-            modalities=self.modalities,
             tabular_file=self.tabular_file,
             index_col=self.index_col,
+            modalities=modalities,
         )
 
-    """
-    def __init__(
-        self,
-        framework_transform: Transform = None,
-        framework_target_transform: Transform = None,
-        generic_transform: Transform = None,
-        generic_target_transform: Transform = None,
-        # Keep actual names for backward compatibility
-        #
-        # reader_images_transform : Transform = None,
-        # reader_images_target_transform : Transform = None,
-        # reader_demographics_transform : Transform = None.
-        transform: Transform = None,
-        target_transform: Transform = None,
-        demographics_transform: Transform = None,
-        # Keep actual names for backward compatibility
-    ) -> None:
-    """
+        # Check if is possible to use `reader` to recover a valid item
+        _ = self._get_nontransformed_item(0)
 
-    # =========================================================================
-    # region
+        self._controller_kwargs = {
+            "name": "MedicalFolder",
+            "root": str(self.root),
+            "tabular_file": str(self.tabular_file),
+            "index_col": self.index_col,
+            "modalities": list(self.modalities),
+        }
+
     @property
     def tabular_file(self):
         return self._tabular_file
@@ -109,15 +85,9 @@ class MedicalFolderDataset(Dataset):
 
         Raises:
             FedbiomedError:
-            - if filepath is not of typr str or Path
             - if filepath does not match a file or is not csv or tsv
         """
-        if not isinstance(filepath, (str, Path)):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB613.value}: Expected a string or Path, got "
-                f"{type(filepath).__name__}"
-            )
-        filepath = Path(filepath).expanduser().resolve()
+        filepath = self._normalize_path(filepath)
         if not filepath.is_file() and not filepath.suffix.lower().endswith(
             (".csv", ".tsv")
         ):
@@ -133,7 +103,7 @@ class MedicalFolderDataset(Dataset):
 
     @index_col.setter
     def index_col(self, value: Optional[Union[int, str]]):
-        """Sets `index_col` property.
+        """Sets `index_col` property
 
         Raises:
             FedbiomedError: if value is not of type `int` or `str`
@@ -152,29 +122,11 @@ class MedicalFolderDataset(Dataset):
             return None
         return self.read_demographics(self.tabular_file, self.index_col)
 
-    # endregion
-    # region
     @property
-    def data_modalities(self):
-        return self._data_modalities
+    def modalities(self):
+        return self._modalities
 
-    @data_modalities.setter
-    def data_modalities(self, modalities: Optional[Union[str, Iterable[str]]]) -> set:
-        self._data_modalities = (
-            set() if modalities is None else self._normalize_modalities(modalities)
-        )
-
-    @property
-    def target_modalities(self):
-        return self._target_modalities
-
-    @target_modalities.setter
-    def target_modalities(self, modalities: Optional[Union[str, Iterable[str]]]) -> set:
-        self._target_modalities = (
-            set() if modalities is None else self._normalize_modalities(modalities)
-        )
-
-    def _normalize_modalities(self, modalities: Union[str, Iterable[str]]) -> set:
+    def _normalize_modalities(modalities: Union[str, Iterable[str]]) -> set:
         """Validates `modalities`
 
         Returns:
@@ -193,131 +145,9 @@ class MedicalFolderDataset(Dataset):
             return set(modalities)
         raise FedbiomedError(
             f"{ErrorNumbers.FB613.value}: "
-            "Bad type for modalities. Expected str or Iterable[str]"
+            "Bad type for modalities. Expected str or Iterable[str], got"
+            f"{type(modalities).__name__}"
         )
-
-    @property
-    def modalities(self):
-        return self._data_modalities.union(self._target_modalities)
-
-    # endregion
-    @property
-    def reader(self):
-        return (
-            self._reader
-            if isinstance(self._reader, dict)
-            else {modality: self._reader for modality in self.modalities}
-        )
-
-    # region
-    @property
-    def transform(self):
-        return self._transform
-
-    @transform.setter
-    def transform(self, transform_input):
-        self._transform = transform_input
-
-    def _normalize_transform(self, transform, modalities):
-        """Checks and formats transforms into a dictionary of transforms.
-
-        Args:
-            transform: Function or dictionary of functions for preprocessing data.
-            modalities: Modalities to be considered.
-
-        Returns:
-            A dict of transforms compatible with the provided modalities.
-
-        Raises:
-            FedbiomedError: sample uses unknown modality
-            FedbiomedError: transform method must be callable
-            FedbiomedError: bad type for parameters
-        """
-        modalities = self._normalize_modalities(modalities)
-
-        if isinstance(transform, dict):
-            # Raise if transform objects are not provided as dictionaries.
-            # E.g. {'T1': Normalize(...), 'T2': ToTensor()}
-            for modality, method in transform.items():
-                if modality not in modalities:
-                    raise FedbiomedError(
-                        f"{ErrorNumbers.FB613.value}: "
-                        f"`{modality}` is not present in modalities: {modalities}"
-                    )
-                if not callable(method):
-                    raise FedbiomedError(
-                        f"{ErrorNumbers.FB613.value}: Transform method/function for "
-                        f"`{modality}` should be callable"
-                    )
-            return transform
-
-        # If transform is not dict and there is only one modality
-        elif len(modalities) == 1:
-            if not callable(transform):
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB613.value}: Transform method/function for "
-                    f"`{modalities[0]}` should be callable"
-                )
-            return {modalities[0]: transform}
-
-        # Raise ------
-        else:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB613.value}: "
-                "As you have multiple data modalities, transforms have to be a "
-                f"dictionary using the modality keys: {modalities}"
-            )
-
-    @property
-    def target_transform(self):
-        return self._target_transform
-
-    # endregion
-    # =========================================================================
-    def set_dataset_parameters(self, parameters: dict):
-        """Sets dataset parameters.
-
-        Args:
-            parameters: Parameters to initialize
-
-        Raises:
-            FedbiomedError:
-            - If given parameters are not of `dict` type
-            - If keys of `dict` are not all of type `str`
-            - If the attribute does not exist ()
-        """
-        if not isinstance(parameters, dict):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB613.value}: Expected type for `parameters` is `dict, "
-                f"but got {type(parameters)}`"
-            )
-
-        if not all(isinstance(_k, str) for _k in parameters.keys()):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB613.value}: "
-                "Expected type for all keys in `parameters` is `str`"
-            )
-
-        for key, value in parameters.items():
-            if not key.startswith("_") and hasattr(self, key):
-                setattr(self, key, value)
-            else:
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB613.value}: "
-                    "Trying to set non existing attribute '{key}'"
-                )
-
-        """Careful Rebuild
-        self._modalities, self._df_dir = self._make_df_dir(
-            root=self.root,
-            modalities=self._data_modalities.union(self._target_modalities),
-        )
-
-        if self._tabular_file is not None and self._index_col is not None:
-            self._demographics = self.read_demographics(
-                tabular_file=self._tabular_file, index_col=self._index_col
-            )
-        """
 
     def read_demographics(
         self,
@@ -363,7 +193,7 @@ class MedicalFolderDataset(Dataset):
     def _make_df_dir(
         self,
         root: Path,
-        extensions: Union[str, tuple[str, ...]] = EXTENSIONS,
+        extensions: Union[str, tuple[str, ...]] = _extensions,
         modalities: Optional[Union[str, Iterable[str]]] = None,
     ) -> pd.DataFrame:
         """Matches files for expected structure.
@@ -461,14 +291,14 @@ class MedicalFolderDataset(Dataset):
             f"{len(df_dir['subject'].unique())} subjects in folder structure with all "
             f"modalities: {', '.join(modalities)}"
         )
-        return df_dir
+        return modalities, df_dir
 
     def _make_dataset(
         self,
         root: Path,
-        modalities: set[str],
         tabular_file: Optional[Path],
         index_col: Optional[Union[int, str]],
+        modalities: Optional[Union[str, Iterable[str]]] = None,
     ):
         if (tabular_file is None) != (index_col is None):
             raise FedbiomedError(
@@ -477,7 +307,7 @@ class MedicalFolderDataset(Dataset):
             )
 
         samples = []
-        df_dir = self._make_df_dir(root=root, modalities=modalities)
+        modalities, df_dir = self._make_df_dir(root=root, modalities=modalities)
         subject_groups = dict(tuple(df_dir.groupby("subject")))
         subjects = set(subject_groups.keys())
 
@@ -486,7 +316,6 @@ class MedicalFolderDataset(Dataset):
             subjects = subjects.intersection(demographics.index.values)
 
         for subject in subjects:
-            # TODO: Order of colums should be ensured ???
             sample = (
                 {}
                 if tabular_file is None
@@ -499,35 +328,24 @@ class MedicalFolderDataset(Dataset):
             samples.append(sample)
 
         logger.info(f"{len(samples)} complete samples succesfully identified")
-        return samples
+        return modalities, samples
 
-    @staticmethod
-    def _build_item(
-        sample: Dict[str, Any],
-        modalities: set[str],
-        transform: Dict[str, Callable],
-    ) -> Any:
-        return {
-            modality: transform[modality](sample[modality]) for modality in modalities
-        }
-
-    def _get_nontransformed_item(self, idx: int) -> tuple[Any, Any]:
-        sample = self._samples[idx]
+    def _get_nontransformed_item(self, index: int) -> Dict[str, Any]:
+        sample = self._samples[index]
         try:
-            demographics = sample["demographics"] if "demographics" in sample else None
-            data = self._build_item(
-                sample=sample,
-                modalities=self.data_modalities,
-                transform=self.reader,
-            )
-            target = self._build_item(
-                sample=sample,
-                modalities=self.target_modalities,
-                transform=self.reader,
-            )
+            data = {
+                modality: self._reader(sample[modality]) for modality in self.modalities
+            }
         except Exception as e:
-            raise FedbiomedError("msg") from e
-        return (data, demographics), target
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to retrieve item at index {index}"
+            ) from e
+        if "demographics" in sample:
+            data["demographics"] = sample["demographics"]
+        return data
 
-    def __getitem__(self, idx):
-        pass
+    def __len__(self):
+        return len(self._samples)
+
+
+# TODO: dlp
