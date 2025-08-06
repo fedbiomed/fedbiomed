@@ -78,24 +78,22 @@ class CsvReader(Reader):
 
         self._reader = None
         self._n_thread = n_thread
-        self._index_col_name: int = 0
+        self._index = None
 
         # default behaviour
         self.to_generic()
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
-    def read(
-        self, index_col: Optional[int] = None, **kwargs
-    ) -> Union[pd.DataFrame, torch.Tensor, np.ndarray]:
+    def read(self, **kwargs) -> Union[pd.DataFrame, torch.Tensor, np.ndarray]:
         """Retrieve data: read all dataset"""
         if not self._is_preparsed:
             self._pre_parse()
+            # FIXME: avoid loading reader  ie calling _cpu_reader
         file_content = pl.scan_csv(
             self._path,
-            index_col,
             separator=self._delimiter,
             has_header=bool(self.header),
-            n_threads=self._n_thread,
+            # n_threads=self._n_thread,
             **kwargs,
         )
         # TODO: add header + delimiter into the read_csv
@@ -136,18 +134,29 @@ class CsvReader(Reader):
         return ReaderShape(dict({"csv": self._shape}))
 
     def _read_single_entry_from_column(
-        self, index_col: int | str, indexes: Any | Iterable
-    ):
+        self, indexes: Any | Iterable, index_col: int | str
+    ) -> Union[Tuple[Any], Tuple[Any] | None]:
         if isinstance(index_col, int):
-            col_name = (
-                self.header[index_col] if self.header else "column_" + str(index_col)
-            )
+            try:
+                col_name = (
+                    self.header[index_col]
+                    if self.header
+                    else "column_" + str(index_col)
+                )
+            except IndexError as err:
+                raise FedbiomedUserInputError(
+                    f"Got {index_col} as `index_col`, but doesnot exist in the header. {self.header}"
+                ) from err
         else:
             col_name = index_col
         try:
-            res = self._reader.filter(pl.col(col_name).is_in(indexes))  #  .collect()
+            self._index = pl.col(col_name)
+            res = self._reader.filter(self._index.is_in(indexes))  #  .collect()
         except pl.exceptions.ColumnNotFoundError as err:
-            raise FedbiomedUserInputError("column not found") from err
+            raise FedbiomedUserInputError(
+                f"column not found {index_col}"
+                f" `index_col` should be selected from {self.header}."
+            ) from err
         if res.is_empty():
             raise FedbiomedUserInputError(
                 "cannot find any entry matching " + " ".join(indexes)
@@ -186,7 +195,7 @@ class CsvReader(Reader):
             self._pre_parse()
 
         if index_col is not None:
-            return self._read_single_entry_from_column(index_col, indexes)
+            return self._read_single_entry_from_column(indexes, index_col)
         else:
             row_nb = pl.int_range(0, pl.len())
 
@@ -203,12 +212,30 @@ class CsvReader(Reader):
             )
             return self._transform_framework(data), self._transform_framework(target)
 
+    def set_index(self, index_col: int | str):
+        if not self._is_preparsed:
+            self._pre_parse()
+        if isinstance(index_col, int):
+            col_name = (
+                self.header[index_col] if self.header else "column_" + str(index_col)
+            )
+        else:
+            col_name = index_col
+        self._index = pl.col(col_name)
+
     def _random_sample(self, n_entries: int, seed: Optional[int] = None):
         entries = self._reader.sample(n_entries, seed)
         return entries
 
-    def get_index(self):
-        pass
+    def index(self):
+        if not self._is_preparsed:
+            self._pre_parse()
+        if self._index is None:
+            self.shape()
+            self._index = pl.int_range(0, self._len)
+            return pl.select(self._index.alias("index"))
+        else:
+            return self._reader.select(self._index.alias("index"))
 
     def len(self) -> int:
         """Get number of samples"""
@@ -222,7 +249,7 @@ class CsvReader(Reader):
                 self._path,
                 separator=self._delimiter,
                 has_header=bool(self.header),
-                # encoding= self._encoding,
+                # encoding= self._encoding,  # this causes perf issues for some reasons ...
                 n_threads=self._n_thread,
                 low_memory=self._low_memory,
                 truncate_ragged_lines=self._force_read,
@@ -321,16 +348,23 @@ class CsvReader(Reader):
                 _first_lines.append(self._reader.row(i))
                 i += 1
             except pl.exceptions.OutOfBoundsError:  # OutofBondsError
-                # raised if file comtains less value then CsvReader._NB_LINES_PARSED_HEADER
+                # raised if file contains less value then CsvReader._NB_LINES_PARSED_HEADER
                 _parse_next_row = False
 
         _first_lines = self._revert_to_text(_first_lines)
 
         if len(_first_lines) == 1 and len(_first_lines[0]) == 1:
-            return sniffer.has_header(_first_lines[0])
-
+            _first_lines = _first_lines[0]
         else:
-            return sniffer.has_header("".join(_first_lines))
+            _first_lines = "".join(_first_lines)
+
+        try:
+            has_header = sniffer.has_header(_first_lines)
+        except csv.Error as err:
+            raise FedbiomedUserInputError(
+                "Cannot detect header automatically. Please specify it through `has_header` argument"
+            ) from err
+        return has_header
 
     @staticmethod
     def _revert_to_text(t: Iterable) -> str:

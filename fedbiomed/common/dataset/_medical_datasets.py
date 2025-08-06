@@ -8,6 +8,7 @@ Provides classes managing dataset for common cases of use in healthcare:
 """
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from functools import cache
 from os import PathLike
@@ -48,9 +49,8 @@ class MedicalFolderBase(DataLoadingPlanMixin):
 
         if root is not None:
             root = self.validate_MedicalFolder_root_folder(root)
-
+            self._demographics_reader = CsvReader
         self._root = root
-        self._demographics_reader = CsvReader
 
     @property
     def root(self):
@@ -238,6 +238,19 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         Returns:
             subject folder names under Medical Folder root directory.
         """
+        check_path = (
+            lambda path: path.name
+            if path.is_dir() and not path.name.startswith(".")
+            else None
+        )  # noqa: B019
+
+        with ThreadPoolExecutor() as exc:
+            paths = list(
+                filter(
+                    lambda x: x is not None, exc.map(check_path, self._root.iterdir())
+                )
+            )
+        return paths
         return [
             f.name
             for f in self._root.iterdir()
@@ -266,38 +279,65 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             subjects_from_folder = self.subjects_with_imaging_data_folders()
 
         # Missing subject that will cause warnings
+        subjects_from_folder = set(subjects_from_folder)
         missing_subject_folders = list(
-            set(subjects_from_index) - set(subjects_from_folder)
+            set(subjects_from_index["index"]) - subjects_from_folder
         )
 
         # Missing entries that will cause errors
-        missing_entries = list(set(subjects_from_folder) - set(subjects_from_index))
+        missing_entries = list(subjects_from_folder - set(subjects_from_index["index"]))
 
         # Intersection
-        available_subjects = list(
-            set(subjects_from_index).intersection(set(subjects_from_folder))
+        # TODO use join operation for intersection
+
+        # # Assume df is already loaded
+        # paths = df["path"].to_list()
+
+        # # Check existence in a fast loop (optionally multithreaded)
+        # exists_set = set(p for p in paths if os.path.exists(p))
+
+        # # Convert to Polars for intersection
+        # valid_df = pl.DataFrame({"path": list(exists_set)})
+        import polars as pl
+
+        _subjects_from_index_df = pl.DataFrame({"index": list(subjects_from_folder)})
+        # # Inner join to get only existing files
+        # df_existing = df.join(valid_df, on="path", how="inner")
+        _available_subjects_df = subjects_from_index.join(
+            _subjects_from_index_df, on="index", how="inner"
+        )
+        # available_subjects = list(
+        #     set(subjects_from_index).intersection(set(subjects_from_folder))
+        # )
+
+        return (
+            list(_available_subjects_df["index"]),
+            missing_subject_folders,
+            missing_entries,
         )
 
-        return available_subjects, missing_subject_folders, missing_entries
-
     @staticmethod
-    def read_demographics(path: Union[str, Path], index_col: Optional[int] = None):
+    def read_demographics(path, index_col: Optional[int] = None):
         """Read demographics tabular file for Medical Folder dataset
 
         Raises:
             FedbiomedDatasetError: bad file format
         """
+
         path = Path(path)
         if not path.is_file() or path.suffix.lower() not in [".csv", ".tsv"]:
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB613.value}: Demographics should be CSV or TSV files"
             )
-
+        # here we assume demographics always has a header
+        return CsvReader(root=path, has_header=True).read()[index_col]
         return pd.read_csv(path, index_col=index_col, engine="python")
 
     @staticmethod
     def demographics_column_names(path: Union[str, Path]):
-        return MedicalFolderBase.read_demographics(path).columns.values
+        reader = CsvReader(root=path)
+        reader.read_single_entry(0)
+        return reader.header
 
     @staticmethod
     def validate_MedicalFolder_root_folder(path: Union[str, Path]) -> Path:
@@ -357,7 +397,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
 
 
 # MV: tempo before refactor
-from fedbiomed.common.dataset import Dataset as FedbiomedDataset
+from fedbiomed.common.dataset import Dataset as FedbiomedDataset  # noqa: B019
 
 
 class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
@@ -445,7 +485,8 @@ class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
 
         # Image loader
         self._reader = Compose([LoadImage(ITKReader(), image_only=True), ToTensor()])
-
+        # csv reader
+        self._demographics_reader = CsvReader(self._tabular_file)
         # MV: temporary before refactor
         self._to_torch = False
 
@@ -502,6 +543,7 @@ class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
             demographics = torch.empty(
                 0
             )  # handle case where demographics is an empty dict
+            # TODO: change csvreader and accept empty paths
         else:
             try:
                 demographics = torch.as_tensor(demographics)
@@ -637,8 +679,8 @@ class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
         self._index_col = value
 
     @property
-    @cache  # noqa: B019
-    def demographics(self) -> pd.DataFrame:
+    @cache  # noqa: B019 #only cache if size of file is not too big
+    def demographics(self) -> pd.DataFrame | None:
         """Loads tabular data file (supports excel, csv, tsv and colon separated value files)."""
 
         if self._tabular_file is None or self._index_col is None:
@@ -655,6 +697,7 @@ class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
             ) from e
 
         # Keep the first one in duplicated subjects
+        return demographics
         return demographics.loc[~demographics.index.duplicated(keep="first")]
 
     @property
@@ -674,9 +717,11 @@ class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
     def subjects_registered_in_demographics(self):
         """Gets the subject only those who are present in the demographics file."""
 
+        self._demographics_reader.set_index(self._index_col)
+        # fail if csv file too big
         complete_subject_folders, *_ = self.available_subjects(
             subjects_from_folder=self.subjects_has_all_modalities,
-            subjects_from_index=self.demographics.index,
+            subjects_from_index=self._demographics_reader.index(),
         )
 
         return complete_subject_folders
@@ -782,10 +827,15 @@ class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
         )
         num_modalities = len(modalities)
         demographics_shape = (
-            self.demographics.shape if self.demographics is not None else None
+            self._demographics_reader.shape()
+            if self._demographics_reader is not None
+            else None
         )
         result.update(
-            {"demographics": demographics_shape, "num_modalities": num_modalities}
+            {
+                "demographics": demographics_shape["csv"],
+                "num_modalities": num_modalities,
+            }
         )
 
         return result
@@ -794,10 +844,25 @@ class MedicalFolderDataset(FedbiomedDataset, MedicalFolderBase):
         """Extracts subject information from a particular subject in the form of a dictionary."""
 
         if self._tabular_file and self._index_col is not None:
-            demographics = self.demographics.loc[subject_id].to_dict()
+            _d_header = self._demographics_reader.header.copy()
+            _d_header.pop(self._index_col)
+            _d_header
 
+            val, _target = self._demographics_reader.read_single_entry(
+                subject_id, self._index_col
+            )
+            # TODO: include `target`
+            demographics = {
+                k: v
+                for k, v in zip(
+                    _d_header,
+                    val[0],
+                    strict=True,
+                )
+            }
             # Extract only compatible types for torch
             # TODO Decide what to do with missing variables
+            # TODO: could be greatly optimized
             return {
                 key: val
                 for key, val in demographics.items()
