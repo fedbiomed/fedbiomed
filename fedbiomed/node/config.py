@@ -20,8 +20,24 @@ class NodeConfig(Config):
     _CONFIG_VERSION: str = __node_config_version__
     COMPONENT_TYPE: str = "NODE"
 
+    def __init__(self, *args, name: Optional[str] = DEFAULT_NODE_NAME, **kwargs):
+        """NodeConfig constructor
+
+        Args:
+            *args: Positional arguments for the parent class `Config`
+            component_alias (str): Alias for the component, used to identify the
+                component in the configuration
+            **kwargs: Keyword arguments for the parent class `Config`
+        """
+
+        self._component_alias = name
+        # Call the parent class constructor after setting the component alias
+        super().__init__(*args, **kwargs)
+
     def add_parameters(self):
         """Generate `Node` config"""
+
+        self._cfg["default"]["name"] = self._component_alias
 
         # Security variables
         self._cfg["security"] = {
@@ -63,7 +79,7 @@ class NodeConfig(Config):
 
         See [`Config.migrate`][fedbiomed.common.config.Config.migrate] for more information
         """
-        if not self._cfg["default"]["name"]:
+        if not self._cfg.has_option("default", "name"):
             logger.warning(
                 "DEPRECATION: You are using an old configuration file for the node. "
                 "Please add 'name' value in `default` section "
@@ -87,11 +103,11 @@ class NodeComponent(Component):
     _default_component_name = DEFAULT_NODE_NAME
 
     def initiate(
-        self, node_name: Optional[str], root: Optional[str] = None
+        self,
+        root: Optional[str] = None,
+        name: Optional[str] = DEFAULT_NODE_NAME,
     ) -> NodeConfig:
-        config = super().initiate(root)
-        print("Node name:", node_name)
-        config._cfg["default"]["name"] = node_name
+        config = super().initiate(root=root, name=name)
         config.write()
         node_data_path = os.path.join(config.root, NODE_DATA_FOLDER)
         os.makedirs(node_data_path, exist_ok=True)

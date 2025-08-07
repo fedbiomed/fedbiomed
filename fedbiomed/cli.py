@@ -106,8 +106,6 @@ class ComponentParser(CLIArgumentParser):
         if args.component is None:
             CommonCLI.error("Error: bad command line syntax")
 
-        print(args)
-
         if not args.path:
             if args.component.lower() == "researcher":
                 component_path = os.path.join(os.getcwd(), DEFAULT_RESEARCHER_NAME)
@@ -152,8 +150,7 @@ class ComponentParser(CLIArgumentParser):
                     )
                     return
 
-            print("args.name", args.name)
-            component.initiate(node_name=args.name, root=component_path)
+            component.initiate(name=args.name, root=component_path)
 
         CommonCLI.success(f"Component has been initialized in {component_path}")
 
