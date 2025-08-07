@@ -1,19 +1,19 @@
-import unittest
 import asyncio
-
+import unittest
 from unittest.mock import MagicMock, patch
 
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
+from fedbiomed.common.message import SearchReply
 from fedbiomed.transport.controller import (
     GrpcAsyncTaskController,
-    ResearcherCredentials,
     GrpcController,
+    ResearcherCredentials,
 )
-from fedbiomed.common.message import SearchReply
-from fedbiomed.common.exceptions import FedbiomedCommunicationError
 
 message = SearchReply(
     researcher_id="researcher-id",
     node_id="node-id",
+    node_name="node-name",
     databases=[],
     count=0,
 )

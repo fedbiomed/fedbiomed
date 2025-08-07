@@ -3,22 +3,20 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecaggError
 from fedbiomed.common.message import (
     AdditiveSSharingReply,
     ErrorMessage,
     KeyReply,
 )
 from fedbiomed.common.synchro import EventWaitExchange
-
-from fedbiomed.transport.controller import GrpcController
-
+from fedbiomed.node.requests import NodeToNodeRouter
 from fedbiomed.node.secagg import (
     SecaggDHSetup,
     SecaggServkeySetup,
     SecaggSetup,
 )
-from fedbiomed.node.requests import NodeToNodeRouter
+from fedbiomed.transport.controller import GrpcController
 
 
 class SecaggTestCase(unittest.TestCase):
@@ -44,6 +42,7 @@ class TestSecaggServkeySetup(SecaggTestCase):
         self.args = {
             "db": self.db,
             "node_id": "test-node-id",
+            "node_name": "test-node-name",
             "researcher_id": "my-researcher",
             "secagg_id": "my secagg",
             "experiment_id": "my_experiment_id",
@@ -219,6 +218,7 @@ class TestSecaggDHSetup(SecaggTestCase):
         self.args = {
             "db": self.db,
             "node_id": "test_node_id",
+            "node_name": "test_node_name",
             "researcher_id": "my researcher",
             "secagg_id": "my secagg",
             "experiment_id": "my_experiment_id",
@@ -297,6 +297,7 @@ class TestSecaggSetup(SecaggTestCase):
         args = {
             "db": self.db,
             "node_id": "test-node-id",
+            "node_name": "test-node-name",
             "experiment_id": "experiment-id",
             "element": 0,
             "secagg_id": "secagg-id",

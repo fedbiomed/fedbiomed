@@ -67,7 +67,7 @@ class Config(metaclass=ABCMeta):
         """Initializes configuration
 
         Args:
-            root: Root directory for the component
+            root: Root directory for the component.
         """
         self._cfg = configparser.ConfigParser()
         self.load(root)
@@ -84,7 +84,7 @@ class Config(metaclass=ABCMeta):
 
     def load(
         self,
-        root: str,
+        root: str,  # pylint: disable=W0622
     ) -> None:
         """Load configuration from given name and root
 
@@ -255,16 +255,27 @@ class Component:
         self._reference = ".fedbiomed"
 
     def initiate(
-        self, root: Optional[str] = None
+        self, root: Optional[str] = None, **kwargs: Any
     ) -> Union["NodeConfig", "ResearcherConfig"]:
-        """Creates or initiates existing component"""
+        """Creates or initiates existing component
+
+        Args:
+            root: Root directory of the component
+            component_alias: Name of the component, used for outputting the
+                component in a user-friendly way.
+                Defaults to default component name. (fbm-node or fbm-researcher)
+            **kwargs: Additional parameters that can be used for
+                component initialization. For example, `node_name` for NodeComponent.
+        Returns:
+            Config object of the component
+        """
 
         if not root:
             root = os.path.join(os.getcwd(), self._default_component_name)
 
         reference = self.validate(root)
-        config = self.config_cls(root)
-
+        config = self.config_cls(root=root, **kwargs)
+        # If component is not existing, create it
         if not os.path.isfile(reference):
             create_fedbiomed_setup_folders(root)
             with open(os.path.join(root, ".fedbiomed"), "w", encoding="UTF-8") as file_:

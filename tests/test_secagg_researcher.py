@@ -1,6 +1,6 @@
 import copy
-import unittest
 import tempfile
+import unittest
 from typing import Tuple
 from unittest.mock import ANY, MagicMock, patch
 
@@ -158,6 +158,7 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):  # pylint: disable=mi
             "researcher_id": "xx",
             "success": True,
             "node_id": "party1",
+            "node_name": "party1-name",
             "msg": "x",
             "secagg_id": "s1",
             "share": 12,
@@ -332,6 +333,7 @@ class TestSecaggDHContext(BaseTestCaseSecaggContext):  # pylint: disable=missing
                 **{
                     "researcher_id": "xx",
                     "node_id": "party2",
+                    "node_name": "party2-name",
                     "msg": "x",
                     "success": True,
                     "secagg_id": "s1",
@@ -341,6 +343,7 @@ class TestSecaggDHContext(BaseTestCaseSecaggContext):  # pylint: disable=missing
                 **{
                     "researcher_id": "xx",
                     "node_id": "party3",
+                    "node_name": "party3-name",
                     "msg": "x",
                     "success": True,
                     "secagg_id": "s1",

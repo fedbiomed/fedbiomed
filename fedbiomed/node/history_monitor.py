@@ -15,7 +15,12 @@ class HistoryMonitor:
     """Send information from node to researcher during the training"""
 
     def __init__(
-        self, node_id: str, experiment_id: str, researcher_id: str, send: Callable
+        self,
+        node_id: str,
+        node_name: str,
+        experiment_id: str,
+        researcher_id: str,
+        send: Callable,
     ):
         """Simple constructor for the class.
 
@@ -26,6 +31,7 @@ class HistoryMonitor:
             client: TODO
         """
         self._node_id = node_id
+        self._node_name = node_name
         self.experiment_id = experiment_id
         self.researcher_id = researcher_id
         self.send = send
@@ -67,6 +73,7 @@ class HistoryMonitor:
                 scalar=Scalar(
                     **{
                         "node_id": self._node_id,
+                        "node_name": self._node_name,
                         "experiment_id": self.experiment_id,
                         "train": train,
                         "test": test,

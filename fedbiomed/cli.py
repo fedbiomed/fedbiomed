@@ -45,7 +45,7 @@ class ComponentParser(CLIArgumentParser):
             type=str,
             nargs="?",
             required=False,
-            help="Path to specificy where Fed-BioMed component will be intialized.",
+            help="Path to specify where Fed-BioMed component will be intialized.",
         )
 
         common_parser.add_argument(
@@ -56,6 +56,15 @@ class ComponentParser(CLIArgumentParser):
             nargs="?",
             required=True,
             help="Component type NODE or RESEARCHER",
+        )
+
+        common_parser.add_argument(
+            "-n",
+            "--name",
+            type=str,
+            nargs="?",
+            default="Default Node Name",
+            help="Name of the node (required for identification)",
         )
 
         # Create sub parser under `configuration` command
@@ -141,7 +150,7 @@ class ComponentParser(CLIArgumentParser):
                     )
                     return
 
-            component.initiate(component_path)
+            component.initiate(alias=args.name, root=component_path)
 
         CommonCLI.success(f"Component has been initialized in {component_path}")
 
