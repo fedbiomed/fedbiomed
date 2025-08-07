@@ -14,6 +14,10 @@ on:
     branches:
       - develop
 
+  push:
+    branches:
+      - feature/ci-runner-reconfiguration
+
 jobs:
   build-doc:
     name: Test documentation build
@@ -71,7 +75,6 @@ jobs:
           - ubuntu-latest
           - ubuntu-22.04
           - macos-latest
-          - fedora-38
           - macos-m1
         python-version:
           - '3.11'
@@ -154,7 +157,6 @@ jobs:
           - ubuntu-latest
           - ubuntu-22.04
           - macos-latest
-          - fedora-38
           - macos-m1
         python-version:
           - '3.11'

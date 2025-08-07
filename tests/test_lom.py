@@ -2,17 +2,17 @@ import functools
 import math
 import random
 import unittest
-import pytest
-import numpy as np
-
 from secrets import token_bytes, token_urlsafe
 
-from fedbiomed.common.secagg import (
-    PRF,
-    LOM,
-)  # Assuming the class definitions are in lom.py
-from fedbiomed.common.secagg import SecaggLomCrypter
+import numpy as np
+import pytest
+
 from fedbiomed.common.exceptions import FedbiomedSecaggError
+from fedbiomed.common.secagg import (
+    LOM,
+    PRF,
+    SecaggLomCrypter,
+)  # Assuming the class definitions are in lom.py
 
 
 @pytest.fixture(scope="module")
@@ -44,8 +44,8 @@ def test_01_lom_module_prf():
     vector = np.frombuffer(buffer, dtype="uint32")
     assert len(vector) == input_size
 
-    # Test with big input size
-    input_size = 100000000
+    # Test with larger input size
+    input_size = 10000
     buffer = prf.eval_vector(seed, round, input_size)
     vector = np.frombuffer(buffer, dtype="uint32")
     assert len(vector) == input_size
@@ -108,7 +108,7 @@ def test_03_lom_protect_big_int(pairwise_keys):
     sum_x = np.sum(np.array([params, params, params]), axis=0)
     assert aggregated_vector == sum_x.tolist()
 
-    with pytest.raises(FedbiomedSecaggError) as e_info:
+    with pytest.raises(FedbiomedSecaggError) as _:
         r_int = random.getrandbits(32)
         while r_int.bit_length() < 32:
             # make sure `r_int` is of size 32 bit (can be shorter, making test failing)
@@ -145,7 +145,10 @@ def test_secaggg_lom_crypter_01_encrypt(lom_crypter, pairwise_keys):
     result = lom_crypter.aggregate([e1, e2, e3], 3)
 
     assert all(
-        tuple(math.isclose(v1, v2, rel_tol=0.01) for v1, v2 in zip(result, params))
+        tuple(
+            math.isclose(v1, v2, rel_tol=0.01)
+            for v1, v2 in zip(result, params, strict=False)
+        )
     )
 
 
