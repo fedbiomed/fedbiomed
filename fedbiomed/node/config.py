@@ -8,6 +8,7 @@ from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.config import Component, Config
 from fedbiomed.common.constants import (
     DEFAULT_CERT_NAME,
+    DEFAULT_NODE_ALIAS,
     DEFAULT_NODE_NAME,
     NODE_DATA_FOLDER,
     HashingAlgorithms,
@@ -20,17 +21,17 @@ class NodeConfig(Config):
     _CONFIG_VERSION: str = __node_config_version__
     COMPONENT_TYPE: str = "NODE"
 
-    def __init__(self, *args, name: Optional[str] = DEFAULT_NODE_NAME, **kwargs):
+    def __init__(self, *args, alias: Optional[str] = DEFAULT_NODE_ALIAS, **kwargs):
         """NodeConfig constructor
 
         Args:
             *args: Positional arguments for the parent class `Config`
-            component_alias (str): Alias for the component, used to identify the
+            alias (str): Alias for the component, used to identify the
                 component in the configuration
             **kwargs: Keyword arguments for the parent class `Config`
         """
 
-        self._component_alias = name
+        self._component_alias = alias
         # Call the parent class constructor after setting the component alias
         super().__init__(*args, **kwargs)
 
@@ -105,9 +106,18 @@ class NodeComponent(Component):
     def initiate(
         self,
         root: Optional[str] = None,
-        name: Optional[str] = DEFAULT_NODE_NAME,
+        alias: Optional[str] = DEFAULT_NODE_ALIAS,
     ) -> NodeConfig:
-        config = super().initiate(root=root, name=name)
+        """Initiates the Node component
+
+        Args:
+            root (str, optional): Root directory for the component. If None, uses the default.
+            alias (str, optional): Alias for the component, used to identify the component in the configuration.
+
+        Returns:
+            NodeConfig: The configuration object for the Node component.
+        """
+        config = super().initiate(root=root, alias=alias)
         config.write()
         node_data_path = os.path.join(config.root, NODE_DATA_FOLDER)
         os.makedirs(node_data_path, exist_ok=True)

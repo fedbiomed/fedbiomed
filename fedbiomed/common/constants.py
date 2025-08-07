@@ -60,6 +60,9 @@ REQUEST_PREFIX = "request_"
 DEFAULT_NODE_NAME = "fbm-node"
 """Default node component folder name"""
 
+DEFAULT_NODE_ALIAS = "Default Node Alias"
+"""Default node alias used for identification"""
+
 DEFAULT_RESEARCHER_NAME = "fbm-researcher"
 """Default researcher component folder name"""
 
