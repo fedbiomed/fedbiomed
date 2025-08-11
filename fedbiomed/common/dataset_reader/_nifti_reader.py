@@ -6,52 +6,64 @@ Reader implementation for NIFTI image set
 """
 
 from pathlib import Path
+from typing import Union
 
+import nibabel as nib
+import numpy as np
 import torch
 
 from fedbiomed.common.dataset_types import (
     DataReturnFormat,
-    ReaderShape,
-    Transform,
     drf_default,
 )
 
-from ._reader import Reader
 
+class NiftiReader:
+    return_format: DataReturnFormat = drf_default
 
-class NiftiReader(Reader):
-    def __init__(
-        self,
-        root: Path,
-        # to_format: support DEFAULT and TORCH (SKLEARN not supported)
-        # both are torch.Tensor
-        to_format: DataReturnFormat = drf_default,
-        reader_transform: Transform = None,
-        reader_target_transform: Transform = None,
-        # Any other parameter ?
-        modality: str = "T1",
-    ) -> None:
-        """Class constructor"""
+    @classmethod
+    def read(
+        self, path: Union[str, Path]
+    ) -> Union[torch.Tensor, np.ndarray, nib.Nifti1Image]:
+        """Reads the NIfTI file and returns it as a tensor, optionally transformed.
 
-    # Nota: does not include filtering of DLP, which is unknown to Reader
-    # Nota: may want to support PIL as DEFAULT instead of torch.TENSOR
-    def read(self) -> torch.Tensor:
-        """Retrieve data"""
+        Args:
+            path (Union[str, Path]): Path to the NIfTI file (.nii or .nii.gz)
 
-    # Nota: does not include filtering of DLP, which is unknown to Reader
-    def validate(self) -> None:
-        """Validate coherence of data modality served by a reader
-
-        Raises exception if coherence issue found
+        Returns:
+            Union[torch.Tensor, np.ndarray, nib.Nifti1Image]: The image data in the specified format.
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            ValueError: If the file is not a valid NIfTI file.
         """
+        # IMPORTANT: Read function does not retunr header. It may bne useful in the future.
+        if isinstance(path, str):
+            path = Path(path)
+        elif not isinstance(path, Path):
+            raise TypeError(f"Expected path to be a string or Path, got {type(path)}")
 
-    # Nota: does not include filtering of DLP, which is unknown to Reader
-    def shape(self) -> ReaderShape:
-        """Returns shape of the data served by a reader
+        path = Path(path)
 
-        Computed before applying transforms or conversion to other format"""
+        self.validate(path)
 
-    # Optional methods which can be implemented (or not) by some readers
-    # Code is specific to each reader
+        img = nib.load(str(path))
 
-    # Additional methods for exploring data, depending on Reader
+        return img
+
+    def validate(path: Path) -> None:
+        """Validate the file path and extension.
+
+        Args:
+            path (Path): Path to the NIfTI file.
+        """
+        if not path.exists():
+            raise FileNotFoundError(f"NIfTI file does not exist: {path}")
+        if not path.is_file():
+            raise ValueError(f"Provided path is not a file: {path}")
+        if path.suffix not in {".nii", ".gz"} and not path.name.endswith(".nii.gz"):
+            raise ValueError(f"File must be .nii or .nii.gz: {path.name}")
+
+    def shape(self) -> tuple:
+        """Returns the shape of the NIfTI image."""
+        # This method wont be used.
+        pass
