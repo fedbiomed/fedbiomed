@@ -27,6 +27,137 @@ from fedbiomed.common.exceptions import FedbiomedUserInputError
 from ._reader import Reader
 
 
+class _CsvReader(Reader):
+    def __init__(
+        self,
+        root: Path,
+        memory: bool = True,
+        # to_format: support DEFAULT TORCH SKLEARN
+        to_format: DataReturnFormat = drf_default,
+        reader_transform: Transform = None,
+        reader_target_transform: Transform = None,
+        has_header: bool = True,
+        delimiter: Optional[str] = None,
+        # Optional parameters
+        usecols=None,
+        index_col=None,
+        nrows=None,
+        # Optional Polars parameters
+        encoding: str = "utf-8",
+        force_read: Optional[bool] = False,
+        n_thread: Optional[int] = None,
+        low_memory: bool = False,  # True read iteratively, False read all at once
+        # Any other parameter ?
+    ) -> None:
+        # Mandatory parameters
+        self._path = root
+        self._memory = memory
+
+        # Optional parameters
+        self._usecols = usecols
+        self._index_col = index_col
+        self._nrows = nrows
+
+        # Detect delimiter if not provided
+        self._delimiter = self._detect_delimiter() if delimiter is None else delimiter
+
+        self._header = 0 if has_header else None
+
+        # Transform is going to be the data itself if there are no transform provided
+        if reader_transform is None:
+            self._reader_transform = lambda x: x
+        else:
+            self._reader_transform = reader_transform
+
+        if reader_target_transform is None:
+            self._reader_target_transform = lambda x: None
+        else:
+            self._reader_target_transform = reader_target_transform
+
+        if not self._memory:
+            # Use Polars for lazy reading
+            # Note: Polars does not provide an index_col parameter like Pandas
+            self._batched = pl.read_csv_batched(
+                source=root,
+                has_header=has_header,
+                columns=self._usecols,
+                separator=self._delimiter,
+                n_rows=self._nrows,
+            )  # lazy batches
+            self._rows = iter(self._batched.next_batches(1))
+
+    # Note: does not include filtering of DLP, which is unknown to Reader
+    def read(self, **kwargs) -> Union[pd.DataFrame, torch.Tensor, np.ndarray]:
+        """
+        Function to read a CSV file and return its content.
+        It will read the whole file in memory if `memory` is set to True, otherwise it will read it iteratively.
+        Args:
+            usecols: list of columns to read from the CSV file.
+            index_col: column to use as index for rows.
+            nrows: number of rows to read from the CSV file.
+            **kwargs: additional arguments to pass to the pandas read_csv function if memory=True
+            or additional arguments to pass to the polars scan_csv function if memory=False.
+        Returns:
+            DataFrame or Tensor or ndarray: content of the CSV file.
+        Raises:
+            FedbiomedUserInputError: if the CSV file cannot be read due to inconsistent lines
+            or if the delimiter cannot be detected automatically.
+        """
+
+        if self._memory:
+            try:
+                file_content = self.pd.read_csv(
+                    self._path,
+                    sep=self._delimiter,
+                    header=self._header,
+                    usecols=self._usecols,
+                    index_col=self._index_col,
+                    nrows=self._nrows,
+                    **kwargs,
+                )
+            except pd.errors.ParserError as err:
+                raise FedbiomedUserInputError(
+                    f"Cannot read csv file {self._path} due to inconsistent lines:\n"
+                    f"See details in the error message: {str(err)}"
+                ) from err
+
+        else:
+            try:
+                file_content = next(self._rows)
+            except StopIteration as err:
+                batches = self._batched.next_batches(1)  # [] at EOF
+                if not batches:
+                    raise FedbiomedUserInputError(
+                        f"Cannot read csv file {self._path} no more batches available.\n"
+                        f"See details in the error message: {str(err)}"
+                    ) from err
+                # iterate rows from the next DataFrame batch
+                self._rows = iter(batches)
+                file_content = next(self._rows)
+
+        return self._reader_transform(file_content)
+
+    def _detect_delimiter(self) -> str:
+        """
+        Detects the delimiter of a CSV file by reading the first line.
+
+        Raises:
+            FedbiomedUserInputError: if the delimiter cannot be detected automatically.
+        """
+
+        sniffer = csv.Sniffer()
+        _first_line = self._reader.row(0)
+
+        try:
+            self._delimiter = sniffer.sniff(_first_line[0]).delimiter
+        except Exception as err:
+            raise FedbiomedUserInputError(
+                "Cannot detect delimiter automatically. Please specify it through `delimiter` argument.\n"
+                "Error message is: " + str(err)
+            ) from err
+        return self._delimiter
+
+
 class CsvReader(Reader):
     _NB_LINES_PARSED_HEADER: int = (
         5  # parse 5 lines to see whether there is a header or not
@@ -40,32 +171,33 @@ class CsvReader(Reader):
         reader_transform: Transform = None,
         reader_target_transform: Transform = None,
         encoding: str = "utf-8",
-        has_header: str | bool = "auto",
-        delimiter: Optional[str] = ",",
+        has_header: bool = True,
+        delimiter: Optional[str] = None,
         force_read: Optional[bool] = False,
         n_thread: Optional[int] = None,
-        low_memory: bool = False,
+        low_memory: bool = False,  # True read iteratively, False read all at once
         # Any other parameter ?
     ) -> None:
         """Class constructor"""
         self._path = root
         self._offsets = []
         self._is_preparsed = False
-        self._delimiter = "," if delimiter is None else delimiter
-        self.header = None if has_header == "auto" else has_header
         self._header_offset = 0
         self._encoding = encoding  # triggers perf issues when reading file
 
         self._shape: Tuple[int] = None
         self._len = None
         self._force_read = force_read
-        self._low_memory = low_memory
-
-        # self._transform_framework = lambda x: x  # change that dpd on to_format arg
         self._format = to_format
 
-        # self._reader_transform = lambda x: x if reader_transform is None else reader_transform
+        # Determine if one-shot read or iterative read
+        self._low_memory = low_memory
 
+        # Detect delimiter and header if not provided
+        self._delimiter = self._detect_delimiter() if delimiter is None else delimiter
+        self._header = self._detect_header() if has_header else None
+
+        # Transform is going to be the data itself if there are no transform provided
         if reader_transform is None:
             self._reader_transform = lambda x: x
         else:
@@ -76,35 +208,40 @@ class CsvReader(Reader):
         else:
             self._reader_target_transform = reader_target_transform
 
-        self._reader = None
+        self._reader = self._cpu_reader()
         self._n_thread = n_thread
         self._index = None
 
         # default behaviour
         self.to_generic()
 
-    # Nota: does not include filtering of DLP, which is unknown to Reader
+    # Note: does not include filtering of DLP, which is unknown to Reader
     def read(self, **kwargs) -> Union[pd.DataFrame, torch.Tensor, np.ndarray]:
-        """Retrieve data: read all dataset"""
-        if not self._is_preparsed:
-            self._pre_parse()
-            # FIXME: avoid loading reader  ie calling _cpu_reader
-        file_content = pl.scan_csv(
-            self._path,
-            separator=self._delimiter,
-            has_header=bool(self.header),
-            # n_threads=self._n_thread,
-            **kwargs,
-        )
-        # TODO: add header + delimiter into the read_csv
+        """"""
+
+        # if not self._is_preparsed:
+        #     self._pre_parse()
+
+        if self._low_memory:
+            # read csv in chunks
+            file_content = self._read_single_entry_from_column()
+
+        else:
+            file_content = pl.scan_csv(
+                self._path,
+                separator=self._delimiter,
+                has_header=bool(self.header),
+                # n_threads=self._n_thread,
+                **kwargs,
+            )
 
         return self._reader_transform(file_content)
 
-    # Nota: does not include filtering of DLP, which is unknown to Reader
     def validate(self) -> None:
-        """Validate coherence of data modality served by a reader
+        """Validate coherence of data modality served by a reader.
 
-        Raises exception if coherence issue found
+
+        Raises exception if coherence issue found.
         """
         self._validate_path()
 
@@ -118,16 +255,7 @@ class CsvReader(Reader):
 
         Computed before applying transforms or conversion to other format"""
 
-        # Optional methods which can be implemented (or not) by some readers
-        # Code is specific to each reader
         if self._shape is None:
-            # if self._reader is None:
-            #     self._reader = pl.read_csv(self._path, has_header=bool(self.header))
-            # # with self._closer(open(self._path, "rb"), get_offset=False) as file:
-            # #     file.seek(0)
-            if not self._is_preparsed:
-                self._pre_parse()
-
             self._len = self._reader.shape[0]
             self._shape = self._reader.shape
 
@@ -287,7 +415,7 @@ class CsvReader(Reader):
     # Additional methods for exploring data, depending on Reader
     def _pre_parse(self, **reader_kwargs):
         # get delimiter and header
-        # only rertieve info from the first line of csv
+        # only retrieve info from the first line of csv
         if self._reader is None:
             self._cpu_reader()
 
@@ -306,7 +434,7 @@ class CsvReader(Reader):
                 #     truncate_ragged_lines=self._force_read,
                 #     **reader_kwargs,
                 # )
-                self._cpu_reader()
+                # self._cpu_reader()
                 _first_line = _first_line[0].split(self._delimiter)
 
         if not self.header and self._detect_header(sniffer):
