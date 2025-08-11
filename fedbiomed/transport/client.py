@@ -16,17 +16,15 @@ from fedbiomed.common.constants import (
     MAX_SEND_RETRIES,
     ErrorNumbers,
 )
-from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
-
-from fedbiomed.common.logger import logger
-from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.message import Message, TaskRequest, TaskResult, FeedbackMessage
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
+from fedbiomed.common.logger import logger
+from fedbiomed.common.message import FeedbackMessage, Message, TaskRequest, TaskResult
+from fedbiomed.common.serializer import Serializer
+from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
 
 
 @dataclass
 class ResearcherCredentials:
-
     port: str
     host: str
     certificate: Optional[str] = None
@@ -476,7 +474,8 @@ class Listener:
             except (Exception, GeneratorExit) as exp:
                 logger.error(
                     f"Unexpected error raised by node gRPC client in {self.__class__.__name__}: "
-                    f"{type(exp).__name__} : {exp}", exc_info=True
+                    f"{type(exp).__name__} : {exp}",
+                    exc_info=True,
                 )
                 await self._handle_after_process(
                     ClientStatus.FAILED, True, False, self._post_handle_raise, exp
@@ -589,7 +588,6 @@ class TaskListener(Listener):
 
 
 class Sender(Listener):
-
     def __init__(
         self,
         channels: Channels,
@@ -721,7 +719,9 @@ class Sender(Listener):
 
         reply = Serializer.dumps(message.to_dict())
         chunk_range = range(0, len(reply), MAX_MESSAGE_BYTES_LENGTH)
-        for start, iter_ in zip(chunk_range, range(1, len(chunk_range) + 1)):
+        for start, iter_ in zip(
+            chunk_range, range(1, len(chunk_range) + 1), strict=True
+        ):
             stop = start + MAX_MESSAGE_BYTES_LENGTH
             yield TaskResult(
                 size=len(chunk_range), iteration=iter_, bytes_=reply[start:stop]

@@ -1,12 +1,14 @@
 import os
 from flask import request, g
 
-from fedbiomed.common.data import (
+from fedbiomed.common.dataset import (
     MedicalFolderController,
     MedicalFolderDataset,
+    MedicalFolderLoadingBlockTypes,
+)
+from fedbiomed.common.dataloadingplan import (
     DataLoadingPlan,
     MapperBlock,
-    MedicalFolderLoadingBlockTypes
 )
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.constants import DatasetTypes
@@ -17,11 +19,11 @@ from ..utils import error, response
 
 mf_controller = MedicalFolderController()
 dataset_manager = DatasetManager(config["NODE_DB_PATH"])
-DATA_PATH_RW = config['DATA_PATH_RW']
+DATA_PATH_RW = config["DATA_PATH_RW"]
 
 
 def read_medical_folder_reference():
-    """Reads demographics/reference CSV for BIDS """
+    """Reads demographics/reference CSV for BIDS"""
     req = request.json
     if not req["reference_csv_path"] or req["reference_csv_path"] is None:
         g.reference = None
@@ -31,11 +33,15 @@ def read_medical_folder_reference():
     index_col = req["index_col"]
 
     try:
-        reference = mf_controller.read_demographics(path=reference_path, index_col=index_col)
+        reference = mf_controller.read_demographics(
+            path=reference_path, index_col=index_col
+        )
     except FedbiomedError:
         return error("Reference demographics should be CSV or TSV"), 400
-    except Exception as e:
-        return error("Can not read demographics please make sure the file is CSV or TSV and well formatted"), 400
+    except Exception:
+        return error(
+            "Can not read demographics please make sure the file is CSV or TSV and well formatted"
+        ), 400
 
     # Assign MedicalFolder reference to global `g` state
     g.reference = reference
@@ -48,9 +54,11 @@ def validate_medical_folder_root():
 
     try:
         mf_controller.validate_MedicalFolder_root_folder(root)
-    except FedbiomedError or Exception as e:
-        return error("MedicalFolder root folder is not valid. Please make sure that folder has "
-                                                    "been properly structured"), 400
+    except FedbiomedError or Exception:
+        return error(
+            "MedicalFolder root folder is not valid. Please make sure that folder has "
+            "been properly structured"
+        ), 400
 
     mf_controller.root = root
     modalities, _ = mf_controller.modalities()
@@ -62,7 +70,7 @@ def validate_all_modalities():
     req = request.json
     root = os.path.join(DATA_PATH_RW, *req["medical_folder_root"])
     modalities = req["modalities"]
-    if 'reference_csv_path' in req and req["reference_csv_path"]:
+    if "reference_csv_path" in req and req["reference_csv_path"]:
         reference_path = os.path.join(DATA_PATH_RW, *req["reference_csv_path"])
     else:
         reference_path = None
@@ -74,18 +82,20 @@ def validate_all_modalities():
             data_modalities=modalities,
             target_modalities=modalities,
             tabular_file=reference_path,
-            index_col=index_col
+            index_col=index_col,
         )
     except FedbiomedError as e:
         return error(f"Cannot instantiate MedicalFolder: {e}"), 400
 
-    if req['dlp_id']:
+    if req["dlp_id"]:
         try:
             dlp = DataLoadingPlan()
-            dlp_and_dlbs_dict = dataset_manager.get_dlp_by_id(req['dlp_id'])
+            dlp_and_dlbs_dict = dataset_manager.get_dlp_by_id(req["dlp_id"])
             dlp.deserialize(*dlp_and_dlbs_dict)
         except FedbiomedError as e:
-            return error(f"Cannot instantiate data loading plan of MedicalFolder: {e}"), 400
+            return error(
+                f"Cannot instantiate data loading plan of MedicalFolder: {e}"
+            ), 400
         try:
             mf_dataset.set_dlp(dlp)
         except FedbiomedError as e:
@@ -123,9 +133,11 @@ def create_dlp():
 def load_dlp():
     req = request.json
     dlp = None
-    if req['dlp_id'] is not None:
+    if req["dlp_id"] is not None:
         try:
-            dlp = DataLoadingPlan().deserialize(*dataset_manager.get_dlp_by_id(req['dlp_id']))
+            dlp = DataLoadingPlan().deserialize(
+                *dataset_manager.get_dlp_by_id(req["dlp_id"])
+            )
         except FedbiomedError as e:
             return error(f"Cannot load data loading plan for customizations: {e}"), 400
 
@@ -142,15 +154,20 @@ def validate_available_subjects():
     reference = g.reference
     mf_controller.root = os.path.join(DATA_PATH_RW, *req["medical_folder_root"])
     try:
-        intersection, missing_folders, missing_entries = \
+        intersection, missing_folders, missing_entries = (
             mf_controller.available_subjects(subjects_from_index=reference.index)
+        )
     except Exception as e:
         return error(f"Can not get subjects, error {e}"), 400
 
     if not len(intersection) > 0:
-        return response({"valid": False,
-                         "message": "Selected column for MedicalFolder subject reference does not correspond "
-                                    "any subject folder."}), 200
+        return response(
+            {
+                "valid": False,
+                "message": "Selected column for MedicalFolder subject reference does not correspond "
+                "any subject folder.",
+            }
+        ), 200
 
     mf_subjects = {
         "missing_folders": missing_folders,

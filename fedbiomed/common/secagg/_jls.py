@@ -22,19 +22,16 @@ Fed-BioMed FL infrastructure.
 
 import hashlib
 from math import ceil, floor, log2
-from typing import List, Tuple, Union, Callable
+from typing import Callable, List, Tuple, Union
 
 import gmpy2
-from gmpy2 import mpz, gcd
 import numpy as np
+from gmpy2 import gcd, mpz
 
 from fedbiomed.common.constants import SAParameters
 
 
-def invert(
-        a: mpz,
-        b: mpz
-) -> mpz:
+def invert(a: mpz, b: mpz) -> mpz:
     """Finds the inverts of a mod b
 
     Args:
@@ -57,11 +54,7 @@ def invert(
     return s
 
 
-def powmod(
-        a: mpz,
-        b: mpz,
-        c: mpz
-) -> mpz:
+def powmod(a: mpz, b: mpz, c: mpz) -> mpz:
     """Computes a to the power of b mod c
 
     Args:
@@ -77,8 +70,6 @@ def powmod(
     return gmpy2.powmod(a, b, c)
 
 
-
-
 class VES:
     """The vector encoding class
 
@@ -92,9 +83,9 @@ class VES:
     """
 
     def __init__(
-            self,
-            ptsize: int,
-            valuesize: int,
+        self,
+        ptsize: int,
+        valuesize: int,
     ) -> None:
         """Vector encoder constructor
 
@@ -107,10 +98,7 @@ class VES:
         self._ptsize: int = ptsize
         self._valuesize: int = valuesize
 
-    def _get_elements_size_and_compression_ratio(
-            self,
-            add_ops: int
-    ) -> Tuple[int, int]:
+    def _get_elements_size_and_compression_ratio(self, add_ops: int) -> Tuple[int, int]:
         """Gets element size and compression ratio by given additional operation count.
 
         Args:
@@ -124,11 +112,7 @@ class VES:
 
         return element_size, comp_ratio
 
-    def encode(
-            self,
-            V: List[int],
-            add_ops: int
-    ) -> List[gmpy2.mpz]:
+    def encode(self, V: List[int], add_ops: int) -> List[gmpy2.mpz]:
         """Encode a vector to a smaller size vector
 
         Args:
@@ -138,7 +122,9 @@ class VES:
         Returns:
             list of encoded values
         """
-        element_size, comp_ratio = self._get_elements_size_and_compression_ratio(add_ops)
+        element_size, comp_ratio = self._get_elements_size_and_compression_ratio(
+            add_ops
+        )
 
         bs = comp_ratio
         e = []
@@ -154,12 +140,7 @@ class VES:
             E.append(self._batch(e, element_size))
         return E
 
-    def decode(
-            self,
-            E: List[int],
-            add_ops: int,
-            v_expected: int
-    ) -> List[int]:
+    def decode(self, E: List[int], add_ops: int, v_expected: int) -> List[int]:
         """Decode a vector back to original size vector
 
         Args:
@@ -170,7 +151,9 @@ class VES:
             Decoded vector
         """
 
-        element_size, comp_ratio = self._get_elements_size_and_compression_ratio(add_ops)
+        element_size, comp_ratio = self._get_elements_size_and_compression_ratio(
+            add_ops
+        )
         V = []
 
         for e in E:
@@ -181,10 +164,7 @@ class VES:
         return V
 
     @staticmethod
-    def _batch(
-            V,
-            element_size: int
-    ):
+    def _batch(V, element_size: int):
         i = 0
         a = 0
         for v in V:
@@ -193,13 +173,8 @@ class VES:
         return mpz(a)
 
     @staticmethod
-    def _debatch(
-            b: int,
-            element_size: int,
-            element_number: int
-    ) -> List[int]:
-        """
-        """
+    def _debatch(b: int, element_size: int, element_number: int) -> List[int]:
+        """ """
         V = []
         bit = 0b1
         mask = 0b1
@@ -232,12 +207,7 @@ class PublicParam:
         The hash algorithm \\(H : \\mathbb{Z} \\rightarrow \\mathbb{Z}_{N^2}^{*}\\)
     """
 
-    def __init__(
-            self,
-            n_modulus: mpz,
-            bits: int,
-            hashing_function: Callable
-    ) -> None:
+    def __init__(self, n_modulus: mpz, bits: int, hashing_function: Callable) -> None:
         """
 
         Args:
@@ -289,10 +259,7 @@ class PublicParam:
         """
         return self._hashing_function(val)
 
-    def __eq__(
-            self,
-            other: 'PublicParam'
-    ) -> bool:
+    def __eq__(self, other: "PublicParam") -> bool:
         """Compares equality of two public parameter
 
         Args:
@@ -311,7 +278,9 @@ class PublicParam:
         """
         hashcode = hex(hash(self._hashing_function))
         n_str = self._n_modulus.digits()
-        return "<PublicParam (N={}...{}, H(x)={})>".format(n_str[:5], n_str[-5:], hashcode[:10])
+        return "<PublicParam (N={}...{}, H(x)={})>".format(
+            n_str[:5], n_str[-5:], hashcode[:10]
+        )
 
 
 class EncryptedNumber(object):
@@ -333,11 +302,7 @@ class EncryptedNumber(object):
         self.public_param = param
         self.ciphertext = mpz(ciphertext)
 
-    def __add__(
-            self,
-            other: 'EncryptedNumber'
-    ) -> 'EncryptedNumber':
-
+    def __add__(self, other: "EncryptedNumber") -> "EncryptedNumber":
         """Adds given value to self
 
         Args:
@@ -348,15 +313,17 @@ class EncryptedNumber(object):
         """
 
         if not isinstance(other, EncryptedNumber):
-            raise TypeError("Encrypted number can be only summed with another Encrypted num."
-                            f"Can not sum Encrypted number with type {type(other)}")
+            raise TypeError(
+                "Encrypted number can be only summed with another Encrypted num."
+                f"Can not sum Encrypted number with type {type(other)}"
+            )
 
         return self._add_encrypted(other)
 
     def __iadd__(self, other):
         return self.__add__(other)
 
-    def __radd__(self, other: Union['EncryptedNumber', int]) -> 'EncryptedNumber':
+    def __radd__(self, other: Union["EncryptedNumber", int]) -> "EncryptedNumber":
         """Allows summing parameters using built-in `sum` method
 
         Args:
@@ -380,10 +347,7 @@ class EncryptedNumber(object):
         repr = self.ciphertext.digits()
         return "<EncryptedNumber {}...{}>".format(repr[:5], repr[-5:])
 
-    def _add_encrypted(
-            self,
-            other: 'EncryptedNumber'
-    ) -> 'EncryptedNumber':
+    def _add_encrypted(self, other: "EncryptedNumber") -> "EncryptedNumber":
         """Base add operation for single encrypted integer
 
         Args:
@@ -398,12 +362,12 @@ class EncryptedNumber(object):
 
         if self.public_param != other.public_param:
             raise ValueError(
-                "Attempted to add numbers encrypted against " "different parameters!"
+                "Attempted to add numbers encrypted against different parameters!"
             )
 
         return EncryptedNumber(
             self.public_param,
-            self.ciphertext * other.ciphertext % self.public_param.n_square
+            self.ciphertext * other.ciphertext % self.public_param.n_square,
         )
 
 
@@ -434,9 +398,7 @@ class BaseKey:
         self._key = mpz(key)
 
     @property
-    def public_param(
-            self
-    ) -> PublicParam:
+    def public_param(self) -> PublicParam:
         """Return public parameter of the key
 
         Returns:
@@ -445,9 +407,7 @@ class BaseKey:
         return self._public_param
 
     @property
-    def key(
-            self
-    ) -> mpz:
+    def key(self) -> mpz:
         """Gets the key.
 
         Returns:
@@ -460,10 +420,7 @@ class BaseKey:
         hashcode = hex(hash(self))
         return "<ServerKey {}>".format(hashcode[:10])
 
-    def __eq__(
-            self,
-            other: Union['BaseKey', 'ServerKey', 'UserKey']
-    ) -> bool:
+    def __eq__(self, other: Union["BaseKey", "ServerKey", "UserKey"]) -> bool:
         """Check equality of public parameters
 
         Args:
@@ -488,7 +445,11 @@ class BaseKey:
         """
         return hash(self._key)
 
-    def _populate_tau(self, tau: int, len_: int, ):
+    def _populate_tau(
+        self,
+        tau: int,
+        len_: int,
+    ):
         """Populates TAU by applying hashing function
 
         Args:
@@ -504,13 +465,9 @@ class BaseKey:
 
 
 class UserKey(BaseKey):
-    """A user key for Joye-Libert Scheme. """
+    """A user key for Joye-Libert Scheme."""
 
-    def encrypt(
-            self,
-            plaintext: List[mpz],
-            tau: int
-    ) -> List[mpz]:
+    def encrypt(self, plaintext: List[mpz], tau: int) -> List[mpz]:
         """Encrypts a plaintext  for time period tau
 
         Args:
@@ -531,9 +488,9 @@ class UserKey(BaseKey):
         # TODO: find-out what is going wrong in numpy implementation
         # Use numpy vectors to increase speed of calculation
         plaintext = np.array(plaintext)
-        nude_ciphertext = \
-            (self._public_param.n_modulus * plaintext + 1) \
-            % self._public_param.n_square
+        nude_ciphertext = (
+            self._public_param.n_modulus * plaintext + 1
+        ) % self._public_param.n_square
         taus = self._populate_tau(tau=tau, len_=len(plaintext))
 
         # This process takes some time
@@ -546,13 +503,9 @@ class UserKey(BaseKey):
 
 
 class ServerKey(BaseKey):
-    """A server key for Joye-Libert Scheme. """
+    """A server key for Joye-Libert Scheme."""
 
-    def __init__(
-            self,
-            public_param: PublicParam,
-            key: int
-    ) -> None:
+    def __init__(self, public_param: PublicParam, key: int) -> None:
         """Server key constructor.
 
         Args:
@@ -562,10 +515,7 @@ class ServerKey(BaseKey):
         super().__init__(public_param, key)
 
     def decrypt(
-            self,
-            cipher: List[EncryptedNumber],
-            tau: int,
-            delta: int = 1
+        self, cipher: List[EncryptedNumber], tau: int, delta: int = 1
     ) -> List[int]:
         """Decrypts the aggregated ciphertexts of all users for time period tau
 
@@ -583,7 +533,9 @@ class ServerKey(BaseKey):
         """
 
         if not isinstance(cipher, list):
-            raise TypeError(f"Expected `cipher` is list of encrypter numbers but got {type(cipher)}")
+            raise TypeError(
+                f"Expected `cipher` is list of encrypter numbers but got {type(cipher)}"
+            )
 
         if not all([isinstance(c, EncryptedNumber) for c in cipher]):
             raise TypeError("Cipher text should be list of EncryptedNumbers")
@@ -593,12 +545,12 @@ class ServerKey(BaseKey):
         taus = self._populate_tau(tau=tau, len_=len(ciphertext))
 
         powmod_ = np.vectorize(powmod, otypes=[mpz])
-        mod = powmod_(taus, delta ** 2 * self._key, self._public_param.n_square)
+        mod = powmod_(taus, delta**2 * self._key, self._public_param.n_square)
 
         v = (ciphertext * mod) % self._public_param.n_square
         x = ((v - 1) // self._public_param.n_modulus) % self._public_param.n_modulus
 
-        inverted = invert(delta ** 2, self._public_param.n_square)
+        inverted = invert(delta**2, self._public_param.n_square)
 
         x = (x * inverted) % self._public_param.n_modulus
 
@@ -624,17 +576,20 @@ class JoyeLibert:
         """
         self._vector_encoder = VES(
             ptsize=SAParameters.KEY_SIZE // 2,
-            valuesize=ceil(log2(SAParameters.TARGET_RANGE) + log2(SAParameters.WEIGHT_RANGE))
+            valuesize=ceil(
+                log2(SAParameters.TARGET_RANGE) + log2(SAParameters.WEIGHT_RANGE)
+            ),
         )
 
-    def protect(self,
-                public_param: PublicParam,
-                user_key: UserKey,
-                tau: int,
-                x_u_tau: List[int],
-                n_users: int,
-                ) -> List[mpz]:
-        """ Protect user input with the user's secret key:
+    def protect(
+        self,
+        public_param: PublicParam,
+        user_key: UserKey,
+        tau: int,
+        x_u_tau: List[int],
+        n_users: int,
+    ) -> List[mpz]:
+        """Protect user input with the user's secret key:
 
         \\(y_{u,\\tau} \\gets \\textbf{JL.Protect}(public_param,sk_u,\\tau,x_{u,\\tau})\\)
 
@@ -659,29 +614,32 @@ class JoyeLibert:
                 ValueError: bad argument value
         """
         if not isinstance(user_key, UserKey):
-            raise TypeError(f"Expected key for encryption type is UserKey. but got {type(user_key)}")
+            raise TypeError(
+                f"Expected key for encryption type is UserKey. but got {type(user_key)}"
+            )
 
         if user_key.public_param != public_param:
-            raise ValueError("Bad public parameter. The public parameter of user key does not match the "
-                             "one given for encryption")
+            raise ValueError(
+                "Bad public parameter. The public parameter of user key does not match the "
+                "one given for encryption"
+            )
 
         if not isinstance(x_u_tau, list):
-            raise TypeError(f"Bad vector for encryption. Excepted argument `x_u_tau` type list but "
-                            f"got {type(x_u_tau)}")
+            raise TypeError(
+                f"Bad vector for encryption. Excepted argument `x_u_tau` type list but "
+                f"got {type(x_u_tau)}"
+            )
 
-        x_u_tau = self._vector_encoder.encode(
-            V=x_u_tau,
-            add_ops=n_users
-        )
+        x_u_tau = self._vector_encoder.encode(V=x_u_tau, add_ops=n_users)
 
         return user_key.encrypt(x_u_tau, tau)
 
     def aggregate(
-            self,
-            sk_0: ServerKey,
-            tau: int,
-            list_y_u_tau: List[List[EncryptedNumber]],
-            num_expected_params: int
+        self,
+        sk_0: ServerKey,
+        tau: int,
+        list_y_u_tau: List[List[EncryptedNumber]],
+        num_expected_params: int,
     ) -> List[int]:
         """Aggregates users protected inputs with the server's secret key
 
@@ -715,15 +673,21 @@ class JoyeLibert:
             raise ValueError("list_y_u_tau should be a non-empty list.")
 
         if not isinstance(list_y_u_tau[0], list):
-            raise ValueError("list_y_u_tau should be a list that contains list of encrypted numbers")
+            raise ValueError(
+                "list_y_u_tau should be a list that contains list of encrypted numbers"
+            )
 
         n_user = len(list_y_u_tau)
 
-        sum_of_vectors: List[EncryptedNumber] = [sum(ep) for ep in zip(*list_y_u_tau)]
+        sum_of_vectors: List[EncryptedNumber] = [
+            sum(ep) for ep in zip(*list_y_u_tau, strict=False)
+        ]
 
         decrypted_vector = sk_0.decrypt(sum_of_vectors, tau)
 
-        return self._vector_encoder.decode(decrypted_vector, add_ops=n_user, v_expected=num_expected_params)
+        return self._vector_encoder.decode(
+            decrypted_vector, add_ops=n_user, v_expected=num_expected_params
+        )
 
 
 class FDH:
@@ -732,11 +696,7 @@ class FDH:
     This class computes a full domain hash value using SHA256 hash function
     """
 
-    def __init__(
-            self,
-            bits_size: int,
-            n_modulus: mpz
-    ) -> None:
+    def __init__(self, bits_size: int, n_modulus: mpz) -> None:
         """Constructs FDH.
 
         Args:
@@ -748,15 +708,14 @@ class FDH:
             raise TypeError(f"Bits size should be an integer not {type(bits_size)}")
 
         if not isinstance(n_modulus, mpz):
-            raise TypeError(f"n_modules should be of type `gmpy2.mpz` not {type(n_modulus)}")
+            raise TypeError(
+                f"n_modules should be of type `gmpy2.mpz` not {type(n_modulus)}"
+            )
 
         self.bits_size = bits_size
         self._n_modules = n_modulus
 
-    def H(
-            self,
-            t: int
-    ) -> mpz:
+    def H(self, t: int) -> mpz:
         """Computes the FDH using SHA256.
 
         !!! infor "Computation"
@@ -778,15 +737,15 @@ class FDH:
             while True:
                 h = hashlib.sha256()
                 h.update(
-                    int(t).to_bytes(self.bits_size // 2, "big") +
-                    counter.to_bytes(1, "big")
+                    int(t).to_bytes(self.bits_size // 2, "big")
+                    + counter.to_bytes(1, "big")
                 )
                 result += h.digest()
                 counter += 1
                 if len(result) < (self.bits_size // 8):
                     break
 
-            r = mpz(int.from_bytes(result[-self.bits_size:], "big"))
+            r = mpz(int.from_bytes(result[-self.bits_size :], "big"))
 
             if gcd(r, self._n_modules) == 1:
                 break

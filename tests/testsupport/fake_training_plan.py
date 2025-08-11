@@ -5,17 +5,15 @@ from unittest import mock
 import time
 from fedbiomed.common.constants import TrainingPlans
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers import BaseOptimizer
 from fedbiomed.common.training_plans import (
     BaseTrainingPlan,
     TorchTrainingPlan,
-    SKLearnTrainingPlan,
-    FedSGDRegressor
+    FedSGDRegressor,
 )
-from fedbiomed.common.models import SkLearnModel
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 
 
 # Fakes TrainingPlan (either `fedbiomed.common.torchnn`` or `fedbiomed.common.fedbiosklearn`)
@@ -29,18 +27,19 @@ class FakeModel(BaseTrainingPlan):
         for its model parameters, that have values [1, 2, 3, 4].
       - The `training_routine` method implements a 1-second sleep action.
     """
+
     SLEEPING_TIME = 1  # time that simulate training (in seconds)
 
     def __init__(self, model_args: Optional[Dict[str, Any]] = None, **kwargs):
         super().__init__()
         # For testing Job model_args
         self.model_args = model_args
-        self.__type = 'DummyTrainingPlan'
+        self.__type = "DummyTrainingPlan"
         self._optimizer_args = {}
         self._model = mock.create_autospec(Model, instance=True)
         self._model.get_weights.return_value = {"coefs": [1, 2, 3, 4]}
         self._optimizer = mock.create_autospec(BaseOptimizer, instance=True)
-        self._optimizer.save_state = mock.MagicMock(return_value = None)
+        self._optimizer.save_state = mock.MagicMock(return_value=None)
         self._optimizer.optimizer = mock.MagicMock()
 
     def post_init(
@@ -71,6 +70,7 @@ class FakeModel(BaseTrainingPlan):
             to_params (bool): originally, whether to return parameter into
             the model or into a dictionary. Unused in this dummy class.
         """
+
     def init_optimizer(self, optimizer_args: Dict[str, Any]):
         """Fakes `init_optimizer` method, used to initialize an optimizer (either framework
         specific like pytorch optimizer, or non-framework specific like declearn)
@@ -83,16 +83,17 @@ class FakeModel(BaseTrainingPlan):
         return self._optimizer
 
     def init_dependencies(self):
-        return ['from fedbiomed.common.training_plans import BaseTrainingPlan',
-                'from typing import Any, Dict, Optional',
-                'from unittest import mock',
-                'import time',
-                'from fedbiomed.common.constants import TrainingPlans',
-                'import torch',
-                'from torch.utils.data import Dataset, DataLoader',
-                'from fedbiomed.common.models import Model',
-                'from fedbiomed.common.optimizers import BaseOptimizer',
-                'from fedbiomed.common.data import DataManager',
+        return [
+            "from fedbiomed.common.training_plans import BaseTrainingPlan",
+            "from typing import Any, Dict, Optional",
+            "from unittest import mock",
+            "import time",
+            "from fedbiomed.common.constants import TrainingPlans",
+            "import torch",
+            "from torch.utils.data import Dataset, DataLoader",
+            "from fedbiomed.common.models import Model",
+            "from fedbiomed.common.optimizers import BaseOptimizer",
+            "from fedbiomed.common.datamanager import DataManager",
         ]
 
     def save(self, filename: str, results: Dict[str, Any] = None):
@@ -138,8 +139,8 @@ class FakeModel(BaseTrainingPlan):
     def testing_routine(self, metric, history_monitor, before_train: bool):
         pass
 
-class FakeTorchTrainingPlan(FakeModel, TorchTrainingPlan):
 
+class FakeTorchTrainingPlan(FakeModel, TorchTrainingPlan):
     _model = mock.create_autospec(Model, instance=True)
 
     def init_model(self):
@@ -153,24 +154,23 @@ class FakeTorchTrainingPlan(FakeModel, TorchTrainingPlan):
 
 
 class FakeSKLearnTrainingPlan(FedSGDRegressor):
-
     def training_data(self, batch_size):
         pass
 
 
 class FakeTorchTrainingPlan2(TorchTrainingPlan):
-
     def init_dependencies(self):
-        return ['from fedbiomed.common.training_plans import BaseTrainingPlan',
-                'from typing import Any, Dict, Optional',
-                'from unittest import mock',
-                'import time',
-                'from fedbiomed.common.constants import TrainingPlans',
-                'import torch',
-                'from torch.utils.data import Dataset, DataLoader',
-                'from fedbiomed.common.models import Model',
-                'from fedbiomed.common.optimizers import BaseOptimizer',
-                'from fedbiomed.common.data import DataManager',
+        return [
+            "from fedbiomed.common.training_plans import BaseTrainingPlan",
+            "from typing import Any, Dict, Optional",
+            "from unittest import mock",
+            "import time",
+            "from fedbiomed.common.constants import TrainingPlans",
+            "import torch",
+            "from torch.utils.data import Dataset, DataLoader",
+            "from fedbiomed.common.models import Model",
+            "from fedbiomed.common.optimizers import BaseOptimizer",
+            "from fedbiomed.common.datamanager import DataManager",
         ]
 
     def init_optimizer(self):
@@ -186,9 +186,9 @@ class FakeTorchTrainingPlan2(TorchTrainingPlan):
         pass
 
 
-
 class DeclearnAuxVarModel(FakeModel):
     """for specific test that  tests declearn specific optimizer compatibility"""
+
     OPTIM = None
     TYPE = None
 
@@ -221,7 +221,7 @@ class DeclearnAuxVarModel(FakeModel):
 
         for v, t in all_s:
             o = self._optimizer._model.model(v)
-            loss = t - o # stupid loss function, created only for the sake of testing
+            loss = t - o  # stupid loss function, created only for the sake of testing
             loss.backward()
             self._optimizer.step()
         return super().training_routine(**kwargs)

@@ -2,28 +2,30 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Torch tabulated data manager
+Torch legacy tabulated data manager
 """
 
-from typing import Union, Tuple
+from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
-
-from torch import from_numpy, Tensor
+from torch import Tensor, from_numpy
 from torch.utils.data import Dataset
 
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDatasetError
-from fedbiomed.common.constants import ErrorNumbers, DatasetTypes
 
 
-class TabularDataset(Dataset):
+class LegacyTabularDataset(Dataset):
     """Torch based Dataset object to create torch Dataset from given numpy or dataframe
     type of input and target variables
     """
-    def __init__(self,
-                 inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
-                 target: Union[np.ndarray, pd.DataFrame, pd.Series]):
+
+    def __init__(
+        self,
+        inputs: Union[np.ndarray, pd.DataFrame, pd.Series],
+        target: Union[np.ndarray, pd.DataFrame, pd.Series],
+    ):
         """Constructs PyTorch dataset object
 
         Args:
@@ -45,23 +47,29 @@ class TabularDataset(Dataset):
         elif isinstance(inputs, np.ndarray):
             self.inputs = inputs
         else:
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB610.value}: The argument `inputs` should be "
-                                                    f"an instance one of np.ndarray, pd.DataFrame or pd.Series")
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB610.value}: The argument `inputs` should be "
+                f"an instance one of np.ndarray, pd.DataFrame or pd.Series"
+            )
         # Configuring self.target attribute
         if isinstance(target, (pd.DataFrame, pd.Series)):
             self.target = target.to_numpy()
         elif isinstance(inputs, np.ndarray):
             self.target = target
         else:
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB610.value}: The argument `target` should be "
-                                                    f"an instance one of np.ndarray, pd.DataFrame or pd.Series")
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB610.value}: The argument `target` should be "
+                f"an instance one of np.ndarray, pd.DataFrame or pd.Series"
+            )
 
         # The lengths should be equal
         if len(self.inputs) != len(self.target):
-            raise FedbiomedDatasetError(f"{ErrorNumbers.FB610.value}: Length of input variables and target "
-                                                    f"variable does not match. Please make sure that they have "
-                                                    f"equal size while creating the method `training_data` of "
-                                                    f"TrainingPlan")
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB610.value}: Length of input variables and target "
+                f"variable does not match. Please make sure that they have "
+                f"equal size while creating the method `training_data` of "
+                f"TrainingPlan"
+            )
 
         # Convert `inputs` adn `target` to Torch floats
         self.inputs = from_numpy(self.inputs).float()
@@ -79,7 +87,7 @@ class TabularDataset(Dataset):
         return len(self.inputs)
 
     def __getitem__(self, item: int) -> Tuple[Tensor, Tensor]:
-        """ Mandatory method for pytorch Dataset to get input and target instance by
+        """Mandatory method for pytorch Dataset to get input and target instance by
         given index. Used by DataLoader in training_routine to load samples by index.
 
         Args:

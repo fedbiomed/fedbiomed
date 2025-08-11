@@ -4,22 +4,25 @@
 import copy
 from typing import Dict, List, Mapping, Tuple, Union
 
-import torch
 import numpy as np
+import torch
 
 
-def initialize(val: Union[torch.Tensor, np.ndarray]) -> Tuple[str, Union[torch.Tensor, np.ndarray]]:
-    """Initialize tensor or array vector. """
+def initialize(
+    val: Union[torch.Tensor, np.ndarray],
+) -> Tuple[str, Union[torch.Tensor, np.ndarray]]:
+    """Initialize tensor or array vector."""
     if isinstance(val, torch.Tensor):
-        return 'tensor', torch.zeros_like(val).float()
+        return "tensor", torch.zeros_like(val).float()
 
     if isinstance(val, (list, np.ndarray)):
         val = np.array(val)
-        return 'array', np.zeros(val.shape, dtype = float)
+        return "array", np.zeros(val.shape, dtype=float)
 
 
-def federated_averaging(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
-                        weights: List[float]) -> Mapping[str, Union[torch.Tensor, np.ndarray]]:
+def federated_averaging(
+    model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]], weights: List[float]
+) -> Mapping[str, Union[torch.Tensor, np.ndarray]]:
     """Defines Federated Averaging (FedAvg) strategy for model aggregation.
 
     Args:
@@ -31,17 +34,21 @@ def federated_averaging(model_params: List[Dict[str, Union[torch.Tensor, np.ndar
     Returns:
         Final model with aggregated layers, as an OrderedDict object.
     """
-    assert len(model_params) > 0, 'An empty list of models was passed.'
-    assert len(weights) == len(model_params), 'List with number of observations must have ' \
-                                              'the same number of elements that list of models.'
+    assert len(model_params) > 0, "An empty list of models was passed."
+    assert len(weights) == len(model_params), (
+        "List with number of observations must have "
+        "the same number of elements that list of models."
+    )
 
     # Compute proportions
     proportions = [n_k / sum(weights) for n_k in weights]
     return weighted_sum(model_params, proportions)
 
 
-def weighted_sum(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
-                 proportions: List[float]) -> Mapping[str, Union[torch.Tensor, np.ndarray]]:
+def weighted_sum(
+    model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
+    proportions: List[float],
+) -> Mapping[str, Union[torch.Tensor, np.ndarray]]:
     """Performs weighted sum operation
 
     Args:
@@ -50,23 +57,23 @@ def weighted_sum(model_params: List[Dict[str, Union[torch.Tensor, np.ndarray]]],
         proportions (List[float]): weights of all items whithin model_params's list
 
     Returns:
-        Mapping[str, Union[torch.Tensor, np.ndarray]]: model resulting from the weighted sum 
+        Mapping[str, Union[torch.Tensor, np.ndarray]]: model resulting from the weighted sum
                                                        operation
     """
     # Empty model parameter dictionary
     avg_params = copy.deepcopy(model_params[0])
 
     for key, val in avg_params.items():
-        (t, avg_params[key] ) = initialize(val)
+        (t, avg_params[key]) = initialize(val)
 
-    if t == 'tensor':
-        for model, weight in zip(model_params, proportions):
+    if t == "tensor":
+        for model, weight in zip(model_params, proportions, strict=False):
             for key in avg_params.keys():
                 avg_params[key] += weight * model[key]
 
-    if t == 'array':
+    if t == "array":
         for key in avg_params.keys():
-            matr = np.array([ d[key] for d in model_params ])
+            matr = np.array([d[key] for d in model_params])
             avg_params[key] = np.average(matr, weights=np.array(proportions), axis=0)
 
     return avg_params

@@ -4,26 +4,28 @@
 import configparser
 import os
 import uuid
-
 from abc import ABCMeta, abstractmethod
-from typing import Any, Optional, Dict, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+
 from packaging.version import Version
 
 from fedbiomed.common.constants import (
-    ErrorNumbers,
-    CONFIG_FOLDER_NAME,
-    VAR_FOLDER_NAME,
     CERTS_FOLDER_NAME,
+    CONFIG_FOLDER_NAME,
     DB_PREFIX,
+    VAR_FOLDER_NAME,
+    ErrorNumbers,
 )
-
+from fedbiomed.common.exceptions import FedbiomedConfigurationError
 from fedbiomed.common.utils import (
     create_fedbiomed_setup_folders,
     raise_for_version_compatibility,
-    read_file
+    read_file,
 )
-from fedbiomed.common.exceptions import FedbiomedConfigurationError
 
+if TYPE_CHECKING:
+    from fedbiomed.node.config import NodeConfig
+    from fedbiomed.researcher.config import ResearcherConfig
 
 
 def docker_special_case(component_path: str) -> bool:
@@ -37,7 +39,6 @@ def docker_special_case(component_path: str) -> bool:
     files = os.listdir(component_path)
 
     return ".gitkeep" in files and len(files) == 1
-
 
 
 class Config(metaclass=ABCMeta):
@@ -62,13 +63,11 @@ class Config(metaclass=ABCMeta):
 
     vars: Dict[str, Any] = {}
 
-    def __init__(
-        self, root: str
-    ) -> None:
+    def __init__(self, root: str) -> None:
         """Initializes configuration
 
         Args:
-            root: Root directory for the component
+            root: Root directory for the component.
         """
         self._cfg = configparser.ConfigParser()
         self.load(root)
@@ -85,7 +84,7 @@ class Config(metaclass=ABCMeta):
 
     def load(
         self,
-        root: str,
+        root: str,  # pylint: disable=W0622
     ) -> None:
         """Load configuration from given name and root
 
@@ -98,7 +97,7 @@ class Config(metaclass=ABCMeta):
         """
 
         self.root = root
-        self.config_path = os.path.join(self.root, 'etc', self._CONFIG_FILE_NAME)
+        self.config_path = os.path.join(self.root, "etc", self._CONFIG_FILE_NAME)
         self.generate()
 
     def is_config_existing(self) -> bool:
@@ -134,8 +133,12 @@ class Config(metaclass=ABCMeta):
     def getbool(self, section, key, **kwargs) -> bool:
         """Gets boolean value from config"""
 
-        return self._get(section, key, **kwargs).lower() in ('true', '1')
+        return self._get(section, key, **kwargs).lower() in ("true", "1")
 
+    def getint(self, section, key, **kwargs) -> int:
+        """Gets int value of a given config"""
+
+        return self._cfg.getint(section, key, **kwargs)
 
     def _get(self, section, key, **kwargs) -> str:
         """ """
@@ -171,10 +174,7 @@ class Config(metaclass=ABCMeta):
                 f"{ErrorNumbers.FB600.value}: cannot save config file:  {self.path}"
             ) from exp
 
-    def generate(
-        self,
-        id: Optional[str] = None
-    ) -> None:
+    def generate(self, id: Optional[str] = None) -> None:
         """ "Generate configuration file
 
         Args:
@@ -204,6 +204,8 @@ class Config(metaclass=ABCMeta):
             self.add_parameters()
         else:
             self.read()
+            # Provide migration
+            self.migrate()
 
         self._update_vars()
 
@@ -211,41 +213,72 @@ class Config(metaclass=ABCMeta):
         """Updates dynamic variables"""
         # Updates dynamic variables
 
-        self.vars.update({
-            'MESSAGES_QUEUE_DIR': os.path.join(self.root, 'queue_messages'),
-            'TMP_DIR': os.path.join(self.root, VAR_FOLDER_NAME, 'tmp'),
-            'CERT_DIR': os.path.join(self.root, CERTS_FOLDER_NAME)
-        })
+        self.vars.update(
+            {
+                "MESSAGES_QUEUE_DIR": os.path.join(self.root, "queue_messages"),
+                "TMP_DIR": os.path.join(self.root, VAR_FOLDER_NAME, "tmp"),
+                "CERT_DIR": os.path.join(self.root, CERTS_FOLDER_NAME),
+            }
+        )
 
-        os.makedirs(self.vars['TMP_DIR'], exist_ok=True)
+        os.makedirs(self.vars["TMP_DIR"], exist_ok=True)
 
     @abstractmethod
     def add_parameters(self):
         """ "Component specific argument creation"""
 
+    @abstractmethod
+    def migrate(self):
+        """Migration method to add configuration parameters
+
+        It is used for introducing  new parameters for in minor version or patch
+        to not break backward compatibility. This method has to updte `self._cfg`
+        direcly.
+
+        An example;
+
+        ```python
+        self._cfg["my-section"].update({"my-new-parameter": "my-new-value"})
+        ```
+        It should update the section only if the parameter is not exsiting to avoid
+        overwriting user defined values.
+        """
+
 
 class Component:
-
     config_cls: type
     _config: Config
     _default_component_name: str
 
     def __init__(self):
         """Test"""
-        self._reference = '.fedbiomed'
+        self._reference = ".fedbiomed"
 
-    def initiate(self, root: Optional[str] = None) -> Union["NodeConfig", "ResearcherConfig"] :
-        """Creates or initiates existing component"""
+    def initiate(
+        self, root: Optional[str] = None, **kwargs: Any
+    ) -> Union["NodeConfig", "ResearcherConfig"]:
+        """Creates or initiates existing component
+
+        Args:
+            root: Root directory of the component
+            component_alias: Name of the component, used for outputting the
+                component in a user-friendly way.
+                Defaults to default component name. (fbm-node or fbm-researcher)
+            **kwargs: Additional parameters that can be used for
+                component initialization. For example, `node_name` for NodeComponent.
+        Returns:
+            Config object of the component
+        """
 
         if not root:
             root = os.path.join(os.getcwd(), self._default_component_name)
 
         reference = self.validate(root)
-        config = self.config_cls(root)
-
+        config = self.config_cls(root=root, **kwargs)
+        # If component is not existing, create it
         if not os.path.isfile(reference):
             create_fedbiomed_setup_folders(root)
-            with open(os.path.join(root, '.fedbiomed'), 'w', encoding='UTF-8') as file_:
+            with open(os.path.join(root, ".fedbiomed"), "w", encoding="UTF-8") as file_:
                 file_.write(self.config_cls.COMPONENT_TYPE)
             config.generate()
             config.write()
@@ -296,9 +329,9 @@ class Component:
             comp_type = read_file(ref)
             if comp_type != self.config_cls.COMPONENT_TYPE:
                 raise ValueError(
-                    f'Component directory has already been initilazed for component type {comp_type}'
-                    ' can not overwrite or reuse it for component type '
-                    f'{self.config_cls.COMPONENT_TYPE}')
+                    f"Component directory has already been initilazed for component type {comp_type}"
+                    " can not overwrite or reuse it for component type "
+                    f"{self.config_cls.COMPONENT_TYPE}"
+                )
 
         return ref
-

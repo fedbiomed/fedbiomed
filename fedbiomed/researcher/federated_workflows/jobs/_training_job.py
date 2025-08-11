@@ -5,9 +5,8 @@ import os
 import uuid
 from typing import Any, Dict, Optional, Tuple, Union
 
-
 from fedbiomed.common.logger import logger
-from fedbiomed.common.message import ErrorMessage, TrainReply, TrainRequest
+from fedbiomed.common.message import TrainReply, TrainRequest
 from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
@@ -37,10 +36,9 @@ class TrainingJob(Job):
         secagg_arguments: Union[Dict, None] = None,
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, AuxVar]] = None,
-        **kwargs
+        **kwargs,
     ):
-
-        """ Constructor of the class
+        """Constructor of the class
 
         Args:
             experiment_id: unique ID of this experiment
@@ -73,17 +71,17 @@ class TrainingJob(Job):
         self._data = data
         self._nodes_state_ids = nodes_state_ids
         self._aggregator_args = aggregator_args
-        self._secagg_arguments = secagg_arguments or {}  # Assign empty dict to secagg arguments if it is None
+        self._secagg_arguments = (
+            secagg_arguments or {}
+        )  # Assign empty dict to secagg arguments if it is None
         self._do_training = do_training
         self._optim_aux_var = optim_aux_var
-
 
     def _get_training_results(
         self,
         replies: Dict[str, TrainReply],
-        errors: Dict[str, ErrorMessage],
     ) -> Dict[str, Dict[str, Any]]:
-        """"Waits for training replies, and updates `_training_replies` wrt replies from Node(s) participating
+        """ "Waits for training replies, and updates `_training_replies` wrt replies from Node(s) participating
          in the training
 
         Args:
@@ -91,28 +89,25 @@ class TrainingJob(Job):
             errors: errors collected (if any) while sending requests and rertieving replies
         """
         training_replies = {}
-        # Loops over errors
-        for node_id, error in errors.items():
-            logger.info(f"Error message received during training: {error.errnum}. {error.extra_msg}")
-            self._nodes.remove(node_id)
 
         # Loops over replies
         for node_id, reply in replies.items():
+            node_reply = reply.get_dict()
 
             if not reply.success:
-                logger.error(f"Training failed for node {reply.node_id}: {reply.msg}")
-                self._nodes.remove(reply.node_id)  # remove the faulty node from the list
-                continue
+                self._nodes.remove(
+                    reply.node_id
+                )  # remove the faulty node from the list
+            else:
+                params_path = os.path.join(
+                    self._keep_files_dir,
+                    f"params_{str(node_id)[0:11]}_{uuid.uuid4()}.mpk",
+                )
+                Serializer.dump(reply.params, params_path)
+                node_reply["params_path"] = params_path
 
-            params_path = os.path.join(self._keep_files_dir, f"params_{str(node_id)[0:11]}_{uuid.uuid4()}.mpk")
-            Serializer.dump(reply.params, params_path)
+            training_replies[node_id] = node_reply
 
-            training_replies.update({
-                node_id: {
-                    **reply.get_dict(),
-                    'params_path': params_path,
-                }
-            })
         return training_replies
 
     def _get_timing_results(self, replies: Dict[str, TrainReply], timer: Dict):
@@ -121,16 +116,18 @@ class TrainingJob(Job):
         timings = {}
         for node_id, reply in replies.items():
             timing = reply.timing
-            timing['rtime_total'] = timer[node_id]
+            timing["rtime_total"] = timer[node_id]
             timings[node_id] = timing
 
         return timings
 
-    def execute(self) -> Tuple[
+    def execute(
+        self,
+    ) -> Tuple[
         Dict[str, Dict[str, Any]],  # inner dicts are TrainReply dumps
         Union[Dict[str, Dict[str, AuxVar]], Dict[str, EncryptedAuxVar]],
     ]:
-        """ Sends training request to nodes and waits for the responses
+        """Sends training request to nodes and waits for the responses
 
         Returns:
             A tuple of
@@ -142,30 +139,35 @@ class TrainingJob(Job):
 
         # Populate request message
         msg = {
-            'researcher_id': self._researcher_id,
-            'experiment_id': self._experiment_id,
-            'training_args': self._training_args.dict(),
-            'training': self._do_training,
-            'model_args': self._model_args if self._model_args is not None else {},
-            'round': self._round_,
-            'training_plan': self._training_plan.source(),
-            'training_plan_class': self._training_plan.__class__.__name__,
-            'params': self._training_plan.get_model_params(
-                exclude_buffers=not self._training_args.dict()['share_persistent_buffers']),
-            'secagg_arguments': self._secagg_arguments,
-            'aggregator_args': {},
-            'optim_aux_var': self._optim_aux_var
+            "researcher_id": self._researcher_id,
+            "experiment_id": self._experiment_id,
+            "training_args": self._training_args.dict(),
+            "training": self._do_training,
+            "model_args": self._model_args if self._model_args is not None else {},
+            "round": self._round_,
+            "training_plan": self._training_plan.source(),
+            "training_plan_class": self._training_plan.__class__.__name__,
+            "params": self._training_plan.get_model_params(
+                exclude_buffers=not self._training_args.dict()[
+                    "share_persistent_buffers"
+                ]
+            ),
+            "secagg_arguments": self._secagg_arguments,
+            "aggregator_args": {},
+            "optim_aux_var": self._optim_aux_var,
         }
 
         # Loop over nodes, add node specific data and send train request
         messages = MessagesByNode()
 
         for node in self._nodes:
-            msg['dataset_id'] = self._data.data()[node]['dataset_id']
-            msg['state_id'] = self._nodes_state_ids.get(node)
+            msg["dataset_id"] = self._data.data()[node]["dataset_id"]
+            msg["state_id"] = self._nodes_state_ids.get(node)
 
             # add aggregator parameters to message header
-            msg['aggregator_args'] = self._aggregator_args.get(node, {}) if self._aggregator_args else {}
+            msg["aggregator_args"] = (
+                self._aggregator_args.get(node, {}) if self._aggregator_args else {}
+            )
 
             self._log_round_info(node=node, training=self._do_training)
 
@@ -173,18 +175,26 @@ class TrainingJob(Job):
 
         with self.RequestTimer(self._nodes) as timer:  # compute request time
             # Send training request
-            with self._reqs.send(messages, self._nodes, self._policies) as federated_req:
+            with self._reqs.send(
+                messages, self._nodes, self._policies
+            ) as federated_req:
                 errors = federated_req.errors()
                 replies = federated_req.replies()
 
-        training_replies = self._get_training_results(replies=replies,
-                                                      errors=errors)
+        # Loop over errors
+        for node_id, error in errors.items():
+            logger.warning(
+                f"Error message received during training: {error.errnum}. {error.extra_msg}"
+            )
+            self._nodes.remove(node_id)
+
+        training_replies = self._get_training_results(replies=replies)
 
         timing_results = self._get_timing_results(replies, timer)
         # `training_replies` can be empty if there wasnot any replies
         for node_id in replies:
             if training_replies.get(node_id):
-                training_replies[node_id].update({'timing': timing_results[node_id]})
+                training_replies[node_id].update({"timing": timing_results[node_id]})
 
         # Extract aux variables from training replies.
         if self._do_training:
@@ -202,15 +212,19 @@ class TrainingJob(Job):
         """
 
         if training:
-            logger.info(f'\033[1mSending request\033[0m \n'
-                        f'\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n'
-                        f'\t\t\t\t\t\033[1m Request: \033[0m: TRAIN'
-                        f'\n {5 * "-------------"}')
+            logger.info(
+                f"\033[1mSending request\033[0m \n"
+                f"\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n"
+                f"\t\t\t\t\t\033[1m Request: \033[0m: TRAIN"
+                f"\n {5 * '-------------'}"
+            )
         else:
-            logger.info(f'\033[1mSending request\033[0m \n'
-                        f'\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n'
-                        f'\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on '
-                        f'aggregated parameters \n {5 * "-------------"}')
+            logger.info(
+                f"\033[1mSending request\033[0m \n"
+                f"\t\t\t\t\t\033[1m To\033[0m: {str(node)} \n"
+                f"\t\t\t\t\t\033[1m Request: \033[0m:Perform final validation on "
+                f"aggregated parameters \n {5 * '-------------'}"
+            )
 
     @staticmethod
     def _extract_received_optimizer_aux_var_from_round(

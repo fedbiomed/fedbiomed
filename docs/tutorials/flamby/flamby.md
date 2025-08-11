@@ -64,7 +64,7 @@ To download the dataset named `<DATASET>` (eg `fed_ixi` for IXI):
 In Fed-BioMed, researchers create a [training plan](../../user-guide/researcher/training-plan.md) 
 to define various aspects of their federated ML experiment, such as the model, the data, the optimizer, and others.
 To leverage FLamby functionalities within your Fed-BioMed experiment, you will be required to create a 
-custom training plan inheriting from `fedbiomed.common.data.TorchTrainingPlan`. 
+custom training plan inheriting from `fedbiomed.common.training_plans.TorchTrainingPlan`. 
 
 For details on the meaning of the different functions in a training plan, and how to implement them correctly, 
 please follow the [TrainingPlan](../../user-guide/researcher/training-plan.md) user guide. 
@@ -72,7 +72,7 @@ Since FLamby is highly compatible with PyTorch, you may use the models and optim
 Fed-BioMed experiment seamlessly. See the code below for an example:
 
 ```python
-from fedbiomed.common.data import TorchTrainingPlan
+from fedbiomed.common.training_plans import TorchTrainingPlan
 from flamby.datasets.fed_ixi import Baseline, BaselineLoss, Optimizer
 
 class MyTrainingPlan(TorchTrainingPlan):
@@ -107,12 +107,16 @@ automatically for you.
 To use Flamby, you need to create a FLamby dataset in your `training_data` function following the example below:
 ```python
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import FlambyDataset, DataManager
+from fedbiomed.common.dataset import FlambyDataset
+from fedbiomed.common.datamanager import DataManager
 
 
 class MyTrainingPlan(TorchTrainingPlan):
     def init_dependencies(self):
-        return ["from fedbiomed.common.data import FlambyDataset, DataManager"]
+        return [
+            "from fedbiomed.common.dataset import FlambyDataset",
+            "from fedbiomed.common.datamanager import DataManager"
+        ]
 
     def training_data(self):
         dataset = FlambyDataset()
@@ -131,11 +135,13 @@ Functional data transformations can be specified in the `training_data` function
 ```python
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from monai.transforms import Compose, Resize, NormalizeIntensity
-from fedbiomed.common.data import FlambyDataset, DataManager
+from fedbiomed.common.dataset import FlambyDataset
+from fedbiomed.common.datamanager import DataManager
 
 class MyTrainingPlan(TorchTrainingPlan):
     def init_dependencies(self):
-        return ["from fedbiomed.common.data import FlambyDataset, DataManager",
+        return ["from fedbiomed.common.dataset import FlambyDataset", 
+                "from fedbiomed.common.datamanager import DataManager",
                 "from monai.transforms import Compose, Resize, NormalizeIntensity",
                 ]
 

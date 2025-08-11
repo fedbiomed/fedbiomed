@@ -50,6 +50,7 @@ message FeedbackMessage {
         int32 num_batches = 11;
         optional int32 num_samples_trained = 12; // optional -> None
         int32 iteration = 13;
+        string node_name = 14;
     }
 
     // Log messages

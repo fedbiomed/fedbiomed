@@ -5,7 +5,6 @@ import fedbiomed.common.message as message
 from fedbiomed.common.constants import (
     ErrorNumbers,
     TrainingPlanApprovalStatus,
-    __messaging_protocol_version__,
 )
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
 
@@ -15,7 +14,6 @@ from fedbiomed.common.message import (
     AdditiveSSharingRequest,
     AdditiveSSSetupReply,
     AdditiveSSSetupRequest,
-    Message,
     catch_dataclass_exception,
 )
 
@@ -37,7 +35,6 @@ class TestMessage(unittest.TestCase):
     # helper function to check failures for all Message classes
     # ---------------------------------------------------------
     def check_class_args(self, cls, expected_result=True, **kwargs):
-
         result = True
 
         # list of permitted classes
@@ -74,7 +71,7 @@ class TestMessage(unittest.TestCase):
             if not valid_class:
                 self.fail("check_class_args: bad class name")
 
-        except Exception as e:
+        except Exception:
             # print("===== " + str(e.__class__.__name__) + " trapped: " + str(e))
             result = False
 
@@ -108,7 +105,6 @@ class TestMessage(unittest.TestCase):
         b: str
 
     def test_message_additive_secret_sharing(self):
-
         AdditiveSSharingRequest(
             **{
                 "node_id": "1234",
@@ -142,13 +138,13 @@ class TestMessage(unittest.TestCase):
                 "researcher_id": "researcher_1234",
                 "secagg_id": "secagg_1234",
                 "node_id": "node_id_1234",
+                "node_name": "node_name_1234",
                 "msg": "test",
                 "share": 111,
             }
         )
 
     def test_message_01_dummy(self):
-
         m0 = self.DummyMessage(1, "test")
 
         # getter test
@@ -160,7 +156,7 @@ class TestMessage(unittest.TestCase):
         bad_result = False
         try:
             m1 = self.DummyMessage(a="oh your god!", b="oh my god!")
-        except FedbiomedMessageError as e:
+        except FedbiomedMessageError:
             # we must arrive here, because message is malformed
             bad_result = True
         except Exception as e:
@@ -179,7 +175,7 @@ class TestMessage(unittest.TestCase):
         try:
             m2 = self.DummyMessage(1, "foobar", False)
 
-        except FedbiomedMessageError as e:
+        except FedbiomedMessageError:
             #
             # we must arrive here, because message is malformed
             bad_result = True
@@ -198,7 +194,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_to_dict_from_dict(self):
-
         msg = message.PingRequest(researcher_id="r1")
 
         t_msg = msg.to_dict()
@@ -234,7 +229,6 @@ class TestMessage(unittest.TestCase):
             message.Message.from_dict(t)
 
     def test_message_02_searchreply(self):
-
         # verify necessary arguments of all message creation
 
         # well formatted message
@@ -246,6 +240,7 @@ class TestMessage(unittest.TestCase):
             databases=[1, 2, 3],
             count=666,
             node_id="titi",
+            node_name="node_titi",
         )
 
         # all these test should fail (not enough arguments)
@@ -331,7 +326,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_03_pingreply(self):
-
         # verify necessary arguments of all message creation
 
         # well formatted message
@@ -341,6 +335,7 @@ class TestMessage(unittest.TestCase):
             protocol_version="99.99",
             researcher_id="toto",
             node_id="titi",
+            node_name="node_titi",
         )
 
         self.check_class_args(message.PingReply, expected_result=False, node_id="titi")
@@ -405,7 +400,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_04_trainreply(self):
-
         # well formatted message
         self.check_class_args(
             message.TrainReply,
@@ -416,6 +410,7 @@ class TestMessage(unittest.TestCase):
             state_id="state_id_1234",
             success=True,
             node_id="titi",
+            node_name="node_titi",
             dataset_id="my_data",
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
@@ -585,7 +580,6 @@ class TestMessage(unittest.TestCase):
         )
 
     def test_message_05_listreply(self):
-
         # well formatted message
         self.check_class_args(
             message.ListReply,
@@ -596,6 +590,7 @@ class TestMessage(unittest.TestCase):
             databases=[1, 2, 3],
             count=666,
             node_id="titi",
+            node_name="node_titi",
         )
 
         # all these test should fail (not enough arguments)
@@ -688,6 +683,7 @@ class TestMessage(unittest.TestCase):
             message.Scalar,
             expected_result=True,
             node_id="titi",
+            node_name="node_titi",
             experiment_id="tutu",
             train=True,
             test=True,
@@ -737,13 +733,13 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_07_modelstatusreply(self):
-
         self.check_class_args(
             message.TrainingPlanStatusReply,
             expected_result=True,
             protocol_version="99.99",
             researcher_id="toto",
             node_id="titi",
+            node_name="node_titi",
             experiment_id="titi",
             success=True,
             approval_obligation=True,
@@ -837,7 +833,6 @@ class TestMessage(unittest.TestCase):
         )
 
     def test_message_08_log(self):
-
         # well formatted message
         self.check_class_args(
             message.Log,
@@ -894,7 +889,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_09_error(self):
-
         # well formatted message
         self.check_class_args(
             message.ErrorMessage,
@@ -902,6 +896,7 @@ class TestMessage(unittest.TestCase):
             protocol_version="99.99",
             researcher_id="toto",
             node_id="titi",
+            node_name="node_titi",
             errnum=ErrorNumbers.FB100.value,
             extra_msg="this is an error message",
         )
@@ -1070,7 +1065,7 @@ class TestMessage(unittest.TestCase):
                 "secagg_clipping_range": None,
             },
             round=1,
-            aggregator_args={'aggregator_name': 'fedavg'},
+            aggregator_args={"aggregator_name": "fedavg"},
             optim_aux_var=None,
         )
 
@@ -1247,7 +1242,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_13_listrequest(self):
-
         # well formatted message
         self.check_class_args(
             message.ListRequest,
@@ -1294,7 +1288,6 @@ class TestMessage(unittest.TestCase):
         pass
 
     def test_message_14_modelstatusrequest(self):
-
         self.check_class_args(
             message.TrainingPlanStatusRequest,
             expected_result=True,
@@ -1415,6 +1408,7 @@ class TestMessage(unittest.TestCase):
             protocol_version="99.99",
             researcher_id="toto",
             node_id="titi",
+            node_name="node_titi",
             message="xxx",
             training_plan_id="id-xxx",
             status=200,

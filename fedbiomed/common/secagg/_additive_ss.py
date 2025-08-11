@@ -6,8 +6,7 @@ from fedbiomed.common.exceptions import FedbiomedTypeError, FedbiomedValueError
 
 
 class AdditiveSecret:
-    """Manages additive secret.
-    """
+    """Manages additive secret."""
 
     def __init__(self, secret: Union[int, List[int]]) -> None:
         """
@@ -63,12 +62,14 @@ class AdditiveSecret:
                 partial_shares = self._shares_int(value, num_shares, bit_length)
                 shares.append(partial_shares)
 
-            shares = list(map(list, zip(*shares)))
+            shares = list(map(list, zip(*shares, strict=False)))
 
         return AdditiveShares([AdditiveShare(share) for share in shares])
 
     @staticmethod
-    def _shares_int(secret: int, num_shares: int, bit_length: Optional[int]) -> List[int]:
+    def _shares_int(
+        secret: int, num_shares: int, bit_length: Optional[int]
+    ) -> List[int]:
         """Create given int shares
 
         Args:
@@ -134,7 +135,6 @@ class AdditiveShare:
         """
 
         if isinstance(other, AdditiveShare):
-
             if isinstance(self._value, int) and isinstance(other.value, int):
                 return AdditiveShare(self._value + other.value)
 

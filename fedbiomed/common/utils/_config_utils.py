@@ -72,11 +72,11 @@ def get_component_config(config_path: str) -> configparser.ConfigParser:
 
     try:
         config.read(config_path)
-    except Exception:
+    except Exception as e:
         raise FedbiomedError(
             f"Can not read config file. Please make sure it is existing or it has valid format. "
             f"{config_path}"
-        )
+        ) from e
 
     return config
 

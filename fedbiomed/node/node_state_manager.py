@@ -2,23 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Dict, Optional, Union, Any
 import uuid
+from typing import Any, Dict, Optional, Union
 
-from tinydb import TinyDB, Query
+from tinydb import Query, TinyDB
 from tinydb.table import Table
-from fedbiomed.common.db import DBTable
 
-from fedbiomed.common.utils import raise_for_version_compatibility
 from fedbiomed.common.constants import (
-    VAR_FOLDER_NAME,
-    _BaseEnum,
-    ErrorNumbers,
     NODE_STATE_PREFIX,
-    __node_state_version__)
+    VAR_FOLDER_NAME,
+    ErrorNumbers,
+    __node_state_version__,
+    _BaseEnum,
+)
+from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedNodeStateManagerError
 from fedbiomed.common.logger import logger
-
+from fedbiomed.common.utils import raise_for_version_compatibility
 
 NODE_STATE_TABLE_NAME = "Node_states"
 
@@ -29,6 +29,7 @@ class NodeStateFileName(_BaseEnum):
     File names should contains 2 `%s`: one for round number, the second for state_id
     Example: VALUE = "some_values_%s_%s"
     """
+
     OPTIMIZER: str = "optim_state_%s_%s"
 
 
@@ -59,7 +60,7 @@ class NodeStateManager:
         Raises:
             FedbiomedNodeStateManagerError: failed to access the database
 
-    """
+        """
         # NOTA: constructor has been designed wrt other object handling DataBase
         self._dir = dir
         self._node_id = node_id
@@ -71,10 +72,13 @@ class NodeStateManager:
         try:
             self._connection = TinyDB(db_path)
             self._connection.table_class = DBTable
-            self._db: Table = self._connection.table(name=NODE_STATE_TABLE_NAME, cache_size=0)
+            self._db: Table = self._connection.table(
+                name=NODE_STATE_TABLE_NAME, cache_size=0
+            )
         except Exception as e:
-            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: "
-                                                 "Error found when loading database") from e
+            raise FedbiomedNodeStateManagerError(
+                f"{ErrorNumbers.FB323.value}: Error found when loading database"
+            ) from e
 
     @property
     def state_id(self) -> Optional[str]:
@@ -110,9 +114,11 @@ class NodeStateManager:
         state = self._load_state(experiment_id, state_id)
 
         if state is None:
-            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: no entries matching"
-                                                 f" experiment_id {experiment_id} and "
-                                                 f"state_id {state_id} found in the DataBase")
+            raise FedbiomedNodeStateManagerError(
+                f"{ErrorNumbers.FB323.value}: no entries matching"
+                f" experiment_id {experiment_id} and "
+                f"state_id {state_id} found in the DataBase"
+            )
 
         # from this point, state should be a dictionary
         self._check_version(state.get("version_node_id"))
@@ -133,11 +139,13 @@ class NodeStateManager:
         """
 
         if self._state_id is None:
-            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Node state manager is not initialized")
+            raise FedbiomedNodeStateManagerError(
+                f"{ErrorNumbers.FB323.value}: Node state manager is not initialized"
+            )
         header = {
             "version_node_id": str(__node_state_version__),
             "state_id": self._state_id,
-            "experiment_id": experiment_id
+            "experiment_id": experiment_id,
         }
 
         state.update(header)
@@ -164,11 +172,14 @@ class NodeStateManager:
             result of the request
         """
         try:
-
-            res = self._db.get((self._query.experiment_id == experiment_id) & (self._query.state_id == state_id))
+            res = self._db.get(
+                (self._query.experiment_id == experiment_id)
+                & (self._query.state_id == state_id)
+            )
         except Exception as e:
-            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to load node state "
-                                                 "in DataBase") from e
+            raise FedbiomedNodeStateManagerError(
+                f"{ErrorNumbers.FB323.value}: Failing to load node state in DataBase"
+            ) from e
         logger.debug("Successfully loaded previous state!")
         return res
 
@@ -187,10 +198,13 @@ class NodeStateManager:
         try:
             self._db.upsert(state_entry, self._query.state_id == state_id)
         except Exception as e:
-            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: failing to "
-                                                 "save node state into DataBase") from e
+            raise FedbiomedNodeStateManagerError(
+                f"{ErrorNumbers.FB323.value}: failing to save node state into DataBase"
+            ) from e
 
-    def initialize(self, previous_state_id: Optional[str] = None, testing: Optional[bool] = False) -> None:
+    def initialize(
+        self, previous_state_id: Optional[str] = None, testing: Optional[bool] = False
+    ) -> None:
         """Initializes NodeStateManager, by creating folder that will contains Node state folders.
 
         Args:
@@ -209,8 +223,10 @@ class NodeStateManager:
             try:
                 os.makedirs(self._node_state_base_dir, exist_ok=True)
             except Exception as e:
-                raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to create"
-                                                     f" directories {self._node_state_base_dir}") from e
+                raise FedbiomedNodeStateManagerError(
+                    f"{ErrorNumbers.FB323.value}: Failing to create"
+                    f" directories {self._node_state_base_dir}"
+                ) from e
 
     def get_node_state_base_dir(self) -> Optional[str]:
         """Returns `Node` State base directory path, in which are saved Node state files and other contents
@@ -220,10 +236,9 @@ class NodeStateManager:
         """
         return self._node_state_base_dir
 
-    def generate_folder_and_create_file_name(self,
-                                             experiment_id: str,
-                                             round_nb: int,
-                                             element: NodeStateFileName) -> str:
+    def generate_folder_and_create_file_name(
+        self, experiment_id: str, round_nb: int, element: NodeStateFileName
+    ) -> str:
         """Creates folders and file name for each content (Optimizer, model, ...) that composes
         a Node State.
 
@@ -243,18 +258,23 @@ class NodeStateManager:
 
         node_state_base_dir = self.get_node_state_base_dir()
         if node_state_base_dir is None:
-            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: working directory has not been "
-                                                 "initialized, have you run `initialize` method beforehand ?")
+            raise FedbiomedNodeStateManagerError(
+                f"{ErrorNumbers.FB323.value}: working directory has not been "
+                "initialized, have you run `initialize` method beforehand ?"
+            )
 
         if self._state_id is None:
-            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Node state manager is not initialized")
+            raise FedbiomedNodeStateManagerError(
+                f"{ErrorNumbers.FB323.value}: Node state manager is not initialized"
+            )
         base_dir = os.path.join(node_state_base_dir, "experiment_id_%s" % experiment_id)
         try:
             os.makedirs(base_dir, exist_ok=True)
 
         except Exception as e:
-            raise FedbiomedNodeStateManagerError(f"{ErrorNumbers.FB323.value}: Failing to create directories "
-                                                 f"{base_dir}") from e
+            raise FedbiomedNodeStateManagerError(
+                f"{ErrorNumbers.FB323.value}: Failing to create directories {base_dir}"
+            ) from e
         # TODO catch exception here
         file_name = element.value % (round_nb, self._state_id)
         return os.path.join(base_dir, file_name)
@@ -276,6 +296,9 @@ class NodeStateManager:
             version: version found in the DataBase entries.
         """
 
-        raise_for_version_compatibility(version, __node_state_version__,
-                                        f"{ErrorNumbers.FB625.value}: Loaded a node state with version %s "
-                                        f"which is incompatible with the current node state version %s")
+        raise_for_version_compatibility(
+            version,
+            __node_state_version__,
+            f"{ErrorNumbers.FB625.value}: Loaded a node state with version %s "
+            f"which is incompatible with the current node state version %s",
+        )

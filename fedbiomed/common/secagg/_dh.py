@@ -1,12 +1,12 @@
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
-from cryptography.hazmat.backends import default_backend
-
 from typing import Callable
 
-from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
+
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
 
 
 class DHKey:
@@ -22,9 +22,7 @@ class DHKey:
     """
 
     def __init__(
-        self,
-        private_key_pem: bytes | None = None,
-        public_key_pem: bytes | None = None
+        self, private_key_pem: bytes | None = None, public_key_pem: bytes | None = None
     ) -> None:
         """
         Initializes the DHKey instance by generating a new key pair or importing the provided keys.
@@ -38,7 +36,7 @@ class DHKey:
                 serialization.load_pem_private_key,
                 data=private_key_pem,
                 password=None,
-                backend=default_backend()
+                backend=default_backend(),
             )
         elif not public_key_pem:
             self.private_key = ec.generate_private_key(
@@ -49,13 +47,13 @@ class DHKey:
             self.private_key = None
 
         if public_key_pem:
-            self.public_key = self._import_key(serialization.load_pem_public_key,
-                                               data=public_key_pem,
-                                               backend=default_backend()
-                                               )
+            self.public_key = self._import_key(
+                serialization.load_pem_public_key,
+                data=public_key_pem,
+                backend=default_backend(),
+            )
         else:
             self.public_key = self.private_key.public_key()
-
 
     def export_private_key(self):
         """
@@ -100,7 +98,6 @@ class DHKey:
             raise FedbiomedSecaggCrypterError(
                 f"{ErrorNumbers.FB629.value}: Invalid key format, {kwargs}"
             ) from exp
-
 
 
 class DHKeyAgreement:
@@ -163,6 +160,8 @@ class DHKeyAgreement:
             The derived shared secret.
         """
         dh_v_key = DHKey(public_key_pem=public_key_pem)
-        shared_secret = self._dh_key.private_key.exchange(ec.ECDH(), dh_v_key.public_key)
+        shared_secret = self._dh_key.private_key.exchange(
+            ec.ECDH(), dh_v_key.public_key
+        )
         derived_key = self._kdf(shared_secret, node_v_id)
         return derived_key

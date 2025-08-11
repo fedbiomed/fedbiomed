@@ -10,20 +10,24 @@ This strategy is used then user does not provide its own
 import copy
 from typing import Dict, List, Tuple, Union
 
+import numpy as np
+import torch
+
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.common.logger import logger
-from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.strategies import Strategy
+from fedbiomed.common.message import TrainReply
+
+from .strategy import Strategy
 
 
 class DefaultStrategy(Strategy):
     """
     Default strategy to be used when sampling/selecting nodes
-    and checking whether nodes have responded or not
+    and to check whether nodes have responded or not
 
     Strategy is:
-    - select all node for each round
+    - select all nodes for each round
     - raise an error if one node does not answer
     - raise an error is one node returns an error
     """
@@ -45,32 +49,21 @@ class DefaultStrategy(Strategy):
         return from_nodes
 
     def refine(
-            self,
-            training_replies: Dict,
-            round_i: int
-    ) -> Tuple[Dict[str, Dict[str, Union['torch.Tensor', 'numpy.ndarray']]],
-               Dict[str, float],
-               int,
-               Dict[str, List[int]]]:
+        self, training_replies: Dict[str, TrainReply], round_i: int
+    ) -> Tuple[
+        Dict[str, Dict[str, Union["torch.Tensor", "np.ndarray"]]],
+        Dict[str, float],
+        int,
+        Dict[str, List[int]],
+    ]:
         """
         The method where node selection is completed by extracting parameters and length from the training replies
 
         Args:
-            training_replies: is a list of elements of type
-                 Response( { 'success': m['success'],
-                             'msg': m['msg'],
-                             'dataset_id': m['dataset_id'],
-                             'node_id': m['node_id'],
-                             'params_path': params_path,
-                             'params': params,
-                             'sample_size': sample_size
-                             } )
-            round_i: Current round of experiment
+            training_replies: Dictionary of replies from nodes.
+            round_i: Current round of experiment.
 
         Returns:
-            weights: Proportions list, each element of this list represents a dictionary with
-                its only key as the node_id and its value the proportion of lines the node has
-                with respect to the whole,
             model_params: list with each element representing a dictionary. Its only key represents
                 the node_id and the corresponding value is a dictionary containing list of weight
                 matrices of every node : [{"n1":{"layer1":m1,"layer2":m2},{"layer3":"m3"}},{"n2":
@@ -79,38 +72,29 @@ class DefaultStrategy(Strategy):
                 The correction is updated every round. The computation of correction states at round
                 i is dependant to client states and correction states of round i-1. Since
                 training_replies    can potentially order the node replies differently from round to
-                round, the bridge between all these parameters is represented by the node_id.
+                round, the bridge between all these parameters is represented by the node_id
+            weights: Proportions list, each element of this list represents a dictionary with
+                its only key as the node_id and its value the proportion of lines the node has
+                with respect to the whole
             total_rows: sum of number of samples used by all nodes
             encryption_factors: encryption factors from the participating nodes
 
         Raises:
-            FedbiomedStrategyError: - Miss-matched in answered nodes and existing nodes
-                - If not all nodes successfully completes training
-                - if a Node has not sent `sample_size` value in the TrainingReply, making it
-                impossible to compute aggregation weights.
+            FedbiomedStrategyError: If any of the following occur:
+                - A node in the sampling list does not reply
+                - Not all nodes successfully complete training
+                - A successful reply does not include `sample_size` value.
         """
-        # check that all nodes answered
-        answers_count = 0
-
-        if self._sampling_node_history.get(round_i) is None:
+        missing_node_replies = []
+        for node in self._sampling_node_history.get(round_i):
+            if node not in training_replies:
+                missing_node_replies.append(node)
+                logger.error(ErrorNumbers.FB409.value + " (node = " + node + ")")
+        if missing_node_replies:
             raise FedbiomedStrategyError(
                 ErrorNumbers.FB408.value
-                + f": Missing Nodes replies for round: {round_i}"
+                + f": {len(missing_node_replies)} missing training replies for round {round_i}"
             )
-
-        for cl in self._sampling_node_history[round_i]:
-            if cl in training_replies:
-                answers_count += 1
-            else:
-                # this node did not answer
-                logger.error(ErrorNumbers.FB408.value + " (node = " + cl + ")")
-
-        if len(self._sampling_node_history[round_i]) != answers_count:
-            msg = ErrorNumbers.FB408.value
-            if answers_count == 0:
-                # none of the nodes answered
-                msg = ErrorNumbers.FB407.value
-            raise FedbiomedStrategyError(msg)
 
         # check that all nodes that answer could successfully train
         self._success_node_history[round_i] = []
@@ -124,7 +108,7 @@ class DefaultStrategy(Strategy):
                 model_params[tr["node_id"]] = tr["params"]
                 encryption_factors[tr["node_id"]] = tr.get("encryption_factor", None)
 
-                if tr["sample_size"] is None:
+                if tr.get("sample_size") is None:
                     # if a Node `sample_size` is None, we cannot compute the weights: in this case
                     # return an error
                     raise FedbiomedStrategyError(
@@ -139,7 +123,12 @@ class DefaultStrategy(Strategy):
                 self._success_node_history[round_i].append(tr["node_id"])
             else:
                 all_success = False
-                logger.error(f"{ErrorNumbers.FB409.value} (node = {tr['node_id']} )")
+                msg = tr.get("msg") or ""
+                logger.error(
+                    "Unsuccessful training reply{} (node = {} )".format(
+                        f": {msg}" if msg else "", tr["node_id"]
+                    )
+                )
 
         if not all_success:
             raise FedbiomedStrategyError(ErrorNumbers.FB402.value)
