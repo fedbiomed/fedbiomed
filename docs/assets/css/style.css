@@ -461,8 +461,77 @@ ul.sub-nav-menu li a{
     }
 }
 
+/* -------------------- Citation Box --------------------------------------------------*/
 
+.citation-container {
+            max-width: 800px;
+            margin: 20px auto;
+        }
 
+        .citation-box {
+            background-color: #ffffff;
+            border: 1px solid #d0d0d0;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .citation-box::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .citation-box::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .citation-box::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+
+        .citation-box::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        .citation-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            white-space: normal;
+        }
+
+        .citation-text {
+            color: #555;
+            font-family: 'Courier New', monospace;
+            white-space: pre-line;
+            min-width: max-content;
+        }
+
+        .citation-field-name {
+            font-weight: bold;
+            color: #0066cc;
+        }
+
+        /* Alternative style - more academic look */
+        .citation-box.academic {
+            background-color: #fafafa;
+            border-left: 4px solid #0066cc;
+            font-style: italic;
+        }
+
+        /* Alternative style - minimal */
+        .citation-box.minimal {
+            border: none;
+            background-color: transparent;
+            border-bottom: 1px solid #eee;
+            border-radius: 0;
+            box-shadow: none;
+        }
 
 /* -------------------- Search Box --------------------------------------------------*/
 

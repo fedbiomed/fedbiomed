@@ -136,7 +136,9 @@ Current list of Core Developers listed by alphabetical order:
 - Yannick Bouillard
 - Sergen Cansiz
 - Francesco Cremonesi
+- Ali Tolga Dinçer
 - Marco Lorenzi
+- Jhonatan Torres
 - Marc Vesin
 
 
