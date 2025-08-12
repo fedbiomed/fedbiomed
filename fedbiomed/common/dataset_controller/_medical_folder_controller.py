@@ -1,6 +1,6 @@
 from os import PathLike
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 from monai.data import ITKReader
@@ -75,32 +75,28 @@ class MedicalFolderController(Controller):
 
     @tabular_file.setter
     def tabular_file(self, filepath: Optional[Union[str, Path]]):
-        """Sets `tabular_file` property"""
-        if filepath is not None:
-            filepath = self._normalize_tabular_file(filepath)
-        self._tabular_file = filepath
-
-    def _normalize_tabular_file(self, filepath: Union[str, Path]) -> Path:
-        """Validates `tabular_file` property
+        """Sets `tabular_file` property
 
         Raises:
             FedbiomedError:
+            - if filepath is not of type `str` or `Path`
             - if filepath does not match a file or is not csv or tsv
         """
-        if not isinstance(filepath, (str, Path)):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Expected a string or Path, got "
-                f"{type(filepath).__name__}"
-            )
-        filepath = Path(filepath).expanduser().resolve()
-        if not filepath.is_file() and not filepath.suffix.lower().endswith(
-            (".csv", ".tsv")
-        ):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB613.value}: "
-                "Path does not correspond to a CSV or TSV file"
-            )
-        return filepath
+        if filepath is not None:
+            if not isinstance(filepath, (str, Path)):
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Expected a string or Path, got "
+                    f"{type(filepath).__name__}"
+                )
+            filepath = Path(filepath).expanduser().resolve()
+            if not filepath.is_file() and not filepath.suffix.lower().endswith(
+                (".csv", ".tsv")
+            ):
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB613.value}: "
+                    "Path does not correspond to a CSV or TSV file"
+                )
+        self._tabular_file = filepath
 
     @property
     def index_col(self):
@@ -131,7 +127,7 @@ class MedicalFolderController(Controller):
     def modalities(self):
         return self._modalities
 
-    def _normalize_modalities(modalities: Union[str, Iterable[str]]) -> set:
+    def _normalize_modalities(modalities: Union[str, Iterable[str]]) -> set[str]:
         """Validates `modalities`
 
         Returns:
@@ -200,7 +196,7 @@ class MedicalFolderController(Controller):
         root: Path,
         extensions: Union[str, tuple[str, ...]] = _extensions,
         modalities: Optional[Union[str, Iterable[str]]] = None,
-    ) -> pd.DataFrame:
+    ) -> Tuple[set[str], pd.DataFrame]:
         """Matches files for expected structure.
         Filters files by extension and avoid hidden folders and files.
 
@@ -233,7 +229,7 @@ class MedicalFolderController(Controller):
                     rows.append(
                         dict(zip(("subject", "modality", "file"), parts, strict=True))
                     )
-        # =====================================================================
+
         if _no_structure_match_flag:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB613.value}: Root folder does not match Medical "
@@ -245,9 +241,10 @@ class MedicalFolderController(Controller):
                 "No match found in root/<subjects>/<modalities>/<files> for files with "
                 f"extensions in {extensions}. Hidden files or folders are not considered"
             )
-        # =====================================================================
+
         df_dir = pd.DataFrame(rows)
-        # =====================================================================
+
+        # === Ensure one valid file per modality folder
         _files_count = df_dir.groupby(["subject", "modality"])["file"].count()
         _files_count = _files_count.reset_index(name="count")
         _multiple_files = _files_count[_files_count["count"] != 1]
@@ -262,7 +259,8 @@ class MedicalFolderController(Controller):
                 f"{ErrorNumbers.FB613.value}: more than one valid file per modality has "
                 f"been found for next <subject>/<modality>: {_folders}, ..."
             )
-        # =====================================================================
+
+        # === Identify modalities (-available-, and -missing- when `modalities` is not None)
         candidate_modalities = set(df_dir["modality"].unique())
         modalities = (
             candidate_modalities
@@ -275,27 +273,28 @@ class MedicalFolderController(Controller):
                 f"{ErrorNumbers.FB613.value}: Some modality names are not "
                 f"found in the root folder structure: {missing_modalities}"
             )
-        # subjects that have all given modalities
+
+        # === Identify subjects that have all modalities
         _group_modality_sets = df_dir.groupby("subject")["modality"].apply(set)
         _matching_subject = _group_modality_sets[
             _group_modality_sets.apply(lambda x: modalities.issubset(x))
         ].index
-        # filter df by 'subjects with all modalities' and 'modalities'
+        # === Filter df by 'subjects with all modalities' and 'modalities'
         df_dir = df_dir[
             df_dir["subject"].isin(_matching_subject)
             & df_dir["modality"].isin(modalities)
         ]
-        # =====================================================================
+
         if len(df_dir) == 0:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB613.value}: "
                 f"No 'subject' matches all `modalities`: {modalities}"
             )
-        # =====================================================================
         logger.info(
             f"{len(df_dir['subject'].unique())} subjects in folder structure with all "
             f"modalities: {', '.join(modalities)}"
         )
+
         return modalities, df_dir
 
     def _make_dataset(
@@ -304,7 +303,22 @@ class MedicalFolderController(Controller):
         tabular_file: Optional[Path],
         index_col: Optional[Union[int, str]],
         modalities: Optional[Union[str, Iterable[str]]] = None,
-    ):
+    ) -> Tuple[set[str], List[Dict[str, Any]]]:
+        """Builds samples in `dict` with `modalities` and `demographics`
+
+        Args:
+            root: path to medical folder
+            tabular_file: path to demographics file
+            index_col: Index column that matches <subject>
+            modalities: Iterable of modalities to recover. Defaults to None.
+
+        Raises:
+            FedbiomedError:
+            - if one of `tabular_file` and `index_col` is given and the other is not
+
+        Returns:
+            `modalities` and `samples`
+        """
         if (tabular_file is None) != (index_col is None):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB613.value}: "
@@ -336,6 +350,7 @@ class MedicalFolderController(Controller):
         return modalities, samples
 
     def _get_nontransformed_item(self, index: int) -> Dict[str, Any]:
+        """Retrieve a data sample without applying transforms"""
         sample = self._samples[index]
         try:
             data = {
