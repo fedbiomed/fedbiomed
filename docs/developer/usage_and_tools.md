@@ -348,6 +348,8 @@ All sprint backlog issues have one status label. Other issues only have a status
   - **in review** : Issue implementation is finished, a pull request open and is ready for review (or under review)
   - **done** : Issue is completed, it meets the DoD and **was merged to the next release integration branch**, but it still belongs to the *sprint backlog*
 
+For a sprint backlog issue, please set the `Fed-BioMed Dev` board status accordingly (in the `Projects` field on the right side of the issue).
+
 
 #### *misc* labels
 
