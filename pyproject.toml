@@ -97,6 +97,7 @@ dependencies = [
 	"grpcio-tools  ~=1.66",
 	"unet  >=0.7.7,<0.8.0",
 	"pygments ~=2.18.0",
+	"nibabel~=5.3",
 ]
 
 requires-python = "<3.12,>=3.10"
