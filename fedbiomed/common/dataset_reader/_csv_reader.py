@@ -22,7 +22,7 @@ from fedbiomed.common.dataset_types import (
     Transform,
     drf_default,
 )
-from fedbiomed.common.exceptions import FedbiomedUserInputError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedUserInputError
 
 from ._reader import Reader
 
@@ -301,36 +301,39 @@ class CsvReader(Reader):
         to_format: DataReturnFormat = drf_default,
         reader_transform: Transform = None,
         reader_target_transform: Transform = None,
-        encoding: str = "utf-8",
         has_header: str | bool = "auto",
-        delimiter: Optional[str] = ",",
+        delimiter: Optional[str] = None,
         # Optional polars parameters
+        encoding: str = "utf-8",
         force_read: Optional[bool] = False,
         n_thread: Optional[int] = None,
         low_memory: bool = False,
         # Any other parameter ?
     ) -> None:
         """Class constructor"""
+
         self._path = root
         self._memory = memory
 
-        self._offsets = []
-        self._is_preparsed = False
-        self._delimiter = "," if delimiter is None else delimiter
+        self._delimiter = delimiter if delimiter is None else delimiter
         self.header = None if has_header == "auto" else has_header
+
+        # Potential parameters to use in the future for lazy reading
+        self._offsets = []
         self._header_offset = 0
         self._encoding = encoding  # triggers perf issues when reading file
-
-        self._shape: Tuple[int] = None
-        self._len = None
         self._force_read = force_read
         self._low_memory = low_memory
+        self._n_thread = n_thread
+        self._index = None
 
-        # self._transform_framework = lambda x: x  # change that dpd on to_format arg
-        self._format = to_format
+        # Pre-parse the CSV file to determine its delimiter and header
+        # Note: this will read the first line of the file
+        self._reader = None
+        self._is_preparsed = False  # whether the reader has been pre-parsed
+        self._pre_parse()
 
-        # self._reader_transform = lambda x: x if reader_transform is None else reader_transform
-
+        # Transform is going to be the data itself if there are no transform provided
         if reader_transform is None:
             self._reader_transform = lambda x: x
         else:
@@ -341,12 +344,16 @@ class CsvReader(Reader):
         else:
             self._reader_target_transform = reader_target_transform
 
-        self._reader = None
-        self._n_thread = n_thread
-        self._index = None
-
         # default behaviour
         self.to_generic()
+
+        # Initialize the data and the column names
+        self.data = self.read()
+        self.columns = self.data.columns
+
+        # Initialize shape and length
+        self._shape = self._reader.shape
+        self._len = self._shape[0]
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
     def read(self, **kwargs) -> Union[pd.DataFrame, torch.Tensor, np.ndarray]:
@@ -370,16 +377,15 @@ class CsvReader(Reader):
         # If memory is True, read the whole file in memory
         if self._memory:
             try:
-                file_content = pd.read_csv(
+                file_content = pl.read_csv(
                     self._path,
-                    sep=self._delimiter,
+                    separator=self._delimiter,
+                    has_header=bool(self.header),
                     **kwargs,
                 )
-            except pd.errors.ParserError as err:
-                raise FedbiomedUserInputError(
-                    f"Cannot read csv file {self._path} due to inconsistent lines:\n"
-                    f"See details in the error message: {str(err)}"
-                ) from err
+            except pl.exceptions.ComputeError as err:
+                msg = f"cannot read csv file {self._path} due to inconsistent lines: see details"
+                raise FedbiomedError(msg) from err
         else:
             # If memory is False, read the file lazily
             # Note: Polars does not provide an index_col parameter like Pandas
@@ -388,13 +394,11 @@ class CsvReader(Reader):
                     self._path,
                     separator=self._delimiter,
                     has_header=bool(self.header),
-                    # n_threads=self._n_thread,
                     **kwargs,
                 )
             except pl.exceptions.ComputeError as err:
                 msg = f"cannot read csv file {self._path} due to inconsistent lines: see details"
-                raise FedbiomedUserInputError(msg) from err
-            # TODO: add header + delimiter into the read_csv
+                raise FedbiomedError(msg) from err
 
         return self._reader_transform(file_content)
 
@@ -420,20 +424,6 @@ class CsvReader(Reader):
 
         if not self._is_preparsed:
             self._pre_parse()
-
-        if self._shape is None:
-            if self._memory:
-                # Read the CSV file to determine its shape
-                # Note: this will read the entire file into memory
-                df = pd.read_csv(
-                    self._path,
-                    sep=self._delimiter,
-                )
-                self._shape = df.shape
-                self._len = df.shape[0]
-            else:
-                self._len = self._reader.shape[0]
-                self._shape = self._reader.shape
 
         return ReaderShape(dict({"csv": self._shape}))
 
@@ -472,6 +462,19 @@ class CsvReader(Reader):
         index_col: int | str,
         columns: Optional[Iterable] = None,
     ) -> Union[Tuple[Any], Tuple[Any] | None]:
+        """
+        Reads a single row or a batch of rows within a csv file.
+        Rows are indexed by index_column and
+        indexes are used as a filter to select which indexes to retrieve.
+        Args:
+            indexes: index or indexes.
+            index_col: column to use as index for rows.
+            columns: (Optional) list of columns to retrieve.
+        Returns:
+            Tuple of one or several entries in a framework specified format for each lines
+            of the file requested. If no framework specified format has been defined, convert
+            into np.array.
+        """
         if isinstance(index_col, int):
             try:
                 col_name = (
@@ -485,16 +488,17 @@ class CsvReader(Reader):
                 ) from err
         else:
             col_name = index_col
+
         try:
             self._index = pl.col(col_name)
-            res = self._reader.filter(self._index.is_in(indexes))  #  .collect()
+            csv_entry = self._reader.filter(self._index.is_in(indexes))  #  .collect()
         except pl.exceptions.ColumnNotFoundError as err:
             raise FedbiomedUserInputError(
                 f"column not found {index_col}"
                 f" `index_col` should be selected from {self.header}."
             ) from err
 
-        if res.is_empty():
+        if csv_entry.is_empty():
             raise FedbiomedUserInputError(
                 "cannot find any entry matching " + " ".join(indexes)
             )
@@ -511,15 +515,21 @@ class CsvReader(Reader):
             if isinstance(columns, list) and all(
                 isinstance(item, int) for item in columns
             ):
-                all_cols = [res.columns[i] for i in columns]
+                n_cols = len(csv_entry.columns)
+                for i in columns:
+                    if not (0 <= i < n_cols):
+                        raise IndexError(
+                            f"Column index {i} is out of range (0 to {n_cols - 1})"
+                        )
+                all_cols = [csv_entry.columns[i] for i in columns]
                 columns = all_cols
 
-            res = res.select(columns)
+            csv_entry = csv_entry.select(columns)
 
-        res = self._transform_framework(self._reader_transform(res))
-        target = self._transform_framework(self._reader_target_transform(res))
+        data = self._transform_framework(self._reader_transform(csv_entry))
+        target = self._transform_framework(self._reader_target_transform(csv_entry))
 
-        return res, target
+        return data, target
 
     def _read_single_entry(
         self,
@@ -566,6 +576,12 @@ class CsvReader(Reader):
                 if isinstance(columns, list) and all(
                     isinstance(item, int) for item in columns
                 ):
+                    n_cols = len(csv_entry.columns)
+                    for i in columns:
+                        if not (0 <= i < n_cols):
+                            raise IndexError(
+                                f"Column index {i} is out of range (0 to {n_cols - 1})"
+                            )
                     all_cols = [csv_entry.columns[i] for i in columns]
                     columns = all_cols
 
@@ -657,39 +673,43 @@ class CsvReader(Reader):
     # Additional methods for exploring data, depending on Reader
     def _pre_parse(self, **reader_kwargs):
         # get delimiter and header
-        # only rertieve info from the first line of csv
+        # only retrieve info from the first line of csv
+
+        if self._delimiter is None:
+            with open(self._path, "r") as f:
+                sample = f.read(8192)
+            if not sample:
+                raise FedbiomedUserInputError(
+                    f"File {self._path} is empty or cannot be read."
+                )
+
+            sniffer = csv.Sniffer()
+            try:
+                self._delimiter = sniffer.sniff(sample).delimiter
+            except csv.Error as err:
+                raise FedbiomedError(
+                    "Cannot detect delimiter automatically. Please specify it through `delimiter` argument"
+                ) from err
+
+        if not self.header:
+            try:
+                self.header = csv.Sniffer().has_header(sample)
+            except csv.Error as err:
+                raise FedbiomedError(
+                    "Cannot detect header automatically. Please specify it through `has_header` argument"
+                ) from err
+
+        print(f"Detected delimiter: {self._delimiter}")
+        print(f"Detected header: {self.header}")
+
         if self._reader is None:
             self._cpu_reader()
 
-        sniffer = csv.Sniffer()
-        _first_line = self._reader.row(0)
-
-        if len(_first_line) == 1:
-            # reload file with appropriate delimiter
-
-            self._delimiter = sniffer.sniff(_first_line[0]).delimiter
-            if self._delimiter != ",":
-                # self._reader = pl.read_csv(
-                #     self._path,
-                #     separator=self._delimiter,
-                #     has_header=bool(self.header),
-                #     truncate_ragged_lines=self._force_read,
-                #     **reader_kwargs,
-                # )
-                self._cpu_reader()
-                _first_line = _first_line[0].split(self._delimiter)
-
-        if not self.header and self._detect_header(sniffer):
-            self.header = True  # temporary
-            self._cpu_reader()  # needed to re-asses values of each columns
-            self.header = self._reader.columns
-            # self._reader = self._reader[1:]
-
-            # assuming header contains only strings
-        else:
-            self.header = None
         # self._header_offset = len(_first_line) + 1 if self.header is not None else 0
-        self._reader.lazy()
+
+        if self._memory is False:
+            self._reader.lazy()
+
         self._is_preparsed = True
 
     def _post_parse(self, x):
