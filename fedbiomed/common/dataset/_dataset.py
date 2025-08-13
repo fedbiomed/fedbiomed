@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -37,7 +37,7 @@ class DataReturnFormat(_BaseEnum):
 
 
 class Dataset(ABC):
-    _allowed_controllers: Union[str, Tuple[str, ...]] = None
+    _allowed_controller: str = None
     _controller = None
     _to_format: DataReturnFormat = None
 
@@ -85,20 +85,10 @@ class Dataset(ABC):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: 'name' not found in `controller_kwargs`"
             )
-        if (
-            self._allowed_controllers is None
-            or (
-                isinstance(self._allowed_controllers, str)
-                and controller_kwargs["name"] != self._allowed_controllers
-            )
-            or (
-                isinstance(self._allowed_controllers, dict)
-                and controller_kwargs["name"] not in self._allowed_controllers
-            )
-        ):
+        if controller_kwargs["name"] != self._allowed_controller:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Controller name not found in allowed "
-                f"controllers for this Dataset"
+                f"{ErrorNumbers.FB632.value}: Controller name does not match allowed "
+                f"controller for this Dataset"
             )
 
         try:

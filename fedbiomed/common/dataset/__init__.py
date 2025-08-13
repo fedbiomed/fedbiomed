@@ -5,7 +5,7 @@
 Classes that simplify imports from fedbiomed.common.dataset
 """
 
-from ._dataset import Dataset
+from ._dataset import DataReturnFormat, Dataset
 from ._simple_dataset import (
     ImageFolderDataset,
     MedNistDataset,
@@ -14,6 +14,7 @@ from ._simple_dataset import (
 
 __all__ = [
     "Dataset",
+    "DataReturnFormat",
     "ImageFolderDataset",
     "MedNistDataset",
     "MnistDataset",

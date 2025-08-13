@@ -1,4 +1,3 @@
-from abc import ABC
 from typing import Any, Callable, Dict, Optional
 
 import numpy as np
@@ -11,7 +10,7 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 from ._dataset import DataReturnFormat, Dataset
 
 
-class SimpleDataset(ABC, Dataset):
+class SimpleDataset(Dataset):
     "Dataset where data and target are implicitly predefined by the controller"
 
     _native_to_framework_transform = {
@@ -28,6 +27,11 @@ class SimpleDataset(ABC, Dataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
     ):
+        if type(self) is SimpleDataset:
+            raise FedbiomedValueError(
+                f"{ErrorNumbers.FB632.value}: "
+                "`SimpleDataset` cannot be instantiated directly"
+            )
         self.transform = transform
         self.target_transform = target_transform
 
@@ -105,7 +109,7 @@ class SimpleDataset(ABC, Dataset):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Expected "
                 f"`{'target_' if is_target else ''}transform` to return "
-                f"`{self._to_format.value.__name__}`, got {type(item).__name__}"
+                f"`{self._to_format.value}`, got {type(item).__name__}"
             )
         return transform
 
