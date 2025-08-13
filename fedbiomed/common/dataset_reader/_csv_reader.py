@@ -179,16 +179,13 @@ class CsvReader(Reader):
             into np.array.
         """
         if isinstance(index_col, int):
-            try:
-                col_name = (
-                    self.header[index_col]
-                    if self.header
-                    else "column_" + str(index_col)
-                )
-            except IndexError as err:
+            cols = self._reader.columns  # actual column names from Polars
+            if not (0 <= index_col < len(cols)):
                 raise FedbiomedUserInputError(
-                    f"Got {index_col} as `index_col`, but does not exist in the header. {self.header}"
-                ) from err
+                    f"Got {index_col} as `index_col`, but it is out of range (0..{len(cols) - 1}). "
+                    f"Available columns: {cols}"
+                )
+            col_name = cols[index_col]
         else:
             col_name = index_col
 
@@ -202,9 +199,12 @@ class CsvReader(Reader):
             ) from err
 
         if csv_entry.is_empty():
-            raise FedbiomedUserInputError(
-                "cannot find any entry matching " + " ".join(indexes)
+            wanted = (
+                f"range({indexes.start}, {indexes.stop}, {indexes.step})"
+                if isinstance(indexes, range)
+                else ", ".join(map(str, indexes))
             )
+            raise FedbiomedUserInputError(f"cannot find any entry matching {wanted}")
 
         if columns is not None:
             # if columns is a single string or integer, convert it to a list
@@ -261,7 +261,6 @@ class CsvReader(Reader):
             return self._read_single_entry_from_index_col(indexes, index_col, columns)
         else:
             row_nb = pl.int_range(0, pl.len())
-
             csv_entry = self._reader.filter(row_nb.is_in(indexes))
 
             if csv_entry.is_empty():
@@ -284,8 +283,7 @@ class CsvReader(Reader):
                             raise FedbiomedUserInputError(
                                 f"Column index {i} is out of range (0 to {n_cols - 1})"
                             )
-                    all_cols = [csv_entry.columns[i] for i in columns]
-                    columns = all_cols
+                    columns = [csv_entry.columns[i] for i in columns]
 
                 if not all(column in csv_entry.columns for column in columns):
                     msg = f"Cannot read columns {columns}: file does not contain some columns specified"
@@ -293,14 +291,10 @@ class CsvReader(Reader):
 
                 csv_entry = csv_entry.select(columns)
 
-            if csv_entry.is_empty():
-                msg = f"Cannot read columns {columns}: file does not contain some columns specified"
-                raise FedbiomedUserInputError(msg)
-
             return csv_entry
 
     def _random_sample(self, n_entries: int, seed: Optional[int] = None):
-        entries = self._reader.sample(n_entries, seed)
+        entries = self._reader.sample(n_entries, seed=seed)
         return entries
 
     def len(self) -> int:
