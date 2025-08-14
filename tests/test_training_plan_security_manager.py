@@ -1,8 +1,8 @@
 import builtins
-import tempfile
 import copy
 import inspect
 import os
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -46,7 +46,11 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
 
         # Build TrainingPlanSecurityManager
         self.tp_security_manager = TrainingPlanSecurityManager(
-            db=self.db, node_id="test-id", hashing="SHA256", tp_approval=True
+            db=self.db,
+            node_id="test-id",
+            node_name="test-name",
+            hashing="SHA256",
+            tp_approval=True,
         )
 
         # get test directory to access test-training plan files
@@ -87,6 +91,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
                 tpsm = TrainingPlanSecurityManager(
                     db=self.db,
                     node_id="test-id",
+                    node_name="test-name",
                     hashing=algo,
                 )
                 hash, algorithm, _ = tpsm._create_hash(full_path)
@@ -100,6 +105,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         tpsm = TrainingPlanSecurityManager(
             db=self.db,
             node_id="test-id",
+            node_name="test-name",
             hashing="UNKNOWN_HASHING_ALGO",
         )
 

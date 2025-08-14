@@ -1,28 +1,24 @@
-import unittest
 import asyncio
 import time
+import unittest
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
-
-from unittest.mock import patch, MagicMock, AsyncMock, PropertyMock
-
-
-from fedbiomed.transport.node_agent import AgentStore
-from fedbiomed.transport.server import (
-    GrpcServer,
-    _GrpcAsyncServer,
-    ResearcherServicer,
-    NodeAgent,
-)
-from fedbiomed.transport.node_agent import NodeActiveStatus
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
-from fedbiomed.common.message import SearchRequest, SearchReply, OverlayMessage
+from fedbiomed.common.message import OverlayMessage, SearchReply, SearchRequest
+from fedbiomed.researcher.config import ResearcherConfig
+from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus
 from fedbiomed.transport.protocols.researcher_pb2 import (
-    TaskRequest,
-    TaskResult,
     Empty,
     FeedbackMessage,
+    TaskRequest,
+    TaskResult,
 )
-
+from fedbiomed.transport.server import (
+    GrpcServer,
+    NodeAgent,
+    ResearcherServicer,
+    _GrpcAsyncServer,
+)
 
 example_task = SearchRequest(
     researcher_id="r-id",
@@ -32,6 +28,7 @@ example_task = SearchRequest(
 reply = SearchReply(
     researcher_id="researcher-id",
     node_id="node-id",
+    node_name="node-name",
     databases=[],
     count=0,
 )
@@ -141,11 +138,15 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
         self.server_mock.return_value.start = AsyncMock()
         self.server_mock.return_value.wait_for_termination = AsyncMock()
 
+        self.config_mock = MagicMock(spec=ResearcherConfig)
+        self.config_mock.getint.return_value = 10
+
         self.on_message = MagicMock()
         self.grpc_server = _GrpcAsyncServer(
             host="localhost",
             port="50051",
             ssl=ssl_credentials,
+            config=self.config_mock,
             on_message=self.on_message,
             debug=False,
         )
@@ -192,8 +193,8 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
         loop = asyncio.get_event_loop()
 
         agents = {
-            "node-1": NodeAgent("node-1", loop, on_forward=None),
-            "node-2": NodeAgent("node-2", loop, on_forward=None),
+            "node-1": NodeAgent("node-1", loop, None, 10),
+            "node-2": NodeAgent("node-2", loop, None, 10),
         }
         self.agent_store_mock.return_value.get_all.return_value = agents
         agents["node-1"]._status = NodeActiveStatus.DISCONNECTED
@@ -245,12 +246,14 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
 
         self.server_mock.return_value.start = AsyncMock()
         self.server_mock.return_value.wait_for_termination = AsyncMock()
-
+        self.config_mock = MagicMock(spec=ResearcherConfig)
+        self.config_mock.getint.return_value = 10
         self.on_message = MagicMock()
         self.grpc_server = GrpcServer(
             host="localhost",
             port="50051",
             ssl=self.ssl_credentials,
+            config=self.config_mock,
             on_message=self.on_message,
             debug=False,
         )
@@ -271,6 +274,7 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
             host="localhost",
             port="50051",
             ssl=self.ssl_credentials,
+            config=self.config_mock,
             on_message=self.on_message,
             debug=False,
         )

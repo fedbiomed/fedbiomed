@@ -689,7 +689,7 @@ class TestTorchModel(unittest.TestCase):
         }
 
         # zeroes gradients model
-        self.model.model.zero_grad()
+        self.model.model.zero_grad(set_to_none=False)
         # action
         self.model.add_corrections_to_gradients(corrections)
         # checks

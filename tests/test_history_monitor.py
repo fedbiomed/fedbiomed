@@ -19,6 +19,7 @@ class TestHistoryMonitor(unittest.TestCase):
         try:
             self.history_monitor = HistoryMonitor(
                 node_id="test-node-id",
+                node_name="test-node-name",
                 experiment_id="1234",
                 researcher_id="researcher-id",
                 send=self.send,

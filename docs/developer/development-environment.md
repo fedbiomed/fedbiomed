@@ -21,17 +21,20 @@ cd <path-to-clone>
 
 ## Compatible Python version
 
-Before you start using Fed-BioMed or developing on Fed-BioMed please make sure that required Python version is installed on your machine. Please go to `pyproject.toml` file located in the root of Fed-BioMed clone, and check required Python version interval.
+Before you start using Fed-BioMed or developing on Fed-BioMed please make sure that required Python version 
+is installed on your machine. 
+Please go to `pyproject.toml` file located in the root of Fed-BioMed clone, and check the 
+required Python version interval.
 
 !!! note "Tool for different Python version"
 
     You can use the tool `pyenv` to be able to install specific Python versions into your local environment
     ```
-    pyenv install 3.10
-    pyenv global 3.10
+    pyenv install 3.11
+    pyenv global 3.11
     ```
 
-    The code above will install latest Python 3.10, and activate this version globally for your machine.
+    The code above will install latest Python 3.11, and activate this version globally for your machine.
 
 
 ## Install recommended tools to manage development environment

@@ -4,23 +4,22 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, call, create_autospec, patch
 
-
 from testsupport.fake_training_plan import FakeTorchTrainingPlan
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.message import TrainReply, ErrorMessage, TrainingPlanStatusReply
+from fedbiomed.common.message import ErrorMessage, TrainingPlanStatusReply, TrainReply
 from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.researcher.config import config
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.requests import DiscardOnTimeout, Requests
 from fedbiomed.researcher.federated_workflows.jobs import (
     Job,
     TrainingJob,
     TrainingPlanApproveJob,
     TrainingPlanCheckJob,
 )
-from fedbiomed.researcher.config import config
+from fedbiomed.researcher.requests import DiscardOnTimeout, Requests
 
 
 class TestJob(unittest.TestCase):
@@ -675,6 +674,7 @@ class TestJob(unittest.TestCase):
             "experiment_id": "some_id",
             "success": success,
             "node_id": node_id,
+            "node_name": "test-node",
             "dataset_id": dataset_id,
             "timing": {"rtime_total": 0},
             "msg": "",
@@ -692,6 +692,7 @@ class TestJob(unittest.TestCase):
             "request_id": "this_request",
             "researcher_id": "test-id",
             "node_id": node_id,
+            "node_name": "test-node",
             "errnum": "a dummy error",
             "extra_msg": "a dummy message",
         }
@@ -719,6 +720,7 @@ class TestJob(unittest.TestCase):
             "request_id": "this_request",
             "researcher_id": "test-id",
             "node_id": node_id,
+            "node_name": "test-node",
             "experiment_id": "some_id",
             "success": success,
             "approval_obligation": approval_obligation,

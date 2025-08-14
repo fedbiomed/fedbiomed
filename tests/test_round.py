@@ -3,24 +3,19 @@ import inspect
 import os
 import tempfile
 import unittest
-from unittest.mock import MagicMock, create_autospec, patch, PropertyMock
 from typing import Any, Dict, Optional, Tuple
-
-import pandas as pd
-
-from fedbiomed.node.node_state_manager import NodeStateFileName
-from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
-
-from testsupport.fake_training_plan import FakeModel, DeclearnAuxVarModel
-from testsupport.fake_uuid import FakeUuid
-from testsupport.testing_data_loading_block import (
-    ModifyGetItemDP,
-    LoadingBlockTypesForTesting,
-)
-from testsupport import fake_training_plan
+from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
 import numpy as np
+import pandas as pd
 import torch
+from testsupport import fake_training_plan
+from testsupport.fake_training_plan import DeclearnAuxVarModel, FakeModel
+from testsupport.fake_uuid import FakeUuid
+from testsupport.testing_data_loading_block import (
+    LoadingBlockTypesForTesting,
+    ModifyGetItemDP,
+)
 from torch.utils.data import Dataset
 
 from fedbiomed.common.constants import (
@@ -28,12 +23,12 @@ from fedbiomed.common.constants import (
     SecureAggregationSchemes,
     TrainingPlans,
 )
+from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingPlanMixin
 from fedbiomed.common.datamanager import DataManager
-from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin, DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
-from fedbiomed.common.models import TorchModel, Model
+from fedbiomed.common.models import Model, TorchModel
 from fedbiomed.common.optimizers import (
     AuxVar,
     BaseOptimizer,
@@ -49,6 +44,7 @@ from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg._secagg_round import _SecaggSchemeRound
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
 # Needed to access length of dataset from Round class
@@ -105,6 +101,7 @@ class TestRound(unittest.TestCase):
             root_dir=self.root,
             db=self.db,
             node_id="test-id",
+            node_name="test-node",
             tp_security_manager=self.tp_security_manager_mock,
             training_plan="TP",
             training_plan_class="MyTrainingPlan",
@@ -131,6 +128,7 @@ class TestRound(unittest.TestCase):
             root_dir=self.root,
             db=self.db,
             node_id="test-id",
+            node_name="test-node",
             tp_security_manager=self.tp_security_manager_mock,
             training_plan="TP",
             training_plan_class="another_training_plan",
@@ -214,18 +212,13 @@ class TestRound(unittest.TestCase):
             {"coefs": [1, 2, 3, 4]}, msg_test2.get_dict().get("params", False)
         )
 
-    @patch("fedbiomed.node.round.Round._split_train_and_test_data")
     @patch("importlib.import_module")
     @patch(
         "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status"
     )
     @patch("uuid.uuid4")
     def test_round_02_run_model_training_correct_model_calls(
-        self,
-        uuid_patch,
-        tp_security_manager_patch,
-        import_module_patch,
-        mock_split_train_and_test_data,
+        self, uuid_patch, tp_security_manager_patch, import_module_patch
     ):
         """tests if all methods of `model` have been called after instantiating
         (in run_model_training)"""
@@ -238,7 +231,6 @@ class TestRound(unittest.TestCase):
         #  - model.set_dataset_path
 
         FakeModel.SLEEPING_TIME = 0
-        MODEL_NAME = "my_model"
         MODEL_PARAMS = {"coef": [1, 2, 3, 4]}
 
         class FakeModule:
@@ -247,7 +239,6 @@ class TestRound(unittest.TestCase):
         uuid_patch.return_value = FakeUuid()
         tp_security_manager_patch.return_value = (True, {"name": "model_name"})
         import_module_patch.return_value = FakeModule
-        mock_split_train_and_test_data.return_value = (FakeLoader, FakeLoader)
 
         self.r1.training_kwargs = {}
         self.r1.dataset = {"path": "my/dataset/path", "dataset_id": "id_1234"}
@@ -257,12 +248,15 @@ class TestRound(unittest.TestCase):
         # and we will check if there are called when running
         # `run_model_training`
         with (
-            patch.object(FakeModel, "set_dataset_path") as mock_set_dataset,
             patch.object(FakeModel, "training_routine") as mock_training_routine,
             patch.object(
+                self.r1, "_split_train_and_test_data"
+            ) as mock_split_train_and_test_data,
+            patch.object(
                 FakeModel, "after_training_params", return_value=MODEL_PARAMS
-            ) as mock_after_training_params,  # noqa
+            ) as mock_after_training_params,
         ):
+            mock_split_train_and_test_data.return_value = (FakeLoader, FakeLoader)
             self.r1.initialize_arguments()
             msg = self.r1.run_model_training(
                 tp_approval=False,
@@ -1031,12 +1025,6 @@ class TestRound(unittest.TestCase):
 
         uuid_patch.return_value = FakeUuid()
         experiment_id = _id = FakeUuid.VALUE
-        state_id = f"node_state_{_id}"
-        path = (
-            "/path/to/base/dir"
-            + f"/experiment_id_{experiment_id}/"
-            + NodeStateFileName.OPTIMIZER.value % (0, state_id)
-        )
 
         # first create state
         self.r1.training_plan = training_plan_mock
@@ -1071,9 +1059,6 @@ class TestRound(unittest.TestCase):
         self.r1.experiment_id = "1234"
         self.r1._round = 11
         self.r1.is_test_data_shuffled = False
-
-        state_id = "state_id_1234"
-        path_state = "/path/to/state"
 
         get_optim_patch.return_value = MagicMock(
             spec=DeclearnOptimizer,

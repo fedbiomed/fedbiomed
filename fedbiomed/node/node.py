@@ -70,6 +70,8 @@ class Node:
 
         self._config = config
         self._node_id = self._config.get("default", "id")
+        self._node_name = self._config.get("default", "name")
+
         self._tasks_queue = TasksQueue(
             os.path.join(self._config.root, "var", f"queue_{self._node_id}"),
             str(os.path.join(self._config.root, "var", "tmp")),
@@ -108,6 +110,7 @@ class Node:
         self.tp_security_manager = TrainingPlanSecurityManager(
             db=self._db_path,
             node_id=self._node_id,
+            node_name=self._node_name,
             hashing=self._config.get("security", "hashing_algorithm"),
             tp_approval=self._config.getbool("security", "training_plan_approval"),
         )
@@ -118,6 +121,11 @@ class Node:
     def node_id(self):
         """Returns id of the node"""
         return self._node_id
+
+    @property
+    def node_name(self):
+        """Returns id of the node"""
+        return self._node_name
 
     @property
     def config(self):
@@ -192,6 +200,7 @@ class Node:
                         SearchReply(
                             request_id=message.request_id,
                             node_id=self._node_id,
+                            node_name=self._node_name,
                             researcher_id=message.researcher_id,
                             databases=databases,
                             count=len(databases),
@@ -208,6 +217,7 @@ class Node:
                             success=True,
                             request_id=message.request_id,
                             node_id=self._node_id,
+                            node_name=self._node_name,
                             researcher_id=message.researcher_id,
                             databases=databases,
                             count=len(databases),
@@ -220,6 +230,7 @@ class Node:
                             request_id=message.request_id,
                             researcher_id=message.researcher_id,
                             node_id=self._node_id,
+                            node_name=self._node_name,
                         )
                     )
                 case ApprovalRequest.__name__:
@@ -254,6 +265,7 @@ class Node:
 
         reply = {
             "node_id": self._node_id,
+            "node_name": self._node_name,
             "researcher_id": msg.researcher_id,
             "success": True,
             "secagg_id": secagg_id,
@@ -272,6 +284,7 @@ class Node:
             message = (
                 f"{ErrorNumbers.FB321.value}: no such secagg context "
                 f"element in node database for node_id={self._node_id} "
+                f"for hospital={self._node_name} "
                 f"secagg_id={secagg_id}"
             )
             return self.send_error(
@@ -299,6 +312,7 @@ class Node:
             {
                 "db": self._db_path,
                 "node_id": self._node_id,
+                "node_name": self._node_name,
                 "n2n_router": self._n2n_router,
                 "grpc_client": self._grpc_client,
                 "pending_requests": self._pending_requests,
@@ -332,6 +346,7 @@ class Node:
         round_ = None
         hist_monitor = HistoryMonitor(
             node_id=self._node_id,
+            node_name=self._node_name,
             experiment_id=msg.experiment_id,
             researcher_id=msg.researcher_id,
             send=self._grpc_client.send,
@@ -359,6 +374,7 @@ class Node:
             root_dir=self._config.root,
             db=self._db_path,
             node_id=self._node_id,
+            node_name=self._node_name,
             training_plan=msg.get_param("training_plan"),
             training_plan_class=msg.get_param("training_plan_class"),
             model_kwargs=msg.get_param("model_args") or {},
@@ -492,6 +508,7 @@ class Node:
                     request_id=request_id,
                     errnum=errnum.name,
                     node_id=self._node_id,
+                    node_name=self._node_name,
                     extra_msg=extra_msg,
                     researcher_id=researcher_id,
                 ),

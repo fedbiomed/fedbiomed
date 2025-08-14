@@ -49,6 +49,7 @@ class Round:
         root_dir: str,
         db: str,
         node_id: str,
+        node_name: str,
         training_plan: str,
         training_plan_class: str,
         model_kwargs: dict,
@@ -72,6 +73,7 @@ class Round:
             root_dir: Root fedbiomed directory where node instance files will be stored.
             db: Path to node database file.
             node_id: Node id
+            node_name: Node name (Hospital name)
             training_plan: code of the training plan for this round
             training_plan_class: class name of the training plan
             model_kwargs: contains model args. Defaults to None.
@@ -97,6 +99,7 @@ class Round:
             aux_vars: Optional optimizer auxiliary variables.
         """
         self._node_id = node_id
+        self._node_name = node_name
         self._db = db
         self._dir = root_dir
 
@@ -236,7 +239,9 @@ class Round:
             if not approved:
                 return self._send_round_reply(
                     False,
-                    f"Requested training plan is not approved by the node: {self._node_id}",
+                    f"Requested training plan is not approved by the node with: \n"
+                    f"Id: {self._node_id} \n"
+                    f"Name: {self._node_name} \n",
                 )
             else:
                 logger.info(
@@ -582,6 +587,7 @@ class Round:
         return TrainReply(
             **{
                 "node_id": self._node_id,
+                "node_name": self._node_name,
                 "experiment_id": self.experiment_id,
                 "state_id": self._node_state_manager.state_id,
                 "researcher_id": self.researcher_id,

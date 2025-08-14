@@ -8,19 +8,37 @@ from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.config import Component, Config
 from fedbiomed.common.constants import (
     DEFAULT_CERT_NAME,
+    DEFAULT_NODE_ALIAS,
     DEFAULT_NODE_NAME,
     NODE_DATA_FOLDER,
     HashingAlgorithms,
     __node_config_version__,
 )
+from fedbiomed.common.logger import logger
 
 
 class NodeConfig(Config):
     _CONFIG_VERSION: str = __node_config_version__
     COMPONENT_TYPE: str = "NODE"
 
+    def __init__(self, *args, alias: Optional[str] = DEFAULT_NODE_ALIAS, **kwargs):
+        """NodeConfig constructor
+
+        Args:
+            *args: Positional arguments for the parent class `Config`
+            alias (str): Alias for the component, used to identify the
+                component in the configuration
+            **kwargs: Keyword arguments for the parent class `Config`
+        """
+
+        self._component_alias = alias
+        # Call the parent class constructor after setting the component alias
+        super().__init__(*args, **kwargs)
+
     def add_parameters(self):
         """Generate `Node` config"""
+
+        self._cfg["default"]["name"] = self._component_alias
 
         # Security variables
         self._cfg["security"] = {
@@ -57,6 +75,20 @@ class NodeConfig(Config):
             "port": os.getenv("FBM_RESEARCHER_PORT", "50051"),
         }
 
+    def migrate(self):
+        """Please add migrated parameters for the new version.
+
+        See [`Config.migrate`][fedbiomed.common.config.Config.migrate] for more information
+        """
+        if not self._cfg.has_option("default", "name"):
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for the node. "
+                "Please add 'name' value in `default` section "
+                "of the node configuration to define a name."
+            )
+
+            self._cfg["default"].update({"name": "Migrated Node Name"})
+
 
 component_root = os.environ.get("FBM_NODE_COMPONENT_ROOT", None)
 
@@ -71,8 +103,22 @@ class NodeComponent(Component):
     config_cls = NodeConfig
     _default_component_name = DEFAULT_NODE_NAME
 
-    def initiate(self, root: Optional[str] = None) -> NodeConfig:
-        config = super().initiate(root)
+    def initiate(
+        self,
+        root: Optional[str] = None,
+        alias: Optional[str] = DEFAULT_NODE_ALIAS,
+    ) -> NodeConfig:
+        """Initiates the Node component
+
+        Args:
+            root (str, optional): Root directory for the component. If None, uses the default.
+            alias (str, optional): Alias for the component, used to identify the component in the configuration.
+
+        Returns:
+            NodeConfig: The configuration object for the Node component.
+        """
+        config = super().initiate(root=root, alias=alias)
+        config.write()
         node_data_path = os.path.join(config.root, NODE_DATA_FOLDER)
         os.makedirs(node_data_path, exist_ok=True)
         return config

@@ -138,6 +138,7 @@ class TestMessage(unittest.TestCase):
                 "researcher_id": "researcher_1234",
                 "secagg_id": "secagg_1234",
                 "node_id": "node_id_1234",
+                "node_name": "node_name_1234",
                 "msg": "test",
                 "share": 111,
             }
@@ -239,6 +240,7 @@ class TestMessage(unittest.TestCase):
             databases=[1, 2, 3],
             count=666,
             node_id="titi",
+            node_name="node_titi",
         )
 
         # all these test should fail (not enough arguments)
@@ -333,6 +335,7 @@ class TestMessage(unittest.TestCase):
             protocol_version="99.99",
             researcher_id="toto",
             node_id="titi",
+            node_name="node_titi",
         )
 
         self.check_class_args(message.PingReply, expected_result=False, node_id="titi")
@@ -407,6 +410,7 @@ class TestMessage(unittest.TestCase):
             state_id="state_id_1234",
             success=True,
             node_id="titi",
+            node_name="node_titi",
             dataset_id="my_data",
             params={"x": 0},
             timing={"t0": 0.0, "t1": 1.0},
@@ -586,6 +590,7 @@ class TestMessage(unittest.TestCase):
             databases=[1, 2, 3],
             count=666,
             node_id="titi",
+            node_name="node_titi",
         )
 
         # all these test should fail (not enough arguments)
@@ -678,6 +683,7 @@ class TestMessage(unittest.TestCase):
             message.Scalar,
             expected_result=True,
             node_id="titi",
+            node_name="node_titi",
             experiment_id="tutu",
             train=True,
             test=True,
@@ -733,6 +739,7 @@ class TestMessage(unittest.TestCase):
             protocol_version="99.99",
             researcher_id="toto",
             node_id="titi",
+            node_name="node_titi",
             experiment_id="titi",
             success=True,
             approval_obligation=True,
@@ -889,6 +896,7 @@ class TestMessage(unittest.TestCase):
             protocol_version="99.99",
             researcher_id="toto",
             node_id="titi",
+            node_name="node_titi",
             errnum=ErrorNumbers.FB100.value,
             extra_msg="this is an error message",
         )
@@ -1400,6 +1408,7 @@ class TestMessage(unittest.TestCase):
             protocol_version="99.99",
             researcher_id="toto",
             node_id="titi",
+            node_name="node_titi",
             message="xxx",
             training_plan_id="id-xxx",
             status=200,

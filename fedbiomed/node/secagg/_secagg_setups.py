@@ -51,6 +51,7 @@ class SecaggBaseSetup(ABC):
         self,
         db: str,
         node_id: str,
+        node_name: str,
         researcher_id: str,
         secagg_id: str,
         parties: List[str],
@@ -89,6 +90,7 @@ class SecaggBaseSetup(ABC):
         # assign argument values
         self._secagg_manager = SecaggManager(db, self._element.value)()
         self._node_id = node_id
+        self._node_name = node_name
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
         self._experiment_id = experiment_id
@@ -142,7 +144,11 @@ class SecaggBaseSetup(ABC):
         Returns:
             message to return to the researcher
         """
-        common = {"node_id": self._node_id, "researcher_id": self._researcher_id}
+        common = {
+            "node_id": self._node_id,
+            "node_name": self._node_name,
+            "researcher_id": self._researcher_id,
+        }
         # If round is not successful log error message
         if not success:
             logger.error(message)

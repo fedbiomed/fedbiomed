@@ -1,15 +1,7 @@
-from typing import (
-    ClassVar as _ClassVar,
-)
-from typing import (
-    Mapping as _Mapping,
-)
-from typing import (
-    Optional as _Optional,
-)
-from typing import (
-    Union as _Union,
-)
+from collections.abc import Mapping as _Mapping
+from typing import ClassVar as _ClassVar
+from typing import Optional as _Optional
+from typing import Union as _Union
 
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -44,6 +36,7 @@ class FeedbackMessage(_message.Message):
             "num_batches",
             "num_samples_trained",
             "iteration",
+            "node_name",
         )
         class MetricEntry(_message.Message):
             __slots__ = ("key", "value")
@@ -68,6 +61,7 @@ class FeedbackMessage(_message.Message):
         NUM_BATCHES_FIELD_NUMBER: _ClassVar[int]
         NUM_SAMPLES_TRAINED_FIELD_NUMBER: _ClassVar[int]
         ITERATION_FIELD_NUMBER: _ClassVar[int]
+        NODE_NAME_FIELD_NUMBER: _ClassVar[int]
         node_id: str
         experiment_id: str
         train: bool
@@ -81,6 +75,7 @@ class FeedbackMessage(_message.Message):
         num_batches: int
         num_samples_trained: int
         iteration: int
+        node_name: str
         def __init__(
             self,
             node_id: _Optional[str] = ...,
@@ -96,6 +91,7 @@ class FeedbackMessage(_message.Message):
             num_batches: _Optional[int] = ...,
             num_samples_trained: _Optional[int] = ...,
             iteration: _Optional[int] = ...,
+            node_name: _Optional[str] = ...,
         ) -> None: ...
 
     class Log(_message.Message):

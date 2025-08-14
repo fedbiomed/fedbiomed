@@ -1,15 +1,13 @@
-import unittest
 import asyncio
+import unittest
+from unittest.mock import MagicMock, patch
 
-from unittest.mock import patch, MagicMock
-
-from fedbiomed.transport.node_agent import (
-    NodeAgent,
-    NodeActiveStatus,
-    AgentStore,
-)
 from fedbiomed.common.message import SearchRequest
-
+from fedbiomed.transport.node_agent import (
+    AgentStore,
+    NodeActiveStatus,
+    NodeAgent,
+)
 
 message = MagicMock(spec=SearchRequest)
 
@@ -17,7 +15,9 @@ message = MagicMock(spec=SearchRequest)
 class TestNodeAgent(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.loop = asyncio.get_event_loop_policy().get_event_loop()
-        self.node_agent = NodeAgent(id="node-1", loop=self.loop, on_forward=None)
+        self.node_agent = NodeAgent(
+            id="node-1", loop=self.loop, on_forward=None, node_disconnection_timeout=10
+        )
 
     def tearDown(self) -> None:
         return super().tearDown()
@@ -55,7 +55,7 @@ class TestNodeAgent(unittest.IsolatedAsyncioTestCase):
 
         with patch("fedbiomed.transport.node_agent.asyncio.Queue.put") as put:
             put.side_effect = Exception
-            with self.assertRaises(Exception):
+            with self.assertRaises(Exception):  # noqa: B017
                 await self.node_agent.send_async(message=message)
 
     async def test_node_agent_06_get_task(self):
@@ -77,7 +77,7 @@ class TestNodeAgent(unittest.IsolatedAsyncioTestCase):
         - _change_node_status_disconnected
 
         """
-        with patch("fedbiomed.transport.node_agent.asyncio.sleep") as sleep:
+        with patch("fedbiomed.transport.node_agent.asyncio.sleep") as _:
             await self.node_agent.change_node_status_after_task()
             await self.node_agent._status_task
             self.assertEqual(self.node_agent._status, NodeActiveStatus.DISCONNECTED)
@@ -86,7 +86,9 @@ class TestNodeAgent(unittest.IsolatedAsyncioTestCase):
 class TestAgentStore(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.loop = asyncio.get_event_loop_policy().get_event_loop()
-        self.agent_store = AgentStore(loop=self.loop, on_forward=None)
+        self.agent_store = AgentStore(
+            loop=self.loop, on_forward=None, node_disconnection_timeout=10
+        )
 
     async def test_agent_store_01_retrieve(self):
         node_agent = await self.agent_store.retrieve(node_id="node-id")
@@ -101,8 +103,8 @@ class TestAgentStore(unittest.IsolatedAsyncioTestCase):
         all_ = await self.agent_store.get_all()
 
         # Try to update
-        all_["node-id-2"] = True
-        self.assertFalse(self.agent_store._node_agents["node-id-2"] == True)
+        all_["node-id-2"] = "opps"
+        self.assertFalse(self.agent_store._node_agents["node-id-2"] == "opps")
 
     async def test_agent_store_03_get(self):
         # Register node agents

@@ -1,7 +1,7 @@
 ---
 
-name: Fed-BioMed Build test
-run-name: Fed-BioMed Build test
+name: Fed-BioMed Build test -- all python versions
+run-name: Fed-BioMed Build test -- py{3.10,3.11}
 on:
   pull_request:
     types:
@@ -12,11 +12,10 @@ on:
       - review_requested
       - ready_for_review
     branches:
-      - develop
-
-  push:
-    branches:
-      - feature/ci-runner-reconfiguration
+      - master
+  schedule:
+    - cron: '0 20 * * 6'  # run every Saturday night
+  workflow_dispatch:
 
 jobs:
   build-doc:
@@ -45,7 +44,7 @@ jobs:
         if: steps.filter.outputs.docs == 'true'
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v4
@@ -77,7 +76,9 @@ jobs:
           - macos-latest
           - macos-m1
         python-version:
+          - '3.10'
           - '3.11'
+
     runs-on: ${{ matrix.os }}
     if: github.event.pull_request.draft == false
     steps:
@@ -159,6 +160,7 @@ jobs:
           - macos-latest
           - macos-m1
         python-version:
+          - '3.10'
           - '3.11'
     runs-on: ${{ matrix.os }}
     continue-on-error: true
@@ -204,4 +206,68 @@ jobs:
         run: |
           FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
             tox -r -e py${{ matrix.python-version }}-e2e -- e2e_mnist_pytorch.py
+        shell: bash -il {0}
+
+  e2e-minimal-lock-test:
+    name: E2E Minimal Lock Test
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-22.04
+          - macos-latest
+          - macos-m1
+        python-version:
+          - '3.10'
+    runs-on: ${{ matrix.os }}
+    needs: unit-test
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout to commit
+        uses: actions/checkout@v4
+
+      - name: Filter module related changes
+        uses: dorny/paths-filter@master
+        id: filter
+        with:
+          filters: |
+            module:
+              - 'fedbiomed/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'envs/build/**'
+              - 'modules/**'
+              - '.github/**'
+              - 'pyproject.toml'
+              - 'pdm.lock'
+
+      - name: Setup Fed-BioMed Test Environment
+        uses: ./.github/actions/setup-fbm-env
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Enforce CPU-only torch on Fedora
+        if: matrix.os == 'fedora-38'
+        run: echo "PIP_EXTRA_INDEX=https://download.pytorch.org/whl/cpu" >> $GITHUB_ENV
+
+      - name: Tell PDM to target macOS platform
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-m1'
+        run: echo "PDM_PLATFORM_ARG=macos_arm64" >> $GITHUB_ENV
+
+      - name: default platform setup
+        if: matrix.os != 'macos-latest' && matrix.os != 'macos-m1'
+        run: echo "PDM_PLATFORM_ARG=linux" >> $GITHUB_ENV
+
+      - name: Install Dependencies
+        run: pip install tox pdm
+
+      - name: Run minimal locked test
+        env:
+          PDM_IGNORE_SAVED_PYTHON: 1
+          PIP_EXTRA_INDEX_URL: ${{ env.PIP_EXTRA_INDEX }}
+          PDM_PLATFORM_ARG: ${{ env.PDM_PLATFORM_ARG }}
+        run: |
+          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
+            tox -r -e py3.10-e2e-minimal -- e2e_mnist_pytorch.py
         shell: bash -il {0}

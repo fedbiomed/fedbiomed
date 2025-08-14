@@ -58,6 +58,15 @@ class ComponentParser(CLIArgumentParser):
             help="Component type NODE or RESEARCHER",
         )
 
+        common_parser.add_argument(
+            "-n",
+            "--name",
+            type=str,
+            nargs="?",
+            default="Default Node Name",
+            help="Name of the node (required for identification)",
+        )
+
         # Create sub parser under `configuration` command
         component_sub_parsers = self._parser.add_subparsers()
 
@@ -141,7 +150,7 @@ class ComponentParser(CLIArgumentParser):
                     )
                     return
 
-            component.initiate(component_path)
+            component.initiate(alias=args.name, root=component_path)
 
         CommonCLI.success(f"Component has been initialized in {component_path}")
 

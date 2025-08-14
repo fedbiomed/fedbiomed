@@ -75,10 +75,12 @@ def start_node(config, node_args):
         name: Config name for the node
         node_args: Arguments for the node
     """
-
     _node = Node(config, node_args)
 
     print(_node)
+
+    ### TODO <alitolga>: Remove this if it is not needed
+    print("\t- Node name: ", _node.config.get("default", "name"), "\n")
 
     def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
         """Signal handler that terminates the process.
@@ -667,7 +669,6 @@ class NodeCLI(CommonCLI):
 
             def set_component(self, component_dir: str | None = None) -> None:
                 """Create node instance"""
-
                 if component_dir:
                     component_dir = os.path.abspath(component_dir)
                     os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
@@ -677,11 +678,9 @@ class NodeCLI(CommonCLI):
                     )
                     component_dir = os.path.join(os.getcwd(), "fbm-node")
                     os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
-
-                config = node_component.initiate(component_dir)
+                config = node_component.initiate(root=component_dir)
                 self._this.config = config
                 node = Node(config)
-
                 # Set node object to make it accessible
                 ComponentDirectoryActionNode._this._node = node
                 os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = config.get(

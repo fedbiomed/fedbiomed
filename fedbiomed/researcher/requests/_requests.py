@@ -283,6 +283,7 @@ class Requests(metaclass=SingletonMeta):
         self._grpc_server = GrpcServer(
             host=server_host,
             port=server_port,
+            config=config,
             on_message=self.on_message,
             ssl=SSLCredentials(key=cert_priv, cert=cert_pub),
         )
@@ -406,11 +407,15 @@ class Requests(metaclass=SingletonMeta):
                 if reply.databases:
                     data_found[node_id] = reply.databases
                     logger.info(
-                        "Node selected for training -> {}".format(reply.node_id)
+                        "Node selected for training -> {}".format(reply.node_name)
+                        + "\n"
+                        + "Node ID is -> {}".format(reply.node_id)
                     )
 
             for node_id, error in federated_req.errors().items():
                 logger.warning(
+                    f"Node with name {error.node_name} has returned an error.\n"
+                    f"Details can be seen below:\n"
                     f"Node {node_id} has returned error from search request {error.extra_msg}"
                 )
 

@@ -30,6 +30,9 @@ class ResearcherConfig(Config):
 
         grpc_host = os.getenv("FBM_SERVER_HOST", "localhost")
         grpc_port = os.getenv("FBM_SERVER_PORT", "50051")
+        node_disconnection_timeout = str(
+            os.getenv("FBM_SERVER_NODE_DISCONNECTION_TIMEOUT", "10")
+        )
 
         # Generate certificate for gRPC server
         key_file, pem_file = generate_certificate(
@@ -42,6 +45,7 @@ class ResearcherConfig(Config):
         self._cfg["server"] = {
             "host": grpc_host,
             "port": grpc_port,
+            "node_disconnection_timeout": node_disconnection_timeout,
         }
 
         self._cfg["certificate"] = {
@@ -57,6 +61,26 @@ class ResearcherConfig(Config):
                 "FBM_SECURITY_SECAGG_INSECURE_VALIDATION", True
             )
         }
+
+    def migrate(self):
+        """Please add migrated parameters for the new version.
+
+        See [`Config.migrate`][fedbiomed.common.config.Config.migrate] for more information
+        """
+        if "node_disconnection_timeout" not in self._cfg["server"]:
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for researcher. "
+                "Please add 'node_disconnection_timeout' value in `server` section "
+                "of the researcher configuration."
+            )
+
+            self._cfg["server"].update(
+                {
+                    "node_disconnection_timeout": str(
+                        os.getenv("FBM_SERVER_NODE_DISCONNECTION_TIMEOUT", "10")
+                    )
+                }
+            )
 
     def _update_vars(self):
         """Updates component dynamic vars"""
