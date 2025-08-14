@@ -7,7 +7,8 @@ import torchvision.transforms as T
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
-from ._dataset import DataReturnFormat, Dataset
+from ._dataset import Dataset
+from ._dataset_types import DataReturnFormat
 
 
 class SimpleDataset(Dataset):
@@ -62,6 +63,7 @@ class SimpleDataset(Dataset):
             )
         self._target_transform = transform_input
 
+    # === Functions ===
     def _update_transform(
         self,
         data: Any,
@@ -113,7 +115,6 @@ class SimpleDataset(Dataset):
             )
         return transform
 
-    # === Functions ===
     def _apply_transforms(self, sample: Dict[str, Any]):
         try:
             data = self.transform(sample["data"])

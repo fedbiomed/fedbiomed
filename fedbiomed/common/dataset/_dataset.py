@@ -4,11 +4,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
-import numpy as np
-import pandas as pd
-import torch
-
-from fedbiomed.common.constants import ErrorNumbers, _BaseEnum
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import (
     ImageFolderController,
     MedicalFolderController,
@@ -17,7 +13,7 @@ from fedbiomed.common.dataset_controller import (
 )
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
-# === Constants ===
+from ._dataset_types import DataReturnFormat
 
 # Nota: `key` must match 'name' given by `value._controller_args`
 CONTROLLER_REGISTRY = {
@@ -26,14 +22,6 @@ CONTROLLER_REGISTRY = {
     "MedNIST": MedNistController,
     "MNIST": MnistController,
 }
-
-# === Enums ===
-
-
-# Nota: `value` serves in `isinstance` call for validation of `transforms`
-class DataReturnFormat(_BaseEnum):
-    SKLEARN = (np.ndarray, pd.DataFrame, pd.Series)
-    TORCH = torch.Tensor
 
 
 class Dataset(ABC):
