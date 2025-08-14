@@ -75,28 +75,33 @@ class MedicalFolderController(Controller):
 
     @tabular_file.setter
     def tabular_file(self, filepath: Optional[Union[str, Path]]):
-        """Sets `tabular_file` property
+        """Sets `tabular_file` property"""
+        if filepath is not None:
+            filepath = self._normalize_tabular_file(filepath)
+        self._tabular_file = filepath
+
+    def _normalize_tabular_file(self, filepath: Union[str, Path]) -> Path:
+        """Validates `tabular_file` property
 
         Raises:
             FedbiomedError:
             - if filepath is not of type `str` or `Path`
             - if filepath does not match a file or is not csv or tsv
         """
-        if filepath is not None:
-            if not isinstance(filepath, (str, Path)):
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: Expected a string or Path, got "
-                    f"{type(filepath).__name__}"
-                )
-            filepath = Path(filepath).expanduser().resolve()
-            if not filepath.is_file() and not filepath.suffix.lower().endswith(
-                (".csv", ".tsv")
-            ):
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB613.value}: "
-                    "Path does not correspond to a CSV or TSV file"
-                )
-        self._tabular_file = filepath
+        if not isinstance(filepath, (str, Path)):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Expected a string or Path, got "
+                f"{type(filepath).__name__}"
+            )
+        filepath = Path(filepath).expanduser().resolve()
+        if not filepath.is_file() and not filepath.suffix.lower().endswith(
+            (".csv", ".tsv")
+        ):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB613.value}: "
+                "Path does not correspond to a CSV or TSV file"
+            )
+        return filepath
 
     @property
     def index_col(self):
