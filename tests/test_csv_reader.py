@@ -17,18 +17,20 @@ def sample_csv():
         "id,name,age\n1,Alice,30\n2,Bob,40\n3,Charlie,50\n",
         encoding="utf-8",
     )
-    return csv_path
+    yield csv_path
+    csv_path.unlink()
 
 
 @pytest.fixture
-def no_header_csv() -> Path:
+def no_header_csv():
     # No header; 3 columns, 3 rows
     csv_path = Path(__file__).parent / "test-data" / "csv" / "no_header.csv"
     csv_path.write_text(
         "1,Alice,30\n2,Bob,40\n3,Charlie,50\n",
         encoding="utf-8",
     )
-    return csv_path
+    yield csv_path
+    csv_path.unlink()
 
 
 # --- _pre_parse tests ---
