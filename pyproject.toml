@@ -90,6 +90,7 @@ dependencies = [
 	"msgpack  ~=1.0",
 	"persist-queue  >=0.5.1,<0.6.0",
 	"pandas  >=2.0.1",
+	"polars ~=1.32.0",
 	"python-minifier  ~=2.11",
 	"declearn[torch]  ~=2.6.0",
 	"gmpy2  >=2.1.2,<2.2",
@@ -97,7 +98,7 @@ dependencies = [
 	"grpcio-tools  ~=1.66",
 	"unet  >=0.7.7,<0.8.0",
 	"pygments ~=2.18.0",
-	"nibabel~=5.3",
+	"nibabel ~=5.3",
 ]
 
 requires-python = "<3.12,>=3.10"
