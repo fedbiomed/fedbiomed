@@ -67,6 +67,7 @@ nav:
       - Glossary: './user-guide/glossary.md'
       - Deployment:
           - "Introduction": './user-guide/deployment/deployment.md'
+          - "Fed-BioMed Docker Containers": './user-guide/deployment/docker.md'
           - "VPN Deployment": './user-guide/deployment/deployment-vpn.md'
           - "Network matrix": './user-guide/deployment/matrix.md'
           - "Security model": './user-guide/deployment/security-model.md'
@@ -149,6 +150,7 @@ nav:
                 - Controller: './developer/api/transport/controller.md'
                 - NodeAgent: './developer/api/transport/node_agent.md'
                 - Server: './developer/api/transport/server.md'
+        - 'Building Docker Images': './developer/docker-images.md'
         - 'Usage and Tools': './developer/usage_and_tools.md'
         - 'Continuous Integration': './developer/ci.md'
         - 'Definition of Done': './developer/definition-of-done.md'
