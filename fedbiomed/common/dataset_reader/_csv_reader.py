@@ -5,19 +5,16 @@
 Reader implementation for CSV file
 """
 
+import csv
+import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Iterable, Optional
 
-import numpy as np
 import pandas as pd
-import torch
+import polars as pl
 
-from fedbiomed.common.dataset_types import (
-    DataReturnFormat,
-    ReaderShape,
-    Transform,
-    drf_default,
-)
+from fedbiomed.common.dataset_types import ReaderShape
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedUserInputError
 
 from ._reader import Reader
 
@@ -25,38 +22,196 @@ from ._reader import Reader
 class CsvReader(Reader):
     def __init__(
         self,
-        root: Path,
-        # to_format: support DEFAULT TORCH SKLEARN
-        to_format: DataReturnFormat = drf_default,
-        reader_transform: Transform = None,
-        reader_target_transform: Transform = None,
-        # Any other parameter ?
+        path: Path,
+        has_header: str | bool = "auto",
+        delimiter: Optional[str] = None,
     ) -> None:
-        """Class constructor"""
+        """Constructs the csv reader.
 
-    # Nota: does not include filtering of DLP, which is unknown to Reader
-    def read(
-        self, index: Optional[int] = None, index_max: Optional[int] = None
-    ) -> Union[pd.DataFrame, torch.Tensor, np.ndarray]:
-        """Retrieve data"""
+        Args:
+            path: The path of the csv file that contains the dataset.
+            has_header: Boolean to indicate whether the file has a header or not.
+                By default it is set as 'auto', which is the case that the reader tries to
+                detect itself whether the file has a header or not.
+            delimiter: The delimiter used in the csv file.
+                By default it is set as None, which is the case that the reader tries to
+                detect itself whether the file has a delimiter or not.
+        """
+
+        self._path = path
+
+        self._delimiter = delimiter
+        self.header = None if has_header == "auto" else has_header
+
+        # Pre-parse the CSV file to determine its delimiter and header
+        # Note: this will read the first line of the file
+        self._pre_parse()
+
+        # Initialize the data and the column names
+        self.data = self.read()
+        self.columns = list(self.data.columns)
+
+        # Initialize shape and length
+        # Defer costly operations
+        self._shape = self.data.shape
+        self._len = self._shape[0]
+
+    def read(self) -> pl.DataFrame:
+        """Reads all dataset and returns the dataframe.
+
+        Returns:
+            Polars DataFrame: The content of the CSV file.
+        Raises:
+            FedbiomedError: if the CSV file cannot be read due to inconsistent lines
+        """
+        self.validate()
+
+        try:
+            df = pl.read_csv(
+                self._path,
+                separator=self._delimiter,
+                has_header=bool(self.header),
+            )
+        except pl.exceptions.ComputeError as err:
+            msg = f"cannot read csv file {self._path} due to inconsistent lines: see details"
+            raise FedbiomedError(msg) from err
+
+        return df
 
     # Nota: does not include filtering of DLP, which is unknown to Reader
     def validate(self) -> None:
-        """Validate coherence of data modality served by a reader
+        """Validate the path of the CSV file.
 
-        Raises exception if coherence issue found
+        Raises:
+            FedbiomedError: If the path is invalid
+        """
+        if not os.path.isfile(self._path):
+            raise FedbiomedError(f"error: cannot find file {self._path}")
+
+    def shape(self):
+        """Returns the shape of the csv dataset.
+
+        Computed before applying transforms or conversion to other format.
+
+        Returns:
+            ReaderShape: Dictionary with the shape and other necessary info for the dataset
+        """
+        return ReaderShape({"csv": self._shape})
+
+    def get(
+        self,
+        indexes: int | str | Iterable,
+        columns: Optional[Iterable] = None,
+    ) -> pl.DataFrame:
+        """Gets the specified rows and columns in the dataset.
+
+        Args:
+            indexes: Row indexes to retrieve.
+            columns: (Optional) list of columns to retrieve.
+        Returns:
+            Polars DataFrame: The specified dataframe.
+        """
+        return self._get_entry(indexes=indexes, columns=columns)
+
+    def to_pandas(self):
+        """Returns the data as a Pandas Dataframe."""
+        return pd.DataFrame(self.data.to_dict())
+
+    def to_numpy(self):
+        """Returns the data as a Numpy ndarray."""
+        return self.data.to_numpy()
+
+    def _get_entry(
+        self,
+        indexes: int | str | Iterable,
+        columns: Optional[Iterable] = None,
+    ) -> pl.DataFrame:
+        """Internal function to get the specified rows and columns in the dataset.
+
+        Args:
+            indexes: Row indexes to retrieve.
+            columns: (Optional) list of columns to retrieve.
+        Returns:
+            Polars DataFrame: The specified dataframe.
         """
 
-    # Nota: does not include filtering of DLP, which is unknown to Reader
-    def shape(self) -> ReaderShape:
-        """Returns shape of the data modality served by a reader
+        # Convert indexes to an iterable if it is not already
+        if not isinstance(indexes, Iterable) or isinstance(indexes, str):
+            indexes = [indexes]
 
-        Computed before applying transforms or conversion to other format"""
+        if not set(indexes).issubset(set(range(0, self._len))):
+            raise FedbiomedUserInputError(
+                f"Row index(es) {indexes} is out of range (0 to {self._len - 1})"
+            )
 
-    # Optional methods which can be implemented (or not) by some readers
-    # Code is specific to each reader
+        # Only retrieve specified columns if provided
+        if columns is not None:
+            # if columns is a single string or integer, convert it to a list
+            if isinstance(columns, str) or isinstance(columns, int):
+                columns = [columns]
+
+            # if columns is a list of int, convert it to a list of column names
+            # (auto-generated by polars as column_0, column_1, etc. if there is no header)
+            if isinstance(columns, list) and all(
+                isinstance(item, int) for item in columns
+            ):
+                n_cols = len(self.columns)
+                for i in columns:
+                    if not (0 <= i < n_cols):
+                        raise FedbiomedUserInputError(
+                            f"Column index {i} is out of range (0 to {n_cols - 1})"
+                        )
+                columns = [self.columns[i] for i in columns]
+
+            if not all(column in self.columns for column in columns):
+                msg = f"Cannot read columns {columns}: file does not contain some columns specified"
+                raise FedbiomedUserInputError(msg)
+
+        subset = self.data.select(columns if columns else self.data.columns)
+
+        return subset[indexes]
 
     def len(self) -> int:
         """Get number of samples"""
+        return self._len
 
-    # Additional methods for exploring data, depending on Reader
+    def _pre_parse(self):
+        """Pre-parse the CSV file to determine its delimiter and header.
+
+        This method reads the first few bytes of the CSV file to detect the delimiter
+        and whether the file has a header or not. It sets the `_delimiter` and `header`
+        attributes accordingly.
+
+        This method should be called before any data is read from the CSV file.
+
+        Raises:
+            FedbiomedError: if the delimiter or header cannot be detected automatically,
+            or if the path is incorrect.
+        """
+
+        # Get sample of the file to detect delimiter and header
+        with open(self._path, "r") as f:
+            sample = f.read(32768)
+        if not sample:
+            raise FedbiomedError(f"File {self._path} is empty or cannot be read.")
+
+        # Create a CSV sniffer to detect the delimiter and header
+        sniffer = csv.Sniffer()
+
+        # Try to detect the delimiter
+        if self._delimiter is None:
+            try:
+                self._delimiter = sniffer.sniff(sample).delimiter
+            except csv.Error as err:
+                raise FedbiomedError(
+                    "Cannot detect delimiter automatically. Please specify it through `delimiter` argument"
+                ) from err
+
+        # Try to detect the header
+        if not self.header:
+            try:
+                self.header = sniffer.has_header(sample)
+            except csv.Error as err:
+                raise FedbiomedError(
+                    "Cannot detect header automatically. Please specify it through `has_header` argument"
+                ) from err
