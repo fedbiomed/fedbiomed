@@ -286,7 +286,7 @@ class RequiresProtocolVersion:
 
 @dataclass(kw_only=True)
 class OverlayMessage(Message, RequiresProtocolVersion):
-    """Message for handling overlay trafic.
+    """Message for handling overlay traffic.
 
     Same message used from source node to researcher, and from researcher to destination node.
 
@@ -551,10 +551,10 @@ class ApprovalReply(RequestReply, RequiresProtocolVersion):
         training_plan_id: Unique training plan identifier, can be none in case of
             success false.
         message: currently unused (empty string)
-        node_id: Node id that replys the request
+        node_id: Node id that replies the request
         node_name: Node Name that replies the request
         status: status code for the request (obsolete, always 0)
-        success: Request was successfully sumbitted to node (not yet approved)
+        success: Request was successfully submitted to node (not yet approved)
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -619,9 +619,9 @@ class ListReply(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        succes: True if the node process the request as expected, false if any exception occurs
+        success: True if the node process the request as expected, false if any exception occurs
         databases: List of datasets
-        node_id: Node id that replys the request
+        node_id: Node id that replies the request
         node_name: Node Name that replies the request
         count: Number of datasets
 
@@ -662,9 +662,8 @@ class PingReply(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that will receive the reply
-        node_id: Node id that replys the request
+        node_id: Node id that replies the request
         node_name: Node Name that replies the request
-        succes: True if the node process the request as expected, false if any exception occurs
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -702,9 +701,9 @@ class SearchReply(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        succes: True if the node process the request as expected, false if any exception occurs
+        success: True if the node process the request as expected, false if any exception occurs
         databases: List of datasets
-        node_id: Node id that replys the request
+        node_id: Node id that replies the request
         node_name: Node Name that replies the request
         count: Number of datasets
 

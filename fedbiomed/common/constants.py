@@ -316,7 +316,7 @@ class SAParameters:
     WEIGHT_RANGE: int = (
         2**17
     )  # TODO: this has to be provided by the researcher, find the max range among all the nodes' weights
-    # TODO: to separete from SAParameters
+    # TODO: to separate from SAParameters
     KEY_SIZE: int = 2048
 
 

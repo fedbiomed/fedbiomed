@@ -70,7 +70,7 @@ class DefaultStrategy(Strategy):
                 ...}] Including the node_id is useful for the proper functioning of some strategies
                 like Scaffold: At each round, local model params are linked to a certain correction.
                 The correction is updated every round. The computation of correction states at round
-                i is dependant to client states and correction states of round i-1. Since
+                i is dependent to client states and correction states of round i-1. Since
                 training_replies    can potentially order the node replies differently from round to
                 round, the bridge between all these parameters is represented by the node_id
             weights: Proportions list, each element of this list represents a dictionary with

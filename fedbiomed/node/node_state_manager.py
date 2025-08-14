@@ -208,7 +208,7 @@ class NodeStateManager:
         """Initializes NodeStateManager, by creating folder that will contains Node state folders.
 
         Args:
-            previous_state_id: state_id from previous Round, from whch to reload a Node state
+            previous_state_id: state_id from previous Round, from which to reload a Node state
             testing: only doing testing, not training
         """
 
@@ -286,7 +286,7 @@ class NodeStateManager:
             new state_id
         """
         self._state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
-        # TODO: would be better to check if state_id doesnot belong to the database
+        # TODO: would be better to check if state_id doesn't belong to the database
         return self._state_id
 
     def _check_version(self, version: str):

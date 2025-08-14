@@ -341,7 +341,7 @@ class EncryptedNumber(object):
         """Encrypted number representation
 
         Returns:
-            encypted number
+            encrypted number
         """
 
         repr = self.ciphertext.digits()

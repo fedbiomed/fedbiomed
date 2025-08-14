@@ -4,7 +4,7 @@
 const eventBus = {
   
     on(event, callback) {
-      // attachs an EventListener to the document object. The callback will be called when the event gets fired.
+      // attaches an EventListener to the document object. The callback will be called when the event gets fired.
       document.addEventListener(event, (e) => callback(e.detail));
     },
     dispatch(event, data) {

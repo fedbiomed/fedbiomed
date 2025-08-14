@@ -1052,7 +1052,7 @@ class TrainingPlanSecurityManager:
             select_status: filter list by training plan status or list of training plan statuses
             verbose: When it is True, print list of training plan in tabular format.
                 Default is True.
-            search: Dictionary that contains `text` property to declare the text that wil be search and `by`
+            search: Dictionary that contains `text` property to declare the text that will be search and `by`
                 property to declare text will be search on which field
 
         Returns:

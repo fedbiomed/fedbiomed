@@ -282,6 +282,6 @@ networks:
     name: fedbiomed_gui_${FBM_CONTAINER_INSTANCE_ID:-unknown}
   fedbiomed_gui2:
     name: fedbiomed_gui2_${FBM_CONTAINER_INSTANCE_ID:-unknown}
-  # for intermediate containers, usuallly not used
+  # for intermediate containers, usually not used
   fedbiomed_misc:
     name: fedbiomed_misc_${FBM_CONTAINER_INSTANCE_ID:-unknown}

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Provide Validator ans SchemeValidator classes for validating parameters against a set of validation rules.
+Provide Validator and SchemeValidator classes for validating parameters against a set of validation rules.
 
 This module provides two "validation" classes and two Error classes (exceptions):
 
@@ -627,7 +627,7 @@ class Validator(object):
             override:  if True, still register the rule even if it existed. Defaults to False.
 
         Returns:
-            True if rule is accepted, False instead if rule exists and overrride is False
+            True if rule is accepted, False instead if rule exists and override is False
 
         Raises:
             RuleError: if provided rule name or hook is invalid

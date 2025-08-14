@@ -401,7 +401,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
         !!! info "Notes":
             This method is designed to save the model to a local dump
-            file for easy re-use by the same user, possibly outside of
+            file for easy reuse by the same user, possibly outside of
             Fed-BioMed. It is not designed to produce trustworthy data
             dumps and is not used to exchange models and their weights
             as part of the federated learning process.
@@ -477,7 +477,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
 
 class SGDSkLearnModel(BaseSkLearnModel, metaclass=ABCMeta):
-    """BaseSkLearnModel abstract subclass for geenric SGD-based models."""
+    """BaseSkLearnModel abstract subclass for generic SGD-based models."""
 
     _model_type: ClassVar[Union[Type[SGDClassifier], Type[SGDRegressor]]]
 

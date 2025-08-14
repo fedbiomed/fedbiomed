@@ -2,10 +2,10 @@ from unittest.mock import MagicMock
 
 
 class FakeRequest:
-    """Mimicks the behaviour of the result of a `requests` object
+    """Mimics the behaviour of the result of a `requests` object
     (from requests package). It is made generic for both HTTP POST
     and HTTP GET methods.
-    For example, it mimicks the result of `requests.post`
+    For example, it mimics the result of `requests.post`
     object
     """
 

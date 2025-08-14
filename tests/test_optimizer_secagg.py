@@ -263,7 +263,7 @@ class TestEncryptedAuxVar(unittest.TestCase):
         # Generate ScaffoldAuxVar instances with distinct shapes.
         aux_a = generate_scaffold_aux_var(n_feats=16)
         aux_b = generate_scaffold_aux_var(n_feats=32)
-        # Flatten and wrap them (rouding up values for type correctness).
+        # Flatten and wrap them (rounding up values for type correctness).
         flat_a, *specs_a = flatten_auxvar_for_secagg(aux_a)
         flat_b, *specs_b = flatten_auxvar_for_secagg(aux_b)
         enc_a = EncryptedAuxVar([[int(x) for x in flat_a]], *specs_a)
@@ -277,7 +277,7 @@ class TestEncryptedAuxVar(unittest.TestCase):
         # Generate auxiliary variables of different nature.
         aux_a = {"simple": SimpleAuxVar(1.0)}  # type: Dict[str, AuxVar]
         aux_b = generate_scaffold_aux_var()
-        # Flatten and wrap them (rouding up values for type correctness).
+        # Flatten and wrap them (rounding up values for type correctness).
         flat_a, *specs_a = flatten_auxvar_for_secagg(aux_a)
         flat_b, *specs_b = flatten_auxvar_for_secagg(aux_b)
         enc_a = EncryptedAuxVar([[int(x) for x in flat_a]], *specs_a)

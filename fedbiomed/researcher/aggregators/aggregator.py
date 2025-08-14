@@ -106,7 +106,7 @@ class Aggregator:
         """
         msg = (
             ErrorNumbers.FB401.value
-            + ": aggregate method should be overloaded by the choosen strategy"
+            + ": aggregate method should be overloaded by the chosen strategy"
         )
         logger.critical(msg)
         raise FedbiomedAggregatorError(msg)

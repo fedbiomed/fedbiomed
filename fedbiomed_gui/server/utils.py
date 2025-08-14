@@ -45,7 +45,7 @@ def get_node_id(config_file: str):
 
 def error(msg: str):
     """Function that returns jsonfied error result
-        it is used for API enpoints
+        it is used for API endpoints
     Args:
 
         msg     (str): Response message for failed request.
@@ -105,7 +105,7 @@ def validate_json(function):
 
 
 def validate_request_data(schema: Validator):
-    """Validate reqeusted data. This wrapper method gets schema
+    """Validate requested data. This wrapper method gets schema
     and applies validation based on provided information
     in schema
 

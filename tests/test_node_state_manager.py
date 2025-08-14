@@ -255,7 +255,7 @@ class TestNodeStateFileName(unittest.TestCase):
             except TypeError as te:
                 self.assertTrue(
                     False,
-                    f"error in NodeStateFileName, entry {entry_value} doesnot respect formatting convention"
+                    f"error in NodeStateFileName, entry {entry_value} doesn't respect formatting convention"
                     f" details : {te}",
                 )
 

@@ -55,7 +55,7 @@ def execute_in_paralel(
     def error_callback(err):
         if interrupt_all_on_fail:
             kill_subprocesses(processes)
-        print(f"##### Error: One of the parallel processes has faild. {err}")
+        print(f"##### Error: One of the parallel processes has failed. {err}")
 
     def collect_result(process):
         collect(process, on_failure)

@@ -406,7 +406,7 @@ class OverlayChannel:
         # Value for noncing the symmetric encryption for this message
         # This is normally not needed as we generate different key for each message due to `salt`
         # but provides another layer of security
-        # Adjust the length of `nonce` depending on algotrithm
+        # Adjust the length of `nonce` depending on algorithm
         nonce = secrets.token_bytes(16)
 
         local_node_private_key, _, derived_key = await self._setup_use_channel_keys(

@@ -305,7 +305,7 @@ class CommonCLI:
             help="Generates certificate for given component/party if files don't exist yet. "
             "Uses an alternate directory if '--path DIRECTORY' is given."
             " If files already exist, overwrite existing certificate.\n"
-            "Certificate are here refering to the public certificate and its associated private key "
+            "Certificate are here referring to the public certificate and its associated private key "
             "(the latter should remain secret and not shared to other parties).",
         )
 

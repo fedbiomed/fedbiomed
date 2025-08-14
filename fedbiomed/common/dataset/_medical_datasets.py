@@ -662,7 +662,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         Returns:
             Subject image data as victories where keys represent each modality.
         """
-        # FIXME: improvment suggestion of this function at #1279
+        # FIXME: improvement suggestion of this function at #1279
 
         subject_data = {}
 

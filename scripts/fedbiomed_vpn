@@ -42,14 +42,14 @@ Usage: ${0##*/} clean                          [container|configuration|image]
        ${0##*/} researcher *
 
 manage (local) docker container(s) with Wireguard VPN support
-(cannot use build/clean/configure/start/status/stop on the same commannd line)
+(cannot use build/clean/configure/start/status/stop on the same command line)
 
 Optional CONTAINER name(s) may be added to the build/configure/start/stop/status
 commands to manage a subset of docker container(s).
 The CONTAINER list may contain: vpnserver researcher node node2 gui gui2
 
 Be aware that (re-)building the vpnserver container when node/researcher
-container(s) are running may have unpredicatble consequences. It is strongly adviced
+container(s) are running may have unpredictable consequences. It is strongly advised
 to restart from scratch in this case (clean, build, configure, start)
 
 clean          clean current configurations
@@ -155,7 +155,7 @@ internal_find_my_ip() {
             ;;
     esac
 
-    # verify that the result is an IPv4 adress
+    # verify that the result is an IPv4 address
     _IP=$(echo $_IP | grep -E '([0-9]{1,3}[\.]){3}[0-9]{1,3}')
 
     echo $_IP

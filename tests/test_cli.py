@@ -42,7 +42,7 @@ class TestTrainingPlanArgumentParser(unittest.TestCase):
         self.tp_arg_pars._node = MagicMock()
 
     def test_01_training_plan_argument_parser_initialize(self):
-        """Tests training plan parser intialization"""
+        """Tests training plan parser initialization"""
         self.tp_arg_pars.initialize()
         self.assertTrue("training-plan" in self.subparsers.choices)
 
@@ -60,7 +60,7 @@ class TestTrainingPlanArgumentParser(unittest.TestCase):
         self.assertTrue("update" in tp_choices)  # noqa
 
     def test_02_training_plan_argument_parser_execute(self):
-        """Tests training plan arugment parser actions"""
+        """Tests training plan argument parser actions"""
 
         self.tp_arg_pars.initialize()
 
@@ -167,7 +167,7 @@ class TestNodeControl(unittest.TestCase):
         self.control._node = self.node
 
     def test_01_node_control_initialize(self):
-        """Tests intialize"""
+        """Tests initialize"""
 
         self.control.initialize()
         self.assertTrue("start" in self.subparsers.choices)
@@ -232,7 +232,7 @@ class TestNodeCLI(unittest.TestCase):
 
     @patch("builtins.input")
     def test_01_node_cli_init(self, input_patch):
-        """Tests intialization"""
+        """Tests initialization"""
         input_patch.return_value = "y"
         # import sys
         # sys.argv.append('-y')

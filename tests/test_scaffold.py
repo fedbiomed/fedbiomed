@@ -500,7 +500,7 @@ class TestIntegrationScaffold(unittest.TestCase):
 
     def test_2_bug_977_key_error(self):
         # this bug happens when training a model with scaffold: train it, then save and load it from a breakpoint,
-        # and resume the training: a key error happen, complaining that node_id doesnot exist in dictionary
+        # and resume the training: a key error happen, complaining that node_id doesn't exist in dictionary
         # this test intent to reproduce the error
         tp = TestIntegrationScaffold.FakeModelTorch()
         training_args = TrainingArgs({}, only_required=False)

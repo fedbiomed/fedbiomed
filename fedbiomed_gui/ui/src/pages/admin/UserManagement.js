@@ -128,7 +128,7 @@ const UserManagement = (props) => {
                  <React.Fragment>
                      <EuiSpacer size="l" />
                      <EuiToast
-                            title="Opps!"
+                            title="Oops!"
                             color="danger"
                             iconType="alert"
                             onClose={() => dispatch({type: USER_MANAGEMENT_ERROR, payload:false})}

@@ -51,7 +51,7 @@ with the following arguments:
 
 ### 1.3. `declearn`'s `OptiModules`
 
-`declearn` `OptiModules` are modules that convey `Optimizers`, which purpose is to optimize a loss function (that can be written using a PyTorch loss function or defined in a scikit learn model) in order to optimize a model. Compatible `declearn` `OptiModules` with Fed-BioMed framework are defined in `fedbiomed.common.optimizers.declearn` module. They should be imported from `fedbiomed.common.optimizers.declearn`, as shown in the examples below. You can also import them direclty from `declearn`'s `declearn.optimizer.modules`, but they will be no guarentees it is compatible with Fed-BioMed. In fact, recommended method is importing modules through `fedbiomed.common.optimizers.declearn`.
+`declearn` `OptiModules` are modules that convey `Optimizers`, which purpose is to optimize a loss function (that can be written using a PyTorch loss function or defined in a scikit learn model) in order to optimize a model. Compatible `declearn` `OptiModules` with Fed-BioMed framework are defined in `fedbiomed.common.optimizers.declearn` module. They should be imported from `fedbiomed.common.optimizers.declearn`, as shown in the examples below. You can also import them directly from `declearn`'s `declearn.optimizer.modules`, but they will be no guarantees it is compatible with Fed-BioMed. In fact, recommended method is importing modules through `fedbiomed.common.optimizers.declearn`.
 
 **Usage**:
 
@@ -64,7 +64,7 @@ with the following arguments:
     Optimizer(lr=lr)
     ```
 
-- For a specfic Optimizer like Adam, we need to import `AdamModule` from `declearn`. Hence, it yields:
+- For a specific Optimizer like Adam, we need to import `AdamModule` from `declearn`. Hence, it yields:
 
     ```python
     from fedbiomed.common.optimizers.optimizer import Optimizer
@@ -87,7 +87,7 @@ with the following arguments:
 
     ```
 
-- To get all comptible `OptiModule` in Fed-BioMed, one can run the [`list_optim_modules`][fedbiomed.common.optimizers.declearn.list_optim_modules].
+- To get all compatible `OptiModule` in Fed-BioMed, one can run the [`list_optim_modules`][fedbiomed.common.optimizers.declearn.list_optim_modules].
 
     ```python
     from fedbiomed.common.optimizers.declearn import list_optim_modules
@@ -175,7 +175,7 @@ For further information on `declearn Regularizer`, please visit [`declearn Regul
 ### 1.5. Chaining `Optimizers` and `Regularizers` with `declearn` modules
 
 It is possible in `declearn` to chain several `OptiModules` and `Regularizers` in an Optimizer.
-Generaly speaking, `Optimizer` in `declearn` can be written as:
+Generally speaking, `Optimizer` in `declearn` can be written as:
 
 $$
  \begin{equation}
@@ -223,7 +223,7 @@ Optimizer(lr=lr,
 ```
 
 !!! note "Using list of strings instead of list of modules"
-    In `declearn`, it is possible to use name of modules instead of loading the actual modules. In the script below, we are rewritting the same `Optimizer` as the one above but by specifying the module names. A convinient way to get the naming is to use `list_optim_modules` and  `list_optim_regularizers` functions, that map module names with their classes respectively.
+    In `declearn`, it is possible to use name of modules instead of loading the actual modules. In the script below, we are rewriting the same `Optimizer` as the one above but by specifying the module names. A convenient way to get the naming is to use `list_optim_modules` and  `list_optim_regularizers` functions, that map module names with their classes respectively.
 
 ```python
 from fedbiomed.common.optimizers.optimizer import Optimizer
@@ -270,7 +270,7 @@ class MyTrainingPlan(TorchTrainingPlan):
 ```
 
 !!! note "Important"
-    You should specify the `OptiModules` imported in both the imports at the begining of the `Training Plan` as well as in the dependencies (in the `init_dependencies` method within the `Training Plan`). The same holds for `declearn`'s `Regularizers`.
+    You should specify the `OptiModules` imported in both the imports at the beginning of the `Training Plan` as well as in the dependencies (in the `init_dependencies` method within the `Training Plan`). The same holds for `declearn`'s `Regularizers`.
 
 Syntax will be the same for scikit-learn as shown below, using the same `Optimizer`:
 
@@ -298,7 +298,7 @@ class MyTrainingPlan(FedSGDClassifier):
 
 ## 3. `declearn` optimizer on Researcher side (`FedOpt`)
 
-`Fed-BioMed` provides a way to use  **Adaptive Federated Optimization**, introduced as [`FedOpt` in this paper](https://arxiv.org/pdf/2003.00295.pdf). In the paper, authors considered the difference of the global model weights between 2 successive `Rounds` as a *pseudo gradient*, paving the way to the possbility to have `Optimizers` on `Researcher` side, optimizing the updates of the global model.
+`Fed-BioMed` provides a way to use  **Adaptive Federated Optimization**, introduced as [`FedOpt` in this paper](https://arxiv.org/pdf/2003.00295.pdf). In the paper, authors considered the difference of the global model weights between 2 successive `Rounds` as a *pseudo gradient*, paving the way to the possibility to have `Optimizers` on `Researcher` side, optimizing the updates of the global model.
 To do so, `fedbiomed.researcher.federated_workflows.Experiment` has a method to set the `Researcher Optimizer`: [`Experiment.set_agg_optimizer`](../../developer/api/researcher/experiment/#fedbiomed.researcher.federated_workflows.Experiment.set_agg_optimizer)
 
 Below an example using the `set_agg_optimizer` with `FedYogi`:
@@ -359,9 +359,9 @@ In this subsection, we will take a look at some specific `Optimizers` that are b
 
 ### 4.1. What is an auxiliary variable?
 
-`Auxiliary variable` is a parameter that is needed for an `Optimizer` that requieres to be exchanged between `Nodes` and `Researcher`, in addition to model parameters. [`Scaffold`](https://arxiv.org/abs/1910.06378) is an example of such `Optimizer`, because built upon correction states, exchanged from `Nodes` and `Researcher`.
+`Auxiliary variable` is a parameter that is needed for an `Optimizer` that requires to be exchanged between `Nodes` and `Researcher`, in addition to model parameters. [`Scaffold`](https://arxiv.org/abs/1910.06378) is an example of such `Optimizer`, because built upon correction states, exchanged from `Nodes` and `Researcher`.
 
-These `Optimizers` may come with a specific `Researcher` version (for `Scaffold` it is `ScaffoldServerModule`) and a `Node` version (resp. `ScaffoldClientModule`). They may work in a synchronous fashion: `Researcher` optimizer version may expect auxiliary variables from  `Node` optimizer, and the other way arround (`Node` optimizer expecting auxiliary variable input from `Reseracher` optimizer version).
+These `Optimizers` may come with a specific `Researcher` version (for `Scaffold` it is `ScaffoldServerModule`) and a `Node` version (resp. `ScaffoldClientModule`). They may work in a synchronous fashion: `Researcher` optimizer version may expect auxiliary variables from  `Node` optimizer, and the other way around (`Node` optimizer expecting auxiliary variable input from `Researcher` optimizer version).
 
 !!! note "Optimizers using auxiliary variables"
     Currently only `Scaffold` (ie `ScaffoldClientModule` and `ScaffoldServerModule`) uses auxiliary variables.
@@ -432,7 +432,7 @@ exp.run(increase=True)
 
 
 !!! info "Using auxiliary variables with SecAgg"
-    In latest releases of `Fed-BioMed`, `declearn` optimizers based on auxiliary variables (like `Scaffold` optimizer) now have thier auxiliary variables encrypted with [`SecAgg`](../../user-guide/secagg/introduction)! Please note that this is not the case with [native `Scaffold`](https://fedbiomed.org/latest/developer/api/researcher/aggregators/#fedbiomed.researcher.aggregators.Scaffold) algorithm. For security reason, you may choose to use `declearn` optimizers over the native ones.
+    In latest releases of `Fed-BioMed`, `declearn` optimizers based on auxiliary variables (like `Scaffold` optimizer) now have their auxiliary variables encrypted with [`SecAgg`](../../user-guide/secagg/introduction)! Please note that this is not the case with [native `Scaffold`](https://fedbiomed.org/latest/developer/api/researcher/aggregators/#fedbiomed.researcher.aggregators.Scaffold) algorithm. For security reason, you may choose to use `declearn` optimizers over the native ones.
 
 You can find more examples in [Advanced Optimizers tutorial](../../tutorials/optimizers/01-fedopt-and-scaffold)
 
@@ -455,14 +455,14 @@ Below we have gathered some of the most well known algorithms in Federated Learn
 
 ## 5. Common Pitfalls using `declearn` Optimizers in `Fed-BioMed`
 
-Below, we are summerizing common pitfalls that may occur when using `declearn` package in `Fed-BioMed`:
+Below, we are summarizing common pitfalls that may occur when using `declearn` package in `Fed-BioMed`:
 
 - `Optimization` on `Researcher` side is only possible through `declearn` Optimizers (and not through native Optimizers such as PyTorch Optimizers);
-- Some `Optimizers` may requiere some synchronization: it is the case of `Scaffold` related modules, ie `ScaffoldClientModule` and `ScaffoldServerModule`;
+- Some `Optimizers` may require some synchronization: it is the case of `Scaffold` related modules, ie `ScaffoldClientModule` and `ScaffoldServerModule`;
 - For the moment `declearn` Optimizers that use `auxiliary variables` (such as `Scaffold`) cannot be protected yet with [Secure Aggregation](../../user-guide/secagg/introduction/);
 - For the moment, `declearn`'s `optimizer` only comes with a unique learning rate (multiple learning rates `Optimizers`, for example pytorch optimizers `torch.optim.Optimizer` can handle a learning rate per model layer );
 - When chaining `declearn`'s `OptiModules`, it is only possible to use a unique learning rate, that will be the same for all `OptiModules`, and that won't change during a `Round`;
-- check for inconcistent Optimizers! Using a `Regularizer` on `Researcher` side may be non-sensical, even if it is doable within `declearn`;
+- check for inconsistent Optimizers! Using a `Regularizer` on `Researcher` side may be non-sensical, even if it is doable within `declearn`;
 - [`Scaffold` `Fed-BioMed` aggregator](https://fedbiomed.org/latest/developer/api/researcher/aggregators/#fedbiomed.researcher.aggregators.Scaffold)  must not be used when using both `ScaffoldServerModule` and `ScaffoldClientModule`. This `aggregator` is in fact an alternative to the `declearn` `scaffold`, and you have to choose between the `Fed-BioMed` native version of `Scaffold` and the `declearn` 's one. Please note that `Fed-BioMed aggregator Scaffold` is deprecated, hence, the use of `ScaffoldServerModule` and `ScaffoldClientModule` is highly encouraged.
 
 ## Conclusion

@@ -66,7 +66,7 @@ def add_dataset_to_node(config: Config, dataset: dict) -> True:
 def default_on_failure(process: subprocess.Popen):
     """Default function to execute when the process is on exit"""
     print(f"On failure callback: Process has failed!, {process}")
-    raise End2EndError(f"Porcesses has failed! command: {process.args}")
+    raise End2EndError(f"Processes has failed! command: {process.args}")
 
 
 def start_nodes(

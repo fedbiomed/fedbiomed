@@ -144,7 +144,7 @@ Training Plans are saved in the database with following details:
     'researcher_id' : '<The ID of the researcher that sent this training plan or None>',
     'algorithm' : '<algorithm used for the hash of the training plan file>',
     'hash' : '<hash of the training plan file>',
-    'date_registered' : '<Registeration date>',
+    'date_registered' : '<Registration date>',
     'date_created' : '<The date file has been created>',
     'date_modified' : '<The date file has been modified>',
     'date_last_action' : '<The date file has been modified or hash recomputed>'

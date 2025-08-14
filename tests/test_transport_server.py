@@ -303,7 +303,7 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
     def test_grpc_server_02_send(self):
         # Invalid message
         with self.assertRaises(FedbiomedCommunicationError):
-            self.grpc_server.send(message="opps", node_id="node-1")
+            self.grpc_server.send(message="oops", node_id="node-1")
 
         # Started is unset
         with self.assertRaises(FedbiomedCommunicationError):
@@ -316,7 +316,7 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
     def test_grpc_server_03_broadcast(self):
         # Invalid message
         with self.assertRaises(FedbiomedCommunicationError):
-            self.grpc_server.broadcast(message="opps")
+            self.grpc_server.broadcast(message="oops")
 
         # Started is unset
         with self.assertRaises(FedbiomedCommunicationError):

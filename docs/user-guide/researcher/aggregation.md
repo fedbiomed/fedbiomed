@@ -79,7 +79,7 @@ Please note that:
  - `SCAFFOLD` **requires** using the `num_updates` training argument to control the number of [training iterations](./experiment.md#controlling-the-number-of-training-loop-iterations). Using only `epochs` will raise an error.
  - `SCAFFOLD` also exists as an `declearn` cross framework optimizer. Using `SCAFFOLD` implementation in `declearn` enables the use of other machine learning frameworks such as `scikit-learn`.
 
-!!! warning "Unsecure SCAFFOLD"
+!!! warning "Insecure SCAFFOLD"
     This version of SCAFFOLD should not be used in a highly secure setting, especially if the use of  [Secure Aggregation](./../secagg/introduction.md) is considered. While model parameters will be encrypted with Secure Aggregation, the SCAFFOLD correction terms won't. For more security, it is recommended to use [`declearn`'s `Scaffold` optimizers](./../advanced-optimization.md#42-an-example-using-optimizer-with-auxiliary-variables-scaffold-with-declearn) with [`FedAveraging`](./../../../developer/api/researcher/aggregators#fedbiomed.researcher.aggregators.FedAverage) instead.
 
 ## How to Create Your Custom Aggregator
@@ -139,12 +139,12 @@ type of the parameters, and then it does the averaging.
             avg_params[key] = np.average(matr,weights=np.array(weights),axis=0)
 ```
 
-### Desinging your own `Aggregator` class: the `create_aggregator_args` method
+### Designing your own `Aggregator` class: the `create_aggregator_args` method
 
 For some advanced `Aggregators`, you may need to send some argument to `Nodes` in order to update the local model. For instance,
 `SCAFFOLD` `Aggregator` sends specific correction terms for each of the `Nodes` involved in the training.
 
-The method that has this responsability is `create_aggregator_args`, and is designed as follow (in the `fedbiomed.researcher.aggregators.Aggregator` class):
+The method that has this responsibility is `create_aggregator_args`, and is designed as follow (in the `fedbiomed.researcher.aggregators.Aggregator` class):
 
 ```python
 def create_aggregator_args(self, *args, **kwargs) -> Tuple[dict, dict]:

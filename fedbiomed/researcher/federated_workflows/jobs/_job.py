@@ -63,7 +63,7 @@ class Job(ABC):
     def nodes(self) -> List[str]:
         return self._nodes
 
-    # FIXME: this method is very basic, and doesnot compute the total time of request since it waits for all requests
+    # FIXME: this method is very basic, and doesn't compute the total time of request since it waits for all requests
     # before computing elapsed time
     class RequestTimer:
         """Context manager that computes the processing time elapsed for the request and the reply

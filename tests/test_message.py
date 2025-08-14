@@ -86,7 +86,7 @@ class TestMessage(unittest.TestCase):
             self.fail("check_class_args: bad params detected as good")
 
         if expected_result is False and result is False:
-            self.assertTrue(True, "check_class_args: bad params correclty detected")
+            self.assertTrue(True, "check_class_args: bad params correctly detected")
 
         pass
 
@@ -151,7 +151,7 @@ class TestMessage(unittest.TestCase):
         self.assertEqual(m0.get_param("a"), 1)
         self.assertEqual(m0.get_param("b"), "test")
 
-        # test the validate fonction which sends an exception
+        # test the validate function which sends an exception
         # bad parameter type for a
         bad_result = False
         try:
@@ -225,7 +225,7 @@ class TestMessage(unittest.TestCase):
 
         with self.assertRaises(FedbiomedError):
             t = msg.to_dict()
-            t["__type_message__"]["class"] = "Unkown"
+            t["__type_message__"]["class"] = "Unknown"
             message.Message.from_dict(t)
 
     def test_message_02_searchreply(self):

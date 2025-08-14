@@ -5,7 +5,7 @@ This page gives an overview of Fed-BioMed security model. A more complete and fo
 ## Summary
 
 !!! info "Fed-BioMed empowers the node sites"
-    In a Fed-BioMed instance, nodes have control. There is no notion of trusted party that has full control or full access to the other parties. The researcher can only train a model authorized by the node, on data explicitely shared by the node.
+    In a Fed-BioMed instance, nodes have control. There is no notion of trusted party that has full control or full access to the other parties. The researcher can only train a model authorized by the node, on data explicitly shared by the node.
 
 !!! info "Fed-BioMed minimizes firewall filters"
     Fed-BioMed nodes and researcher only need one outbound VPN port to one server for running
@@ -42,7 +42,7 @@ Fed-BioMed other vulnerabilities include:
 * `5.` federated learning: advanced attacks such as model poisoning, free-riding attacks, etc.
 * `6.` infrastructure: outsider may attempt penetration attacks on a VPN endpoint
 * `7.` infrastructure: insider may attempt penetration attacks on another component of the Fed-BioMed instance
-* `8.` federated learning: honest but curious nodes can attempt inference or reconstuction attacks on global model parameters sent by the researcher and try to gain some knowledge about the other nodes' data
+* `8.` federated learning: honest but curious nodes can attempt inference or reconstruction attacks on global model parameters sent by the researcher and try to gain some knowledge about the other nodes' data
 * `9.` inference and reconstruction attacks on the final trained model: a malicious outsider that duly receives a copy of the final trained model for using it may try attacks from `1.`. This case is considered out of scope of this analysis, as it occurs outside of Fed-BioMed. Same precautions should be taken as for any machine learning model.
 
 ## Addressing the vulnerabilities
@@ -50,7 +50,7 @@ Fed-BioMed other vulnerabilities include:
 Fed-BioMed addresses the above vulnerabilities in the following way:
 
 * **secure aggregation** and **differential privacy** offer options to remove or reduce the risk coming from `1.`
-* **gRPC encryption** adresses 2. by encrypting all message and data exchanges between each node and the researcher. 
+* **gRPC encryption** addresses 2. by encrypting all message and data exchanges between each node and the researcher. 
 * exploiting `4.` would enable a node component to execute same commands (training) or retrieve same information (local training updates from node) as the researcher, but no more. Moreover, inside the VPN the Fed-BioMed instance is star-shaped, which requires active (malicious node) attack. This is why mutual verification of other party identity during gRPC encryption setup (inside the VPN) was not prioritized by Fed-BioMed. Nevertheless, it is in the midterm roadmap.
 * **model approval functionality** addresses `3.` by enabling each node site to review and authorize a training plan before it can train on the node.
 * advanced federated learning attacks from `5.` will be further addressed in future releases with innovative functions. Stay tuned.

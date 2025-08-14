@@ -364,7 +364,7 @@ class Metrics(object):
         guarantees that the y_true and y_pred will have same shape.
 
         Args:
-            y_true: True values (lablels) of validation dataset
+            y_true: True values (labels) of validation dataset
             y_pred: Predicted values
             metric: Metric that is going to be used for evaluation
 

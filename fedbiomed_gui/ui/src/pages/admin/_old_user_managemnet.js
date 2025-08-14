@@ -59,7 +59,7 @@ const UserManagement = (props) => {
             })
         }
 
-    // columns contains scheme for desigining grid
+    // columns contains scheme for designing grid
     const columns = [
         {
           id: 'name',
@@ -143,7 +143,7 @@ const UserManagement = (props) => {
                     stripes: true,
                     rowHover: 'highlight',
                     header: 'underline',
-                    // If showDisplaySelector.allowDensity={true} from toolbarVisibility, fontSize and cellPadding will be superceded by what the user decides.
+                    // If showDisplaySelector.allowDensity={true} from toolbarVisibility, fontSize and cellPadding will be superseded by what the user decides.
                     cellPadding: 'm',
                     fontSize: 'm',
                     footer: 'overline'

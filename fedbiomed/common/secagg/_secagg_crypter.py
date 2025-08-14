@@ -294,7 +294,7 @@ class SecaggLomCrypter(SecaggCrypter):
 
         Args:
             nonce: `nonce` to use in encryption. Needs to be the same between the parties of
-                the LOM computation. Can be disclosed (public). Must not be re-used.
+                the LOM computation. Can be disclosed (public). Must not be reused.
         """
         if nonce:
             # The security relies on the non-reuse of the nonce.

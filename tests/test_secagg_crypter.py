@@ -28,7 +28,7 @@ class TestSecaggCrypter(unittest.TestCase):
         self.assertEqual(pp.n_modulus, 12345)
 
     def tests_secagg_crypter_02_convert_to_encrypted_number(self):
-        """Tests convertion from int to encrypted number"""
+        """Tests conversion from int to encrypted number"""
         vector = [[1, 2, 3, 4], [1, 2, 3, 4], [1, 2, 3, 4]]
 
         pp = self.secagg_crypter._setup_public_param(biprime=12345)
@@ -216,7 +216,7 @@ class TestSecaggCrypter(unittest.TestCase):
                     total_sample_size=8,
                 )
 
-        # Raise if num nodes not equal to number fo parameters
+        # Raise if num nodes not equal to number of parameters
         with self.assertRaises(FedbiomedSecaggCrypterError):
             params = [[1, 1, 1], [2, 2, 2], [3, 3, 3]]
             self.secagg_crypter.aggregate(

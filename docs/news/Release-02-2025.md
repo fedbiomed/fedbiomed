@@ -4,7 +4,7 @@
 
 Fed-BioMed v6.0.0 is now available !
 
-**Fed-BioMed is now availbale through `pip`**
+**Fed-BioMed is now available through `pip`**
 The main feature provided by this release is the new cli command, and a new and simpler way to download Fed-BioMed through `pip`: a simple `pip install fedbiomed` or `pip install fedbiomed --upgrade` is now enough to get the latest changes of `Fed-BioMed`.
 In order to run `Fed-BioMed`, just write `fedbiomed node start` or `fedbiomed researcher start`.
 

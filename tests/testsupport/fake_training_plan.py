@@ -112,7 +112,7 @@ class FakeModel(BaseTrainingPlan):
     def save_code(self, path: str, from_code: Optional[str] = None):
         """
         Fakes `save_code` method of TrainingPlan classes, originally used for
-        saving codes of model calss. Passed argument are unused.
+        saving codes of model class. Passed argument are unused.
 
         Args:
             path (str): saving path
@@ -131,8 +131,8 @@ class FakeModel(BaseTrainingPlan):
     def training_routine(self, **kwargs):
         """Fakes `training_routine` method of TrainingPlan classes. Originally
         used for training the model. Passed arguments are unused.
-        Sleeps for a certain amount of time (set by SLEEPING_TIME attibute),
-        so it mimicks a training and able timing tests.
+        Sleeps for a certain amount of time (set by SLEEPING_TIME attribute),
+        so it mimics a training and able timing tests.
         """
         time.sleep(FakeModel.SLEEPING_TIME)
 

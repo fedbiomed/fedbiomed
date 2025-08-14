@@ -54,7 +54,7 @@ def weighted_sum(
     Args:
         model_params (List[Dict[str, Union[torch.Tensor, np.ndarray]]]): list that contains nodes'
             model parameters; each model is stored as an OrderedDict (maps model layer name to the model weights)
-        proportions (List[float]): weights of all items whithin model_params's list
+        proportions (List[float]): weights of all items within model_params's list
 
     Returns:
         Mapping[str, Union[torch.Tensor, np.ndarray]]: model resulting from the weighted sum

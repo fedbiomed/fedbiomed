@@ -60,7 +60,7 @@ ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn status vpnserver researcher
 
 info "Building node and GUI"
 if ! ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn build node gui; then
-	error "Error while building ndoe and gui images"
+	error "Error while building node and gui images"
 fi
 
 cd ${FEDBIOMED_DIR}/envs/vpn/docker

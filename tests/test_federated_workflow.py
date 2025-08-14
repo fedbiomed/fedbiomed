@@ -305,7 +305,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
             self.assertDictEqual(secagg_args, {"secagg": "arguments"})
 
-            # deactivate secagg, but one ndoe
+            # deactivate secagg, but one node
             _secagg.reset_mock()
             _secagg.active = False
 

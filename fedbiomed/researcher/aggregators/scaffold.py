@@ -105,7 +105,7 @@ class Scaffold(Aggregator):
         self.global_state: Dict[str, Union[torch.Tensor, np.ndarray]] = {}
         self.nodes_states: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]] = {}
         # FIXME: `nodes_states` is mis-named, because can conflict with `node_state`s that are saved
-        # whitin 2 Rounds
+        # within 2 Rounds
         self.nodes_deltas: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]] = {}
         self.nodes_lr: Dict[str, Dict[str, float]] = {}
         if fds is not None:
@@ -437,7 +437,7 @@ class Scaffold(Aggregator):
         breakpoint_path: str,
         global_model: Mapping[str, Union[torch.Tensor, np.ndarray]],
     ) -> Dict[str, Any]:
-        # adding aggregator parameters to the breakpoint that wont be sent to nodes
+        # adding aggregator parameters to the breakpoint that won't be sent to nodes
         self._aggregator_args["server_lr"] = self.server_lr
 
         # saving global state variable into a file

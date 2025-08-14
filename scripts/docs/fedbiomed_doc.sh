@@ -26,9 +26,9 @@ Arguments:
 
   --build-dir [DIR]             : The directory where documentation will be built (optional default is 'build').
   --build-current-as [VERSION]  : Build current active branch as given version.
-  --build-version [VERSION]     : Build given verison tag by chekcing out to it. It writes build content in {BUILD_DIR}/{VERSION}
+  --build-version [VERSION]     : Build given version tag by checking out to it. It writes build content in {BUILD_DIR}/{VERSION}
 
-Positonal Arguments:
+Positional Arguments:
   --serve                       : It serves documentation.
   --build-main                  : Build main documentation. Home page, pages, new etc. It redirect documentation
                                   related pages to "/latest/*". This option can be used with other positional arguments.
@@ -168,7 +168,7 @@ copy_to_build_dir () {
     ln -r -sfn $BUILD_DIR/$VERSION_TO_LINK $BUILD_DIR/latest  || { cleaning; exit 1; }
   fi
 
-  # Remove temprory files
+  # Remove temporary files
   rm -rf $BUILD_DIR_TMP
 
 }

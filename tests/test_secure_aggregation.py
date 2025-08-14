@@ -288,7 +288,7 @@ class TestSecureAggregationWrapper(unittest.TestCase):
         for method in methods_names:
             if not re.compile("^_").match(method):
                 if not hasattr(obj, method):
-                    self.fail(f"method {method} doesnot belong to object {obj}")
+                    self.fail(f"method {method} doesn't belong to object {obj}")
 
     def test_secure_aggregation_01_init(self):
         sa = SecureAggregation(scheme=SecureAggregationSchemes.JOYE_LIBERT)

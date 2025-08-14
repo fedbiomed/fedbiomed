@@ -127,12 +127,12 @@ def unflatten_auxvar_after_secagg(
     """
     # Iteratively rebuild AuxVar instances, then return.
     aux_var = {}  # type: Dict[str, AuxVar]
-    indx = 0
+    index = 0
     for i, (name, aux_cls) in enumerate(clear_cls):
         size = sum(size for _, size, _ in enc_specs[i])
         aux_var[name] = _unflatten_aux_var(
             aux_cls=aux_cls,
-            flattened=decrypted[indx : indx + size],
+            flattened=decrypted[index : index + size],
             enc_specs=enc_specs[i],
             cleartext=cleartext[i],
         )
@@ -161,22 +161,22 @@ def _unflatten_aux_var(
     """
     fields = {}  # type: Dict[str, Any]
     # Iteratively rebuild flattened fields to scalar, arrays or Vector.
-    indx = 0
+    index = 0
     for name, size, spec in enc_specs:
         if (spec is None) and (size == 1):
-            fields[name] = flattened[indx]
+            fields[name] = flattened[index]
         elif isinstance(spec, (tuple, list)):
             shape, dtype = spec
-            flat = flattened[indx : indx + size]
+            flat = flattened[index : index + size]
             fields[name] = np.array(flat).astype(dtype).reshape(shape)
         elif isinstance(spec, VectorSpec):
-            flat = flattened[indx : indx + size]
+            flat = flattened[index : index + size]
             fields[name] = Vector.build_from_specs(flat, spec)
         else:
             raise RuntimeError(
                 "Invalid specifications for flattened auxiliary variables."
             )
-        indx += size
+        index += size
     # Try instantiating from rebuilt and preserved fields.
     if cleartext:
         fields.update(cleartext)

@@ -363,14 +363,14 @@ class TestMetrics(unittest.TestCase):
 
     def test_metrics_13_evaluate_multiclass_classification_1D_1D_array(self):
         """Multiclass: test y_true is 1D and y_pred is 1D array"""
-        exemples = {
+        examples = {
             "batch_size_4": (
                 [2, 0, 1, 2],  # y_true
                 [2, 0, 1, 2],
             ),  # y_pred
             "batch_size_1": ([2], [2]),
         }
-        for y_true, y_pred in exemples.values():
+        for y_true, y_pred in examples.values():
             self._check_metrics_resuls(
                 y_true, y_pred, self._classification_metrics, 1, "muticlass"
             )
@@ -476,7 +476,7 @@ class TestMetrics(unittest.TestCase):
                 list(result), [1, 1], "Could not compute EXPLAINED_VARIANCE correctly"
             )
 
-        # Test missmatch shape for regression metrics should raise exception
+        # Test mismatch shape for regression metrics should raise exception
         y_true = [[12, 12], [13, 13], [14, 14], [15, 15]]
         y_pred = [11, 12, 13, 14]
         with self.assertRaises(FedbiomedMetricError):

@@ -71,7 +71,7 @@ class LegacyTabularDataset(Dataset):
                 f"TrainingPlan"
             )
 
-        # Convert `inputs` adn `target` to Torch floats
+        # Convert `inputs` and `target` to Torch floats
         self.inputs = from_numpy(self.inputs).float()
         self.target = from_numpy(self.target).float()
 

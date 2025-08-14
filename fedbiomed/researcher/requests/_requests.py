@@ -334,7 +334,7 @@ class Requests(metaclass=SingletonMeta):
         # instead of the json method when extracting json message
         original_msg = json.loads(log["msg"])
 
-        # Loging fancy feedback for training
+        # Logging fancy feedback for training
         logger.info(
             "\033[1m{}\033[0m\n"
             "\t\t\t\t\t\033[1m NODE\033[0m {}\n"

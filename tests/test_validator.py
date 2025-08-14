@@ -616,7 +616,7 @@ class TestSchemeValidator(unittest.TestCase):
         self.assertEqual(good_again["b"], 666)
         self.assertEqual(good_again["d"], "some string")
 
-        # be carefull that this is not idiot proof....
+        # be careful that this is not idiot proof....
         bad = {"a": "string instead a float"}
         with self.assertRaises(ValidateError):
             sc.validate(bad)

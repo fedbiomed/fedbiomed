@@ -189,8 +189,8 @@ class FederatedWorkflow(ABC):
             secagg: whether to setup a secure aggregation context for this experiment, and
                 use it to send encrypted updates from nodes to researcher.
                 Defaults to `False`,
-            config_name: Allows to use specific configuration for reseracher instead of default
-                one. Confiuration file are kept in `{FEDBIOMED_DIR}/etc`, and a new configuration
+            config_name: Allows to use specific configuration for researcher instead of default
+                one. Configuration file are kept in `{FEDBIOMED_DIR}/etc`, and a new configuration
                 file will be generated if it is not existing.
         """
 
@@ -875,7 +875,7 @@ class FederatedWorkflow(ABC):
             If None, loads the latest breakpoint of the latest workflow. Defaults to None.
 
         Returns:
-            Tuple contaning reinitialized workflow object and the saved state as a dictionary
+            Tuple containing reinitialized workflow object and the saved state as a dictionary
 
         Raises:
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or

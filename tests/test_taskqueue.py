@@ -50,7 +50,7 @@ class TestTasksQueue(unittest.TestCase):
             self.assertEqual(q1.qsize(), 0)
         except:
             # this must not happen
-            self.fail("exception from reading from empty queue not catched")
+            self.fail("exception from reading from empty queue not caught")
 
         pass
 

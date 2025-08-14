@@ -6,7 +6,7 @@ keywords: training data,training plan,fedbiomed
 
 # The Training Plan
 
-A training plan is a class that defines the four main components of federated model training: the data, the model, the loss and the optimizer. It is responsible for providing custom methods allowing every node to perform the training.  In Fed-BioMed, you will be required to define a training plan class before submitting a federated training experiment.  You will do so by sub-classing one of the base training plan classes provided by the library, and overriding certain methods to suit your needs as explained below. The code of the whole training plan class is shipped to the nodes, meaning that you may define custom classes and functions inside it, and re-use them within the training routine.
+A training plan is a class that defines the four main components of federated model training: the data, the model, the loss and the optimizer. It is responsible for providing custom methods allowing every node to perform the training.  In Fed-BioMed, you will be required to define a training plan class before submitting a federated training experiment.  You will do so by sub-classing one of the base training plan classes provided by the library, and overriding certain methods to suit your needs as explained below. The code of the whole training plan class is shipped to the nodes, meaning that you may define custom classes and functions inside it, and reuse them within the training routine.
 
 !!! abstract "Training Plans"
     A Training Plan contains the recipe for executing the training loop on the nodes. It defines: the data, the model,

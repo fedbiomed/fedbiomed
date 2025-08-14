@@ -269,7 +269,7 @@ export const SelectiveTable = (props) => {
                             hoverRowIndex={hoverRowIndex}
                             activeColIndex={props.selectedColIndex}
                             activeRowIndex={props.selectedRowIndex}
-                            tranformation={(data) => data.toString().substring(0,30)}
+                            transformation={(data) => data.toString().substring(0,30)}
                         />
                 </Table>
             </TableWrapper>

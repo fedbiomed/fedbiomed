@@ -51,12 +51,12 @@ def post_session(request, data):
     print("#### Kiling e2e processes after the tests -----")
     kill_e2e_test_processes()
     print("#### Killing is completed")
-    print("\n###### Cleaning temprorary directory: started -----\n")
+    print("\n###### Cleaning temporary directory: started -----\n")
     print(f"Directory: {pytest.temporary_test_directory}")
     pytest.temporary_test_directory.cleanup()
     tmp_dir = os.path.join(os.path.expanduser("~"), "_tmp")
     shutil.rmtree(tmp_dir, ignore_errors=True)
-    print("\n###### Cleaning temprorary directory: finished  -----\n\n")
+    print("\n###### Cleaning temporary directory: finished  -----\n\n")
     print(
         f"#### Module tests have finished {request.node}:{request.node.name} --------"
     )

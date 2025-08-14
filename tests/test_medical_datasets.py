@@ -114,7 +114,7 @@ def _create_wrong_formatted_folder_for_medical_folder(root: str, n_samples: int)
         os.makedirs(subject_folder)
 
 
-## Utilities for testin DataLoadingPlan
+## Utilities for testing DataLoadingPlan
 modalities_to_folders = {
     "T1": ["T1siemens", "T1philips"],
     "T2": ["T2"],
@@ -277,7 +277,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
             with self.assertRaises(FedbiomedDatasetError):
                 dataset[0]
         finally:
-            self.patcher.stop()  # make sure patcher is stopped (in order to avid propegating patch to other tests)
+            self.patcher.stop()  # make sure patcher is stopped (in order to avid propagating patch to other tests)
 
         # test case where `demographics` type is not correct
 
@@ -311,7 +311,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
     def test_medical_folder_dataset_04_len(self):
         dataset = MedicalFolderDataset(self.root)
 
-        # check correct use of number of smaples
+        # check correct use of number of samples
         self.assertEqual(len(dataset), self.n_samples)
 
         # check __len__ behaviour when self.subject_folder returns an empty list
@@ -1074,7 +1074,7 @@ class TestMedicalFolderController(unittest.TestCase):
             sorted(csv_data[self.index_col].tolist()), sorted(res["index"])
         )
 
-        # in the folowing, we will run 5 tests with different size of patient_id
+        # in the following, we will run 5 tests with different size of patient_id
         patient_ids = csv_data[self.index_col].tolist()
         for _ in range(5):
             random.shuffle(patient_ids)

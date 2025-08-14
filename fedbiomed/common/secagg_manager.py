@@ -24,7 +24,7 @@ _TableName = "SecaggManager"
 
 
 class _SecaggTableSingleton(metaclass=SingletonMeta):
-    """Imstantiate secagg table object as singleton to ensure coherent acccess."""
+    """Imstantiate secagg table object as singleton to ensure coherent access."""
 
     def __init__(self, db: TinyDB):
         """Constructor of the class

@@ -49,7 +49,7 @@ class Node:
 
     Defines the behaviour of the node, while communicating
     with the researcher through the `Messaging`, parsing messages from the researcher,
-    etiher treating them instantly or queuing them,
+    either treating them instantly or queuing them,
     executing tasks requested by researcher stored in the queue.
     """
 

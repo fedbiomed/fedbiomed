@@ -154,7 +154,7 @@ class TestTorchnn(unittest.TestCase):
         return tp
 
     def test_torch_training_plan_01_save_model(self):
-        """Test save model method of troch traning plan"""
+        """Test save model method of troch training plan"""
         tp1 = TorchTrainingPlan()
         modulename = "tmp_model"
         file = self.tmpdir + os.path.sep + modulename + ".py"

@@ -14,7 +14,7 @@ Fed-BioMed provides:
 
 - A demonstrated framework for deploying collaborative learning in hospital networks,
 - Easy deployment of state-of-the art federated learning and federated analytics methods, 
-- User-friendly tools for data managment and client participation to collaborative learning,
+- User-friendly tools for data management and client participation to collaborative learning,
 - A framework-agnostic environment for easily deploying machine learning methods, 
 - Clear solutions compliant with data providers' privacy, and nodes governance requirements.
 
