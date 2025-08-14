@@ -55,9 +55,6 @@ class Controller(ABC, DataLoadingPlanMixin):
         pass
 
     # === Functions ===
-    def __getitem__(self, index: int) -> Dict[str, Any]:
-        return self._get_nontransformed_item(index=index)
-
     def get_types(self):
         """Get `type` directly from values in `dict` returned by `_get_nontransformed_item`"""
         return {
@@ -94,3 +91,11 @@ class Controller(ABC, DataLoadingPlanMixin):
                     f"of key: {key} that is type {type(val).__name__}"
                 )
         return output
+
+    def validate(self) -> None:
+        """Validates coherence of controller
+
+        Raises:
+            FedbiomedError: if coherence issue is found
+        """
+        pass
