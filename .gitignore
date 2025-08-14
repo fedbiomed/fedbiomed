@@ -64,6 +64,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 pytestdebug.log
+tests/test-data/
 # Translations
 *.mo
 
@@ -127,6 +128,7 @@ pythonenv*
 
 # FB environments
 fbm-researcher/
+fbm-node/
 
 # Spyder project settings
 .spyderproject
