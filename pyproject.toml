@@ -271,3 +271,11 @@ ignore = [
 unfixable = [
 	"B",  #   flake8-bugbear (`B`) violations
 ]
+
+[tool.codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+skip = '.git*,*.pdf,*.svg,*.lock,*.css,assets'
+check-hidden = true
+# ignore images in notebooks and regex specifications
+ignore-regex = '^\s*"image/\S+": ".*|\(^\S+\)|\bOT\b'
+ignore-words-list = 'ser,infor,te,opps'

@@ -44,7 +44,7 @@ MAX_GRPC_SERVER_SETUP_TIMEOUT = 20 * server_setup_timeout
 
 
 class SSLCredentials:
-    """Contains credentials for SSL certifcate of the gRPC server"""
+    """Contains credentials for SSL certificate of the gRPC server"""
 
     def __init__(self, key: str, cert: str):
         """Reads private key and cert file

@@ -40,7 +40,7 @@ from fedbiomed.node.cli_utils import (
 from fedbiomed.node.config import node_component
 from fedbiomed.node.node import Node
 
-# Please use following code genereate similar intro
+# Please use following code generate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
 #
 __intro__ = """
@@ -344,7 +344,7 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
 
         register = training_plan_suparsers.add_parser(
             "register",
-            help="Registers training plans manually by selected file thorugh interactive browser.",
+            help="Registers training plans manually by selected file through interactive browser.",
         )
         register.set_defaults(func=self.register)
 
@@ -471,7 +471,7 @@ class NodeControl(CLIArgumentParser):
             name=f"node-{self._node.config.get('default', 'id')}",
             args=(self._node.config, node_args),
         )
-        p.deamon = True
+        p.daemon = True
         p.start()
 
         logger.info("Node started as process with pid = " + str(p.pid))
@@ -703,7 +703,7 @@ class NodeCLI(CommonCLI):
             action=ComponentDirectoryActionNode,
             default="fbm-node",
             help="The path were component is located. It can be absolute or "
-            "realtive to the path where CLI is executed.",
+            "relative to the path where CLI is executed.",
         )
 
 

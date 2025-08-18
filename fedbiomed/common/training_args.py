@@ -486,7 +486,7 @@ class TrainingArgs:
         Update multiple keys of the training arguments.
 
         Args:
-            values:  a dictionnary of (key, value) to validate/update
+            values:  a dictionary of (key, value) to validate/update
 
         Returns:
             the object itself after modification
@@ -508,7 +508,7 @@ class TrainingArgs:
         t ^= { 'epochs': 2 , 'lr': 0.01 }
         ```
         Args:
-            other:  a dictionnary of keys to validate/update
+            other:  a dictionary of keys to validate/update
 
         Returns:
             the object itself after modification
@@ -594,7 +594,7 @@ class TrainingArgs:
         """Mimics the get() method of dict, provided for backward compatibility.
 
         Args:
-            key: a key for retrieving data fro the dictionary
+            key: a key for retrieving data from the dictionary
             default: default value to return if key does not belong to dictionary
         """
         try:

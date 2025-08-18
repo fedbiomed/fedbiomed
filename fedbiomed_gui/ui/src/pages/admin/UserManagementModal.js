@@ -130,7 +130,7 @@ const UserPasswordResetManagement = (props) => {
                                 ) : error ? (
 
                                     <EuiCallOut
-                                        title="Opps!"
+                                        title="Oops!"
                                         color="danger"
                                         iconType="alert"
                                         onClose={() => setError(null)}

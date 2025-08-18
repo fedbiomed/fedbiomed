@@ -96,7 +96,7 @@ class TestRound(unittest.TestCase):
         self.db = os.path.join(self.temp_dir.name, "test-db.json")
         self.root = os.path.join(self.temp_dir.name, "tests")
         self.tp_security_manager_mock = MagicMock(spec=TrainingPlanSecurityManager)
-        # instanciate Round class
+        # instantiate Round class
         self.r1 = Round(
             root_dir=self.root,
             db=self.db,
@@ -220,7 +220,7 @@ class TestRound(unittest.TestCase):
     def test_round_02_run_model_training_correct_model_calls(
         self, uuid_patch, tp_security_manager_patch, import_module_patch
     ):
-        """tests if all methods of `model` have been called after instanciating
+        """tests if all methods of `model` have been called after instantiating
         (in run_model_training)"""
         # `run_model_training`, when no issues are found
         # methods tested:
@@ -393,7 +393,7 @@ class TestRound(unittest.TestCase):
         #
         class FakeModelRaiseExceptionWhenLoading(FakeModel):
             def set_model_params(self, *args, **kwargs):
-                """Mimicks an exception happening in the `load`
+                """Mimics an exception happening in the `load`
                 method
 
                 Raises:
@@ -420,7 +420,7 @@ class TestRound(unittest.TestCase):
 
         class FakeModelRaiseExceptionInTraining(FakeModel):
             def training_routine(self, **kwargs):
-                """Mimicks an exception happening in the `training_routine`
+                """Mimics an exception happening in the `training_routine`
                 method
 
                 Raises:
@@ -518,7 +518,7 @@ class TestRound(unittest.TestCase):
 
         FakeModel.SLEEPING_TIME = 1
 
-        # initalisation of side effect function
+        # initialisation of side effect function
         class M(FakeModel):
             def after_training_params(self, flatten):
                 return [0.1, 0.2, 0.3, 0.4, 0.5]
@@ -801,7 +801,7 @@ class TestRound(unittest.TestCase):
                 "secagg_scheme": SecureAggregationSchemes.JOYE_LIBERT,
             },
         )
-        # Verify that the routine succeeded and model parameters were encryped.
+        # Verify that the routine succeeded and model parameters were encrypted.
         assert isinstance(msg_test, TrainReply)
         assert msg_test.success, f"Training failed: {msg_test.msg}"
         assert msg_test.encrypted
@@ -937,7 +937,7 @@ class TestRound(unittest.TestCase):
             __class__="optimizer_type",
         )
 
-        # adding a funcition that add additional dictionary entries through reference
+        # adding a function that add additional dictionary entries through reference
         self.state_manager_mock.return_value.add.side_effect = lambda x, y: y.update(
             {"version_node_id": "1", "state_id": "state_id_1234"}
         )

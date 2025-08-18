@@ -295,7 +295,7 @@ def add_default_dataset():
     if "path" in req:
         # Data path that the files will be read
         path = os.path.join(config["DATA_PATH_RW"], *req["path"])
-        # This is the path will be writen in DB
+        # This is the path will be written in DB
         data_path = os.path.join(config["DATA_PATH_SAVE"], *req["path"])
         if not os.path.isdir(path):
             return error(
@@ -309,7 +309,7 @@ def add_default_dataset():
         if not os.path.exists(os.path.join(default_dir, "mnist")):
             os.mkdir(path)
 
-        # This is the path will be writen in DB
+        # This is the path will be written in DB
         data_path = os.path.join(config["DATA_PATH_SAVE"], "defaults", "mnist")
 
     try:

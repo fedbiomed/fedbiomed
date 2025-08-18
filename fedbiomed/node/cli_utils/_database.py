@@ -51,7 +51,7 @@ def add_database(
     data_loading_plan = None
 
     # if all args are provided, just try to load the data
-    # if not, ask the user more informations
+    # if not, ask the user more information
     if (
         interactive
         or path is None

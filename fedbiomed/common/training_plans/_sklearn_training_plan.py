@@ -315,7 +315,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 metric = MetricTypes.ACCURACY
             else:
                 metric = MetricTypes.MEAN_SQUARE_ERROR
-        # Delegate the actual evalation routine to the parent class.
+        # Delegate the actual evaluation routine to the parent class.
         super().testing_routine(metric, metric_args, history_monitor, before_train)
 
     def _classes_from_concatenated_train_test(self) -> np.ndarray:

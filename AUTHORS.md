@@ -42,4 +42,5 @@ Each author can mention his/her name only or give more information in the follow
 - Riccardo Taiello
 - Jhonatan Torres
 - Marc Vesin
+- Yaroslav Halchenko
 - Carlos Zubiaga

@@ -243,7 +243,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
 
         Returns:
             The arguments that are going to be passed to the training plan's
-                `training_routine` to perfom training on the node side. An example
+                `training_routine` to perform training on the node side. An example
                 training routine: [`TorchTrainingPlan.training_routine`]
                 [fedbiomed.common.training_plans.TorchTrainingPlan.training_routine]
         """
@@ -610,7 +610,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     def _check_round_value_consistency(
         self, round_current: int, variable_name: str
     ) -> bool:
-        """Checks round value is consistant, ie it is a non negative integer.
+        """Checks round value is consistent, ie it is a non negative integer.
 
         Args:
             round_current: Round to set

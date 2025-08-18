@@ -70,7 +70,7 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
     _model_cls: Union[Type[Model], Type[SkLearnModel], Tuple[Type]]
 
     def __init__(self, model: Model, optimizer: OT):
-        """Constuctor of the optimizer wrapper that sets a reference to model and optimizer.
+        """Constructor of the optimizer wrapper that sets a reference to model and optimizer.
 
         Args:
             model: model to train, interfaced via a framework-specific Model.
@@ -274,7 +274,7 @@ class DeclearnOptimizer(BaseOptimizer):
             optim_state.update(
                 init_optim_state
             )  # optim_state will be updated with current optimizer state
-            # check if opimizer state has changed from last optimizer to the current one
+            # check if optimizer state has changed from last optimizer to the current one
             # if it has changed, find common modules and update common states
             for component in (
                 "modules",
@@ -406,7 +406,7 @@ class NativeTorchOptimizer(BaseOptimizer):
 
         Args:
             model: fedbiomed model wrapper that warps the pytorch model
-            optimizer: pytorch native optimizers (inhereting from `torch.optim.Optimizer`)
+            optimizer: pytorch native optimizers (inheriting from `torch.optim.Optimizer`)
 
         Raises:
             FedbiomedOptimizerError: raised if optimizer is not a pytorch native optimizer ie a `torch.optim.Optimizer`
@@ -505,7 +505,7 @@ class OptimizerBuilder:
     >>> from fedbiomed.common.models import TorchModel
     >>> opt_builder = OptimizerBuilder()
     >>> model = TorchModel(nn.Linear(4,2))
-    >>> optimizer = torch.optim.SGD(model.paramaters(), .1)
+    >>> optimizer = torch.optim.SGD(model.parameters(), .1)
     >>> optim_wrapper = opt_builder.build(TrainingPlans.TorchTrainingPlan, model, optimizer)
     >>> optim_wrapper()
         NativeTorchOptimizer

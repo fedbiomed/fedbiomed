@@ -36,7 +36,7 @@ Note: Notebooks/examples may use different tags. Please use the tags that are re
 
 Note: This dataset is different from "Pseudo Adni Dataset". It contains three different CSV files corresponding to three nodes.
 
-This dataset represents a realistic dataset of (synthetic) medical information mimicking the ADNI dataset (http://adni.loni.usc.edu/). The data is entirely synthetic and randomly sampled to mimick the variability of the real ADNI dataset**. The training partitions are available at the following link:
+This dataset represents a realistic dataset of (synthetic) medical information mimicking the ADNI dataset (http://adni.loni.usc.edu/). The data is entirely synthetic and randomly sampled to mimic the variability of the real ADNI dataset**. The training partitions are available at the following link:
 
 https://drive.google.com/file/d/1R39Ir60oQi8ZnmHoPz5CoGCrVIglcO9l/view?usp=sharing
 

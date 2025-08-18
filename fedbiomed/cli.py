@@ -45,7 +45,7 @@ class ComponentParser(CLIArgumentParser):
             type=str,
             nargs="?",
             required=False,
-            help="Path to specify where Fed-BioMed component will be intialized.",
+            help="Path to specify where Fed-BioMed component will be initialized.",
         )
 
         common_parser.add_argument(

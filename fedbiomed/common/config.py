@@ -178,7 +178,7 @@ class Config(metaclass=ABCMeta):
         """ "Generate configuration file
 
         Args:
-            force: Overwrites existing configration file
+            force: Overwrites existing configuration file
             id: Component ID
         """
 
@@ -232,15 +232,15 @@ class Config(metaclass=ABCMeta):
         """Migration method to add configuration parameters
 
         It is used for introducing  new parameters for in minor version or patch
-        to not break backward compatibility. This method has to updte `self._cfg`
-        direcly.
+        to not break backward compatibility. This method has to update `self._cfg`
+        directly.
 
         An example;
 
         ```python
         self._cfg["my-section"].update({"my-new-parameter": "my-new-value"})
         ```
-        It should update the section only if the parameter is not exsiting to avoid
+        It should update the section only if the parameter is not existing to avoid
         overwriting user defined values.
         """
 

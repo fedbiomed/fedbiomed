@@ -157,7 +157,7 @@ class MyTrainingPlan(TorchTrainingPlan):
     # ... Implement the other functions as needed ...
 ```
 
-!!! info "Tranforms must always be of `Compose` type"
+!!! info "Transforms must always be of `Compose` type"
     Transforms added to a `FlambyDataset` must always be either of type `torch.transforms.Compose` or
     `monai.transforms.Compose`
 

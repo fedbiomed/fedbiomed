@@ -301,7 +301,7 @@ def test_03_secagg_pytorch_force_secagg(extra_node_force_secagg):
         save_breakpoints=True,
     )
 
-    # This should raise exception with default stragety
+    # This should raise exception with default strategy
     with pytest.raises(SystemExit):
         exp.run()
 
@@ -324,7 +324,7 @@ def test_04_secagg_pytorch_no_validation(extra_node_no_validation):
         secagg=True,
     )
 
-    # This should raise exception with default stragety
+    # This should raise exception with default strategy
     with pytest.raises(SystemExit):
         exp.run()
 

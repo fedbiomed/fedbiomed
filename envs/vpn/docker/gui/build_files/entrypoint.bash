@@ -51,7 +51,7 @@ if [ "$num_files" != 0 ]; then
          'crt' for certificate  and 'key' for the ssl key."
           exit 1
      elif [ "$num_key" = 0 -a "$num_cert" != 0 ] || [ "$num_key" != 0 -a "$num_cert" = 0 ]; then
-         echo "Opps something is wrong please make sure that the mounted certs directory contains both crt and key files.
+         echo "Oops something is wrong please make sure that the mounted certs directory contains both crt and key files.
          There is only one of them existing."
          exit 1
      elif [ "$num_key" -gt 1 ] || [ "$num_cert" -gt 1 ]; then

@@ -240,7 +240,7 @@ class Monitor:
         self._tensorboard = False
 
     def set_round(self, round_: int) -> int:
-        """Setts round number that metric results will be received for.
+        """Sets round number that metric results will be received for.
 
         By default, at the beginning round is equal to 1 which stands for the first round. T
         his method should be called by experiment `run_once` after each round completed, and round should be set
@@ -321,7 +321,7 @@ class Monitor:
         for key, val in metric_dict.items():
             metric_result += "\t\t\t\t\t {}: \033[1m{:.6f}\033[0m \n".format(key, val)
         _min_iteration = min(message["batch_samples"], message["total_samples"])
-        # Loging fancy feedback for training
+        # Logging fancy feedback for training
         logger.info(
             "\033[1m{}\033[0m \n"
             "\t\t\t\t\t NODE_ID: {} \n"

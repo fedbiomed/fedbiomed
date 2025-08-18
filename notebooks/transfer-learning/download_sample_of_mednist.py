@@ -58,7 +58,7 @@ def manage_config_file(mednist_center_name: str = "mednist", **kwargs):
 
     Args:
         args (argparse.ArgumentParser): args parser
-        mednist_center_name (str, optional): name for the node id, as well as the config file and the databse json.
+        mednist_center_name (str, optional): name for the node id, as well as the config file and the database json.
             Defaults to "mednist".
     """
     mednist_center_name = "node_" + mednist_center_name
@@ -73,7 +73,7 @@ def ask_nb_sample_for_mednist_dataset() -> str:
     """Asks to the user the number of samples
 
     Returns:
-        the value inputed by the user
+        the value inputted by the user
     """
     ask_user = True
     while ask_user:

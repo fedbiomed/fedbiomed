@@ -20,7 +20,7 @@ ignore =
     # multiple spaces before keyword
     E272,
 
-    # too many blanck lines
+    # too many blank lines
     E303,
 
     # do not use bare 'except'

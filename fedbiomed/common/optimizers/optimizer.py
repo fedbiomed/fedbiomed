@@ -40,7 +40,7 @@ class Optimizer:
                 the updates right before the learning rate is applied and model
                 weights are effectively updated.
             modules: Optional list of plug-in modules implementing gradients'
-                alteration into model weights' udpates. Modules will be applied
+                alteration into model weights' updates. Modules will be applied
                 to gradients following this list's ordering.
                 See `declearn.optimizer.modules.OptiModule` for details.
                 See Notes section below for details on the "specs" format.

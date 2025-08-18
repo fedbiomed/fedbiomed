@@ -397,7 +397,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         self.assertTrue(result)
 
     def test_training_plan_workflow_13_keep_weights(self):
-        """Tests training plan keep weigths functionality"""
+        """Tests training plan keep weights functionality"""
 
         exp = TrainingPlanWorkflow()
         training_plan = MagicMock(spec=BaseTrainingPlan)
@@ -411,7 +411,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
             dummy_yield()
         training_plan.set_model_params.assert_called_once()
 
-        # Check set_model_params raises an expection
+        # Check set_model_params raises an exception
 
         training_plan.set_model_params.side_effect = Exception
         with self.assertRaises(FedbiomedExperimentError):
