@@ -1,19 +1,25 @@
 repos:
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  # Ruff version.
-  rev: v0.11.13
-  hooks:
-    # Run the linter.
-    - id: ruff-check
-      types_or: [ python, pyi ]
-      args: [ --fix ]
-    # Run the formatter.
-    - id: ruff-format
-      types_or: [ python, pyi ]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.12.9
+    hooks:
+      # Run the linter.
+      - id: ruff-check
+        types_or: [python, pyi]
+        args: [--fix]
+      # Run the formatter.
+      - id: ruff-format
+        types_or: [python, pyi]
 
-- repo: https://github.com/codespell-project/codespell
-  # Configuration for codespell is in .pre-commit-config.yaml
-  rev: v2.4.1
-  hooks:
-  - id: codespell
-    exclude: assets
+  - repo: https://github.com/codespell-project/codespell
+    # Configuration for codespell is in .pre-commit-config.yaml
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        additional_dependencies:
+          - tomli
+      - id: codespell
+        entry: codespell -w
+        additional_dependencies:
+          - tomli
+        stages: [manual]

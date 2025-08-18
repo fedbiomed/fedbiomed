@@ -304,6 +304,17 @@ Once changes are committed, `ruff` will run checks to ensure that the modified f
 
 The recommended practice is to address the issues flagged by `ruff` and then recommit the changes. However, in some cases, the tool may report issues in parts of the code that were not modified in the current commit, or the change requested by the linting tool is not applicable. In such cases, you can bypass the pre-commit hooks by using the `git commit --no-verify` command to skip the linter checks.
 
+#### Pre-commit hook Codespell
+
+When changes are committed, `codespell` runs checking for misspellings for files modified in this commit. It is very useful for fixing comments, documentations, etc.
+
+One must be aware that it is also checking the code for what it considers misspellings. Such cases must be looked carefully as a proposed change in the code might mean that `codespell` found a bug (which is nice), or that it wants to rename a variable (what we may not want, and in any case we need to ensure it changes name for *all* occurrences of the variable).
+
+The recommended practice is to fix the issues found by `codespell`, either by fixing manually or by running `pre-commit run codespell --hook-stage manual`, stage again the modified files, and then redo the commit.
+
+If some modification proposed by `codespell` is not relevant, one can inhibit it permanently by change the `[tool.codespell]` section in `pyproject.toml`.
+
+To bypass the pre-commit hooks for *one* commit use `git commit --no-verify`.
 
 #### Pull
 - can always use `git pull --rebase` (or add it to configuration to apply by default). No danger, it only rebases local yet-unpushed commits on top of new pulled remote commits.
