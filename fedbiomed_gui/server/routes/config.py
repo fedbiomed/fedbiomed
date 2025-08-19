@@ -1,6 +1,6 @@
-from .api import api
-from ..utils import response
 from ..config import config
+from ..utils import response
+from .api import api
 
 
 @api.route("/config/node-id", methods=["GET"])
@@ -38,6 +38,7 @@ def fedbiomed_environ():
     res = {}
     confs = [
         ("default", "id"),
+        ("default", "name"),
         ("default", "db"),
         ("security", "training_plan_approval"),
         ("security", "allow_default_training_plans"),
