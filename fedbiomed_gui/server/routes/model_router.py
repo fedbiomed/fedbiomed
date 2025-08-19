@@ -1,23 +1,24 @@
 from datetime import datetime
+
 from flask import request
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
-from . import api
 from ..config import config
 from ..schemas import (
+    ApproveRejectTrainingPlanRequest,
     DeleteTrainingPlanRequest,
     ListTrainingPlanRequest,
-    ApproveRejectTrainingPlanRequest,
     TrainingPlanPreviewRequest,
 )
-from ..utils import success, error, validate_request_data, response
-
+from ..utils import error, response, success, validate_request_data
+from . import api
 
 TP_SECURITY_MANAGER = TrainingPlanSecurityManager(
     db=config["NODE_DB_PATH"],
+    node_name=config.node_config.get("default", "name"),
     node_id=config["ID"],
     hashing=config.node_config.get("security", "hashing_algorithm"),
     tp_approval=config.node_config.getbool("security", "training_plan_approval"),
@@ -89,7 +90,7 @@ def approve_training_plan():
     if training_plan_id is None:
         return error("missing training_plan_id"), 400
     try:
-        res = TP_SECURITY_MANAGER.approve_training_plan(
+        _ = TP_SECURITY_MANAGER.approve_training_plan(
             training_plan_id, training_plan_note
         )
     except FedbiomedTrainingPlanSecurityManagerError as fed_err:
@@ -124,7 +125,7 @@ def reject_training_plan():
     if training_plan_id is None:
         return error("missing training_plan_id"), 400
     try:
-        res = TP_SECURITY_MANAGER.reject_training_plan(
+        _ = TP_SECURITY_MANAGER.reject_training_plan(
             training_plan_id, extra_notes=training_plan_note
         )
     except FedbiomedTrainingPlanSecurityManagerError as fed_err:
@@ -156,7 +157,7 @@ def delete_training_plan():
     if training_plan_id is None:
         return error("missing training_plan_id"), 400
     try:
-        res = TP_SECURITY_MANAGER.delete_training_plan(training_plan_id)
+        _ = TP_SECURITY_MANAGER.delete_training_plan(training_plan_id)
     except FedbiomedTrainingPlanSecurityManagerError as fed_err:
         return error(str(fed_err)), 400
     return success(f"training_plan {training_plan_id} has been deleted"), 200
