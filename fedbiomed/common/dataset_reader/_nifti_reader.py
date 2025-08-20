@@ -12,6 +12,8 @@ import nibabel as nib
 
 
 class NiftiReader:
+    data_type = nib.nifti1.Nifti1Image
+
     @classmethod
     def read(cls, path: Union[str, Path]) -> nib.Nifti1Image:
         """Reads the NIfTI file and returns it as a tensor, optionally transformed.
@@ -25,7 +27,7 @@ class NiftiReader:
             FileNotFoundError: If the file does not exist.
             ValueError: If the file is not a valid NIfTI file.
         """
-        # IMPORTANT: Read function does not retunr header. It may bne useful in the future.
+        # IMPORTANT: Read function does not return header. It may bne useful in the future.
         if isinstance(path, str):
             path = Path(path)
         elif not isinstance(path, Path):
