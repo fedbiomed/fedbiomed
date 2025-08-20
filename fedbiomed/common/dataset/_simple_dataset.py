@@ -1,10 +1,15 @@
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 import torch
 import torchvision.transforms as T
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.dataset_controller import (
+    ImageFolderController,
+    MedNistController,
+    MnistController,
+)
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 from ._dataset import Dataset
@@ -115,7 +120,7 @@ class SimpleDataset(Dataset):
             )
         return transform
 
-    def _apply_transforms(self, sample: Dict[str, Any]):
+    def _apply_transforms(self, sample: Dict[str, Any]) -> Tuple[Any, Any]:
         try:
             data = self.transform(sample["data"])
         except Exception as e:
@@ -145,24 +150,12 @@ class SimpleDataset(Dataset):
 
         Raises:
             FedbiomedError: if `sample` returned by `_controller` is not a `dict`
-            FedbiomedError: if `sample` does not include keys 'data' and 'target'
+            KeyError: if `sample` does not include keys 'data' and 'target'
         """
         self.to_format = to_format
         self._init_controller(controller_kwargs=controller_kwargs)
 
-        # recover sample with controller --------------------------------------
-        sample = self._get_nontransformed_item(0)
-        if not isinstance(sample, dict):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Expected `sample` to be a `dict`, got "
-                f"{type(sample).__name__}"
-            )
-        if not all(_k in sample for _k in ["data", "target"]):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Missing keys in `sample`. Expected "
-                "'data' and 'target'"
-            )
-
+        sample = self._controller._get_nontransformed_item(0)
         # update transforms if necessary --------------------------------------
         self.transform = self._update_transform(
             sample["data"],
@@ -176,12 +169,12 @@ class SimpleDataset(Dataset):
 
 
 class ImageFolderDataset(SimpleDataset):
-    _allowed_controller = "ImageFolder"
+    _controller_cls = ImageFolderController
 
 
 class MedNistDataset(SimpleDataset):
-    _allowed_controller = "MedNIST"
+    _controller_cls = MedNistController
 
 
 class MnistDataset(SimpleDataset):
-    _allowed_controller = "MNIST"
+    _controller_cls = MnistController

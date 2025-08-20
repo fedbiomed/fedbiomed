@@ -92,7 +92,6 @@ class MedNistController(Controller):
             ) from e
 
         self._controller_kwargs = {
-            "name": "MedNIST",
             "root": str(self.root),
         }
 

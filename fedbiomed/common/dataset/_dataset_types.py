@@ -8,7 +8,6 @@ Classes for dataset's data types and structures
 from typing import Callable, Dict, Optional, Union
 
 import numpy as np
-import pandas as pd
 import torch
 
 from fedbiomed.common.constants import _BaseEnum
@@ -17,7 +16,7 @@ from fedbiomed.common.constants import _BaseEnum
 # === Enums ===
 class DataReturnFormat(_BaseEnum):
     # Nota: `value` serves in `isinstance` call for validation of `transforms`
-    SKLEARN = (np.ndarray, pd.DataFrame, pd.Series)
+    SKLEARN = np.ndarray
     TORCH = torch.Tensor
 
 
