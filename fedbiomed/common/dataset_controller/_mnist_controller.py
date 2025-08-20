@@ -54,7 +54,6 @@ class MnistController(Controller):
             ) from e
 
         self._controller_kwargs = {
-            "name": "MNIST",
             "root": str(self.root),
             "train": train,
             "download": False,

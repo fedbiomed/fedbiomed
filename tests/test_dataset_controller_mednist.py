@@ -26,7 +26,6 @@ def mock_torch_mednist(mocker):
 def test_mnist_controller_init_success(mocker, mock_torch_mednist, tmp_path):
     with mock.patch.object(Path, "exists", return_value=True):
         controller = MedNistController(root=tmp_path)
-        assert controller._controller_kwargs["name"] == "MedNIST"
         assert controller._controller_kwargs["root"] == str(tmp_path)
 
 

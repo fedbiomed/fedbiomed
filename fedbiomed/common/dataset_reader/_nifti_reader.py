@@ -10,15 +10,8 @@ from typing import Union
 
 import nibabel as nib
 
-from fedbiomed.common.dataset_types import (
-    DataReturnFormat,
-    drf_default,
-)
-
 
 class NiftiReader:
-    return_format: DataReturnFormat = drf_default
-
     @classmethod
     def read(cls, path: Union[str, Path]) -> nib.Nifti1Image:
         """Reads the NIfTI file and returns it as a tensor, optionally transformed.
