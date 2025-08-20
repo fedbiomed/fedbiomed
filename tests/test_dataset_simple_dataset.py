@@ -1,4 +1,3 @@
-import types
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -8,7 +7,6 @@ from PIL import Image
 from torchvision import transforms
 
 from fedbiomed.common.dataset import DataReturnFormat, ImageFolderDataset
-from fedbiomed.common.dataset._dataset import CONTROLLER_REGISTRY
 from fedbiomed.common.dataset._simple_dataset import SimpleDataset
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
@@ -25,17 +23,12 @@ def mock_controller():
 
 
 @pytest.fixture(params=[DataReturnFormat.SKLEARN, DataReturnFormat.TORCH])
-def dataset_with_mock_controller(request, mock_controller, monkeypatch):
+def dataset_with_mock_controller(request, mock_controller, tmp_path):
     """ImageFolderDataset initialized with either sklearn or torch return format."""
-    monkeypatch.setitem(
-        # Replace in CONTROLLER_REGISTRY
-        CONTROLLER_REGISTRY,
-        "ImageFolder",
-        lambda **kwargs: mock_controller,
-    )
     dataset = ImageFolderDataset()
+    dataset._controller_cls = lambda **kwargs: mock_controller
     dataset.complete_initialization(
-        controller_kwargs={"name": "ImageFolder"},
+        controller_kwargs={"root": tmp_path},
         to_format=request.param,
     )
     return dataset
@@ -63,40 +56,11 @@ def test_init_controller_invalid_kwargs_type():
         dataset._init_controller(controller_kwargs="not a dict")
 
 
-def test_init_controller_missing_name():
+def test_init_controller_instantiation_failure(tmp_path):
     dataset = ImageFolderDataset()
+    dataset._controller_cls = lambda **kwargs: (_ for _ in ()).throw(Exception("Fail"))
     with pytest.raises(FedbiomedError):
-        dataset._init_controller(controller_kwargs={})
-
-
-def test_init_controller_name_not_allowed():
-    dataset = ImageFolderDataset()
-    with pytest.raises(FedbiomedError):
-        dataset._init_controller(controller_kwargs={"name": "Unknown"})
-
-
-def test_init_controller_instantiation_failure(monkeypatch):
-    dataset = ImageFolderDataset()
-    monkeypatch.setitem(
-        CONTROLLER_REGISTRY,
-        "ImageFolder",
-        lambda **kwargs: (_ for _ in ()).throw(Exception("Fail")),
-    )
-    with pytest.raises(FedbiomedError):
-        dataset._init_controller({"name": "ImageFolder"})
-
-
-def test_get_nontransformed_item_success(dataset_with_mock_controller):
-    sample = dataset_with_mock_controller._get_nontransformed_item(0)
-    assert "data" in sample and "target" in sample
-
-
-def test_get_nontransformed_item_failure(dataset_with_mock_controller):
-    dataset_with_mock_controller._controller._get_nontransformed_item.side_effect = (
-        Exception("Fail")
-    )
-    with pytest.raises(FedbiomedError):
-        dataset_with_mock_controller._get_nontransformed_item(0)
+        dataset._init_controller({"root": tmp_path})
 
 
 # === Tests for SimpleDataset ===
@@ -137,7 +101,7 @@ def test_target_transform_invalid_type():
 def test_update_transform_success_from_none(dataset_with_mock_controller):
     """if transform is None, native_to_framework is used by default"""
     dataset = dataset_with_mock_controller
-    sample = dataset._get_nontransformed_item(0)
+    sample = dataset._controller._get_nontransformed_item(0)
     transform = dataset._update_transform(
         data=sample["data"],
         transform=None,
@@ -151,7 +115,7 @@ def test_update_transform_success_from_none(dataset_with_mock_controller):
 def test_update_transform_first_attempt_succeeds(dataset_with_mock_controller):
     """if transform can go from native to framework type, transform is directly used"""
     dataset = dataset_with_mock_controller
-    sample = dataset._get_nontransformed_item(0)
+    sample = dataset._controller._get_nontransformed_item(0)
     transform = (
         transforms.Compose(
             [
@@ -177,7 +141,7 @@ def test_update_transform_first_attempt_fails_then_succeeds(
     """if transform can take framework type and return framework type,
     then transform becomes the composition of [native_to_framework, transform]"""
     dataset = dataset_with_mock_controller
-    sample = dataset._get_nontransformed_item(0)
+    sample = dataset._controller._get_nontransformed_item(0)
     transform = (
         transforms.Normalize((0.1307,), (0.3081,))
         if dataset_with_mock_controller.to_format == DataReturnFormat.TORCH
@@ -196,7 +160,7 @@ def test_update_transform_all_fails(dataset_with_mock_controller):
     """if transform can take framework type and return framework type,
     then transform becomes the composition of [native_to_framework, transform]"""
     dataset = dataset_with_mock_controller
-    sample = dataset._get_nontransformed_item(0)
+    sample = dataset._controller._get_nontransformed_item(0)
     transform = (
         transforms.Normalize((0.1307,), (0.3081,))
         if dataset_with_mock_controller.to_format == DataReturnFormat.SKLEARN
@@ -212,7 +176,7 @@ def test_update_transform_all_fails(dataset_with_mock_controller):
 def test_update_target_transform_success_from_none(dataset_with_mock_controller):
     """if transform is None, native_to_framework is used by default"""
     dataset = dataset_with_mock_controller
-    sample = dataset._get_nontransformed_item(0)
+    sample = dataset._controller._get_nontransformed_item(0)
     target_transform = dataset._update_transform(
         data=sample["target"],
         transform=None,
@@ -227,7 +191,7 @@ def test_update_target_transform_all_fails(dataset_with_mock_controller):
     """if transform can take framework type and return framework type,
     then transform becomes the composition of [native_to_framework, transform]"""
     dataset = dataset_with_mock_controller
-    sample = dataset._get_nontransformed_item(0)
+    sample = dataset._controller._get_nontransformed_item(0)
     target_transform = (
         torch.tensor
         if dataset_with_mock_controller.to_format == DataReturnFormat.SKLEARN
@@ -252,7 +216,7 @@ def test_apply_transforms_success(dataset_with_mock_controller):
         if dataset_with_mock_controller._to_format == DataReturnFormat.TORCH
         else np.array
     )
-    sample = dataset._get_nontransformed_item(0)
+    sample = dataset._controller._get_nontransformed_item(0)
     data, target = dataset._apply_transforms(sample)
     assert isinstance(data, dataset_with_mock_controller._to_format.value)
     assert isinstance(target, dataset_with_mock_controller._to_format.value)
@@ -263,7 +227,7 @@ def test_apply_transforms_transform_failure(dataset_with_mock_controller):
     dataset = ImageFolderDataset()
     dataset._controller = dataset_with_mock_controller._controller
     dataset._to_format = dataset_with_mock_controller._to_format
-    sample = dataset._get_nontransformed_item(0)
+    sample = dataset._controller._get_nontransformed_item(0)
     with pytest.raises(FedbiomedError):
         _, _ = dataset._apply_transforms(sample)
 
@@ -271,47 +235,29 @@ def test_apply_transforms_transform_failure(dataset_with_mock_controller):
 # === Tests for complete_initialization ===
 
 
-def test_complete_initialization_invalid_sample_type(monkeypatch):
-    monkeypatch.setitem(
-        CONTROLLER_REGISTRY,
-        "ImageFolder",
-        lambda **kwargs: types.SimpleNamespace(
-            _get_nontransformed_item=lambda index: "not a dict"
-        ),
-    )
+def test_complete_initialization_missing_keys(tmp_path):
+    # incomplete controller
+    mock_controller = MagicMock()
+    mock_controller._get_nontransformed_item.side_effect = lambda index: {
+        "data": Image.new("RGB", (28, 28), color=128),
+    }
     dataset = ImageFolderDataset()
-    with pytest.raises(FedbiomedError):
-        dataset.complete_initialization(
-            {"name": "ImageFolder"}, DataReturnFormat.SKLEARN
-        )
-
-
-def test_complete_initialization_missing_keys(monkeypatch):
-    monkeypatch.setitem(
-        CONTROLLER_REGISTRY,
-        "ImageFolder",
-        lambda **kwargs: types.SimpleNamespace(
-            _get_nontransformed_item=lambda index: {"data": 1}
-        ),
-    )
-    dataset = ImageFolderDataset()
-    with pytest.raises(FedbiomedError):
-        dataset.complete_initialization(
-            {"name": "ImageFolder"}, DataReturnFormat.SKLEARN
-        )
+    dataset._controller_cls = lambda **kwargs: mock_controller
+    with pytest.raises(KeyError):
+        dataset.complete_initialization({"root": tmp_path}, DataReturnFormat.SKLEARN)
 
 
 def test_complete_initialization_success(dataset_with_mock_controller):
     dataset = dataset_with_mock_controller
     assert callable(dataset.transform)
     assert callable(dataset.target_transform)
-    sample = dataset._get_nontransformed_item(0)
+    sample = dataset._controller._get_nontransformed_item(0)
     data, target = dataset._apply_transforms(sample)
     assert isinstance(data, dataset_with_mock_controller._to_format.value)
     assert isinstance(target, dataset_with_mock_controller._to_format.value)
 
 
-def test_dunder_getitem(dataset_with_mock_controller):
+def test_getitem(dataset_with_mock_controller):
     sample = dataset_with_mock_controller[0]
     assert all(
         isinstance(item, dataset_with_mock_controller._to_format.value)
