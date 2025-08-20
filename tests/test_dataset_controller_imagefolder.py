@@ -41,7 +41,6 @@ def test_init_success(mock_folder_methods, tmp_path):
     assert controller._class_to_idx == {"class_a": 0}
     assert len(controller._samples) == 2
     assert controller._controller_kwargs == {
-        "name": "ImageFolder",
         "root": str(tmp_path),
     }
 

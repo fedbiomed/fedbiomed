@@ -21,7 +21,6 @@ def mock_torch_mnist(mocker):
 
 def test_mnist_controller_init_success(mocker, mock_torch_mnist, tmp_path):
     controller = MnistController(root=tmp_path, train=True, download=True)
-    assert controller._controller_kwargs["name"] == "MNIST"
     assert controller._controller_kwargs["root"] == str(tmp_path)
     assert controller._controller_kwargs["train"] is True
 
