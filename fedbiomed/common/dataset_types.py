@@ -81,7 +81,7 @@ ModalityShape = Tuple[int, ...]
 # - a CSV may be interpreted as one sample (with multiple lines)
 #   or multiple samples (one per line) => not done by the reader
 # - data may be multi-modal (eg: BIDS)
-ReaderShape = Dict[str, ModalityShape]
+ReaderShape = dict[str, ModalityShape]
 
 DatasetItemShape = Optional[Dict[str, Tuple[DataType, ModalityShape]]]
 # shape for a full sample as `(number of samples, data shape, target shape)`
