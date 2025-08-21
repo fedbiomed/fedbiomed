@@ -6,7 +6,7 @@ Data manager for Pytorch training plan
 """
 
 import math
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.utils.data import (
@@ -22,16 +22,10 @@ from torch.utils.data import (
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloader import (
     PytorchDataLoader,
-    PytorchDataLoaderItem,
     PytorchDataLoaderSample,
 )
 from fedbiomed.common.dataset import Dataset
-from fedbiomed.common.dataset_types import (
-    DatasetDataItem,
-    DatasetDataItemModality,
-    DataType,
-    Transform,
-)
+from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
@@ -44,21 +38,13 @@ class _DatasetWrapper(TorchDataset):
     def __init__(
         self,
         dataset: Dataset,
-        is_torch: bool = False,
-        transform: Transform = None,
-        target_transform: Transform = None,
     ):
         """Class constructor
 
         Args:
             dataset: Fed-BioMed dataset to wrap
-            is_torch: True if data samples returned by `dataset` are already in PyTorch
-                format
         """
         self._d = dataset
-        self._is_torch = is_torch
-        self._transform = transform
-        self._target_transform = target_transform
 
     def __len__(self) -> int:
         """Gets number of samples in dataset
@@ -68,84 +54,10 @@ class _DatasetWrapper(TorchDataset):
         """
         return self._d.__len__()
 
-    @staticmethod
-    def _id_function(x: Any) -> Any:
-        return x
-
-    def _process_data_item(
-        self, data: DatasetDataItem, index: int, is_torch: bool, transform: Transform
-    ) -> PytorchDataLoaderItem:
-        """Apply conversion and transforms to a data sample data item
-
-        Args:
-            data: Data item from data sample
-            index: Sequence number of sample in dataset
-            is_torch: True if data item is already as PyTorch tensors format
-            transform: Transforms to apply to data in PyTorch format
-        """
-        if data is None:
-            return None
-
-        final_data = {}
-
-        for k, v in data.items():
-            # Check and convert generic format data
-            if not is_torch:
-                if not isinstance(v, DatasetDataItemModality):
-                    raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: Data sample must be a `DatasetDataItemModality` "
-                        f"not a {type(v)} (index={index}, modality={k})"
-                    )
-                if k != v.modality_name:
-                    raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: Data sample modality name mismatch "
-                        f"(index={index}), {k} != {v.modality_name}"
-                    )
-                if v.type == DataType.IMAGE:
-                    try:
-                        v = torch.from_numpy(v.data)
-                    except Exception as e:
-                        raise FedbiomedError(
-                            f"{ErrorNumbers.FB632.value}: Bad data sample format, cannot convert "
-                            f"from numpy to torch.Tensor (index={index}, modality={k})"
-                        ) from e
-                elif v.type == DataType.TABULAR:
-                    try:
-                        v = torch.tensor(v.data.values)  # type: ignore  # v.data is a pd.DataFrame here
-                    except Exception as e:
-                        raise FedbiomedError(
-                            f"{ErrorNumbers.FB632.value}: Bad data sample format, cannot convert "
-                            f"from pandas to torch.Tensor (index={index}, modality={k})"
-                        ) from e
-                else:
-                    raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: Unexpected DataType found."
-                    )
-
-            # Find transform function to apply from possible `Transform` cases
-            if callable(transform):
-                used_transform = transform
-            elif isinstance(transform, dict) and k in transform:
-                used_transform = transform[k]
-            else:
-                # In that case, no copy is made - same object
-                used_transform = self._id_function
-
-            try:
-                final_data[k] = used_transform(v)
-            except Exception as e:
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: Bad framework transform for sample "
-                    f"(index={index}), cannot apply to modality={k} in torch.Tensor format"
-                ) from e
-
-        return final_data
-
     def __getitem__(self, index) -> PytorchDataLoaderSample:
-        """Get one sample from dataset
+        """Gets one sample from dataset
 
-        First converts sample from generic sample format to format expected in PyTorch
-        training plan. Then applies framework transforms to data and targets.
+        Also checks sample format.
 
         Args:
             index: Sequence number of sample in dataset
@@ -155,34 +67,38 @@ class _DatasetWrapper(TorchDataset):
         """
         data, target = self._d.__getitem__(index)
 
-        if data is None:
+        if isinstance(data, torch.Tensor):
+            pass
+        elif isinstance(data, dict) and all(
+            isinstance(v, torch.Tensor) for v in data.values()
+        ):
+            pass
+        elif data is None:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Data sample cannot be empty for dataset "
                 f"{self._d.__class__.__name__} (index={index})"
             )
-        elif not isinstance(data, dict):
+        else:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Bad data sample type for dataset "
-                f"{self._d.__class__.__name__} (index={index}). Must be `dict` not "
-                f"{type(data)}"
-            )
-        else:
-            final_data = self._process_data_item(
-                data, index, self._is_torch, self._transform
+                f"{self._d.__class__.__name__} (index={index}). Must be `dict` or `torch.Tensor` "
+                f"not {type(data)}"
             )
 
-        if not isinstance(target, dict):
+        if isinstance(target, torch.Tensor):
+            pass
+        elif isinstance(target, dict) and all(
+            isinstance(v, torch.Tensor) for v in target.values()
+        ):
+            pass
+        else:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Bad target sample type for dataset "
-                f"{self._d.__class__.__name__} (index={index}). Must be `dict` not "
-                f"{type(target)}"
-            )
-        else:
-            final_target = self._process_data_item(
-                target, index, self._is_torch, self._target_transform
+                f"{self._d.__class__.__name__} (index={index}). Must be `dict` or `torch.Tensor` "
+                f"not {type(target)}"
             )
 
-        return final_data, final_target
+        return data, target
 
 
 class TorchDataManager(FrameworkDataManager):
@@ -195,9 +111,6 @@ class TorchDataManager(FrameworkDataManager):
     _training_index: List[int] = []
     _testing_index: List[int] = []
     _test_ratio: Optional[float] = None
-    _to_torch: bool
-    _framework_transform: Transform
-    _framework_target_transform: Transform
 
     def __init__(self, dataset: Dataset, **kwargs: dict):  # noqa : B027 # not yet implemented
         """Class constructor
@@ -222,50 +135,7 @@ class TorchDataManager(FrameworkDataManager):
         self._loader_arguments = kwargs
         self.rng(self._loader_arguments.get("random_state"))
 
-        self._framework_transform = self._dataset.framework_transform
-        # check self._framework_transform is a DatasetDataItem
-        if (
-            self._framework_transform is not None
-            and not callable(self._framework_transform)
-            and (
-                not isinstance(self._framework_transform, dict)
-                or not all([callable(v) for _, v in self._framework_transform.items()])
-            )
-        ):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Bad type for argument `framework_transform`. "
-                f"Must be a `Transform` not a {type(self._framework_transform)}"
-            )
-
-        self._framework_target_transform = self._dataset.framework_target_transform
-        # check self._framework_target_transform is a DatasetDataItem
-        if (
-            self._framework_target_transform is not None
-            and not callable(self._framework_target_transform)
-            and (
-                not isinstance(self._framework_target_transform, dict)
-                or not all(
-                    [callable(v) for _, v in self._framework_target_transform.items()]
-                )
-            )
-        ):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Bad type for argument `framework_target_transform`. "
-                f"Must be a `Transform` not a {type(self._framework_target_transform)}"
-            )
-
-        self._to_torch = False
-        if hasattr(self._dataset, "to_torch"):
-            logger.debug(
-                f"Dataset of type {self._dataset.__class__.__name__} implements "
-                "`to_torch()`. Can request data directly in PyTorch format."
-            )
-            self._to_torch = self._dataset.to_torch()  # type: ignore  # previously tested that the method exists
-        else:
-            logger.debug(
-                f"Dataset of type {self._dataset.__class__.__name__} doesn't implement "
-                "`to_torch()`. Data needs intermediate conversion through generic format."
-            )
+        self._dataset.to_format = DataReturnFormat.TORCH
 
     @property
     def dataset(self) -> Dataset:
@@ -303,12 +173,7 @@ class TorchDataManager(FrameworkDataManager):
             Dataloader for entire datasets. `DataLoader` arguments will be retrieved from the `**kwargs` which
                 is defined while initializing the class
         """
-        torch_dataset = _DatasetWrapper(
-            self._dataset,
-            self._to_torch,
-            self._framework_transform,
-            self._framework_target_transform,
-        )
+        torch_dataset = _DatasetWrapper(self._dataset)
         return self._create_torch_data_loader(torch_dataset, **self._loader_arguments)
 
     def split(
@@ -323,7 +188,7 @@ class TorchDataManager(FrameworkDataManager):
             test_ratio: Split ratio for validation set ratio. Rest of the samples will be used for training
             test_batch_size: Batch size to use for testing subset
             is_shuffled_testing_dataset: if True, randomly select different samples for the testing
-                subset at each execution. If False, re-use previous split when possible.
+                subset at each execution. If False, reuse previous split when possible.
         Raises:
             FedbiomedError: Arguments bad format
             FedbiomedError: Cannot get number of samples from dataset
@@ -358,12 +223,7 @@ class TorchDataManager(FrameworkDataManager):
         # Nota: cannot build PyTorch dataset sooner (eg in constructor) because
         # some customization methods may be called in the meantime
         # (cf fedbiomed.node.Round)
-        torch_dataset = _DatasetWrapper(
-            self._dataset,
-            self._to_torch,
-            self._framework_transform,
-            self._framework_target_transform,
-        )
+        torch_dataset = _DatasetWrapper(self._dataset)
 
         try:
             samples = len(torch_dataset)
