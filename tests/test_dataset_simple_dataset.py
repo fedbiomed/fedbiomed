@@ -102,44 +102,14 @@ def test_validate_transform_success_from_none(dataset_with_mock_controller):
     """if transform is None, native_to_framework is used by default"""
     dataset = dataset_with_mock_controller
     sample = dataset._controller._get_nontransformed_item(0)
-    transform = dataset._validate_transform(
-        data=sample["data"],
-        transform=None,
+    dataset._validate_transform(
+        item=sample["data"],
+        transform=dataset.transform,
         is_target=False,
     )
-    assert not callable(transform)
-    item = transform(sample["data"])
-    assert isinstance(item, dataset_with_mock_controller.to_format.value)
 
 
-def test_validate_transform_first_attempt_succeeds(dataset_with_mock_controller):
-    """if transform can go from native to framework type, transform is directly used"""
-    dataset = dataset_with_mock_controller
-    sample = dataset._controller._get_nontransformed_item(0)
-    transform = (
-        transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize((0.1307,), (0.3081,)),
-            ]
-        )
-        if dataset_with_mock_controller.to_format == DataReturnFormat.TORCH
-        else np.array
-    )
-    transform = dataset._validate_transform(
-        data=sample["data"],
-        transform=transform,
-    )
-    assert callable(transform)
-    item = transform(sample["data"])
-    assert isinstance(item, dataset_with_mock_controller.to_format.value)
-
-
-def test_validate_transform_first_attempt_fails_then_succeeds(
-    dataset_with_mock_controller,
-):
-    """if transform can take framework type and return framework type,
-    then transform becomes the composition of [native_to_framework, transform]"""
+def test_validate_transform_succeeds(dataset_with_mock_controller):
     dataset = dataset_with_mock_controller
     sample = dataset._controller._get_nontransformed_item(0)
     transform = (
@@ -147,47 +117,31 @@ def test_validate_transform_first_attempt_fails_then_succeeds(
         if dataset_with_mock_controller.to_format == DataReturnFormat.TORCH
         else lambda x: x.astype(np.float32) / 255
     )
-    transform = dataset._validate_transform(
-        data=sample["data"],
-        transform=transform,
-    )
-    assert callable(transform)
-    item = transform(sample["data"])
-    assert isinstance(item, dataset_with_mock_controller.to_format.value)
+    dataset._validate_transform(item=sample["data"], transform=transform)
 
 
-def test_validate_transform_all_fails(dataset_with_mock_controller):
-    """if transform can take framework type and return framework type,
-    then transform becomes the composition of [native_to_framework, transform]"""
+def test_validate_transform_fails(dataset_with_mock_controller):
     dataset = dataset_with_mock_controller
     sample = dataset._controller._get_nontransformed_item(0)
-    transform = (
-        transforms.Normalize((0.1307,), (0.3081,))
-        if dataset_with_mock_controller.to_format == DataReturnFormat.SKLEARN
-        else lambda x: x.astype(np.float32) / 255
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
     with pytest.raises(FedbiomedError):
-        transform = dataset._validate_transform(
-            data=sample["data"],
-            transform=transform,
-        )
+        dataset._validate_transform(item=sample["data"], transform=transform)
 
 
-def test_update_target_transform_success_from_none(dataset_with_mock_controller):
+def test_validate_target_transform_success_from_none(dataset_with_mock_controller):
     """if transform is None, native_to_framework is used by default"""
     dataset = dataset_with_mock_controller
     sample = dataset._controller._get_nontransformed_item(0)
-    target_transform = dataset._validate_transform(
-        data=sample["target"],
-        transform=None,
+    dataset._validate_transform(
+        item=sample["target"],
+        transform=dataset.target_transform,
         is_target=True,
     )
-    assert callable(target_transform)
-    item = target_transform(sample["target"])
-    assert isinstance(item, dataset_with_mock_controller.to_format.value)
 
 
-def test_update_target_transform_all_fails(dataset_with_mock_controller):
+def test_validate_target_transform_fails(dataset_with_mock_controller):
     """if transform can take framework type and return framework type,
     then transform becomes the composition of [native_to_framework, transform]"""
     dataset = dataset_with_mock_controller
@@ -198,38 +152,20 @@ def test_update_target_transform_all_fails(dataset_with_mock_controller):
         else np.array
     )
     with pytest.raises(FedbiomedError):
-        target_transform = dataset._validate_transform(
-            data=sample["target"],
-            transform=target_transform,
-        )
+        dataset._validate_transform(item=sample["target"], transform=target_transform)
 
 
 def test_apply_transforms_success(dataset_with_mock_controller):
     dataset = dataset_with_mock_controller
     dataset._transform = (
-        transforms.ToTensor()
-        if dataset_with_mock_controller._to_format == DataReturnFormat.TORCH
-        else np.array
-    )
-    dataset._target_transform = (
-        torch.tensor
-        if dataset_with_mock_controller._to_format == DataReturnFormat.TORCH
-        else np.array
+        transforms.Normalize((0.1307,), (0.3081,))
+        if dataset_with_mock_controller.to_format == DataReturnFormat.TORCH
+        else lambda x: x.astype(np.float32) / 255
     )
     sample = dataset._controller._get_nontransformed_item(0)
     data, target = dataset._apply_transforms(sample)
     assert isinstance(data, dataset_with_mock_controller._to_format.value)
     assert isinstance(target, dataset_with_mock_controller._to_format.value)
-
-
-def test_apply_transforms_transform_failure(dataset_with_mock_controller):
-    """This `dataset` did not complete initialization, `transforms` are None"""
-    dataset = ImageFolderDataset()
-    dataset._controller = dataset_with_mock_controller._controller
-    dataset._to_format = dataset_with_mock_controller._to_format
-    sample = dataset._controller._get_nontransformed_item(0)
-    with pytest.raises(FedbiomedError):
-        _, _ = dataset._apply_transforms(sample)
 
 
 # === Tests for complete_initialization ===
@@ -249,8 +185,6 @@ def test_complete_initialization_missing_keys(tmp_path):
 
 def test_complete_initialization_success(dataset_with_mock_controller):
     dataset = dataset_with_mock_controller
-    assert callable(dataset.transform)
-    assert callable(dataset.target_transform)
     sample = dataset._controller._get_nontransformed_item(0)
     data, target = dataset._apply_transforms(sample)
     assert isinstance(data, dataset_with_mock_controller._to_format.value)
