@@ -62,7 +62,6 @@ class MedicalFolderController(Controller):
         _ = self._get_nontransformed_item(0)
 
         self._controller_kwargs = {
-            "name": "MedicalFolder",
             "root": str(self.root),
             "tabular_file": str(self.tabular_file),
             "index_col": self.index_col,
@@ -132,7 +131,7 @@ class MedicalFolderController(Controller):
     def modalities(self):
         return self._modalities
 
-    def _normalize_modalities(modalities: Union[str, Iterable[str]]) -> set[str]:
+    def _normalize_modalities(self, modalities: Union[str, Iterable[str]]) -> set[str]:
         """Validates `modalities`
 
         Returns:
@@ -351,7 +350,7 @@ class MedicalFolderController(Controller):
                 )
             samples.append(sample)
 
-        logger.info(f"{len(samples)} complete samples succesfully identified")
+        logger.info(f"{len(samples)} complete samples successfully identified")
         return modalities, samples
 
     def _get_nontransformed_item(self, index: int) -> Dict[str, Any]:

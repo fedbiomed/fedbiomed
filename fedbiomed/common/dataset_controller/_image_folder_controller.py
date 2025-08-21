@@ -61,7 +61,6 @@ class ImageFolderController(Controller):
             ) from e
 
         self._controller_kwargs = {
-            "name": "ImageFolder",
             "root": str(self.root),
         }
 
