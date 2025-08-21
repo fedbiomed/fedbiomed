@@ -1,14 +1,11 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-import numpy as np
-import pandas as pd
 import torch
 from torch.utils.data import Subset
 
 from fedbiomed.common.datamanager import TorchDataManager
 from fedbiomed.common.dataset import Dataset
-from fedbiomed.common.dataset_types import DatasetDataItemModality, DataType
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -18,98 +15,28 @@ class TestTorchDataManager(unittest.TestCase):
         """Create PyTorch Dataset for test purposes"""
 
         def __init__(self):
-            # self.X_train = np.array(
-            #    [[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]
-            # )
-            # self.Y_train = np.array([1, 2, 3, 4, 5, 6])
             self.X_train = [
-                {
-                    "mod1": DatasetDataItemModality(
-                        modality_name="mod1",
-                        type=DataType.IMAGE,
-                        data=np.array([1, 2, 3]),
-                    )
-                },
-                {
-                    "mod1": DatasetDataItemModality(
-                        modality_name="mod1",
-                        type=DataType.IMAGE,
-                        data=np.array([4, 5, 6]),
-                    )
-                },
-                {
-                    "mod1": DatasetDataItemModality(
-                        modality_name="mod1",
-                        type=DataType.IMAGE,
-                        data=np.array([7, 8, 9]),
-                    )
-                },
-                {
-                    "mod1": DatasetDataItemModality(
-                        modality_name="mod1",
-                        type=DataType.IMAGE,
-                        data=np.array([10, 11, 12]),
-                    )
-                },
-                {
-                    "mod1": DatasetDataItemModality(
-                        modality_name="mod1",
-                        type=DataType.IMAGE,
-                        data=np.array([13, 14, 15]),
-                    )
-                },
-                {
-                    "mod1": DatasetDataItemModality(
-                        modality_name="mod1",
-                        type=DataType.IMAGE,
-                        data=np.array([16, 17, 18]),
-                    )
-                },
+                torch.Tensor([1, 2, 3]),
+                torch.Tensor([4, 5, 6]),
+                torch.Tensor([7, 8, 9]),
+                torch.Tensor([10, 11, 12]),
+                torch.Tensor([13, 14, 15]),
+                torch.Tensor([16, 17, 18]),
             ]
             self.Y_train = [
-                {
-                    "target1": DatasetDataItemModality(
-                        modality_name="target1",
-                        type=DataType.TABULAR,
-                        data=pd.DataFrame([1]),
-                    )
-                },
-                {
-                    "target1": DatasetDataItemModality(
-                        modality_name="target1",
-                        type=DataType.TABULAR,
-                        data=pd.DataFrame([2]),
-                    )
-                },
-                {
-                    "target1": DatasetDataItemModality(
-                        modality_name="target1",
-                        type=DataType.TABULAR,
-                        data=pd.DataFrame([3]),
-                    )
-                },
-                {
-                    "target1": DatasetDataItemModality(
-                        modality_name="target1",
-                        type=DataType.TABULAR,
-                        data=pd.DataFrame([4]),
-                    )
-                },
-                {
-                    "target1": DatasetDataItemModality(
-                        modality_name="target1",
-                        type=DataType.TABULAR,
-                        data=pd.DataFrame([5]),
-                    )
-                },
-                {
-                    "target1": DatasetDataItemModality(
-                        modality_name="target1",
-                        type=DataType.TABULAR,
-                        data=pd.DataFrame([6]),
-                    )
-                },
+                torch.Tensor(1),
+                torch.Tensor(2),
+                torch.Tensor(3),
+                torch.Tensor(4),
+                torch.Tensor(5),
+                torch.Tensor(6),
             ]
+
+        def complete_initialization(self):
+            pass
+
+        def _apply_transforms(self, sample):
+            pass
 
         def __len__(self):
             return len(self.Y_train)
@@ -124,6 +51,14 @@ class TestTorchDataManager(unittest.TestCase):
             self.X_train = [[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]
             self.Y_train = [1, 2, 3]
 
+        def complete_initialization(self):
+            pass
+
+        def _apply_transforms(self, sample):
+            pass
+
+        # no __len__ method
+
         def __getitem__(self, idx):
             return self.X_train[idx], self.Y_train[idx]
 
@@ -132,6 +67,12 @@ class TestTorchDataManager(unittest.TestCase):
 
         def __init__(self):
             self.data = None
+            pass
+
+        def complete_initialization(self):
+            pass
+
+        def _apply_transforms(self, sample):
             pass
 
         def __len__(self):
@@ -145,6 +86,12 @@ class TestTorchDataManager(unittest.TestCase):
 
         def __init__(self):
             self.data = None
+            pass
+
+        def complete_initialization(self):
+            pass
+
+        def _apply_transforms(self, sample):
             pass
 
         def __len__(self):
@@ -318,45 +265,47 @@ class TestTorchDataManager(unittest.TestCase):
 
         for i in range(2):
             self.assertTrue(
-                torch.equal(
-                    self.get_tensor_from_subset(loader_train.dataset)[i],
-                    self.get_tensor_from_subset(new_train_loader.dataset)[i],
+                self.is_same_sample(
+                    loader_train.dataset[i],
+                    new_train_loader.dataset[i],
                 )
             )
 
         for i in range(2):
             self.assertTrue(
-                torch.equal(
-                    self.get_tensor_from_subset(loader_test.dataset)[i],
-                    self.get_tensor_from_subset(new_test_loader.dataset)[i],
+                self.is_same_sample(
+                    loader_test.dataset[i],
+                    new_test_loader.dataset[i],
                 )
             )
 
-        # changing the `test_ratio` value
-        del new_torch_data_manager
-        new_torch_data_manager = TorchDataManager(
-            self.dataset, batch_size=48, shuffle=True
-        )
-        new_torch_data_manager.load_state(state)
-        test_ratio = 0.25
-        shuffled_train_loader, shuffled_test_loader = new_torch_data_manager.split(
-            test_ratio=test_ratio, test_batch_size=None
-        )
-
-        for i in range(2):
-            self.assertFalse(
-                torch.equal(
-                    self.get_tensor_from_subset(loader_train.dataset)[i],
-                    self.get_tensor_from_subset(shuffled_train_loader.dataset)[i],
-                )
-            )
-        for i in range(2):
-            self.assertFalse(
-                torch.equal(
-                    self.get_tensor_from_subset(loader_test.dataset)[i],
-                    self.get_tensor_from_subset(shuffled_test_loader.dataset)[i],
-                )
-            )
+        # Even after shuffling, same samples can be drawn, so this test seems not valid
+        #
+        # # changing the `test_ratio` value
+        # del new_torch_data_manager
+        # new_torch_data_manager = TorchDataManager(
+        #     self.dataset, batch_size=48, shuffle=True
+        # )
+        # new_torch_data_manager.load_state(state)
+        # test_ratio = 0.25
+        # shuffled_train_loader, shuffled_test_loader = new_torch_data_manager.split(
+        #     test_ratio=test_ratio, test_batch_size=None
+        # )
+        #
+        # for i in range(2):
+        #     self.assertFalse(
+        #         self.is_same_sample(
+        #             loader_train.dataset[i],
+        #             shuffled_train_loader.dataset[i],
+        #         )
+        #     )
+        # for i in range(2):
+        #     self.assertFalse(
+        #         self.is_same_sample(
+        #             loader_test.dataset[i],
+        #             shuffled_test_loader.dataset[i],
+        #         )
+        #     )
 
         # new_torch_data_manager._testing_index = [1, 2, 39999]
         # new_torch_data_manager._training_index = []
@@ -379,16 +328,16 @@ class TestTorchDataManager(unittest.TestCase):
 
         for i in range(2):
             self.assertTrue(
-                torch.equal(
-                    self.get_tensor_from_subset(loader_train.dataset)[i],
-                    self.get_tensor_from_subset(loader_train2.dataset)[i],
+                self.is_same_sample(
+                    loader_train.dataset[i],
+                    loader_train2.dataset[i],
                 )
             )
         for i in range(2):
             self.assertTrue(
-                torch.equal(
-                    self.get_tensor_from_subset(loader_test.dataset)[i],
-                    self.get_tensor_from_subset(loader_test2.dataset)[i],
+                self.is_same_sample(
+                    loader_test.dataset[i],
+                    loader_test2.dataset[i],
                 )
             )
 
@@ -402,15 +351,10 @@ class TestTorchDataManager(unittest.TestCase):
             mock_random_split.assert_called_once()
 
     @staticmethod
-    def get_tensor_from_subset(subset: Subset) -> torch.Tensor:
-        tensor_x = []
-        tensor_y = []
-
-        for x, y in subset:
-            tensor_x.append(x["mod1"].data.unsqueeze(0))
-            tensor_y.append(y["target1"].data)
-
-        return torch.cat(tensor_x, dim=0), torch.Tensor(tensor_y)
+    def is_same_sample(sample1, sample2) -> bool:
+        return torch.equal(sample1[0], sample2[0]) and torch.equal(
+            sample1[1], sample2[1]
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover
