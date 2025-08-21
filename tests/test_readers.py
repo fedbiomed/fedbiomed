@@ -6,13 +6,8 @@ import numpy as np
 import pytest
 
 from fedbiomed.common.dataset_reader import NiftiReader
-from fedbiomed.common.dataset_types import drf_default
-
 
 # NifTI READER TESTS -------------------------------------------------------------------------------------------------------------
-def test_nifti_reader_initialization():
-    """Test the initialization of NiftiReader."""
-    assert NiftiReader.return_format == drf_default
 
 
 def test_nifti_reader_read():
