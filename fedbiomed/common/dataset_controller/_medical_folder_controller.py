@@ -131,7 +131,7 @@ class MedicalFolderController(Controller):
     def modalities(self):
         return self._modalities
 
-    def _normalize_modalities(modalities: Union[str, Iterable[str]]) -> set[str]:
+    def _normalize_modalities(self, modalities: Union[str, Iterable[str]]) -> set[str]:
         """Validates `modalities`
 
         Returns:
