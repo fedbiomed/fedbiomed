@@ -7,6 +7,7 @@ from monai.data import ITKReader
 from monai.transforms import LoadImage
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.dataset_reader import CsvReader
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
@@ -76,10 +77,10 @@ class MedicalFolderController(Controller):
     def tabular_file(self, filepath: Optional[Union[str, Path]]):
         """Sets `tabular_file` property"""
         if filepath is not None:
-            filepath = self._normalize_tabular_file(filepath)
+            filepath = self._validate_tabular_file(filepath)
         self._tabular_file = filepath
 
-    def _normalize_tabular_file(self, filepath: Union[str, Path]) -> Path:
+    def _validate_tabular_file(self, filepath: Union[str, Path]) -> Path:
         """Validates `tabular_file` property
 
         Raises:
@@ -131,7 +132,7 @@ class MedicalFolderController(Controller):
     def modalities(self):
         return self._modalities
 
-    def _normalize_modalities(self, modalities: Union[str, Iterable[str]]) -> set[str]:
+    def _validate_modalities(self, modalities: Union[str, Iterable[str]]) -> set[str]:
         """Validates `modalities`
 
         Returns:
@@ -171,12 +172,16 @@ class MedicalFolderController(Controller):
         Returns:
             Demographics in DataFrame format
         """
-        tabular_file = self._normalize_tabular_file(tabular_file)
+        tabular_file = self._validate_tabular_file(tabular_file)
         try:
-            demographics = pd.read_csv(
-                tabular_file, index_col=index_col, engine="python"
-            )
-        except Exception as e:
+            # demographics = pd.read_csv(
+            #     tabular_file, index_col=index_col, engine="python"
+            # )
+            demographics = CsvReader(tabular_file).read().to_pandas()
+            if index_col is not None:
+                demographics.set_index(index_col)
+
+        except FedbiomedError as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB613.value}: :"
                 f"Can not load demographics tabular file. Error message is: {e}"
@@ -269,7 +274,7 @@ class MedicalFolderController(Controller):
         modalities = (
             candidate_modalities
             if not modalities
-            else self._normalize_modalities(modalities)
+            else self._validate_modalities(modalities)
         )
         missing_modalities = modalities.difference(candidate_modalities)
         if missing_modalities:
