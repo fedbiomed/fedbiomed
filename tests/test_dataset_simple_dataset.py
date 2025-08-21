@@ -6,8 +6,8 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from fedbiomed.common.dataset import DataReturnFormat, ImageFolderDataset
-from fedbiomed.common.dataset._simple_dataset import SimpleDataset
+from fedbiomed.common.dataset._simple_dataset import ImageFolderDataset, SimpleDataset
+from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 
@@ -98,21 +98,21 @@ def test_target_transform_invalid_type():
         dataset.target_transform = "not callable"
 
 
-def test_update_transform_success_from_none(dataset_with_mock_controller):
+def test_validate_transform_success_from_none(dataset_with_mock_controller):
     """if transform is None, native_to_framework is used by default"""
     dataset = dataset_with_mock_controller
     sample = dataset._controller._get_nontransformed_item(0)
-    transform = dataset._update_transform(
+    transform = dataset._validate_transform(
         data=sample["data"],
         transform=None,
         is_target=False,
     )
-    assert callable(transform)
+    assert not callable(transform)
     item = transform(sample["data"])
     assert isinstance(item, dataset_with_mock_controller.to_format.value)
 
 
-def test_update_transform_first_attempt_succeeds(dataset_with_mock_controller):
+def test_validate_transform_first_attempt_succeeds(dataset_with_mock_controller):
     """if transform can go from native to framework type, transform is directly used"""
     dataset = dataset_with_mock_controller
     sample = dataset._controller._get_nontransformed_item(0)
@@ -126,7 +126,7 @@ def test_update_transform_first_attempt_succeeds(dataset_with_mock_controller):
         if dataset_with_mock_controller.to_format == DataReturnFormat.TORCH
         else np.array
     )
-    transform = dataset._update_transform(
+    transform = dataset._validate_transform(
         data=sample["data"],
         transform=transform,
     )
@@ -135,7 +135,7 @@ def test_update_transform_first_attempt_succeeds(dataset_with_mock_controller):
     assert isinstance(item, dataset_with_mock_controller.to_format.value)
 
 
-def test_update_transform_first_attempt_fails_then_succeeds(
+def test_validate_transform_first_attempt_fails_then_succeeds(
     dataset_with_mock_controller,
 ):
     """if transform can take framework type and return framework type,
@@ -147,7 +147,7 @@ def test_update_transform_first_attempt_fails_then_succeeds(
         if dataset_with_mock_controller.to_format == DataReturnFormat.TORCH
         else lambda x: x.astype(np.float32) / 255
     )
-    transform = dataset._update_transform(
+    transform = dataset._validate_transform(
         data=sample["data"],
         transform=transform,
     )
@@ -156,7 +156,7 @@ def test_update_transform_first_attempt_fails_then_succeeds(
     assert isinstance(item, dataset_with_mock_controller.to_format.value)
 
 
-def test_update_transform_all_fails(dataset_with_mock_controller):
+def test_validate_transform_all_fails(dataset_with_mock_controller):
     """if transform can take framework type and return framework type,
     then transform becomes the composition of [native_to_framework, transform]"""
     dataset = dataset_with_mock_controller
@@ -167,7 +167,7 @@ def test_update_transform_all_fails(dataset_with_mock_controller):
         else lambda x: x.astype(np.float32) / 255
     )
     with pytest.raises(FedbiomedError):
-        transform = dataset._update_transform(
+        transform = dataset._validate_transform(
             data=sample["data"],
             transform=transform,
         )
@@ -177,7 +177,7 @@ def test_update_target_transform_success_from_none(dataset_with_mock_controller)
     """if transform is None, native_to_framework is used by default"""
     dataset = dataset_with_mock_controller
     sample = dataset._controller._get_nontransformed_item(0)
-    target_transform = dataset._update_transform(
+    target_transform = dataset._validate_transform(
         data=sample["target"],
         transform=None,
         is_target=True,
@@ -198,7 +198,7 @@ def test_update_target_transform_all_fails(dataset_with_mock_controller):
         else np.array
     )
     with pytest.raises(FedbiomedError):
-        target_transform = dataset._update_transform(
+        target_transform = dataset._validate_transform(
             data=sample["target"],
             transform=target_transform,
         )

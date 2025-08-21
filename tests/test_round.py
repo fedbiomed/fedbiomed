@@ -25,7 +25,6 @@ from fedbiomed.common.constants import (
 from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingPlanMixin
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import Dataset
-from fedbiomed.common.dataset_types import DatasetDataItemModality, DataType
 from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
@@ -1085,80 +1084,16 @@ class TestRound(unittest.TestCase):
             """Create PyTorch Dataset for test purposes"""
 
             def __init__(self):
-                self.X_train = [
-                    {
-                        "mod1": DatasetDataItemModality(
-                            modality_name="mod1",
-                            type=DataType.IMAGE,
-                            data=np.array([0.1000, 0.2000, 0.5000]),
-                        )
-                    },
-                    {
-                        "mod1": DatasetDataItemModality(
-                            modality_name="mod1",
-                            type=DataType.IMAGE,
-                            data=np.array([0.3300, 0.2000, 0.4000]),
-                        )
-                    },
-                    {
-                        "mod1": DatasetDataItemModality(
-                            modality_name="mod1",
-                            type=DataType.IMAGE,
-                            data=np.array([0.1200, 0.4300, 0.2200]),
-                        )
-                    },
-                    {
-                        "mod1": DatasetDataItemModality(
-                            modality_name="mod1",
-                            type=DataType.IMAGE,
-                            data=np.array([0.6000, 0.9900, 0.3200]),
-                        )
-                    },
-                    {
-                        "mod1": DatasetDataItemModality(
-                            modality_name="mod1",
-                            type=DataType.IMAGE,
-                            data=np.array([0.3200, 0.4400, 0.1100]),
-                        )
-                    },
-                ]
-                self.Y_train = [
-                    {
-                        "target1": DatasetDataItemModality(
-                            modality_name="target1",
-                            type=DataType.TABULAR,
-                            data=pd.DataFrame([1]),
-                        )
-                    },
-                    {
-                        "target1": DatasetDataItemModality(
-                            modality_name="target1",
-                            type=DataType.TABULAR,
-                            data=pd.DataFrame([2]),
-                        )
-                    },
-                    {
-                        "target1": DatasetDataItemModality(
-                            modality_name="target1",
-                            type=DataType.TABULAR,
-                            data=pd.DataFrame([1]),
-                        )
-                    },
-                    {
-                        "target1": DatasetDataItemModality(
-                            modality_name="target1",
-                            type=DataType.TABULAR,
-                            data=pd.DataFrame([1]),
-                        )
-                    },
-                    {
-                        "target1": DatasetDataItemModality(
-                            modality_name="target1",
-                            type=DataType.TABULAR,
-                            data=pd.DataFrame([2]),
-                        )
-                    },
-                ]
+                self.X_train = torch.Tensor(
+                    [
+                        [0.1000, 0.2000, 0.5000],
+                        [0.3300, 0.2000, 0.4000],
+                        [0.1200, 0.4300, 0.2200],
+                        [0.6000, 0.9900, 0.3200],
+                        [0.3200, 0.4400, 0.1100],
+                    ]
+                )
+                self.Y_train = torch.Tensor([1, 2, 1, 1, 2])
 
             def __len__(self):
                 return len(self.Y_train)
