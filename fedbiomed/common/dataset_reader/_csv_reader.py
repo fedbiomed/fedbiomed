@@ -13,13 +13,10 @@ from typing import Iterable, Optional
 import pandas as pd
 import polars as pl
 
-from fedbiomed.common.dataset_types import ReaderShape
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedUserInputError
 
-from ._reader import Reader
 
-
-class CsvReader(Reader):
+class CsvReader:
     def __init__(
         self,
         path: Path,
@@ -94,9 +91,9 @@ class CsvReader(Reader):
         Computed before applying transforms or conversion to other format.
 
         Returns:
-            ReaderShape: Dictionary with the shape and other necessary info for the dataset
+            Dictionary with the shape and other necessary info for the dataset
         """
-        return ReaderShape({"csv": self._shape})
+        return {"csv": self._shape}
 
     def get(
         self,

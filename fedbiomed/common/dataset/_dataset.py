@@ -5,9 +5,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
-
-from ._dataset_types import DataReturnFormat
 
 
 class Dataset(ABC):
@@ -62,7 +61,7 @@ class Dataset(ABC):
                 f"{ErrorNumbers.FB632.value}: Failed to create Controller. {e}"
             ) from e
 
-    def __getitem__(self, idx: int) -> Tuple[Any, Any]:
+    def __getitem__(self, idx: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
         """Apply transforms to sample and returns it"""
         return self._apply_transforms(self._controller._get_nontransformed_item(idx))
 
