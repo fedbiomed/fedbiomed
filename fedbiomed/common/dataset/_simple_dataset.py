@@ -43,6 +43,14 @@ class SimpleDataset(Dataset):
 
     # === Properties ===
     @property
+    def native_to_framework_transform(self) -> Callable:
+        return self._native_to_framework_transform[self._to_format]
+
+    @property
+    def native_to_framework_target_transform(self) -> Callable:
+        return self._native_to_framework_target_transform[self._to_format]
+
+    @property
     def transform(self) -> Optional[Callable]:
         return self._transform
 
@@ -69,10 +77,10 @@ class SimpleDataset(Dataset):
         self._target_transform = transform_input
 
     # === Functions ===
-    def _update_transform(
+    def _validate_transform(
         self,
         data: Any,
-        transform: Callable,
+        transform: Optional[Callable],
         is_target: bool = False,
     ) -> Callable:
         """Called once per `transform` from `complete_initialization`
@@ -85,51 +93,36 @@ class SimpleDataset(Dataset):
         Raises:
             FedbiomedError: if there is a problem applying `transform`
             FedbiomedError: if `transform` do not return expected type
-
-        Returns:
-            `transform` ready to use in `__getitem__`
         """
-        native_to_framework_transform = (
-            self._native_to_framework_target_transform[self._to_format]
-            if is_target is True
-            else self._native_to_framework_transform[self._to_format]
-        )
-
-        if transform is None:
-            transform = native_to_framework_transform
-
-        for attempt in range(2):
+        if transform is not None:
             try:
                 item = transform(data)
-                break
             except Exception as e:
-                if attempt == 0:
-                    transform = T.Compose([native_to_framework_transform, transform])
-                else:
-                    raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: Unable to apply "
-                        f"`{'target_' if is_target else ''}transform` to "
-                        f"`{'target' if is_target else 'data'}`: {e}"
-                    ) from e
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Unable to apply "
+                    f"`{'target_' if is_target else ''}transform` to "
+                    f"`{'target' if is_target else 'data'}`: {e}"
+                ) from e
 
-        if not isinstance(item, self._to_format.value):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Expected "
-                f"`{'target_' if is_target else ''}transform` to return "
-                f"`{self._to_format.value}`, got {type(item).__name__}"
-            )
-        return transform
+            if not isinstance(item, self._to_format.value):
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Expected "
+                    f"`{'target_' if is_target else ''}transform` to return "
+                    f"`{self._to_format.value}`, got {type(item).__name__}"
+                )
 
     def _apply_transforms(self, sample: Dict[str, Any]) -> Tuple[Any, Any]:
         try:
-            data = self.transform(sample["data"])
+            data = self.transform(self.native_to_framework_transform(sample["data"]))
         except Exception as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Failed to apply `transform`. {e}"
             ) from e
 
         try:
-            target = self.target_transform(sample["target"])
+            target = self.target_transform(
+                self.native_to_framework_target_transform(sample["target"])
+            )
         except Exception as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Failed to apply `target_transform`. {e}"
@@ -156,13 +149,12 @@ class SimpleDataset(Dataset):
         self._init_controller(controller_kwargs=controller_kwargs)
 
         sample = self._controller._get_nontransformed_item(0)
-        # update transforms if necessary --------------------------------------
-        self.transform = self._update_transform(
-            sample["data"],
-            transform=self.transform,
+
+        self._validate_transform(
+            self.native_to_framework_transform(sample["data"]), transform=self.transform
         )
-        self.target_transform = self._update_transform(
-            sample["target"],
+        self._validate_transform(
+            self.native_to_framework_target_transform(sample["target"]),
             transform=self.target_transform,
             is_target=True,
         )
