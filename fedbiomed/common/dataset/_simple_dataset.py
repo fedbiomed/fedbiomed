@@ -10,10 +10,10 @@ from fedbiomed.common.dataset_controller import (
     MedNistController,
     MnistController,
 )
+from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 from ._dataset import Dataset
-from ._dataset_types import DataReturnFormat
 
 
 class SimpleDataset(Dataset):
@@ -82,7 +82,7 @@ class SimpleDataset(Dataset):
         data: Any,
         transform: Optional[Callable],
         is_target: bool = False,
-    ) -> Callable:
+    ):
         """Called once per `transform` from `complete_initialization`
 
         Args:
