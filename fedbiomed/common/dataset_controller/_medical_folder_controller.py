@@ -200,6 +200,7 @@ class MedicalFolderController(Controller):
         root: Path,
         extensions: Union[str, tuple[str, ...]] = _extensions,
         modalities: Optional[Union[str, Iterable[str]]] = None,
+        filter_subjects_with_all_modalities: bool = True,
     ) -> Tuple[set[str], pd.DataFrame]:
         """Matches files for expected structure.
         Filters files by extension and avoid hidden folders and files.
@@ -278,6 +279,9 @@ class MedicalFolderController(Controller):
                 f"found in the root folder structure: {missing_modalities}"
             )
 
+        if filter_subjects_with_all_modalities is False:
+            return modalities, df_dir
+
         # === Identify subjects that have all modalities
         _group_modality_sets = df_dir.groupby("subject")["modality"].apply(set)
         _matching_subject = _group_modality_sets[
@@ -300,6 +304,52 @@ class MedicalFolderController(Controller):
         )
 
         return modalities, df_dir
+
+    def subject_modality_status(self, index: Union[List, pd.Series] = None) -> Dict:
+        """Scans subjects and checks which modalities exist for each subject
+
+        Args:
+            index: Array-like index that comes from reference csv file.
+                It represents subject folder names. Defaults to None.
+        Returns:
+            Modality status that indicates which modalities are available per subject
+        """
+        modalities, df_dir = self._make_df_dir(
+            root=self.root,
+            filter_subjects_with_all_modalities=False,
+        )
+
+        # Pivot into wide format with boolean indicators
+        df_ = (
+            df_dir.assign(val=True)
+            .pivot_table(
+                index="subject",
+                columns="modality",
+                values="val",
+                fill_value=False,
+            )
+            .astype(bool)
+        )
+
+        if index is not None:
+            df_["in_folder"] = True
+            # Merge with pivot (outer join)
+            df_ = pd.merge(
+                df_,
+                pd.DataFrame(True, index=index, columns=["in_index"]),
+                left_index=True,
+                right_index=True,
+                how="outer",
+            )
+            # Fill missing values with False
+            fill_cols = ["in_folder", "in_index", *modalities]
+            df_[fill_cols] = df_[fill_cols].fillna(False)
+
+        return {
+            "columns": df_.columns.tolist(),
+            "data": df_.values.tolist(),
+            "index": df_.index.tolist(),
+        }
 
     def _make_dataset(
         self,
