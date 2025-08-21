@@ -7,10 +7,8 @@ Classes that simplify imports from fedbiomed.common.dataset_reader
 
 from ._csv_reader import CsvReader
 from ._nifti_reader import NiftiReader
-from ._reader import Reader
 
 __all__ = [
-    "Reader",
     "CsvReader",
     "NiftiReader",
     "MnistReader",
