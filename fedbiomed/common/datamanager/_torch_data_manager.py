@@ -6,7 +6,7 @@ Data manager for Pytorch training plan
 """
 
 import math
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import torch
 from torch.utils.data import (
@@ -133,7 +133,15 @@ class TorchDataManager(FrameworkDataManager):
         self._dataset = dataset
 
         self._loader_arguments = kwargs
-        self.rng(self._loader_arguments.get("random_state"))
+
+        # Partially address issue 1369 (item 3) to ensure reproducibility:
+        # fix seed globally for torch, so it applies to split and shuffle
+        # + for all devices
+        #
+        # Can remove this item as it is not used in PyTorch DataLoader
+        seed = self._loader_arguments.pop("random_state", None)
+        if isinstance(seed, int):
+            torch.manual_seed(seed)
 
         self._dataset.to_format = DataReturnFormat.TORCH
 
@@ -261,7 +269,8 @@ class TorchDataManager(FrameworkDataManager):
             train_samples = samples - test_samples
 
             self._subset_train, self._subset_test = random_split(
-                torch_dataset, [train_samples, test_samples], generator=self.rng()
+                torch_dataset,
+                [train_samples, test_samples],
             )
 
             self._testing_index = list(self._subset_test.indices)
@@ -296,19 +305,6 @@ class TorchDataManager(FrameworkDataManager):
             return None
 
         return self._create_torch_data_loader(subset, **kwargs)
-
-    # See issue 1369 regarding potential bug or improvements
-    @staticmethod
-    def rng(
-        rng: Optional[int] = None, device: Optional[str | torch.device] = None
-    ) -> Union[None, torch.Generator]:
-        """Random number generator
-
-        Returns:
-            None if rng is None else a torch generator.
-        """
-
-        return None if rng is None else torch.Generator(device).manual_seed(rng)
 
     def _load_indexes(
         self,
