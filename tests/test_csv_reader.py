@@ -36,7 +36,7 @@ def no_header_csv():
 
 
 # --- _pre_parse tests ---
-def test_pre_parse_detects_delimiter_and_header(sample_csv, no_header_csv):
+def test_csvreader_01_pre_parse_detects_delimiter_and_header(sample_csv, no_header_csv):
     reader = CsvReader(sample_csv)
     reader_no_header = CsvReader(no_header_csv)
     assert reader._delimiter == ","
@@ -45,27 +45,27 @@ def test_pre_parse_detects_delimiter_and_header(sample_csv, no_header_csv):
     assert not reader_no_header.header
 
 
-def test_pre_parse_empty_file(tmp_path: Path):
+def test_csvreader_02_pre_parse_empty_file(tmp_path: Path):
     p = tmp_path / "empty.csv"
     p.write_text("", encoding="utf-8")
     with pytest.raises(FedbiomedError):
         CsvReader(p)
 
 
-def test_pre_parse_cannot_detect_delimiter(mocker, sample_csv):
+def test_csvreader_03_pre_parse_cannot_detect_delimiter(mocker, sample_csv):
     mocker.patch.object(csv.Sniffer, "sniff", side_effect=csv.Error)
     with pytest.raises(FedbiomedError):
         CsvReader(sample_csv)
 
 
-def test_pre_parse_cannot_detect_header(mocker, sample_csv):
+def test_csvreader_04_pre_parse_cannot_detect_header(mocker, sample_csv):
     mocker.patch.object(csv.Sniffer, "has_header", side_effect=csv.Error)
     with pytest.raises(FedbiomedError):
         CsvReader(sample_csv)
 
 
 # --- read tests ---
-def test_read(sample_csv, no_header_csv):
+def test_csvreader_05_read(sample_csv, no_header_csv):
     reader1 = CsvReader(sample_csv)
     reader2 = CsvReader(no_header_csv)
     df1 = reader1.read()
@@ -74,7 +74,7 @@ def test_read(sample_csv, no_header_csv):
     assert isinstance(df2, pl.DataFrame)
 
 
-def test_read_csv_error_case(sample_csv, monkeypatch):
+def test_csvreader_06_read_csv_error_case(sample_csv, monkeypatch):
     """Test that read_csv raises an error when the file does not exist."""
 
     def raise_compute_error(*args, **kwargs):
@@ -87,7 +87,7 @@ def test_read_csv_error_case(sample_csv, monkeypatch):
 
 
 # --- test to numpy and pandas ---
-def test_to_numpy_and_pandas(sample_csv):
+def test_csvreader_07_to_numpy_and_pandas(sample_csv):
     reader = CsvReader(sample_csv)
     df_numpy = reader.to_numpy()
     df_pandas = reader.to_pandas()
@@ -96,16 +96,17 @@ def test_to_numpy_and_pandas(sample_csv):
 
 
 # --- _validate_path ---
-def test_validate(tmp_path: Path):
+def test_csvreader_08_validate(tmp_path: Path):
     bad_path = tmp_path / "missing.csv"
-    reader = CsvReader.__new__(CsvReader)
-    reader._path = bad_path
+    reader = CsvReader(bad_path)
+    # reader = CsvReader.__new__(CsvReader)
+    # reader._path = bad_path
     with pytest.raises(FedbiomedError):
         reader.validate()
 
 
 # --- shape and len ---
-def test_shape_and_len(sample_csv):
+def test_csvreader_09_shape_and_len(sample_csv):
     reader = CsvReader(sample_csv)
     shp = reader.shape()
     assert isinstance(shp, dict)
@@ -116,7 +117,7 @@ def test_shape_and_len(sample_csv):
     assert reader.len() == 3
 
 
-def test_no_header_csv_shape_and_len(no_header_csv):
+def test_csvreader_10_no_header_csv_shape_and_len(no_header_csv):
     reader = CsvReader(no_header_csv)
     shp = reader.shape()
     assert isinstance(shp, dict)
@@ -128,19 +129,19 @@ def test_no_header_csv_shape_and_len(no_header_csv):
 
 
 # --- get / _read_single_entry ---
-def test_get_by_row_index(sample_csv):
+def test_csvreader_11_get_by_row_index(sample_csv):
     reader = CsvReader(sample_csv)
     out = reader.get(indexes=1)
     assert out.shape[0] == 1
 
 
-def test_get_row_index_out_of_range(sample_csv):
+def test_csvreader_12_get_row_index_out_of_range(sample_csv):
     reader = CsvReader(sample_csv)
     with pytest.raises(FedbiomedUserInputError):
         reader.get(indexes=[99])
 
 
-def test_get_with_columns_by_labels_and_int(sample_csv):
+def test_csvreader_13_get_with_columns_by_labels_and_int(sample_csv):
     reader = CsvReader(sample_csv)
     out = reader.get(indexes=[0, 2], columns=["name", "age"])
     assert out.shape == (2, 2)
@@ -151,27 +152,27 @@ def test_get_with_columns_by_labels_and_int(sample_csv):
     assert out.columns == ["id"]
 
 
-def test_get_with_columns_by_indices(sample_csv):
+def test_csvreader_14_get_with_columns_by_indices(sample_csv):
     reader = CsvReader(sample_csv)
     out = reader.get(indexes=[0, 2], columns=[0, 2])
     assert out.shape == (2, 2)
     assert out.columns == ["id", "age"]
 
 
-def test_get_with_columns_by_indices_no_header(no_header_csv):
+def test_csvreader_15_get_with_columns_by_indices_no_header(no_header_csv):
     reader = CsvReader(no_header_csv)
     out = reader.get(indexes=[0, 2], columns=[0, 2])
     assert out.shape == (2, 2)
     assert out[1]["column_3"].item() == 50
 
 
-def test_get_column_index_out_of_range(no_header_csv):
+def test_csvreader_16_get_column_index_out_of_range(no_header_csv):
     reader = CsvReader(no_header_csv)
     with pytest.raises(FedbiomedUserInputError):
         reader.get(indexes=[1], columns=[99])
 
 
-def test_get_column_name_not_found(sample_csv):
+def test_csvreader_17_get_column_name_not_found(sample_csv):
     reader = CsvReader(sample_csv)
     with pytest.raises(FedbiomedUserInputError):
         reader.get(indexes=[1], columns=["not_a_col"])

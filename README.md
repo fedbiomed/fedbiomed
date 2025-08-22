@@ -58,7 +58,7 @@ Fed-BioMed can be installed using `pip` with the following command:
 pip install fedbiomed[node, gui, researcher]
 ```
 
-If you prefer to use Fed-BioMed in development mode, please refer to the [Developer Environment Installation Documentation](https://fedbiomed.org/latest/developer/development-environment.md).
+If you prefer to use Fed-BioMed in development mode, please refer to the [Developer Environment Installation Documentation](https://fedbiomed.org/latest/developer/development-environment).
 
 ### Quick Start: Running Fed-BioMed
 
