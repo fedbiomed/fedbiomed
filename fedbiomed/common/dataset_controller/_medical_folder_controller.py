@@ -1,13 +1,11 @@
 from os import PathLike
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
-from monai.data import ITKReader
-from monai.transforms import LoadImage
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.dataset_reader import CsvReader
+from fedbiomed.common.dataset_reader import CsvReader, NiftiReader
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
@@ -16,7 +14,6 @@ from ._controller import Controller
 
 class MedicalFolderController(Controller):
     _extensions: Tuple[str, ...] = (".nii", ".nii.gz")
-    _reader: Callable[[str], Any] = LoadImage(ITKReader(), image_only=True)
 
     """MedicalFolder where data is arranged like this:
     root
@@ -131,7 +128,8 @@ class MedicalFolderController(Controller):
     def modalities(self):
         return self._modalities
 
-    def _validate_modalities(self, modalities: Union[str, Iterable[str]]) -> set[str]:
+    @staticmethod
+    def _validate_modalities(modalities: Union[str, Iterable[str]]) -> set[str]:
         """Validates `modalities`
 
         Returns:
@@ -355,12 +353,15 @@ class MedicalFolderController(Controller):
         logger.info(f"{len(samples)} complete samples successfully identified")
         return modalities, samples
 
-    def _get_nontransformed_item(self, index: int) -> Dict[str, Any]:
+    def _get_nontransformed_item(
+        self, index: int
+    ) -> Dict[str, NiftiReader.data_type | Dict[str, Any]]:
         """Retrieve a data sample without applying transforms"""
         sample = self._samples[index]
         try:
             data = {
-                modality: self._reader(sample[modality]) for modality in self.modalities
+                modality: NiftiReader.read(sample[modality])
+                for modality in self.modalities
             }
         except Exception as e:
             raise FedbiomedError(
