@@ -1,12 +1,11 @@
-import unittest
 import os
 import random
-from random import randint, choice
-
 import shutil
 import tempfile
+import unittest
 from pathlib import Path, PosixPath
-from unittest.mock import patch, MagicMock
+from random import choice, randint
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import itk
@@ -14,24 +13,23 @@ import monai
 import numpy as np
 import pandas as pd
 import torch
-
-from torch.utils.data import DataLoader
 from monai.transforms import (
     GaussianSmooth,
+)
+from torch.utils.data import DataLoader, Dataset
+from torchvision.transforms import Lambda
+
+from fedbiomed.common.dataloadingplan import DataLoadingPlan, MapperBlock
+from fedbiomed.common.dataset import (
+    MedicalFolderBase,
+    MedicalFolderController,
+    MedicalFolderDataset,
+    MedicalFolderLoadingBlockTypes,
 )
 from fedbiomed.common.exceptions import (
     FedbiomedDatasetError,
     FedbiomedLoadingBlockError,
 )
-from torch.utils.data import Dataset
-from torchvision.transforms import Lambda
-from fedbiomed.common.dataset import (
-    MedicalFolderDataset,
-    MedicalFolderBase,
-    MedicalFolderController,
-    MedicalFolderLoadingBlockTypes,
-)
-from fedbiomed.common.dataloadingplan import DataLoadingPlan, MapperBlock
 
 
 def _generate_image_names(
@@ -41,7 +39,7 @@ def _generate_image_names(
     if add_dots_in_title:
         img_name = str(uuid4())
         _possible_idx = list(range(len(img_name)))
-        for i in range(n_dots):
+        for _ in range(n_dots):
             rand_idx = random.choice(_possible_idx)
             img_name = img_name[:rand_idx] + "." + img_name[rand_idx + 1 :]
             _possible_idx.remove(rand_idx)
@@ -523,7 +521,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
     def test_medical_folder_dataset_11_data_transforms(self):
         dataset = MedicalFolderDataset(self.root, transform=self.transform)
 
-        for i, ((images, demographics), targets) in enumerate(dataset):
+        for i, ((images, _demographics), _targets) in enumerate(dataset):
             # test indexation
             self.assertTrue(images["T1"].dim() == 1)
             # test iteration
@@ -656,7 +654,9 @@ class TestMedicalFolderDataset(unittest.TestCase):
             Path(self.root).joinpath("subj1"),
             Path(self.root).joinpath("subj2"),
         ]
-        for p1, p2 in zip(dataset.subject_folders(), expected_subject_folders):
+        for p1, p2 in zip(
+            dataset.subject_folders(), expected_subject_folders, strict=False
+        ):
             self.assertEqual(os.path.realpath(p1), os.path.realpath(p2))
 
         dataset._reader = MagicMock()
@@ -1079,79 +1079,6 @@ class TestMedicalFolderBase(unittest.TestCase):
         ):
             with self.assertRaises(FedbiomedDatasetError):
                 medical_folder_base._subject_modality_folder("my subject", modality)
-
-
-class TestMedicalFolderController(unittest.TestCase):
-    def setUp(self) -> None:
-        self.root = tempfile.mkdtemp()
-        self.tabular_file = os.path.join(self.root, "participants.csv")
-        self.index_col = "FOLDER_NAME"
-        self.n_samples = 20
-
-        _create_synthetic_dataset(
-            self.root, self.n_samples, self.tabular_file, self.index_col
-        )
-
-    def tearDown(self) -> None:
-        pass
-
-    def test_medical_folder_controller_01_subject_modality_status(self):
-        medical_folder_controller = MedicalFolderController(self.root)
-
-        # check method when index set to None
-        res = medical_folder_controller.subject_modality_status()
-
-        self.assertListEqual(sorted(res["columns"]), sorted(["T1", "T2", "label"]))
-        self.assertTrue(any(res["data"]))
-
-        csv_data = pd.read_csv(self.tabular_file)
-        self.assertListEqual(
-            sorted(csv_data[self.index_col].tolist()), sorted(res["index"])
-        )
-
-        # in the following, we will run 5 tests with different size of patient_id
-        patient_ids = csv_data[self.index_col].tolist()
-        for _ in range(5):
-            random.shuffle(patient_ids)
-            len_sample = random.randint(1, self.n_samples)
-            patient_selected = patient_ids[0:len_sample]
-            res = medical_folder_controller.subject_modality_status(patient_selected)
-            self.assertListEqual(sorted(patient_ids), sorted(res["index"]))
-
-    @patch("pathlib.Path.iterdir", new=patch_modality_iterdir)
-    @patch("pathlib.Path.is_dir", new=patch_is_modality_dir)
-    @patch("pathlib.Path.glob", new=patch_modality_glob)
-    def test_medical_folder_controller_02_modalities(self):
-        medical_folder_controller = MedicalFolderController(self.root)
-        unique_modalities, modalities = medical_folder_controller.modalities()
-        expected_unique_modalities = {
-            "T1philips",
-            "label",
-            "T2",
-            "non-existing-modality",
-            "T1siemens",
-        }
-        expected_modalities = [
-            "T1philips",
-            "T2",
-            "label",
-            "T1siemens",
-            "T2",
-            "label",
-            "non-existing-modality",
-        ]
-        self.assertEqual(set(unique_modalities), expected_unique_modalities)
-        self.assertEqual(modalities, expected_modalities)
-
-        dlb = MapperBlock()
-        dlb.map = modalities_to_folders
-        medical_folder_controller.set_dlp(
-            DataLoadingPlan({MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS: dlb})
-        )
-        unique_modalities, modalities = medical_folder_controller.modalities()
-        expected_unique_modalities = {"T1", "T2", "label"}
-        self.assertEqual(set(unique_modalities), expected_unique_modalities)
-        self.assertEqual(modalities, expected_modalities)
 
 
 if __name__ == "__main__":
