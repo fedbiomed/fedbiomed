@@ -33,7 +33,7 @@ class Dataset(ABC):
         pass
 
     @abstractmethod
-    def _apply_transforms(self, sample: Dict[str, Any]) -> tuple[Any, Any]:
+    def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:
         pass
 
     # === Functions ===
@@ -60,10 +60,6 @@ class Dataset(ABC):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Failed to create Controller. {e}"
             ) from e
-
-    def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:
-        """Apply transforms to sample and returns it"""
-        return self._apply_transforms(self._controller._get_nontransformed_item(idx))
 
     def __len__(self) -> int:
         return len(self._controller)

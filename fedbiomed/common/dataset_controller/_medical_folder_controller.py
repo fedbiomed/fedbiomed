@@ -135,13 +135,13 @@ class MedicalFolderController(Controller, DataLoadingPlanMixin):
     @property
     def modalities(self):
         return self._modalities
-    
+
     @property
     def subjects(self):
         return self._subjects
 
     @staticmethod
-    def _validate_modalities(modalities: Union[str, Iterable[str]]) -> set[str]:
+    def _normalize_modalities(modalities: Union[str, Iterable[str]]) -> set[str]:
         """Validates `modalities` and returns it as `set`
 
         Returns:

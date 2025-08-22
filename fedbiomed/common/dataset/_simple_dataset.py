@@ -10,7 +10,7 @@ from fedbiomed.common.dataset_controller import (
     MedNistController,
     MnistController,
 )
-from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 from ._dataset import Dataset
@@ -135,19 +135,6 @@ class SimpleDataset(Dataset):
                 f"`{self._to_format.value}`, got {type(item).__name__}"
             )
 
-    def _apply_transforms(self, sample: Dict[str, Any]) -> tuple[Any, Any]:
-        try:
-            data = self.transform(self.native_to_framework_transform(sample["data"]))
-            target = self.target_transform(
-                self.native_to_framework_target_transform(sample["target"])
-            )
-        except Exception as e:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Failed to apply transforms. {e}"
-            ) from e
-
-        return data, target
-
     def complete_initialization(
         self,
         controller_kwargs: Dict[str, Any],
@@ -174,6 +161,29 @@ class SimpleDataset(Dataset):
             transform=self.target_transform,
             is_target=True,
         )
+
+    def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:
+        sample = self._controller._get_nontransformed_item(idx)
+
+        data = self.native_to_framework_transform(sample["data"])
+        try:
+            data = self.transform(data)
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply `transform` to `data` "
+                f"from sample (index={idx}) in {self._to_format.value} format."
+            ) from e
+
+        target = self.native_to_framework_target_transform(sample["target"])
+        try:
+            target = self.target_transform(target)
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply `target_transform` to "
+                f"`target` from sample (index={idx}) in {self._to_format.value} format."
+            ) from e
+
+        return data, target
 
 
 class ImageFolderDataset(SimpleDataset):
