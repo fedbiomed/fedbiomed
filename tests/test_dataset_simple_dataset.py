@@ -162,8 +162,7 @@ def test_apply_transforms_success(dataset_with_mock_controller):
         if dataset_with_mock_controller.to_format == DataReturnFormat.TORCH
         else lambda x: x.astype(np.float32) / 255
     )
-    sample = dataset._controller._get_nontransformed_item(0)
-    data, target = dataset._apply_transforms(sample)
+    data, target = dataset[0]
     assert isinstance(data, dataset_with_mock_controller._to_format.value)
     assert isinstance(target, dataset_with_mock_controller._to_format.value)
 
@@ -185,8 +184,7 @@ def test_complete_initialization_missing_keys(tmp_path):
 
 def test_complete_initialization_success(dataset_with_mock_controller):
     dataset = dataset_with_mock_controller
-    sample = dataset._controller._get_nontransformed_item(0)
-    data, target = dataset._apply_transforms(sample)
+    data, target = dataset[0]
     assert isinstance(data, dataset_with_mock_controller._to_format.value)
     assert isinstance(target, dataset_with_mock_controller._to_format.value)
 

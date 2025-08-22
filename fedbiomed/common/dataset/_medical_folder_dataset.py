@@ -5,10 +5,10 @@ from monai.transforms import ToNumpy
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import MedicalFolderController
+from fedbiomed.common.dataset_types import DataReturnFormat, Transform
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 from ._dataset import Dataset
-from ._dataset_types import DataReturnFormat, Transform
 
 
 class MedicalFolderDataset(Dataset):
