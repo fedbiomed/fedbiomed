@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
@@ -33,7 +33,7 @@ class Dataset(ABC):
         pass
 
     @abstractmethod
-    def _apply_transforms(self, sample: Dict[str, Any]) -> Tuple[Any, Any]:
+    def _apply_transforms(self, sample: Dict[str, Any]) -> tuple[Any, Any]:
         pass
 
     # === Functions ===
@@ -61,7 +61,7 @@ class Dataset(ABC):
                 f"{ErrorNumbers.FB632.value}: Failed to create Controller. {e}"
             ) from e
 
-    def __getitem__(self, idx: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
+    def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:
         """Apply transforms to sample and returns it"""
         return self._apply_transforms(self._controller._get_nontransformed_item(idx))
 

@@ -166,7 +166,7 @@ def medical_folder_preview():
     rexp = re.match("^" + config["DATA_PATH_SAVE"], dataset["path"])
     data_path = dataset["path"].replace(rexp.group(0), config["DATA_PATH_RW"])
     mf_controller = MedicalFolderController(root=data_path)
-    modalities = list(mf_controller.modalities)
+    modalities = mf_controller.modalities
 
     if "index_col" in dataset["dataset_parameters"]:
         # Extract data path where the files are saved in the local GUI repository
