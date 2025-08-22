@@ -99,6 +99,7 @@ dependencies = [
 	"unet  >=0.7.7,<0.8.0",
 	"pygments ~=2.18.0",
 	"nibabel ~=5.3",
+	"pyarrow>=21.0.0",
 ]
 
 requires-python = "<3.12,>=3.10"
