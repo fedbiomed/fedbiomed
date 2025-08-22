@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Iterable, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, Union
 
 import torchvision.transforms as T
 from monai.transforms import ToNumpy
@@ -39,7 +39,7 @@ class MedicalFolderDataset(Dataset):
 
     @data_modalities.setter
     def data_modalities(self, modalities: Union[str, Iterable[str]]) -> set:
-        self._data_modalities = self._normalize_modalities(modalities)
+        self._data_modalities = self._controller_cls._normalize_modalities(modalities)
 
     @property
     def target_modalities(self):
@@ -47,27 +47,7 @@ class MedicalFolderDataset(Dataset):
 
     @target_modalities.setter
     def target_modalities(self, modalities: Union[str, Iterable[str]]) -> set:
-        self._target_modalities = self._normalize_modalities(modalities)
-
-    def _normalize_modalities(self, modalities: Union[str, Iterable[str]]) -> set:
-        """Normalize `modalities`
-        Returns:
-            `modalities` in type `set`
-        Raises:
-            FedbiomedValueError: If the input does not match the types expected
-        """
-        if isinstance(modalities, str):
-            return {modalities}
-        if (
-            not isinstance(modalities, dict)
-            and isinstance(modalities, Iterable)
-            and all(isinstance(item, str) for item in modalities)
-        ):
-            return set(modalities)
-        raise FedbiomedValueError(
-            f"{ErrorNumbers.FB613.value}: "
-            "Unexpected type for modalities. Expected str or Iterable[str]"
-        )
+        self._target_modalities = self._controller_cls._normalize_modalities(modalities)
 
     @property
     def modalities(self):
@@ -202,7 +182,7 @@ class MedicalFolderDataset(Dataset):
 
     def _apply_transforms(
         self, sample: Dict[str, Any]
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    ) -> tuple[Dict[str, Any], Dict[str, Any]]:
         # TODO: demographics
         data = {}
         for modality in self.data_modalities:

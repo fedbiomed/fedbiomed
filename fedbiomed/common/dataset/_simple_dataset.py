@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional
 
 import numpy as np
 import torch
@@ -135,7 +135,7 @@ class SimpleDataset(Dataset):
                 f"`{self._to_format.value}`, got {type(item).__name__}"
             )
 
-    def _apply_transforms(self, sample: Dict[str, Any]) -> Tuple[Any, Any]:
+    def _apply_transforms(self, sample: Dict[str, Any]) -> tuple[Any, Any]:
         try:
             data = self.transform(self.native_to_framework_transform(sample["data"]))
             target = self.target_transform(
