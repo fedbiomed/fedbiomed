@@ -68,10 +68,8 @@ def test_csvreader_04_pre_parse_cannot_detect_header(mocker, sample_csv):
 def test_csvreader_05_read(sample_csv, no_header_csv):
     reader1 = CsvReader(sample_csv)
     reader2 = CsvReader(no_header_csv)
-    df1 = reader1.read()
-    df2 = reader2.read()
-    assert isinstance(df1, pl.DataFrame)
-    assert isinstance(df2, pl.DataFrame)
+    assert isinstance(reader1.data, pl.DataFrame)
+    assert isinstance(reader2.data, pl.DataFrame)
 
 
 def test_csvreader_06_read_csv_error_case(sample_csv, monkeypatch):
@@ -82,8 +80,7 @@ def test_csvreader_06_read_csv_error_case(sample_csv, monkeypatch):
 
     monkeypatch.setattr(pl, "read_csv", raise_compute_error)
     with pytest.raises(FedbiomedError):
-        reader = CsvReader(path=sample_csv)
-        reader.read()
+        CsvReader(path=sample_csv)
 
 
 # --- test to numpy and pandas ---
@@ -98,11 +95,8 @@ def test_csvreader_07_to_numpy_and_pandas(sample_csv):
 # --- _validate_path ---
 def test_csvreader_08_validate(tmp_path: Path):
     bad_path = tmp_path / "missing.csv"
-    reader = CsvReader(bad_path)
-    # reader = CsvReader.__new__(CsvReader)
-    # reader._path = bad_path
     with pytest.raises(FedbiomedError):
-        reader.validate()
+        CsvReader(bad_path)
 
 
 # --- shape and len ---
