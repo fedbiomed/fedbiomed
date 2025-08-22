@@ -58,7 +58,6 @@ class MedicalFolderController(Controller):
             index_col=self.index_col,
             modalities=modalities,
         )
-
         # Check if is possible to use `reader` to recover a valid item
         _ = self._get_nontransformed_item(0)
 
@@ -174,12 +173,10 @@ class MedicalFolderController(Controller):
         """
         tabular_file = self._validate_tabular_file(tabular_file)
         try:
-            # demographics = pd.read_csv(
-            #     tabular_file, index_col=index_col, engine="python"
-            # )
-            demographics = CsvReader(tabular_file).read().to_pandas()
+            demographics = CsvReader(tabular_file).data.to_pandas()
+            # demographics = pd.read_csv(tabular_file, index_col=index_col)
             if index_col is not None:
-                demographics.set_index(index_col)
+                demographics = demographics.set_index(index_col)
 
         except FedbiomedError as e:
             raise FedbiomedError(
@@ -309,8 +306,8 @@ class MedicalFolderController(Controller):
     def _make_dataset(
         self,
         root: Path,
-        tabular_file: Optional[Path],
-        index_col: Optional[Union[int, str]],
+        tabular_file: Optional[Path] = None,
+        index_col: Optional[Union[int, str]] = None,
         modalities: Optional[Union[str, Iterable[str]]] = None,
     ) -> Tuple[set[str], List[Dict[str, Any]]]:
         """Builds samples in `dict` with `modalities` and `demographics`

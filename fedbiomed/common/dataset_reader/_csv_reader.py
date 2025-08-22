@@ -16,7 +16,6 @@ import polars as pl
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedUserInputError
 
 
-
 class CsvReader:
     _BEGINING_OF_FILE: int = 32768  # 32 kB data
 
@@ -48,7 +47,7 @@ class CsvReader:
         self._pre_parse()
 
         # Initialize the data and the column names
-        self.data = self.read()
+        self.data = self._read()
         self.columns = list(self.data.columns)
 
         # Initialize shape and length
@@ -56,7 +55,7 @@ class CsvReader:
         self._shape = self.data.shape
         self._len = self._shape[0]
 
-    def read(self, **kwargs) -> pl.DataFrame:
+    def _read(self, **kwargs) -> pl.DataFrame:
         """Reads all dataset and returns the dataframe.
 
         Returns:
@@ -121,7 +120,12 @@ class CsvReader:
         """Returns the data as a Numpy ndarray."""
         return self.data.to_numpy()
 
-    def to_torch(self):
+    def unsafe_to_torch(self):
+        """This is an unsafe method that returns the data as a Torch Tensor.
+
+        Warning: This method requires that columns have homogeneous data types. Havinng
+        mixed types will raise an error.
+        """
         self.data.to_torch()
 
     def _get_entry(
