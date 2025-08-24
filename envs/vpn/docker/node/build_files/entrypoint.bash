@@ -40,7 +40,7 @@ su -l -c "export FBM_SECURITY_FORCE_SECURE_AGGREGATION=\"${FBM_SECURITY_FORCE_SE
 su -l -c "echo \"$FBM_NODE_START_OPTIONS\" >/fbm-node/FBM_NODE_START_OPTIONS" $CONTAINER_USER
 
 # Launch node using node options
-$SETUSER fedbiomed node start $FBM_NODE_START_OPTIONS &
+su -l -c "fedbiomed node start $FBM_NODE_START_OPTIONS &" $CONTAINER_USER
 
 echo "Node container is ready"
 sleep infinity &
