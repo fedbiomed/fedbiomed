@@ -12,10 +12,11 @@ from typing import Any, Dict, Union
 from PIL.Image import Image
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin
 from fedbiomed.common.exceptions import FedbiomedError
 
 
-class Controller(ABC):
+class Controller(ABC, DataLoadingPlanMixin):
     # === Properties ===
     @property
     def root(self):
