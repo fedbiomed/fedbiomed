@@ -98,4 +98,4 @@ class Controller(ABC, DataLoadingPlanMixin):
         Raises:
             FedbiomedError: if coherence issue is found
         """
-        pass
+        return None
