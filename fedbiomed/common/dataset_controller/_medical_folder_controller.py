@@ -6,7 +6,6 @@ from typing import Any, Dict, Iterable, Optional, Union
 import pandas as pd
 
 from fedbiomed.common.constants import DataLoadingBlockTypes, ErrorNumbers
-from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin
 from fedbiomed.common.dataset_reader import CsvReader, NiftiReader
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
@@ -18,7 +17,7 @@ class MedicalFolderLoadingBlockTypes(DataLoadingBlockTypes, Enum):
     MODALITIES_TO_FOLDERS: str = "modalities_to_folders"
 
 
-class MedicalFolderController(Controller, DataLoadingPlanMixin):
+class MedicalFolderController(Controller):
     _extensions: tuple[str, ...] = (".nii", ".nii.gz")
 
     """MedicalFolder where data is arranged like this:
