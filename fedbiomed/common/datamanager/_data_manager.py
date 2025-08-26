@@ -5,10 +5,11 @@
 Data Management factory class
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.dataset import Dataset
+from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 
 from ._framework_data_manager import FrameworkDataManager
@@ -18,6 +19,11 @@ from ._torch_data_manager import TorchDataManager
 _tp_to_datamanager: dict[TrainingPlans, type[FrameworkDataManager]] = {
     TrainingPlans.TorchTrainingPlan: TorchDataManager,
     TrainingPlans.SkLearnTrainingPlan: SkLearnDataManager,
+}
+
+_dm_to_format: dict[Callable, DataReturnFormat] = {
+    TorchDataManager: DataReturnFormat.TORCH,
+    SkLearnDataManager: DataReturnFormat.SKLEARN,
 }
 
 
@@ -105,6 +111,36 @@ class DataManager(object):
                 f"{ErrorNumbers.FB632.value}: Unknown training plan type, "
                 "cannot instantiate data manager."
             )
+
+    def complete_dataset_initialization(
+        self, controller_kwargs: Dict[str, Any]
+    ) -> None:
+        """Finalizes initialization of the DataManager's dataset controller
+
+        Args:
+            controller_kwargs: arguments for the controller
+
+        Raises:
+            FedbiomedError: if `_data_manager_instance` is not initialized
+            FedbiomedError: if there is a problem completing dataset initialization
+        """
+        if not self._data_manager_instance:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Data manager instance is not initialized. "
+                f"Please call `load()` first."
+            )
+
+        try:
+            self._dataset.complete_initialization(
+                controller_kwargs,
+                _dm_to_format[self._data_manager_instance.__class__],
+            )
+        except FedbiomedError as e:
+            raise e
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Unable to complete dataset initialization."
+            ) from e
 
     def __getattr__(self, item: str) -> Any:
         """Wraps all functions/attributes of factory class members.

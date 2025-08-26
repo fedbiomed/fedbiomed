@@ -918,6 +918,14 @@ class Round:
                     f"{data_manager.dataset.__class__.__name__} which is not enabled."
                 )
 
+        # Info: controller_kwargs not yet implemented in DatasetManager
+        # so they are empty for now
+        controller_kwargs = self.dataset.get("controller_kwargs", {})
+        controller_kwargs["root"] = self.dataset.get("path")
+
+        # TODO try except
+        data_manager.complete_dataset_initialization(controller_kwargs)
+
         # All Framework based data managers have the same methods
         # If testing ratio is 0,
         # self.testing_data will be equal to None
