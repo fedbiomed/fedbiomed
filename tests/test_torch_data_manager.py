@@ -6,13 +6,13 @@ import pandas as pd
 import torch
 from torch.utils.data import Subset
 
-import fedbiomed.common.datamanager._torch_data_manager  # noqa
 from fedbiomed.common.datamanager import TorchDataManager
 from fedbiomed.common.dataset import Dataset
 from fedbiomed.common.dataset_types import DatasetDataItemModality, DataType
 from fedbiomed.common.exceptions import FedbiomedError
 
 
+# TODO - DATASET-REDESIGN: Update tests after removing DatasetDataItemModality and DataType
 class TestTorchDataManager(unittest.TestCase):
     class CustomDataset(Dataset):
         """Create PyTorch Dataset for test purposes"""
