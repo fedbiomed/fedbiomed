@@ -3,11 +3,10 @@
 
 import warnings
 from collections import defaultdict
-from copy import copy
 from typing import List, Optional, Tuple
 
 from fedbiomed.common.dataloadingplan import DataLoadingPlan, MapperBlock
-from fedbiomed.common.dataset import MedicalFolderBase, MedicalFolderController
+from fedbiomed.common.dataset_controller import MedicalFolderController
 from fedbiomed.node.cli_utils._io import validated_path_input
 
 
@@ -65,13 +64,16 @@ def add_medical_folder_dataset_from_cli(
     return path, dataset_parameters, dlp
 
 
+# TODO: Find a way pass modality name default ones
+# OLD Usage of MedicalFolderBase.default_modality_names
+# there is no MedicalFolderBase
+UNSAFE_modality_names = ["T1", "T2", "label"]
+
+
 def get_map_modalities2folders_from_cli(
     modality_folder_names: List[str],
 ) -> MapperBlock:
-    modality_names = [
-        "Manually insert new modality name",
-        *copy(MedicalFolderBase.default_modality_names),
-    ]
+    modality_names = ["Manually insert new modality name", *UNSAFE_modality_names]
     map_modalities_to_folders = defaultdict(list)
     for modality_folder in modality_folder_names:
         keep_asking_for_this_modality = True

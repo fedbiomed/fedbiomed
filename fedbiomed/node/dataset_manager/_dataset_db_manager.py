@@ -9,8 +9,8 @@ from typing import Optional, Union
 
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset_controller import (  # noqa  # not used yet, sketch
+    MedicalFolderController,
     MnistController,
-    NewMedicalFolderController,
 )
 from fedbiomed.common.db import DBTable
 

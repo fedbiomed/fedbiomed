@@ -28,8 +28,6 @@ from fedbiomed.common.dataloader import (
 from fedbiomed.common.dataset import Dataset
 from fedbiomed.common.dataset_types import (
     DatasetDataItem,
-    DatasetDataItemModality,
-    DataType,
     Transform,
 )
 from fedbiomed.common.exceptions import FedbiomedError
@@ -91,17 +89,19 @@ class _DatasetWrapper(TorchDataset):
         for k, v in data.items():
             # Check and convert generic format data
             if not is_torch:
-                if not isinstance(v, DatasetDataItemModality):
-                    raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: Data sample must be a `DatasetDataItemModality` "
-                        f"not a {type(v)} (index={index}, modality={k})"
-                    )
+                # TODO - DATASET-REDESIGN: : DatasetDataItemModality is not existing anymore verify this part
+                # if not isinstance(v, DatasetDataItemModality):
+                #    raise FedbiomedError(
+                #        f"{ErrorNumbers.FB632.value}: Data sample must be a `DatasetDataItemModality` "
+                #        f"not a {type(v)} (index={index}, modality={k})"
+                #    )
                 if k != v.modality_name:
                     raise FedbiomedError(
                         f"{ErrorNumbers.FB632.value}: Data sample modality name mismatch "
                         f"(index={index}), {k} != {v.modality_name}"
                     )
-                if v.type == DataType.IMAGE:
+                # TODO - DATASET-REDESIGN: : DataType is not existing anymore verify this part
+                if v.type == "IMAGE":
                     try:
                         v = torch.from_numpy(v.data)
                     except Exception as e:
@@ -109,7 +109,7 @@ class _DatasetWrapper(TorchDataset):
                             f"{ErrorNumbers.FB632.value}: Bad data sample format, cannot convert "
                             f"from numpy to torch.Tensor (index={index}, modality={k})"
                         ) from e
-                elif v.type == DataType.TABULAR:
+                elif v.type == "TABULAR":
                     try:
                         v = torch.tensor(v.data.values)  # type: ignore  # v.data is a pd.DataFrame here
                     except Exception as e:
@@ -323,7 +323,7 @@ class TorchDataManager(FrameworkDataManager):
             test_ratio: Split ratio for validation set ratio. Rest of the samples will be used for training
             test_batch_size: Batch size to use for testing subset
             is_shuffled_testing_dataset: if True, randomly select different samples for the testing
-                subset at each execution. If False, re-use previous split when possible.
+                subset at each execution. If False, reuse previous split when possible.
         Raises:
             FedbiomedError: Arguments bad format
             FedbiomedError: Cannot get number of samples from dataset
