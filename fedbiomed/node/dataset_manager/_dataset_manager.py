@@ -21,7 +21,8 @@ from torchvision import datasets, transforms
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingBlock, DataLoadingPlan
-from fedbiomed.common.dataset import MedicalFolderController
+
+# from fedbiomed.common.dataset import MedicalFolderController
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError, FedbiomedError
 from fedbiomed.common.logger import logger

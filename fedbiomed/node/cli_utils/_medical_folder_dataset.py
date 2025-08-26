@@ -7,7 +7,8 @@ from copy import copy
 from typing import List, Optional, Tuple
 
 from fedbiomed.common.dataloadingplan import DataLoadingPlan, MapperBlock
-from fedbiomed.common.dataset import MedicalFolderBase, MedicalFolderController
+
+# from fedbiomed.common.dataset import MedicalFolderBase, MedicalFolderController
 from fedbiomed.node.cli_utils._io import validated_path_input
 
 
