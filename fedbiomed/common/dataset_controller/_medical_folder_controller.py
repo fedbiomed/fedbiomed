@@ -182,10 +182,17 @@ class MedicalFolderController(Controller):
             Demographics in DataFrame format
         """
         tabular_file = MedicalFolderController._validate_tabular_file(tabular_file)
+
         try:
             demographics = CsvReader(tabular_file).data.to_pandas()
-            # demographics = pd.read_csv(tabular_file, index_col=index_col)
             if index_col is not None:
+                if isinstance(index_col, int):
+                    if index_col < 0 or index_col >= len(demographics.columns):
+                        raise FedbiomedError(
+                            f"{ErrorNumbers.FB613.value}: "
+                            f"Index column {index_col} is out of bounds"
+                        )
+                    index_col = demographics.columns[index_col]
                 demographics = demographics.set_index(index_col)
 
         except FedbiomedError as e:

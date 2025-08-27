@@ -192,8 +192,14 @@ def medical_folder_preview():
 
 @api.route("/datasets/medical-folder-dataset/default-modalities", methods=["GET"])
 def get_default_modalities():
-    formatted_modalities = [
-        {"value": name, "label": name}
-        for name in MedicalFolderController.default_modality_names
-    ]
-    return response(data={"default_modalities": formatted_modalities}), 200
+    # TODO - DATASET REDESIGN - default modalities are removed from the MedicalFodlerController
+    # However, UI (react app) expects this api call to set default modalities. They
+    # are not mandatory since modalities are selected automatically from the folder
+    # layout. However, this data has to be removed from UI and this end-point has to be removed
+    # Quick fix includes returning empty list.
+
+    # formatted_modalities = [
+    #     {"value": name, "label": name}
+    #     for name in MedicalFolderController.default_modality_names
+    # ]
+    return response(data={"default_modalities": []}), 200

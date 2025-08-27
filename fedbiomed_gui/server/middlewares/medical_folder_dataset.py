@@ -33,15 +33,17 @@ def read_medical_folder_reference():
 
     try:
         reference = MedicalFolderController.read_demographics(
-            path=reference_path, index_col=index_col
+            tabular_file=reference_path, index_col=index_col
         )
     except FedbiomedError:
         return error("Reference demographics should be CSV or TSV"), 400
-    except Exception:
+    except Exception as e:
+        print("Exception")
         return error(
-            "Can not read demographics please make sure the file is CSV or TSV and well formatted"
+            f"Can not read demographics please make sure the file is CSV or TSV and well formatted {e}"
         ), 400
 
+    print("After read")
     # Assign MedicalFolder reference to global `g` state
     g.reference = reference
 
