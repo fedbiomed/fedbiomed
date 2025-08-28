@@ -311,7 +311,7 @@ class TestTorchDataManager(unittest.TestCase):
         # new_torch_data_manager._training_index = []
         # raise IndexError(f"{new_torch_data_manager._testing_index}")
 
-    def test_torch_data_manager_09_shuffle_testing_dataset(self):
+    def test_torch_data_manager_09_reproducible_dataset(self):
         self.torch_data_manager = TorchDataManager(
             dataset=self.dataset,
             batch_size=48,
@@ -319,11 +319,17 @@ class TestTorchDataManager(unittest.TestCase):
         )
 
         test_ratio = 0.5
+
+        # When fixing same seed, split should be the same
+        # between training/testing datasets, plus order of samples
+        # should be the same in each dataset
+        torch.manual_seed(12345)
         loader_train, loader_test = self.torch_data_manager.split(
-            test_ratio, test_batch_size=None, is_shuffled_testing_dataset=False
+            test_ratio, test_batch_size=None, is_shuffled_testing_dataset=True
         )
+        torch.manual_seed(12345)
         loader_train2, loader_test2 = self.torch_data_manager.split(
-            test_ratio, test_batch_size=None, is_shuffled_testing_dataset=False
+            test_ratio, test_batch_size=None, is_shuffled_testing_dataset=True
         )
 
         for i in range(2):
