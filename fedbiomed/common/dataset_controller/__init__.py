@@ -17,4 +17,5 @@ __all__ = [
     "MedicalFolderController",
     "MedNistController",
     "MnistController",
+    "TabularController",
 ]
