@@ -83,16 +83,16 @@ class SimpleDataset(Dataset):
             )
 
     # === Functions ===
-    def _validate_transform(
+    def _validate_pipeline(
         self,
-        item: Any,
+        data: Any,
         transform: Optional[Callable],
         is_target: bool = False,
     ):
         """Called once per `transform` from `complete_initialization`
 
         Args:
-            item: from `self._controller._get_nontransformed_item`
+            data: from `self._controller._get_nontransformed_item`
             transform: `Callable` given at instantiation of cls
             is_target: To identify `transform` from `target_transform`
 
@@ -107,22 +107,22 @@ class SimpleDataset(Dataset):
         )
 
         try:
-            item = native_to_framework_transform(item)
+            data = native_to_framework_transform(data)
         except Exception as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Unable to apply "
                 f"`native_to_framework_{'target_' if is_target else ''}transform`"
             ) from e
 
-        if not isinstance(item, self._to_format.value):
+        if not isinstance(data, self._to_format.value):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Expected "
                 f"`native_to_framework_{'target_' if is_target else ''}transform` "
-                f"to return `{self._to_format.value}`, got {type(item).__name__}"
+                f"to return `{self._to_format.value}`, got {type(data).__name__}"
             )
 
         try:
-            item = transform(item)
+            data = transform(data)
         except Exception as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Unable to apply "
@@ -130,11 +130,11 @@ class SimpleDataset(Dataset):
                 f"`{'target' if is_target else 'data'}`"
             ) from e
 
-        if not isinstance(item, self._to_format.value):
+        if not isinstance(data, self._to_format.value):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Expected "
                 f"`{'target_' if is_target else ''}transform` to return "
-                f"`{self._to_format.value}`, got {type(item).__name__}"
+                f"`{self._to_format.value}`, got {type(data).__name__}"
             )
 
     def complete_initialization(
@@ -153,8 +153,8 @@ class SimpleDataset(Dataset):
 
         # Recover sample and validate consistency of transforms
         sample = self._controller._get_nontransformed_item(0)
-        self._validate_transform(sample["data"], transform=self.transform)
-        self._validate_transform(
+        self._validate_pipeline(sample["data"], transform=self.transform)
+        self._validate_pipeline(
             sample["target"],
             transform=self.target_transform,
             is_target=True,

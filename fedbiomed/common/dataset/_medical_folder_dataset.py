@@ -67,18 +67,37 @@ class MedicalFolderDataset(Dataset):
 
     @transform.setter
     def transform(self, transform_input: Transform):
-        """Turns `transform_input` into a `dict` that matches `self.data_modalities`
+        """Sets `transform` with a `dict` that matches `data_modalities`"""
+        self._transform = self._validate_transform(
+            transform_input=transform_input,
+            modalities=self._data_modalities,
+        )
+
+    @property
+    def target_transform(self):
+        return self._target_transform
+
+    @target_transform.setter
+    def target_transform(self, transform_input: Transform):
+        """Sets `target_transform` with a `dict` that matches `target_modalities`"""
+        self._target_transform = self._validate_transform(
+            transform_input=transform_input,
+            modalities=self._target_modalities,
+        )
+
+    def _validate_transform(transform_input: Transform, modalities: set[str]):
+        """Turns `transform_input` into a `dict` that matches `modalities`
 
         Raises:
             FedbiomedValueError:
                 - if input is not in `[None, Callable, Dict[str, Callable]`
-                - if input is `dict` and not all `self.data_modalities` are present
+                - if input is `dict` and not all `modalities` are present
         """
         if transform_input is None:
-            self._transform = {_k: (lambda x: x) for _k in self.data_modalities}
+            return {_k: (lambda x: x) for _k in modalities}
 
         elif callable(transform_input):
-            self._transform = {_k: transform_input for _k in self.data_modalities}
+            return {_k: transform_input for _k in modalities}
 
         elif isinstance(transform_input, dict):
             if not all(callable(_v) for _v in transform_input.values()):
@@ -87,60 +106,17 @@ class MedicalFolderDataset(Dataset):
                     + ": `transform` dictionary must map strings to callables"
                 )
 
-            missing_transforms = self.data_modalities - transform_input.keys()
+            missing_transforms = modalities.difference(transform_input.keys())
             if missing_transforms:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Missing modalities in "
                     f"`transform`: {missing_transforms}"
                 )
 
-            self._transform = transform_input
+            return transform_input
         else:
             raise FedbiomedValueError(
                 f"{ErrorNumbers.FB632.value}: Unexpected type for `transform`"
-            )
-
-    @property
-    def target_transform(self):
-        return self._target_transform
-
-    @target_transform.setter
-    def target_transform(self, transform_input: Transform):
-        """Turns `transform_input` into a `dict` that matches `self.target_modalities`
-
-        Raises:
-            FedbiomedValueError:
-                - if input is not in `[None, Callable, Dict[str, Callable]`
-                - if input is `dict` and not all `self.target_modalities` are present
-        """
-        if transform_input is None:
-            self._target_transform = {
-                _k: (lambda x: x) for _k in self.target_modalities
-            }
-
-        elif callable(transform_input):
-            self._target_transform = {
-                _k: transform_input for _k in self.target_modalities
-            }
-
-        elif isinstance(transform_input, dict):
-            if not all(callable(_v) for _v in transform_input.values()):
-                raise FedbiomedValueError(
-                    ErrorNumbers.FB632.value
-                    + ": `target_transform` dictionary must map strings to callables"
-                )
-
-            missing_transforms = self.target_modalities - transform_input.keys()
-            if missing_transforms:
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: Missing modalities in "
-                    f"`target_transform`: {missing_transforms}"
-                )
-
-            self._target_transform = transform_input
-        else:
-            raise FedbiomedValueError(
-                f"{ErrorNumbers.FB632.value}: Unexpected type for `target_transform`"
             )
 
     @property
@@ -150,47 +126,46 @@ class MedicalFolderDataset(Dataset):
         return None
 
     # === Functions ===
-    def _validate_transform(
+    def _validate_pipeline(
         self,
-        item: Dict[str, Any],
+        data: Dict[str, Any],
         transform: Transform,
         is_target: bool = False,
     ) -> Dict[str, Callable]:
         """Called once per `transform` from `complete_initialization`
 
         Args:
-            item: from `self._controller._get_nontransformed_item`
+            data: from `self._controller._get_nontransformed_item`
             transform: `Callable` given at instantiation of cls
             is_target: To identify `transform` from `target_transform`
 
         Raises:
-            FedbiomedValueError:
-            - if `item` is not a `dict`
+            FedbiomedValueError: if `data` is not a `dict`
             FedbiomedError:
             - if there is a problem applying `transform`
             - if `transform` do not return expected type
         """
-        if not isinstance(item, dict):
+        if not isinstance(data, dict):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Expected "
                 f"`{'target' if is_target else 'data'}` to be a `dict`, got "
-                f"{type(item).__name__}"
+                f"{type(data).__name__}"
             )
-        modalities = set(item.keys())
+        modalities = set(data.keys())
 
         for modality in (_mod for _mod in modalities if _mod != "demographics"):
             try:
-                item[modality] = self.native_to_framework(item[modality])
+                data[modality] = self.native_to_framework(data[modality])
             except Exception as e:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Unable to apply `native_to_framework`"
                 ) from e
 
-            if not isinstance(item[modality], self._to_format.value):
+            if not isinstance(data[modality], self._to_format.value):
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Expected `native_to_framework` "
                     f"to return `{self._to_format.value}`, got "
-                    f"{type(item[modality]).__name__} for modality: '{modality}'"
+                    f"{type(data[modality]).__name__} for modality: '{modality}'"
                 )
 
         for modality in modalities:
@@ -200,17 +175,17 @@ class MedicalFolderDataset(Dataset):
                 else ("target_" if is_target is True else "")
             )
             try:
-                item[modality] = transform[modality](item[modality])
+                data[modality] = transform[modality](data[modality])
             except Exception as e:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Unable to apply "
                     f"`{_name}transform` to `{modality}`"
                 ) from e
-            if not isinstance(item[modality], self._to_format.value):
+            if not isinstance(data[modality], self._to_format.value):
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Expected "
                     f"`{_name}transform` to return `{self._to_format.value}`, got "
-                    f"{type(item[modality]).__name__} for modality: '{modality}'"
+                    f"{type(data[modality]).__name__} for modality: '{modality}'"
                 )
 
     def complete_initialization(
@@ -229,11 +204,11 @@ class MedicalFolderDataset(Dataset):
 
         # Recover sample and validate consistency of transforms
         sample = self._controller._get_nontransformed_item(0)
-        self._validate_transform(
+        self._validate_pipeline(
             {modality: sample[modality] for modality in self.data_modalities},
             transform=self.transform,
         )
-        self._validate_transform(
+        self._validate_pipeline(
             {modality: sample[modality] for modality in self.target_modalities},
             transform=self.target_transform,
             is_target=True,
