@@ -12,7 +12,7 @@ from ._dataset import Dataset
 
 class MedicalFolderDataset(Dataset):
     _controller_cls = MedicalFolderController
-    # To go from native type to `np.ndarray` and `torch.Tensor`
+
     _native_to_framework = {
         DataReturnFormat.SKLEARN: lambda x: x.get_fdata(),
         DataReturnFormat.TORCH: lambda x: torch.from_numpy(x.get_fdata()),
@@ -44,9 +44,6 @@ class MedicalFolderDataset(Dataset):
                 self._transform["demographics"] = demographics_transform
 
     # === Functions ===
-    def _get_format_conversion_callable(self):
-        return self._native_to_framework[self._to_format]
-
     def _validate_transform(transform_input: Transform, modalities: set[str]):
         """Turns `transform_input` into a `dict` that matches `modalities`
 
@@ -110,7 +107,9 @@ class MedicalFolderDataset(Dataset):
 
         for modality in (_mod for _mod in modalities if _mod != "demographics"):
             try:
-                data[modality] = self._get_format_conversion_callable()(data[modality])
+                data[modality] = self._native_to_framework[self._to_format](
+                    data[modality]
+                )
             except Exception as e:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Unable to perform type conversion to "
@@ -173,8 +172,8 @@ class MedicalFolderDataset(Dataset):
     def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:
         if self._controller is None:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: This dataset object has not completed "
-                "initialization."
+                f"{ErrorNumbers.FB632.value}: Dataset object has not completed "
+                "initialization. It is not ready to use yet."
             )
 
         sample = self._controller._get_nontransformed_item(idx)
@@ -182,7 +181,7 @@ class MedicalFolderDataset(Dataset):
         data = {}
         for modality in self._data_modalities:
             data[modality] = (
-                self._get_format_conversion_callable()(data["modality"])
+                self._native_to_framework[self._to_format](data["modality"])
                 if modality != "demographics"
                 else sample[modality]
             )
