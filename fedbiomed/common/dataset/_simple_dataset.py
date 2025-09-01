@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional
 
 import numpy as np
 import torch
@@ -10,7 +10,7 @@ from fedbiomed.common.dataset_controller import (
     MedNistController,
     MnistController,
 )
-from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 from ._dataset import Dataset
@@ -38,59 +38,31 @@ class SimpleDataset(Dataset):
                 f"{ErrorNumbers.FB632.value}: "
                 "`SimpleDataset` cannot be instantiated directly"
             )
-        self.transform = transform
-        self.target_transform = target_transform
-
-    # === Properties ===
-    @property
-    def native_to_framework_transform(self) -> Callable:
-        return self._native_to_framework_transform[self._to_format]
-
-    @property
-    def native_to_framework_target_transform(self) -> Callable:
-        return self._native_to_framework_target_transform[self._to_format]
-
-    @property
-    def transform(self) -> Callable:
-        if self._transform is None:
-            return lambda x: x
-        return self._transform
-
-    @transform.setter
-    def transform(self, transform_input: Optional[Callable]):
-        """Raises FedbiomedValueError if transform_input is not valid"""
-        if not (transform_input is None or callable(transform_input)):
-            raise FedbiomedValueError(
-                f"{ErrorNumbers.FB632.value}: Unexpected type for `transform`"
-            )
-        self._transform = transform_input
-
-    @property
-    def target_transform(self) -> Callable:
-        if self._target_transform is None:
-            return lambda x: x
-        return self._target_transform
-
-    @target_transform.setter
-    def target_transform(self, transform_input: Optional[Callable]):
-        """Raises FedbiomedValueError if transform_input is not valid"""
-        if not (transform_input is None or callable(transform_input)):
-            raise FedbiomedValueError(
-                f"{ErrorNumbers.FB632.value}: Unexpected type for `target_transform`"
-            )
-        self._target_transform = transform_input
+        self._transform = self._validate_transform(transform)
+        self._target_transform = self._validate_transform(target_transform)
 
     # === Functions ===
-    def _validate_transform(
+    def _validate_transform(self, transform_input: Optional[Callable]):
+        """Raises FedbiomedValueError if transform_input is not valid"""
+        if transform_input is None:
+            return lambda x: x
+        elif callable(transform_input):
+            return transform_input
+        else:
+            raise FedbiomedValueError(
+                f"{ErrorNumbers.FB632.value}: Unexpected type for transform input"
+            )
+
+    def _validate_pipeline(
         self,
-        item: Any,
+        data: Any,
         transform: Optional[Callable],
         is_target: bool = False,
     ):
         """Called once per `transform` from `complete_initialization`
 
         Args:
-            item: from `self._controller._get_nontransformed_item`
+            data: from `self._controller._get_nontransformed_item`
             transform: `Callable` given at instantiation of cls
             is_target: To identify `transform` from `target_transform`
 
@@ -99,54 +71,41 @@ class SimpleDataset(Dataset):
             FedbiomedError: if transforms do not return expected type
         """
         native_to_framework_transform = (
-            self.native_to_framework_target_transform
+            self._native_to_framework_target_transform[self._to_format]
             if is_target is True
-            else self.native_to_framework_transform
+            else self._native_to_framework_transform[self._to_format]
         )
 
         try:
-            item = native_to_framework_transform(item)
+            data = native_to_framework_transform(data)
         except Exception as e:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Unable to apply "
-                f"`native_to_framework_{'target_' if is_target else ''}transform`: {e}"
+                f"{ErrorNumbers.FB632.value}: Unable to perform type conversion of "
+                f"{'target' if is_target else 'data'} to {self._to_format.value}"
             ) from e
 
-        if not isinstance(item, self._to_format.value):
+        if not isinstance(data, self._to_format.value):
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Expected "
-                f"`native_to_framework_{'target_' if is_target else ''}transform` "
-                f"to return `{self._to_format.value}`, got {type(item).__name__}"
+                f"{ErrorNumbers.FB632.value}: "
+                f"Expected type conversion of {'target' if is_target else 'data'}"
+                f"to return `{self._to_format.value}`, got {type(data).__name__}"
             )
 
         try:
-            item = transform(item)
+            data = transform(data)
         except Exception as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Unable to apply "
                 f"`{'target_' if is_target else ''}transform` to "
-                f"`{'target' if is_target else 'data'}`: {e}"
+                f"`{'target' if is_target else 'data'}`"
             ) from e
 
-        if not isinstance(item, self._to_format.value):
+        if not isinstance(data, self._to_format.value):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Expected "
                 f"`{'target_' if is_target else ''}transform` to return "
-                f"`{self._to_format.value}`, got {type(item).__name__}"
+                f"`{self._to_format.value}`, got {type(data).__name__}"
             )
-
-    def _apply_transforms(self, sample: Dict[str, Any]) -> Tuple[Any, Any]:
-        try:
-            data = self.transform(self.native_to_framework_transform(sample["data"]))
-            target = self.target_transform(
-                self.native_to_framework_target_transform(sample["target"])
-            )
-        except Exception as e:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Failed to apply transforms. {e}"
-            ) from e
-
-        return data, target
 
     def complete_initialization(
         self,
@@ -158,22 +117,51 @@ class SimpleDataset(Dataset):
         Args:
             controller_kwargs: arguments to create controller
             to_format: format associated to expected return format
-
-        Raises:
-            FedbiomedError: if `sample` returned by `_controller` is not a `dict`
-            KeyError: if `sample` does not include keys 'data' and 'target'
         """
         self.to_format = to_format
         self._init_controller(controller_kwargs=controller_kwargs)
 
+        # Recover sample and validate consistency of transforms
         sample = self._controller._get_nontransformed_item(0)
-
-        self._validate_transform(sample["data"], transform=self.transform)
-        self._validate_transform(
+        self._validate_pipeline(sample["data"], transform=self._transform)
+        self._validate_pipeline(
             sample["target"],
-            transform=self.target_transform,
+            transform=self._target_transform,
             is_target=True,
         )
+
+    def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:
+        if self._controller is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset object has not completed "
+                "initialization. It is not ready to use yet."
+            )
+
+        sample = self._controller._get_nontransformed_item(idx)
+
+        try:
+            data = self._transform(
+                self._native_to_framework_transform[self._to_format](sample["data"])
+            )
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply `transform` to `data` "
+                f"from sample (index={idx}) in {self._to_format.value} format."
+            ) from e
+
+        try:
+            target = self._target_transform(
+                self._native_to_framework_target_transform[self._to_format](
+                    sample["target"]
+                )
+            )
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply `target_transform` to "
+                f"`target` from sample (index={idx}) in {self._to_format.value} format."
+            ) from e
+
+        return data, target
 
 
 class ImageFolderDataset(SimpleDataset):

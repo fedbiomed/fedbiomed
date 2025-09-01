@@ -1,32 +1,29 @@
 import os
 import re
 
-from flask import request, g
+from flask import g, request
 
-from fedbiomed.common.dataset import MedicalFolderController
+from fedbiomed.common.dataset_controller import MedicalFolderController
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import DatasetManager
 
-from .api import api
-from ..config import config
 from ..cache import cached
+from ..config import config
 from ..db import node_database
-from ..middlewares import middleware, medical_folder_dataset, common
+from ..middlewares import common, medical_folder_dataset, middleware
 from ..schemas import (
+    PreviewDatasetRequest,
+    ValidateDataLoadingPlanAddRequest,
+    ValidateDataLoadingPlanDeleteRequest,
+    ValidateMedicalFolderAddRequest,
     ValidateMedicalFolderReferenceCSV,
     ValidateMedicalFolderRoot,
     ValidateSubjectsHasAllModalities,
-    ValidateMedicalFolderAddRequest,
-    ValidateDataLoadingPlanAddRequest,
-    ValidateDataLoadingPlanDeleteRequest,
-    PreviewDatasetRequest,
 )
-from ..utils import error, validate_request_data, response
+from ..utils import error, response, validate_request_data
+from .api import api
 
 dataset_manager = DatasetManager(config["NODE_DB_PATH"])
-
-# Medical Folder Controller
-mf_controller = MedicalFolderController()
 
 # Path to write and read the datafiles
 DATA_PATH_RW = config["DATA_PATH_RW"]
@@ -168,7 +165,8 @@ def medical_folder_preview():
     # Extract data path where the files are saved in the local GUI repository
     rexp = re.match("^" + config["DATA_PATH_SAVE"], dataset["path"])
     data_path = dataset["path"].replace(rexp.group(0), config["DATA_PATH_RW"])
-    mf_controller.root = data_path
+    mf_controller = MedicalFolderController(root=data_path)
+    modalities = mf_controller.modalities
 
     if "index_col" in dataset["dataset_parameters"]:
         # Extract data path where the files are saved in the local GUI repository
@@ -185,8 +183,6 @@ def medical_folder_preview():
     else:
         subject_table = mf_controller.subject_modality_status()
 
-    modalities, _ = mf_controller.modalities()
-
     data = {
         "subject_table": subject_table,
         "modalities": modalities,
@@ -196,8 +192,14 @@ def medical_folder_preview():
 
 @api.route("/datasets/medical-folder-dataset/default-modalities", methods=["GET"])
 def get_default_modalities():
-    formatted_modalities = [
-        {"value": name, "label": name}
-        for name in MedicalFolderController.default_modality_names
-    ]
-    return response(data={"default_modalities": formatted_modalities}), 200
+    # TODO - DATASET REDESIGN - default modalities are removed from the MedicalFodlerController
+    # However, UI (react app) expects this api call to set default modalities. They
+    # are not mandatory since modalities are selected automatically from the folder
+    # layout. However, this data has to be removed from UI and this end-point has to be removed
+    # Quick fix includes returning empty list.
+
+    # formatted_modalities = [
+    #     {"value": name, "label": name}
+    #     for name in MedicalFolderController.default_modality_names
+    # ]
+    return response(data={"default_modalities": []}), 200

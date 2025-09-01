@@ -1,10 +1,11 @@
+from enum import Enum
 from os import PathLike
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Optional, Union
 
 import pandas as pd
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import DataLoadingBlockTypes, ErrorNumbers
 from fedbiomed.common.dataset_reader import CsvReader, NiftiReader
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
@@ -12,8 +13,12 @@ from fedbiomed.common.logger import logger
 from ._controller import Controller
 
 
+class MedicalFolderLoadingBlockTypes(DataLoadingBlockTypes, Enum):
+    MODALITIES_TO_FOLDERS: str = "modalities_to_folders"
+
+
 class MedicalFolderController(Controller):
-    _extensions: Tuple[str, ...] = (".nii", ".nii.gz")
+    _extensions: tuple[str, ...] = (".nii", ".nii.gz")
 
     """MedicalFolder where data is arranged like this:
     root
@@ -49,7 +54,7 @@ class MedicalFolderController(Controller):
         self.tabular_file = tabular_file
         self.index_col = index_col
 
-        self._modalities, self._samples = self._make_dataset(
+        self._modalities, self._subjects, self._samples = self._make_dataset(
             root=self.root,
             tabular_file=self.tabular_file,
             index_col=self.index_col,
@@ -62,9 +67,10 @@ class MedicalFolderController(Controller):
             "root": str(self.root),
             "tabular_file": str(self.tabular_file),
             "index_col": self.index_col,
-            "modalities": list(self.modalities),
+            "modalities": self.modalities,
         }
 
+    # === Properties ===
     @property
     def tabular_file(self):
         return self._tabular_file
@@ -76,7 +82,8 @@ class MedicalFolderController(Controller):
             filepath = self._validate_tabular_file(filepath)
         self._tabular_file = filepath
 
-    def _validate_tabular_file(self, filepath: Union[str, Path]) -> Path:
+    @staticmethod
+    def _validate_tabular_file(filepath: Union[str, Path]) -> Path:
         """Validates `tabular_file` property
 
         Raises:
@@ -128,9 +135,13 @@ class MedicalFolderController(Controller):
     def modalities(self):
         return self._modalities
 
+    @property
+    def subjects(self):
+        return self._subjects
+
     @staticmethod
-    def _validate_modalities(modalities: Union[str, Iterable[str]]) -> set[str]:
-        """Validates `modalities`
+    def _normalize_modalities(modalities: Union[str, Iterable[str]]) -> set[str]:
+        """Validates `modalities` and returns it as `set`
 
         Returns:
             `modalities` in type `set`
@@ -152,8 +163,9 @@ class MedicalFolderController(Controller):
             f"{type(modalities).__name__}"
         )
 
+    # === Functions ===
+    @staticmethod
     def read_demographics(
-        self,
         tabular_file: Union[str, Path],
         index_col: Optional[Union[int, str]] = None,
     ) -> pd.DataFrame:
@@ -169,11 +181,18 @@ class MedicalFolderController(Controller):
         Returns:
             Demographics in DataFrame format
         """
-        tabular_file = self._validate_tabular_file(tabular_file)
+        tabular_file = MedicalFolderController._validate_tabular_file(tabular_file)
+
         try:
             demographics = CsvReader(tabular_file).data.to_pandas()
-            # demographics = pd.read_csv(tabular_file, index_col=index_col)
             if index_col is not None:
+                if isinstance(index_col, int):
+                    if index_col < 0 or index_col >= len(demographics.columns):
+                        raise FedbiomedError(
+                            f"{ErrorNumbers.FB613.value}: "
+                            f"Index column {index_col} is out of bounds"
+                        )
+                    index_col = demographics.columns[index_col]
                 demographics = demographics.set_index(index_col)
 
         except FedbiomedError as e:
@@ -200,7 +219,8 @@ class MedicalFolderController(Controller):
         root: Path,
         extensions: Union[str, tuple[str, ...]] = _extensions,
         modalities: Optional[Union[str, Iterable[str]]] = None,
-    ) -> Tuple[set[str], pd.DataFrame]:
+        filter_subjects_with_all_modalities: bool = True,
+    ) -> tuple[set[str], pd.DataFrame]:
         """Matches files for expected structure.
         Filters files by extension and avoid hidden folders and files.
 
@@ -269,7 +289,7 @@ class MedicalFolderController(Controller):
         modalities = (
             candidate_modalities
             if not modalities
-            else self._validate_modalities(modalities)
+            else self._normalize_modalities(modalities)
         )
         missing_modalities = modalities.difference(candidate_modalities)
         if missing_modalities:
@@ -277,6 +297,9 @@ class MedicalFolderController(Controller):
                 f"{ErrorNumbers.FB613.value}: Some modality names are not "
                 f"found in the root folder structure: {missing_modalities}"
             )
+
+        if filter_subjects_with_all_modalities is False:
+            return modalities, df_dir
 
         # === Identify subjects that have all modalities
         _group_modality_sets = df_dir.groupby("subject")["modality"].apply(set)
@@ -307,7 +330,7 @@ class MedicalFolderController(Controller):
         tabular_file: Optional[Path] = None,
         index_col: Optional[Union[int, str]] = None,
         modalities: Optional[Union[str, Iterable[str]]] = None,
-    ) -> Tuple[set[str], List[Dict[str, Any]]]:
+    ) -> tuple[list[str], list[str], list[Dict[str, Any]]]:
         """Builds samples in `dict` with `modalities` and `demographics`
 
         Args:
@@ -319,6 +342,7 @@ class MedicalFolderController(Controller):
         Raises:
             FedbiomedError:
             - if one of `tabular_file` and `index_col` is given and the other is not
+            - if empty intersection between subjects from folders and demographics
 
         Returns:
             `modalities` and `samples`
@@ -337,6 +361,11 @@ class MedicalFolderController(Controller):
         if tabular_file is not None:
             demographics = self.read_demographics(tabular_file, index_col)
             subjects = subjects.intersection(demographics.index.values)
+            if not subjects:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Selected column from demographics as "
+                    "subject reference does not match any subject in folder structure"
+                )
 
         for subject in subjects:
             sample = (
@@ -351,7 +380,89 @@ class MedicalFolderController(Controller):
             samples.append(sample)
 
         logger.info(f"{len(samples)} complete samples successfully identified")
-        return modalities, samples
+        return list(modalities), list(subjects), samples
+
+    def subject_modality_status(self, index: Union[list, pd.Series] = None) -> Dict:
+        """Scans subjects and checks which modalities exist for each subject
+
+        Args:
+            index: Array-like index that comes from reference csv file.
+                It represents subject folder names. Defaults to None.
+        Returns:
+            Modality status that indicates which modalities are available per subject
+        """
+        modalities, df_dir = self._make_df_dir(
+            root=self.root,
+            filter_subjects_with_all_modalities=False,
+        )
+
+        # Pivot into wide format with boolean indicators
+        df_ = (
+            df_dir.assign(val=True)
+            .pivot_table(
+                index="subject",
+                columns="modality",
+                values="val",
+                fill_value=False,
+            )
+            .astype(bool)
+        )
+
+        if index is not None:
+            df_["in_folder"] = True
+            # Merge with pivot (outer join)
+            df_ = pd.merge(
+                df_,
+                pd.DataFrame(True, index=index, columns=["in_index"]),
+                left_index=True,
+                right_index=True,
+                how="outer",
+            )
+            # Fill missing values with False
+            fill_cols = ["in_folder", "in_index", *modalities]
+            df_[fill_cols] = df_[fill_cols].fillna(False)
+
+        return {
+            "columns": df_.columns.tolist(),
+            "data": df_.values.tolist(),
+            "index": df_.index.tolist(),
+        }
+
+    def available_subjects(
+        self,
+        subjects_from_index: Union[list, pd.Series],
+        subjects_from_folder: list = None,
+    ) -> Dict[str, str]:
+        """Checks missing subject folders and missing entries in demographics
+
+        Args:
+            subjects_from_index: Given subject folder names in demographics
+            subjects_from_folder: list of subject folder names
+
+        Returns:
+            Dict with next keys:
+            - missing_folders: subjects in demographics absent in folder structure
+            - missing_entries: subjects in folder structure absent in demographics
+            - intersection: subjects present in folder structure and demographics
+        """
+        # Select all subject folders if it is not given
+        if subjects_from_folder is None:
+            subjects_from_folder = self.subjects
+
+        return {
+            # Missing subject that will cause warnings
+            "missing_folders": list(
+                set(subjects_from_index).difference(subjects_from_folder)
+            ),
+            # Missing entries that will cause errors
+            "missing_entries": list(
+                set(subjects_from_folder).difference(subjects_from_index)
+            ),
+            # Intersection
+            "intersection": list(
+                set(subjects_from_index).intersection(set(subjects_from_folder))
+            ),
+        }
 
     def _get_nontransformed_item(
         self, index: int

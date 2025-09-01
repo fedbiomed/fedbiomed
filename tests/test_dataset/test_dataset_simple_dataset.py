@@ -72,39 +72,23 @@ def test_simple_dataset_cannot_be_instantiated():
     assert "cannot be instantiated directly" in str(excinfo.value)
 
 
-def test_transform_setter_getter():
-    dataset = ImageFolderDataset()
-    f = lambda x: x  # noqa: E731
-    dataset.transform = f
-    assert dataset.transform is f
-
-
 def test_transform_invalid_type():
-    dataset = ImageFolderDataset()
     with pytest.raises(FedbiomedValueError):
-        dataset.transform = "not callable"
-
-
-def test_target_transform_setter_getter():
-    dataset = ImageFolderDataset()
-    f = lambda x: x  # noqa: E731
-    dataset.target_transform = f
-    assert dataset.target_transform is f
+        _ = ImageFolderDataset(transform="not callable")
 
 
 def test_target_transform_invalid_type():
-    dataset = ImageFolderDataset()
     with pytest.raises(FedbiomedValueError):
-        dataset.target_transform = "not callable"
+        _ = ImageFolderDataset(target_transform="not callable")
 
 
-def test_validate_transform_success_from_none(dataset_with_mock_controller):
-    """if transform is None, native_to_framework is used by default"""
+def test_validate_transform_success_default(dataset_with_mock_controller):
+    """if transform is None, the identity function is used by default"""
     dataset = dataset_with_mock_controller
     sample = dataset._controller._get_nontransformed_item(0)
-    dataset._validate_transform(
-        item=sample["data"],
-        transform=dataset.transform,
+    dataset._validate_pipeline(
+        data=sample["data"],
+        transform=dataset._transform,
         is_target=False,
     )
 
@@ -117,7 +101,7 @@ def test_validate_transform_succeeds(dataset_with_mock_controller):
         if dataset_with_mock_controller.to_format == DataReturnFormat.TORCH
         else lambda x: x.astype(np.float32) / 255
     )
-    dataset._validate_transform(item=sample["data"], transform=transform)
+    dataset._validate_pipeline(data=sample["data"], transform=transform)
 
 
 def test_validate_transform_fails(dataset_with_mock_controller):
@@ -127,23 +111,21 @@ def test_validate_transform_fails(dataset_with_mock_controller):
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
     with pytest.raises(FedbiomedError):
-        dataset._validate_transform(item=sample["data"], transform=transform)
+        dataset._validate_pipeline(data=sample["data"], transform=transform)
 
 
-def test_validate_target_transform_success_from_none(dataset_with_mock_controller):
-    """if transform is None, native_to_framework is used by default"""
+def test_validate_target_transform_success_default(dataset_with_mock_controller):
+    """if transform is None, the identity function is used by default"""
     dataset = dataset_with_mock_controller
     sample = dataset._controller._get_nontransformed_item(0)
-    dataset._validate_transform(
-        item=sample["target"],
-        transform=dataset.target_transform,
+    dataset._validate_pipeline(
+        data=sample["target"],
+        transform=dataset._target_transform,
         is_target=True,
     )
 
 
 def test_validate_target_transform_fails(dataset_with_mock_controller):
-    """if transform can take framework type and return framework type,
-    then transform becomes the composition of [native_to_framework, transform]"""
     dataset = dataset_with_mock_controller
     sample = dataset._controller._get_nontransformed_item(0)
     target_transform = (
@@ -152,7 +134,7 @@ def test_validate_target_transform_fails(dataset_with_mock_controller):
         else np.array
     )
     with pytest.raises(FedbiomedError):
-        dataset._validate_transform(item=sample["target"], transform=target_transform)
+        dataset._validate_pipeline(data=sample["target"], transform=target_transform)
 
 
 def test_apply_transforms_success(dataset_with_mock_controller):
@@ -162,8 +144,7 @@ def test_apply_transforms_success(dataset_with_mock_controller):
         if dataset_with_mock_controller.to_format == DataReturnFormat.TORCH
         else lambda x: x.astype(np.float32) / 255
     )
-    sample = dataset._controller._get_nontransformed_item(0)
-    data, target = dataset._apply_transforms(sample)
+    data, target = dataset[0]
     assert isinstance(data, dataset_with_mock_controller._to_format.value)
     assert isinstance(target, dataset_with_mock_controller._to_format.value)
 
@@ -185,8 +166,7 @@ def test_complete_initialization_missing_keys(tmp_path):
 
 def test_complete_initialization_success(dataset_with_mock_controller):
     dataset = dataset_with_mock_controller
-    sample = dataset._controller._get_nontransformed_item(0)
-    data, target = dataset._apply_transforms(sample)
+    data, target = dataset[0]
     assert isinstance(data, dataset_with_mock_controller._to_format.value)
     assert isinstance(target, dataset_with_mock_controller._to_format.value)
 

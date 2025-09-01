@@ -102,20 +102,6 @@ def test_init_with_demographics(temp_medical_folder):
     assert len(controller.demographics) == 3
 
 
-def test_init_with_specific_modalities(temp_medical_folder):
-    """Test initialization with specific modalities"""
-    controller = MedicalFolderController(root=temp_medical_folder, modalities=["T1"])
-
-    assert controller.modalities == {"T1"}
-
-
-def test_init_with_string_modality(temp_medical_folder):
-    """Test initialization with single modality as string"""
-    controller = MedicalFolderController(root=temp_medical_folder, modalities="T1")
-
-    assert controller.modalities == {"T1"}
-
-
 def test_tabular_file_setter_valid_path(temp_medical_folder):
     """Test tabular_file setter with valid CSV path"""
     controller = MedicalFolderController(root=temp_medical_folder)
@@ -193,31 +179,6 @@ def test_demographics_property_valid(temp_medical_folder):
     assert len(demographics) == 3
     assert "age" in demographics.columns
     assert "gender" in demographics.columns
-
-
-def test_validate_modalities_string():
-    """Test _validate_modalities with string input"""
-    result = MedicalFolderController._validate_modalities("T1")
-    assert result == {"T1"}
-
-
-def test_validate_modalities_list():
-    """Test _validate_modalities with list input"""
-    result = MedicalFolderController._validate_modalities(["T1", "T2"])
-    assert result == {"T1", "T2"}
-
-
-def test_validate_modalities_set():
-    """Test _validate_modalities with set input"""
-    result = MedicalFolderController._validate_modalities({"T1", "T2"})
-    assert result == {"T1", "T2"}
-
-
-def test_validate_modalities_invalid():
-    """Test _validate_modalities with invalid input"""
-    with pytest.raises(FedbiomedError) as exc_info:
-        MedicalFolderController._validate_modalities(123)
-    assert ErrorNumbers.FB613.value in str(exc_info.value)
 
 
 def test_read_demographics_valid(temp_medical_folder):
@@ -363,11 +324,12 @@ def test_make_df_dir_incomplete_modalities(incomplete_medical_folder):
 def test_make_dataset_without_demographics(temp_medical_folder):
     """Test _make_dataset without demographics file"""
     controller = MedicalFolderController.__new__(MedicalFolderController)
-    modalities, samples = controller._make_dataset(
+    modalities, subjects, samples = controller._make_dataset(
         Path(temp_medical_folder), None, None
     )
 
-    assert isinstance(modalities, set)
+    assert isinstance(modalities, list)
+    assert isinstance(subjects, list)
     assert isinstance(samples, list)
     assert len(samples) > 0
     assert all("demographics" not in sample for sample in samples)
@@ -384,7 +346,7 @@ def test_make_dataset_with_demographics(temp_medical_folder):
         )
     )
 
-    modalities, samples = controller._make_dataset(
+    _, _, samples = controller._make_dataset(
         Path(temp_medical_folder), participants_file, "participant_id"
     )
 
