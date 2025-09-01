@@ -10,6 +10,7 @@ from enum import Enum
 from fedbiomed.common.constants import DataLoadingBlockTypes
 
 from ._dataset import Dataset
+from ._medical_folder_dataset import MedicalFolderDataset
 from ._simple_dataset import (
     ImageFolderDataset,
     MedNistDataset,
@@ -25,6 +26,7 @@ class MedicalFolderLoadingBlockTypes(DataLoadingBlockTypes, Enum):
 __all__ = [
     "Dataset",
     "ImageFolderDataset",
+    "MedicalFolderDataset",
     "MedNistDataset",
     "MnistDataset",
 ]
