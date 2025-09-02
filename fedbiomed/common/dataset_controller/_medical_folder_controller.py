@@ -395,7 +395,6 @@ class MedicalFolderController(Controller):
         # Check if is possible to use `reader` to recover a valid item
         _ = self._get_nontransformed_item(0)
 
-        # TODO : dlp ?
         self._controller_kwargs = {
             "root": str(self.root),
             "tabular_file": str(self.tabular_file),
@@ -503,6 +502,11 @@ class MedicalFolderController(Controller):
 
     def __len__(self):
         return len(self._samples)
+
+    def set_dlp(self, dlp):
+        """Ensures validation of controller object after set_dlp is executed"""
+        DataLoadingPlanMixin.set_dlp(self, dlp)
+        self.validate()
 
     @staticmethod
     def get_dataset_type() -> DatasetTypes:

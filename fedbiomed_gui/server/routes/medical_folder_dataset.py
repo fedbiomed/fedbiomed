@@ -176,7 +176,8 @@ def medical_folder_preview():
         )
 
         reference_csv = mf_controller.read_demographics(
-            path=reference_path, index_col=dataset["dataset_parameters"]["index_col"]
+            tabular_file=reference_path,
+            index_col=dataset["dataset_parameters"]["index_col"],
         )
 
         subject_table = mf_controller.subject_modality_status(index=reference_csv.index)
