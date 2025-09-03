@@ -47,6 +47,35 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
     assert validate_spy.call_count == 2
 
 
+# ---------- _get_format_conversion_callable ----------
+
+def test_get_format_conversion_callable_returns_sklearn_callable():
+    ds = TabularDataset(input_columns=["a"], target_columns=["y"], transform=None)
+    ds.to_format = DataReturnFormat.SKLEARN
+    fn = ds._get_format_conversion_callable()
+    # It should be the exact function stored in the class mapping
+    assert fn is TabularDataset._native_to_framework[DataReturnFormat.SKLEARN]
+
+
+def test_get_format_conversion_callable_returns_torch_callable():
+    ds = TabularDataset(input_columns=["a"], target_columns=["y"], transform=None)
+    ds.to_format = DataReturnFormat.TORCH
+    fn = ds._get_format_conversion_callable()
+    assert fn is TabularDataset._native_to_framework[DataReturnFormat.TORCH]
+
+
+def test_get_format_conversion_callable_raises_for_unknown_format():
+    ds = TabularDataset(input_columns=["a"], target_columns=["y"], transform=None)
+
+    class UnknownFmt:
+        pass
+
+    # Force an unknown format key
+    ds._to_format = UnknownFmt()
+    with pytest.raises(KeyError):
+        _ = ds._get_format_conversion_callable()
+
+
 # ---------- __getitem__ behavior ----------
 
 
@@ -126,7 +155,6 @@ def test_getitem_transform_error_on_target(mocker):
 
 # ---------- _validate_transform ----------
 
-
 def test_validate_transform_accepts_none_identity():
     ds = TabularDataset(input_columns=[0], target_columns=[1], transform=None)
     assert ds._transform("x") == "x"
@@ -147,6 +175,7 @@ def test_validate_transform_rejects_other_types():
 
 
 # ---------- _validate_pipeline ----------
+
 def test_validate_pipeline_raises_on_conversion_failure(mocker):
     ds = TabularDataset(input_columns=[0], target_columns=[1], transform=None)
     ds.to_format = DataReturnFormat.SKLEARN
@@ -213,3 +242,48 @@ def test_validate_pipeline_raises_when_transform_returns_wrong_type(mocker):
     with pytest.raises(FedbiomedError) as exc:
         ds._validate_pipeline(data="payload", transform=lambda _: Wrong())
     assert "Expected `transform` to return" in str(exc.value)
+
+
+# ---------- _apply_transforms ----------
+
+def test_apply_transforms_happy_path_uses_conversion_and_transform():
+    # Dummy carrier that supports both conversions used by the mapping
+    class Carrier:
+        def __init__(self, arr):
+            self._arr = np.asarray(arr)
+        def to_numpy(self):
+            return self._arr
+        def to_torch(self):  # not used in this test, but present to mirror mapping
+            return ("torch", tuple(self._arr.tolist()))
+
+    # Transform applied AFTER conversion
+    def transform(x):
+        # For SKLEARN this will receive a numpy array
+        return x * 2
+
+    ds = TabularDataset(input_columns=["a"], target_columns=["y"], transform=transform)
+    ds.to_format = DataReturnFormat.SKLEARN
+
+    sample = {"data": Carrier([1, 2]), "target": Carrier([3, 4])}
+    data_out, target_out = ds._apply_transforms(sample)
+
+    np.testing.assert_array_equal(data_out, np.array([2, 4]))
+    np.testing.assert_array_equal(target_out, np.array([6, 8]))
+
+
+def test_apply_transforms_wraps_errors_in_FedbiomedError(mocker):
+    ds = TabularDataset(input_columns=["a"], target_columns=["y"], transform=lambda x: x)
+
+    # Cause the conversion step to fail
+    def boom(_):
+        raise ValueError("conversion failed")
+
+    ds.to_format = DataReturnFormat.SKLEARN
+    mocker.patch.object(ds, "_get_format_conversion_callable", return_value=boom)
+
+    # Content doesn't matter; conversion callable will raise
+    sample = {"data": object(), "target": object()}
+
+    with pytest.raises(FedbiomedError) as exc:
+        _ = ds._apply_transforms(sample)
+    assert "Failed to apply transforms" in str(exc.value)
