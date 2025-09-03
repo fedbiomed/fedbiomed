@@ -21,4 +21,5 @@ __all__ = [
     "MedicalFolderLoadingBlockTypes",
     "MedNistController",
     "MnistController",
+    "TabularController",
 ]

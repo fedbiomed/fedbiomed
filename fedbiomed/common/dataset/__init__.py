@@ -16,6 +16,7 @@ from ._simple_dataset import (
     MedNistDataset,
     MnistDataset,
 )
+from ._tabular_dataset import TabularDataset
 
 
 # TODO - DATASET REDESIGN - remove when redesign is complete, and find place to put it
@@ -29,4 +30,5 @@ __all__ = [
     "MedicalFolderDataset",
     "MedNistDataset",
     "MnistDataset",
+    "TabularDataset",
 ]
