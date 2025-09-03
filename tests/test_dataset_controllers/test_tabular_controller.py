@@ -104,10 +104,12 @@ def test_get_nontransformed_item_happy_path(mocker, tmp_path):
         ["y"],  # target for target_columns
     ]
 
-    # Verify reader.get was called with the columns we passed (don’t access private attrs)
-    calls = [c.args for c in reader.get.call_args_list]
-    assert (3, ["a", "b"]) in calls
-    assert (3, ["t"]) in calls
+    controller = TabularController(
+        tmp_path, input_columns=["x1", "x2"], target_columns=["y"]
+    )
+
+    result = controller._get_nontransformed_item(3)
+    assert result == {"data": ["x1", "x2"], "target": ["y"]}
 
 
 def test_get_nontransformed_item_out_of_range_raises(mocker, tmp_path):

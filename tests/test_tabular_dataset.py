@@ -68,7 +68,7 @@ def test_getitem_happy_path_with_transform_and_conversion(mocker):
     # Conversion function is identity for this test
     mocker.patch.object(ds, "_get_format_conversion_callable", return_value=lambda x: x)
 
-    data, target = ds[7]
+    data, target = ds[7]["data"], ds[7]["target"]
     assert data == 10
     assert target == 20
 
@@ -147,8 +147,6 @@ def test_validate_transform_rejects_other_types():
 
 
 # ---------- _validate_pipeline ----------
-
-
 def test_validate_pipeline_raises_on_conversion_failure(mocker):
     ds = TabularDataset(input_columns=[0], target_columns=[1], transform=None)
     ds.to_format = DataReturnFormat.SKLEARN

@@ -1,11 +1,15 @@
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Tuple, Union
+
+if TYPE_CHECKING:
+    import numpy as np
+    import torch
 
 import polars as pl
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset._dataset import Dataset
 from fedbiomed.common.dataset_controller._tabular_controller import TabularController
-from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
+from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 
@@ -136,7 +140,7 @@ class TabularDataset(Dataset):
 
         return data, target
 
-    def __getitem__(self, idx: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
+    def __getitem__(self, idx: int) -> Dict[str, Union["np.array", "torch.Tensor"]]:
         if self._controller is None:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: This dataset object has not completed initialization."
@@ -162,4 +166,4 @@ class TabularDataset(Dataset):
                 f"`target` from sample (index={idx}) in {self._to_format.value} format."
             ) from e
 
-        return data, target
+        return {"data": data, "target": target}
