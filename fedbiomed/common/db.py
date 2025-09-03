@@ -5,8 +5,8 @@
 Interfaces with a tinyDB database for converting search results to dict.
 """
 
-from tinydb import Query
-from typing import Any, Dict, Optional
+from tinydb import Query, where
+from typing import Any, Dict, List, Optional
 from tinydb.table import Document, Table
 
 from fedbiomed.common.exceptions import FedbiomedError
@@ -42,13 +42,17 @@ class DBTable(Table):
     """Extends TinyDB table to cast Document type to dict"""
     
     # ---------- CREATE ----------
+    def create(self, doc: Dict[str, Any]) -> int:
+        return super().insert(doc)
 
     def create_(self, data: Dict[str, Any]) -> int:
         """Insert a new dataset and return its id in the TinyDB."""
         return super().insert(data)
     
     # ---------- READ ----------
-
+    def get_by(self, field: str, value: Any) -> Optional[Dict[str, Any]]:
+        return super().get(where(field) == value)
+    
     def get_database_by_id(self, dataset_id: int) -> Optional[Dict[str, Any]]:
         """Get a single dataset by dataset_id (or None if missing)."""
         return super().get(doc_id=dataset_id)
@@ -58,6 +62,8 @@ class DBTable(Table):
         return super().get(Query().name == name)
 
     # ---------- UPDATE ----------
+    def update_by(self, field: str, value: Any, patch: Dict[str, Any]) -> bool:
+        return bool(super().update(patch, where(field) == value))
 
     def update_database_by_id(self, doc_id: int, **kwargs) -> None:
         """Update a dataset by id. Raise error if dataset not found."""
@@ -74,6 +80,8 @@ class DBTable(Table):
             raise FedbiomedError(f"Could not update dataset {name}: {e}")
         
     # ---------- DELETE ----------
+    def delete_by(self, field: str, value: Any) -> bool:
+        return bool(super().remove(where(field) == value))
 
     def delete_user(self, doc_id: int) -> bool:
         """Delete a dataset by id. Returns True if removed."""
