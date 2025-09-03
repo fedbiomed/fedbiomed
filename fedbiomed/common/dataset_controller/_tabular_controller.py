@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Iterable, Union
+from typing import Dict, Iterable, Union
 
 import polars as pl
 
@@ -11,14 +11,12 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 class TabularController(Controller):
     _reader: CsvReader
-    _data: pl.DataFrame
-    _target: pl.DataFrame
 
     def __init__(
         self,
         root: Union[str, Path],
-        input_labels: Iterable | int | str,
-        target_labels: Iterable | int | str,
+        input_columns: Iterable | int | str,
+        target_columns: Iterable | int | str,
     ) -> None:
         """Constructor of the class
 
@@ -30,23 +28,18 @@ class TabularController(Controller):
         """
         self.root = root
         self._reader = CsvReader(self.root)
-        all_row_indexes = list(range(self._reader._len))
-        self._data = self._reader.get(all_row_indexes, input_labels)
-        self._target = self._reader.get(all_row_indexes, target_labels)
+        self._input_columns = input_columns
+        self._target_columns = target_columns
 
-        self._controller_kwargs = {
-            "root": str(self.root),
-        }
-
-    def _get_nontransformed_item(self, index: int) -> Dict[str, Any]:
+    def _get_nontransformed_item(self, index: int) -> Dict[str, pl.DataFrame]:
         """Retrieve a data sample without applying transforms"""
         if index >= self.__len__():
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Failed to retrieve item at index {index}"
             )
         return {
-            "data": self._data[index].to_numpy(),
-            "target": self._target[index].to_numpy(),
+            "data": self._reader.get(index, self._input_columns),
+            "target": self._reader.get(index, self._target_columns),
         }
 
     def __len__(self) -> int:

@@ -1,91 +1,165 @@
-from pathlib import Path
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple
 
 import polars as pl
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset._dataset import Dataset
-from fedbiomed.common.dataset_reader import CsvReader
+from fedbiomed.common.dataset_controller._tabular_controller import TabularController
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 
 class TabularDataset(Dataset):
-    # _controller_cls: type = None
-    # _controller = None
-    # _to_format: DataReturnFormat = None
+    _controller_cls: type = TabularController
 
-    _dataset_path: str | Path
-    _reader: CsvReader
-    _data: pl.DataFrame
-    _target: pl.DataFrame
+    _native_to_framework = {
+        DataReturnFormat.SKLEARN: lambda x: x.to_numpy(),
+        DataReturnFormat.TORCH: lambda x: x.to_torch(),
+    }
 
     def __init__(
         self,
-        root: str | Path,
-        input_labels: Iterable | int | str,
-        target_labels: Iterable | int | str,
+        input_columns: Iterable | int | str,
+        target_columns: Iterable | int | str,
+        transform: Optional[Callable] = None,
     ) -> None:
-        super().__init__()
-        self._reader = CsvReader(self.root)  # type: ignore
-        all_row_indexes = list(range(self._reader._len))
-        self._data = self._reader.get(all_row_indexes, input_labels)
-        self._target = self._reader.get(all_row_indexes, target_labels)
-
-    # === Properties ===
-    @property
-    def to_format(self) -> DataReturnFormat:
-        return self._to_format
-
-    @to_format.setter
-    def to_format(self, to_format_input: DataReturnFormat):
-        if not isinstance(to_format_input, DataReturnFormat):
-            raise FedbiomedValueError(
-                f"{ErrorNumbers.FB632.value}: `to_format` is not `DataReturnFormat` type"
-            )
-        self._to_format = to_format_input
-
-    def __getitem__(self, idx: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
-        if idx >= self.__len__():
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Failed to retrieve item at index {idx}"
-            )
-        return ({"data": self._data[idx]}, {"data": self._target[idx]})
-
-    def __len__(self) -> int:
-        return self._reader.len()
-
-    # TODO: Change it with the accurate return type
-    def shape(self) -> Dict:
-        return self._reader.shape()
-
-    def _apply_transforms(self, sample: Dict[str, Any]) -> Tuple[Any, Any]:
-        return super()._apply_transforms(sample)
-
-    def complete_initialization(self) -> None:
-        return super().complete_initialization()
+        self._transform = self._validate_transform(transform_input=transform)
+        self._input_columns = input_columns
+        self._target_columns = target_columns
 
     # === Functions ===
-    def _init_controller(self, controller_kwargs: Dict[str, Any]) -> None:
-        """Initializes self._controller
+    def _get_format_conversion_callable(self):
+        return self._native_to_framework[self._to_format]
 
-        Args:
-            controller_kwargs: arguments necessary to initialize the controller
+    def _validate_transform(self, transform_input: Optional[Callable]):
+        """Turns `transform_input` into a `dict` that matches `modalities`
 
         Raises:
-            FedbiomedError: if `controller_kwargs` is not a `dict`
-            FedbiomedError: if there is a problem instantiating `_controller`
+            FedbiomedValueError:
+                - if input is not in `[None, Callable, Dict[str, Callable]`
+                - if input is `dict` and not all `modalities` are present
         """
-        if not isinstance(controller_kwargs, dict):
+        if transform_input is None:
+            return lambda x: x
+
+        elif callable(transform_input):
+            return transform_input
+
+        else:
+            raise FedbiomedValueError(
+                f"{ErrorNumbers.FB632.value}: Unexpected type for `transform`"
+            )
+
+    def _validate_pipeline(
+        self,
+        data: Dict[str, pl.DataFrame],
+        transform: Optional[Callable],
+    ):
+        """Called once per `transform` from `complete_initialization`
+
+        Args:
+            data: from `self._controller._get_nontransformed_item`
+            transform: `Callable` given at instantiation of cls
+            is_target: To identify `transform` from `target_transform`
+
+        Raises:
+            FedbiomedError: if there is a problem applying transforms
+            FedbiomedError: if transforms do not return expected type
+        """
+
+        try:
+            data = self._get_format_conversion_callable()(data)
+        except Exception as e:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Expected `controller_kwargs` to be a "
-                f"`dict`, got {type(controller_kwargs).__name__}"
+                f"{ErrorNumbers.FB632.value}: Unable to perform type conversion to "
+                f"{self._to_format.value}"
+            ) from e
+
+        if not isinstance(data, self._to_format.value):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Expected type conversion "
+                f"to return `{self._to_format.value}`, got "
+                f"{type(data).__name__}"
             )
 
         try:
-            # Instantiate controller
-            self._controller = self._controller_cls(**controller_kwargs)
+            data = transform(data)  # type: ignore
         except Exception as e:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Failed to create Controller. {e}"
+                f"{ErrorNumbers.FB632.value}: Unable to apply transform"
             ) from e
+
+        if not isinstance(data, self._to_format.value):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Expected "
+                f"`transform` to return `{self._to_format.value}`, "
+                f"got {type(data).__name__} "
+            )
+
+    def complete_initialization(  # type: ignore
+        self,
+        controller_kwargs: Dict[str, Any],
+        to_format: DataReturnFormat,
+    ) -> None:
+        """Finalize initialization of object to be able to recover items
+
+        Args:
+            controller_kwargs: arguments to create controller
+            to_format: format associated to expected return format
+        """
+        self.to_format = to_format
+        controller_kwargs.update(
+            {
+                "input_columns": self._input_columns,
+                "target_columns": self._target_columns,
+            }
+        )
+        self._init_controller(controller_kwargs=controller_kwargs)
+
+        # Recover sample and validate consistency of transforms
+        sample = self._controller._get_nontransformed_item(0)  # type: ignore
+        self._validate_pipeline(sample["data"], transform=self._transform)
+        self._validate_pipeline(sample["target"], transform=self._transform)
+
+    def _apply_transforms(self, sample: Dict[str, Any]) -> Tuple[Any, Any]:
+        try:
+            data = self._transform(
+                self._get_format_conversion_callable()(sample["data"])
+            )
+            target = self._transform(
+                self._get_format_conversion_callable()(sample["target"])
+            )
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply transforms. {e}"
+            ) from e
+
+        return data, target
+
+    def __getitem__(self, idx: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
+        if self._controller is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: This dataset object has not completed initialization."
+            )
+
+        sample = self._controller._get_nontransformed_item(idx)  # type: ignore
+
+        data = self._get_format_conversion_callable()(sample["data"])
+        try:
+            data = self._transform(data)
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply `transform` to `data` "
+                f"from sample (index={idx}) in {self._to_format.value} format."
+            ) from e
+
+        target = self._get_format_conversion_callable()(sample["target"])
+        try:
+            target = self._transform(target)
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply `_transform` to "
+                f"`target` from sample (index={idx}) in {self._to_format.value} format."
+            ) from e
+
+        return data, target
