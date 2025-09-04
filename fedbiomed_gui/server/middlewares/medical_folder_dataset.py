@@ -68,7 +68,6 @@ def validate_all_modalities():
     """Validates MedicalFolderDataset has subjects with all modalities"""
     req = request.json
     root = os.path.join(DATA_PATH_RW, *req["medical_folder_root"])
-    modalities = req["modalities"]
     if "reference_csv_path" in req and req["reference_csv_path"]:
         reference_path = os.path.join(DATA_PATH_RW, *req["reference_csv_path"])
     else:
@@ -80,7 +79,7 @@ def validate_all_modalities():
             root=root,
             tabular_file=reference_path,
             index_col=index_col,
-            modalities=modalities,
+            validate=False if req["dlp_id"] else True,
         )
     except FedbiomedError as e:
         return error(f"Cannot instantiate MedicalFolder: {e}"), 400
