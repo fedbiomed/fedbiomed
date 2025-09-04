@@ -2,16 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Type
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.dataset_controller import Controller
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 
 class Dataset(ABC):
-    _controller_cls: type = None
-    _controller = None
+    _controller_cls: Type[Controller] = None
+    _controller: Controller = None
     _to_format: DataReturnFormat = None
 
     # === Properties ===
