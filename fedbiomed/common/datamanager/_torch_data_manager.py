@@ -126,9 +126,8 @@ class TorchDataManager(FrameworkDataManager):
         # TorchDataManager should get `dataset` argument as an instance of torch.utils.data.Dataset
         if not isinstance(dataset, Dataset):
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: The argument `dataset` should an instance "
-                f"of `torch.utils.data.Dataset`, please use `Dataset` as parent class for"
-                f"your custom torch dataset object"
+                f"{ErrorNumbers.FB632.value}: The argument `dataset` should be a "
+                f"`fedbiomed.common.Dataset` object"
             )
         self._dataset = dataset
 
@@ -142,6 +141,10 @@ class TorchDataManager(FrameworkDataManager):
         seed = self._loader_arguments.pop("random_state", None)
         if isinstance(seed, int):
             torch.manual_seed(seed)
+        else:
+            # reset seed to a random value to ensure non-deterministic behavior
+            # if no seed is specified
+            torch.seed()
 
         self._dataset.to_format = DataReturnFormat.TORCH
 
@@ -205,7 +208,7 @@ class TorchDataManager(FrameworkDataManager):
             train_loader: PytorchDataLoader for training subset. `None` if the `test_ratio` is `1`
             test_loader: PytorchDataLoader for validation subset. `None` if the `test_ratio` is `0`
         """
-        # No need to check is_shuffled_testing_dataset, amy argument can be interpreted as bool
+        # No need to check is_shuffled_testing_dataset, any argument can be interpreted as bool
 
         # Check the type of argument test_batch_size
         if not isinstance(test_batch_size, int) and test_batch_size is not None:

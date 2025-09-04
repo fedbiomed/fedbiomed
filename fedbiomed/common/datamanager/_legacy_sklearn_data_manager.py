@@ -189,6 +189,12 @@ class SkLearnDataManager(object):
                 or _is_loading_failed
             ):
                 (x_train, x_test, y_train, y_test, idx_train, idx_test) = (
+                    #
+                    # TODO: need random_state and shuffle !!!
+                    # TODO: need coherent seeding with DataLoader (no redund)
+                    # ~~see random.sample() for getting a list on indexes
+                    # use numpy.random.default_rng() but handle globally in data manager
+                    #
                     train_test_split(
                         self._inputs,
                         self._target,

@@ -14,8 +14,8 @@ from ._pytorch_dataloader import (
 )
 from ._sklearn_dataloader import (
     SkLearnDataLoader,
-    SkLearnDataLoaderItem,
-    SkLearnDataLoaderSample,
+    SkLearnDataLoaderItemBatch,
+    SkLearnDataLoaderSampleBatch,
 )
 
 __all__ = [
@@ -23,8 +23,8 @@ __all__ = [
     "PytorchDataLoaderItem",
     "PytorchDataLoaderSample",
     "PytorchDataLoader",
-    "SkLearnDataLoaderItem",
-    "SkLearnDataLoaderSample",
+    "SkLearnDataLoaderItemBatch",
+    "SkLearnDataLoaderSampleBatch",
     "SkLearnDataLoader",
     "NPDataLoader",
 ]
