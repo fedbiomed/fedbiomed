@@ -44,6 +44,25 @@ class MedicalFolderDataset(Dataset):
                 self._transform["demographics"] = demographics_transform
 
     # === Functions ===
+    def _normalize_modalities(modalities: Union[str, Iterable[str]]) -> set[str]:
+        """Validates `modalities` and returns them in type `set`
+
+        Raises:
+            FedbiomedError: If the input does not math the types expected
+        """
+        if isinstance(modalities, str):
+            return {modalities}
+        if (
+            not isinstance(modalities, dict)
+            and isinstance(modalities, Iterable)
+            and all(isinstance(item, str) for item in modalities)
+        ):
+            return set(modalities)
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB613.value}: Unexpected type for modalities. "
+            f"Expected `str` or `Iterable[str]`, got {type(modalities).__name__}"
+        )
+
     def _validate_transform(transform_input: Transform, modalities: set[str]):
         """Turns `transform_input` into a `dict` that matches `modalities`
 

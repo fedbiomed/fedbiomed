@@ -531,12 +531,11 @@ class DatasetManager:
 
             try:
                 # load using the MedicalFolderController to ensure all available modalities are inspected
-                controller = MedicalFolderController(root=path)
-                if data_loading_plan is not None:
-                    controller.set_dlp(data_loading_plan)
-                dataset = controller.load_MedicalFolder(
+                controller = MedicalFolderController(
+                    root=path,
                     tabular_file=dataset_parameters.get("tabular_file", None),
                     index_col=dataset_parameters.get("index_col", None),
+                    dlp=data_loading_plan,
                 )
 
             except FedbiomedError as e:
@@ -544,11 +543,11 @@ class DatasetManager:
                     f"Can not create Medical Folder dataset. {e}"
                 ) from e
             else:
-                shape = dataset.shape()
+                shape = controller.shape()
 
             # try to read one sample and raise if it doesn't work
             try:
-                _ = dataset.get_nontransformed_item(0)
+                _ = controller._get_nontransformed_item(0)
             except Exception as e:
                 raise FedbiomedDatasetManagerError(
                     f"Medical Folder Dataset was not saved properly and "
