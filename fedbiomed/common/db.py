@@ -55,8 +55,8 @@ class DB:
     def list(self) -> List[Document]:
         return self._database.all()
     
-    def create(self, entry: Dict[str, Any]) -> int:
-        return self._database.create(entry)
+    # def create(self, entry: Dict[str, Any]) -> int:
+    #     return self._database.create(entry)
     
     def delete_by(self, by, value) -> List[int]:
         return self._database.delete(self._query.by == value)
