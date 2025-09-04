@@ -42,6 +42,36 @@ class DB:
     def __init__(self, path, table_name: str = 'database'):
        self._db = TinyDB(path)
        self._database = DBTable(storage=self._db.storage, name=table_name)
+       self._query = Query()
+
+    def get_by(self, by, value) -> Optional[Dict[str, Any]]:
+        """Get a single dataset by dataset_id (or None if missing)."""
+        return self._database.get(self._query[by] == value)
+    
+    def get_all_by(self, by, value) -> List[Document]:
+        """Get all datasets by a field value (or empty list if none found)."""
+        return self._database.search(self._query[by] == value)
+    
+    def list(self) -> List[Document]:
+        return self._database.all()
+    
+    def create(self, entry: Dict[str, Any]) -> int:
+        return self._database.create(entry)
+    
+    def delete_by(self, by, value) -> List[int]:
+        return self._database.delete(self._query.by == value)
+    
+    def update_by(self, by, value: Dict[str, Any]) -> List[int]:
+        id = self.check_id(by, value)
+        return self._database.update(value, self._query.by == id)
+    
+    def check_id(self, by, entry):
+        id = entry.get(by)
+        if not id:
+            raise FedbiomedError("entry requires {by}")
+        if self.get_by(id, by) is not None:
+            raise FedbiomedError(f"entry id already exists: {id}")
+        return id
 
 
 class DBTable(Table):
