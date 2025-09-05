@@ -547,7 +547,7 @@ class DatasetManager:
 
             # try to read one sample and raise if it doesn't work
             try:
-                _ = controller._get_nontransformed_item(0)
+                _ = controller.get_sample(0)
             except Exception as e:
                 raise FedbiomedDatasetManagerError(
                     f"Medical Folder Dataset was not saved properly and "

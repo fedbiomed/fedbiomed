@@ -15,8 +15,6 @@ class TabularController(Controller):
     def __init__(
         self,
         root: Union[str, Path],
-        input_columns: Iterable | int | str,
-        target_columns: Iterable | int | str,
     ) -> None:
         """Constructor of the class
 
@@ -28,19 +26,28 @@ class TabularController(Controller):
         """
         self.root = root
         self._reader = CsvReader(self.root)
-        self._input_columns = input_columns
-        self._target_columns = target_columns
 
-    def _get_nontransformed_item(self, index: int) -> Dict[str, pl.DataFrame]:
+    def get_sample(self, index: int) -> pl.DataFrame:
         """Retrieve a data sample without applying transforms"""
         if index >= self.__len__():
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Failed to retrieve item at index {index}"
             )
-        return {
-            "data": self._reader.get(index, self._input_columns),
-            "target": self._reader.get(index, self._target_columns),
-        }
+        return self._reader.get(index)
+
+    def normalize_columns(self, columns: Union[Iterable, int, str]) -> list[str]:
+        """Validate and normalize `columns` to a list of column names
+
+        Args:
+            columns: Columns to normalize
+
+        Raises:
+            FedbiomedError: if `columns` is not valid
+
+        Returns:
+            List of column names
+        """
+        return self._reader.normalize_columns(columns=columns)
 
     def __len__(self) -> int:
         return self._reader.len()

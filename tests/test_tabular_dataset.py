@@ -1,5 +1,6 @@
 # tests/test_tabular_dataset.py
 import numpy as np
+import polars as pl
 import pytest
 
 from fedbiomed.common.dataset._tabular_dataset import TabularDataset
@@ -14,7 +15,7 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
 
     # Stub a controller that returns a sample
     class StubController:
-        def _get_nontransformed_item(self, idx):
+        def get_sample(self, idx):
             assert idx == 0
             return {"data": "D0", "target": "T0"}
 
@@ -48,6 +49,7 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
 
 
 # ---------- _get_format_conversion_callable ----------
+
 
 def test_get_format_conversion_callable_returns_sklearn_callable():
     ds = TabularDataset(input_columns=["a"], target_columns=["y"], transform=None)
@@ -87,19 +89,20 @@ def test_getitem_happy_path_with_transform_and_conversion(mocker):
 
     # Pretend controller returns raw sample
     class StubController:
-        def _get_nontransformed_item(self, idx):
+        def get_sample(self, idx):
             assert idx == 7
-            return {"data": 1, "target": 2}
+            return pl.DataFrame({"col1": [1], "col2": [2], "col3": [3]})[0]
+
+        def normalize_columns(self, cols):
+            return cols
 
     ds._controller = StubController()
-    ds.to_format = DataReturnFormat.SKLEARN  # proper enum (typed OK)
+    ds._to_format = DataReturnFormat.SKLEARN  # proper enum (typed OK)
 
     # Conversion function is identity for this test
-    mocker.patch.object(ds, "_get_format_conversion_callable", return_value=lambda x: x)
-
     data, target = ds[7]["data"], ds[7]["target"]
-    assert data == 10
-    assert target == 20
+    assert data == [[10]]
+    assert target == [[20]]
 
 
 def test_getitem_raises_if_not_initialized():
@@ -118,8 +121,11 @@ def test_getitem_transform_error_on_data(mocker):
     ds.to_format = DataReturnFormat.SKLEARN
 
     class StubController:
-        def _get_nontransformed_item(self, idx):
-            return {"data": 1, "target": 2}
+        def get_sample(self, idx):
+            return pl.DataFrame({"c1": [1], "c2": [2]})
+
+        def normalize_columns(self, cols):
+            return cols
 
     ds._controller = StubController()
     mocker.patch.object(ds, "_get_format_conversion_callable", return_value=lambda x: x)
@@ -132,21 +138,24 @@ def test_getitem_transform_error_on_data(mocker):
 def test_getitem_transform_error_on_target(mocker):
     # Transform fails only for target (= 2)
     def sometimes_fails(x):
-        if x == 2:
+        print(x)
+        if x == [[2]]:
             raise ValueError("nope")
         return x * 10
 
     ds = TabularDataset(
         input_columns=[1], target_columns=[2], transform=sometimes_fails
     )
-    ds.to_format = DataReturnFormat.SKLEARN
+    ds._to_format = DataReturnFormat.SKLEARN
 
     class StubController:
-        def _get_nontransformed_item(self, idx):
-            return {"data": 1, "target": 2}
+        def get_sample(self, idx):
+            return pl.DataFrame({"c1": [1], "c2": [2]})
+
+        def normalize_columns(self, cols):
+            return cols
 
     ds._controller = StubController()
-    mocker.patch.object(ds, "_get_format_conversion_callable", return_value=lambda x: x)
 
     with pytest.raises(FedbiomedError) as exc:
         _ = ds[5]
@@ -154,6 +163,7 @@ def test_getitem_transform_error_on_target(mocker):
 
 
 # ---------- _validate_transform ----------
+
 
 def test_validate_transform_accepts_none_identity():
     ds = TabularDataset(input_columns=[0], target_columns=[1], transform=None)
@@ -175,6 +185,7 @@ def test_validate_transform_rejects_other_types():
 
 
 # ---------- _validate_pipeline ----------
+
 
 def test_validate_pipeline_raises_on_conversion_failure(mocker):
     ds = TabularDataset(input_columns=[0], target_columns=[1], transform=None)
@@ -246,13 +257,16 @@ def test_validate_pipeline_raises_when_transform_returns_wrong_type(mocker):
 
 # ---------- _apply_transforms ----------
 
+
 def test_apply_transforms_happy_path_uses_conversion_and_transform():
     # Dummy carrier that supports both conversions used by the mapping
     class Carrier:
         def __init__(self, arr):
             self._arr = np.asarray(arr)
+
         def to_numpy(self):
             return self._arr
+
         def to_torch(self):  # not used in this test, but present to mirror mapping
             return ("torch", tuple(self._arr.tolist()))
 
@@ -272,7 +286,9 @@ def test_apply_transforms_happy_path_uses_conversion_and_transform():
 
 
 def test_apply_transforms_wraps_errors_in_FedbiomedError(mocker):
-    ds = TabularDataset(input_columns=["a"], target_columns=["y"], transform=lambda x: x)
+    ds = TabularDataset(
+        input_columns=["a"], target_columns=["y"], transform=lambda x: x
+    )
 
     # Cause the conversion step to fail
     def boom(_):

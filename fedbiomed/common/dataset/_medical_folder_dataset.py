@@ -30,11 +30,11 @@ class MedicalFolderDataset(Dataset):
         self._target_modalities = self._normalize_modalities(target_modalities)
 
         self._transform = self._validate_transform(
-            transform_input=transform,
+            transform=transform,
             modalities=self._data_modalities,
         )
         self._target_transform = self._validate_transform(
-            transform_input=target_transform,
+            transform=target_transform,
             modalities=self._target_modalities,
         )
 
@@ -44,6 +44,7 @@ class MedicalFolderDataset(Dataset):
                 self._transform["demographics"] = demographics_transform
 
     # === Functions ===
+    @staticmethod
     def _normalize_modalities(modalities: Union[str, Iterable[str]]) -> set[str]:
         """Validates `modalities` and returns them in type `set`
 
@@ -63,7 +64,8 @@ class MedicalFolderDataset(Dataset):
             f"Expected `str` or `Iterable[str]`, got {type(modalities).__name__}"
         )
 
-    def _validate_transform(transform_input: Transform, modalities: set[str]):
+    @staticmethod
+    def _validate_transform(transform: Transform, modalities: set[str]):
         """Turns `transform_input` into a `dict` that matches `modalities`
 
         Raises:
@@ -71,27 +73,27 @@ class MedicalFolderDataset(Dataset):
                 - if input is not in `[None, Callable, Dict[str, Callable]`
                 - if input is `dict` and not all `modalities` are present
         """
-        if transform_input is None:
+        if transform is None:
             return {_k: (lambda x: x) for _k in modalities}
 
-        elif callable(transform_input):
-            return {_k: transform_input for _k in modalities}
+        elif callable(transform):
+            return {_k: transform for _k in modalities}
 
-        elif isinstance(transform_input, dict):
-            if not all(callable(_v) for _v in transform_input.values()):
+        elif isinstance(transform, dict):
+            if not all(callable(_v) for _v in transform.values()):
                 raise FedbiomedValueError(
                     ErrorNumbers.FB632.value
                     + ": `transform` dictionary must map strings to callables"
                 )
 
-            missing_transforms = modalities.difference(transform_input.keys())
+            missing_transforms = modalities.difference(transform.keys())
             if missing_transforms:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Missing modalities in "
                     f"`transform`: {missing_transforms}"
                 )
 
-            return transform_input
+            return transform
         else:
             raise FedbiomedValueError(
                 f"{ErrorNumbers.FB632.value}: Unexpected type for `transform`"
@@ -106,7 +108,7 @@ class MedicalFolderDataset(Dataset):
         """Called once per `transform` from `complete_initialization`
 
         Args:
-            data: from `self._controller._get_nontransformed_item`
+            data: from `self._controller.get_sample`
             transform: `Callable` given at instantiation of cls
             is_target: To identify `transform` from `target_transform`
 
@@ -125,22 +127,9 @@ class MedicalFolderDataset(Dataset):
         modalities = set(data.keys())
 
         for modality in (_mod for _mod in modalities if _mod != "demographics"):
-            try:
-                data[modality] = self._native_to_framework[self._to_format](
-                    data[modality]
-                )
-            except Exception as e:
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: Unable to perform type conversion to "
-                    f"{self._to_format.value}"
-                ) from e
-
-            if not isinstance(data[modality], self._to_format.value):
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: Expected type conversion "
-                    f"to return `{self._to_format.value}`, got "
-                    f"{type(data[modality]).__name__} for modality: '{modality}'"
-                )
+            data[modality] = self._validate_format_conversion_pipeline(
+                data[modality], for_=f"modality {modality}"
+            )
 
         for modality in modalities:
             _name = (
@@ -148,19 +137,11 @@ class MedicalFolderDataset(Dataset):
                 if modality == "demographics"
                 else ("target_" if is_target is True else "")
             )
-            try:
-                data[modality] = transform[modality](data[modality])
-            except Exception as e:
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: Unable to apply "
-                    f"`{_name}transform` to `{modality}`"
-                ) from e
-            if not isinstance(data[modality], self._to_format.value):
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: Expected "
-                    f"`{_name}transform` to return `{self._to_format.value}`, got "
-                    f"{type(data[modality]).__name__} for modality: '{modality}'"
-                )
+            self._validate_transformation_pipeline(
+                transform=transform[modality],
+                data=data[modality],
+                extra_info=f"for modality '{modality}'",
+            )
 
     def complete_initialization(
         self,
@@ -177,7 +158,7 @@ class MedicalFolderDataset(Dataset):
         self._init_controller(controller_kwargs=controller_kwargs)
 
         # Recover sample and validate consistency of transforms
-        sample = self._controller._get_nontransformed_item(0)
+        sample = self._controller.get_sample(0)
         self._validate_pipeline(
             {modality: sample[modality] for modality in self._data_modalities},
             transform=self._transform,
@@ -195,12 +176,12 @@ class MedicalFolderDataset(Dataset):
                 "initialization. It is not ready to use yet."
             )
 
-        sample = self._controller._get_nontransformed_item(idx)
+        sample = self._controller.get_sample(idx)
 
         data = {}
         for modality in self._data_modalities:
             data[modality] = (
-                self._native_to_framework[self._to_format](data["modality"])
+                self._get_format_conversion_callable()(sample[modality])
                 if modality != "demographics"
                 else sample[modality]
             )
@@ -215,8 +196,9 @@ class MedicalFolderDataset(Dataset):
 
         target = {}
         for modality in self._target_modalities:
+            target[modality] = self._get_format_conversion_callable()(sample[modality])
             try:
-                target[modality] = self._target_transform[modality](sample[modality])
+                target[modality] = self._target_transform[modality](target[modality])
             except Exception as e:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Failed to apply `target_transform` "
