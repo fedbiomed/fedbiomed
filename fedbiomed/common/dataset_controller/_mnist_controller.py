@@ -59,7 +59,7 @@ class MnistController(Controller):
             "download": False,
         }
 
-    def _get_nontransformed_item(self, index: int) -> Dict[str, Any]:
+    def get_sample(self, index: int) -> Dict[str, Any]:
         """Retrieve a data sample without applying transforms"""
         try:
             data, target = self._dataset[index]

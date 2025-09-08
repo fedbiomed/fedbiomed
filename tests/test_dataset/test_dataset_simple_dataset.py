@@ -15,7 +15,7 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 def mock_controller():
     """Fixture for a fake ImageFolderController with minimal behavior."""
     controller = MagicMock()
-    controller._get_nontransformed_item.side_effect = lambda index: {
+    controller.get_sample.side_effect = lambda index: {
         "data": Image.new("RGB", (28, 28), color=128),
         "target": 1,
     }
@@ -85,7 +85,7 @@ def test_target_transform_invalid_type():
 def test_validate_transform_success_default(dataset_with_mock_controller):
     """if transform is None, the identity function is used by default"""
     dataset = dataset_with_mock_controller
-    sample = dataset._controller._get_nontransformed_item(0)
+    sample = dataset._controller.get_sample(0)
     dataset._validate_pipeline(
         data=sample["data"],
         transform=dataset._transform,
@@ -95,7 +95,7 @@ def test_validate_transform_success_default(dataset_with_mock_controller):
 
 def test_validate_transform_succeeds(dataset_with_mock_controller):
     dataset = dataset_with_mock_controller
-    sample = dataset._controller._get_nontransformed_item(0)
+    sample = dataset._controller.get_sample(0)
     transform = (
         transforms.Normalize((0.1307,), (0.3081,))
         if dataset_with_mock_controller.to_format == DataReturnFormat.TORCH
@@ -106,7 +106,7 @@ def test_validate_transform_succeeds(dataset_with_mock_controller):
 
 def test_validate_transform_fails(dataset_with_mock_controller):
     dataset = dataset_with_mock_controller
-    sample = dataset._controller._get_nontransformed_item(0)
+    sample = dataset._controller.get_sample(0)
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
@@ -117,7 +117,7 @@ def test_validate_transform_fails(dataset_with_mock_controller):
 def test_validate_target_transform_success_default(dataset_with_mock_controller):
     """if transform is None, the identity function is used by default"""
     dataset = dataset_with_mock_controller
-    sample = dataset._controller._get_nontransformed_item(0)
+    sample = dataset._controller.get_sample(0)
     dataset._validate_pipeline(
         data=sample["target"],
         transform=dataset._target_transform,
@@ -127,7 +127,7 @@ def test_validate_target_transform_success_default(dataset_with_mock_controller)
 
 def test_validate_target_transform_fails(dataset_with_mock_controller):
     dataset = dataset_with_mock_controller
-    sample = dataset._controller._get_nontransformed_item(0)
+    sample = dataset._controller.get_sample(0)
     target_transform = (
         torch.tensor
         if dataset_with_mock_controller.to_format == DataReturnFormat.SKLEARN
@@ -155,7 +155,7 @@ def test_apply_transforms_success(dataset_with_mock_controller):
 def test_complete_initialization_missing_keys(tmp_path):
     # incomplete controller
     mock_controller = MagicMock()
-    mock_controller._get_nontransformed_item.side_effect = lambda index: {
+    mock_controller.get_sample.side_effect = lambda index: {
         "data": Image.new("RGB", (28, 28), color=128),
     }
     dataset = ImageFolderDataset()
