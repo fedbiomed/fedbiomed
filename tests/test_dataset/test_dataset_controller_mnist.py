@@ -25,9 +25,9 @@ def test_mnist_controller_init_success(mocker, mock_torch_mnist, tmp_path):
     assert controller._controller_kwargs["train"] is True
 
 
-def test_get_nontransformed_item(mocker, mock_torch_mnist, tmp_path):
+def test_get_sample(mocker, mock_torch_mnist, tmp_path):
     controller = MnistController(root=tmp_path)
-    sample = controller._get_nontransformed_item(index=1)
+    sample = controller.get_sample(index=1)
     assert isinstance(sample["data"], Image.Image)
     assert isinstance(sample["target"], int)
 
