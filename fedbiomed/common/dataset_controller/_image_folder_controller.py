@@ -64,7 +64,7 @@ class ImageFolderController(Controller):
             "root": str(self.root),
         }
 
-    def _get_nontransformed_item(self, index: int) -> Dict[str, Any]:
+    def get_sample(self, index: int) -> Dict[str, Any]:
         """Retrieve a data sample without applying transforms"""
         try:
             path, target = self._samples[index]

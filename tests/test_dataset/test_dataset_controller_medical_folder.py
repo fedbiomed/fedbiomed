@@ -364,14 +364,14 @@ def test_make_dataset_mismatched_args(temp_medical_folder):
 
 
 @patch("fedbiomed.common.dataset_reader.NiftiReader.read")
-def test_get_nontransformed_item(mock_read, temp_medical_folder):
-    """Test _get_nontransformed_item method"""
+def testget_sample(mock_read, temp_medical_folder):
+    """Test get_sample method"""
     mock_read.return_value = "mock_nifti_data"
 
     controller = MedicalFolderController(root=temp_medical_folder)
     mock_read.reset_mock()
 
-    item = controller._get_nontransformed_item(0)
+    item = controller.get_sample(0)
 
     assert isinstance(item, dict)
     assert all(modality in item for modality in controller.modalities)
@@ -379,8 +379,8 @@ def test_get_nontransformed_item(mock_read, temp_medical_folder):
 
 
 @patch("fedbiomed.common.dataset_reader.NiftiReader.read")
-def test_get_nontransformed_item_with_demographics(mock_read, temp_medical_folder):
-    """Test _get_nontransformed_item with demographics"""
+def testget_sample_with_demographics(mock_read, temp_medical_folder):
+    """Test get_sample with demographics"""
     mock_read.return_value = "mock_nifti_data"
     participants_file = os.path.join(temp_medical_folder, "participants.csv")
 
@@ -390,21 +390,21 @@ def test_get_nontransformed_item_with_demographics(mock_read, temp_medical_folde
         index_col="participant_id",
     )
 
-    item = controller._get_nontransformed_item(0)
+    item = controller.get_sample(0)
 
     assert "demographics" in item
     assert isinstance(item["demographics"], dict)
 
 
 @patch("fedbiomed.common.dataset_reader.NiftiReader.read")
-def test_get_nontransformed_item_error(mock_read, temp_medical_folder):
-    """Test _get_nontransformed_item with read error"""
+def testget_sample_error(mock_read, temp_medical_folder):
+    """Test get_sample with read error"""
 
     controller = MedicalFolderController(root=temp_medical_folder)
 
     mock_read.side_effect = Exception("Read error")
     with pytest.raises(FedbiomedError) as exc_info:
-        controller._get_nontransformed_item(0)
+        controller.get_sample(0)
     assert ErrorNumbers.FB632.value in str(exc_info.value)
 
 

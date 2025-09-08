@@ -393,7 +393,7 @@ class MedicalFolderController(Controller):
         # Change flag to be able to recover a sample
         self._validated = True
         # Check if is possible to use `reader` to recover a valid item
-        _ = self._get_nontransformed_item(0)
+        _ = self.get_sample(0)
 
         self._controller_kwargs = {
             "root": str(self.root),
@@ -479,7 +479,7 @@ class MedicalFolderController(Controller):
             ),
         }
 
-    def _get_nontransformed_item(
+    def get_sample(
         self, index: int
     ) -> Dict[str, NiftiReader.data_type | Dict[str, Any]]:
         """Retrieve a data sample without applying transforms"""

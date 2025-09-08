@@ -45,8 +45,7 @@ class Controller(ABC, DataLoadingPlanMixin):
         self._root = path
 
     # === Abstract functions ===
-    @abstractmethod
-    def _get_nontransformed_item(self, index: int) -> Dict[str, Any]:
+    def get_sample(self, index: int) -> Dict[str, Any]:
         """Retrieve a data sample without applying transforms"""
         pass
 
@@ -56,16 +55,14 @@ class Controller(ABC, DataLoadingPlanMixin):
 
     # === Functions ===
     def get_types(self):
-        """Get `type` directly from values in `dict` returned by `_get_nontransformed_item`"""
-        return {
-            _k: type(_v).__name__ for _k, _v in self._get_nontransformed_item(0).items()
-        }
+        """Get `type` directly from values in `dict` returned by `get_sample`"""
+        return {_k: type(_v).__name__ for _k, _v in self.get_sample(0).items()}
 
     def shape(self) -> Dict[str, Any]:
-        """Get `shape` directly from values in `dict` returned by `_get_nontransformed_item`"""
+        """Get `shape` directly from values in `dict` returned by `get_sample`"""
         # Supported: int, float, dict, PIL.Image, None and obj.shape (if available)
         # This function can be overwritten for specific cases in child class
-        sample = self._get_nontransformed_item(0)
+        sample = self.get_sample(0)
 
         if not isinstance(sample, dict):
             raise FedbiomedError(

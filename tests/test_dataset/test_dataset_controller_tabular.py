@@ -16,9 +16,7 @@ def test_init_passes_root_and_columns_to_reader(mocker, tmp_path):
     )
     reader_instance = CsvReaderMock.return_value
 
-    controller = TabularController(
-        root=tmp_path, input_columns=["a", "b"], target_columns=["y"]
-    )
+    controller = TabularController(root=tmp_path)
 
     # CsvReader called once; arg equals controller.root (avoid str/Path brittleness)
     CsvReaderMock.assert_called_once()
@@ -27,8 +25,6 @@ def test_init_passes_root_and_columns_to_reader(mocker, tmp_path):
 
     # Attributes set as provided (root is not coerced; stays Path here)
     assert controller.root == tmp_path
-    assert controller._input_columns == ["a", "b"]
-    assert controller._target_columns == ["y"]
 
     # Reader stored
     assert controller._reader is reader_instance
@@ -39,9 +35,7 @@ def test_init_with_string_root(mocker, tmp_path):
         "fedbiomed.common.dataset_controller._tabular_controller.CsvReader"
     )
 
-    controller = TabularController(
-        root=str(tmp_path), input_columns=0, target_columns=1
-    )
+    controller = TabularController(root=str(tmp_path))
 
     CsvReaderMock.assert_called_once()
     called_arg = CsvReaderMock.call_args.args[0]
@@ -57,7 +51,7 @@ def test_init_propagates_reader_error(mocker):
         side_effect=FedbiomedError("boom"),
     )
     with pytest.raises(FedbiomedError):
-        TabularController(root="/does/not/exist", input_columns=[1], target_columns=[2])
+        TabularController(root="/does/not/exist")
 
 
 # ---------- __len__ / shape delegation ----------
@@ -69,7 +63,7 @@ def test_len_delegates_to_reader(mocker, tmp_path):
     )
     CsvReaderMock.return_value.len.return_value = 123
 
-    controller = TabularController(tmp_path, input_columns=[1], target_columns=[2])
+    controller = TabularController(tmp_path)
 
     assert len(controller) == 123
     CsvReaderMock.return_value.len.assert_called_once_with()
@@ -81,16 +75,16 @@ def test_shape_delegates_to_reader(mocker, tmp_path):
     )
     CsvReaderMock.return_value.shape.return_value = {"rows": 10, "cols": 3}
 
-    controller = TabularController(tmp_path, input_columns=[1], target_columns=[2])
+    controller = TabularController(tmp_path)
 
     assert controller.shape() == {"rows": 10, "cols": 3}
     CsvReaderMock.return_value.shape.assert_called_once_with()
 
 
-# ---------- _get_nontransformed_item behavior ----------
+# ---------- get_sample behavior ----------
 
 
-def test_get_nontransformed_item_happy_path(mocker, tmp_path):
+def testget_sample_happy_path(mocker, tmp_path):
     CsvReaderMock = mocker.patch(
         "fedbiomed.common.dataset_controller._tabular_controller.CsvReader"
     )
@@ -100,29 +94,26 @@ def test_get_nontransformed_item_happy_path(mocker, tmp_path):
 
     # Simulate reader.get for data and target
     reader.get.side_effect = [
-        ["x1", "x2"],  # data for input_columns
-        ["y"],  # target for target_columns
+        [[1, 2, 3, 4]],  # input_columns
     ]
 
-    controller = TabularController(
-        tmp_path, input_columns=["x1", "x2"], target_columns=["y"]
-    )
+    controller = TabularController(tmp_path)
 
-    result = controller._get_nontransformed_item(3)
-    assert result == {"data": ["x1", "x2"], "target": ["y"]}
+    result = controller.get_sample(3)
+    assert result == [[1, 2, 3, 4]]
 
 
-def test_get_nontransformed_item_out_of_range_raises(mocker, tmp_path):
+def testget_sample_out_of_range_raises(mocker, tmp_path):
     CsvReaderMock = mocker.patch(
         "fedbiomed.common.dataset_controller._tabular_controller.CsvReader"
     )
     reader = CsvReaderMock.return_value
     reader.len.return_value = 3  # valid indices: 0,1,2
 
-    controller = TabularController(tmp_path, input_columns=[0], target_columns=[1])
+    controller = TabularController(tmp_path)
 
     with pytest.raises(FedbiomedError) as exc:
-        controller._get_nontransformed_item(3)  # >= __len__()
+        controller.get_sample(3)  # >= __len__()
 
     # Optional: sanity-check the error message contains the index
     assert "index 3" in str(exc.value)
