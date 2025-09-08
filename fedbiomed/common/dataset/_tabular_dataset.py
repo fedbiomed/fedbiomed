@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 if TYPE_CHECKING:
     import numpy as np
@@ -86,7 +86,9 @@ class TabularDataset(Dataset):
         """
         return sample.select(self._controller.normalize_columns(self._target_columns))
 
-    def __getitem__(self, idx: int) -> Dict[str, Union["np.array", "torch.Tensor"]]:
+    def __getitem__(
+        self, idx: int
+    ) -> Tuple[Union["np.array", "torch.Tensor"], Union["np.array", "torch.Tensor"]]:
         """Retrieve item at index `idx`
 
         Args:

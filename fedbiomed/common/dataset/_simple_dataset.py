@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 import torch
@@ -58,7 +58,7 @@ class _SimpleDataset(Dataset):
         self._validate_format_and_transformations(sample["target"], self._transform)
         self._validate_format_and_transformations(sample["data"], self._transform)
 
-    def __getitem__(self, idx: int) -> Dict[str, DatasetDataItem]:
+    def __getitem__(self, idx: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
         if self._controller is None:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Dataset object has not completed "
