@@ -111,5 +111,4 @@ class TabularDataset(Dataset):
         }
 
         sample = self.apply_transforms(sample)
-
-        return {"data": sample["data"], "target": sample["target"]}
+        return sample["data"], sample["target"]

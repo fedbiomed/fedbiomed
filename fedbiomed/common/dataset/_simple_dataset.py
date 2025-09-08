@@ -68,7 +68,7 @@ class _SimpleDataset(Dataset):
         sample = self._controller.get_sample(idx)
         sample = self.apply_transforms(sample)
 
-        return sample
+        return sample["data"], sample["target"]
 
 
 class ImageFolderDataset(_SimpleDataset):
