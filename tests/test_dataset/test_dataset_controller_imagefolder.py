@@ -63,22 +63,22 @@ def test_init_failure_make_dataset(mock_folder_methods, tmp_path):
             _ = ImageFolderController(tmp_path)
 
 
-def test_get_nontransformed_item_success(mocker, mock_folder_methods, tmp_path):
+def test_get_sample_success(mocker, mock_folder_methods, tmp_path):
     controller = ImageFolderController(tmp_path)
     controller._loader = lambda path: Image.new("L", (28, 28), color=255)
-    sample = controller._get_nontransformed_item(0)
+    sample = controller.get_sample(0)
 
     assert isinstance(sample["data"], Image.Image)
     assert isinstance(sample["target"], int)
 
 
-def test_get_nontransformed_item_failure_loader(mock_folder_methods, tmp_path):
+def testget_sample_failure_loader(mock_folder_methods, tmp_path):
     with mock.patch.object(ImageFolderController, "_loader") as mock_loader:
         mock_loader.side_effect = Exception("Loader failed")
 
         controller = ImageFolderController(tmp_path)
         with pytest.raises(FedbiomedError) as excinfo:
-            controller._get_nontransformed_item(0)
+            controller.get_sample(0)
         assert "Failed to retrieve item at index" in str(excinfo.value)
 
 
