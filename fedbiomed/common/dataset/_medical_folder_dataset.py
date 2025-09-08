@@ -127,7 +127,7 @@ class MedicalFolderDataset(Dataset):
         modalities = set(data.keys())
 
         for modality in (_mod for _mod in modalities if _mod != "demographics"):
-            data[modality] = self._validate_format_conversion_pipeline(
+            data[modality] = self._validate_format_conversion(
                 data[modality], for_=f"modality {modality}"
             )
 
@@ -137,7 +137,7 @@ class MedicalFolderDataset(Dataset):
                 if modality == "demographics"
                 else ("target_" if is_target is True else "")
             )
-            self._validate_transformation_pipeline(
+            self._validate_transformation(
                 transform=transform[modality],
                 data=data[modality],
                 extra_info=f"for modality '{modality}'",

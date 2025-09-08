@@ -63,10 +63,10 @@ class TabularDataset(Dataset):
         self._init_controller(controller_kwargs=controller_kwargs)
 
         sample = self._controller.get_sample(0)  # type: ignore
-        self._validate_transformations(
+        self._validate_format_and_transformations(
             self._get_inputs_from_sample(sample), transform=self._transform
         )
-        self._validate_transformations(
+        self._validate_format_and_transformations(
             self._get_targets_from_sample(sample), transform=self._transform
         )
 

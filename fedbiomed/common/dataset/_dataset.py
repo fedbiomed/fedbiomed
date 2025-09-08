@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional, Type
+from typing import Any, Callable, Dict, Optional, Type, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import Controller
@@ -16,8 +16,8 @@ class Dataset(ABC):
     _controller: Controller = None
     _to_format: DataReturnFormat = None
 
-    transform: Optional[Callable] = None
-    target_transform: Optional[Callable] = None
+    transform: Optional[Union[Callable, Dict[str, Callable]]] = None
+    target_transform: Optional[Union[Callable, Dict[str, Callable]]] = None
 
     @property
     def to_format(self) -> DataReturnFormat:
@@ -85,9 +85,7 @@ class Dataset(ABC):
                 f"{ErrorNumbers.FB632.value}: Unexpected type for transform input proived by user."
             )
 
-    def _validate_format_conversion_pipeline(
-        self, data: Any, for_: Optional[str] = None
-    ) -> Any:
+    def _validate_format_conversion(self, data: Any, for_: Optional[str] = None) -> Any:
         """Validates format conversion and applies `transform`
 
         Args:
@@ -115,7 +113,7 @@ class Dataset(ABC):
 
         return data
 
-    def _validate_transformation_pipeline(
+    def _validate_transformation(
         self, data: Any, transform: Optional[Callable], extra_info: Optional[str] = None
     ) -> Any:
         """Validates and applies `transform`
@@ -145,7 +143,7 @@ class Dataset(ABC):
 
         return data
 
-    def _validate_transformations(
+    def _validate_format_and_transformations(
         self, data: Any, transform: Optional[Callable]
     ) -> Any:
         """Validates and applies format conversion and `transform`
@@ -157,8 +155,8 @@ class Dataset(ABC):
         Returns:
             Transformed data
         """
-        data = self._validate_format_conversion_pipeline(data)
-        data = self._validate_transformation_pipeline(data, transform)
+        data = self._validate_format_conversion(data)
+        data = self._validate_transformation(data, transform)
         return data
 
     # === Functions ===
