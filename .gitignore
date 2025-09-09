@@ -12,7 +12,6 @@
 *.pot
 *.pyc
 __pycache__/
-*:Zone.Identifier
 
 ### Django.Python Stack ###
 # Byte-compiled / optimized / DLL files

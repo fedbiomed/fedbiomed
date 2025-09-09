@@ -12,7 +12,6 @@ from fedbiomed.common.exceptions import FedbiomedError
 class DlpDB(DB):
     """CRUD specialized for Data Loading Plans documents keyed by 'dlp_id'."""
 
-    # ---- Create
     def create(self, entry: Dict[str, Any]) -> int:
         """Creates a new DLP entry.
 
@@ -32,22 +31,19 @@ class DlpDB(DB):
 
         return self._database.create("dlp_id", entry)
 
-    # ---- Read
     def get_by_id(self, dlp_id) -> Optional[Dict[str, Any]]:
         """Get a single dlp by dlp_id (or None if missing)."""
         return self.get_by("dlp_id", dlp_id)
 
-    # ---- Delete
     def delete_by_id(self, dlp_id: str) -> List[int]:
         """Delete by dlp_id. Returns the list of removed doc IDs."""
         return self.delete_by("dlp_id", dlp_id)
 
-    # ---- Update (partial)
     def update(self, value: Dict[str, Any]) -> List[int]:
         """Update a DLP entry with the values in 'value'. Returns list of updated doc IDs."""
         return self.update_by("dlp_id", value)
 
-    def list_by_dataset_type(self, dataset_type: str):
+    def list_by_dataset_type(self, dataset_type: str) -> Optional[Dict[str, Any]]:
         """List all DLPs for a given dataset type.
 
         Raises:
@@ -74,16 +70,23 @@ class DatasetDB(DB):
         Args:
             tags:  List of tags
 
-        Returns:
-            The list of conflicting datasets
+        Raises:
+            FedbiomedError: If there are datasets existing with conflicting tags.
         """
 
         def _conflicting_tags(val):
             return all(t in val for t in tags) or all(t in tags for t in val)
 
-        return self._database.search(self._database.tags.test(_conflicting_tags))  # type: ignore
+        conflicting = self._database.search(self._database.tags.test(_conflicting_tags))
 
-    # ---- Create
+        if len(conflicting) > 0:
+            msg = (
+                f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: "
+                f" {' '.join([c['name'] for c in conflicting])}"
+            )
+            logger.critical(msg)  # type: ignore
+            raise FedbiomedError(msg)
+
     def create(self, entry: Dict[str, Any]) -> int:
         """Creates a new dataset entry.
         Args:
@@ -103,15 +106,8 @@ class DatasetDB(DB):
                 f"Dataset with id {entry.get('dataset_id')} already exists."
             )
 
-        # Check that there are not existing dataset with conflicting tags
-        conflicting = self.search_conflicting_tags(entry.get("tags"))
-        if len(conflicting) > 0:
-            msg = (
-                f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: "
-                f" {' '.join([c['name'] for c in conflicting])}"
-            )
-            logger.critical(msg)  # type: ignore
-            raise FedbiomedError(msg)
+        # Check that there is not an existing dataset with conflicting tags
+        self.search_conflicting_tags(entry.get("tags"))
 
         # Check that name is unique if provided
         if entry.get("name") is not None:
@@ -122,7 +118,6 @@ class DatasetDB(DB):
 
         return self._database.create("dataset_id", entry)
 
-    # ---- Read
     def get_by_id(self, dataset_id) -> Optional[Dict[str, Any]]:
         """Get a single dataset by dataset_id (or None if missing)."""
         return self.get_by("dataset_id", dataset_id)
@@ -131,26 +126,17 @@ class DatasetDB(DB):
         """Get the list of datasets which contain all the given tags (or None if missing)."""
         return self.get_all_by("tags", tags)
 
-    # ---- Delete
     def delete_by_id(self, dataset_id: str) -> List[int]:
         """Delete by dataset_id. Returns the list of removed doc IDs."""
         return self.delete_by("dataset_id", dataset_id)
 
-    # ---- Update (partial)
     def update(self, value: Dict[str, Any]) -> List[int]:
         """Update a Dataset entry with the values in 'value'. Returns list of updated doc IDs.
 
         Raises:
             FedbiomedError: If tags conflict with existing dataset.
         """
-        # Check that there are not existing dataset with conflicting tags
-        conflicting = self.search_conflicting_tags(value.get("tags"))
-        if len(conflicting) > 0:
-            msg = (
-                f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: "
-                f" {' '.join([c['name'] for c in conflicting])}"
-            )
-            logger.critical(msg)  # type: ignore
-            raise FedbiomedError(msg)
+        # Check that there is not an existing dataset with conflicting tags
+        self.search_conflicting_tags(value.get("tags"))
 
         return self.update_by("dataset_id", value)

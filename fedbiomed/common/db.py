@@ -90,7 +90,7 @@ class DB:
         id = self.check_id(by, value)
         return self._database.update(value, self._query.by == id)
 
-    def check_id(self, by, entry):
+    def check_id(self, by, entry) -> str:
         """Check that entry contains 'by' field and that its value is unique.
         Args:
             by: field name to check for presence and uniqueness.
