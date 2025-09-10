@@ -38,7 +38,7 @@ class DlpDB(DB):
         """Delete by dlp_id. Returns the list of removed doc IDs."""
         return self._delete_by("dlp_id", dlp_id)
 
-    def update(self, value: Dict[str, Any]) -> List[int]:
+    def update_by_id(self, value: Dict[str, Any]) -> List[int]:
         """Update a DLP entry with the values in 'value'. Returns list of updated doc IDs."""
         return self._update_by("dlp_id", value)
 

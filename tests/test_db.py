@@ -2,7 +2,7 @@
 import pytest
 
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager._db import DatasetDB
+from fedbiomed.node.dataset_manager._db import DatasetDB, DlpDB
 
 # @pytest.fixture
 # def setup_and_teardown_db():
@@ -71,6 +71,32 @@ def datasets():
         }
     }
     return datasets
+
+
+@pytest.fixture
+def dlp_database(tmp_path):
+    db_path = tmp_path / "test_dlp_database.json"
+    db = DlpDB(path=str(db_path), table_name="test_dlp")
+    yield db
+    db._db.close()
+
+
+@pytest.fixture
+def dlps():
+    return [
+        {
+            "dlp_id": "dlp_1",
+            "name": "Plan A",
+            "description": "First DLP",
+            "dataset_type": "csv",
+        },
+        {
+            "dlp_id": "dlp_2",
+            "name": "Plan B",
+            "description": "Second DLP",
+            "dataset_type": "medical-folder",
+        },
+    ]
 
 
 def test_init_db(database):
@@ -195,3 +221,80 @@ def test_delete_dataset(database, datasets):
     assert len(remaining) == 1 and remaining[0]["dataset_id"] == ds_2["dataset_id"]
 
     print("Delete test passed.")
+
+
+def test_create_dlp(dlp_database, dlps):
+    d1, d2 = dlps
+    id1 = dlp_database.create(d1)
+    id2 = dlp_database.create(d2)
+    assert isinstance(id1, int) and isinstance(id2, int) and id1 != id2
+
+    # Duplicate create should fail by dlp_id uniqueness
+    with pytest.raises(FedbiomedError):
+        dlp_database.create(d1)
+
+    # Missing dlp_id should fail
+    with pytest.raises(FedbiomedError):
+        dlp_database.create({"name": "No ID"})
+
+
+def test_get_by_id_dlp(dlp_database, dlps):
+    d1, d2 = dlps
+    dlp_database.create(d1)
+    dlp_database.create(d2)
+
+    got1 = dlp_database.get_by_id("dlp_1")
+    got2 = dlp_database.get_by_id("dlp_2")
+    assert got1 is not None and got1["dlp_id"] == "dlp_1"
+    assert got2 is not None and got2["dlp_id"] == "dlp_2"
+
+    assert dlp_database.get_by_id("missing") is None
+
+
+def test_update_by_id_dlp(dlp_database, dlps):
+    d1, d2 = dlps
+    dlp_database.create(d1)
+    dlp_database.create(d2)
+
+    updated = dlp_database.update_by_id({"dlp_id": "dlp_1", "description": "Updated"})
+    assert isinstance(updated, list) and len(updated) == 1
+    got = dlp_database.get_by_id("dlp_1")
+    assert got is not None and got["description"] == "Updated"
+
+    # Non-existing should be a no-op (empty list)
+    updated_none = dlp_database.update_by_id({"dlp_id": "missing", "description": "x"})
+    assert updated_none == []
+
+
+def test_delete_by_id_dlp(dlp_database, dlps):
+    d1, d2 = dlps
+    dlp_database.create(d1)
+    dlp_database.create(d2)
+
+    removed = dlp_database.delete_by_id("dlp_1")
+    assert isinstance(removed, list) and len(removed) == 1
+    assert dlp_database.get_by_id("dlp_1") is None
+
+    # Non-existing delete returns empty list
+    assert dlp_database.delete_by_id("missing") == []
+
+    remaining = dlp_database._database.all()
+    assert len(remaining) == 1 and remaining[0]["dlp_id"] == "dlp_2"
+
+
+def test_list_by_dataset_type(dlp_database, dlps):
+    d1, d2 = dlps
+    dlp_database.create(d1)
+    dlp_database.create(d2)
+
+    # Valid type returns the matching DLP (API returns a single doc or None)
+    got = dlp_database.list_by_dataset_type("medical-folder")
+    assert got is not None and got["dataset_type"] == "medical-folder"
+
+    # Wrong input type
+    with pytest.raises(FedbiomedError):
+        dlp_database.list_by_dataset_type(123)  # not a str
+
+    # Wrong string (not in enum values)
+    with pytest.raises(FedbiomedError):
+        dlp_database.list_by_dataset_type("not_valid_type")
