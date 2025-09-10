@@ -42,7 +42,7 @@ class DlpDB(DB):
         """Update a DLP entry with the values in 'value'. Returns list of updated doc IDs."""
         return self._update_by("dlp_id", value)
 
-    def list_by_dataset_type(self, dataset_type: str) -> Optional[Dict[str, Any]]:
+    def list_by_dataset_type(self, dataset_type: str) -> List[Document]:
         """List all DLPs for a given dataset type.
 
         Raises:
@@ -57,7 +57,7 @@ class DlpDB(DB):
                 "target_dataset_type should be of the values defined in "
                 "fedbiomed.common.constants.DatasetTypes"
             )
-        return self._get_by("dataset_type", dataset_type)
+        return self._get_all_by("target_dataset_type", dataset_type)
 
 
 class DatasetDB(DB):

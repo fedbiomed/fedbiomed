@@ -4,14 +4,6 @@ import pytest
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager._db import DatasetDB, DlpDB
 
-# @pytest.fixture
-# def setup_and_teardown_db():
-#     # Setup: create a fresh in-memory DB
-#     memdb = TinyDB(path="test_database.json", storage=JSONStorage)
-#     yield memdb
-#     # Teardown: clear the DB after test
-#     memdb.drop_tables()
-
 
 @pytest.fixture
 def database(tmp_path):
@@ -85,16 +77,32 @@ def dlp_database(tmp_path):
 def dlps():
     return [
         {
-            "dlp_id": "dlp_1",
-            "name": "Plan A",
-            "description": "First DLP",
-            "dataset_type": "csv",
+            "dlp_id": "dlp_8c9782aa-c62f-421d-847c-89fb5e1a914d",
+            "dlp_name": "This is a customized DLP",
+            "target_dataset_type": "medical-folder",
+            "loading_blocks": {
+                "modalities_to_folders": "serialized_dlb_855af225-244b-455b-8297-d68a3ce7e1a5"
+            },
+            "key_paths": {
+                "modalities_to_folders": [
+                "fedbiomed.common.dataset._medical_datasets",
+                "MedicalFolderLoadingBlockTypes"
+                ]
+            }
         },
         {
-            "dlp_id": "dlp_2",
-            "name": "Plan B",
-            "description": "Second DLP",
-            "dataset_type": "medical-folder",
+            "dlp_id": "different_id",
+            "dlp_name": "This is a customized DLP",
+            "target_dataset_type": "medical-folder",
+            "loading_blocks": {
+                "modalities_to_folders": "custom_serialized_dlb_id"
+            },
+            "key_paths": {
+                "modalities_to_folders": [
+                "fedbiomed.common.dataset._medical_datasets",
+                "MedicalFolderLoadingBlockTypes"
+                ]
+            }
         },
     ]
 
@@ -243,10 +251,10 @@ def test_get_by_id_dlp(dlp_database, dlps):
     dlp_database.create(d1)
     dlp_database.create(d2)
 
-    got1 = dlp_database.get_by_id("dlp_1")
-    got2 = dlp_database.get_by_id("dlp_2")
-    assert got1 is not None and got1["dlp_id"] == "dlp_1"
-    assert got2 is not None and got2["dlp_id"] == "dlp_2"
+    got1 = dlp_database.get_by_id(d1["dlp_id"])
+    got2 = dlp_database.get_by_id(d2["dlp_id"])
+    assert got1 is not None and got1["dlp_id"] == d1["dlp_id"]
+    assert got2 is not None and got2["dlp_id"] == d2["dlp_id"]
 
     assert dlp_database.get_by_id("missing") is None
 
@@ -256,9 +264,9 @@ def test_update_by_id_dlp(dlp_database, dlps):
     dlp_database.create(d1)
     dlp_database.create(d2)
 
-    updated = dlp_database.update_by_id({"dlp_id": "dlp_1", "description": "Updated"})
+    updated = dlp_database.update_by_id({"dlp_id": d1["dlp_id"], "description": "Updated"})
     assert isinstance(updated, list) and len(updated) == 1
-    got = dlp_database.get_by_id("dlp_1")
+    got = dlp_database.get_by_id(d1["dlp_id"])
     assert got is not None and got["description"] == "Updated"
 
     # Non-existing should be a no-op (empty list)
@@ -271,15 +279,15 @@ def test_delete_by_id_dlp(dlp_database, dlps):
     dlp_database.create(d1)
     dlp_database.create(d2)
 
-    removed = dlp_database.delete_by_id("dlp_1")
+    removed = dlp_database.delete_by_id(d1["dlp_id"])
     assert isinstance(removed, list) and len(removed) == 1
-    assert dlp_database.get_by_id("dlp_1") is None
+    assert dlp_database.get_by_id(d1["dlp_id"]) is None
 
     # Non-existing delete returns empty list
     assert dlp_database.delete_by_id("missing") == []
 
     remaining = dlp_database._database.all()
-    assert len(remaining) == 1 and remaining[0]["dlp_id"] == "dlp_2"
+    assert len(remaining) == 1 and remaining[0]["dlp_id"] == d2["dlp_id"]
 
 
 def test_list_by_dataset_type(dlp_database, dlps):
@@ -289,7 +297,11 @@ def test_list_by_dataset_type(dlp_database, dlps):
 
     # Valid type returns the matching DLP (API returns a single doc or None)
     got = dlp_database.list_by_dataset_type("medical-folder")
-    assert got is not None and got["dataset_type"] == "medical-folder"
+    assert isinstance(got, list)
+
+    expected_ids = {d1["dlp_id"], d2["dlp_id"]}
+    got_ids = {doc["dlp_id"] for doc in got}
+    assert got_ids == expected_ids
 
     # Wrong input type
     with pytest.raises(FedbiomedError):
