@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional, Union
 from tinydb import where
 from tinydb.table import Document
 
-from fedbiomed.common import logger
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.db import DB
 from fedbiomed.common.exceptions import FedbiomedError
@@ -29,19 +28,19 @@ class DlpDB(DB):
                 f"Dataset with id {entry.get('dlp_id')} already exists."
             )
 
-        return self._database.create("dlp_id", entry)
+        return self._database.create(entry)
 
     def get_by_id(self, dlp_id) -> Optional[Dict[str, Any]]:
         """Get a single dlp by dlp_id (or None if missing)."""
-        return self.get_by("dlp_id", dlp_id)
+        return self._get_by("dlp_id", dlp_id)
 
     def delete_by_id(self, dlp_id: str) -> List[int]:
         """Delete by dlp_id. Returns the list of removed doc IDs."""
-        return self.delete_by("dlp_id", dlp_id)
+        return self._delete_by("dlp_id", dlp_id)
 
     def update(self, value: Dict[str, Any]) -> List[int]:
         """Update a DLP entry with the values in 'value'. Returns list of updated doc IDs."""
-        return self.update_by("dlp_id", value)
+        return self._update_by("dlp_id", value)
 
     def list_by_dataset_type(self, dataset_type: str) -> Optional[Dict[str, Any]]:
         """List all DLPs for a given dataset type.
@@ -58,7 +57,7 @@ class DlpDB(DB):
                 "target_dataset_type should be of the values defined in "
                 "fedbiomed.common.constants.DatasetTypes"
             )
-        return self.get_by("dataset_type", dataset_type)
+        return self._get_by("dataset_type", dataset_type)
 
 
 class DatasetDB(DB):
@@ -77,14 +76,13 @@ class DatasetDB(DB):
         def _conflicting_tags(val):
             return all(t in val for t in tags) or all(t in tags for t in val)
 
-        conflicting = self._database.search(self._database.tags.test(_conflicting_tags))
+        conflicting = self._database.search(self._query.tags.test(_conflicting_tags))
 
         if len(conflicting) > 0:
             msg = (
                 f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: "
                 f" {' '.join([c['name'] for c in conflicting])}"
             )
-            logger.critical(msg)  # type: ignore
             raise FedbiomedError(msg)
 
     def create(self, entry: Dict[str, Any]) -> int:
@@ -116,27 +114,31 @@ class DatasetDB(DB):
                     f"Dataset with name {entry.get('name')} already exists."
                 )
 
-        return self._database.create("dataset_id", entry)
+        return self._database.create(entry)
 
     def get_by_id(self, dataset_id) -> Optional[Dict[str, Any]]:
         """Get a single dataset by dataset_id (or None if missing)."""
-        return self.get_by("dataset_id", dataset_id)
+        return self._get_by("dataset_id", dataset_id)
 
     def get_by_tag(self, tags) -> List[Document]:
         """Get the list of datasets which contain all the given tags (or None if missing)."""
-        return self.get_all_by("tags", tags)
+        return self._get_all_by("tags", tags)
 
     def delete_by_id(self, dataset_id: str) -> List[int]:
         """Delete by dataset_id. Returns the list of removed doc IDs."""
-        return self.delete_by("dataset_id", dataset_id)
+        return self._delete_by("dataset_id", dataset_id)
 
-    def update(self, value: Dict[str, Any]) -> List[int]:
+    def update_by_id(self, value: Dict[str, Any]) -> List[int]:
         """Update a Dataset entry with the values in 'value'. Returns list of updated doc IDs.
 
         Raises:
             FedbiomedError: If tags conflict with existing dataset.
         """
-        # Check that there is not an existing dataset with conflicting tags
-        self.search_conflicting_tags(value.get("tags"))
+        if not value.get("dataset_id"):
+            raise FedbiomedError("Dataset entry requires 'dataset_id'.")
 
-        return self.update_by("dataset_id", value)
+        # Check that there is not an existing dataset with conflicting tags
+        if value.get("tags") is not None:
+            self.search_conflicting_tags(value.get("tags"))
+
+        return self._update_by("dataset_id", value)

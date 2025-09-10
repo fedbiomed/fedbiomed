@@ -10,8 +10,6 @@ from typing import Any, Dict, List, Optional
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
 
-from fedbiomed.common.exceptions import FedbiomedError
-
 
 def cast_(func):
     """Decorator function for typing casting"""
@@ -24,7 +22,10 @@ def cast_(func):
 
         document = func(*args, **kwargs)
         if isinstance(document, list):
-            casted = [dict(r) for r in document]
+            if document and isinstance(document[0], Document):
+                casted = [dict(r) for r in document]
+            else:
+                casted = document
         elif isinstance(document, Document):
             casted = dict(document)
         else:
@@ -45,7 +46,7 @@ class DB:
         self._database = DBTable(storage=self._db.storage, name=table_name)
         self._query = Query()
 
-    def get_by(self, by, value) -> Optional[Dict[str, Any]]:
+    def _get_by(self, by, value) -> Optional[Dict[str, Any]]:
         """Get a single entry by a field value (or None if missing).
         Args:
             by: field name to search by.
@@ -55,7 +56,7 @@ class DB:
         """
         return self._database.get(self._query[by] == value)
 
-    def get_all_by(self, by, value) -> List[Document]:
+    def _get_all_by(self, by, value) -> List[Document]:
         """Get all entries by a field value (or empty list if none found).
         Args:
             by: field name to search by.
@@ -63,13 +64,15 @@ class DB:
         Returns:
             The list of entries as dicts, or empty list if none found.
         """
-        return self._database.search(self._query[by] == value)
+        return self._database.search(
+            self._query[by].test(lambda x: set(value).issubset(set(x)))
+        )
 
-    def list(self) -> List[Document]:
+    def _list(self) -> List[Document]:
         """List all entries in the table."""
         return self._database.all()
 
-    def delete_by(self, by, value) -> List[int]:
+    def _delete_by(self, by, value) -> List[int]:
         """Delete by a field value. Returns the list of removed doc IDs.
         Args:
             by: field name to delete by.
@@ -77,9 +80,9 @@ class DB:
         Returns:
             The list of removed document IDs.
         """
-        return self._database.delete(self._query.by == value)
+        return self._database.delete(self._query[by] == value)
 
-    def update_by(self, by, value: Dict[str, Any]) -> List[int]:
+    def _update_by(self, by, value: Dict[str, Any]) -> List[int]:
         """Partial update by a field value. Returns list of updated doc IDs.
         Args:
             by: field name to update by.
@@ -87,25 +90,7 @@ class DB:
         Returns:
             The list of updated document IDs.
         """
-        id = self.check_id(by, value)
-        return self._database.update(value, self._query.by == id)
-
-    def check_id(self, by, entry) -> str:
-        """Check that entry contains 'by' field and that its value is unique.
-        Args:
-            by: field name to check for presence and uniqueness.
-            entry: entry to check.
-        Returns:
-            the value of the 'by' field.
-        Raises:
-            FedbiomedError: if 'by' field is missing or not unique.
-        """
-        id = entry.get(by)
-        if not id:
-            raise FedbiomedError("entry requires {by}")
-        if self.get_by(id, by) is not None:
-            raise FedbiomedError(f"entry id already exists: {id}")
-        return id
+        return self._database.update(value, self._query[by] == value.get(by))
 
 
 class DBTable(Table):
