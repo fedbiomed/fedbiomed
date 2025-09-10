@@ -12,13 +12,13 @@ class DatasetMetadata:
     shape: Union[List[int], Dict[str, List[int]]]
     path: str
     dataset_id: str
-    dtypes: List[str]
     dataset_parameters: Optional[Dict[str, Any]]
 
 
 # Individual dataset classes (for clarity)
 @dataclass
 class CsvMetadata(DatasetMetadata):
+    dtypes: List[str]
     pass
 
 
