@@ -6,7 +6,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from fedbiomed.common.dataset._simple_dataset import ImageFolderDataset, SimpleDataset
+from fedbiomed.common.dataset._simple_dataset import ImageFolderDataset, _SimpleDataset
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
@@ -68,7 +68,7 @@ def test_init_controller_instantiation_failure(tmp_path):
 
 def test_simple_dataset_cannot_be_instantiated():
     with pytest.raises(FedbiomedError) as excinfo:
-        _ = SimpleDataset()
+        _ = _SimpleDataset()
     assert "cannot be instantiated directly" in str(excinfo.value)
 
 
@@ -86,10 +86,9 @@ def test_validate_transform_success_default(dataset_with_mock_controller):
     """if transform is None, the identity function is used by default"""
     dataset = dataset_with_mock_controller
     sample = dataset._controller.get_sample(0)
-    dataset._validate_pipeline(
+    dataset._validate_format_and_transformations(
         data=sample["data"],
         transform=dataset._transform,
-        is_target=False,
     )
 
 
@@ -101,7 +100,9 @@ def test_validate_transform_succeeds(dataset_with_mock_controller):
         if dataset_with_mock_controller.to_format == DataReturnFormat.TORCH
         else lambda x: x.astype(np.float32) / 255
     )
-    dataset._validate_pipeline(data=sample["data"], transform=transform)
+    dataset._validate_format_and_transformations(
+        data=sample["data"], transform=transform
+    )
 
 
 def test_validate_transform_fails(dataset_with_mock_controller):
@@ -111,17 +112,18 @@ def test_validate_transform_fails(dataset_with_mock_controller):
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
     with pytest.raises(FedbiomedError):
-        dataset._validate_pipeline(data=sample["data"], transform=transform)
+        dataset._validate_format_and_transformations(
+            data=sample["data"], transform=transform
+        )
 
 
 def test_validate_target_transform_success_default(dataset_with_mock_controller):
     """if transform is None, the identity function is used by default"""
     dataset = dataset_with_mock_controller
     sample = dataset._controller.get_sample(0)
-    dataset._validate_pipeline(
+    dataset._validate_format_and_transformations(
         data=sample["target"],
         transform=dataset._target_transform,
-        is_target=True,
     )
 
 
@@ -134,7 +136,9 @@ def test_validate_target_transform_fails(dataset_with_mock_controller):
         else np.array
     )
     with pytest.raises(FedbiomedError):
-        dataset._validate_pipeline(data=sample["target"], transform=target_transform)
+        dataset._validate_format_and_transformations(
+            data=sample["target"], transform=target_transform
+        )
 
 
 def test_apply_transforms_success(dataset_with_mock_controller):

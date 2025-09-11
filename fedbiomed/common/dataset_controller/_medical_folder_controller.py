@@ -59,8 +59,8 @@ class MedicalFolderController(Controller):
         """
         DataLoadingPlanMixin.__init__(self)
         self.root = root
-        self.tabular_file = tabular_file
-        self.index_col = index_col
+        self._tabular_file = self._validate_tabular_file(tabular_file)
+        self._index_col = self._validate_index_col(index_col)
 
         # Folder structure <subject>/<modality>/<file> in DataFrame format
         self._df_dir = self._make_df_dir(root=self.root, extensions=self._extensions)
@@ -89,55 +89,9 @@ class MedicalFolderController(Controller):
     def tabular_file(self):
         return self._tabular_file
 
-    @tabular_file.setter
-    def tabular_file(self, filepath: Optional[Union[str, Path]]):
-        """Sets `tabular_file` property"""
-        if filepath is not None:
-            filepath = self._validate_tabular_file(filepath)
-        self._tabular_file = filepath
-
-    @staticmethod
-    def _validate_tabular_file(filepath: Union[str, Path]) -> Path:
-        """Validates `tabular_file` property
-
-        Raises:
-            FedbiomedError:
-            - if filepath is not of type `str` or `Path`
-            - if filepath does not match a file or is not csv or tsv
-        """
-        if not isinstance(filepath, (str, Path)):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Expected a string or Path, got "
-                f"{type(filepath).__name__}"
-            )
-        filepath = Path(filepath).expanduser().resolve()
-        if not filepath.is_file() and not filepath.suffix.lower().endswith(
-            (".csv", ".tsv")
-        ):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB613.value}: "
-                "Path does not correspond to a CSV or TSV file"
-            )
-        return filepath
-
     @property
     def index_col(self):
         return self._index_col
-
-    @index_col.setter
-    def index_col(self, value: Optional[Union[int, str]]):
-        """Sets `index_col` property
-
-        Raises:
-            FedbiomedError: if value is not of type `int` or `str`
-        """
-        if value is not None:
-            if not isinstance(value, (int, str)):
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB613.value}: `index_col` should be of type "
-                    f"`int` or `str`, but got {type(value).__name__}"
-                )
-        self._index_col = value
 
     @property
     def demographics(self):
@@ -158,6 +112,47 @@ class MedicalFolderController(Controller):
         return self._subjects
 
     # === Functions ===
+    @staticmethod
+    def _validate_tabular_file(filepath: Union[str, Path]) -> Path:
+        """Validates `tabular_file` property
+
+        Raises:
+            FedbiomedError:
+            - if filepath is not of type `str` or `Path`
+            - if filepath does not match a file or is not csv or tsv
+        """
+        if filepath is None:
+            return None
+        if not isinstance(filepath, (str, Path)):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Expected a string or Path, got "
+                f"{type(filepath).__name__}"
+            )
+        filepath = Path(filepath).expanduser().resolve()
+        if not filepath.is_file() and not filepath.suffix.lower().endswith(
+            (".csv", ".tsv")
+        ):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB613.value}: "
+                "Path does not correspond to a CSV or TSV file"
+            )
+        return filepath
+
+    @staticmethod
+    def _validate_index_col(value: Optional[Union[int, str]]):
+        """Validates `index_col` property
+
+        Raises:
+            FedbiomedError: if value is not of type `int` or `str`
+        """
+        if value is not None:
+            if not isinstance(value, (int, str)):
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB613.value}: `index_col` should be of type "
+                    f"`int` or `str`, but got {type(value).__name__}"
+                )
+        return value
+
     @staticmethod
     def read_demographics(
         tabular_file: Union[str, Path],
@@ -209,7 +204,30 @@ class MedicalFolderController(Controller):
         return self.read_demographics(path).columns.values
 
     @staticmethod
-    def _make_df_dir(root: Path, extensions: tuple[str, ...]) -> pd.DataFrame:
+    def _validate_one_file_per_modality(df_dir: pd.DataFrame):
+        """Raises FedbiomedError if a pair <subject><modality> has more than one file"""
+        _files_count = (
+            df_dir.groupby(["subject", "modality"])["file"]
+            .count()
+            .reset_index(name="count")
+        )
+
+        _multiple_files = _files_count[_files_count["count"] != 1]
+        if not _multiple_files.empty:
+            _folders = ", ".join(
+                f"{row.subject}/{row.modality}"
+                for _, row in _multiple_files.head().iterrows()
+            )
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB613.value}: more than one valid file per modality "
+                f"has been found for next <subject>/<modality>: {_folders}, ..."
+            )
+
+    @staticmethod
+    def _make_df_dir(
+        root: Path,
+        extensions: tuple[str, ...] = _extensions,
+    ) -> pd.DataFrame:
         """Match files for expected structure.
         Filter files by extension and avoid hidden folders and files.
 
@@ -254,22 +272,7 @@ class MedicalFolderController(Controller):
         df_dir = pd.DataFrame(rows)
 
         # === Ensure one valid file per modality folder
-        _files_count = (
-            df_dir.groupby(["subject", "modality"])["file"]
-            .count()
-            .reset_index(name="count")
-        )
-
-        _multiple_files = _files_count[_files_count["count"] != 1]
-        if not _multiple_files.empty:
-            _folders = ", ".join(
-                f"{row.subject}/{row.modality}"
-                for _, row in _multiple_files.head().iterrows()
-            )
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB613.value}: more than one valid file per modality "
-                f"has been found for next <subject>/<modality>: {_folders}, ..."
-            )
+        MedicalFolderController._validate_one_file_per_modality(df_dir)
 
         return df_dir
 
@@ -287,7 +290,8 @@ class MedicalFolderController(Controller):
 
         Raises:
             FedbiomedError:
-            - if not all `modalities` were found in the folder structure
+            - if more than one file is identified as valid per <subject>/<modality>
+            - if not all modalities (given in DLP) were found in the folder structure
             - if no 'subject' has all `modalities`
 
         Returns:
@@ -300,13 +304,13 @@ class MedicalFolderController(Controller):
             else {_mod: [_mod] for _mod in df_dir["modality"].unique()}
         )
 
-        # TODO : Protections to modalities
-        # - folders repeated for different modalities ?
-        # - folders that do not match any modality ?
         reversed_map = {
             _val: _k for _k, _vals in modalities_to_folders.items() for _val in _vals
         }
         df_dir["modality"] = df_dir["modality"].map(reversed_map)
+
+        # === Ensure one valid file per modality after dlp
+        MedicalFolderController._validate_one_file_per_modality(df_dir)
 
         modalities = set(modalities_to_folders.keys())
         missing_modalities = modalities.difference(df_dir["modality"].unique())
@@ -348,13 +352,10 @@ class MedicalFolderController(Controller):
 
         Args:
             df_dir: filtered DataFrame where all subjects contain all modalities
-            modalities: list of modalities already validated alongside with df_dir
-            tabular_file: path to demographics file
-            index_col: Index column that matches <subject>
+            demographics: build with arguments `tabular_file` and `index_col`
 
         Raises:
             FedbiomedError:
-            - if one of `tabular_file` and `index_col` is given and the other is not
             - if empty intersection between subjects from folders and demographics
 
         Returns:
@@ -418,7 +419,7 @@ class MedicalFolderController(Controller):
                 index="subject",
                 columns="modality",
                 values="val",
-                fill_value=False,
+                fill_value=0,
             )
             .astype(bool)
         )
@@ -434,8 +435,7 @@ class MedicalFolderController(Controller):
                 how="outer",
             )
             # Fill missing values with False
-            fill_cols = ["in_folder", "in_index", *self.modalities]
-            df_[fill_cols] = df_[fill_cols].fillna(False)
+            df_ = df_.fillna(False)
 
         return {
             "columns": df_.columns.tolist(),
