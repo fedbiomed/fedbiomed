@@ -6,7 +6,6 @@ Classes that simplify imports from fedbiomed.common.dataloader
 """
 
 from ._dataloader import DataLoader
-from ._np_dataloader import NPDataLoader
 from ._pytorch_dataloader import (
     PytorchDataLoader,
     PytorchDataLoaderItem,
@@ -26,5 +25,4 @@ __all__ = [
     "SkLearnDataLoaderItemBatch",
     "SkLearnDataLoaderSampleBatch",
     "SkLearnDataLoader",
-    "NPDataLoader",
 ]
