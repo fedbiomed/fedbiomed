@@ -22,7 +22,7 @@ from helpers import (
     create_researcher,
     get_data_folder,
     create_multiple_nodes,
-    generate_sklearn_classification_dataset
+    generate_sklearn_classification_dataset,
 )
 
 from experiments.training_plans.sklearn import (
@@ -38,31 +38,33 @@ from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers.optimizer import Optimizer
-from fedbiomed.common.optimizers.declearn import YogiModule as FedYogi, ScaffoldServerModule
+from fedbiomed.common.optimizers.declearn import (
+    YogiModule as FedYogi,
+    ScaffoldServerModule,
+)
 from fedbiomed.common.utils import SHARE_DIR
 
-from sklearn import datasets
-import numpy as np
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
 def setup(port, post_session, request):
     """Setup fixture for the module"""
 
-    with create_multiple_nodes(port, 3, {'security': {'secure_aggregation': 'True'}}) as nodes:
-
+    with create_multiple_nodes(
+        port, 3, {"security": {"secure_aggregation": "True"}}
+    ) as nodes:
         node_1, node_2, node_3 = nodes  # pylint: disable=unbalanced-tuple-unpacking
 
         # Create researcher component
         researcher = create_researcher(port=port)
-                # Generate datasets
+        # Generate datasets
         p1, p2, p3 = generate_sklearn_classification_dataset()
         dataset = {
             "name": "MNIST",
             "description": "MNIST DATASET",
             "tags": "#csv-dataset-classification",
-            "data_type": "csv"}
-
+            "data_type": "csv",
+        }
 
         d1 = {**dataset, "path": p1}
         d2 = {**dataset, "path": p2}
@@ -71,29 +73,30 @@ def setup(port, post_session, request):
         add_dataset_to_node(node_2, d2)
         add_dataset_to_node(node_3, d3)
 
-
         # Add MNIST dataset
-        datafolder = get_data_folder('MNIST-e2e-test')
+        datafolder = get_data_folder("MNIST-e2e-test")
 
         dataset = {
             "name": "MNIST",
             "description": "MNIST DATASET",
             "tags": "#MNIST,#dataset",
             "data_type": "default",
-            "path": datafolder
+            "path": datafolder,
         }
         add_dataset_to_node(node_1, dataset)
         add_dataset_to_node(node_2, dataset)
         add_dataset_to_node(node_3, dataset)
 
-
-        data_path = os.path.join(SHARE_DIR, 'notebooks', 'data', 'CSV', 'pseudo_adni_mod.csv')
+        data_path = os.path.join(
+            SHARE_DIR, "notebooks", "data", "CSV", "pseudo_adni_mod.csv"
+        )
         dataset = {
             "name": "Adni dataset",
             "description": "Adni DATASET",
             "tags": "#adni",
             "data_type": "csv",
-            "path": data_path}
+            "path": data_path,
+        }
 
         add_dataset_to_node(node_1, dataset)
         add_dataset_to_node(node_2, dataset)
@@ -108,7 +111,6 @@ def setup(port, post_session, request):
         # Run tests
         yield node_1, node_2, node_3, researcher
 
-
         kill_subprocesses(node_processes)
         thread.join()
 
@@ -116,30 +118,18 @@ def setup(port, post_session, request):
         clear_component_data(researcher)
 
 
-
-
-
 RANDOM_SEED = 1234
 regressor_model_args = {
-    'max_iter':2000,
-    'tol': 1e-5,
-    'eta0':0.05,
-    'n_features': 6,
-    'random_state': RANDOM_SEED
+    "max_iter": 2000,
+    "tol": 1e-5,
+    "eta0": 0.05,
+    "n_features": 6,
+    "random_state": RANDOM_SEED,
 }
 
-per_model_args = {
-    'max_iter':1000,
-    'tol': 1e-3 ,
-    'n_features' : 20,
-    'n_classes' : 2
-}
+per_model_args = {"max_iter": 1000, "tol": 1e-3, "n_features": 20, "n_classes": 2}
 
-per_training_args = {
-    'epochs': 5,
-    'loader_args': { 'batch_size': 1 }
-}
-
+per_training_args = {"epochs": 5, "loader_args": {"batch_size": 1}}
 
 
 def test_01_sklearn_perceptron():
@@ -147,37 +137,40 @@ def test_01_sklearn_perceptron():
 
     # search for corresponding datasets across nodes datasets
     exp = Experiment(
-        tags=['#csv-dataset-classification'],
+        tags=["#csv-dataset-classification"],
         model_args=per_model_args,
         training_plan_class=PerceptronTraining,
         training_args=per_training_args,
         round_limit=2,
         aggregator=FedAverage(),
-        node_selection_strategy=None)
+        node_selection_strategy=None,
+    )
 
     exp.run()
 
     clear_experiment_data(exp)
+
 
 def test_02_sklearn_perceptron_custom_testing():
     """Tests sklearn perceptron using custom testing function in training plan"""
 
     per_training_args.update(
         {
-        'test_ratio': .3,
-        'test_on_local_updates': True,
-        'test_on_global_updates': True
+            "test_ratio": 0.3,
+            "test_on_local_updates": True,
+            "test_on_global_updates": True,
         }
     )
 
     exp = Experiment(
-        tags=['#csv-dataset-classification'],
+        tags=["#csv-dataset-classification"],
         model_args=per_model_args,
         training_plan_class=PerceptronTraining,
         training_args=per_training_args,
         round_limit=2,
         aggregator=FedAverage(),
-        node_selection_strategy=None)
+        node_selection_strategy=None,
+    )
 
     exp.run()
 
@@ -187,37 +180,37 @@ def test_02_sklearn_perceptron_custom_testing():
 def test_03_sklean_sgdregressor():
     """Test SGDRegressor using Adni dataset"""
 
-
     training_args = {
-        'epochs': 5,
-        'loader_args': { 'batch_size': 10, },
-        'test_ratio':.3,
-        'test_metric': MetricTypes.MEAN_SQUARE_ERROR,
-        'test_on_local_updates': True,
-        'test_on_global_updates': True
+        "epochs": 5,
+        "loader_args": {
+            "batch_size": 10,
+        },
+        "test_ratio": 0.3,
+        "test_metric": MetricTypes.MEAN_SQUARE_ERROR,
+        "test_on_local_updates": True,
+        "test_on_global_updates": True,
     }
 
-    tags =  ['#adni']
+    tags = ["#adni"]
     rounds = 3
 
     # select nodes participating to this experiment
-    exp = Experiment(tags=tags,
-                     model_args=regressor_model_args,
-                     training_plan_class=SGDRegressorTrainingPlan,
-                     training_args=training_args,
-                     round_limit=rounds,
-                     aggregator=FedAverage(),
-                     node_selection_strategy=None,
-                     save_breakpoints=True)
+    exp = Experiment(
+        tags=tags,
+        model_args=regressor_model_args,
+        training_plan_class=SGDRegressorTrainingPlan,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+        save_breakpoints=True,
+    )
 
     exp.run()
     exp_folder = exp.experimentation_path()
 
-    loaded_exp = Experiment.load_breakpoint(
-        os.path.join(exp_folder, 'breakpoint_0002')
-    )
+    loaded_exp = Experiment.load_breakpoint(os.path.join(exp_folder, "breakpoint_0002"))
     loaded_exp.run_once(increase=True)
-
 
     clear_experiment_data(exp)
     clear_experiment_data(loaded_exp)
@@ -229,41 +222,52 @@ def test_04_sklearn_sgdclassfier():
     n_features = 20
     n_classes = 3
 
-    model_args = {'max_iter':1000, 'tol': 1e-3 ,
-                   'n_features' : n_features, 'n_classes' : n_classes}
-
-    training_args = {
-        'epochs': 5,
-        'loader_args': { 'batch_size': 1, },
+    model_args = {
+        "max_iter": 1000,
+        "tol": 1e-3,
+        "n_features": n_features,
+        "n_classes": n_classes,
     }
 
-    tags =  ['#csv-dataset-classification']
+    training_args = {
+        "epochs": 5,
+        "loader_args": {
+            "batch_size": 1,
+        },
+    }
+
+    tags = ["#csv-dataset-classification"]
     rounds = 2
 
     # search for corresponding datasets across nodes datasets
-    exp = Experiment(tags=tags,
-                     model_args=model_args,
-                     training_plan_class=SGDClassifierTrainingPlan,
-                     training_args=training_args,
-                     round_limit=rounds,
-                     aggregator=FedAverage(),
-                     save_breakpoints=True)
+    exp = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=SGDClassifierTrainingPlan,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        save_breakpoints=True,
+    )
     exp.run()
     clear_experiment_data(exp)
 
+
 declearn_model_args = {
-    'n_features': 28*28,
-    'n_classes' : 10,
-    'eta0':1e-6,
-    'random_state':1234,
-    'alpha':0.1 }
+    "n_features": 28 * 28,
+    "n_classes": 10,
+    "eta0": 1e-6,
+    "random_state": 1234,
+    "alpha": 0.1,
+}
 
 declearn_training_args = {
-    'epochs': 3,
-    'batch_maxnum': 20,
-    'optimizer_args': {
-        "lr" : 1e-3 },
-    'loader_args': { 'batch_size': 4, },
+    "epochs": 3,
+    "batch_maxnum": 20,
+    "optimizer_args": {"lr": 1e-3},
+    "loader_args": {
+        "batch_size": 4,
+    },
 }
 
 
@@ -271,21 +275,22 @@ def test_05_sklearn_mnist_perceptron_with_declearn_optimizer():
     """Tests SGD classifier with Declearn optimizers"""
 
     # select nodes participating in this experiment
-    exp = Experiment(tags=["#MNIST", "#dataset"],
-                     model_args=declearn_model_args,
-                     training_plan_class=SkLearnClassifierTrainingPlanDeclearn,
-                     training_args=declearn_training_args,
-                     round_limit=4,
-                     aggregator=FedAverage(),
-                     node_selection_strategy=None,
-                     save_breakpoints=True
-                     )
+    exp = Experiment(
+        tags=["#MNIST", "#dataset"],
+        model_args=declearn_model_args,
+        training_plan_class=SkLearnClassifierTrainingPlanDeclearn,
+        training_args=declearn_training_args,
+        round_limit=4,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+        save_breakpoints=True,
+    )
 
     exp.run()
     exp_folder = exp.experimentation_path()
     del exp
 
-    loaded_exp = Experiment.load_breakpoint(os.path.join(exp_folder, 'breakpoint_0001'))
+    loaded_exp = Experiment.load_breakpoint(os.path.join(exp_folder, "breakpoint_0001"))
 
     # Run starting from a breakpoint
     loaded_exp.run_once(increase=True)
@@ -302,52 +307,56 @@ def test_06_sklearn_mnist_perceptron_with_declearn_optimizer_on_researcher_side(
         training_args=declearn_training_args,
         round_limit=4,
         aggregator=FedAverage(),
-        agg_optimizer=Optimizer(lr=.8, modules=[FedYogi()]),
+        agg_optimizer=Optimizer(lr=0.8, modules=[FedYogi()]),
         node_selection_strategy=None,
-        save_breakpoints=True
+        save_breakpoints=True,
     )
 
     exp.run()
     clear_experiment_data(exp)
 
 
-# Define paramters
+# Define parameters
 regressor_training_args = {
-    'epochs': 5,
-    'loader_args': { 'batch_size': 32, },
-    'test_ratio':.3,
-    'test_metric': MetricTypes.MEAN_SQUARE_ERROR,
-    'test_on_local_updates': True,
-    'test_on_global_updates': True
+    "epochs": 5,
+    "loader_args": {
+        "batch_size": 32,
+    },
+    "test_ratio": 0.3,
+    "test_metric": MetricTypes.MEAN_SQUARE_ERROR,
+    "test_on_local_updates": True,
+    "test_on_global_updates": True,
 }
-
 
 
 def test_07_sklearn_adni_regressor_with_declearn_optimizer():
     """Tests declearn optimizer with sgd regressor"""
 
-    tags =  ['#adni']
+    tags = ["#adni"]
     rounds = 5
 
     # select nodes participating to this experiment
-    exp = Experiment(tags=tags,
-                     model_args=regressor_model_args,
-                     training_plan_class=SGDRegressorTrainingPlanDeclearn,
-                     training_args=regressor_training_args,
-                     round_limit=rounds,
-                     aggregator=FedAverage(),
-                     node_selection_strategy=None)
+    exp = Experiment(
+        tags=tags,
+        model_args=regressor_model_args,
+        training_plan_class=SGDRegressorTrainingPlanDeclearn,
+        training_args=regressor_training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+    )
 
     exp.run()
     clear_experiment_data(exp)
 
+
 def test_08_sklearn_adni_regressor_with_scaffold():
     """Tests sgd regressor training plan using declearn scaffold"""
 
-    tags =  ['#adni']
+    tags = ["#adni"]
     rounds = 5
 
-    regressor_training_args.update({'optimizer_args': {'lr': 0.001}})
+    regressor_training_args.update({"optimizer_args": {"lr": 0.001}})
     # select nodes participating to this experiment
     exp = Experiment(
         tags=tags,
@@ -356,29 +365,29 @@ def test_08_sklearn_adni_regressor_with_scaffold():
         training_args=regressor_training_args,
         round_limit=rounds,
         aggregator=FedAverage(),
-        agg_optimizer=Optimizer(lr=.8, modules=[ScaffoldServerModule()]),
-        node_selection_strategy=None)
+        agg_optimizer=Optimizer(lr=0.8, modules=[ScaffoldServerModule()]),
+        node_selection_strategy=None,
+    )
 
     exp.run()
 
     clear_experiment_data(exp)
-
 
 
 def test_09_seklearn_adni_regressor_with_secureaggregation():
     """Test SGDRegressor by activating secure aggregation"""
 
-
     # select nodes participating to this experiment
-    exp = Experiment(tags=['#adni'],
-                     model_args=regressor_model_args,
-                     training_plan_class=SGDRegressorTrainingPlanDeclearn,
-                     training_args=regressor_training_args,
-                     round_limit=5,
-                     aggregator=FedAverage(),
-                     secagg=True,
-                     node_selection_strategy=None)
+    exp = Experiment(
+        tags=["#adni"],
+        model_args=regressor_model_args,
+        training_plan_class=SGDRegressorTrainingPlanDeclearn,
+        training_args=regressor_training_args,
+        round_limit=5,
+        aggregator=FedAverage(),
+        secagg=True,
+        node_selection_strategy=None,
+    )
 
     exp.run()
     clear_experiment_data(exp)
-

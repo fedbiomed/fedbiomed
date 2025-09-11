@@ -1,32 +1,31 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Interface with the component secure aggregation element database
-"""
-from abc import ABC, abstractmethod
-from typing import Union, List, Dict
+"""Interface with the component secure aggregation element database"""
+
 import base64
+from abc import ABC, abstractmethod
+from typing import Dict, List, Union
 
-from tinydb import TinyDB, Query
+from tinydb import Query, TinyDB
 
-from fedbiomed.common.utils import raise_for_version_compatibility, __default_version__
 from fedbiomed.common.constants import (
     ErrorNumbers,
     SecaggElementTypes,
-    __secagg_element_version__
+    __secagg_element_version__,
 )
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.singleton import SingletonMeta
+from fedbiomed.common.utils import __default_version__, raise_for_version_compatibility
 
-
-_TableName = 'SecaggManager'
+_TableName = "SecaggManager"
 
 
 class _SecaggTableSingleton(metaclass=SingletonMeta):
-    """Imstantiate secagg table object as singleton to ensure coherent acccess.
-    """
+    """Imstantiate secagg table object as singleton to ensure coherent access."""
+
     def __init__(self, db: TinyDB):
         """Constructor of the class
 
@@ -44,8 +43,7 @@ class _SecaggTableSingleton(metaclass=SingletonMeta):
 
 
 class BaseSecaggManager(ABC):
-    """Manage a component secagg element database
-    """
+    """Manage a component secagg element database"""
 
     def __init__(self, db_path: str):
         """Constructor of the class
@@ -60,9 +58,9 @@ class BaseSecaggManager(ABC):
             self._db = TinyDB(db_path)
             self._db.table_class = DBTable
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB623.value}: failed to access the database with error: {e}'
+            errmess = f"{ErrorNumbers.FB623.value}: failed to access the database with error: {e}"
             logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+            raise FedbiomedSecaggError(errmess) from e
 
         self._query = Query()
         self._table = _SecaggTableSingleton(self._db).table
@@ -85,27 +83,30 @@ class BaseSecaggManager(ABC):
         """
         try:
             entries = self._table.search(
-                self._query.secagg_id.exists() &
-                (self._query.secagg_id == secagg_id)
+                self._query.secagg_id.exists() & (self._query.secagg_id == secagg_id)
             )
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB623.value}: failed searching the database table "{self._table}" ' \
-                      f'for secagg element "{secagg_id}" with error: {e}'
+            errmess = (
+                f'{ErrorNumbers.FB623.value}: failed searching the database table "{self._table}" '
+                f'for secagg element "{secagg_id}" with error: {e}'
+            )
             logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+            raise FedbiomedSecaggError(errmess) from e
 
         if len(entries) > 1:
-            errmess = f'{ErrorNumbers.FB623.value}: database table "{self._table}" is inconsistent: ' \
-                      f'found {len(entries)} entries with unique secagg_id={secagg_id}'
+            errmess = (
+                f'{ErrorNumbers.FB623.value}: database table "{self._table}" is inconsistent: '
+                f"found {len(entries)} entries with unique secagg_id={secagg_id}"
+            )
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
         elif len(entries) == 1:
             element = entries[0]
             raise_for_version_compatibility(
-                element.get('secagg_version', __default_version__),
+                element.get("secagg_version", __default_version__),
                 __secagg_element_version__,
                 f"{ErrorNumbers.FB625.value}: Incompatible versions  (found %s but expected %s) for "
-                f"secagg element {secagg_id} in database {self._table}"
+                f"secagg element {secagg_id} in database {self._table}",
             )
         else:
             element = None
@@ -116,11 +117,13 @@ class BaseSecaggManager(ABC):
     def get(self, secagg_id: str, experiment_id: str):
         """Search for a data entry in component secagg element database"""
 
-    def _add_generic(self,
-                     secagg_elem: SecaggElementTypes,
-                     secagg_id: str,
-                     parties: List[str],
-                     specific: dict):
+    def _add_generic(
+        self,
+        secagg_elem: SecaggElementTypes,
+        secagg_id: str,
+        parties: List[str],
+        specific: dict,
+    ):
         """Add a new data entry for this `secagg_id` in database
 
         Check that no entry exists yet for `secagg_id` in the table.
@@ -135,20 +138,24 @@ class BaseSecaggManager(ABC):
             FedbiomedSecaggError: failed to insert in database
         """
         self._check_existing_entry_in_db(secagg_id)
-        specific.update({
-            'secagg_version': str(__secagg_element_version__),
-            'secagg_id': secagg_id,
-            'parties': parties,
-            'secagg_elem': secagg_elem.value
-        })
+        specific.update(
+            {
+                "secagg_version": str(__secagg_element_version__),
+                "secagg_id": secagg_id,
+                "parties": parties,
+                "secagg_elem": secagg_elem.value,
+            }
+        )
 
         try:
             self._table.insert(specific)
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB623.value}: failed adding an entry in table "{self._table}" ' \
-                      f'for secagg element={secagg_elem.name} secagg_id={secagg_id} with error: {e}'
+            errmess = (
+                f'{ErrorNumbers.FB623.value}: failed adding an entry in table "{self._table}" '
+                f"for secagg element={secagg_elem.name} secagg_id={secagg_id} with error: {e}"
+            )
             logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+            raise FedbiomedSecaggError(errmess) from e
 
     def _check_existing_entry_in_db(self, secagg_id: str):
         """Checks if an entry with the secagg_id has already been saved in the database: if so,
@@ -161,17 +168,21 @@ class BaseSecaggManager(ABC):
             FedbiomedSecaggError: if entry already exists
         """
         if self._get_generic(secagg_id) is not None:
-            errmess = f'{ErrorNumbers.FB623.value}: error adding element in table "{self._table}": ' \
-                      f' an entry already exists for secagg_id={secagg_id}'
+            errmess = (
+                f'{ErrorNumbers.FB623.value}: error adding element in table "{self._table}": '
+                f" an entry already exists for secagg_id={secagg_id}"
+            )
             logger.error(errmess)
             raise FedbiomedSecaggError(errmess)
 
-    def _raise_error_incompatible_requested_entry(self,
-                                                  entry: Union[None, Dict],
-                                                  component: SecaggElementTypes,
-                                                  secagg_id: str,
-                                                  experiment_id: str,
-                                                  database_operation_name: str = ''):
+    def _raise_error_incompatible_requested_entry(
+        self,
+        entry: Union[None, Dict],
+        component: SecaggElementTypes,
+        secagg_id: str,
+        experiment_id: str,
+        database_operation_name: str = "",
+    ):
         """Raises error if:
             - there is a mismatch between the saved and the current Component
             - there is a mismatch between the saved and the current `experiment_id`
@@ -189,21 +200,31 @@ class BaseSecaggManager(ABC):
         """
         errmess: str = None
         if entry is not None:
-            if entry['experiment_id'] != experiment_id:
-                errmess = f'{ErrorNumbers.FB623.value}: error {database_operation_name} {component.name} element: ' \
-                          f'an entry exists for secagg_id={secagg_id} but does not belong to ' \
-                          f'current experiment experiment_id={experiment_id}'
+            if entry["experiment_id"] != experiment_id:
+                errmess = (
+                    f"{ErrorNumbers.FB623.value}: error {database_operation_name} {component.name} element: "
+                    f"an entry exists for secagg_id={secagg_id} but does not belong to "
+                    f"current experiment experiment_id={experiment_id}"
+                )
 
-            if entry['secagg_elem'] != component.value:
-                errmess = f'{ErrorNumbers.FB623.value}: error {database_operation_name} {component.name} element: ' \
-                          f'an entry exists for secagg_id={secagg_id} and  experiment_id={experiment_id}' \
-                          f' but was saved as a {SecaggElementTypes.get_element_from_value(entry["secagg_elem"])}'
+            if entry["secagg_elem"] != component.value:
+                errmess = (
+                    f"{ErrorNumbers.FB623.value}: error {database_operation_name} {component.name} element: "
+                    f"an entry exists for secagg_id={secagg_id} and  experiment_id={experiment_id}"
+                    f" but was saved as a {SecaggElementTypes.get_element_from_value(entry['secagg_elem'])}"
+                )
 
             if errmess:
                 raise FedbiomedSecaggError(errmess)
 
     @abstractmethod
-    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: str):
+    def add(
+        self,
+        secagg_id: str,
+        parties: List[str],
+        context: Dict[str, int],
+        experiment_id: str,
+    ):
         """Add a new data entry in component secagg element database"""
 
     def _remove_generic(self, secagg_id: str, component: SecaggElementTypes) -> bool:
@@ -227,14 +248,15 @@ class BaseSecaggManager(ABC):
         try:
             # we could also test number of elements deleted for double check
             self._table.remove(
-                self._query.secagg_id.exists() &
-                (self._query.secagg_id == secagg_id)
+                self._query.secagg_id.exists() & (self._query.secagg_id == secagg_id)
             )
         except Exception as e:
-            errmess = f'{ErrorNumbers.FB623.value}: failed removing an entry from table "{self._table}" ' \
-                      f'for secagg element {component.value} secagg_id={secagg_id} with error: {e}'
+            errmess = (
+                f'{ErrorNumbers.FB623.value}: failed removing an entry from table "{self._table}" '
+                f"for secagg element {component.value} secagg_id={secagg_id} with error: {e}"
+            )
             logger.error(errmess)
-            raise FedbiomedSecaggError(errmess)
+            raise FedbiomedSecaggError(errmess) from e
 
         return True
 
@@ -244,8 +266,7 @@ class BaseSecaggManager(ABC):
 
 
 class SecaggServkeyManager(BaseSecaggManager):
-    """Manage the component server key secagg element database table
-    """
+    """Manage the component server key secagg element database table"""
 
     def __init__(self, db_path: str):
         """Constructor of the class
@@ -273,15 +294,19 @@ class SecaggServkeyManager(BaseSecaggManager):
 
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         element = self._get_generic(secagg_id)
-        self._raise_error_incompatible_requested_entry(element,
-                                                       SecaggElementTypes.SERVER_KEY,
-                                                       secagg_id,
-                                                       experiment_id,
-                                                       'getting')
+        self._raise_error_incompatible_requested_entry(
+            element, SecaggElementTypes.SERVER_KEY, secagg_id, experiment_id, "getting"
+        )
 
         return element
 
-    def add(self, secagg_id: str, parties: List[str], context: Dict[str, int], experiment_id: str):
+    def add(
+        self,
+        secagg_id: str,
+        parties: List[str],
+        context: Dict[str, int],
+        experiment_id: str,
+    ):
         """Add a new data entry for a context element in the secagg table
 
         Check that no entry exists yet for this `secagg_id` in the table.
@@ -298,7 +323,7 @@ class SecaggServkeyManager(BaseSecaggManager):
             SecaggElementTypes.SERVER_KEY,
             secagg_id,
             parties,
-            {'experiment_id': experiment_id, 'context': context}
+            {"experiment_id": experiment_id, "context": context},
         )
 
     def remove(self, secagg_id: str, experiment_id: str) -> bool:
@@ -318,18 +343,15 @@ class SecaggServkeyManager(BaseSecaggManager):
         # Trust argument type and value check from calling class for `secagg_id` (`SecaggSetup`, but not `Node`)
         # Don't trust `Node` for `experiment_id` type (may give `None`) but this is not an issue
         element = self._get_generic(secagg_id)
-        self._raise_error_incompatible_requested_entry(element,
-                                                       SecaggElementTypes.SERVER_KEY,
-                                                       secagg_id,
-                                                       experiment_id,
-                                                       'removing')
+        self._raise_error_incompatible_requested_entry(
+            element, SecaggElementTypes.SERVER_KEY, secagg_id, experiment_id, "removing"
+        )
         return self._remove_generic(secagg_id, SecaggElementTypes.SERVER_KEY)
 
 
 class SecaggDhManager(BaseSecaggManager):
     # FIXME: this should be called `SecaggDHManager`
-    """Manage the secagg table elements for Diffie Hellman components
-    """
+    """Manage the secagg table elements for Diffie Hellman components"""
 
     def get(self, secagg_id: str, experiment_id: str) -> Union[dict, None]:
         """Search for data entry with given `secagg_id`
@@ -348,22 +370,31 @@ class SecaggDhManager(BaseSecaggManager):
         """
         # Trust argument type and value check from calling class (`SecaggSetup`, `Node`)
         element = self._get_generic(secagg_id)
-        self._raise_error_incompatible_requested_entry(element,
-                                                       SecaggElementTypes.DIFFIE_HELLMAN,
-                                                       secagg_id,
-                                                       experiment_id,
-                                                       'getting')
+        self._raise_error_incompatible_requested_entry(
+            element,
+            SecaggElementTypes.DIFFIE_HELLMAN,
+            secagg_id,
+            experiment_id,
+            "getting",
+        )
 
         if element:
             # Need to convert to keys as bytes
             context_bytes = {
-                node_id: bytes(base64.b64decode(key)) \
-                    for node_id, key in element['context'].items()}
-            element['context'] = context_bytes
+                node_id: bytes(base64.b64decode(key))
+                for node_id, key in element["context"].items()
+            }
+            element["context"] = context_bytes
 
         return element
 
-    def add(self, secagg_id: str, parties: List[str], context: Dict[str, bytes], experiment_id: str):
+    def add(
+        self,
+        secagg_id: str,
+        parties: List[str],
+        context: Dict[str, bytes],
+        experiment_id: str,
+    ):
         """Add a new data entry for a context element in the secagg table
 
         Check that no entry exists yet for this `secagg_id` in the table.
@@ -375,13 +406,16 @@ class SecaggDhManager(BaseSecaggManager):
             context: server key part held by this party
         """
         # Save key pairs as `str`` since it is the format support by JSON. Need to convert to `base64` first
-        context_json = {node_id: str(base64.b64encode(key), 'utf-8') for node_id, key in context.items()}
+        context_json = {
+            node_id: str(base64.b64encode(key), "utf-8")
+            for node_id, key in context.items()
+        }
 
         self._add_generic(
             SecaggElementTypes.DIFFIE_HELLMAN,
             secagg_id,
             parties,
-            {'experiment_id': experiment_id, 'context': context_json}
+            {"experiment_id": experiment_id, "context": context_json},
         )
 
     def remove(self, secagg_id: str, experiment_id: str) -> bool:
@@ -403,9 +437,11 @@ class SecaggDhManager(BaseSecaggManager):
         # Trust argument type and value check from calling class for `secagg_id` (`SecaggSetup`, but not `Node`)
         # Don't trust `Node` for `experiment_id` type (may give `None`) but this is not an issue
         element = self._get_generic(secagg_id)
-        self._raise_error_incompatible_requested_entry(element,
-                                                       SecaggElementTypes.DIFFIE_HELLMAN,
-                                                       secagg_id,
-                                                       experiment_id,
-                                                       'removing')
+        self._raise_error_incompatible_requested_entry(
+            element,
+            SecaggElementTypes.DIFFIE_HELLMAN,
+            secagg_id,
+            experiment_id,
+            "removing",
+        )
         return self._remove_generic(secagg_id, SecaggElementTypes.DIFFIE_HELLMAN)

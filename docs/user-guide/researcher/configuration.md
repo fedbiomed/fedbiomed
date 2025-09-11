@@ -54,12 +54,13 @@ Here is an example configuration file:
 [default]
 id = RESEARCHER_2ba562cc-6943-4430-8f79-cb3877b2ea79
 component = RESEARCHER
-version = 3
+version = 3.1.0
 db = ../var/db_RESEARCHER_2ba562cc-6943-4430-8f79-cb3877b2ea79.json
 
 [server]
 host = localhost
 port = 50051
+node_disconnection_timeout = 10
 
 [certificate]
 private_key = certs/server_certificate.key
@@ -80,6 +81,8 @@ This file contains settings for connecting to a server, managing security certif
 ### `[server]`
 - **host**: Defines the server host address to connect to.
 - **port**: Specifies the port number `50051` for the server connection.
+- **node_disconneciton_timeout**: A node is considered disconnected if it does not subscribe to new tasks within a given number of seconds.
+
 ### `[certificate]`
 - **private_key**: The path to the server's private key, which is used for secure communication.
 - **public_key**: The path to the server's public key, stored at `certs/server_certificate.pem`, which is used for encryption in secure communications.
@@ -137,5 +140,11 @@ fedbiomed researcher --path /path/to/another-researcher start
 2. **Communication Errors:** Verify the IP address, port, and certificates in the configuration file.
 3. **Permission Denied:** Check that you have write permissions for the working directory.
 
+
+### Running Researcher with delayed Network and Heavy ML Models
+
+In real-world applications, communication delays can be significant, causing default settings to fail. One encountered issue is that nodes may be considered disconnected if they do not re-subscribe to tasks from the researcher within a certain time frame. By default, the researcher expects nodes to send a new task subscription request within 10 seconds. However, due to network latency, message processing time, or other delays, node reconnection or subscription may take longer than 10 seconds.
+
+To address this, you can adjust the timeout setting on the researcher server using the `node_disconnection_timeout` configuration parameter.
 
 

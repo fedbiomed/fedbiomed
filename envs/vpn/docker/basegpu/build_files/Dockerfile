@@ -1,7 +1,7 @@
 # temporary builder image for wireguard tools
 # - need coherent system version with base image
 # - may need update for properly compiling boringtun
-# - 2023-05: `12.1.1-base-ubuntu22.04` is uptodate version 
+# - 2023-05: `12.1.1-base-ubuntu22.04` is up-to-date version 
 FROM nvidia/cuda:12.1.1-base-ubuntu22.04 AS builder
 
 RUN apt-get update && apt-get install -y git build-essential cargo

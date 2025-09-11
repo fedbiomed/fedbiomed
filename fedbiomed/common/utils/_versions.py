@@ -9,22 +9,27 @@ See https://fedbiomed.org/latest/user-guide/deployment/versions or
 ./doc/user-guide/deployment/versions.md for more information
 """
 
-from packaging.version import Version
 from typing import Optional, Union
-from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.logger import logger
-from fedbiomed.common.exceptions import FedbiomedVersionError
 
+from packaging.version import Version
+
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedVersionError
+from fedbiomed.common.logger import logger
 
 FBM_Component_Version = Version  # for Typing
 """The Type of objects representing version numbers in Fed-BioMed"""
 
-__default_version__ = Version('0')  # default version to assign to any component before versioning was introduced
+__default_version__ = Version(
+    "0"
+)  # default version to assign to any component before versioning was introduced
 
 
-def _create_msg_for_version_check(error_msg: str,
-                                  their_version: FBM_Component_Version,
-                                  our_version: FBM_Component_Version) -> str:
+def _create_msg_for_version_check(
+    error_msg: str,
+    their_version: FBM_Component_Version,
+    our_version: FBM_Component_Version,
+) -> str:
     """Utility function to put together a nice error message when versions don't exactly match.
 
     Args:
@@ -44,9 +49,11 @@ def _create_msg_for_version_check(error_msg: str,
     return msg
 
 
-def raise_for_version_compatibility(their_version: Union[FBM_Component_Version, str],
-                                    our_version: Union[FBM_Component_Version, str],
-                                    error_msg: Optional[str] = None) -> None:
+def raise_for_version_compatibility(
+    their_version: Union[FBM_Component_Version, str],
+    our_version: Union[FBM_Component_Version, str],
+    error_msg: Optional[str] = None,
+) -> None:
     """Check version compatibility and behave accordingly.
 
     Raises an exception if the versions are incompatible, otherwise outputs a warning or info message.
@@ -76,20 +83,25 @@ def raise_for_version_compatibility(their_version: Union[FBM_Component_Version, 
         # note: the checks below rely on the short-circuiting behaviour of the or operator
         # (e.g. when checking our_version.minor < their_version.minor we have the guarantee that
         # our_version.major == their_version.major
-        if our_version.major != their_version.major or \
-                our_version.minor < their_version.minor or \
-                (our_version.minor == their_version.minor and our_version.micro < their_version.micro):
+        if (
+            our_version.major != their_version.major
+            or our_version.minor < their_version.minor
+            or (
+                our_version.minor == their_version.minor
+                and our_version.micro < their_version.micro
+            )
+        ):
             msg = _create_msg_for_version_check(
-                f"{ErrorNumbers.FB625.value}: Found incompatible version %s, expected version %s" if error_msg is None else error_msg,
+                f"{ErrorNumbers.FB625.value}: Found incompatible version %s, expected version %s"
+                if error_msg is None
+                else error_msg,
                 their_version,
-                our_version
+                our_version,
             )
             logger.critical(msg)
             raise FedbiomedVersionError(msg)
         else:
             msg = _create_msg_for_version_check(
-                "Found version %s, expected version %s",
-                their_version,
-                our_version
+                "Found version %s, expected version %s", their_version, our_version
             )
             logger.warning(msg)

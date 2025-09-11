@@ -136,12 +136,12 @@ class TorchDataManager(object):
             raise FedbiomedTorchDataManagerError(
                 f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
                 f"{str(self._dataset)} due to undefined attribute, {str(e)}"
-            )
+            ) from e
         except TypeError as e:
             raise FedbiomedTorchDataManagerError(
                 f"{ErrorNumbers.FB608.value}: Can not get number of samples from "
                 f"{str(self._dataset)}, {str(e)}"
-            )
+            ) from e
 
         if self.test_ratio != test_ratio and self.test_ratio is not None:
             if not is_shuffled_testing_dataset:
@@ -170,7 +170,6 @@ class TorchDataManager(object):
             self.training_index = self._subset_train.indices
 
         if not test_batch_size:
-
             test_batch_size = len(self._subset_test)
 
         self.test_ratio = test_ratio
@@ -221,8 +220,7 @@ class TorchDataManager(object):
 
     @staticmethod
     def rng(
-        rng: Optional[int] = None,
-        device: Optional[str | torch.device] = None
+        rng: Optional[int] = None, device: Optional[str | torch.device] = None
     ) -> Union[None, torch.Generator]:
         """Random number generator
 
@@ -233,7 +231,6 @@ class TorchDataManager(object):
         return None if rng is None else torch.Generator(device).manual_seed(rng)
 
     def _load_indexes(self, training_index: List[int], testing_index: List[int]):
-
         self.testing_index = testing_index
         self.training_index = training_index
 

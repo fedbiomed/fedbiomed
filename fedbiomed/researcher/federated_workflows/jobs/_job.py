@@ -3,9 +3,9 @@
 
 """Manage the training part of the experiment."""
 
-from abc import ABC, abstractmethod
 import time
-from typing import Any, Dict, List
+from abc import ABC, abstractmethod
+from typing import Any, List
 
 from fedbiomed.researcher.requests import RequestPolicy, Requests
 
@@ -34,7 +34,7 @@ class Job(ABC):
         researcher_id: str,
         requests: Requests,
         nodes: List[str] | None,
-        keep_files_dir: str
+        keep_files_dir: str,
     ):
         """Constructor of the class
 
@@ -49,7 +49,9 @@ class Job(ABC):
 
         self._researcher_id = researcher_id
         self._reqs = requests
-        self._nodes: List[str] = nodes or []  # List of node ids participating in this task
+        self._nodes: List[str] = (
+            nodes or []
+        )  # List of node ids participating in this task
         self._keep_files_dir = keep_files_dir
         self._policies: List[RequestPolicy] | None = None
 
@@ -61,7 +63,7 @@ class Job(ABC):
     def nodes(self) -> List[str]:
         return self._nodes
 
-    # FIXME: this method is very basic, and doesnot compute the total time of request since it waits for all requests
+    # FIXME: this method is very basic, and doesn't compute the total time of request since it waits for all requests
     # before computing elapsed time
     class RequestTimer:
         """Context manager that computes the processing time elapsed for the request and the reply
@@ -77,6 +79,7 @@ class Job(ABC):
         # {node_1: 2.22, node_2: 2.21} # request time for each Node in second
         ```
         """
+
         def __init__(self, nodes: List[str]):
             """
             Constructor of NodeTimer
@@ -84,16 +87,22 @@ class Job(ABC):
             Args:
                 nodes: existing nodes that will be requested for the Job
             """
-            self._timer = {node_id: 0.  for node_id in nodes}
+            self._timer = {node_id: 0.0 for node_id in nodes}
 
         def __enter__(self):
-            self._timer.update({node_id: time.perf_counter() for node_id in self._timer.keys()})
+            self._timer.update(
+                {node_id: time.perf_counter() for node_id in self._timer.keys()}
+            )
             return self._timer
 
         def __exit__(self, type, value, traceback):
-            self._timer.update({node_id: time.perf_counter() - self._timer[node_id] for node_id in self._timer.keys()})
+            self._timer.update(
+                {
+                    node_id: time.perf_counter() - self._timer[node_id]
+                    for node_id in self._timer.keys()
+                }
+            )
             return self._timer
-
 
     @abstractmethod
     def execute(self) -> Any:

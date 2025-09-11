@@ -4,7 +4,7 @@
 """Scikit-learn interfacing Model classes."""
 
 import sys
-from abc import abstractmethod, ABCMeta
+from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from copy import deepcopy
 from io import StringIO
@@ -16,10 +16,10 @@ from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 
-from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.models import Model
+from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.models import Model
 
 
 @contextmanager
@@ -67,7 +67,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     # Instance attributes' annotations - merely for the docs parser.
     model: BaseEstimator
     _null_optim_params: Dict[str, Any]
-    _optim_params: Dict[str, Any] # optimizer parameters set by user
+    _optim_params: Dict[str, Any]  # optimizer parameters set by user
 
     def __init__(
         self,
@@ -99,9 +99,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             )
 
     def get_weights(
-        self,
-        only_trainable: bool = False,
-        exclude_buffers: bool = True
+        self, only_trainable: bool = False, exclude_buffers: bool = True
     ) -> Dict[str, np.ndarray]:
         """Return a copy of the model's trainable weights.
 
@@ -140,9 +138,9 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             ) from err
         return weights
 
-    def flatten(self,
-                only_trainable: bool = False,
-                exclude_buffers: bool = True) -> List[float]:
+    def flatten(
+        self, only_trainable: bool = False, exclude_buffers: bool = True
+    ) -> List[float]:
         """Gets weights as flatten vector
 
         Args:
@@ -164,10 +162,10 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         return flatten
 
     def unflatten(
-            self,
-            weights_vector: List[float],
-            only_trainable: bool = False,
-            exclude_buffers: bool = True
+        self,
+        weights_vector: List[float],
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
     ) -> Dict[str, np.ndarray]:
         """Unflatten vectorized model weights
 
@@ -191,7 +189,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         params = {}
         for key, w in weights.items():
             num_param = w.size
-            params[key] = weights_vector[pointer: pointer + num_param].reshape(w.shape)
+            params[key] = weights_vector[pointer : pointer + num_param].reshape(w.shape)
 
             pointer += num_param
 
@@ -280,8 +278,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         #       hence eta_t * avg(grad_s) = w_init - (w_updt / B)
 
         self._gradients = {
-            key: w_init[key] - (w_updt[key] / batch_size)
-            for key in self.param_list
+            key: w_init[key] - (w_updt[key] / batch_size) for key in self.param_list
         }
 
         # ------------------------------ WARNINGS ----------------------------------
@@ -383,7 +380,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             logger.warning(
                 "The following non-default model parameters were overridden "
                 f"due to the disabling of the scikit-learn internal optimizer:\n\t{changed}",
-                broadcast=True
+                broadcast=True,
             )
 
     def enable_internal_optimizer(self) -> None:
@@ -404,7 +401,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
         !!! info "Notes":
             This method is designed to save the model to a local dump
-            file for easy re-use by the same user, possibly outside of
+            file for easy reuse by the same user, possibly outside of
             Fed-BioMed. It is not designed to produce trustworthy data
             dumps and is not used to exchange models and their weights
             as part of the federated learning process.
@@ -440,7 +437,6 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             logger.critical(err_msg)
             raise FedbiomedModelError(err_msg)
         self.model = model
-
 
     def _reload(self, filename: str) -> None:
         """Model-class-specific backend to the `reload` method.
@@ -481,7 +477,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
 
 class SGDSkLearnModel(BaseSkLearnModel, metaclass=ABCMeta):
-    """BaseSkLearnModel abstract subclass for geenric SGD-based models."""
+    """BaseSkLearnModel abstract subclass for generic SGD-based models."""
 
     _model_type: ClassVar[Union[Type[SGDClassifier], Type[SGDRegressor]]]
 
@@ -490,9 +486,10 @@ class SGDSkLearnModel(BaseSkLearnModel, metaclass=ABCMeta):
     def __init__(self, model: BaseEstimator) -> None:
         super().__init__(model)
         self._null_optim_params: Dict[str, Any] = {
-            'eta0': 1.0,
-            'learning_rate': "constant",
+            "eta0": 1.0,
+            "learning_rate": "constant",
         }
+
     def get_learning_rate(self) -> List[float]:
         return [self.model.eta0]
 
@@ -544,7 +541,7 @@ class SGDClassifierSKLearnModel(SGDSkLearnModel):
             setattr(self.model, key, val)
         # Also initialize the "classes_" slot with unique predictable labels.
         # FIXME: this assumes target values are integers in range(n_classes).
-        setattr(self.model, "classes_", np.arange(n_classes))
+        self.model.classes_ = np.arange(n_classes)
 
 
 class MLPSklearnModel(BaseSkLearnModel, metaclass=ABCMeta):  # just for sake of demo

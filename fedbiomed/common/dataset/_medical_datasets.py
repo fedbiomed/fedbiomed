@@ -7,243 +7,26 @@ Provides classes managing dataset for common cases of use in healthcare:
 - NIFTI: For NIFTI medical images
 """
 
-from os import PathLike
 import os
-from pathlib import Path
-from typing import Union, Tuple, Dict, Iterable, Optional, List, Callable
 from enum import Enum
-
-import torch
-import pandas as pd
-
 from functools import cache
+from os import PathLike
+from pathlib import Path
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+
+import pandas as pd
+import torch
 from monai.data import ITKReader
-from monai.transforms import LoadImage, ToTensor, Compose
-from torch import Tensor
+from monai.transforms import Compose, LoadImage, ToTensor
 from torch.utils.data import Dataset
 
+from fedbiomed.common.constants import DataLoadingBlockTypes, DatasetTypes, ErrorNumbers
+from fedbiomed.common.dataloadingplan import DataLoadingPlanMixin
 from fedbiomed.common.exceptions import FedbiomedDatasetError, FedbiomedError
-from fedbiomed.common.constants import ErrorNumbers, DataLoadingBlockTypes, DatasetTypes
-from fedbiomed.common.data._data_loading_plan import DataLoadingPlanMixin
 
 
 class MedicalFolderLoadingBlockTypes(DataLoadingBlockTypes, Enum):
     MODALITIES_TO_FOLDERS: str = "modalities_to_folders"
-
-
-class NIFTIFolderDataset(Dataset):
-    """A Generic class for loading NIFTI Images using the folder structure as the target classes' labels.
-
-    Supported formats:
-    - NIFTI and compressed NIFTI files: `.nii`, `.nii.gz`
-
-    This is a Dataset useful in classification tasks. Its usage is quite simple, quite similar
-    to `torchvision.datasets.ImageFolder`.
-    Images must be contained in first level sub-folders (level 2+ sub-folders are ignored)
-    that describe the target class they belong to (target class label is the name of the folder).
-
-    ```
-    nifti_dataset_root_folder
-    ├── control_group
-    │   ├── subject_1.nii
-    │   └── subject_2.nii
-    │   └── ...
-    └── disease_group
-        ├── subject_3.nii
-        └── subject_4.nii
-        └── ...
-    ```
-
-    In this example, there are 4 samples (one from each *.nii file),
-    2 target class, with labels `control_group` and `disease_group`.
-    `subject_1.nii` has class label `control_group`, `subject_3.nii` has class label `disease_group`,etc.
-    """
-
-    # constant, thus can be a class variable
-    _ALLOWED_EXTENSIONS = [".nii", ".nii.gz"]
-
-    def __init__(
-        self,
-        root: Union[str, PathLike, Path],
-        transform: Union[Callable, None] = None,
-        target_transform: Union[Callable, None] = None,
-    ):
-        """Constructor of the class
-
-        Args:
-            root: folder where the data is located.
-            transform: transforms to be applied on data.
-            target_transform: transforms to be applied on target indexes.
-
-        Raises:
-            FedbiomedDatasetError: bad argument type
-            FedbiomedDatasetError: bad root path
-        """
-        # check parameters type
-        for tr, trname in (
-            (transform, "transform"),
-            (target_transform, "target_transform"),
-        ):
-            if not callable(tr) and tr is not None:
-                raise FedbiomedDatasetError(
-                    f"{ErrorNumbers.FB612.value}: Parameter {trname} has incorrect "
-                    f"type {type(tr)}, cannot create dataset."
-                )
-
-        if (
-            not isinstance(root, str)
-            and not isinstance(root, PathLike)
-            and not isinstance(root, Path)
-        ):
-            raise FedbiomedDatasetError(
-                f"{ErrorNumbers.FB612.value}: Parameter `root` has incorrect type "
-                f"{type(root)}, cannot create dataset."
-            )
-
-        # initialize object variables
-        self._files = []
-        self._class_labels = []
-        self._targets = []
-
-        try:
-            self._root_dir = Path(root).expanduser()
-        except RuntimeError as e:
-            raise FedbiomedDatasetError(
-                f"{ErrorNumbers.FB612.value}: Cannot expand path {root}, error message is: {e}"
-            )
-
-        self._transform = transform
-        self._target_transform = target_transform
-        self._reader = Compose([LoadImage(ITKReader(), image_only=True), ToTensor()])
-
-        self._explore_root_folder()
-
-    def _explore_root_folder(self) -> None:
-        """Scans all files found in folder structure to populate dataset
-
-        Raises:
-            FedbiomedDatasetError: If compatible image files/folders for input or target are not found.
-        """
-
-        # Search files that correspond to the following criteria:
-        # 1. Extension in ALLOWED extensions
-        # 2. File folder's parent must be root (inspects folder only one level of depth)
-        self._files = [
-            p.resolve()
-            for p in self._root_dir.glob("*/*")
-            if "".join(p.suffixes) in self._ALLOWED_EXTENSIONS
-        ]
-
-        # note: no PermissionError raised. If directory cannot be listed it is ignored
-        # except PermissionError as e:
-        #    # can other exceptions occur ?
-        #    raise FedbiomedDatasetError(
-        #        f"{ErrorNumbers.FB612.value}: Cannot create dataset because scan of "
-        #        f"directory {self._root_dir} failed with error message: {e}.")
-
-        # Create class labels dictionary
-        self._class_labels = list(set([p.parent.name for p in self._files]))
-
-        # Assign numerical value to target 0...n_classes
-        self._targets = torch.tensor(
-            [self._class_labels.index(p.parent.name) for p in self._files]
-        ).long()
-
-        # Raise error if empty dataset
-        if len(self._files) == 0 or len(self._targets) == 0:
-            raise FedbiomedDatasetError(
-                f"{ErrorNumbers.FB612.value}: Cannot create dataset because no compatible files found"
-                f" in first level subdirectories of {self._root_dir}."
-            )
-
-    def labels(self) -> List[str]:
-        """Retrieves the labels of the target classes.
-
-        Target label index is the index of the corresponding label in this list.
-
-        Returns:
-            List of the labels of the target classes.
-        """
-        return self._class_labels
-
-    def files(self) -> List[Path]:
-        """Retrieves the paths to the sample images.
-
-        Gives sames order as when retrieving the sample images (eg `self.files[0]`
-        is the path to `self.__getitem__[0]`)
-
-        Returns:
-            List of the absolute paths to the sample images
-        """
-        return self._files
-
-    def __getitem__(self, item: int) -> Tuple[Tensor, int]:
-        """Gets item from dataset
-
-        If `transform` is not `None`, applies it to the image.
-        If `target_transform` is not `None`, applies it to the target class index
-
-        Args:
-            item: Index to select single sample from dataset
-
-        Returns:
-            A tuple composed of the input sample (an image) and a target sample index (label index).
-
-        Raises:
-            FedbiomedDatasetError: bad argument type
-            FedbiomedDatasetError: cannot get sample
-            FedbiomedDatasetError: cannot apply transform to sample
-        """
-        # check type and value for arguments
-        if not isinstance(item, int):
-            raise FedbiomedDatasetError(
-                f"{ErrorNumbers.FB612.value}: Parameter `item` has incorrect type {type(item)}, "
-                f"cannot get item from dataset."
-            )
-        if item < 0 or item >= len(self._files):
-            # need an IndexError, cannot use a FedbiomedDatasetError
-            raise IndexError(f"Bad index {item} in dataset samples")
-
-        try:
-            img = self._reader(self._files[item])
-        except Exception as e:
-            # many possible errors, too hard to list
-            raise FedbiomedDatasetError(
-                f"{ErrorNumbers.FB612.value}: Cannot get sample number {item} from dataset, "
-                f"error message is {e}."
-            )
-
-        target = int(self._targets[item])
-
-        if self._transform is not None:
-            try:
-                img = self._transform(img)
-            except Exception as e:
-                # cannot list all exceptions
-                raise FedbiomedDatasetError(
-                    f"{ErrorNumbers.FB612.value}: Cannot apply transformation to source sample number {item} "
-                    f"from dataset, error message is {e}."
-                )
-
-        if self._target_transform is not None:
-            try:
-                target = int(self._target_transform(target))
-            except Exception as e:
-                # cannot list all exceptions
-                raise FedbiomedDatasetError(
-                    f"{ErrorNumbers.FB612.value}: Cannot apply transformation to target sample number {item} "
-                    f"from dataset, error message is {e}."
-                )
-
-        return img, target
-
-    def __len__(self) -> int:
-        """Gets number of samples in the dataset.
-
-        Returns:
-            Number of samples in the dataset.
-        """
-        return len(self._files)
 
 
 class MedicalFolderBase(DataLoadingPlanMixin):
@@ -348,11 +131,11 @@ class MedicalFolderBase(DataLoadingPlanMixin):
                 f"{ErrorNumbers.FB613.value}: Expected a list for modalities, "
                 f"but got {type(modalities)}"
             )
-        if not all([type(m) is str for m in modalities]):
+        if not all([isinstance(m, str) for m in modalities]):
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB613.value}: Expected a list of string for modalities, "
                 f"but some modalities are "
-                f"{' '.join([str(type(m) for m in modalities if isinstance(m, str))])}"
+                f"{' '.join([str(type(m) for m in modalities if not isinstance(m, str))])}"
             )
         are_modalities_existing = list()
         for modality in modalities:
@@ -423,7 +206,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB613.value}: Cannot access folders for subject "
                 f"{subject_or_folder}. Error message is: {e}"
-            )
+            ) from e
         folder = modality_folders.intersection(subject_subfolders)
 
         if len(folder) == 0 or len(folder) > 1:
@@ -504,14 +287,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
             FedbiomedDatasetError: bad file format or a drectory
         """
         path = Path(path)
-        if not path.is_file():
-            raise FedbiomedDatasetError(
-                f"{ErrorNumbers.FB613.value}: Demographics should be , but got a folder {path.name}"
-            )
-        if path.suffix.lower() not in (
-            ".csv",
-            ".tsv",
-        ):
+        if not path.is_file() or path.suffix.lower() not in [".csv", ".tsv"]:
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB613.value}: Demographics should be CSV or TSV files"
             )
@@ -694,7 +470,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                     raise FedbiomedDatasetError(
                         f"{ErrorNumbers.FB613.value}: Cannot apply transformation to modality `{modality}` in "
                         f"sample number {item} from dataset, error message is {e}."
-                    )
+                    ) from e
 
         # Apply transforms to demographics elements
         if self._demographics_transform is not None:
@@ -706,7 +482,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                     f"sample number {item} from dataset. Error message: {repr(e)}. "
                     f"If the dataset was loaded without a demographics file, please ensure that the provided "
                     f"demographics transform immediately returns an empty dict when an empty dict is given as input."
-                )
+                ) from e
 
         # Try to convert demographics to tensor one last time
         if isinstance(demographics, dict) and len(demographics) == 0:
@@ -722,7 +498,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                     f"Please use demographics_transformation argument of BIDSDataset to convert "
                     f"the results manually or provide a data type that can be easily converted.\n"
                     f"Reason for failed conversion: {e}"
-                )
+                ) from e
 
         # Apply transform to target elements
         if self._target_transform is not None:
@@ -733,7 +509,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
                     raise FedbiomedDatasetError(
                         f"{ErrorNumbers.FB613.value}: Cannot apply target transformation to modality `{modality}`"
                         f"in sample number {item} from dataset, error message is {e}."
-                    )
+                    ) from e
 
         return (data, demographics), targets
 
@@ -810,7 +586,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         self._index_col = value
 
     @property
-    @cache
+    @cache  # noqa: B019
     def demographics(self) -> pd.DataFrame:
         """Loads tabular data file (supports excel, csv, tsv and colon separated value files)."""
 
@@ -825,7 +601,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB613.value}: Can not load demographics tabular file. "
                 f"Error message is: {e}"
-            )
+            ) from e
 
         # Keep the first one in duplicated subjects
         return demographics.loc[~demographics.index.duplicated(keep="first")]
@@ -843,7 +619,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         return complete_subjects
 
     @property
-    @cache
+    @cache  # noqa: B019
     def subjects_registered_in_demographics(self):
         """Gets the subject only those who are present in the demographics file."""
         if self.demographics is None:
@@ -893,7 +669,7 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
         Returns:
             Subject image data as victories where keys represent each modality.
         """
-        # FIXME: improvment suggestion of this function at #1279
+        # FIXME: improvement suggestion of this function at #1279
 
         subject_data = {}
 
@@ -1169,7 +945,7 @@ class MedicalFolderController(MedicalFolderBase):
         except FedbiomedError as e:
             raise FedbiomedDatasetError(
                 f"{ErrorNumbers.FB613.value}: Can not create Medical Folder dataset. {e}"
-            )
+            ) from e
 
         if self._dlp is not None:
             dataset.set_dlp(self._dlp)

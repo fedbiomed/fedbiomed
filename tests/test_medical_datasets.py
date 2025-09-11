@@ -16,21 +16,22 @@ import pandas as pd
 import torch
 
 from torch.utils.data import DataLoader
-from monai.transforms import GaussianSmooth
+from monai.transforms import (
+    GaussianSmooth,
+)
 from fedbiomed.common.exceptions import (
     FedbiomedDatasetError,
     FedbiomedLoadingBlockError,
 )
 from torch.utils.data import Dataset
 from torchvision.transforms import Lambda
-from fedbiomed.common.data import (
+from fedbiomed.common.dataset import (
     MedicalFolderDataset,
     MedicalFolderBase,
     MedicalFolderController,
     MedicalFolderLoadingBlockTypes,
-    DataLoadingPlan,
-    MapperBlock,
 )
+from fedbiomed.common.dataloadingplan import DataLoadingPlan, MapperBlock
 
 
 def _generate_image_names(
@@ -117,7 +118,7 @@ def _create_wrong_formatted_folder_for_medical_folder(root: str, n_samples: int)
         os.makedirs(subject_folder)
 
 
-## Utilities for testin DataLoadingPlan
+## Utilities for testing DataLoadingPlan
 modalities_to_folders = {
     "T1": ["T1siemens", "T1philips"],
     "T2": ["T2"],
@@ -280,7 +281,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
             with self.assertRaises(FedbiomedDatasetError):
                 dataset[0]
         finally:
-            self.patcher.stop()  # make sure patcher is stopped (in order to avid propegating patch to other tests)
+            self.patcher.stop()  # make sure patcher is stopped (in order to avid propagating patch to other tests)
 
         # test case where `demographics` type is not correct
 
@@ -314,12 +315,12 @@ class TestMedicalFolderDataset(unittest.TestCase):
     def test_medical_folder_dataset_04_len(self):
         dataset = MedicalFolderDataset(self.root)
 
-        # check correct use of number of smaples
+        # check correct use of number of samples
         self.assertEqual(len(dataset), self.n_samples)
 
         # check __len__ behaviour when self.subject_folder returns an empty list
         patcher = patch(
-            "fedbiomed.common.data._medical_datasets.MedicalFolderDataset.subject_folders",
+            "fedbiomed.common.dataset._medical_datasets.MedicalFolderDataset.subject_folders",
             return_value=[],
         )
         patcher.start()
@@ -462,7 +463,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         )
 
         patcher = patch(
-            "fedbiomed.common.data._medical_datasets.MedicalFolderDataset.read_demographics",
+            "fedbiomed.common.dataset._medical_datasets.MedicalFolderDataset.read_demographics",
             side_effect=OSError,
         )
         patcher.start()
@@ -724,7 +725,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
         medical_folder_controller = MedicalFolderController(root=self.root)
 
         mfd_patcher = patch(
-            "fedbiomed.common.data.MedicalFolderDataset.__init__",
+            "fedbiomed.common.dataset.MedicalFolderDataset.__init__",
             side_effect=FedbiomedDatasetError,
         )
         mfd_patcher.start()
@@ -1108,7 +1109,7 @@ class TestMedicalFolderController(unittest.TestCase):
             sorted(csv_data[self.index_col].tolist()), sorted(res["index"])
         )
 
-        # in the folowing, we will run 5 tests with different size of patient_id
+        # in the following, we will run 5 tests with different size of patient_id
         patient_ids = csv_data[self.index_col].tolist()
         for _ in range(5):
             random.shuffle(patient_ids)

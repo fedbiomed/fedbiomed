@@ -26,9 +26,12 @@ Check specific installation guidelines for [Windows 11](../../user-guide/install
 
 ## Software packages
 
-Fed-BioMed is a Python-based framework that can be installed using the `pip` package manager. Therefore, please ensure that Python is installed on your system.
+Fed-BioMed is a Python-based framework that can be installed using the `pip` package manager. 
+Therefore, please ensure that Python is installed on your system.
 
-Fed-BioMed does not support a wide range of Python versions. Currently, the required Python version is **3.10**. To configure a specific Python version in your workspace, it is recommended to use tools such as [Conda](https://docs.conda.io/) or [pyenv](https://github.com/pyenv/pyenv).
+Fed-BioMed does not support a wide range of Python versions. 
+Currently, the required Python versions are **3.10,3.11**. 
+To configure a specific Python version in your workspace, it is recommended to use tools such as [Conda](https://docs.conda.io/) or [pyenv](https://github.com/pyenv/pyenv).
 
 
 !!! info "Docker"

@@ -3,8 +3,8 @@
 
 """API and wrappers to interface framework-specific and generic optimizers."""
 
-from abc import ABCMeta, abstractmethod
 import copy
+from abc import ABCMeta, abstractmethod
 from types import TracebackType
 from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
 
@@ -19,7 +19,6 @@ from fedbiomed.common.models import Model, SkLearnModel, TorchModel
 from fedbiomed.common.optimizers.declearn import AuxVar
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 
-
 OT = TypeVar("OT")  # generic type-annotation for wrapped optimizers
 """Generic TypeVar for framework-specific Optimizer types"""
 
@@ -29,14 +28,11 @@ class SklearnOptimizerProcessing:
     when disabling scikit-learn internal optimizer - ie when calling `disable_internal_optimizer` method
 
     """
+
     _model: SkLearnModel
     _disable_internal_optimizer: bool
 
-    def __init__(
-        self,
-        model: SkLearnModel,
-        disable_internal_optimizer: bool
-    ) -> None:
+    def __init__(self, model: SkLearnModel, disable_internal_optimizer: bool) -> None:
         """Constructor of the object. Sets internal variables
 
         Args:
@@ -53,10 +49,10 @@ class SklearnOptimizerProcessing:
             self._model.disable_internal_optimizer()
 
     def __exit__(
-            self,
-            type: Union[type[BaseException], None],
-            value: Union[BaseException, None],
-            traceback: Union[TracebackType, None],
+        self,
+        type: Union[type[BaseException], None],
+        value: Union[BaseException, None],
+        traceback: Union[TracebackType, None],
     ) -> None:
         """Called when leaving context manager.
 
@@ -74,7 +70,7 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
     _model_cls: Union[Type[Model], Type[SkLearnModel], Tuple[Type]]
 
     def __init__(self, model: Model, optimizer: OT):
-        """Constuctor of the optimizer wrapper that sets a reference to model and optimizer.
+        """Constructor of the optimizer wrapper that sets a reference to model and optimizer.
 
         Args:
             model: model to train, interfaced via a framework-specific Model.
@@ -94,16 +90,16 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         self.optimizer: OT = optimizer
 
     def init_training(self):
-        """Sets up training and misceallenous parameters so the model is ready for training
-        """
+        """Sets up training and misceallenous parameters so the model is ready for training"""
         self._model.init_training()
 
     @abstractmethod
     def step(self):
-        """Performs an optimisation step and updates model weights.
-        """
+        """Performs an optimisation step and updates model weights."""
 
-    def load_state(self, optim_state: Dict, load_from_state: bool = False) -> Union['BaseOptimizer', None]:
+    def load_state(
+        self, optim_state: Dict, load_from_state: bool = False
+    ) -> Union["BaseOptimizer", None]:
         """Reconfigures optimizer from a given state.
 
         This is the default method for optimizers that don't support state. Does nothing.
@@ -115,7 +111,9 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         Returns:
             None
         """
-        logger.warning("load_state method of optimizer not implemented, cannot load optimizer status")
+        logger.warning(
+            "load_state method of optimizer not implemented, cannot load optimizer status"
+        )
         return None
 
     def save_state(self) -> Union[Dict, None]:
@@ -126,7 +124,9 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
         Returns:
             None
         """
-        logger.warning("save_state method of optimizer not implemented, cannot save optimizer status")
+        logger.warning(
+            "save_state method of optimizer not implemented, cannot save optimizer status"
+        )
         return None
 
     def send_to_device(self, device: str, idx: Optional[int] = None):
@@ -139,12 +139,14 @@ class BaseOptimizer(Generic[OT], metaclass=ABCMeta):
 
 class DeclearnOptimizer(BaseOptimizer):
     """Base Optimizer subclass to use a declearn-backed Optimizer."""
+
     _model_cls: Tuple[Type] = (TorchModel, SkLearnModel)
     optimizer = None
-    #model = None
+    # model = None
 
-
-    def __init__(self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer]):
+    def __init__(
+        self, model: Model, optimizer: Union[FedOptimizer, declearn.optimizer.Optimizer]
+    ):
         """Constructor of Optimizer wrapper for declearn's optimizers
 
         Args:
@@ -162,7 +164,7 @@ class DeclearnOptimizer(BaseOptimizer):
                 f" but got an object with type {type(optimizer)}."
             )
         super().__init__(model, optimizer)
-        #self.optimizer.init_round()
+        # self.optimizer.init_round()
 
     def init_training(self):
         super().init_training()
@@ -174,10 +176,9 @@ class DeclearnOptimizer(BaseOptimizer):
         # Therefore, it is necessary to disable the sklearn internal optimizer beforehand
         # otherwise, computation will be incorrect
         grad = declearn.model.api.Vector.build(self._model.get_gradients())
-        weights = declearn.model.api.Vector.build(self._model.get_weights(
-            only_trainable=False,
-            exclude_buffers=True
-        ))
+        weights = declearn.model.api.Vector.build(
+            self._model.get_weights(only_trainable=False, exclude_buffers=True)
+        )
         updates = self.optimizer.step(grad, weights)
         self._model.apply_updates(updates.coefs)
 
@@ -194,7 +195,9 @@ class DeclearnOptimizer(BaseOptimizer):
     def count_nb_auxvar(self) -> int:
         return len(self.optimizer.get_aux_names())
 
-    def load_state(self, optim_state: Dict[str, Any], load_from_state: bool = False) -> 'DeclearnOptimizer':
+    def load_state(
+        self, optim_state: Dict[str, Any], load_from_state: bool = False
+    ) -> "DeclearnOptimizer":
         """Reconfigures optimizer from a given state (contained in `optim_state` argument).
         Usage:
         ```python
@@ -254,38 +257,48 @@ class DeclearnOptimizer(BaseOptimizer):
         """
         # state: breakpoint content for optimizer
         if not isinstance(optim_state, Dict):
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value}, incorrect type of argument `optim_state`: "
-                                          f"expecting a dict, but got {type(optim_state)}")
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB626.value}, incorrect type of argument `optim_state`: "
+                f"expecting a dict, but got {type(optim_state)}"
+            )
 
         if load_from_state:
             # first get Optimizer detailed in the TrainingPlan.
 
-            init_optim_state = self.optimizer.get_state()  # we have to get states since it is the only way we can
+            init_optim_state = (
+                self.optimizer.get_state()
+            )  # we have to get states since it is the only way we can
             # gather modules (other methods of `Optimizer are private`)
 
             optim_state_copy = copy.deepcopy(optim_state)
-            optim_state.update(init_optim_state)  # optim_state will be updated with current optimizer state
-            # check if opimizer state has changed from last optimizer to the current one
+            optim_state.update(
+                init_optim_state
+            )  # optim_state will be updated with current optimizer state
+            # check if optimizer state has changed from last optimizer to the current one
             # if it has changed, find common modules and update common states
-            for component in ( 'modules', 'regularizers',):
-                components_to_keep: List[Tuple[str, int]] = []  # we store here common Module between current Optimizer
+            for component in (
+                "modules",
+                "regularizers",
+            ):
+                components_to_keep: List[
+                    Tuple[str, int]
+                ] = []  # we store here common Module between current Optimizer
                 # and the ones in the `optim_state` tuple (common Module name, index in List)
 
-                if not init_optim_state['states'].get(component) or not optim_state_copy['states'].get(component):
+                if not init_optim_state["states"].get(
+                    component
+                ) or not optim_state_copy["states"].get(component):
                     continue
                 self._collect_common_optimodules(
-                    init_optim_state,
-                    optim_state_copy,
-                    component,
-                    components_to_keep
+                    init_optim_state, optim_state_copy, component, components_to_keep
                 )
 
                 for mod in components_to_keep:
-                    for mod_state in optim_state_copy['states'][component]:
+                    for mod_state in optim_state_copy["states"][component]:
                         if mod[0] == mod_state[0]:
                             # if we do find same module in the current optimizer than the previous one,
                             # we load the previous optimizer module state into the current one
-                            optim_state['states'][component][mod[1]] = mod_state
+                            optim_state["states"][component][mod[1]] = mod_state
 
             logger.info("Loading optimizer state from saved state")
 
@@ -294,11 +307,13 @@ class DeclearnOptimizer(BaseOptimizer):
 
         return self
 
-    def _collect_common_optimodules(self,
-                                    init_state: Dict,
-                                    optim_state: Dict,
-                                    component_name: str,
-                                    components_to_keep: List[Tuple[str, int]]):
+    def _collect_common_optimodules(
+        self,
+        init_state: Dict,
+        optim_state: Dict,
+        component_name: str,
+        components_to_keep: List[Tuple[str, int]],
+    ):
         """Methods that checks which modules and regularizers are common from `init_state`, the current state Optimizer
         state, and `optim_state`, the previous optimizer state. Populates in that regard the `components_to_keep` list,
         a list containing common Modules and Regularizers, and that can be access through its reference.
@@ -312,9 +327,11 @@ class DeclearnOptimizer(BaseOptimizer):
                 and `optim_state`. Each list item has the following entry: (module_name, index of the list).
         """
         idx: int = 0  # list index
-
-        for init_module, new_module in zip(init_state['states'][component_name],
-                                           optim_state['states'][component_name]):
+        for init_module, new_module in zip(
+            init_state["states"][component_name],
+            optim_state["states"][component_name],
+            strict=False,
+        ):
             if init_module[0] == new_module[0]:
                 # if we have the same modules from last to current round, update module wrt last saved state
                 components_to_keep.append((new_module[0], idx))
@@ -340,8 +357,10 @@ class DeclearnOptimizer(BaseOptimizer):
         """
         # warning: specific for pytorch
         if not isinstance(self._model, TorchModel):
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value}. This method can only be used for TorchModel, "
-                                          f"but got {self._model}")
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB626.value}. This method can only be used for TorchModel, "
+                f"but got {self._model}"
+            )
         self._model.model.zero_grad()
 
     def optimizer_processing(self) -> SklearnOptimizerProcessing:
@@ -364,18 +383,22 @@ class DeclearnOptimizer(BaseOptimizer):
         ```
         """
         if isinstance(self._model, SkLearnModel):
-            return SklearnOptimizerProcessing(self._model, disable_internal_optimizer=True)
+            return SklearnOptimizerProcessing(
+                self._model, disable_internal_optimizer=True
+            )
         else:
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value}: Method optimizer_processing should be used "
-                                          f"only with SkLearnModel, but model is {self._model}")
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB626.value}: Method optimizer_processing should be used "
+                f"only with SkLearnModel, but model is {self._model}"
+            )
 
     def send_to_device(self, device: str, idx: int | None = None):
         self.optimizer.send_to_device(device, idx)
 
 
 class NativeTorchOptimizer(BaseOptimizer):
-    """Optimizer wrapper for pytorch native optimizers and models.
-    """
+    """Optimizer wrapper for pytorch native optimizers and models."""
+
     _model_cls: Type[TorchModel] = TorchModel
 
     def __init__(self, model: TorchModel, optimizer: torch.optim.Optimizer):
@@ -383,21 +406,22 @@ class NativeTorchOptimizer(BaseOptimizer):
 
         Args:
             model: fedbiomed model wrapper that warps the pytorch model
-            optimizer: pytorch native optimizers (inhereting from `torch.optim.Optimizer`)
+            optimizer: pytorch native optimizers (inheriting from `torch.optim.Optimizer`)
 
         Raises:
             FedbiomedOptimizerError: raised if optimizer is not a pytorch native optimizer ie a `torch.optim.Optimizer`
                 object.
         """
         if not isinstance(optimizer, torch.optim.Optimizer):
-            raise FedbiomedOptimizerError(f"{ErrorNumbers.FB626.value} Expected a native pytorch `torch.optim` "
-                                          f"optimizer, but got {type(optimizer)}")
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB626.value} Expected a native pytorch `torch.optim` "
+                f"optimizer, but got {type(optimizer)}"
+            )
         super().__init__(model, optimizer)
         logger.debug("using native torch optimizer")
 
     def step(self):
-        """Performs an optimization step and updates model weights
-        """
+        """Performs an optimization step and updates model weights"""
         self.optimizer.step()
 
     def zero_grad(self):
@@ -426,15 +450,16 @@ class NativeTorchOptimizer(BaseOptimizer):
         """
         logger.warning(
             "`get_learning_rate` is deprecated and will be removed in future Fed-BioMed releases",
-            broadcast=True)
+            broadcast=True,
+        )
 
         mapping_lr_layer_name: Dict[str, float] = {}
 
         for param_group in self.optimizer.param_groups:
-            for layer_params in param_group['params']:
+            for layer_params in param_group["params"]:
                 for layer_name, tensor in self._model.model.named_parameters():
                     if layer_params is tensor:
-                        mapping_lr_layer_name[layer_name] = param_group['lr']
+                        mapping_lr_layer_name[layer_name] = param_group["lr"]
         return mapping_lr_layer_name
 
 
@@ -452,7 +477,9 @@ class NativeSkLearnOptimizer(BaseOptimizer):
         """
 
         if optimizer is not None:
-            logger.info(f"Passed Optimizer {optimizer} won't be used (using only native scikit learn optimization)")
+            logger.info(
+                f"Passed Optimizer {optimizer} won't be used (using only native scikit learn optimization)"
+            )
         super().__init__(model, None)
         logger.debug("Using native Sklearn Optimizer")
 
@@ -478,27 +505,28 @@ class OptimizerBuilder:
     >>> from fedbiomed.common.models import TorchModel
     >>> opt_builder = OptimizerBuilder()
     >>> model = TorchModel(nn.Linear(4,2))
-    >>> optimizer = torch.optim.SGD(model.paramaters(), .1)
+    >>> optimizer = torch.optim.SGD(model.parameters(), .1)
     >>> optim_wrapper = opt_builder.build(TrainingPlans.TorchTrainingPlan, model, optimizer)
     >>> optim_wrapper()
         NativeTorchOptimizer
     ```
     """
+
     TORCH_OPTIMIZERS = {
         FedOptimizer: DeclearnOptimizer,
         declearn.optimizer.Optimizer: DeclearnOptimizer,
-        torch.optim.Optimizer: NativeTorchOptimizer
+        torch.optim.Optimizer: NativeTorchOptimizer,
     }
 
     SKLEARN_OPTIMIZERS = {
         FedOptimizer: DeclearnOptimizer,
         declearn.optimizer.Optimizer: DeclearnOptimizer,
-        None: NativeSkLearnOptimizer
+        None: NativeSkLearnOptimizer,
     }
 
     BUILDER = {
         TrainingPlans.TorchTrainingPlan: TORCH_OPTIMIZERS,
-        TrainingPlans.SkLearnTrainingPlan: SKLEARN_OPTIMIZERS
+        TrainingPlans.SkLearnTrainingPlan: SKLEARN_OPTIMIZERS,
     }
 
     def build(
@@ -506,7 +534,7 @@ class OptimizerBuilder:
         tp_type: TrainingPlans,
         model: Model,
         optimizer: Optional[Union[torch.optim.Optimizer, FedOptimizer]] = None,
-    ) -> 'BaseOptimizer':
+    ) -> "BaseOptimizer":
         """Builds a Optimizer wrapper based on TrainingPlans and optimizer type
 
         Args:
@@ -526,7 +554,9 @@ class OptimizerBuilder:
             optim_cls = OptimizerBuilder.get_parent_class(optimizer)
             selected_optim_wrapper = OptimizerBuilder.BUILDER[tp_type]
         except KeyError as exc:
-            err_msg = f"{ErrorNumbers.FB626.value} Unknown Training Plan type {tp_type} "
+            err_msg = (
+                f"{ErrorNumbers.FB626.value} Unknown Training Plan type {tp_type} "
+            )
             raise FedbiomedOptimizerError(err_msg) from exc
         try:
             return selected_optim_wrapper[optim_cls](model, optimizer)
@@ -555,8 +585,8 @@ class OptimizerBuilder:
         """
         if optimizer is None:
             return None
-        if hasattr(type(optimizer), '__bases__'):
-            if type(optimizer).__bases__[0]  is object:
+        if hasattr(type(optimizer), "__bases__"):
+            if type(optimizer).__bases__[0] is object:
                 # in this case, `optimizer` is already the parent class (it only has `object`as parent class)
                 return type(optimizer)
             else:

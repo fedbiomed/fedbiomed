@@ -193,11 +193,11 @@ class CertificateManager:
         """Writes certificate file
 
         Args:
-            path: Filesystem path the file will be writen
-            certificate: Certificate that will be writen
+            path: Filesystem path the file will be written
+            certificate: Certificate that will be written
 
         Raises:
-            FedbiomedCertificateError: If certificate can not be writen into given path
+            FedbiomedCertificateError: If certificate can not be written into given path
         """
         try:
             with open(path, "w", encoding="UTF-8") as file:
@@ -307,7 +307,6 @@ class CertificateManager:
             ) from e
 
         return key_file, pem_file
-
 
 
 def generate_certificate(

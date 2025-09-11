@@ -157,7 +157,7 @@
 - fix unit tests failure, when launched from root directory, due to missing mocking facility
 - fix `fedbiomed_run` error: prevent launching researcher when no config file exists
 - misc improve make sure only one dataset per Node is selected during the training
-- misc remove uncorrect warning about `optimizer_args` when using SKlearn training plan
+- misc remove incorrect warning about `optimizer_args` when using SKlearn training plan
 
 ## 2023-01-05 version 4.1
 
@@ -231,7 +231,7 @@
 - fix mqtt logger loop then mqqt not reachable
 - replace @property getters/setters by proper getters() setters(), still in progress
 - a lot of new unit tests and increase test coverage
-- refactor of Message() class, simplication of Messages description (purely declarative now)
+- refactor of Message() class, simplification of Messages description (purely declarative now)
 - add more ErrorNumbers + associated messages
 - check user input (mainly in Experiment() for now)
 - rename Exceptions as Errors, add FedbiomedError as top class of our errors
@@ -262,7 +262,7 @@
 - fix the way the tests deal with fedbiomed.common.environ
 - refactor strategy (moved some methods in upper classes)
 - add command **run_integration_test** to easily run an integration test from a single .py or .ipynb
-- add an automatized method to add a dataset in nodes's db from a JSON dataset description file
+- add an automated method to add a dataset in nodes's db from a JSON dataset description file
 - add error numbering as an enum, impact on error messages serialization
 - more example notebooks, update existing notebooks
 - more unittests

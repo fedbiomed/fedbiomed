@@ -4,26 +4,27 @@ dynamic = ["version"]
 description = "Collaborative learning for healthcare"
 
 maintainers = [
-	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
+	{name = "Yannick Bouillard", email = "yannick.bouillard@inria.fr"},
 	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
-	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
-	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
+	{name = "Francesco Cremonesi", email = "francesco.cremonesi@inria.fr"},
+	{name = "Marco Lorenzi", email = "marco.lorenzi@inria.fr"},
 	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
 ]
 
 authors = [
-	{name = "Yannick Bouillard <yannick.bouillard@inria.fr>"},
+	{name = "Yannick Bouillard", email = "yannick.bouillard@inria.fr"},
    	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
-	{name = "Francesco Cremonesi <francesco.cremonesi@inria.fr>"},
-	{name = "Marco Lorenzi <marco.lorenzi@inria.fr>"},
+	{name = "Francesco Cremonesi ", email = "francesco.cremonesi@inria.fr"},
+	{name = "Marco Lorenzi", email = "marco.lorenzi@inria.fr"},
 	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
-	{name = "Paul Andrey <paul.andrey@inria.fr>"},
-	{name = "Lucie Chambon <lucie.chambon@inria.fr>"},
-	{name = "Erwan Demairy <erwan.demairy@inria.fr>"},
-	{name = "Thibaud Kloczko <thibaud.kloczko@inria.fr>"},
-	{name = "Côme Le Breton <come.le-breton@inria.fr>"},
-	{name = "Jean-Luc Szpyrka <jean-luc@szpyrka.fr>"},
-	{name = "Riccardo Taiello <riccardo.taiello@inria.fr>"},
+	{name = "Paul Andrey", email = "paul.andrey@inria.fr"},
+	{name = "Lucie Chambon", email = "lucie.chambon@inria.fr"},
+	{name = "Erwan Demairy", email = "erwan.demairy@inria.fr"},
+	{name = "Thibaud Kloczko", email = "thibaud.kloczko@inria.fr"},
+	{name = "Côme Le Breton", email = "come.le-breton@inria.fr"},
+	{name = "Jean-Luc Szpyrka", email = "jean-luc@szpyrka.fr"},
+	{name = "Riccardo Taiello", email = "riccardo.taiello@inria.fr"},
+	{name = "Jhonatan Torres", email = "jhonatan--leonardo.torres-sanchez@inria.fr"},
 	{name = "Maya Assal"},
 	{name = "Samy-Safwan Ayed"},
 	{name = "Irene Balelli"},
@@ -79,26 +80,26 @@ dependencies = [
 	"cryptography ~=40.0",
 	"pyopenssl ~=23.1.1",
 	"joblib  ~=1.2",
-	"itk  ~=5.3",
-	"scipy  >=1.10.0,<1.11.0",
-	"scikit-learn  >=1.2.0,<1.3.0",
-	"torch  ~=1.13.0",
-	"torchvision  >=0.14.0,<0.15.0",
-	"opacus  >=1.4.0,<1.4.1",
-	"monai  >=1.1.0,<1.2.0",
+	"itk  !=5.4.4,>=5.3.0",
+	"scipy  >=1.10.0",
+	"scikit-learn  >=1.2.0",
+	"torch  >=1.13.0",
+	"torchvision  >=0.14.0",
+	"opacus  !=1.5.4,>=1.4.0",
+	"monai  >=1.1.0",
 	"msgpack  ~=1.0",
 	"persist-queue  >=0.5.1,<0.6.0",
-	"pandas  ~=2.0.1",
+	"pandas  >=2.0.1",
 	"python-minifier  ~=2.11",
-	"declearn[torch1]  ~=2.6.0",
-	"gmpy2  >=2.1,< 2.2",
+	"declearn[torch]  ~=2.6.0",
+	"gmpy2  >=2.1.2,<2.2",
 	"grpcio  ~=1.66",
 	"grpcio-tools  ~=1.66",
 	"unet  >=0.7.7,<0.8.0",
 	"pygments ~=2.18.0",
 ]
 
-requires-python = "<3.11,>=3.10"
+requires-python = "<3.12,>=3.10"
 readme = "README.md"
 license = {text = "Apache 2.0"}
 
@@ -116,7 +117,7 @@ node = [
 
 researcher = [
 	"pathvalidate ~=3.0.0",
-	"matplotlib >=3.8.0,<3.8.4",
+	"matplotlib >=3.8.0",
 	"tensorboard ~=2.18.0",
 	"jupyter",
 	"ipython"
@@ -166,9 +167,18 @@ skip-excluded-dirs = true
 [tool.pdm]
 distribution = true
 
-[tool.pdm.dev-dependencies]
-test = ["pytest", "pytest-cov", "tox"]
-lint = ["flake8", "black"]
+[dependency-groups]
+test = [
+	"pytest",
+	"pytest-cov",
+	"pytest-mock",
+	"tox",
+	"pre-commit>=4.2.0",
+]
+dev = [
+	"ruff==0.11.13",
+	"pre-commit>=4.2.0",
+]
 docs = [
 	"mkdocs-material==9.5.18",
 	"mkdocs-jupyter==0.24.1",
@@ -176,6 +186,9 @@ docs = [
 	"mkdocstrings-python==1.10.8",
 	"mkdocs-redirects==1.2.2",
 ]
+
+[tool.pdm.scripts]
+post_install = "pre-commit install"
 
 [build-system]
 requires = ["hatchling", "hatch-build-scripts"]
@@ -190,3 +203,79 @@ testpaths = ["tests"]
 addopts = [
     "--import-mode=importlib",
 ]
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+	"envs",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+	"*.ipynb",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+# Assume Python 3.10
+target-version = "py310"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Automatically detect the appropriate line ending.
+line-ending = "auto"
+
+docstring-code-format = false
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint]
+# 1. Rules to be taken into account
+# https://www.flake8rules.com/
+select = [
+	"E4", "E7", "E9",  # pycodestyle
+	"F",  # Pyflakes
+	"B",  # flake8-bugbear
+	"I",  # isort
+]
+
+# 2. Sub-rules to ignore from the list above
+ignore = [
+]
+
+# 3. Avoid auto correction with --fix
+unfixable = [
+	"B",  #   flake8-bugbear (`B`) violations
+]
+
+[tool.codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+skip = '.git*,*.pdf,*.svg,*.lock,*.css,assets'
+check-hidden = true
+# ignore images in notebooks and regex specifications
+ignore-regex = '^\s*"image/\S+": ".*|\(^\S+\)|\bOT\b'
+ignore-words-list = 'ser,infor,te,opps'

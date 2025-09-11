@@ -1,38 +1,16 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-Classes that simplify imports from fedbiomed.common.data
-"""
+from fedbiomed.common.datamanager import DataManager
+from fedbiomed.common.logger import logger
 
-
-from ._data_manager import DataManager
-from ._torch_data_manager import TorchDataManager
-from ._sklearn_data_manager import SkLearnDataManager, NPDataLoader
-from ._tabular_dataset import TabularDataset
-from ._medical_datasets import NIFTIFolderDataset, MedicalFolderDataset, MedicalFolderBase, MedicalFolderController, \
-    MedicalFolderLoadingBlockTypes
-from ._data_loading_plan import (DataLoadingBlock,
-                                 MapperBlock,
-                                 DataLoadingPlan,
-                                 DataLoadingPlanMixin,
-                                 SerializationValidation  # keep it for documentation
-                                 )
+logger.warning(
+    "Importing `DataManager` class from the `fedbiomed.common.data` "
+    "package has been deprecated. "
+    "Please use the following import statement instead:\n"
+    "`from fedbiomed.common.datamanager import DataManager`"
+)
 
 __all__ = [
-    "MedicalFolderBase",
-    "MedicalFolderController",
-    "MedicalFolderDataset",
-    "MedicalFolderLoadingBlockTypes",
     "DataManager",
-    "TorchDataManager",
-    "SkLearnDataManager",
-    "TabularDataset",
-    "NIFTIFolderDataset",
-    "NPDataLoader",
-    "DataLoadingBlock",
-    "MapperBlock",
-    "DataLoadingPlan",
-    "DataLoadingPlanMixin",
-    "SerializationValidation",
 ]

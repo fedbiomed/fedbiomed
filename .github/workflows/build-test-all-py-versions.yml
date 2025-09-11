@@ -1,0 +1,273 @@
+---
+
+name: Fed-BioMed Build test -- all python versions
+run-name: Fed-BioMed Build test -- py{3.10,3.11}
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+      - review_requested
+      - ready_for_review
+    branches:
+      - master
+  schedule:
+    - cron: '0 20 * * 6'  # run every Saturday night
+  workflow_dispatch:
+
+jobs:
+  build-doc:
+    name: Test documentation build
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout to repository
+        uses: actions/checkout@v4
+
+      - name: Detect documentation changes
+        uses: dorny/paths-filter@master
+        id: filter
+        with:
+          filters: |
+            docs:
+              - 'fedbiomed/**'
+              - 'scripts/docs/**'
+              - 'docs/**'
+              - 'envs/development/**'
+              - 'envs/build/**'
+              - 'mkdocs.yml'
+              - 'README.md'
+
+      - name: Setup python
+        if: steps.filter.outputs.docs == 'true'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Setup PDM
+        uses: pdm-project/setup-pdm@v4
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.docs == 'true'
+        run: pdm install -G docs -G dev
+
+      - name: Build documentation
+        if: steps.filter.outputs.docs == 'true'
+        # Version number for testing purposes should
+        # respect to standart which is vMajor.Minor.Patch
+        run: |
+          source .venv/bin/activate
+          scripts/docs/fedbiomed_doc.sh --build-dir build-repo \
+            --build-main --build-current-as v1.0.1
+
+  unit-test:
+    name: Unit Tests
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-22.04
+          - macos-latest
+          - macos-m1
+        python-version:
+          - '3.10'
+          - '3.11'
+
+    runs-on: ${{ matrix.os }}
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout to commit
+        uses: actions/checkout@v4
+
+      - name: Filter module related changes
+        uses: dorny/paths-filter@master
+        id: filter
+        with:
+          filters: |
+            module:
+              - 'fedbiomed/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'envs/build/**'
+              - 'modules/**'
+              - '.github/**'
+              - 'pyproject.toml'
+              - 'pdm.lock'
+
+      - name: Setup Fed-BioMed Test Environment
+        if: matrix.os != 'windows-latest'
+        uses: ./.github/actions/setup-fbm-env
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python on Windows
+        if: matrix.os == 'windows-latest'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.module == 'true'
+        run: |
+          pip install tox
+
+      - name: Verify Tox Config
+        if: steps.filter.outputs.module == 'true'
+        run: |
+          tox --showconfig
+        shell: bash -l {0}
+
+      - name: Run tests
+        if: steps.filter.outputs.module == 'true'
+        run: |
+            tox -r -e py${{ matrix.python-version }}-unit
+        shell: bash -l {0}
+
+      - name: Upload coverage reports to Codecov
+        if: steps.filter.outputs.module == 'true' && matrix.os != 'macosx-m1'
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: tests/coverage.xml
+          flags: unittests-${{ matrix.os }}  # optional
+          name: codecov-umbrella  # optional
+          fail_ci_if_error: true  # optional (default = false)
+          verbose: true  # optional (default = false)
+
+      - name: Notify upload impossible on m1
+        if: steps.filter.outputs.module == 'true' && matrix.os == 'macosx-m1'
+        run: |
+          echo "No codecov-action available for macos-m1"
+
+  mnist-test:
+    name: Test Basic MNIST
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-22.04
+          - macos-latest
+          - macos-m1
+        python-version:
+          - '3.10'
+          - '3.11'
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    needs: unit-test
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout to commit
+        uses: actions/checkout@v4
+
+      - name: Filter module related changes
+        uses: dorny/paths-filter@master
+        id: filter
+        with:
+          filters: |
+            module:
+              - 'fedbiomed/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'envs/build/**'
+              - 'modules/**'
+              - '.github/**'
+              - 'pyproject.toml'
+              - 'pdm.lock'
+
+      - name: Setup Fed-BioMed Test Environment
+        uses: ./.github/actions/setup-fbm-env
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Dependencies
+        if: steps.filter.outputs.module == 'true'
+        run: |
+          pip install tox
+
+      - name: Verify Tox Config
+        if: steps.filter.outputs.module == 'true'
+        run: |
+          tox --showconfig
+        shell: bash -l {0}
+
+      - name: Run tests
+        if: steps.filter.outputs.module == 'true'
+        run: |
+          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
+            tox -r -e py${{ matrix.python-version }}-e2e -- e2e_mnist_pytorch.py
+        shell: bash -il {0}
+
+  e2e-minimal-lock-test:
+    name: E2E Minimal Lock Test
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-22.04
+          - macos-latest
+          - macos-m1
+        python-version:
+          - '3.10'
+    runs-on: ${{ matrix.os }}
+    needs: unit-test
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout to commit
+        uses: actions/checkout@v4
+
+      - name: Filter module related changes
+        uses: dorny/paths-filter@master
+        id: filter
+        with:
+          filters: |
+            module:
+              - 'fedbiomed/**'
+              - 'scripts/**'
+              - 'tests/**'
+              - 'envs/build/**'
+              - 'modules/**'
+              - '.github/**'
+              - 'pyproject.toml'
+              - 'pdm.lock'
+
+      - name: Setup Fed-BioMed Test Environment
+        uses: ./.github/actions/setup-fbm-env
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Enforce CPU-only torch on Fedora
+        if: matrix.os == 'fedora-38'
+        run: echo "PIP_EXTRA_INDEX=https://download.pytorch.org/whl/cpu" >> $GITHUB_ENV
+
+      - name: Tell PDM to target macOS platform
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-m1'
+        run: echo "PDM_PLATFORM_ARG=macos_arm64" >> $GITHUB_ENV
+
+      - name: default platform setup
+        if: matrix.os != 'macos-latest' && matrix.os != 'macos-m1'
+        run: echo "PDM_PLATFORM_ARG=linux" >> $GITHUB_ENV
+
+      - name: Install Dependencies
+        run: pip install tox pdm
+
+      - name: Run minimal locked test
+        env:
+          PDM_IGNORE_SAVED_PYTHON: 1
+          PIP_EXTRA_INDEX_URL: ${{ env.PIP_EXTRA_INDEX }}
+          PDM_PLATFORM_ARG: ${{ env.PDM_PLATFORM_ARG }}
+        run: |
+          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
+            tox -r -e py3.10-e2e-minimal -- e2e_mnist_pytorch.py
+        shell: bash -il {0}

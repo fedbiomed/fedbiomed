@@ -2,7 +2,7 @@ import inspect
 import numpy as np
 import pandas as pd
 from fedbiomed.common.training_plans import SKLearnTrainingPlan
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 from sklearn.linear_model import SGDRegressor
 from fedbiomed.common.training_plans import FedSGDRegressor
 class SGDRegressorTrainingPlan(FedSGDRegressor):

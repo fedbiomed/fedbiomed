@@ -8,13 +8,19 @@ from testsupport.testing_data_loading_block import (
 )
 from torchvision.transforms import Compose as TorchCompose
 
-from fedbiomed.common.data import DataLoadingPlan
-from fedbiomed.common.data.flamby_dataset import (
-    FlambyDataset,
-    FlambyDatasetMetadataBlock,
-    FlambyLoadingBlockTypes,
-    discover_flamby_datasets,
-)
+try:
+    from fedbiomed.common.dataset.flamby_dataset import (
+        FlambyDataset,
+        FlambyDatasetMetadataBlock,
+        FlambyLoadingBlockTypes,
+        discover_flamby_datasets,
+    )
+except ModuleNotFoundError as e:
+    raise unittest.SkipTest(
+        f"Flamby not found with error {e}. Skipping all tests in test_flamby.py"
+    )
+
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.exceptions import (
     FedbiomedDatasetError,
     FedbiomedDatasetValueError,
@@ -29,7 +35,7 @@ class TestFlamby(unittest.TestCase):
     """
 
     @patch(
-        "fedbiomed.common.data.flamby_dataset.discover_flamby_datasets",
+        "fedbiomed.common.dataset.flamby_dataset.discover_flamby_datasets",
         return_value={100: "fed_flamby_test", **discover_flamby_datasets()},
     )
     def test_flamby_01_loading_blocks(self, patched_discover):
@@ -96,7 +102,7 @@ class TestFlamby(unittest.TestCase):
         mocked_module = MagicMock()
         mocked_module.FedClass = MagicMock()
         with patch(
-            "fedbiomed.common.data.flamby_dataset.import_module",
+            "fedbiomed.common.dataset.flamby_dataset.import_module",
             return_value=mocked_module,
         ):
             dataset.set_dlp(dlp)
@@ -137,7 +143,7 @@ class TestFlamby(unittest.TestCase):
 
         # Test ModuleNotFoundError correctly converted to FedbiomedDatasetError
         with patch(
-            "fedbiomed.common.data.flamby_dataset.import_module",
+            "fedbiomed.common.dataset.flamby_dataset.import_module",
             side_effect=ModuleNotFoundError,
         ):
             with self.assertRaises(FedbiomedDatasetError):
@@ -154,7 +160,7 @@ class TestFlamby(unittest.TestCase):
             FileNotFoundError  # random error that could realistically be raised
         )
         with patch(
-            "fedbiomed.common.data.flamby_dataset.import_module",
+            "fedbiomed.common.dataset.flamby_dataset.import_module",
             return_value=mocked_module,
         ):
             with self.assertRaises(FedbiomedDatasetError):
@@ -169,7 +175,7 @@ class TestFlamby(unittest.TestCase):
 
         # Assert raises when argument is of incorrect type
         with patch(
-            "fedbiomed.common.data.flamby_dataset.isinstance", return_value=False
+            "fedbiomed.common.dataset.flamby_dataset.isinstance", return_value=False
         ):
             with self.assertRaises(FedbiomedDatasetValueError):
                 dataset.init_transform("Wrong type")
@@ -193,7 +199,7 @@ class TestFlamby(unittest.TestCase):
         mocked_module = MockedFlambyModule()
 
         with patch(
-            "fedbiomed.common.data.flamby_dataset.import_module",
+            "fedbiomed.common.dataset.flamby_dataset.import_module",
             return_value=mocked_module,
         ):
             dataset.set_dlp(dlp)
