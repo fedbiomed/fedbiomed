@@ -11,7 +11,7 @@ from typing import Any
 
 
 class DataLoader(ABC):
-    dataset: Any
+    """Abstract base class for data loaders specific to a training plan's framework"""
 
     @abstractmethod
     def __init__(self, dataset: Any, *args, **kwargs) -> None:
@@ -19,8 +19,23 @@ class DataLoader(ABC):
 
     @abstractmethod
     def __len__(self) -> int:
-        """Returns the length of the encapsulated dataset"""
+        """Returns number of batches of the encapsulated dataset"""
 
     @abstractmethod
     def __iter__(self) -> Iterable:
         """Returns an iterator over batches of data"""
+
+    @property
+    @abstractmethod
+    def dataset(self) -> Any:
+        """Returns the encapsulated dataset"""
+
+    @property
+    @abstractmethod
+    def batch_size(self) -> int:
+        """Returns the batch size used by the data loader"""
+
+    @property
+    @abstractmethod
+    def drop_last(self) -> bool:
+        """Returns whether the data loader drops the last incomplete batch"""

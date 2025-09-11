@@ -923,8 +923,14 @@ class Round:
         controller_kwargs = self.dataset.get("controller_kwargs", {})
         controller_kwargs["root"] = self.dataset.get("path")
 
-        # TODO try except
-        data_manager.complete_dataset_initialization(controller_kwargs)
+        try:
+            data_manager.complete_dataset_initialization(controller_kwargs)
+        except FedbiomedError as e:
+            raise e
+        except Exception as e:
+            raise FedbiomedRoundError(
+                f"{ErrorNumbers.FB314.value}: Error while initializing dataset; {repr(e)}"
+            ) from e
 
         # All Framework based data managers have the same methods
         # If testing ratio is 0,
