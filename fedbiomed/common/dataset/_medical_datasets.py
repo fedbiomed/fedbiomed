@@ -284,7 +284,7 @@ class MedicalFolderBase(DataLoadingPlanMixin):
         """Read demographics tabular file for Medical Folder dataset
 
         Raises:
-            FedbiomedDatasetError: bad file format
+            FedbiomedDatasetError: bad file format or a drectory
         """
         path = Path(path)
         if not path.is_file() or path.suffix.lower() not in [".csv", ".tsv"]:
@@ -292,7 +292,10 @@ class MedicalFolderBase(DataLoadingPlanMixin):
                 f"{ErrorNumbers.FB613.value}: Demographics should be CSV or TSV files"
             )
 
-        return pd.read_csv(path, index_col=index_col, engine="python")
+        # thank you [HalvarLilienthal](https://github.com/HalvarLilienthal) for this solution
+        return pd.read_csv(
+            path, index_col=index_col, dtype={index_col: str}, engine="python"
+        )
 
     @staticmethod
     def demographics_column_names(path: Union[str, Path]):
@@ -619,7 +622,11 @@ class MedicalFolderDataset(Dataset, MedicalFolderBase):
     @cache  # noqa: B019
     def subjects_registered_in_demographics(self):
         """Gets the subject only those who are present in the demographics file."""
-
+        if self.demographics is None:
+            raise FedbiomedDatasetError(
+                f"{ErrorNumbers.FB613.value}:  demographics file and `index_col` arguments"
+                " hasnot been sepcified"
+            )
         complete_subject_folders, *_ = self.available_subjects(
             subjects_from_folder=self.subjects_has_all_modalities,
             subjects_from_index=self.demographics.index,

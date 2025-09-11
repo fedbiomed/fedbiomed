@@ -57,6 +57,7 @@ def _create_synthetic_dataset(
     n_samples: int,
     tabular_file: str,
     index_col: str,
+    is_index_col_int: bool = False,
     add_dots_in_title: bool = False,
     extension: str = ".nii.gz",
 ):
@@ -73,7 +74,10 @@ def _create_synthetic_dataset(
     img = itk.image_from_array(fake_img_data)
 
     # Generate subject ids
-    subject_ids = [str(uuid4()) for _ in range(n_samples)]
+    if is_index_col_int:
+        subject_ids = [i for i in range(n_samples)]
+    else:
+        subject_ids = [str(uuid4()) for _ in range(n_samples)]
     modalities = ["T1", "T2", "label"]
     centers = [f"center_{uuid4()}" for _ in range(randint(3, 6))]
 
@@ -81,7 +85,7 @@ def _create_synthetic_dataset(
     demographics.index.name = index_col
 
     for subject_id in subject_ids:
-        subject_folder = os.path.join(root, subject_id)
+        subject_folder = os.path.join(root, str(subject_id))
         os.makedirs(subject_folder)
 
         # Create class folder
@@ -764,6 +768,37 @@ class TestMedicalFolderDataset(unittest.TestCase):
                             Path(self.root2).joinpath(_subj), ["T1", "T2"]
                         )
                         self.assertListEqual(["T1", "T2"], list(data.keys()))
+
+    def test_medical_folder_dataset_17_bug(self):
+        # test for bug #1408: failure when index_col contains only integers
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            self.root2 = temp_dir
+            self.tabular_file = os.path.join(self.root2, "participants.csv")
+            self.index_col = "FOLDER_NAME"
+
+            self.transform = {"T1": Lambda(lambda x: torch.flatten(x))}
+            self.target_transform = {"label": GaussianSmooth()}
+
+            self.n_samples = 10
+            self.batch_size = 3
+
+            print(f"Dataset folder located in: {self.root2}")
+            _create_synthetic_dataset(
+                self.root2,
+                self.n_samples,
+                self.tabular_file,
+                self.index_col,
+                is_index_col_int=True,
+            )
+            dataset = MedicalFolderDataset(
+                self.root2,
+                tabular_file=self.tabular_file,
+                index_col=self.index_col,
+            )
+            v = dataset.subjects_registered_in_demographics
+            self.assertIsNot(v, [])
+            self.assertListEqual(sorted(v), [str(i) for i in range(self.n_samples)])
 
 
 class TestMedicalFolderBase(unittest.TestCase):

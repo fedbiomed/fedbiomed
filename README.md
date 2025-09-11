@@ -161,7 +161,7 @@ Please see possible argument using `fedbiomed node gui start --help`.
 It is also possible to start the GUI on a specific host and port. By default, it starts on `localhost` as the host and `8484` as the port. To change these settings, you can modify the following command. The GUI is based on HTTPS and will, by default, generate a self-signed certificate. However, you can also start the GUI by specifying the certificate and private key names you want to use for HTTPS support.
 
 ```shell
-fedbiomed node --path <path/to/component/directory> gui start--data-folder <path-for-data-folder> --cert-file <path-to-certificate> --key-file <path-to-private-key>
+fedbiomed node --path <path/to/component/directory> gui start --data-folder <path-for-data-folder> --cert-file <path-to-certificate> --key-file <path-to-private-key>
 ```
 
 ```shell
