@@ -112,7 +112,7 @@ class TorchDataManager(FrameworkDataManager):
     _testing_index: List[int] = []
     _test_ratio: Optional[float] = None
 
-    def __init__(self, dataset: Dataset, **kwargs: dict):  # noqa : B027 # not yet implemented
+    def __init__(self, dataset: Dataset, **kwargs: dict):
         """Class constructor
 
         Args:
@@ -126,9 +126,8 @@ class TorchDataManager(FrameworkDataManager):
         # TorchDataManager should get `dataset` argument as an instance of torch.utils.data.Dataset
         if not isinstance(dataset, Dataset):
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: The argument `dataset` should an instance "
-                f"of `torch.utils.data.Dataset`, please use `Dataset` as parent class for"
-                f"your custom torch dataset object"
+                f"{ErrorNumbers.FB632.value}: The argument `dataset` should be a "
+                f"`fedbiomed.common.Dataset` object"
             )
         self._dataset = dataset
 
@@ -142,17 +141,12 @@ class TorchDataManager(FrameworkDataManager):
         seed = self._loader_arguments.pop("random_state", None)
         if isinstance(seed, int):
             torch.manual_seed(seed)
+        else:
+            # reset seed to a random value to ensure non-deterministic behavior
+            # if no seed is specified
+            torch.seed()
 
         self._dataset.to_format = DataReturnFormat.TORCH
-
-    @property
-    def dataset(self) -> Dataset:
-        """Gets dataset.
-
-        Returns:
-            Dataset instance
-        """
-        return self._dataset
 
     # Nota: used only for unit tests
     def subset_test(self) -> Optional[TorchSubset]:
@@ -205,7 +199,7 @@ class TorchDataManager(FrameworkDataManager):
             train_loader: PytorchDataLoader for training subset. `None` if the `test_ratio` is `1`
             test_loader: PytorchDataLoader for validation subset. `None` if the `test_ratio` is `0`
         """
-        # No need to check is_shuffled_testing_dataset, amy argument can be interpreted as bool
+        # No need to check is_shuffled_testing_dataset, any argument can be interpreted as bool
 
         # Check the type of argument test_batch_size
         if not isinstance(test_batch_size, int) and test_batch_size is not None:
@@ -231,10 +225,10 @@ class TorchDataManager(FrameworkDataManager):
         # Nota: cannot build PyTorch dataset sooner (eg in constructor) because
         # some customization methods may be called in the meantime
         # (cf fedbiomed.node.Round)
-        torch_dataset = _DatasetWrapper(self._dataset)
+        framework_dataset = _DatasetWrapper(self._dataset)
 
         try:
-            samples = len(torch_dataset)
+            samples = len(framework_dataset)
         except AttributeError as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Can not get number of samples from "
@@ -259,7 +253,7 @@ class TorchDataManager(FrameworkDataManager):
         if self._testing_index and not is_shuffled_testing_dataset:
             try:
                 self._load_indexes(
-                    torch_dataset, self._training_index, self._testing_index
+                    framework_dataset, self._training_index, self._testing_index
                 )
             except IndexError:
                 _is_loading_failed = True
@@ -269,7 +263,7 @@ class TorchDataManager(FrameworkDataManager):
             train_samples = samples - test_samples
 
             self._subset_train, self._subset_test = random_split(
-                torch_dataset,
+                framework_dataset,
                 [train_samples, test_samples],
             )
 
@@ -288,13 +282,15 @@ class TorchDataManager(FrameworkDataManager):
 
         return loaders
 
+    @staticmethod
     def _subset_loader(
-        self, subset: Optional[TorchSubset], **kwargs
+        subset: Optional[TorchSubset], **kwargs
     ) -> Optional[PytorchDataLoader]:
         """Loads subset (train/validation) partition of as pytorch DataLoader.
 
         Args:
             subset: Subset as an instance of PyTorch's `Subset`
+            **kwargs: Loader arguments for PyTorch DataLoader
 
         Returns:
             PytorchDataLoader for `subset`. `None` if the subset is empty
@@ -304,17 +300,24 @@ class TorchDataManager(FrameworkDataManager):
         if subset is None or len(subset) <= 0:
             return None
 
-        return self._create_torch_data_loader(subset, **kwargs)
+        return TorchDataManager._create_torch_data_loader(subset, **kwargs)
 
     def _load_indexes(
         self,
-        torch_dataset: TorchDataset,
+        dataset: Dataset,
         training_index: List[int],
         testing_index: List[int],
     ):
+        """Loads training and testing indexes to create subsets.
+
+        Args:
+            dataset: Dataset to create subsets from
+            training_index: List of indexes for training subset
+            testing_index: List of indexes for testing subset
+        """
         # Improvement: catch INdexOutOfRange kind of errors
-        self._subset_train = TorchSubset(torch_dataset, training_index)
-        self._subset_test = TorchSubset(torch_dataset, testing_index)
+        self._subset_train = TorchSubset(dataset, training_index)
+        self._subset_test = TorchSubset(dataset, testing_index)
 
     def save_state(self) -> Dict:
         """Gets state of the data loader.
@@ -363,7 +366,8 @@ class TorchDataManager(FrameworkDataManager):
         try:
             # Create a loader from self._dataset to extract inputs and target values
             # by iterating over samples
-            loader = PytorchDataLoader(dataset, **kwargs)  # type: ignore  # catch errors if kwargs are incorrect
+            loader = PytorchDataLoader(dataset, **kwargs)  # type: ignore
+        # catch errors if kwargs are incorrect
         except AttributeError as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}:  Error while creating Torch DataLoader due to undefined attribute"

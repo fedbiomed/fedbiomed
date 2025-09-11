@@ -10,11 +10,10 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypedDict
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes, TrainingPlans
-from fedbiomed.common.dataloader import NPDataLoader
+from fedbiomed.common.dataloader import DataLoader
 from fedbiomed.common.exceptions import (
     FedbiomedError,
     FedbiomedModelError,
@@ -71,8 +70,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._dependencies: List[str] = []
         self.dataset_path: Union[str, None] = None
         self.pre_processes: Dict[str, PreProcessDict] = OrderedDict()
-        self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
-        self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
+        self.training_data_loader: Union[DataLoader, None] = None
+        self.testing_data_loader: Union[DataLoader, None] = None
 
         # Arguments provided by the researcher; they will be populated by post_init
         self._model_args: Dict[str, Any] = None
@@ -185,8 +184,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     def set_data_loaders(
         self,
-        train_data_loader: Union[DataLoader, NPDataLoader, None],
-        test_data_loader: Union[DataLoader, NPDataLoader, None],
+        train_data_loader: Union[DataLoader, None],
+        test_data_loader: Union[DataLoader, None],
     ) -> None:
         """Sets data loaders
 

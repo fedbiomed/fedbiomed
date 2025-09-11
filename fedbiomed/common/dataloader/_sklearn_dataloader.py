@@ -131,7 +131,7 @@ class SkLearnDataLoader(DataLoader):
 
 
 class _SkLearnBatchIterator:
-    """Iterator over batches for NPDataLoader.
+    """Iterator over batches for SkLearnDataLoader.
 
     Assumes that fixing seed for reproducibility is handled globally in a calling class
 
@@ -149,7 +149,7 @@ class _SkLearnBatchIterator:
         """Class constructor
 
         Arguments:
-            loader: an instance of the NPDataLoader associated with this iterator
+            loader: an instance of the SkLearnDataLoader associated with this iterator
         """
         self._loader = loader
         self._is_initialized = False
