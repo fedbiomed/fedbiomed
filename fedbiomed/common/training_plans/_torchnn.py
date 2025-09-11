@@ -19,6 +19,7 @@ from typing import (
 import torch
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+from fedbiomed.common.dataloader import PytorchDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
@@ -119,7 +120,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 "from fedbiomed.common.training_plans import TorchTrainingPlan",
                 "from fedbiomed.common.datamanager import DataManager",
                 "from fedbiomed.common.constants import ProcessTypes",
-                "from torch.utils.data import DataLoader",
+                "from fedbiomed.common.dataloader import PytorchDataLoader",
                 "from torchvision import datasets, transforms",
             ]
         )
@@ -437,9 +438,20 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                     GPU device if this GPU device is available. Default None.
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU. Default False.
+
+        Raises:
+            FedbiomedTrainingPlanError: if training_data_loader is not a torch PytorchDataLoader
+
         Returns:
             Total number of samples observed during the training.
         """
+        if not isinstance(self.training_data_loader, PytorchDataLoader):
+            msg = (
+                f"{ErrorNumbers.FB310.value}: TorchTrainingPlan cannot "
+                "be trained without a PytorchDataLoader as `training_data_loader`."
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         # self.model().train()  # pytorch switch for training
         self._optimizer.init_training()

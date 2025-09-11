@@ -33,6 +33,9 @@ class PytorchDataLoader(TorchDataLoader, DataLoader):
     #
     #     def __iter__(self) -> _BaseDataLoaderIter:
     #         """Returns an iterator over batches of data"""
+
+    # Torch implements as public variables, needed for its initialization
+    # Don't overwrite with properties as it breaks the parent class
     #
     #     @property
     #     def dataset(self) -> TorchDataset:
