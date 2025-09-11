@@ -41,7 +41,7 @@ class DataReturnFormat(_BaseEnum):
 Transform = Optional[Union[Callable, Dict[str, Callable]]]
 
 
-# Base type for `Dataset.__getitem__()` returning data in generic format
+# Base type for `Dataset.__getitem__()` returning data in framework format
 # a sample is `(DatasetDataItem, DatasetDataItem)` for `(data, target)`
 #
 # `Any`` represents the data in the framework specific format (using `to_format`)

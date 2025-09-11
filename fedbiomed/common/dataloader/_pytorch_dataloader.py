@@ -23,14 +23,25 @@ class PytorchDataLoader(TorchDataLoader, DataLoader):
     """Data loader class for PyTorch training plan"""
 
     # No need to implement methods
-    #     dataset: TorchDataset
     #
     #     def __init__(self, dataset: TorchDataset, *args, **kwargs) -> None:
     #         """Class constructor"""
     #         super().__init__(dataset, *args, **kwargs)
     #
     #     def __len__(self) -> int:
-    #         """Returns the length of the encapsulated dataset"""
+    #         """Returns the number of batches of the encapsulated dataset"""
     #
     #     def __iter__(self) -> _BaseDataLoaderIter:
     #         """Returns an iterator over batches of data"""
+    #
+    #     @property
+    #     def dataset(self) -> TorchDataset:
+    #         """Returns the encapsulated dataset"""
+    #
+    #     @property
+    #     def batch_size(self) -> int:
+    #         """Returns the batch size used by the data loader"""
+    #
+    #     @property
+    #     def drop_last(self) -> bool:
+    #         """Returns whether the data loader drops the last incomplete batch"""
