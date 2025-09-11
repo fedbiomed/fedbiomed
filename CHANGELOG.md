@@ -1,5 +1,9 @@
 # Fed-BioMed changelog
 
+## 2025-09-11 version 6.1.1
+
+- fix medical folder dataset not accepting numeric value for image folder name in demographics file
+
 ## 2025-05-16 version 6.1.0
 
 - Update testing/validation functionality to use fixed subset of data for testing on the node side between training rounds.
