@@ -5,10 +5,99 @@
 Interfaces with a tinyDB database for converting search results to dict.
 """
 
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Union
 
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
+
+
+@dataclass
+class DatasetParameters:
+    pass
+
+
+@dataclass
+class MedicalFolderParameters(DatasetParameters):
+    tabular_file: Optional[str]
+    index_col: Optional[int]
+    dlp_id: Optional[str]
+
+
+@dataclass
+class DatasetMetadata:
+    name: str
+    data_type: str
+    tags: List[str]
+    description: str
+    shape: Union[List[int], Dict[str, List[int]]]
+    path: str
+    dataset_id: str
+    dataset_parameters: Optional[Dict[str, Any]]
+
+    def get_controller_arguments(self) -> Dict[str, Any]:
+        """Get arguments to be passed to the dataset controller
+
+        Returns:
+            Dictionary of arguments
+        """
+        return {
+            "root": self.path,
+        }
+
+
+@dataclass
+class TabularMetadata(DatasetMetadata):
+    dtypes: List[str]
+
+
+@dataclass
+class MnistMetadata(DatasetMetadata):
+    pass
+
+
+@dataclass
+class MednistMetadata(DatasetMetadata):
+    pass
+
+
+@dataclass
+class ImagesMetadata(DatasetMetadata):
+    pass
+
+
+@dataclass
+class MedicalFolderMetadata(DatasetMetadata):
+    dataset_parameters: MedicalFolderParameters
+
+    def get_controller_arguments(self) -> Dict[str, Any]:
+        return {**super().get_controller_arguments(), **self.dataset_parameters}
+
+
+@dataclass
+class Dlb:
+    loading_block_class: str  # Class of the data loading block (e.g., "MapperBlock")
+    loading_block_module: str  # The module of the data loading block
+    dlb_id: str  # Unique identifier for the Data Loading Block
+
+
+@dataclass
+class MedicalFolderDlb(Dlb):
+    mapping: Dict[str, List[str]]  # The mapping of source keys to target labels
+
+
+@dataclass
+class Dlp:
+    dlp_id: str  # Unique identifier for the Data Loading Plan
+    dlp_name: str  # The name of the Data Loading Plan
+    target_dataset_type: str  # The dataset type targeted by the plan
+    key_paths: Dict[str, List[str]]  # Key paths for the loading blocks
+    loading_blocks: Dict[str, str]  # Dictionary of dlb_name to dlb_id
+
+
+@dataclass
+class MedicalFolderDlp(Dlp):
+    pass
 
 
 def cast_(func):

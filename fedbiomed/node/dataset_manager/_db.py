@@ -1,17 +1,17 @@
+from dataclasses import asdict
 from typing import Any, Dict, List, Optional, Union
 
 from tinydb import where
-from tinydb.table import Document
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
-from fedbiomed.common.db import DB
+from fedbiomed.common.db import DB, DatasetMetadata, Dlp
 from fedbiomed.common.exceptions import FedbiomedError
 
 
 class DlpDB(DB):
     """CRUD specialized for Data Loading Plans documents keyed by 'dlp_id'."""
 
-    def create(self, entry: Dict[str, Any]) -> int:
+    def create(self, entry: Dlp) -> int:
         """Creates a new DLP entry.
 
         Args:
@@ -21,18 +21,22 @@ class DlpDB(DB):
         Raises:
             FedbiomedError: If dlp_id is missing or already exists.
         """
-        if not entry.get("dlp_id"):
+        if not entry.dlp_id:
             raise FedbiomedError("Dataset entry requires 'dlp_id'.")
-        if self._database.search(where("dlp_id") == entry.get("dlp_id")):
-            raise FedbiomedError(
-                f"Dataset with id {entry.get('dlp_id')} already exists."
-            )
+        if self._database.search(where("dlp_id") == entry.dlp_id):
+            raise FedbiomedError(f"Dataset with id {entry.dlp_id} already exists.")
 
-        return self._database.create(entry)
+        # Convert dataclass to dictionary before inserting
+        entry_dict = asdict(entry)
 
-    def get_by_id(self, dlp_id) -> Optional[Dict[str, Any]]:
-        """Get a single dlp by dlp_id (or None if missing)."""
-        return self._get_by("dlp_id", dlp_id)
+        return self._database.create(entry_dict)
+
+    def get_by_id(self, dlp_id) -> Optional[Dlp]:
+        """Get a single DLP by dlp_id (or None if missing)."""
+        result = self._get_by("dlp_id", dlp_id)
+        if result:
+            return Dlp(**result)  # Convert dictionary back to DataLoadingPlan
+        return None
 
     def delete_by_id(self, dlp_id: str) -> List[int]:
         """Delete by dlp_id. Returns the list of removed doc IDs."""
@@ -42,7 +46,7 @@ class DlpDB(DB):
         """Update a DLP entry with the values in 'value'. Returns list of updated doc IDs."""
         return self._update_by("dlp_id", value)
 
-    def list_by_dataset_type(self, dataset_type: str) -> Optional[Dict[str, Any]]:
+    def list_by_dataset_type(self, dataset_type: str) -> List[Dict[str, Any]]:
         """List all DLPs for a given dataset type.
 
         Raises:
@@ -57,7 +61,7 @@ class DlpDB(DB):
                 "target_dataset_type should be of the values defined in "
                 "fedbiomed.common.constants.DatasetTypes"
             )
-        return self._get_by("dataset_type", dataset_type)
+        return self._get_all_by("dataset_type", dataset_type)
 
 
 class DatasetDB(DB):
@@ -85,7 +89,7 @@ class DatasetDB(DB):
             )
             raise FedbiomedError(msg)
 
-    def create(self, entry: Dict[str, Any]) -> int:
+    def create(self, entry: DatasetMetadata) -> int:
         """Creates a new dataset entry.
         Args:
             entry: Dataset entry to create.
@@ -97,32 +101,37 @@ class DatasetDB(DB):
         """
 
         # Check that dataset_id is present and unique
-        if not entry.get("dataset_id"):
+        if not entry.dataset_id:
             raise FedbiomedError("Dataset entry requires 'dataset_id'.")
-        if self._database.search(where("dataset_id") == entry.get("dataset_id")):
-            raise FedbiomedError(
-                f"Dataset with id {entry.get('dataset_id')} already exists."
-            )
+        if self._database.search(where("dataset_id") == entry.dataset_id):
+            raise FedbiomedError(f"Dataset with id {entry.dataset_id} already exists.")
 
         # Check that there is not an existing dataset with conflicting tags
-        self.search_conflicting_tags(entry.get("tags"))
+        self.search_conflicting_tags(entry.tags)
 
         # Check that name is unique if provided
-        if entry.get("name") is not None:
-            if self._database.search(where("name") == entry.get("name")):
-                raise FedbiomedError(
-                    f"Dataset with name {entry.get('name')} already exists."
-                )
+        if entry.name is not None:
+            if self._database.search(where("name") == entry.name):
+                raise FedbiomedError(f"Dataset with name {entry.name} already exists.")
 
-        return self._database.create(entry)
+        # Convert dataclass to dictionary before inserting
+        entry_dict = asdict(entry)
 
-    def get_by_id(self, dataset_id) -> Optional[Dict[str, Any]]:
+        return self._database.create(entry_dict)
+
+    def get_by_id(self, dataset_id) -> Optional[DatasetMetadata]:
         """Get a single dataset by dataset_id (or None if missing)."""
-        return self._get_by("dataset_id", dataset_id)
+        result = self._get_by("dataset_id", dataset_id)
+        if result:
+            return DatasetMetadata(**result)  # Convert dictionary back to Dataset
+        return None
 
-    def get_by_tag(self, tags) -> List[Document]:
+    def get_by_tag(self, tags) -> List[DatasetMetadata]:
         """Get the list of datasets which contain all the given tags (or None if missing)."""
-        return self._get_all_by("tags", tags)
+        result = self._get_all_by("tags", tags)
+        return [
+            DatasetMetadata(**r) for r in result
+        ]  # Convert each document back to Dataset
 
     def delete_by_id(self, dataset_id: str) -> List[int]:
         """Delete by dataset_id. Returns the list of removed doc IDs."""
