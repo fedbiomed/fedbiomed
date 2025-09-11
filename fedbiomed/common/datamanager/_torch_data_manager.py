@@ -112,7 +112,7 @@ class TorchDataManager(FrameworkDataManager):
     _testing_index: List[int] = []
     _test_ratio: Optional[float] = None
 
-    def __init__(self, dataset: Dataset, **kwargs: dict):  # noqa : B027 # not yet implemented
+    def __init__(self, dataset: Dataset, **kwargs: dict):
         """Class constructor
 
         Args:
@@ -147,15 +147,6 @@ class TorchDataManager(FrameworkDataManager):
             torch.seed()
 
         self._dataset.to_format = DataReturnFormat.TORCH
-
-    @property
-    def dataset(self) -> Dataset:
-        """Gets dataset.
-
-        Returns:
-            Dataset instance
-        """
-        return self._dataset
 
     # Nota: used only for unit tests
     def subset_test(self) -> Optional[TorchSubset]:
@@ -234,10 +225,10 @@ class TorchDataManager(FrameworkDataManager):
         # Nota: cannot build PyTorch dataset sooner (eg in constructor) because
         # some customization methods may be called in the meantime
         # (cf fedbiomed.node.Round)
-        torch_dataset = _DatasetWrapper(self._dataset)
+        framework_dataset = _DatasetWrapper(self._dataset)
 
         try:
-            samples = len(torch_dataset)
+            samples = len(framework_dataset)
         except AttributeError as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Can not get number of samples from "
@@ -262,7 +253,7 @@ class TorchDataManager(FrameworkDataManager):
         if self._testing_index and not is_shuffled_testing_dataset:
             try:
                 self._load_indexes(
-                    torch_dataset, self._training_index, self._testing_index
+                    framework_dataset, self._training_index, self._testing_index
                 )
             except IndexError:
                 _is_loading_failed = True
@@ -272,7 +263,7 @@ class TorchDataManager(FrameworkDataManager):
             train_samples = samples - test_samples
 
             self._subset_train, self._subset_test = random_split(
-                torch_dataset,
+                framework_dataset,
                 [train_samples, test_samples],
             )
 
