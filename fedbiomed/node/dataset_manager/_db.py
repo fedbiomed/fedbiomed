@@ -4,8 +4,53 @@ from typing import Any, Dict, List, Optional, Union
 from tinydb import where
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
-from fedbiomed.common.db import DB, DatasetMetadata, Dlp
+from fedbiomed.common.db import DB, DatasetMetadata, Dlb, Dlp
 from fedbiomed.common.exceptions import FedbiomedError
+
+
+class DlbDB(DB):
+    """CRUD specialized for Data Loading Blocks documents keyed by 'dlb_id'."""
+
+    def create(self, entry: Dlb) -> int:
+        """Creates a new DLB entry.
+
+        Args:
+            entry: DLB dataclass instance to create (Dlb or subclass).
+        Returns:
+            The document ID of the created entry.
+        Raises:
+            FedbiomedError: If dlb_id is missing or already exists.
+        """
+        if not entry.dlb_id:
+            raise FedbiomedError("DLB entry requires 'dlb_id'.")
+        if self._database.search(where("dlb_id") == entry.dlb_id):
+            raise FedbiomedError(f"DLB with id {entry.dlb_id} already exists.")
+
+        entry_dict = asdict(entry)
+        return self._database.create(entry_dict)
+
+    def get_by_id(self, dlb_id: str) -> Optional[Dlb]:
+        """Get a single DLB by dlb_id (or None if missing)."""
+        result = self._get_by("dlb_id", dlb_id)
+        if not result:
+            return None
+        return Dlb(**result)
+
+    def delete_by_id(self, dlb_id: str) -> List[int]:
+        """Delete by dlb_id. Returns the list of removed doc IDs."""
+        return self._delete_by("dlb_id", dlb_id)
+
+    def update_by_id(self, value: Dict[str, Any]) -> List[int]:
+        """Partial update of a DLB entry by dlb_id. Returns list of updated doc IDs.
+
+        Args:
+            value: Dict containing at least 'dlb_id' and fields to update.
+        Raises:
+            FedbiomedError: If 'dlb_id' missing.
+        """
+        if not value.get("dlb_id"):
+            raise FedbiomedError("DLB update requires 'dlb_id'.")
+        return self._update_by("dlb_id", value)
 
 
 class DlpDB(DB):
