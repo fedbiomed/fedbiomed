@@ -45,6 +45,7 @@ class Controller(ABC, DataLoadingPlanMixin):
         self._root = path
 
     # === Abstract functions ===
+    @abstractmethod
     def get_sample(self, index: int) -> Dict[str, Any]:
         """Retrieve a data sample without applying transforms"""
         pass

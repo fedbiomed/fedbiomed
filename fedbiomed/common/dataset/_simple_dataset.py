@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import numpy as np
 import torch
 import torchvision.transforms as T
+from PIL import Image
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import (
@@ -21,10 +22,11 @@ class _SimpleDataset(Dataset):
 
     _native_to_framework = {
         DataReturnFormat.SKLEARN: np.array,
-        DataReturnFormat.TORCH: lambda x: torch.tensor(x)
-        # In case the target is an integer (e.g., class index)
-        if isinstance(x, int)
-        else T.ToTensor()(x),
+        DataReturnFormat.TORCH: lambda x: (
+            T.ToTensor()(x)  # In case the target is a PIL Image
+            if isinstance(x, (Image.Image, np.ndarray))
+            else torch.tensor(x)
+        ),
     }
 
     def __init__(
@@ -55,8 +57,10 @@ class _SimpleDataset(Dataset):
         self._init_controller(controller_kwargs=controller_kwargs)
 
         sample = self._controller.get_sample(0)
-        self._validate_format_and_transformations(sample["target"], self._transform)
         self._validate_format_and_transformations(sample["data"], self._transform)
+        self._validate_format_and_transformations(
+            sample["target"], self._target_transform
+        )
 
     def __getitem__(self, idx: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
         if self._controller is None:
