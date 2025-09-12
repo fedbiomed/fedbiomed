@@ -4,8 +4,21 @@ from typing import Any, Dict, List, Optional, Union
 from tinydb import where
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
-from fedbiomed.common.db import DB, DatasetMetadata, Dlb, Dlp
+from fedbiomed.common.db import (
+    DB,
+    DatasetMetadata,
+    Dlb,
+    Dlp,
+    ImagesMetadata,
+    MedicalFolderDlp,
+    MedicalFolderMetadata,
+    MednistMetadata,
+    MnistMetadata,
+    TabularMetadata,
+)
 from fedbiomed.common.exceptions import FedbiomedError
+
+dataset_types = ["csv", "default", "mednist", "images", "medical-folder", "flamby"]
 
 
 class DlbDB(DB):
@@ -79,9 +92,22 @@ class DlpDB(DB):
     def get_by_id(self, dlp_id) -> Optional[Dlp]:
         """Get a single DLP by dlp_id (or None if missing)."""
         result = self._get_by("dlp_id", dlp_id)
-        if result:
-            return Dlp(**result)  # Convert dictionary back to DataLoadingPlan
-        return None
+        if not result:
+            return None
+
+        # Raise an error if the target_dataset_type is unknown
+        if result.get("target_dataset_type") not in dataset_types:
+            raise FedbiomedError(
+                f"DLP with id {dlp_id} has invalid target_dataset_type "
+                f"{result.get('target_dataset_type')}. "
+                f"Should be one of {dataset_types}."
+            )
+
+        # Otherwise return the appropriate subclass based on the content
+        if result.get("target_dataset_type") == "medical-folder":
+            return MedicalFolderDlp(**result)
+
+        return Dlp(**result)  # Convert dictionary back to DataLoadingPlan
 
     def delete_by_id(self, dlp_id: str) -> List[int]:
         """Delete by dlp_id. Returns the list of removed doc IDs."""
@@ -167,9 +193,30 @@ class DatasetDB(DB):
     def get_by_id(self, dataset_id) -> Optional[DatasetMetadata]:
         """Get a single dataset by dataset_id (or None if missing)."""
         result = self._get_by("dataset_id", dataset_id)
-        if result:
-            return DatasetMetadata(**result)  # Convert dictionary back to Dataset
-        return None
+        if not result:
+            return None
+
+        # Raise an error if the data_type is unknown
+        if result.get("data_type") not in dataset_types:
+            raise FedbiomedError(
+                f"Dataset with id {dataset_id} has invalid target_dataset_type "
+                f"{result.get('target_dataset_type')}. "
+                f"Should be one of {dataset_types}."
+            )
+
+        # Otherwise return the appropriate subclass based on the content
+        if result.get("data_type") == "medical-folder":
+            return MedicalFolderMetadata(**result)
+        elif result.get("data_type") == "images":
+            return ImagesMetadata(**result)
+        elif result.get("data_type") in "mednist":
+            return MednistMetadata(**result)
+        elif result.get("data_type") == "csv":
+            return TabularMetadata(**result)
+        elif result.get("data_type") == "default":
+            return MnistMetadata(**result)
+        else:
+            return DatasetMetadata(**result)
 
     def get_by_tag(self, tags) -> List[DatasetMetadata]:
         """Get the list of datasets which contain all the given tags (or None if missing)."""
