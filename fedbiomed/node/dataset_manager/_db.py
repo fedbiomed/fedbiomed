@@ -107,7 +107,8 @@ class DlpDB(DB):
         if result.get("target_dataset_type") == "medical-folder":
             return MedicalFolderDlp(**result)
 
-        return Dlp(**result)  # Convert dictionary back to DataLoadingPlan
+        # TODO: Check if this function should return Dlp and Dlbs in the new design
+        return Dlp(**result)
 
     def delete_by_id(self, dlp_id: str) -> List[int]:
         """Delete by dlp_id. Returns the list of removed doc IDs."""
