@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`CustomDataset` is a flexible base class for creating custom datasets in Fed-BioMed. It enforces a clear structure for user-defined datasets, ensuring compatibility with federated learning workflows defined on the node side. Users should implement their own data loading and sample rerival logic by inherinting from `CustomDataset`.
+`CustomDataset` is a flexible base class for creating custom datasets in Fed-BioMed. It enforces a clear structure for user-defined datasets, ensuring compatibility with federated learning workflows defined on the node side. Users should implement their own data loading and sample retrieval logic by inheriting from `CustomDataset`.
 
 ## Principles 
 
@@ -28,7 +28,7 @@ To create your own dataset class, inherit from `CustomDataset`. The `CustomDatas
 
 `read(self)` has to be written in the subclass. This method is called once. It should read the data from the file system and loaded in the correct format.
 
-`get_item(self, idx)` is responsible getting a single sample from the dataset. It should a tuple `(data, target)` for the given index. For analytics or non target studyies it can return `data, None`
+`get_item(self, idx)` is responsible for getting a single sample from the dataset. It should return a tuple `(data, target)` for the given index. For analytics or non-target studies it can return `data, None`.
 
 - `__len__(self)` should returns the number of samples in the dataset.
 

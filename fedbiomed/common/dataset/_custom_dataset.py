@@ -2,7 +2,7 @@ import ast
 import inspect
 import textwrap
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat
@@ -135,8 +135,8 @@ class CustomDataset(Dataset):
                 f"from dataset using get_item method. Please see error: {e}"
             ) from e
 
-    def __getitem__(self, idx) -> Any:
-        """Retrieves a sample and its by index,"""
+    def __getitem__(self, idx) -> Tuple[Any, Any]:
+        """Retrieves a sample and its target by index."""
         data, target = self.get_item(idx)
 
         def check_type(sample: Any, type_) -> None:
