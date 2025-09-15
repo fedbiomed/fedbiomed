@@ -24,7 +24,7 @@ To create your own dataset class, inherit from `CustomDataset`. The `CustomDatas
         - Inherit from `CustomDataset` to make your own dataset class.
         - The `path` attribute tells you where your data is stored (file or folder).
         - For new dataset types, check the dataset description for details about the path.
-        - Use `Experiment.list()` or `Experiment.search()` to get dataset descriptions.
+        - Use  `list` and `search` queries to get dataset descriptions. Please see the documentation for [listing datasets](../researcher/listing-datasets-and-selecting-nodes.md)
 
 `read(self)` has to be written in the subclass. This method is called once. It should read the data from the file system and loaded in the correct format.
 
