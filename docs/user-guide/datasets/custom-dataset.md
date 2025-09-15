@@ -28,7 +28,7 @@ To create your own dataset class, inherit from `CustomDataset`. The `CustomDatas
 
 `read(self)` has to be written in the subclass. This method is called once. It should read the data from the file system and loaded in the correct format.
 
-`get_item(self, idx)` is responsible for getting a single sample from the dataset. It should return a tuple `(data, target)` for the given index. For analytics or non-target studies it can return `data, None`.
+`get_item(self, idx)` is responsible for getting a single sample from the dataset. It should return a tuple `(data, target)` for the given index. For analytics or non-target studies it can return `data, None`.  The return format should follow the framework-specific convention (e.g., `torch.Tensor` for PyTorch and `numpy.ndarray` for scikit-learn). For a complete list of supported formats, see `fedbiomed.common.data_type.DataReturnFormat`."
 
 - `__len__(self)` should returns the number of samples in the dataset.
 
