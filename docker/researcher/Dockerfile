@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y socat
 
 # Create node directory
 RUN mkdir -p /fbm-researcher
-RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fedbiomed
+RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fedbiomed /fbm-researcher
 
 # Change working directory to fedbiomed
 WORKDIR /fedbiomed
