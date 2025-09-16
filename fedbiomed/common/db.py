@@ -25,7 +25,7 @@ class MedicalFolderParameters(DatasetParameters):
 
 
 @dataclass
-class DatasetMetadata:
+class DatasetEntry:
     name: str
     data_type: str
     tags: List[str]
@@ -47,27 +47,27 @@ class DatasetMetadata:
 
 
 @dataclass
-class TabularMetadata(DatasetMetadata):
+class TabularEntry(DatasetEntry):
     dtypes: List[str]
 
 
 @dataclass
-class MnistMetadata(DatasetMetadata):
+class MnistEntry(DatasetEntry):
     pass
 
 
 @dataclass
-class MednistMetadata(DatasetMetadata):
+class MednistEntry(DatasetEntry):
     pass
 
 
 @dataclass
-class ImagesMetadata(DatasetMetadata):
+class ImagesEntry(DatasetEntry):
     pass
 
 
 @dataclass
-class MedicalFolderMetadata(DatasetMetadata):
+class MedicalFolderEntry(DatasetEntry):
     dataset_parameters: MedicalFolderParameters
 
     def get_controller_arguments(self) -> Dict[str, Any]:
@@ -75,19 +75,19 @@ class MedicalFolderMetadata(DatasetMetadata):
 
 
 @dataclass
-class Dlb:
+class DlbEntry:
     loading_block_class: str  # Class of the data loading block (e.g., "MapperBlock")
     loading_block_module: str  # The module of the data loading block
     dlb_id: str  # Unique identifier for the Data Loading Block
 
 
 @dataclass
-class MedicalFolderDlb(Dlb):
+class MedicalFolderDlbEntry(DlbEntry):
     mapping: Dict[str, List[str]]  # The mapping of source keys to target labels
 
 
 @dataclass
-class Dlp:
+class DlpEntry:
     dlp_id: str  # Unique identifier for the Data Loading Plan
     dlp_name: str  # The name of the Data Loading Plan
     target_dataset_type: str  # The dataset type targeted by the plan
@@ -96,7 +96,7 @@ class Dlp:
 
 
 @dataclass
-class MedicalFolderDlp(Dlp):
+class MedicalFolderDlpEntry(DlpEntry):
     pass
 
 

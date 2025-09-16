@@ -6,15 +6,15 @@ from tinydb import where
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.db import (
     DB,
-    DatasetMetadata,
-    Dlb,
-    Dlp,
-    ImagesMetadata,
-    MedicalFolderDlp,
-    MedicalFolderMetadata,
-    MednistMetadata,
-    MnistMetadata,
-    TabularMetadata,
+    DatasetEntry,
+    DlbEntry,
+    DlpEntry,
+    ImagesEntry,
+    MedicalFolderDlpEntry,
+    MedicalFolderEntry,
+    MednistEntry,
+    MnistEntry,
+    TabularEntry,
 )
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -24,7 +24,7 @@ dataset_types = ["csv", "default", "mednist", "images", "medical-folder", "flamb
 class DlbDB(DB):
     """CRUD specialized for Data Loading Blocks documents keyed by 'dlb_id'."""
 
-    def create(self, entry: Dlb) -> int:
+    def create(self, entry: DlbEntry) -> int:
         """Creates a new DLB entry.
 
         Args:
@@ -42,12 +42,12 @@ class DlbDB(DB):
         entry_dict = asdict(entry)
         return self._database.create(entry_dict)
 
-    def get_by_id(self, dlb_id: str) -> Optional[Dlb]:
+    def get_by_id(self, dlb_id: str) -> Optional[DlbEntry]:
         """Get a single DLB by dlb_id (or None if missing)."""
         result = self._get_by("dlb_id", dlb_id)
         if not result:
             return None
-        return Dlb(**result)
+        return DlbEntry(**result)
 
     def delete_by_id(self, dlb_id: str) -> List[int]:
         """Delete by dlb_id. Returns the list of removed doc IDs."""
@@ -69,7 +69,7 @@ class DlbDB(DB):
 class DlpDB(DB):
     """CRUD specialized for Data Loading Plans documents keyed by 'dlp_id'."""
 
-    def create(self, entry: Dlp) -> int:
+    def create(self, entry: DlpEntry) -> int:
         """Creates a new DLP entry.
 
         Args:
@@ -89,7 +89,7 @@ class DlpDB(DB):
 
         return self._database.create(entry_dict)
 
-    def get_by_id(self, dlp_id) -> Optional[Dlp]:
+    def get_by_id(self, dlp_id) -> Optional[DlpEntry]:
         """Get a single DLP by dlp_id (or None if missing)."""
         result = self._get_by("dlp_id", dlp_id)
         if not result:
@@ -105,10 +105,10 @@ class DlpDB(DB):
 
         # Otherwise return the appropriate subclass based on the content
         if result.get("target_dataset_type") == "medical-folder":
-            return MedicalFolderDlp(**result)
+            return MedicalFolderDlpEntry(**result)
 
         # TODO: Check if this function should return Dlp and Dlbs in the new design
-        return Dlp(**result)
+        return DlpEntry(**result)
 
     def delete_by_id(self, dlp_id: str) -> List[int]:
         """Delete by dlp_id. Returns the list of removed doc IDs."""
@@ -161,7 +161,7 @@ class DatasetDB(DB):
             )
             raise FedbiomedError(msg)
 
-    def create(self, entry: DatasetMetadata) -> int:
+    def create(self, entry: DatasetEntry) -> int:
         """Creates a new dataset entry.
         Args:
             entry: Dataset entry to create.
@@ -191,7 +191,7 @@ class DatasetDB(DB):
 
         return self._database.create(entry_dict)
 
-    def get_by_id(self, dataset_id) -> Optional[DatasetMetadata]:
+    def get_by_id(self, dataset_id) -> Optional[DatasetEntry]:
         """Get a single dataset by dataset_id (or None if missing)."""
         result = self._get_by("dataset_id", dataset_id)
         if not result:
@@ -207,23 +207,23 @@ class DatasetDB(DB):
 
         # Otherwise return the appropriate subclass based on the content
         if result.get("data_type") == "medical-folder":
-            return MedicalFolderMetadata(**result)
+            return MedicalFolderEntry(**result)
         elif result.get("data_type") == "images":
-            return ImagesMetadata(**result)
+            return ImagesEntry(**result)
         elif result.get("data_type") in "mednist":
-            return MednistMetadata(**result)
+            return MednistEntry(**result)
         elif result.get("data_type") == "csv":
-            return TabularMetadata(**result)
+            return TabularEntry(**result)
         elif result.get("data_type") == "default":
-            return MnistMetadata(**result)
+            return MnistEntry(**result)
         else:
-            return DatasetMetadata(**result)
+            return DatasetEntry(**result)
 
-    def get_by_tag(self, tags) -> List[DatasetMetadata]:
+    def get_by_tag(self, tags) -> List[DatasetEntry]:
         """Get the list of datasets which contain all the given tags (or None if missing)."""
         result = self._get_all_by("tags", tags)
         return [
-            DatasetMetadata(**r) for r in result
+            DatasetEntry(**r) for r in result
         ]  # Convert each document back to Dataset
 
     def delete_by_id(self, dataset_id: str) -> List[int]:
