@@ -674,7 +674,7 @@ class FedLogger(metaclass=SingletonMeta):
         if is_ipython():
             handler = _IpythonConsoleHandler()
         else:
-            handler = logging.StreamHandler(sys.stdout)
+            handler = logging.StreamHandler()
 
         handler.setLevel(self._internal_level_translator(level))
 
