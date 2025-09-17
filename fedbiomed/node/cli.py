@@ -249,7 +249,8 @@ class DatasetArgumentParser(CLIArgumentParser):
           unused_args: Empty arguments since `list` command no positional args.
         """
         print("Listing your data available")
-        data = self._node.dataset_manager.list_my_data(verbose=True)
+        data = self._node.dataset_manager.dataset_db._list()
+        print(data)
         if len(data) == 0:
             print("No data has been set up.")
 

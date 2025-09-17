@@ -9,7 +9,6 @@ import csv
 import os.path
 import tarfile
 import uuid
-from dataclasses import asdict
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.error import ContentTooShortError, HTTPError, URLError
 from urllib.request import urlretrieve
@@ -22,7 +21,11 @@ from torchvision import datasets, transforms
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingBlock, DataLoadingPlan
 from fedbiomed.common.dataset._medical_folder_dataset import MedicalFolderDataset
-from fedbiomed.common.dataset._simple_dataset import ImageFolderDataset
+from fedbiomed.common.dataset._simple_dataset import (
+    ImageFolderDataset,
+    MedNistDataset,
+    MnistDataset,
+)
 from fedbiomed.common.dataset._tabular_dataset import TabularDataset
 
 # TODO: Check usage of MedicalFolderDataset it still assumes that it is old MedicalFolderDataset
@@ -30,10 +33,14 @@ from fedbiomed.common.dataset_controller import MedicalFolderController
 from fedbiomed.common.dataset_controller._image_folder_controller import (
     ImageFolderController,
 )
+from fedbiomed.common.dataset_controller._mednist_controller import MedNistController
+from fedbiomed.common.dataset_controller._mnist_controller import MnistController
 from fedbiomed.common.dataset_controller._tabular_controller import TabularController
 from fedbiomed.common.db import (
     ImageFolderEntry,
     MedicalFolderEntry,
+    MedNistEntry,
+    MnistEntry,
     TabularEntry,
 )
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError, FedbiomedError
@@ -49,20 +56,30 @@ class DatasetManager:
     """
 
     datasets = {
-        "MedicalFolderDataset": {
+        DatasetTypes.MEDICAL_FOLDER: {
             "dataset": MedicalFolderDataset,
             "controller": MedicalFolderController,
             "meta": MedicalFolderEntry,
         },
-        "TabularDataset": {
+        DatasetTypes.TABULAR: {
             "dataset": TabularDataset,
             "controller": TabularController,
             "meta": TabularEntry,
         },
-        "ImageFolderDataset": {
+        DatasetTypes.IMAGES: {
             "dataset": ImageFolderDataset,
             "controller": ImageFolderController,
             "meta": ImageFolderEntry,
+        },
+        DatasetTypes.DEFAULT: {
+            "dataset": MnistDataset,
+            "controller": MnistController,
+            "meta": MnistEntry,
+        },
+        DatasetTypes.MEDNIST: {
+            "dataset": MedNistDataset,
+            "controller": MedNistController,
+            "meta": MedNistEntry,
         },
     }
 
@@ -88,7 +105,7 @@ class DatasetManager:
 
     def register_dataset(
         self,
-        name: str,
+        dataset_type: DatasetTypes,
         dataset_meta: Dict[str, Any],
         dlp: Optional[DataLoadingPlan] = None,
     ) -> Dict[str, Any]:
@@ -97,8 +114,12 @@ class DatasetManager:
         # - Adds dataset into the database
 
         # Either use controller or dataset to load the data
-        #
-        meta = self.datasets[name]["meta"](dataset_meta)
+        dataset_meta["dataset_id"] = dataset_meta.get(
+            "dataset_id", "dataset_" + str(uuid.uuid4())
+        )
+        dataset_meta["data_type"] = dataset_type.value
+        dataset_meta["shape"] = dataset_meta.get("shape", None)
+        entry = self.datasets[dataset_type]["meta"](**dataset_meta)
 
         # Get DLP and DLB blocks
         #
@@ -123,13 +144,12 @@ class DatasetManager:
         #     meta.dataset_parameters.dlp = DataLoadingPlan(**dlp)
 
         # Build controller
-        controller = self.datasets["name"]["controller"](
-            meta.get_controller_arguments()
+        controller = self.datasets[dataset_type]["controller"](
+            **entry.get_controller_arguments()
         )
 
         # Finally it returns dataset entry {} Dict[str, Any]
-        entry = asdict(meta)
-        entry["shape"] = controller.shape()
+        entry.shape = controller.shape()
 
         if dlp is not None:
             dlp_id = self.dlp_db.create(dlp)

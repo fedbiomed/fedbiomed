@@ -30,9 +30,9 @@ class DatasetEntry:
     data_type: str
     tags: List[str]
     description: str
-    shape: Union[List[int], Dict[str, List[int]]]
     path: str
     dataset_id: str
+    shape: Optional[Union[List[int], Dict[str, List[int]]]]
     dataset_parameters: Optional[Dict[str, Any]]
 
     def get_controller_arguments(self) -> Dict[str, Any]:
@@ -57,7 +57,7 @@ class MnistEntry(DatasetEntry):
 
 
 @dataclass
-class MednistEntry(DatasetEntry):
+class MedNistEntry(DatasetEntry):
     pass
 
 

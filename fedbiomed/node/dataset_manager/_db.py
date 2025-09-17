@@ -12,7 +12,7 @@ from fedbiomed.common.db import (
     ImageFolderEntry,
     MedicalFolderDlpEntry,
     MedicalFolderEntry,
-    MednistEntry,
+    MedNistEntry,
     MnistEntry,
     TabularEntry,
 )
@@ -142,7 +142,7 @@ class DatasetDB(DB):
     entry_types = {
         "medical-folder": MedicalFolderEntry,
         "images": ImageFolderEntry,
-        "mednist": MednistEntry,
+        "mednist": MedNistEntry,
         "csv": TabularEntry,
         "default": MnistEntry,
     }

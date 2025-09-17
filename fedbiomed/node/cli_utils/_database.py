@@ -7,6 +7,7 @@ import warnings
 from importlib import import_module
 from typing import Union
 
+from fedbiomed.common.constants import DatasetTypes
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.exceptions import (
     FedbiomedDatasetError,
@@ -18,6 +19,15 @@ from fedbiomed.node.cli_utils._medical_folder_dataset import (
     add_medical_folder_dataset_from_cli,
 )
 from fedbiomed.node.dataset_manager import DatasetManager
+
+data_type_mapping = {
+    "csv": DatasetTypes.TABULAR,
+    "default": DatasetTypes.DEFAULT,
+    "mednist": DatasetTypes.MEDNIST,
+    "images": DatasetTypes.IMAGES,
+    "medical-folder": DatasetTypes.MEDICAL_FOLDER,
+    "flamby": DatasetTypes.FLAMBY,
+}
 
 
 def add_database(
@@ -210,15 +220,28 @@ def add_database(
     path = os.path.abspath(path)
     logger.info(f"Dataset absolute path: {path}")
 
+    dataset_type = data_type_mapping[data_type]
+
     try:
-        dataset_manager.add_database(
-            name=name,
-            tags=tags,
-            data_type=data_type,
-            description=description,
-            path=path,
-            dataset_parameters=dataset_parameters,
-            data_loading_plan=data_loading_plan,
+        # dataset_manager.add_database(
+        #     name=name,
+        #     tags=tags,
+        #     data_type=data_type,
+        #     description=description,
+        #     path=path,
+        #     dataset_parameters=dataset_parameters,
+        #     data_loading_plan=data_loading_plan,
+        # )
+        dataset_manager.register_dataset(
+            dataset_type=dataset_type,
+            dataset_meta=dict(
+                name=name,
+                tags=tags,
+                description=description,
+                path=path,
+                dataset_parameters=dataset_parameters,
+            ),
+            dlp=data_loading_plan,
         )
     except (AssertionError, FedbiomedDatasetManagerError) as e:
         if interactive is True:
@@ -236,7 +259,7 @@ def add_database(
             stacklevel=1,
         )
     print("\nGreat! Take a look at your data:")
-    dataset_manager.list_my_data(verbose=True)
+    dataset_manager.dataset_db._list()
 
 
 def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -> None:
@@ -251,7 +274,7 @@ def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -
                 for a dataset to delete
             - if `False` delete MNIST dataset if it exists in the database
     """
-    my_data = dataset_manager.list_my_data(verbose=False)
+    my_data = dataset_manager.dataset_db._list()
     if not my_data:
         logger.warning("No dataset to delete")
         return
@@ -281,9 +304,9 @@ def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -
             if not d_id:
                 logger.warning("No matching dataset to delete")
                 return
-            dataset_manager.remove_database(d_id)
+            dataset_manager.dataset_db.delete_by_id(d_id)
             logger.info("Dataset removed. Here your available datasets")
-            dataset_manager.list_my_data()
+            dataset_manager.dataset_db._list()
             return
         except (ValueError, IndexError, AssertionError):
             logger.error("Invalid option. Please, try again.")
@@ -297,7 +320,7 @@ def delete_all_database(dataset_manager):
     Args:
         dataset_manager: Object for managing the dataset
     """
-    my_data = dataset_manager.list_my_data(verbose=False)
+    my_data = dataset_manager.dataset_db._list()
 
     if not my_data:
         logger.warning("No dataset to delete")
@@ -305,7 +328,7 @@ def delete_all_database(dataset_manager):
 
     for ds in my_data:
         d_id = ds["dataset_id"]
-        dataset_manager.remove_database(d_id)
+        dataset_manager.dataset_db.delete_by_id(d_id)
         logger.info("Dataset removed for dataset_id:" + str(d_id))
 
     return
