@@ -62,7 +62,7 @@ class MednistEntry(DatasetEntry):
 
 
 @dataclass
-class ImagesEntry(DatasetEntry):
+class ImageFolderEntry(DatasetEntry):
     pass
 
 

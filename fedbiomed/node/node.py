@@ -191,7 +191,7 @@ class Node:
                 case OverlayMessage.__name__:
                     self._n2n_router.submit(message)
                 case SearchRequest.__name__:
-                    databases = self.dataset_manager.search_by_tags(message.tags)
+                    databases = self.dataset_manager.dataset_db.get_by_tag(message.tags)
                     if len(databases) != 0:
                         databases = self.dataset_manager.obfuscate_private_information(
                             databases
@@ -208,7 +208,7 @@ class Node:
                     )
                 case ListRequest.__name__:
                     # Get list of all datasets
-                    databases = self.dataset_manager.list_my_data(verbose=False)
+                    databases = self.dataset_manager.dataset_db._list()
                     databases = self.dataset_manager.obfuscate_private_information(
                         databases
                     )
@@ -353,7 +353,7 @@ class Node:
         )
 
         dataset_id = msg.get_param("dataset_id")
-        data = self.dataset_manager.get_by_id(dataset_id)
+        data = self.dataset_manager.dataset_db.get_by_id(dataset_id)
 
         if data is None:
             return self.send_error(
@@ -366,9 +366,11 @@ class Node:
 
         dlp_and_loading_block_metadata = None
         if "dlp_id" in data:
-            dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(
-                data["dlp_id"]
-            )
+            dlp = self.dataset_manager.dlp_db.get_by_id()
+            dlbs = []
+            for dlb_id in dlp.loading_blocks.values():
+                dlbs.append(self.dataset_manager.dlb_db.get_by_id(dlb_id))
+            dlp_and_loading_block_metadata = dlp, dlbs
 
         round_ = Round(
             root_dir=self._config.root,

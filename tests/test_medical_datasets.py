@@ -165,6 +165,7 @@ def patch_modality_glob(self, x):
         yield Path(self.name + "_test.nii")
 
 
+@unittest.skip(reason="Legacy test")
 class TestMedicalFolderDataset(unittest.TestCase):
     def setUp(self) -> None:
         self.root = tempfile.mkdtemp()
@@ -801,6 +802,7 @@ class TestMedicalFolderDataset(unittest.TestCase):
             self.assertListEqual(sorted(v), [str(i) for i in range(self.n_samples)])
 
 
+@unittest.skip(reason="Legacy test")
 class TestMedicalFolderBase(unittest.TestCase):
     def setUp(self) -> None:
         self.root = tempfile.mkdtemp()

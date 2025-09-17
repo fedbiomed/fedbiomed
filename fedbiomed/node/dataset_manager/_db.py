@@ -9,7 +9,7 @@ from fedbiomed.common.db import (
     DatasetEntry,
     DlbEntry,
     DlpEntry,
-    ImagesEntry,
+    ImageFolderEntry,
     MedicalFolderDlpEntry,
     MedicalFolderEntry,
     MednistEntry,
@@ -139,6 +139,14 @@ class DlpDB(DB):
 class DatasetDB(DB):
     """CRUD specialized for dataset documents keyed by 'dataset_id'."""
 
+    entry_types = {
+        "medical-folder": MedicalFolderEntry,
+        "images": ImageFolderEntry,
+        "mednist": MednistEntry,
+        "csv": TabularEntry,
+        "default": MnistEntry,
+    }
+
     def search_conflicting_tags(self, tags: Union[tuple, list]) -> list:
         """Searches for registered data that have conflicting tags with the given tags
 
@@ -205,26 +213,18 @@ class DatasetDB(DB):
                 f"Should be one of {dataset_types}."
             )
 
-        # Otherwise return the appropriate subclass based on the content
-        if result.get("data_type") == "medical-folder":
-            return MedicalFolderEntry(**result)
-        elif result.get("data_type") == "images":
-            return ImagesEntry(**result)
-        elif result.get("data_type") in "mednist":
-            return MednistEntry(**result)
-        elif result.get("data_type") == "csv":
-            return TabularEntry(**result)
-        elif result.get("data_type") == "default":
-            return MnistEntry(**result)
-        else:
-            return DatasetEntry(**result)
+        entry_class = self.entry_types.get(result.get("data_type"), DatasetEntry)
+        return entry_class(**result)
 
     def get_by_tag(self, tags) -> List[DatasetEntry]:
         """Get the list of datasets which contain all the given tags (or None if missing)."""
         result = self._get_all_by("tags", tags)
-        return [
-            DatasetEntry(**r) for r in result
-        ]  # Convert each document back to Dataset
+        # Return the correct subclass for each dataset based on its data_type
+        entries = []
+        for r in result:
+            entry_class = self.entry_types.get(r.get("data_type"), DatasetEntry)
+            entries.append(entry_class(**r))
+        return entries
 
     def delete_by_id(self, dataset_id: str) -> List[int]:
         """Delete by dataset_id. Returns the list of removed doc IDs."""
