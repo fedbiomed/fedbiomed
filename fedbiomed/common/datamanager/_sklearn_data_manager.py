@@ -88,8 +88,6 @@ class SkLearnDataManager(FrameworkDataManager):
 
         # Manage randomization for SkLearnDataManager and SkLearnDataLoader through np.random()
         # Control seed here to manage reproducibility for both classes
-        #
-        # TODO: random_seed / random_state should be standardized across all DataManagers
         seed = self._loader_arguments.pop("random_seed", None)
         if isinstance(seed, int):
             np.random.seed(seed)

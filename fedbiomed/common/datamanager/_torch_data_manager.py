@@ -127,12 +127,9 @@ class TorchDataManager(FrameworkDataManager):
         """
         super().__init__(dataset, **kwargs)
 
-        # Partially address issue 1369 (item 3) to ensure reproducibility:
-        # fix seed globally for torch, so it applies to split and shuffle
+        # Manage randomization for for torch, so it applies to split and shuffle
         # + for all devices
-        #
-        # Can remove this item as it is not used in PyTorch DataLoader
-        seed = self._loader_arguments.pop("random_state", None)
+        seed = self._loader_arguments.pop("random_seed", None)
         if isinstance(seed, int):
             torch.manual_seed(seed)
         else:
