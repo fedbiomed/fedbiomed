@@ -9,24 +9,36 @@ import csv
 import os.path
 import tarfile
 import uuid
-from typing import Iterable, List, Optional, Tuple, Union
+from dataclasses import asdict
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.error import ContentTooShortError, HTTPError, URLError
 from urllib.request import urlretrieve
 
 import pandas as pd
 import torch
 from tabulate import tabulate  # only used for printing
-from tinydb import Query, TinyDB
 from torchvision import datasets, transforms
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingBlock, DataLoadingPlan
+from fedbiomed.common.dataset._medical_folder_dataset import MedicalFolderDataset
+from fedbiomed.common.dataset._simple_dataset import ImageFolderDataset
+from fedbiomed.common.dataset._tabular_dataset import TabularDataset
 
 # TODO: Check usage of MedicalFolderDataset it still assumes that it is old MedicalFolderDataset
 from fedbiomed.common.dataset_controller import MedicalFolderController
-from fedbiomed.common.db import DBTable
+from fedbiomed.common.dataset_controller._image_folder_controller import (
+    ImageFolderController,
+)
+from fedbiomed.common.dataset_controller._tabular_controller import TabularController
+from fedbiomed.common.db import (
+    ImageFolderEntry,
+    MedicalFolderEntry,
+    TabularEntry,
+)
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError, FedbiomedError
 from fedbiomed.common.logger import logger
+from fedbiomed.node.dataset_manager._db import DatasetDB, DlbDB, DlpDB
 
 
 class DatasetManager:
@@ -36,21 +48,94 @@ class DatasetManager:
     for the node. Currently uses TinyDB.
     """
 
+    datasets = {
+        "MedicalFolderDataset": {
+            "dataset": MedicalFolderDataset,
+            "controller": MedicalFolderController,
+            "meta": MedicalFolderEntry,
+        },
+        "TabularDataset": {
+            "dataset": TabularDataset,
+            "controller": TabularController,
+            "meta": TabularEntry,
+        },
+        "ImageFolderDataset": {
+            "dataset": ImageFolderDataset,
+            "controller": ImageFolderController,
+            "meta": ImageFolderEntry,
+        },
+    }
+
     def __init__(self, db: str):
         """Constructor of the class.
 
         Args:
             db: Path to the database file
         """
-        self._db = TinyDB(db)
-        self._database = Query()
+        self.dataset_db = DatasetDB(path=db)
+        self.dlp_db = DlpDB(path=db)
+        self.dlb_db = DlbDB(path=db)
+
+        # self._db = TinyDB(db)
+        # self._database = Query()
 
         # don't use DB read cache to ensure coherence
         # (eg when mixing CLI commands with a GUI session)
-        self._dataset_table = DBTable(self._db.storage, name="Datasets", cache_size=0)
-        self._dlp_table = DBTable(
-            self._db.storage, name="Data_Loading_Plans", cache_size=0
+        # self._dataset_table = DBTable(self._db.storage, name="Datasets", cache_size=0)
+        # self._dlp_table = DBTable(
+        #     self._db.storage, name="Data_Loading_Plans", cache_size=0
+        # )
+
+    def register_dataset(
+        self,
+        name: str,
+        dataset_meta: Dict[str, Any],
+        dlp: Optional[DataLoadingPlan] = None,
+    ) -> Dict[str, Any]:
+        # - Retrieves the dataset from self.datasets
+        # - Takes dataset meta validates
+        # - Adds dataset into the database
+
+        # Either use controller or dataset to load the data
+        #
+        meta = self.datasets[name]["meta"](dataset_meta)
+
+        # Get DLP and DLB blocks
+        #
+        # if meta.dataset_parameters.dlp_id is not None:
+        #     dlp = self.dlp_db.get_by_id(meta.dataset_parameters.dlp_id)
+        #     if dlp is None:
+        #         raise FedbiomedDatasetManagerError(
+        #             f"{ErrorNumbers.FB315.value}: Non-existing DLP for the dataset."
+        #         )
+        #     dlb_ids = dlp.loading_blocks.values()
+        #     dlbs = []
+        #     for dlb_id in dlb_ids:
+        #         dlb = self.dlp_db.get_by_id(dlb_id)
+        #         if not dlb:
+        #             raise FedbiomedDatasetManagerError(
+        #                 f"{ErrorNumbers.FB315.value}: Non-existing DLB for the dataset."
+        #             )
+        #         dlbs.extend(dlb)
+        #     meta.dataset_parameters.dlbs = [
+        #         DataLoadingBlock(**dlb) for dlb in dlbs
+        #     ]
+        #     meta.dataset_parameters.dlp = DataLoadingPlan(**dlp)
+
+        # Build controller
+        controller = self.datasets["name"]["controller"](
+            meta.get_controller_arguments()
         )
+
+        # Finally it returns dataset entry {} Dict[str, Any]
+        entry = asdict(meta)
+        entry["shape"] = controller.shape()
+
+        if dlp is not None:
+            dlp_id = self.dlp_db.create(dlp)
+            entry["dlp_id"] = dlp_id
+
+        self.dataset_db.create(entry)
 
     def get_by_id(self, dataset_id: str) -> Union[dict, None]:
         """Searches for a dataset with given dataset_id.
