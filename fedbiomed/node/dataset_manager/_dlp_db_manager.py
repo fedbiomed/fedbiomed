@@ -8,13 +8,17 @@ Manage the node's database table for handling DLP / DLB
 from typing import Optional, Union
 
 from fedbiomed.common.constants import ErrorNumbers
+from typing import Optional, Union
+
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloadingplan import (
+    DataLoadingPlan,
     DataLoadingPlan,
 )
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
-from ._db_tables import DlbTable, DlpTable
+from ._db import DlbDB, DlpDB
 
 
 class DlpDatabaseManager:
@@ -24,12 +28,12 @@ class DlpDatabaseManager:
     for the node. Currently uses TinyDB.
     """
 
-    _dlp_table: DlpTable
-    _dlb_table: DlbTable
+    _dlp_table: DlpDB
+    _dlb_table: DlbDB
 
     def __init__(self, path: str):
-        self._dlp_table = DlpTable(path)
-        self._dlb_table = DlbTable(path)
+        self._dlp_table = DlpDB(path)
+        self._dlb_table = DlbDB(path)
 
     def list_dlp_by_target_dataset_type(
         self, target_dataset_type: str = None
@@ -96,7 +100,7 @@ class DlpDatabaseManager:
             raise FedbiomedError(_msg)
 
         dlp_metadata, dlbs_metadata = data_loading_plan.serialize()
-        _ = self._dlp_table.insert(dlp_metadata)
+        _ = self._dlp_table.create(dlp_metadata)
         for dlb_metadata in dlbs_metadata:
-            _ = self._dlb_table.insert(dlb_metadata)
+            _ = self._dlb_table.create(dlb_metadata)
         return data_loading_plan.dlp_id

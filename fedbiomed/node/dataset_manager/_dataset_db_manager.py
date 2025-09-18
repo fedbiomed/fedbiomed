@@ -8,11 +8,14 @@ Manage the node's database table for handling datasets
 from typing import Iterable, Optional, Union
 
 from tabulate import tabulate
+from typing import Iterable, Optional, Union
+
+from tabulate import tabulate
 
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedError
 
-from ._db_tables import DatasetTable
+from ._db import DatasetDB
 from ._dlp_db_manager import DlpDatabaseManager
 
 
@@ -23,11 +26,11 @@ class DatasetDatabaseManager:
     for the node. Currently uses TinyDB.
     """
 
-    _dataset_table: DatasetTable
+    _dataset_table: DatasetDB
     _dlp_manager: DlpDatabaseManager
 
     def __init__(self, path: str):
-        self._dataset_table = DatasetTable(path)
+        self._dataset_table = DatasetDB(path)
         self._dlp_manager = DlpDatabaseManager(path)
 
     def get_dataset_by_id(self, dataset_id: str) -> Optional[dict]:
