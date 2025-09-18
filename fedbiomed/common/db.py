@@ -159,6 +159,8 @@ class DB:
 
     def _list(self) -> List[Document]:
         """List all entries in the table."""
+        for entry in self._database.all():
+            print(entry)
         return self._database.all()
 
     def _delete_by(self, by, value) -> List[int]:

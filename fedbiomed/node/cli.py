@@ -250,7 +250,6 @@ class DatasetArgumentParser(CLIArgumentParser):
         """
         print("Listing your data available")
         data = self._node.dataset_manager.dataset_db._list()
-        print(data)
         if len(data) == 0:
             print("No data has been set up.")
 

@@ -3,6 +3,7 @@
 
 import warnings
 from collections import defaultdict
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 from fedbiomed.common.dataloadingplan import DataLoadingPlan, MapperBlock
@@ -46,7 +47,11 @@ def add_medical_folder_dataset_from_cli(
                     )
         dataset_parameters["tabular_file"] = tabular_file_path
         dataset_parameters["index_col"] = index_col
-    modality_folder_names, _ = controller.modalities_candidates_from_subfolders()
+
+    # modality_folder_names, _ = controller.modalities_candidates_from_subfolders()
+    df_dir = controller._make_df_dir(root=Path(path))
+    modality_folder_names, _ = controller._prepare_df_dir_for_use(df_dir)
+
     print(
         "\nThe following modalities were detected:\n",
         "\n".join([m for m in modality_folder_names]),
