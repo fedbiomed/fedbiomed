@@ -96,7 +96,7 @@ class DlpDatabaseManager:
             raise FedbiomedError(_msg)
 
         dlp_metadata, dlbs_metadata = data_loading_plan.serialize()
-        _ = self._dlp_table.create(dlp_metadata)
+        _ = self._dlp_table.insert(dlp_metadata)
         for dlb_metadata in dlbs_metadata:
-            _ = self._dlb_table.create(dlb_metadata)
+            _ = self._dlb_table.insert(dlb_metadata)
         return data_loading_plan.dlp_id
