@@ -55,3 +55,10 @@ class TabularController(Controller):
     # TODO: Change it with the accurate return type
     def shape(self) -> Dict:
         return self._reader.shape()
+
+    def get_types(self):
+        """Get dtypes of the columns in the Tabular dataset"""
+        return {
+            col: dtype.__class__.__name__
+            for col, dtype in self._reader.data.schema.items()
+        }

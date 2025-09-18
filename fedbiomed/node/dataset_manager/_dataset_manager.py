@@ -119,6 +119,8 @@ class DatasetManager:
         )
         dataset_meta["data_type"] = dataset_type.value
         dataset_meta["shape"] = dataset_meta.get("shape", None)
+        dataset_meta["dtypes"] = dataset_meta.get("dtypes", [])
+
         entry = self.datasets[dataset_type]["meta"](**dataset_meta)
 
         # Get DLP and DLB blocks
@@ -150,6 +152,7 @@ class DatasetManager:
 
         # Finally it returns dataset entry {} Dict[str, Any]
         entry.shape = controller.shape()
+        entry.dtypes = controller.get_types()
 
         if dlp is not None:
             dlp_id = self.dlp_db.create(dlp)

@@ -25,6 +25,11 @@ class MedicalFolderParameters(DatasetParameters):
 
 
 @dataclass
+class TabularParameters(DatasetParameters):
+    pass
+
+
+@dataclass
 class DatasetEntry:
     name: str
     data_type: str
@@ -33,6 +38,7 @@ class DatasetEntry:
     path: str
     dataset_id: str
     shape: Optional[Union[List[int], Dict[str, List[int]]]]
+    dtypes: Optional[List[str]]
     dataset_parameters: Optional[Dict[str, Any]]
 
     def get_controller_arguments(self) -> Dict[str, Any]:
@@ -48,7 +54,7 @@ class DatasetEntry:
 
 @dataclass
 class TabularEntry(DatasetEntry):
-    dtypes: List[str]
+    pass
 
 
 @dataclass
