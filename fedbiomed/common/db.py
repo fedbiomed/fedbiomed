@@ -76,12 +76,11 @@ class TinyDBConnector:
     _instance = None
     _db = None
 
-    def __new__(cls, db_path: str):
+    def __new__(cls, db_path="db.json"):
         # Ensure only one instance of TinyDBConnector
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            # Use DBTable as the default table class for this TinyDB instance
-            cls._db = TinyDB(db_path, table_class=DBTable)
+            cls._db = TinyDB(db_path)
         return cls._instance
 
     @property
@@ -89,10 +88,9 @@ class TinyDBConnector:
         """Return the shared TinyDB instance"""
         return self._db
 
-    def table(self, name: str) -> DBTable:
-        """Return a table with the given name, ensuring it is a DBTable instance."""
-        # Get the table from the underlying DB instance, forcing cache_size=0
-        return self._db.table(name, cache_size=0)
+    def table(self, name: str):
+        """Shortcut to access a specific table using DBTable wrapper"""
+        return DBTable(self._db.storage, name=name, cache_size=0)
 
 
 class TinyTableConnector:
@@ -118,7 +116,7 @@ class TinyTableConnector:
             The document if found, otherwise None.
         """
         response = self._table.search(self._query[self._id_name] == id_value)
-        assert len(response) < 2, (
+        assert len(response) > 1, (
             f"Multiple entries found for {self._id_name}={id_value}, "
             "which should be unique."
         )
@@ -141,7 +139,7 @@ class TinyTableConnector:
             raise KeyError(
                 f"Entry with {self._id_name}={entry[self._id_name]} already exists."
             )
-        return self._table.insert(entry)
+        return self._table.create(entry)
 
     def all(self) -> List[dict]:
         """Get all entries (or empty list if none found).
