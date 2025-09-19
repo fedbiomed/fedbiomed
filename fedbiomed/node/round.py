@@ -835,7 +835,6 @@ class Round:
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(
             test_ratio=test_ratio,
-            # random_seed=rand_seed
         )
         # Set models validating and training parts for training plan
         self.training_plan.set_data_loaders(

@@ -133,8 +133,8 @@ per_training_args = {
     "epochs": 5,
     "loader_args": {
         "batch_size": 1,
-        "random_seed": RANDOM_SEED,
     },
+    "random_seed": RANDOM_SEED,
 }
 
 
@@ -272,8 +272,8 @@ declearn_training_args = {
     "optimizer_args": {"lr": 1e-3},
     "loader_args": {
         "batch_size": 4,
-        "random_seed": 1234,
     },
+    "random_seed": 1234,
 }
 
 
