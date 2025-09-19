@@ -101,10 +101,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self.correction_state: OrderedDict = OrderedDict()
         self.aggregator_name: str = None
 
-        # TODO : add random seed init
-        # self.random_seed_params = None
-        # self.random_seed_shuffling_data = None
-
         # device to use: cpu/gpu
         # - all operations except training only use cpu
         # - researcher doesn't request to use gpu by default
@@ -166,7 +162,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             "share_persistent_buffers", True
         )
         # Set random seed (Pytorch-specific)
-        rseed = training_args["random_seed"]
+        rseed = training_args.get("random_seed")
 
         if rseed is not None:
             torch.manual_seed(rseed)
