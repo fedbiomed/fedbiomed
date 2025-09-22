@@ -6,6 +6,7 @@ Interfaces with a tinyDB database for converting search results to dict.
 """
 
 from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Union
 
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
@@ -44,6 +45,7 @@ class DBTable(Table):
     """Extends TinyDB table to cast Document type to dict"""
 
     @cast_
+    def insert(self, *args, **kwargs):
     def insert(self, *args, **kwargs):
         return super().insert(*args, **kwargs)
 
@@ -89,15 +91,8 @@ class TinyDBConnector:
 
     def table(self, name: str) -> DBTable:
         """Return a table with the given name, ensuring it is a DBTable instance."""
-        # Get the table from the underlying DB instance
-        table_instance = self._db.table(name)
-
-        # If it's not already a DBTable, wrap it. This handles cases where
-        # the table was cached by TinyDB before the table_class was set.
-        if not isinstance(table_instance, DBTable):
-            table_instance.__class__ = DBTable
-
-        return table_instance
+        # Get the table from the underlying DB instance, forcing cache_size=0
+        return self._db.table(name, cache_size=0)
 
 
 class TinyTableConnector:
