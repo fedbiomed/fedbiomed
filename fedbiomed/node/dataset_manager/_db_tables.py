@@ -6,7 +6,7 @@ from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
 
-class DatasetDB(TinyTableConnector):
+class DatasetTable(TinyTableConnector):
     _table_name = "Datasets"
     _id_name = "dataset_id"
 

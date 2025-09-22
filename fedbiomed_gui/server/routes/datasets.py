@@ -9,7 +9,8 @@ from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import DatasetDatabaseManager
 
 from ..config import config
-from ..db import node_database
+
+# from ..db import node_database
 from ..middlewares import common, middleware
 from ..schemas import (
     AddDataSetRequest,
@@ -53,16 +54,22 @@ def list_datasets():
     """
     req = request.json
     search = req.get("search", None)
-    table = node_database.table_datasets()
-    query = node_database.query()
+    # table = node_database.table_datasets()
+    # query = node_database.query()
 
     if search is not None and search != "":
-        res = table.search(
-            query.name.search(search + "+") | query.description.search(search + "+")
+        # res = table.search(
+        #     query.name.search(search + "+") | query.description.search(search + "+")
+        # )
+        res = dataset_manager._dataset_table.get_all_by_condition(
+            "name", lambda x: search.lower() in x.lower()
+        ) + dataset_manager._dataset_table.get_all_by_condition(
+            "description", lambda x: search.lower() in x.lower()
         )
     else:
         try:
-            res = table.all()
+            # res = table.all()
+            res = dataset_manager.list_my_data()
         except Exception as e:
             return error(str(e)), 400
 
@@ -92,12 +99,14 @@ def remove_dataset():
     req = request.json
 
     if req["dataset_id"]:
-        table = node_database.table_datasets()
-        query = node_database.query()
-        dataset = table.get(query.dataset_id == req["dataset_id"])
+        # table = node_database.table_datasets()
+        # query = node_database.query()
+        # dataset = table.get(query.dataset_id == req["dataset_id"])
+        dataset = dataset_manager.get_dataset_by_id(req["dataset_id"])
 
         if dataset:
-            table.remove(doc_ids=[dataset.doc_id])
+            # table.remove(doc_ids=[dataset.doc_id])
+            dataset_manager.remove_dataset_by_id(req["dataset_id"])
             return success("Dataset has been removed successfully"), 200
 
         else:
@@ -154,9 +163,10 @@ def add_dataset():
         return error(str(e)), 400
 
     # Get saved dataset document
-    table = node_database.table_datasets()
-    query = node_database.query()
-    res = table.get(query.dataset_id == dataset_id)
+    # table = node_database.table_datasets()
+    # query = node_database.query()
+    # res = table.get(query.dataset_id == dataset_id)
+    res = dataset_manager.get_dataset_by_id(dataset_id)
 
     return response(res), 200
 
@@ -194,9 +204,10 @@ def update_dataset():
         return error(str(e)), 400
 
     # Get saved dataset document
-    table = node_database.table_datasets()
-    query = node_database.query()
-    res = table.get(query.dataset_id == req["dataset_id"])
+    # table = node_database.table_datasets()
+    # query = node_database.query()
+    # res = table.get(query.dataset_id == req["dataset_id"])
+    res = dataset_manager.get_dataset_by_id(req["dataset_id"])
 
     return response(res), 200
 
@@ -224,9 +235,10 @@ def get_preview_dataset():
     """
 
     req = request.json
-    table = node_database.table_datasets()
-    query = node_database.query()
-    dataset = table.get(query.dataset_id == req["dataset_id"])
+    # table = node_database.table_datasets()
+    # query = node_database.query()
+    # dataset = table.get(query.dataset_id == req["dataset_id"])
+    dataset = dataset_manager.get_dataset_by_id(req["dataset_id"])
 
     # Extract data path where the files are saved in the local repository
     rexp = re.match("^" + config["DATA_PATH_SAVE"], dataset["path"])
@@ -283,9 +295,10 @@ def add_default_dataset():
 
     """
     req = request.json
-    table = node_database.table_datasets()
-    query = node_database.query()
-    dataset = table.get(query.tags == req["tags"])
+    # table = node_database.table_datasets()
+    # query = node_database.query()
+    # dataset = table.get(query.tags == req["tags"])
+    dataset = dataset_manager.search_datasets_by_tags(req["tags"])
 
     if dataset:
         return error(
@@ -323,7 +336,7 @@ def add_default_dataset():
     dataset_id = "dataset_" + str(uuid.uuid4())
 
     try:
-        table.insert(
+        dataset_manager.add_database(
             {
                 "name": req["name"],
                 "path": data_path,
@@ -339,7 +352,8 @@ def add_default_dataset():
     except Exception as e:
         return error(str(e)), 400
 
-    res = table.get(query.dataset_id == dataset_id)
+    # res = table.get(query.dataset_id == dataset_id)
+    res = dataset_manager.get_dataset_by_id(req["dataset_id"])
 
     return response(res), 200
 
