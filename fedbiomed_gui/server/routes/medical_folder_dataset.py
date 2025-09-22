@@ -9,7 +9,8 @@ from fedbiomed.node.dataset_manager import DatasetDatabaseManager
 
 from ..cache import cached
 from ..config import config
-from ..db import node_database
+
+# from ..db import node_database
 from ..middlewares import common, medical_folder_dataset, middleware
 from ..schemas import (
     PreviewDatasetRequest,
@@ -29,8 +30,8 @@ dataset_manager = DatasetDatabaseManager(config["NODE_DB_PATH"])
 DATA_PATH_RW = config["DATA_PATH_RW"]
 
 # Database table (default datasets table of TinyDB) and query object
-table = node_database.table_datasets()
-query = node_database.query()
+# table = node_database.table_datasets()
+# query = node_database.query()
 
 
 @api.route(
@@ -111,7 +112,8 @@ def add_medical_folder_dataset():
         return error("Unexpected error: " + str(e)), 400
 
     # Get saved dataset document
-    res = table.get(query.dataset_id == dataset_id)
+    # res = table.get(query.dataset_id == dataset_id)
+    res = dataset_manager.get_dataset_by_id(dataset_id)
     if not res:
         return error(
             "Medical Folder Dataset is not properly deployed. Please try again."
@@ -160,7 +162,8 @@ def medical_folder_preview():
     # Request object as JSON
     req = request.json
 
-    dataset = table.get(query.dataset_id == req["dataset_id"])
+    # dataset = table.get(query.dataset_id == req["dataset_id"])
+    dataset = dataset_manager.get_dataset_by_id(req["dataset_id"])
 
     # Extract data path where the files are saved in the local GUI repository
     rexp = re.match("^" + config["DATA_PATH_SAVE"], dataset["path"])
