@@ -33,7 +33,7 @@ from fedbiomed.common.message import (
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.node.config import NodeConfig
-from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.dataset_manager import DatasetDatabaseManager
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.requests import NodeToNodeRouter
 from fedbiomed.node.round import Round
@@ -54,7 +54,7 @@ class Node:
     """
 
     tp_security_manager: TrainingPlanSecurityManager
-    dataset_manager: DatasetManager
+    dataset_manager: DatasetDatabaseManager
 
     def __init__(
         self,
@@ -106,7 +106,7 @@ class Node:
             self._controller_data,
         )
 
-        self.dataset_manager = DatasetManager(db=self._db_path)
+        self.dataset_manager = DatasetDatabaseManager(path=self._db_path)
         self.tp_security_manager = TrainingPlanSecurityManager(
             db=self._db_path,
             node_id=self._node_id,
@@ -191,7 +191,9 @@ class Node:
                 case OverlayMessage.__name__:
                     self._n2n_router.submit(message)
                 case SearchRequest.__name__:
-                    databases = self.dataset_manager.search_by_tags(message.tags)
+                    databases = self.dataset_manager.search_datasets_by_tags(
+                        message.tags
+                    )
                     if len(databases) != 0:
                         databases = self.dataset_manager.obfuscate_private_information(
                             databases
@@ -353,7 +355,7 @@ class Node:
         )
 
         dataset_id = msg.get_param("dataset_id")
-        data = self.dataset_manager.get_by_id(dataset_id)
+        data = self.dataset_manager.get_dataset_by_id(dataset_id)
 
         if data is None:
             return self.send_error(

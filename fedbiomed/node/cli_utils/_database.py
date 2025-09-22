@@ -17,11 +17,11 @@ from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_pa
 from fedbiomed.node.cli_utils._medical_folder_dataset import (
     add_medical_folder_dataset_from_cli,
 )
-from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.dataset_manager import DatasetDatabaseManager
 
 
 def add_database(
-    dataset_manager: DatasetManager,
+    dataset_manager: DatasetDatabaseManager,
     interactive: bool = True,
     path: str = None,
     name: str = None,
@@ -239,7 +239,9 @@ def add_database(
     dataset_manager.list_my_data(verbose=True)
 
 
-def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -> None:
+def delete_database(
+    dataset_manager: DatasetDatabaseManager, interactive: bool = True
+) -> None:
     """Removes one or more dataset from the node's database.
 
     Does not modify the dataset's files.
@@ -281,7 +283,7 @@ def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -
             if not d_id:
                 logger.warning("No matching dataset to delete")
                 return
-            dataset_manager.remove_database(d_id)
+            dataset_manager.remove_dataset_by_id(d_id)
             logger.info("Dataset removed. Here your available datasets")
             dataset_manager.list_my_data()
             return
@@ -289,7 +291,7 @@ def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -
             logger.error("Invalid option. Please, try again.")
 
 
-def delete_all_database(dataset_manager):
+def delete_all_database(dataset_manager: DatasetDatabaseManager) -> None:
     """Deletes all datasets from the node's database.
 
     Does not modify the dataset's files.
@@ -305,7 +307,7 @@ def delete_all_database(dataset_manager):
 
     for ds in my_data:
         d_id = ds["dataset_id"]
-        dataset_manager.remove_database(d_id)
+        dataset_manager.remove_dataset_by_id(d_id)
         logger.info("Dataset removed for dataset_id:" + str(d_id))
 
     return

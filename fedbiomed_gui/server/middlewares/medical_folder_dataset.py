@@ -12,12 +12,12 @@ from fedbiomed.common.dataset_controller import (
     MedicalFolderLoadingBlockTypes,
 )
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.dataset_manager import DatasetDatabaseManager
 
 from ..config import config
 from ..utils import error, response
 
-dataset_manager = DatasetManager(config["NODE_DB_PATH"])
+dataset_manager = DatasetDatabaseManager(config["NODE_DB_PATH"])
 DATA_PATH_RW = config["DATA_PATH_RW"]
 
 

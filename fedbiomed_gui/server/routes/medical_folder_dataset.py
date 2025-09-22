@@ -5,7 +5,7 @@ from flask import g, request
 
 from fedbiomed.common.dataset_controller import MedicalFolderController
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.dataset_manager import DatasetDatabaseManager
 
 from ..cache import cached
 from ..config import config
@@ -23,7 +23,7 @@ from ..schemas import (
 from ..utils import error, response, validate_request_data
 from .api import api
 
-dataset_manager = DatasetManager(config["NODE_DB_PATH"])
+dataset_manager = DatasetDatabaseManager(config["NODE_DB_PATH"])
 
 # Path to write and read the datafiles
 DATA_PATH_RW = config["DATA_PATH_RW"]

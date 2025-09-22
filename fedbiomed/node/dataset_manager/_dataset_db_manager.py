@@ -12,7 +12,7 @@ from tabulate import tabulate
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.exceptions import FedbiomedError
 
-from ._db import DatasetTable
+from ._db_tables import DatasetTable
 from ._dlp_db_manager import DlpDatabaseManager
 
 

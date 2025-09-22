@@ -6,7 +6,7 @@ from flask import request
 
 from fedbiomed.common.dataset_controller import MedicalFolderLoadingBlockTypes
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.dataset_manager import DatasetDatabaseManager
 
 from ..config import config
 from ..db import node_database
@@ -25,7 +25,7 @@ from ..utils import error, response, success, validate_request_data
 from .api import api
 
 # Initialize Fed-BioMed DatasetManager
-dataset_manager = DatasetManager(config["NODE_DB_PATH"])
+dataset_manager = DatasetDatabaseManager(config["NODE_DB_PATH"])
 
 DATA_PATH_RW = config["DATA_PATH_RW"]
 
@@ -186,7 +186,7 @@ def update_dataset():
     """
     req = request.json
     try:
-        dataset_manager.modify_database_info(
+        dataset_manager.update_dataset_by_id(
             req["dataset_id"],
             {"tags": req["tags"], "description": req["desc"], "name": req["name"]},
         )
@@ -383,7 +383,9 @@ def list_data_loading_plans():
     target_dataset_type = (
         req["target_dataset_type"] if "target_dataset_type" in req else None
     )
-    dlps = dataset_manager.list_dlp(target_dataset_type=target_dataset_type)
+    dlps = dataset_manager.list_dlp_by_target_dataset_type(
+        target_dataset_type=target_dataset_type
+    )
     index = list(range(len(dlps)))
     columns = ["name", "id"]
     data = [[dlp["dlp_name"], dlp["dlp_id"]] for dlp in dlps]

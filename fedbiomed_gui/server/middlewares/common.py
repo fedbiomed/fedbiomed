@@ -1,12 +1,12 @@
 from flask import request
 
-from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.dataset_manager import DatasetDatabaseManager
 
-from ..utils import error
 from ..config import config
+from ..utils import error
 
 # Initialize Fed-BioMed DatasetManager
-dataset_manager = DatasetManager(config["NODE_DB_PATH"])
+dataset_manager = DatasetDatabaseManager(config["NODE_DB_PATH"])
 
 
 def check_tags_already_registered():
@@ -14,7 +14,7 @@ def check_tags_already_registered():
     req = request.json
     tags = req["tags"]
 
-    conflicting = dataset_manager.search_conflicting_tags(tags)
+    conflicting = dataset_manager.search_conflicting_datasets_by_tags(tags)
     if len(conflicting) > 0:
         return error(
             "one or more datasets are already registered with conflicting tags: "
