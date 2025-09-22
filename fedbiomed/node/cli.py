@@ -121,6 +121,7 @@ def start_node(config, node_args):
 
     try:
         signal.signal(signal.SIGTERM, _node_signal_handler)
+        signal.signal(signal.SIGINT, _node_signal_handler)
         logger.info("Launching node...")
 
         # Register default training plans and update hashes
@@ -480,10 +481,18 @@ class NodeControl(CLIArgumentParser):
             p.join()
         except KeyboardInterrupt:
             p.terminate()
-            time.sleep(1)
-            while p.is_alive():
-                logger.info("Terminating process id =" + str(p.pid))
-                time.sleep(1)
+            for _ in range(3):
+                if not p.is_alive():
+                    break
+                logger.info("Terminating process id = " + str(p.pid))
+                time.sleep(0.5)
+            if p.is_alive():
+                logger.info("Killing process id = " + str(p.pid))
+                p.kill()
+                start_time = time.time()
+                while p.is_alive() and (time.time() - start_time < 0.5):
+                    time.sleep(0.1)
+            p.join(timeout=0.1)
             logger.info("Exited with code " + str(p.exitcode))
             sys.exit(0)
 
