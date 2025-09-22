@@ -5,15 +5,14 @@
 Manage the node's database table for handling datasets
 """
 
-from typing import Optional, Union
+from typing import Iterable, Optional, Union
+
+from tabulate import tabulate
 
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
-from fedbiomed.common.dataset_controller import (  # noqa  # not used yet, sketch
-    MedicalFolderController,
-    MnistController,
-)
-from fedbiomed.common.db import DBTable
+from fedbiomed.common.exceptions import FedbiomedError
 
+from ._db_tables import DatasetTable
 from ._dlp_db_manager import DlpDatabaseManager
 
 
@@ -24,45 +23,103 @@ class DatasetDatabaseManager:
     for the node. Currently uses TinyDB.
     """
 
-    _dataset_table: DBTable
-    _dlp_database_manager: DlpDatabaseManager
+    _dataset_table: DatasetTable
+    _dlp_manager: DlpDatabaseManager
 
-    def add_database(  # noqa  # not implemented yet
-        self,
-        name: str,
-        data_type: str,
-        tags: Union[tuple, list],
-        description: str,
-        path: Optional[str] = None,
-        dataset_id: Optional[str] = None,
-        dataset_parameters: Optional[dict] = None,
-        data_loading_plan: Optional[DataLoadingPlan] = None,
-        save_dlp: bool = True,
-    ) -> str:
-        """Adds a new dataset contained in a file to node's database."""
+    def __init__(self, path: str):
+        self._dataset_table = DatasetTable(path)
+        self._dlp_manager = DlpDatabaseManager(path)
 
-    # Dispatch functions from DatasetManager:
-    #
-    # Use DatasetDatabaseManager for dataset DB table handling functions:
-    # get_by_id
-    # search_by_tags
-    # search_conflicting_tags
-    # add_database remove_database
-    # modify_database_info
-    # list_my_data
-    # obfuscate_private_information
-    #
-    # Use DlpDatabaseManager for DLP/DLB DB table handling functions:
-    # list_dlp
-    # get_dlp_by_id
-    # remove_dlp_by_id
-    # save_data_loading_plan
-    # save_data_loading_block
-    #
-    # Functions belonging the the dataset specific controllers or readers in new design
-    # CsvController : read_csv  load_csv_dataset  get_csv_data_types
-    # MnistController  : load_default_database get_torch_dataset_shape
-    # MednistController : load_mednist_database  get_torch_dataset_shape
-    # ImageFolderController  : load_images_dataset  get_torch_dataset_shape
-    #
-    # Unused functions:  get_data_loading_blocks_by_id  load_as_dataloader
+    def get_dataset_by_id(self, dataset_id: str) -> Optional[dict]:
+        """Get dataset information by its ID"""
+        return self._dataset_table.get_by_id(dataset_id)
+
+    def list_dlp_by_target_dataset_type(
+        self, target_dataset_type: str = None
+    ) -> list[dict]:
+        """Return all dlps matching the requested target type"""
+        return self._dlp_manager.list_dlp_by_target_dataset_type(target_dataset_type)
+
+    def get_dlp_by_id(self, dlp_id: str) -> tuple[dict, list[dict]]:
+        """Get DLP information by its ID, along with associated DLBs"""
+        return self._dlp_manager.get_dlp_by_id(dlp_id)
+
+    def search_datasets_by_tags(self, tags: Union[tuple, list]) -> list:
+        """Searches for data with given tags."""
+        return self._dataset_table.search_by_tags(tags)
+
+    def search_conflicting_datasets_by_tags(self, tags: Union[tuple, list]) -> list:
+        """Searches for registered data that have conflicting tags with the given tags"""
+        return self._dataset_table.search_conflicting_tags(tags)
+
+    # TODO: add dataset
+
+    def remove_dlp_by_id(self, dlp_id: str):
+        """Removes DLP from the database, along with its associated DLBs."""
+        self._dlp_manager.remove_dlp_by_id(dlp_id)
+
+    def remove_dataset_by_id(self, dataset_id: str):
+        """Removes a dataset from database."""
+        self._dataset_table.remove_database(dataset_id)
+
+    def update_dataset_by_id(self, dataset_id: str, modified_dataset: dict):
+        """Modifies a dataset in the database."""
+        self._dataset_table.modify_database_info(dataset_id, modified_dataset)
+
+    def list_my_data(self, verbose: bool = True) -> list[dict]:
+        """Lists all datasets on the node.
+
+        Args:
+            verbose: Give verbose output. Defaults to True.
+
+        Returns:
+            All datasets in the node's database.
+        """
+        my_data = self._dataset_table.all()
+
+        # Do not display dtypes
+        for doc in my_data:
+            doc.pop("dtypes")
+
+        if verbose:
+            print(tabulate(my_data, headers="keys"))
+
+        return my_data
+
+    def save_data_loading_plan(
+        self, data_loading_plan: Optional[DataLoadingPlan]
+    ) -> Union[str, None]:
+        """Save a DataLoadingPlan to the database."""
+        return self._dlp_manager.save_data_loading_plan(data_loading_plan)
+
+    @staticmethod
+    def obfuscate_private_information(
+        database_metadata: Iterable[dict],
+    ) -> Iterable[dict]:
+        """Remove privacy-sensitive information, to prepare for sharing with a researcher.
+
+        Removes any information that could be considered privacy-sensitive by the node. The typical use-case is to
+        prevent sharing this information with a researcher through a reply message.
+
+        Args:
+            database_metadata: an iterable of metadata information objects, one per dataset. Each metadata object
+                should be in the format af key-value pairs, such as e.g. a dict.
+
+        Returns:
+             the updated iterable of metadata information objects without privacy-sensitive information
+        """
+        for d in database_metadata:
+            try:
+                # common obfuscations
+                d.pop("path", None)
+                # obfuscations specific for each data type
+                if "data_type" in d:
+                    if d["data_type"] == "medical-folder":
+                        if "dataset_parameters" in d:
+                            d["dataset_parameters"].pop("tabular_file", None)
+            except AttributeError as e:
+                raise FedbiomedError(
+                    f"Object of type {type(d)} does not support pop or getitem method "
+                    f"in obfuscate_private_information."
+                ) from e
+        return database_metadata

@@ -5,10 +5,16 @@
 Manage the node's database table for handling DLP / DLB
 """
 
+from typing import Optional, Union
+
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloadingplan import (
-    DataLoadingPlan,  # noqa   # not used yet, sketch
+    DataLoadingPlan,
 )
-from fedbiomed.common.db import DBTable
+from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.logger import logger
+
+from ._db_tables import DlbTable, DlpTable
 
 
 class DlpDatabaseManager:
@@ -18,30 +24,79 @@ class DlpDatabaseManager:
     for the node. Currently uses TinyDB.
     """
 
-    _dlp_table: DBTable
+    _dlp_table: DlpTable
+    _dlb_table: DlbTable
 
-    # Dispatch functions from DatasetManager:
-    #
-    # Use DatasetDatabaseManager for dataset DB table handling functions:
-    # get_by_id
-    # search_by_tags
-    # search_conflicting_tags
-    # add_database remove_database
-    # modify_database_info
-    # list_my_data
-    # obfuscate_private_information
-    #
-    # Use DlpDatabaseManager for DLP/DLB DB table handling functions:
-    # list_dlp
-    # get_dlp_by_id
-    # remove_dlp_by_id
-    # save_data_loading_plan
-    # save_data_loading_block
-    #
-    # Functions belonging the the dataset specific controllers or readers in new design
-    # CsvController : read_csv  load_csv_dataset  get_csv_data_types
-    # MnistController  : load_default_database get_torch_dataset_shape
-    # MednistController : load_mednist_database  get_torch_dataset_shape
-    # ImageFolderController  : load_images_dataset  get_torch_dataset_shape
-    #
-    # Unused functions:  get_data_loading_blocks_by_id  load_as_dataloader
+    def __init__(self, path: str):
+        self._dlp_table = DlpTable(path)
+        self._dlb_table = DlbTable(path)
+
+    def list_dlp_by_target_dataset_type(
+        self, target_dataset_type: str = None
+    ) -> list[dict]:
+        """Return all dlps matching the requested target type."""
+        return self._dlp_table.list_by_target_dataset_type(target_dataset_type)
+
+    def get_dlp_by_id(self, dlp_id: str) -> tuple[dict, list[dict]]:
+        """Get DLP information by its ID, along with associated DLBs."""
+        dlp = self._dlp_table.get_by_id(dlp_id)
+        dlb_ids = [] if dlp is None else list(dlp["loading_blocks"].values())
+        dlbs = self._dlb_table.get_all_by_value("dlb_id", dlb_ids) if dlb_ids else []
+        return dlp, dlbs
+
+    def remove_dlp_by_id(self, dlp_id: str):
+        """Removes a data loading plan (DLP) from the database, along with its associated
+        data loading blocks (DLBs).
+
+        Args:
+            dlp_id: the DataLoadingPlan id
+        """
+        dlp, dlbs = self.get_dlp_by_id(dlp_id)
+
+        # TODO: should we raise if dlp is None?
+        if dlp is not None:
+            self._dlp_table.delete_by_id(dlp_id)
+            for dlb in dlbs:
+                self._dlb_table.delete_by_id(dlb["dlb_id"])
+
+    def save_data_loading_plan(
+        self, data_loading_plan: Optional[DataLoadingPlan]
+    ) -> Union[str, None]:
+        """Save a DataLoadingPlan to the database.
+
+        This function saves a DataLoadingPlan to the database, and returns its ID.
+
+        Raises:
+            FedbiomedDatasetManagerError: bad data loading plan name (size, not unique)
+
+        Args:
+            data_loading_plan: the DataLoadingPlan to be saved, or None.
+
+        Returns:
+            The `dlp_id` if a DLP was saved, or None
+        """
+        if data_loading_plan is None:
+            return None
+
+        if len(data_loading_plan.desc) < 4:
+            _msg = (
+                f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
+                "DLP name needs to have at least 4 characters."
+            )
+            logger.error(_msg)
+            raise FedbiomedError(_msg)
+
+        dlp_same_name = self._dlp_table.get_all_by_value("name", data_loading_plan.desc)
+        if dlp_same_name:
+            _msg = (
+                f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
+                "DLP name needs to be unique."
+            )
+            logger.error(_msg)
+            raise FedbiomedError(_msg)
+
+        dlp_metadata, dlbs_metadata = data_loading_plan.serialize()
+        _ = self._dlp_table.insert(dlp_metadata)
+        for dlb_metadata in dlbs_metadata:
+            _ = self._dlb_table.insert(dlb_metadata)
+        return data_loading_plan.dlp_id
