@@ -14,7 +14,7 @@ from fedbiomed.common.dataloadingplan import (
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
-from ._db import DlbDB, DlpDB
+from ._db_tables import DlbTable, DlpTable
 
 
 class DlpDatabaseManager:
@@ -24,12 +24,12 @@ class DlpDatabaseManager:
     for the node. Currently uses TinyDB.
     """
 
-    _dlp_table: DlpDB
-    _dlb_table: DlbDB
+    _dlp_table: DlpTable
+    _dlb_table: DlbTable
 
     def __init__(self, path: str):
-        self._dlp_table = DlpDB(path)
-        self._dlb_table = DlbDB(path)
+        self._dlp_table = DlpTable(path)
+        self._dlb_table = DlbTable(path)
 
     def list_dlp_by_target_dataset_type(
         self, target_dataset_type: str = None

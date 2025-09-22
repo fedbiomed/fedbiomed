@@ -79,7 +79,7 @@ class DatasetDB(TinyTableConnector):
         _ = self.update_by_id(dataset_id, modified_dataset)
 
 
-class DlpDB(TinyTableConnector):
+class DlpTable(TinyTableConnector):
     _table_name = "Dlps"
     _id_name = "dlp_id"
 
@@ -111,6 +111,6 @@ class DlpDB(TinyTableConnector):
         return self.get_all_by_value("target_dataset_type", target_dataset_type)
 
 
-class DlbDB(TinyTableConnector):
+class DlbTable(TinyTableConnector):
     _table_name = "Dlbs"
     _id_name = "dlb_id"
