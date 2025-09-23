@@ -131,7 +131,7 @@ class CustomDataset(Dataset):
             _ = self[0]
         except Exception as e:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Failed to retrieve item"
+                f"{ErrorNumbers.FB632.value}: Failed to retrieve item "
                 f"from dataset using get_item method. Please see error: {e}"
             ) from e
 
