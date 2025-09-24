@@ -96,15 +96,16 @@ def add_medical_folder_dataset():
             "tabular_file": reference_csv,
         }
     try:
-        dataset_id = dataset_manager.add_database(
-            name=req["name"],
-            data_type="medical-folder",
-            tags=req["tags"],
-            description=req["desc"],
-            path=data_path_save,
-            dataset_parameters=dataset_parameters,
+        dataset_id = dataset_manager.register_dataset(
+            datasetMeta={
+                "name": req["name"],
+                "tags": req["tags"],
+                "data_type": "medical-folder",
+                "description": req["desc"],
+                "path": data_path_save,
+                "dataset_parameters": dataset_parameters,
+            },
             data_loading_plan=g.dlp,
-            save_dlp=False,
         )
     except FedbiomedError as e:
         return error(str(e)), 400

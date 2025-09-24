@@ -211,13 +211,15 @@ def add_database(
     logger.info(f"Dataset absolute path: {path}")
 
     try:
-        dataset_manager.add_database(
-            name=name,
-            tags=tags,
-            data_type=data_type,
-            description=description,
-            path=path,
-            dataset_parameters=dataset_parameters,
+        dataset_manager.register_dataset(
+            datasetMeta={
+                "name": name,
+                "tags": tags,
+                "data_type": data_type,
+                "description": description,
+                "path": path,
+                "dataset_parameters": dataset_parameters,
+            },
             data_loading_plan=data_loading_plan,
         )
     except (AssertionError, FedbiomedDatasetManagerError) as e:

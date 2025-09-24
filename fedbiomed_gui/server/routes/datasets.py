@@ -151,13 +151,16 @@ def add_dataset():
     dataset_id = "dataset_" + str(uuid.uuid4())
 
     try:
-        dataset_manager.add_database(
-            req["name"],
-            req["type"],
-            req["tags"],
-            req["desc"],
-            data_path_save,
-            dataset_id,
+        dataset_manager.register_dataset(
+            datasetMeta={
+                "name": req["name"],
+                "dataset_id": dataset_id,
+                "tags": req["tags"],
+                "data_type": req["type"],
+                "description": req["desc"],
+                "path": data_path_save,
+                "dataset_parameters": None,
+            },
         )
     except Exception as e:
         return error(str(e)), 400
@@ -336,8 +339,8 @@ def add_default_dataset():
     dataset_id = "dataset_" + str(uuid.uuid4())
 
     try:
-        dataset_manager.add_database(
-            {
+        dataset_manager.register_dataset(
+            datasetMeta={
                 "name": req["name"],
                 "path": data_path,
                 "data_type": "default",
