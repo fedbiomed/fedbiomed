@@ -5,7 +5,7 @@
 Interfaces with a tinyDB database for converting search results to dict.
 """
 
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
@@ -106,7 +106,7 @@ class TinyTableConnector:
         self._query = Query()
         self._table = TinyDBConnector(db_path=path).table(self._table_name)
 
-    def get_by_id(self, id_value: str) -> Union[dict, None]:
+    def get_by_id(self, id_value: str) -> Optional[dict]:
         """Get a document by its ID.
 
         Args:
@@ -122,7 +122,7 @@ class TinyTableConnector:
         )
         return response[0] if response else None
 
-    def create(self, entry: dict) -> int:
+    def insert(self, entry: dict) -> int:
         """Insert a new document.
 
         Args:
