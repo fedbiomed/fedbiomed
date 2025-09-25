@@ -86,17 +86,9 @@ class SkLearnDataManager(FrameworkDataManager):
         """
         super().__init__(dataset, **kwargs)
 
-        # Manage randomization for SkLearnDataManager and SkLearnDataLoader through np.random()
-        # Control seed here to manage reproducibility for both classes
-        #
-        # TODO: random_seed / random_state should be standardized across all DataManagers
-        seed = self._loader_arguments.pop("random_seed", None)
-        if isinstance(seed, int):
-            np.random.seed(seed)
-        else:
-            # reset seed to a random value to ensure non-deterministic behavior
-            # if no seed is specified
-            np.random.seed()
+        # Note: managing seed to control reproducibility is now done in training plan
+        # `post_init` method.
+        # Randomization for sklearn data manager & loader uses only `np.random.seed()`
 
         self._dataset.to_format = DataReturnFormat.SKLEARN
 

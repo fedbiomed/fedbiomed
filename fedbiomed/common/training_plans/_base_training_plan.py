@@ -155,7 +155,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         # Set random seed: the seed can be either None or an int provided by the researcher.
         # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
-        rseed = training_args["random_seed"]
+        rseed = training_args.get("random_seed")
         random.seed(rseed)
         np.random.seed(rseed)
 

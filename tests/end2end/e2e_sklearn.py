@@ -11,38 +11,39 @@ End to End test module for testing  Sklearn training plans using:
 
 import os
 import time
+
 import pytest
-
-from helpers import (
-    add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
-    clear_experiment_data,
-    clear_component_data,
-    create_researcher,
-    get_data_folder,
-    create_multiple_nodes,
-    generate_sklearn_classification_dataset,
-)
-
 from experiments.training_plans.sklearn import (
     PerceptronTraining,
-    SGDRegressorTrainingPlan,
     SGDClassifierTrainingPlan,
-    SkLearnClassifierTrainingPlanDeclearn,
+    SGDRegressorTrainingPlan,
     SGDRegressorTrainingPlanDeclearn,
     SGDRegressorTrainingPlanDeclearnScaffold,
+    SkLearnClassifierTrainingPlanDeclearn,
+)
+from helpers import (
+    add_dataset_to_node,
+    clear_component_data,
+    clear_experiment_data,
+    create_multiple_nodes,
+    create_researcher,
+    generate_sklearn_classification_dataset,
+    get_data_folder,
+    kill_subprocesses,
+    start_nodes,
 )
 
-from fedbiomed.researcher.federated_workflows import Experiment
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.optimizers.optimizer import Optimizer
 from fedbiomed.common.optimizers.declearn import (
-    YogiModule as FedYogi,
     ScaffoldServerModule,
 )
+from fedbiomed.common.optimizers.declearn import (
+    YogiModule as FedYogi,
+)
+from fedbiomed.common.optimizers.optimizer import Optimizer
 from fedbiomed.common.utils import SHARE_DIR
+from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.federated_workflows import Experiment
 
 
 # Set up nodes and start
@@ -124,12 +125,17 @@ regressor_model_args = {
     "tol": 1e-5,
     "eta0": 0.05,
     "n_features": 6,
-    "random_state": RANDOM_SEED,
 }
 
 per_model_args = {"max_iter": 1000, "tol": 1e-3, "n_features": 20, "n_classes": 2}
 
-per_training_args = {"epochs": 5, "loader_args": {"batch_size": 1}}
+per_training_args = {
+    "epochs": 5,
+    "loader_args": {
+        "batch_size": 1,
+    },
+    "random_seed": RANDOM_SEED,
+}
 
 
 def test_01_sklearn_perceptron():
@@ -257,7 +263,6 @@ declearn_model_args = {
     "n_features": 28 * 28,
     "n_classes": 10,
     "eta0": 1e-6,
-    "random_state": 1234,
     "alpha": 0.1,
 }
 
@@ -268,6 +273,7 @@ declearn_training_args = {
     "loader_args": {
         "batch_size": 4,
     },
+    "random_seed": 1234,
 }
 
 
