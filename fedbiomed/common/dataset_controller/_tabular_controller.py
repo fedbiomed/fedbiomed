@@ -26,6 +26,9 @@ class TabularController(Controller):
         """
         self.root = root
         self._reader = CsvReader(self.root)
+        self._controller_kwargs = {
+            "root": str(self.root),
+        }
 
     def get_sample(self, index: int) -> pl.DataFrame:
         """Retrieve a data sample without applying transforms"""
