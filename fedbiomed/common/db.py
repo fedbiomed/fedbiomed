@@ -72,25 +72,25 @@ class TinyDBConnector:
     """Singleton TinyDB connector"""
 
     _instance = None
-    _db = None
 
     def __new__(cls, db_path: str):
         # Ensure only one instance of TinyDBConnector
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             # Use DBTable as the default table class for this TinyDB instance
-            cls._db = TinyDB(db_path, table_class=DBTable)
+            cls._instance._db = TinyDB(db_path)
         return cls._instance
 
     @property
-    def db(self):
+    def db(self) -> TinyDB:
         """Return the shared TinyDB instance"""
         return self._db
 
     def table(self, name: str) -> DBTable:
         """Return a table with the given name, ensuring it is a DBTable instance."""
         # Get the table from the underlying DB instance, forcing cache_size=0
-        return self._db.table(name, cache_size=0)
+        table = self._db.table(name, cache_size=0)
+        return DBTable(table.storage, table.name)
 
 
 class TinyTableConnector:
@@ -139,7 +139,8 @@ class TinyTableConnector:
             raise KeyError(
                 f"Entry with {self._id_name}={entry[self._id_name]} already exists."
             )
-        return self._table.insert(entry)
+        _ = self._table.insert(entry)
+        return entry[self._id_name]
 
     def all(self) -> List[dict]:
         """Get all entries (or empty list if none found).

@@ -17,6 +17,8 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 
 class Controller(ABC, DataLoadingPlanMixin):
+    _controller_kwargs: Dict[str, Any]
+
     # === Properties ===
     @property
     def root(self):
