@@ -31,7 +31,7 @@ const Index = (props) => {
         if(path){
             getFiles({path : path}, true)
         }else{
-            getFiles({path : []})
+            getFiles({path : ['/']})
         }
 
     }, [getFiles, path, props.repository.files.length])
@@ -62,7 +62,6 @@ const Index = (props) => {
      * Handling click action on single repository
      * item
      * @param {int} indexBar
-     * @param {int} index
      * @param {string} type
      * @param {array} path
      */

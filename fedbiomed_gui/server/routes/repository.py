@@ -3,11 +3,11 @@ import re
 
 from flask import request
 
-from .api import api
 from ..config import config
-from ..schemas import ListDataFolder
-from ..utils import error, validate_request_data, response, file_stats
 from ..db import node_database
+from ..schemas import ListDataFolder
+from ..utils import error, response, validate_request_data
+from .api import api
 
 
 @api.route("/repository/list", methods=["POST"])
@@ -78,7 +78,7 @@ def list_data_path():
                 dataset = all_datasets[indexes[0]] if indexes else None
 
                 # Get file statistics
-                cdate, size = file_stats(fullpath, req["refresh"])
+                # cdate, size = file_stats(fullpath, req["refresh"])
 
                 # Folder that includes any data file
                 includes = []
@@ -103,8 +103,8 @@ def list_data_path():
                         "extension": extension,
                         "registered": dataset,
                         "includes": includes,
-                        "created": cdate,
-                        "size": size,
+                        # "created": cdate,
+                        # "size": size,
                     }
                 )
         return response(res), 200
