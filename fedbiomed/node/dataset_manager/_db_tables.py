@@ -90,7 +90,7 @@ class DatasetTable(BaseTable):
             lambda x: set(tags).issubset(x) or set(x).issubset(tags),
         )
 
-    def modify_database_info(self, dataset_id: str, modified_dataset: dict):
+    def update_by_id(self, dataset_id: str, modified_dataset: dict):
         """Modifies a dataset in the database.
 
         Args:
@@ -116,7 +116,7 @@ class DatasetTable(BaseTable):
                 logger.critical(msg)
                 raise FedbiomedError(msg)
 
-        _ = self.update_by_id(dataset_id, modified_dataset)
+        _ = super().update_by_id(dataset_id, modified_dataset)
 
 
 class DlpTable(BaseTable):
