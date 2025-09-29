@@ -236,7 +236,7 @@ def add_database(
             stacklevel=1,
         )
     print("\nGreat! Take a look at your data:")
-    dataset_manager.list_my_data(verbose=True)
+    dataset_manager.list_my_datasets(verbose=True)
 
 
 def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -> None:
@@ -251,7 +251,7 @@ def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -
                 for a dataset to delete
             - if `False` delete MNIST dataset if it exists in the database
     """
-    my_data = dataset_manager.list_my_data(verbose=False)
+    my_data = dataset_manager.list_my_datasets(verbose=False)
     if not my_data:
         logger.warning("No dataset to delete")
         return
@@ -281,15 +281,15 @@ def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -
             if not d_id:
                 logger.warning("No matching dataset to delete")
                 return
-            dataset_manager.remove_database(d_id)
+            dataset_manager.dataset_table.delete_by_id(d_id)
             logger.info("Dataset removed. Here your available datasets")
-            dataset_manager.list_my_data()
+            dataset_manager.list_my_datasets()
             return
         except (ValueError, IndexError, AssertionError):
             logger.error("Invalid option. Please, try again.")
 
 
-def delete_all_database(dataset_manager):
+def delete_all_database(dataset_manager: DatasetManager) -> None:
     """Deletes all datasets from the node's database.
 
     Does not modify the dataset's files.
@@ -297,7 +297,7 @@ def delete_all_database(dataset_manager):
     Args:
         dataset_manager: Object for managing the dataset
     """
-    my_data = dataset_manager.list_my_data(verbose=False)
+    my_data = dataset_manager.list_my_datasets(verbose=False)
 
     if not my_data:
         logger.warning("No dataset to delete")
@@ -305,7 +305,7 @@ def delete_all_database(dataset_manager):
 
     for ds in my_data:
         d_id = ds["dataset_id"]
-        dataset_manager.remove_database(d_id)
+        dataset_manager.dataset_table.delete_by_id(d_id)
         logger.info("Dataset removed for dataset_id:" + str(d_id))
 
     return
