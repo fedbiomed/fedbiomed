@@ -31,7 +31,7 @@ const Index = (props) => {
         if(path){
             getFiles({path : path}, true)
         }else{
-            getFiles({path : ['/']})
+            getFiles({path : []})
         }
 
     }, [getFiles, path, props.repository.files.length])

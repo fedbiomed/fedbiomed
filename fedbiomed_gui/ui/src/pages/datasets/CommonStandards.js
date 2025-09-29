@@ -178,6 +178,7 @@ export const CommonStandards = (props) => {
                                             <option value="default">Default MNIST Dataset</option>
                                             <option value="csv">CSV Dataset</option>
                                             <option value="images">Image Dataset</option>
+                                            <option value="custom">Custom Dataset</option>
                                         </>
                                     )
                             }
