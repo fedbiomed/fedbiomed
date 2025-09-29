@@ -63,11 +63,11 @@ class DatasetManager:
     DM.load_mednist_database -> DEPRECATED
     DM.load_images_dataset -> DEPRECATED
     DM.load_csv_dataset -> DEPRECATED
-    DM.add_database -> TODO DM.register_controller 
+    DM.add_database -> CALL REMAINS THE SAME
     DM.remove_dlp_by_id(dlp_id) -> DOES NOT CHANGE
     DM.remove_database(dataset_id) -> DM.dataset_table.delete_by_id(dataset_id)
     * DOES NOT RAISE ERROR IF 'ID' DO NOT EXIST
-    DM.modify_database_info(dataset_id, modified_dataset) -> TODO DM.dataset_table.modify_database_info(dataset_id, modified_dataset)
+    DM.modify_database_info(dataset_id, modified_dataset) -> TODO DM.dataset_table.update_by_id(dataset_id, modified_dataset)
     DM.list_my_data(verbose) -> DM.list_my_datasets(verbose)
     DM.load_as_dataloader(dataset) -> DEPRECATED
     DM.save_data_loading_plan(data_loading_plan) -> DOES NOT CHANGE
@@ -111,7 +111,6 @@ class DatasetManager:
 
         return pd.read_csv(csv_file, index_col=index_col, sep=delimiter, header=header)
 
-    # register controller
     def add_database(
         self,
         name: str,
