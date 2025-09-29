@@ -127,6 +127,7 @@ pythonenv*
 
 # FB environments
 fbm-researcher/
+fbm-node/
 
 # Spyder project settings
 .spyderproject
