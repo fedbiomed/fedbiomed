@@ -106,7 +106,7 @@ class Node:
             self._controller_data,
         )
 
-        self.dataset_manager = DatasetManager(db=self._db_path)
+        self.dataset_manager = DatasetManager(path=self._db_path)
         self.tp_security_manager = TrainingPlanSecurityManager(
             db=self._db_path,
             node_id=self._node_id,
@@ -191,7 +191,9 @@ class Node:
                 case OverlayMessage.__name__:
                     self._n2n_router.submit(message)
                 case SearchRequest.__name__:
-                    databases = self.dataset_manager.search_by_tags(message.tags)
+                    databases = self.dataset_manager.dataset_table.search_by_tags(
+                        message.tags
+                    )
                     if len(databases) != 0:
                         databases = self.dataset_manager.obfuscate_private_information(
                             databases
@@ -208,7 +210,7 @@ class Node:
                     )
                 case ListRequest.__name__:
                     # Get list of all datasets
-                    databases = self.dataset_manager.list_my_data(verbose=False)
+                    databases = self.dataset_manager.list_my_datasets(verbose=False)
                     databases = self.dataset_manager.obfuscate_private_information(
                         databases
                     )
@@ -353,7 +355,7 @@ class Node:
         )
 
         dataset_id = msg.get_param("dataset_id")
-        data = self.dataset_manager.get_by_id(dataset_id)
+        data = self.dataset_manager.dataset_table.get_by_id(dataset_id)
 
         if data is None:
             return self.send_error(

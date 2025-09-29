@@ -46,7 +46,9 @@ def add_medical_folder_dataset_from_cli(
                     )
         dataset_parameters["tabular_file"] = tabular_file_path
         dataset_parameters["index_col"] = index_col
-    modality_folder_names, _ = controller.modalities_candidates_from_subfolders()
+
+    modality_folder_names = list(controller.df_dir["modality"].unique())
+
     print(
         "\nThe following modalities were detected:\n",
         "\n".join([m for m in modality_folder_names]),
