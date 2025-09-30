@@ -6,8 +6,8 @@ Dataclasses for database entities
 """
 
 import uuid
-from dataclasses import asdict, dataclass, fields
-from typing import Any, Dict, List, Optional, Union, get_origin
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List, Optional
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
@@ -21,46 +21,15 @@ class TableEntry:
         return {k: v for k, v in asdict(self).items() if v is not None}
 
     @classmethod
-    def validate_required_fields(cls, data: dict) -> None:
-        """Validate that all required fields are present"""
-        # Auto-extract required fields from dataclass definition
-        required_fields = [
-            field.name
-            for field in fields(cls)
-            if (
-                field.default == field.default_factory
-                and get_origin(field.type) not in (Union, type(Union[str, None]))
-            )
-        ]
-
-        missing_fields = [field for field in required_fields if field not in data]
-        if missing_fields:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Validation failed for {cls.__name__}: "
-                f"Missing required fields: {missing_fields}"
-            )
-
-    @classmethod
     def from_dict(cls, data: dict):
-        """Generic from_dict implementation for all dataclasses"""
-        cls.validate_required_fields(data)
-
-        # Get all field names and their default values
-        field_mapping = {field.name: field for field in fields(cls)}
-
-        # Build kwargs for dataclass constructor
-        kwargs = {}
-        for field_name, field_obj in field_mapping.items():
-            if field_name in data:
-                kwargs[field_name] = data[field_name]
-            elif field_obj.default != field_obj.default_factory:
-                # Field has a default value, use .get() to get default
-                kwargs[field_name] = data.get(field_name, field_obj.default)
-            else:
-                # Optional field without default
-                kwargs[field_name] = data.get(field_name)
-
-        return cls(**kwargs)
+        """Generic from_dict implementation for dataclasses"""
+        try:
+            return cls(**data)
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Invalid data input for {cls.__name__}: "
+                f"{str(e)}"
+            ) from e
 
 
 @dataclass
