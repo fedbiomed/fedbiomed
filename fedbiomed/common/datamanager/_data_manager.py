@@ -70,7 +70,7 @@ class DataManager(object):
             # TODO: implement native dataset
             # dataset = NativeDataset(dataset, target)
             try:
-                dataset = NativeDataset(dataset, target, **kwargs)
+                dataset = NativeDataset(dataset, target)
             except Exception as e:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}:"
