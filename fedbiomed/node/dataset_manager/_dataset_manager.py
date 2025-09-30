@@ -13,10 +13,7 @@ from tabulate import tabulate  # only used for printing
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
-
-# Controller imports now handled through registry in _db_dataclasses
-from fedbiomed.common.exceptions import FedbiomedDatasetManagerError, FedbiomedError
-from fedbiomed.common.logger import logger
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager._db_tables import DatasetTable, DlbTable, DlpTable
 
 from ._registry_controllers import get_controller
@@ -223,28 +220,9 @@ class DatasetManager:
         Returns:
             The `dlp_id` if a DLP was saved, otherwise None
 
-        Raises:
-            FedbiomedError: bad data loading plan name (size, not unique)
         """
         if data_loading_plan is None:
             return None
-
-        if len(data_loading_plan.desc) < 4:
-            _msg = (
-                f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
-                "DLP name needs to have at least 4 characters."
-            )
-            logger.error(_msg)
-            raise FedbiomedError(_msg)
-
-        dlp_same_name = self.dlp_table.get_all_by_value("name", data_loading_plan.desc)
-        if dlp_same_name:
-            _msg = (
-                f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
-                "DLP name needs to be unique."
-            )
-            logger.error(_msg)
-            raise FedbiomedError(_msg)
 
         dlp_metadata, dlbs_metadata = data_loading_plan.serialize()
         _ = self.dlp_table.insert(dlp_metadata)
@@ -278,8 +256,8 @@ class DatasetManager:
                         if "dataset_parameters" in d:
                             d["dataset_parameters"].pop("tabular_file", None)
             except AttributeError as e:
-                raise FedbiomedDatasetManagerError(
-                    f"Object of type {type(d)} does not support pop or getitem method "
-                    f"in obfuscate_private_information."
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Object of type {type(d)} does not "
+                    "support pop or getitem method in obfuscate_private_information."
                 ) from e
         return database_metadata

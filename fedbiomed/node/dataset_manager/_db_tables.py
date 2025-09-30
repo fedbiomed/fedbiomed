@@ -9,7 +9,10 @@ from ._db_dataclasses import DatasetEntry, DlbEntry, DlpEntry
 
 
 class BaseTable(TinyTableConnector):
-    """Base class for all database tables with common validation functionality"""
+    """Base class for database tables in this file (Dataset, DLP, DLB) with common
+    validation functionality that uses dataclasses for schema enforcement.
+    Insert/Update methods are wrapped. The rest do not change (TinyTableConnector).
+    """
 
     # Dataclass is expected to have from_dict and to_dict methods
     _dataclass: Type = None
@@ -35,11 +38,26 @@ class BaseTable(TinyTableConnector):
         return None if not data else self._dataclass.from_dict(data)
 
     def update_by_id(self, id_value, update):
-        """Update an entry by its ID with validation"""
+        """Update an entry by its ID with validation
+
+        Args:
+             id_value: the ID of the entry to update
+             update: dictionary of fields to update
+
+        Raises:
+            FedbiomedError: if validation fails or entry not found
+        """
+        # Prevent changing the ID field
+        if self._id_name in update and update[self._id_name] != id_value:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Cannot change the field '{self._id_name}'"
+            )
+
         # Fetch existing entry. If not found, raise error
         entry = self.get_by_id(id_value)
         if entry is None:
             raise FedbiomedError(f"No entry found with {self._id_name}={id_value}")
+
         # Merge and validate updated entry
         entry.update(update)
         updated_entry = self._validate_and_convert_to_dict(entry)
@@ -116,13 +134,47 @@ class DatasetTable(BaseTable):
                 logger.critical(msg)
                 raise FedbiomedError(msg)
 
-        _ = super().update_by_id(dataset_id, modified_dataset)
+        return super().update_by_id(dataset_id, modified_dataset)
 
 
 class DlpTable(BaseTable):
     _table_name = "Dlps"
     _id_name = "dlp_id"
     _dataclass = DlpEntry
+
+    def insert(self, entry: dict) -> int:
+        """Insert a DLP entry with validation
+
+        Raises:
+            FedbiomedError:
+            - target_dataset_type value not valid
+            - bad data loading plan name (size, not unique)
+        """
+        if entry["target_dataset_type"] not in [t.value for t in DatasetTypes]:
+            _msg = (
+                f"{ErrorNumbers.FB632.value}: target_dataset_type should be of the "
+                "values defined in 'fedbiomed.common.constants.DatasetTypes'"
+            )
+            logger.critical(_msg)
+            raise FedbiomedError(_msg)
+
+        if len(entry["name"]) < 4:
+            _msg = (
+                f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
+                "DLP name needs to have at least 4 characters."
+            )
+            logger.error(_msg)
+            raise FedbiomedError(_msg)
+
+        if self.get_all_by_value("name", entry["name"]):
+            _msg = (
+                f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
+                "DLP name needs to be unique."
+            )
+            logger.error(_msg)
+            raise FedbiomedError(_msg)
+
+        return super().insert(entry)
 
     def list_by_target_dataset_type(
         self, target_dataset_type: Optional[str] = None
