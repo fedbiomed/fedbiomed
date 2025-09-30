@@ -9,11 +9,12 @@ from torch.utils.data import (
 )
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.dataset._dataset import Dataset
+from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
 from fedbiomed.common.exceptions import FedbiomedError
 
 
-class NativeDataset:
+class NativeDataset(Dataset):
     _native_to_framework = {
         DataReturnFormat.SKLEARN: np.array,
         DataReturnFormat.TORCH: lambda x: (
@@ -39,7 +40,7 @@ class NativeDataset:
     
     """
 
-    def __init__(self, dataset, target):
+    def __init__(self, dataset, target=None):
         """Initialize the dataset with necessary checks
 
         Args:
@@ -61,16 +62,7 @@ class NativeDataset:
             )
 
         # Type checking if dataset is a TorchDataset or not
-        if isinstance(dataset, TorchDataset):
-            self.is_torch_dataset = True
-        else:
-            self.is_torch_dataset = False
-
-        # Check if target is null
-        if target is not None:
-            self.target = target
-
-        self.dataset = dataset
+        self.is_torch_dataset = isinstance(dataset, TorchDataset)
 
         # Check if you can get a sample from the dataset
         try:
@@ -82,22 +74,31 @@ class NativeDataset:
                 + str(e)
             ) from e
 
-        # Check if the sample returns a tuple (supervised) or not (unsupervised)
+        # Check if the sample returns a tuple or not
+        # Initialize data and target accordingly
         if isinstance(sample, tuple):
-            self.is_supervised = True
+            self.is_tuple_dataset = True
+            self.data, self.target = [], []
+            for x, t in dataset:  # each item: (PIL/torch/numpy, label)
+                self.data.append(
+                    torch.as_tensor(np.array(x))
+                    if not isinstance(x, torch.Tensor)
+                    else x
+                )
+                self.target.append(int(t))
         else:
             self.is_supervised = False
+            self.data = dataset
+            self.target = target
 
-        if self.is_supervised and self.target is not None:
+        if self.is_tuple_dataset and target is not None:
+            # alitolga: TODO: We can raise an error and stop the execution as well.
+            # There is a design choice to be made here.
             print(
                 "WARNING: Target found both in dataset and target"
                 "Progressing with the target parameter."
             )
-
-        # Additional attributes
-        self.transform = None  # Assume there might be transforms to be added
-        self.target_transform = None  # Assume there might be transforms to be added
-        self.to_format = None  # Placeholder for final format setting
+            self.target = target  # Undo the previous initialization
 
     def complete_initialization(
         self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
@@ -113,15 +114,15 @@ class NativeDataset:
         self.to_format = to_format
 
         # Check if the dataset has any transforms or conversions
-        if hasattr(self.dataset, "transform") and self.dataset.transform is not None:
-            self.transform = self.dataset.transform
-            self.target_transform = self.dataset.transform
+        # if hasattr(self.dataset, "transform") and self.dataset.transform is not None:
+        #     super().transform = self.dataset.transform
+        #     super().target_transform = self.dataset.transform
 
-        if (
-            hasattr(self.dataset, "target_transform")
-            and self.dataset.target_transform is not None
-        ):
-            self.target_transform = self.dataset.target_transform
+        # if (
+        #     hasattr(self.dataset, "target_transform")
+        #     and self.dataset.target_transform is not None
+        # ):
+        #     super().target_transform = self.dataset.target_transform
 
         # Ensure that the dataset returns the correct format (Torch or Sklearn)
         if to_format == DataReturnFormat.TORCH:
@@ -133,9 +134,23 @@ class NativeDataset:
         else:
             raise ValueError(f"Unsupported return format: {to_format}")
 
-        converted_dataset = []
-        for sample in self.dataset:
+        converted_data = []
+        for sample in self.data:
             converted_sample = self.convert(sample)
-            converted_dataset.append(converted_sample)
+            converted_data.append(converted_sample)
 
-        self.dataset = converted_dataset
+        converted_target = []
+        for sample in self.target:
+            converted_sample = self.convert(sample)
+            converted_target.append(converted_sample)
+
+        self.data = converted_data
+        self.target = converted_target
+
+    def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:
+        # self.dataset[idx] = self.apply_transforms(self.dataset[idx])
+        # self.target[idx] = self.apply_transforms(self.target[idx])
+        return self.data[idx], self.target[idx]
+
+    def __len__(self) -> int:
+        return len(self.data)
