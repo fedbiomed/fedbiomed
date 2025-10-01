@@ -24,34 +24,16 @@ class NativeDataset(Dataset):
         ),
     }
 
-    """ Meeting Notes and ToDo:
-
-    Init:
-    
-    - Type checking (if dataset a TorchDataset or not)
-    - Check if target is null
-    - Check if you can get a sample
-    - Check if the sample returns a tuple (supervised) or not (unsupervised)
-
-    Complete_Initialization:
-
-    - Check if it does have transforms/conversions 
-    - Assure that it returns the same format (Tensor or Numpy) as the Framework (to_format) (Torch or SkLearn)
-    
-    """
-
     def __init__(self, dataset, target=None):
-        """Initialize the dataset with necessary checks
+        """Initialize the dataset with necessary checks.
 
         Args:
             dataset: the dataset (could be a TorchDataset or others)
             target: the target labels or data to be used
 
-        ToDo:
-        - Type checking (if dataset a TorchDataset or not)
-        - Check if target is null
-        - Check if you can get a sample from the dataset
-        - Check if the sample returns a tuple (supervised) or not (unsupervised)
+        Raises:
+            Fedbiomed error if the len or getitem methods are not implemented,
+            or if it fails to fetch a sample.
         """
 
         # Check if len and __getitem__ are implemented in the dataset
@@ -95,7 +77,7 @@ class NativeDataset(Dataset):
             # alitolga: TODO: We can raise an error and stop the execution as well.
             # There is a design choice to be made here.
             print(
-                "WARNING: Target found both in dataset and target"
+                "WARNING: Target found both in dataset and target. "
                 "Progressing with the target parameter."
             )
             self.target = target  # Undo the previous initialization
@@ -110,19 +92,10 @@ class NativeDataset(Dataset):
             to_format: format associated with expected return format
         """
 
+        # alitolga: TODO: Do we want to try to implement Transforms as well?
+
         # Store the to_format for later use
         self.to_format = to_format
-
-        # Check if the dataset has any transforms or conversions
-        # if hasattr(self.dataset, "transform") and self.dataset.transform is not None:
-        #     super().transform = self.dataset.transform
-        #     super().target_transform = self.dataset.transform
-
-        # if (
-        #     hasattr(self.dataset, "target_transform")
-        #     and self.dataset.target_transform is not None
-        # ):
-        #     super().target_transform = self.dataset.target_transform
 
         # Ensure that the dataset returns the correct format (Torch or Sklearn)
         if to_format == DataReturnFormat.TORCH:
@@ -134,23 +107,18 @@ class NativeDataset(Dataset):
         else:
             raise ValueError(f"Unsupported return format: {to_format}")
 
-        converted_data = []
-        for sample in self.data:
-            converted_sample = self.convert(sample)
-            converted_data.append(converted_sample)
-
-        converted_target = []
-        for sample in self.target:
-            converted_sample = self.convert(sample)
-            converted_target.append(converted_sample)
+        converted_data, converted_target = [], []
+        for d, t in zip(self.data, self.target, strict=True):
+            converted_data.append(self.convert(d))
+            converted_target.append(self.convert(t))
 
         self.data = converted_data
         self.target = converted_target
 
     def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:
-        # self.dataset[idx] = self.apply_transforms(self.dataset[idx])
-        # self.target[idx] = self.apply_transforms(self.target[idx])
+        """Returns a tuple of (data, target) with the specified index"""
         return self.data[idx], self.target[idx]
 
     def __len__(self) -> int:
+        """Returns the length of the data"""
         return len(self.data)
