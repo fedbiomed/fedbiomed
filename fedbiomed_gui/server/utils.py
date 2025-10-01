@@ -1,8 +1,13 @@
 import configparser
 import datetime
 import os
+import time
+from collections import deque
 from functools import wraps
 from hashlib import sha512
+from pathlib import Path
+from typing import Union
+
 from flask import jsonify, request
 
 from .cache import RepositoryCache
@@ -146,46 +151,101 @@ def file_stats(path: str, refresh: bool = False):
         path (str): Absolute path to folder or file
         refresh (bool): If it is true clear cached size value for given path
     """
-    stats = os.stat(path)
-    creation_time = datetime.datetime.fromtimestamp(stats.st_ctime).strftime(
-        "%d/%m/%Y %H:%M"
-    )
-    if refresh:
-        disk_usage = get_disk_usage(path)
-        RepositoryCache.clear(path)
-        RepositoryCache.file_sizes[path] = disk_usage
-    else:
-        if path in RepositoryCache.file_sizes:
-            disk_usage = RepositoryCache.file_sizes[path]
-        else:
+    try:
+        stats = os.stat(path)
+        creation_time = datetime.datetime.fromtimestamp(stats.st_ctime).strftime(
+            "%d/%m/%Y %H:%M"
+        )
+    except (PermissionError, FileNotFoundError, OSError):
+        # Cannot stat this path — system/locked/unreadable file
+        return None, "N/A"
+    try:
+        if refresh:
             disk_usage = get_disk_usage(path)
+            RepositoryCache.clear(path)
             RepositoryCache.file_sizes[path] = disk_usage
+        else:
+            if path in RepositoryCache.file_sizes:
+                disk_usage = RepositoryCache.file_sizes[path]
+            else:
+                disk_usage = get_disk_usage(path)
+                RepositoryCache.file_sizes[path] = disk_usage
+    except Exception:
+        disk_usage = "N/A"
 
     return creation_time, disk_usage
 
 
-def get_disk_usage(path: str):
-    """Calculates disk usage of given path
-    Args:
-
-        path (str) : Absolute path of file or folder
+def get_disk_usage(
+    path: Union[str, Path],
+    *,
+    max_depth: int = 1,
+    max_files: int = 10_000,
+    time_budget_s: float = 0.5,
+) -> str:
     """
-
+    Fast, bounded disk-usage estimate for file/dir.
+    Trades accuracy for speed with depth/file/time caps.
+    Returns a human-readable string via parse_size().
+    """
+    p = Path(path)
     size = 0
+    start = time.time()
 
-    if os.path.isfile(path):
-        try:
-            size = os.path.getsize(path)
-        except:
-            pass
-    elif os.path.isdir(path):
-        try:
-            for index, (path, dirs, files) in enumerate(os.walk(path)):
-                for i, f in enumerate(files):
-                    fp = os.path.join(path, f)
-                    size += os.path.getsize(fp)
-        except:
-            pass
+    def timed_out() -> bool:
+        return (time.time() - start) > time_budget_s
+
+    try:
+        if p.is_file():
+            try:
+                size = p.stat().st_size
+            except (OSError, PermissionError, FileNotFoundError):
+                size = 0
+        elif p.is_dir():
+            files_seen = 0
+            q = deque([(p, 0)])
+
+            while q and not timed_out() and files_seen < max_files:
+                cur, depth = q.popleft()
+                # Depth cap
+                if depth > max_depth:
+                    continue
+
+                try:
+                    with os.scandir(cur) as it:
+                        for entry in it:
+                            if timed_out() or files_seen >= max_files:
+                                break
+                            try:
+                                # Skip symlinks/junctions
+                                if entry.is_symlink():
+                                    continue
+                                if entry.is_file(follow_symlinks=False):
+                                    try:
+                                        size += entry.stat(
+                                            follow_symlinks=False
+                                        ).st_size
+                                        files_seen += 1
+                                    except (
+                                        OSError,
+                                        PermissionError,
+                                        FileNotFoundError,
+                                    ):
+                                        pass
+                                elif (
+                                    entry.is_dir(follow_symlinks=False)
+                                    and depth < max_depth
+                                ):
+                                    q.append((Path(entry.path), depth + 1))
+                            except (OSError, PermissionError, FileNotFoundError):
+                                continue
+                except (OSError, PermissionError, FileNotFoundError):
+                    # unreadable dir; skip
+                    continue
+        else:
+            size = 0
+    except Exception:
+        size = 0
 
     return parse_size(size)
 
