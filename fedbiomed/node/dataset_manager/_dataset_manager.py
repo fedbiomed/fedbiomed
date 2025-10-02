@@ -147,7 +147,7 @@ class DatasetManager:
             controller_parameters={
                 "root": path,
                 "dlp": data_loading_plan,
-                **dataset_parameters,
+                **(dataset_parameters if dataset_parameters is not None else {}),
             },
         )
 
@@ -160,7 +160,7 @@ class DatasetManager:
                 description=description,
                 path=controller._controller_kwargs["root"],
                 shape=controller.shape(),
-                dtypes=controller.get_types,
+                dtypes=controller.get_types(),
                 dataset_parameters={
                     _k: _v
                     for _k, _v in controller._controller_kwargs.items()
@@ -173,7 +173,7 @@ class DatasetManager:
         if save_dlp:
             self.save_data_loading_plan(data_loading_plan)
 
-        return dataset_entry["dataset_id"]
+        return dataset_entry
 
     def remove_dlp_by_id(self, dlp_id: str):
         """Removes a data loading plan (DLP) from the database,

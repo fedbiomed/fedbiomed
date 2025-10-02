@@ -192,7 +192,7 @@ def add_database(
         # all data have been provided at call
         # check few things
 
-        # transform a string with coma(s) as a string list
+        # transform a string with comma(s) as a string list
         tags = str(tags).split(",")
 
         name = str(name)

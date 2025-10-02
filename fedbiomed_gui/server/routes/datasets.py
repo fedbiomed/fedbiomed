@@ -140,12 +140,12 @@ def add_dataset():
 
     try:
         dataset_manager.add_database(
-            req["name"],
-            req["type"],
-            req["tags"],
-            req["desc"],
-            data_path_save,
-            dataset_id,
+            name=req["name"],
+            data_type=req["type"],
+            tags=req["tags"],
+            description=req["desc"],
+            path=data_path_save,
+            dataset_id=dataset_id,
         )
     except Exception as e:
         return error(str(e)), 400
@@ -299,13 +299,6 @@ def add_default_dataset():
         # This is the path will be written in DB
         data_path = os.path.join(config["DATA_PATH_SAVE"], "defaults", "mnist")
 
-    try:
-        shape = dataset_manager.load_default_database(
-            name="MNIST", path=path, as_dataset=False
-        )
-    except Exception as e:
-        return error(str(e)), 400
-
     # Create unique id for the dataset
     dataset_id = "dataset_" + str(uuid.uuid4())
 
@@ -313,12 +306,10 @@ def add_default_dataset():
         dataset_manager.add_database(
             {
                 "name": req["name"],
-                "path": data_path,
                 "data_type": "default",
-                "dtypes": [],
-                "shape": shape,
                 "tags": req["tags"],
                 "description": req["desc"],
+                "path": data_path,
                 "dataset_id": dataset_id,
             }
         )
@@ -326,7 +317,7 @@ def add_default_dataset():
     except Exception as e:
         return error(str(e)), 400
 
-    res = dataset_manager.get_dataset_by_id(req["dataset_id"])
+    res = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
 
     return response(res), 200
 
@@ -370,7 +361,7 @@ def list_data_loading_plans():
     target_dataset_type = (
         req["target_dataset_type"] if "target_dataset_type" in req else None
     )
-    dlps = dataset_manager.list_dlp_by_target_dataset_type(
+    dlps = dataset_manager.dlp_table.list_by_target_dataset_type(
         target_dataset_type=target_dataset_type
     )
     index = list(range(len(dlps)))
