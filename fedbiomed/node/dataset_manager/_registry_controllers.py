@@ -55,7 +55,7 @@ REGISTRY_CONTROLLERS = {
 
 def get_controller(
     data_type: str,
-    controller_patameters: dict,
+    controller_parameters: dict,
 ) -> Controller:
     """Get controller instance based on data_type and dataset_parameters"""
     # Validate that data_type is implemented.
@@ -68,7 +68,7 @@ def get_controller(
 
     # Validate and instantiate parameters
     try:
-        parameters_instance = parameters_class.from_dict(controller_patameters)
+        parameters_instance = parameters_class.from_dict(controller_parameters)
     except Exception as e:
         raise FedbiomedError(
             f"{ErrorNumbers.FB632.value}: Failed to parse dataset_parameters: {str(e)}"
