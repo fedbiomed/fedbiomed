@@ -26,6 +26,7 @@ class Dataset(ABC):
     @to_format.setter
     def to_format(self, format: DataReturnFormat):
         """Setter for `to_format` property
+
         Args:
             format: expected format of the data returned by `__getitem__`
 
@@ -42,7 +43,6 @@ class Dataset(ABC):
     @abstractmethod
     def complete_initialization(self) -> None:
         """Finalize initialization of object to be able to recover items"""
-
         # Recover sample and validate consistency of transforms
         pass
 
@@ -58,20 +58,22 @@ class Dataset(ABC):
         """
         if not self._to_format:
             raise AttributeError(
-                f"{ErrorNumbers.FB632.value}: `to_format` is not set. Please set it before"
-                " using the dataset. E.g., "
-                "`dataset.to_format = fedbiomed.common.dataset_types.DataReturnFormat.TORCH`"
+                f"{ErrorNumbers.FB632.value}: `to_format` is not set. "
+                "Please set it before using the dataset. E.g., `dataset.to_format = "
+                "fedbiomed.common.dataset_types.DataReturnFormat.TORCH`"
             )
 
         return self._native_to_framework[self._to_format]
 
     def _validate_transform(self, transform: Optional[Callable]) -> Callable:
-        """Validates `transform`
+        """Validates `transform` input
 
         Args:
             transform: transform to validate
+
         Returns:
             Validated transform
+
         Raises:
             FedbiomedValueError: if transform is not None or Callable
         """
@@ -85,14 +87,19 @@ class Dataset(ABC):
                 f"{ErrorNumbers.FB632.value}: Unexpected type for transform input proived by user."
             )
 
-    def _validate_format_conversion(self, data: Any, for_: Optional[str] = None) -> Any:
-        """Validates format conversion and applies `transform`
+    def _validate_format_conversion(
+        self, data: Any, extra_info: Optional[str] = None
+    ) -> Any:
+        """Validates format conversion
 
         Args:
             data: from `self._controller.get_sample`
-            transform: `Callable` given at instantiation of cls
+            extra_info: info to add to error message to indicate concerned variables
 
+        Returns:
+            Transformed data
         """
+        extra_info = "" if extra_info is None else extra_info
         converter = self._get_format_conversion_callable()
 
         try:
@@ -100,15 +107,14 @@ class Dataset(ABC):
         except Exception as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Unable to perform type conversion of "
-                f"data to {self._to_format.value} {'for ' + for_ if for_ else ''}"
+                f"data to {self._to_format.value}. {extra_info}"
             ) from e
 
         if not isinstance(data, self._to_format.value):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: "
                 f"Expected type conversion for the data to return "
-                f"`{self._to_format.value}`, got {type(data).__name__} "
-                f"{'for ' + for_ if for_ else ''}"
+                f"`{self._to_format.value}`, got {type(data).__name__}. {extra_info}"
             )
 
         return data
@@ -121,42 +127,43 @@ class Dataset(ABC):
         Args:
             data: from `self._controller.get_sample`
             transform: `Callable` given at instantiation of cls
+            extra_info: info to add to error message to indicate concerned variables
 
         Returns:
             Transformed data
         """
+        extra_info = "" if extra_info is None else extra_info
         try:
             data = transform(data)
         except Exception as e:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Unable to apply transform "
-                "{extra_info if extra_info else ''}"
+                f"{ErrorNumbers.FB632.value}: Unable to apply transform. {extra_info}"
             ) from e
 
         if not isinstance(data, self._to_format.value):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Expected "
                 f"`transform` to return `{self._to_format.value}`, "
-                f"got {type(data).__name__} "
-                f"{extra_info if extra_info else ''}"
+                f"got {type(data).__name__}. {extra_info}"
             )
 
         return data
 
     def _validate_format_and_transformations(
-        self, data: Any, transform: Optional[Callable]
+        self, data: Any, transform: Optional[Callable], extra_info: Optional[str] = None
     ) -> Any:
         """Validates and applies format conversion and `transform`
 
         Args:
             data: from `self._controller.get_sample`
             transform: `Callable` given at instantiation of cls
+            extra_info: info to add to error message to indicate concerned variables
 
         Returns:
             Transformed data
         """
-        data = self._validate_format_conversion(data)
-        data = self._validate_transformation(data, transform)
+        data = self._validate_format_conversion(data, extra_info=extra_info)
+        data = self._validate_transformation(data, transform, extra_info=extra_info)
         return data
 
     # === Functions ===

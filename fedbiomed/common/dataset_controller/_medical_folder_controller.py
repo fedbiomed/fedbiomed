@@ -1,3 +1,10 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+Controller implementation for MedicalFolder
+"""
+
 from enum import Enum
 from os import PathLike
 from pathlib import Path

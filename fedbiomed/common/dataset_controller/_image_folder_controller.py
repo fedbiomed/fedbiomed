@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Controller implementation for MNIST
+Controller implementation for ImageFolder
 """
 
 from pathlib import Path
