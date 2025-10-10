@@ -11,37 +11,36 @@ To add a new sklearn model for testing, you should include its name in the `impl
 specialized class).
 """
 
+import logging
 import os
 import tempfile
 import unittest
-import logging
-import numpy as np
 from copy import deepcopy
-from unittest.mock import MagicMock, patch
-from unittest.mock import create_autospec
+from unittest.mock import MagicMock, create_autospec, patch
 
-from sklearn.linear_model import SGDClassifier, Perceptron
+import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.linear_model import Perceptron, SGDClassifier
 
 import fedbiomed.node.history_monitor
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.constants import TrainingPlans
+from fedbiomed.common.dataloader import SkLearnDataLoader
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.dataloader import NPDataLoader
+from fedbiomed.common.models import (
+    BaseSkLearnModel,
+    SGDClassifierSKLearnModel,
+    SkLearnModel,
+)
 from fedbiomed.common.optimizers.generic_optimizers import NativeSkLearnOptimizer
 from fedbiomed.common.training_plans import (
-    SKLearnTrainingPlan,
     FedPerceptron,
-    FedSGDRegressor,
     FedSGDClassifier,
+    FedSGDRegressor,
+    SKLearnTrainingPlan,
 )
 from fedbiomed.common.training_plans._sklearn_models import (
     SKLearnTrainingPlanPartialFit,
-)
-from fedbiomed.common.models import (
-    SkLearnModel,
-    BaseSkLearnModel,
-    SGDClassifierSKLearnModel,
 )
 
 
@@ -86,7 +85,7 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
 
     def test_sklearntrainingplanbasicinheritance_01_dataloaders(self):
         X = np.array([])
-        loader = NPDataLoader(dataset=X, target=X)
+        loader = SkLearnDataLoader(dataset=X, target=X)
 
         training_plan = SKLearnTrainingPlan()
         training_plan.set_data_loaders(loader, loader)
@@ -98,7 +97,7 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         training_plan = SKLearnTrainingPlan()
 
         X = np.array([])
-        loader = NPDataLoader(dataset=X, target=X)
+        loader = SkLearnDataLoader(dataset=X, target=X)
         training_plan._model = MagicMock(spec=BaseSkLearnModel, is_classification=True)
         training_plan._optimizer = MagicMock(spec=NativeSkLearnOptimizer)
         training_plan.set_data_loaders(loader, loader)
@@ -149,7 +148,7 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
 
         # Inferring the classes works correctly
         X = np.array([0, 1, 2, 3, 0, 1, 2])
-        loader = NPDataLoader(dataset=X, target=X)
+        loader = SkLearnDataLoader(dataset=X, target=X)
         training_plan.set_data_loaders(loader, loader)
         classes = training_plan._classes_from_concatenated_train_test()
         self.assertListEqual([x for x in classes], [x for x in np.unique(X)])
@@ -252,7 +251,7 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
         training_plan = SKLearnTrainingPlanPartialFit()
         test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
         test_y = np.array([1, 0, 1, 0])
-        train_data_loader = test_data_loader = NPDataLoader(
+        train_data_loader = test_data_loader = SkLearnDataLoader(
             dataset=test_x, target=test_y, batch_size=1
         )
         training_plan.set_data_loaders(
@@ -476,7 +475,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         # Dataset
         test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
         test_y = np.array([1, 0, 1, 0])
-        train_data_loader = test_data_loader = NPDataLoader(
+        train_data_loader = test_data_loader = SkLearnDataLoader(
             dataset=test_x, target=test_y, batch_size=len(test_x)
         )
         for training_plan in self.training_plans:
@@ -522,7 +521,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         # Dataset
         test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
         test_y = np.array([1, 0, 1, 0])
-        train_data_loader = test_data_loader = NPDataLoader(
+        train_data_loader = test_data_loader = SkLearnDataLoader(
             dataset=test_x, target=test_y, batch_size=len(test_x)
         )
 
@@ -644,7 +643,7 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
         # Dataset
         test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
         test_y = np.array([1, 0, 1, 0])
-        train_data_loader = test_data_loader = NPDataLoader(
+        train_data_loader = test_data_loader = SkLearnDataLoader(
             dataset=test_x, target=test_y, batch_size=len(test_x)
         )
 
@@ -753,7 +752,7 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
         # Dataset
         test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
         test_y = np.array([1, 0, 1, 0])
-        train_data_loader = test_data_loader = NPDataLoader(
+        train_data_loader = test_data_loader = SkLearnDataLoader(
             dataset=test_x, target=test_y, batch_size=len(test_x)
         )
 
