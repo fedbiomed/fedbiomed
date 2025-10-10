@@ -16,6 +16,12 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 
 class NativeDataset(Dataset):
+    """A class representing a native dataset.
+
+    This class wraps around datasets from popular ML libraries like PyTorch and
+    scikit-learn, allowing them to be used seamlessly in a customized TrainingPlan for FedBiomed.
+    """
+
     _native_to_framework = {
         DataReturnFormat.SKLEARN: np.array,
         DataReturnFormat.TORCH: lambda x: (
@@ -65,7 +71,8 @@ class NativeDataset(Dataset):
         controller_kwargs: Dict[str, Any],
         to_format: DataReturnFormat,
     ) -> None:
-        """Select conversion function only (no materialization)."""
+        """Select data and target, and check if they can be converted to requested format."""
+
         self._to_format = to_format
         self._converter = self._get_format_conversion_callable()
 
@@ -83,7 +90,7 @@ class NativeDataset(Dataset):
             self._validate_format_conversion(target)
 
     def __getitem__(self, idx: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
-        """Fetch one item and convert lazily to requested framework format."""
+        """Fetch one item and convert to requested framework format."""
         if self._is_supervised:
             data, target = self._dataset[idx]
         else:
@@ -96,4 +103,5 @@ class NativeDataset(Dataset):
         return data_cvt, target_cvt
 
     def __len__(self) -> int:
+        """Get the length of the dataset."""
         return len(self._dataset)
