@@ -31,13 +31,6 @@ Experiment(
 )
 ```
 
-!!! warning "Federated averaging"
-    Once the secure aggregation is activated, experiment doesn't use the `aggregator` parameter of the `Experiment` (eg `FedAverage`) for aggregation.
-    Secure aggregation aggregates model parameters with its own federated average, but without weighting them.
-    Therefore, using `num_updates` instead of
-    `epochs` in [`training_args`](../researcher/experiment.md#controlling-the-number-of-training-loop-iterations) is strongly recommended for secure aggregation.
-
-
 The argument `scheme` of [`SecureAggregation`][fedbiomed.researcher.secagg.SecureAggregation] allows to select secure aggregation scheme that is going to be used. However, schemes may require different pre or post configuration on the node side and researcher side. Therefore,  please carefully read the [configuration](./configuration.md) guide before changing secure aggregation scheme.
 
 ```python
