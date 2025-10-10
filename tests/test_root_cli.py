@@ -1,6 +1,6 @@
+import argparse
 import os
 import sys
-import argparse
 import tempfile
 import unittest
 
@@ -47,43 +47,39 @@ class TestComponentParser(unittest.TestCase):
         )
 
     def test_02_component_parser_create_success(self):
-        """Tests component creation parser successful"""
-
-        self.temp_component_node = tempfile.TemporaryDirectory()
-        self.temp_component_researcher = tempfile.TemporaryDirectory()
-        args_list_set = [
-            [
-                "component",
-                "create",
-                "--path",
-                self.temp_component_node.name,
-                "--component",
-                "NODE",
-                "-eo",
-            ],
-            [
-                "component",
-                "create",
-                "--path",
-                self.temp_component_researcher.name,
-                "--component",
-                "RESEARCHER",
-                "-eo",
-            ],
-            ["component", "create", "--component", "NODE"],
-            ["component", "create", "--component", "NODE", "-eo"],
-            ["component", "create", "--component", "RESEARCHER"],
-            ["component", "create", "--component", "RESEARCHER", "-eo"],
-        ]
-
-        for args_list in args_list_set:
-            args = self.main_parser.parse_args(args_list)
-            self.conf_parser.create(args)
-
-            if "fedbiomed.researcher.config" in sys.modules:
-                sys.modules.pop("fedbiomed.researcher.config")
-
-        self.tem.cleanup()
+        with (
+            tempfile.TemporaryDirectory() as node_dir,
+            tempfile.TemporaryDirectory() as res_dir,
+        ):
+            args_list_set = [
+                [
+                    "component",
+                    "create",
+                    "--path",
+                    node_dir,
+                    "--component",
+                    "NODE",
+                    "-eo",
+                ],
+                [
+                    "component",
+                    "create",
+                    "--path",
+                    res_dir,
+                    "--component",
+                    "RESEARCHER",
+                    "-eo",
+                ],
+                ["component", "create", "--component", "NODE"],
+                ["component", "create", "--component", "NODE", "-eo"],
+                ["component", "create", "--component", "RESEARCHER"],
+                ["component", "create", "--component", "RESEARCHER", "-eo"],
+            ]
+            for args_list in args_list_set:
+                args = self.main_parser.parse_args(args_list)
+                self.conf_parser.create(args)
+                # If cleanup of researcher config is required between runs:
+                sys.modules.pop("fedbiomed.researcher.config", None)
 
     def test_03_component_parser_create_fail(self):
         """Tests component creation parser fails"""
@@ -120,8 +116,6 @@ class TestComponentParser(unittest.TestCase):
         # 3. bad component type
         with self.assertRaises(SystemExit):
             self.conf_parser._get_component_instance("any_path", "bad_component_type")
-
-        self.tem.cleanup()
 
         sys.modules.pop("fedbiomed.researcher.config")
 

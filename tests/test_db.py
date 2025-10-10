@@ -2,13 +2,13 @@
 import pytest
 
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager._db import DatasetDB, DlpDB
+from fedbiomed.node.dataset_manager._db_tables import DatasetTable, DlpTable
 
 
 @pytest.fixture
 def database(tmp_path):
     db_path = tmp_path / "test_database.json"
-    database = DatasetDB(path=str(db_path), table_name="test_datasets")
+    database = DatasetTable(path=str(db_path), table_name="test_datasets")
     yield database
     database._db.close()
 
@@ -68,7 +68,7 @@ def datasets():
 @pytest.fixture
 def dlp_database(tmp_path):
     db_path = tmp_path / "test_dlp_database.json"
-    db = DlpDB(path=str(db_path), table_name="test_dlp")
+    db = DlpTable(path=str(db_path), table_name="test_dlp")
     yield db
     db._db.close()
 
@@ -85,24 +85,22 @@ def dlps():
             },
             "key_paths": {
                 "modalities_to_folders": [
-                "fedbiomed.common.dataset._medical_datasets",
-                "MedicalFolderLoadingBlockTypes"
+                    "fedbiomed.common.dataset._medical_datasets",
+                    "MedicalFolderLoadingBlockTypes",
                 ]
-            }
+            },
         },
         {
             "dlp_id": "different_id",
             "dlp_name": "This is a customized DLP",
             "target_dataset_type": "medical-folder",
-            "loading_blocks": {
-                "modalities_to_folders": "custom_serialized_dlb_id"
-            },
+            "loading_blocks": {"modalities_to_folders": "custom_serialized_dlb_id"},
             "key_paths": {
                 "modalities_to_folders": [
-                "fedbiomed.common.dataset._medical_datasets",
-                "MedicalFolderLoadingBlockTypes"
+                    "fedbiomed.common.dataset._medical_datasets",
+                    "MedicalFolderLoadingBlockTypes",
                 ]
-            }
+            },
         },
     ]
 
@@ -110,7 +108,7 @@ def dlps():
 def test_init_db(database):
     repo = database
     assert repo is not None
-    assert isinstance(repo, DatasetDB)
+    assert isinstance(repo, DatasetTable)
     assert repo._database.name == "test_datasets"
     assert repo._database is not None
     assert repo._database.all() == []
@@ -264,7 +262,9 @@ def test_update_by_id_dlp(dlp_database, dlps):
     dlp_database.create(d1)
     dlp_database.create(d2)
 
-    updated = dlp_database.update_by_id({"dlp_id": d1["dlp_id"], "description": "Updated"})
+    updated = dlp_database.update_by_id(
+        {"dlp_id": d1["dlp_id"], "description": "Updated"}
+    )
     assert isinstance(updated, list) and len(updated) == 1
     got = dlp_database.get_by_id(d1["dlp_id"])
     assert got is not None and got["description"] == "Updated"

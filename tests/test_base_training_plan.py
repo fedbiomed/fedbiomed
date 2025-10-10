@@ -1,19 +1,20 @@
-import unittest
-from unittest.mock import patch, MagicMock
-from typing import Any, Dict, Optional
 import logging
-from fedbiomed.common.models._torch import TorchModel
-from fedbiomed.common.training_args import TrainingArgs
-import torch
-import numpy as np
+import unittest
+from typing import Any, Dict, Optional
+from unittest.mock import MagicMock, patch
 
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
-from fedbiomed.common.constants import ProcessTypes
-from fedbiomed.common.dataloader import NPDataLoader
-from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
+import numpy as np
+import torch
 
 # Import again the full module: we need it to test saving code without dependencies. Do not delete the line below.
 import fedbiomed.common.training_plans._base_training_plan  # noqa
+from fedbiomed.common.constants import ProcessTypes
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
+from fedbiomed.common.models._torch import TorchModel
+from fedbiomed.common.training_args import TrainingArgs
+
+# from fedbiomed.common.dataloader import NPDataLoader
+from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
 
 
 class SimpleTrainingPlan(BaseTrainingPlan):
@@ -338,6 +339,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
         )
 
     # test for bug #893
+    @unittest.skip("Deprecated class")
     def test_base_training_plan_10_node_out_of_memory_bug_npdataloader(self):
         # bug description: validation testing uses batch size equal to all the validation dataset, which leads to some
         # OutOfMemory errors.
